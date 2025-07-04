@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import logo from "../components/icon/logo.vue";
 import { ref } from "vue";
+import { useRouter } from "vue-router";
 
 const menuOpen = ref(false);
+const router = useRouter();
+function goHome() {
+    router.push('/');
+}
 </script>
 <template>
     <nav class="flex flex-col md:flex-row items-center justify-between px-6 py-4 bg-white shadow-md">
-        <div class="flex items-center mb-2 md:mb-0 space-x-2 cursor-pointer" @click="$router.push('/')">
+        <div class="flex items-center mb-2 md:mb-0 space-x-2 cursor-pointer" @click="goHome">
             <logo class="w-8 h-8" />
             <div class="text-lg font-bold whitespace-nowrap">Purrfect Spots</div>
         </div>
