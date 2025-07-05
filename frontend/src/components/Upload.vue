@@ -5,7 +5,7 @@
     </h2>
 
     <!-- Upload Form -->
-    <form @submit.prevent="handleSubmit" v-if="!uploading">
+    <form @submit.prevent="handleSubmit" v-if="!isUploading">
       <div class="mb-6">
         <label for="locationName" class="block mb-2 font-medium text-gray-700"
           >Location Name</label
@@ -33,39 +33,52 @@
       </div>
 
       <!-- GPS Coordinates -->
-    <div class="mb-6">
-      <label class="block mb-2 font-medium text-gray-700"
-        >Select Location on Map</label
-      >
-    <div class="mb-3">
-      <button
-      type="button"
-      @click="getCurrentLocation"
-      :disabled="gettingLocation"
-      class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-      {{ gettingLocation ? 'Getting Location...' : 'Use Current Location' }}
-      </button>
-    </div>
-      <l-map
-        style="
-        height: 250px;
-        width: 100%;
-        border-radius: 0.75rem;
-        overflow: hidden;
-        "
-        :zoom="mapZoom"
-        :center="mapCenter"
-        @update:center="onMapMove"
-      >
-        <l-tile-layer :url="tileLayerUrl" :attribution="tileLayerAttr" />
-        <l-marker
-        :lat-lng="markerLatLng"
-        :draggable="true"
-        @update:lat-lng="onMarkerDrag"
-        />
-      </l-map>
-    </div>
+      <div class="mb-6">
+        <label class="block mb-2 font-medium text-gray-700"
+          >Select Location on Map</label
+        >
+        <div class="mb-3">
+          <button
+            type="button"
+            @click="getCurrentLocation"
+            :disabled="gettingLocation"
+            class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {{
+              gettingLocation ? "Getting Location..." : "Use Current Location"
+            }}
+          </button>
+
+          <p v-if="locationSuccess" class="text-green-500 mt-2 text-sm">
+            ✅ Location updated successfully!
+          </p>
+        </div>
+
+        <l-map
+          style="
+            height: 250px;
+            width: 100%;
+            border-radius: 0.75rem;
+            overflow: hidden;
+          "
+          :zoom="mapZoom"
+          :center="mapCenter"
+          @update:center="onMapMove"
+          @click="onMapClick"
+        >
+          <l-tile-layer :url="tileLayerUrl" :attribution="tileLayerAttr" />
+          <l-marker
+            :lat-lng="markerLatLng"
+            :draggable="true"
+            @update:lat-lng="onMarkerDrag"
+            @moveend="onMarkerDrag"
+          />
+        </l-map>
+
+        <p class="text-sm text-gray-600 mt-2">
+          💡 คลิกบนแผนที่หรือลาก marker เพื่อเลือกตำแหน่ง
+        </p>
+      </div>
 
       <!-- File Upload Area -->
       <div
@@ -113,7 +126,7 @@
     </form>
 
     <!-- Upload Progress -->
-    <div v-if="uploading" class="text-center">
+    <div v-if="isUploading" class="text-center">
       <div class="mb-4">
         <div
           class="animate-spin rounded-full h-16 w-16 border-4 border-emerald-500 border-t-transparent mx-auto"
@@ -160,27 +173,58 @@
 </template>
 
 <script setup>
-import { ref, watch } from "vue";
+import { ref, watch, onMounted, onErrorCaptured } from "vue";
 import { LMap, LTileLayer, LMarker } from "@vue-leaflet/vue-leaflet";
 import "leaflet/dist/leaflet.css";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+import { useUploadCat } from "../composables/useUploadCat";
 
 const locationName = ref("");
 const description = ref("");
-const latitude = ref("");
-const longitude = ref("");
+const latitude = ref("18.7883");
+const longitude = ref("98.9853");
 const file = ref(null);
 const previewUrl = ref(null);
 const fileInput = ref(null);
-const uploading = ref(false);
 const uploadSuccess = ref(false);
-const error = ref("");
+const gettingLocation = ref(false);
+const locationSuccess = ref(false);
+
+// Use the upload composable
+const { uploadCat, isUploading, error } = useUploadCat();
+
+// Error handling for browser extension conflicts
+onErrorCaptured((err) => {
+  // Ignore extension-related errors
+  if (err.message && err.message.includes("message channel closed")) {
+    console.warn("Browser extension conflict detected, ignoring:", err.message);
+    return false; // Prevent the error from propagating
+  }
+  return true; // Let other errors propagate normally
+});
+
+// Handle unhandled promise rejections (often from extensions)
+onMounted(() => {
+  window.addEventListener("unhandledrejection", (event) => {
+    if (
+      event.reason &&
+      event.reason.message &&
+      event.reason.message.includes("message channel closed")
+    ) {
+      console.warn("Prevented extension error:", event.reason.message);
+      event.preventDefault();
+    }
+  });
+
+  // Log any existing extensions that might be interfering
+  if (window.chrome && window.chrome.runtime) {
+    console.log("Chrome extension environment detected");
+  }
+});
 
 // Map setup
 const mapZoom = ref(13);
-const mapCenter = ref([13.7563, 100.5018]); // Default: Bangkok
-const markerLatLng = ref([13.7563, 100.5018]);
+const mapCenter = ref([18.7883, 98.9853]); // Default: Chiang Mai
+const markerLatLng = ref([18.7883, 98.9853]);
 const tileLayerUrl = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 const tileLayerAttr =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
@@ -192,13 +236,106 @@ watch([latitude, longitude], ([lat, lng]) => {
     mapCenter.value = [parseFloat(lat), parseFloat(lng)];
   }
 });
+
 function onMarkerDrag(newLatLng) {
-  markerLatLng.value = newLatLng;
-  latitude.value = newLatLng[0].toFixed(6);
-  longitude.value = newLatLng[1].toFixed(6);
+  // Handle different possible data structures from Vue-Leaflet
+  let lat, lng;
+
+  if (Array.isArray(newLatLng)) {
+    // Array format [lat, lng]
+    lat = newLatLng[0];
+    lng = newLatLng[1];
+  } else if (newLatLng && typeof newLatLng === "object") {
+    // Object format with lat/lng properties
+    lat = newLatLng.lat || newLatLng.latitude;
+    lng = newLatLng.lng || newLatLng.longitude;
+  } else {
+    console.error("Unexpected newLatLng format:", newLatLng);
+    return;
+  }
+
+  if (lat !== undefined && lng !== undefined) {
+    markerLatLng.value = [lat, lng];
+    latitude.value = lat.toFixed(6);
+    longitude.value = lng.toFixed(6);
+    locationSuccess.value = true;
+    setTimeout(() => (locationSuccess.value = false), 2000);
+  }
 }
+
 function onMapMove(newCenter) {
   mapCenter.value = newCenter;
+}
+
+function onMapClick(event) {
+  // Handle different possible event structures
+  let lat, lng;
+
+  if (event && event.latlng) {
+    lat = event.latlng.lat;
+    lng = event.latlng.lng;
+  } else if (event && event.lat !== undefined && event.lng !== undefined) {
+    lat = event.lat;
+    lng = event.lng;
+  } else {
+    console.error("Unexpected event format:", event);
+    return;
+  }
+
+  if (lat !== undefined && lng !== undefined) {
+    latitude.value = lat.toFixed(6);
+    longitude.value = lng.toFixed(6);
+    markerLatLng.value = [lat, lng];
+    locationSuccess.value = true;
+    setTimeout(() => (locationSuccess.value = false), 2000);
+  }
+}
+
+function getCurrentLocation() {
+  gettingLocation.value = true;
+  error.value = null;
+  locationSuccess.value = false;
+
+  if (!navigator.geolocation) {
+    error.value = "Geolocation is not supported by your browser.";
+    gettingLocation.value = false;
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+
+      latitude.value = lat.toFixed(6);
+      longitude.value = lng.toFixed(6);
+      markerLatLng.value = [lat, lng];
+      mapCenter.value = [lat, lng];
+
+      locationSuccess.value = true;
+      gettingLocation.value = false;
+
+      // Hide success message after 2 seconds
+      setTimeout(() => (locationSuccess.value = false), 2000);
+    },
+    (err) => {
+      switch (err.code) {
+        case err.PERMISSION_DENIED:
+          error.value = "Permission denied. Please allow location access.";
+          break;
+        case err.POSITION_UNAVAILABLE:
+          error.value = "Location information is unavailable.";
+          break;
+        case err.TIMEOUT:
+          error.value = "The request to get user location timed out.";
+          break;
+        default:
+          error.value = "An unknown error occurred while getting location.";
+          break;
+      }
+      gettingLocation.value = false;
+    }
+  );
 }
 
 function triggerFileInput() {
@@ -210,7 +347,7 @@ function handleFileChange(e) {
   if (selected && selected.type.startsWith("image/")) {
     file.value = selected;
     previewUrl.value = URL.createObjectURL(selected);
-    error.value = "";
+    error.value = null;
   }
 }
 
@@ -219,7 +356,7 @@ function handleDrop(e) {
   if (dropped && dropped.type.startsWith("image/")) {
     file.value = dropped;
     previewUrl.value = URL.createObjectURL(dropped);
-    error.value = "";
+    error.value = null;
   }
 }
 
@@ -229,48 +366,44 @@ async function handleSubmit() {
     return;
   }
 
-  uploading.value = true;
-  error.value = "";
+  if (
+    !latitude.value ||
+    !longitude.value ||
+    latitude.value === "" ||
+    longitude.value === ""
+  ) {
+    error.value =
+      "Please select a location on the map by clicking, dragging the marker, or using your current location.";
+    return;
+  }
 
-  try {
-    const formData = new FormData();
-    formData.append("file", file.value);
-    formData.append("location", locationName.value);
-    formData.append("description", description.value);
-    formData.append("latitude", latitude.value);
-    formData.append("longitude", longitude.value);
+  if (!locationName.value.trim()) {
+    error.value = "Please enter a location name.";
+    return;
+  }
 
-    const response = await fetch(`${API_URL}/api/upload`, {
-      method: "POST",
-      body: formData,
-    });
+  const success = await uploadCat(file.value, {
+    name: locationName.value.trim(),
+    description: description.value.trim() || "",
+    latitude: parseFloat(latitude.value),
+    longitude: parseFloat(longitude.value),
+  });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || "Upload failed");
-    }
-
-    const result = await response.json();
-    console.log("Upload successful:", result);
-
+  if (success) {
     uploadSuccess.value = true;
-    uploading.value = false;
-  } catch (err) {
-    console.error("Upload error:", err);
-    error.value = err.message || "An error occurred during upload";
-    uploading.value = false;
   }
 }
 
 function resetForm() {
   locationName.value = "";
   description.value = "";
-  latitude.value = "";
-  longitude.value = "";
+  latitude.value = "18.7883";
+  longitude.value = "98.9853";
   file.value = null;
   previewUrl.value = null;
   uploadSuccess.value = false;
-  error.value = "";
+  locationSuccess.value = false;
+  error.value = null;
 
   // Clear the file input
   if (fileInput.value) {
@@ -278,8 +411,8 @@ function resetForm() {
   }
 
   // Reset map and marker position
-  mapCenter.value = [13.7563, 100.5018];
-  markerLatLng.value = [13.7563, 100.5018];
+  mapCenter.value = [18.7883, 98.9853];
+  markerLatLng.value = [18.7883, 98.9853];
   mapZoom.value = 13;
 }
 </script>
