@@ -1,6 +1,6 @@
 """
-Main application file for Purrfect Spots FastAPI Backend
-Run this file to start the server
+FastAPI Application Runner
+Run this file to start the FastAPI server
 """
 
 import uvicorn
