@@ -7,12 +7,12 @@
 ```bash
 cd backend
 pip install -r requirements.txt
-python app.py
+python main.py
 ```
 
 ✅ เซิร์ฟเวอร์จะรันที่: `http://localhost:8000`
 
-## 📋 API Endpoints (ทั้งหมด)
+## 📋 API Endpoints
 
 ### 🩺 ตรวจสอบระบบ
 
@@ -25,14 +25,7 @@ python app.py
 
 | URL | Method | ทำอะไร |
 |-----|--------|--------|
-| `/images` | GET | ดูรูปภาพทั้งหมดจากฐานข้อมูล |
-| `/images/{image_id}` | GET | ดูรูปภาพเฉพาะ |
-| `/images` | POST | เพิ่มข้อมูลรูปภาพลงฐานข้อมูล |
-| `/images/{filename}` | DELETE | ลบรูป |
-| `/locations` | GET | ดูตำแหน่งทั้งหมด |
-| `/images_list` | GET | ดูรายการรูปภาพใน S3 |
-| `/upload` | POST | อัปโหลดรูปใหม่ |
-| `/generate-presigned-url` | POST | สร้าง URL สำหรับอัปโหลดโดยตรง |
+| `/api/presigned-url` | POST | สร้าง presigned URL สำหรับอัปโหลดรูปภาพ |
 
 ## 💡 ตัวอย่างการใช้งาน
 
@@ -49,26 +42,51 @@ curl http://localhost:8000/health
 }
 ```
 
-### 2. 📋 ดูรูปภาพทั้งหมด
+### 2. � สร้าง Presigned URL
 ```bash
-curl http://localhost:8000/images
+curl -X POST "http://localhost:8000/api/presigned-url" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "filename": "cat.jpg",
+    "content_type": "image/jpeg"
+  }'
 ```
 
 **Response:**
 ```json
-[
-  {
-    "id": "uuid-string",
-    "s3_key": "filename.jpg",
-    "url": "https://bucket.s3.amazonaws.com/filename.jpg",
-    "location": "สถานที่",
-    "description": "คำอธิบาย",
-    "latitude": 18.7883,
-    "longitude": 98.9853,
-    "original_name": "original.jpg",
-    "uploaded_at": "2025-01-01T00:00:00"
-  }
-]
+{
+  "upload_url": "https://s3.amazonaws.com/meow-spot-images/...",
+  "public_url": "https://meow-spot-images.s3.ap-southeast-1.amazonaws.com/cats/uuid.jpg",
+  "key": "cats/uuid.jpg"
+}
+```
+
+### 3. 🔄 อัปโหลดรูปภาพ
+```javascript
+// Frontend JavaScript
+const uploadImage = async (file) => {
+  // 1. ขอ presigned URL
+  const response = await fetch('/api/presigned-url', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      filename: file.name,
+      content_type: file.type
+    })
+  });
+  
+  const { upload_url, public_url } = await response.json();
+  
+  // 2. อัปโหลดไฟล์โดยตรงไปยัง S3
+  await fetch(upload_url, {
+    method: 'PUT',
+    body: file,
+    headers: { 'Content-Type': file.type }
+  });
+  
+  // 3. ใช้ public_url เพื่อแสดงรูปภาพ
+  return public_url;
+};
 ```
 ### 2. 📸 อัปโหลดรูปแมว
 ```bash

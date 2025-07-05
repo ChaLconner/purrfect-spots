@@ -9,10 +9,6 @@ backend/
 ├── main.py              # ไฟล์หลักของ FastAPI application
 ├── app.py               # ไฟล์สำหรับรันเซิร์ฟเวอร์
 ├── fastapi_app.py       # ไฟล์สำหรับรันเซิร์ฟเวอร์ (สำรอง)
-├── database.py          # การตั้งค่าฐานข้อมูล และ session management
-├── models.py            # SQLAlchemy models และ Pydantic schemas
-├── routes.py            # API routes และ endpoints
-├── utils.py             # Helper functions และ utilities
 ├── requirements.txt     # Python dependencies
 ├── .env.example         # ตัวอย่างไฟล์ environment variables
 └── README_API.md        # คู่มือการใช้งาน API
@@ -32,11 +28,10 @@ pip install -r requirements.txt
 cp .env.example .env
 
 # แก้ไขข้อมูลใน .env ให้ถูกต้อง
-# - DATABASE_URL: URL ของฐานข้อมูล PostgreSQL
 # - AWS_ACCESS_KEY_ID: AWS Access Key
 # - AWS_SECRET_ACCESS_KEY: AWS Secret Key
-# - AWS_REGION: AWS Region
-# - S3_BUCKET_NAME: ชื่อ S3 Bucket
+# - AWS_REGION: AWS Region (เช่น ap-southeast-1)
+# - AWS_S3_BUCKET: ชื่อ S3 Bucket (เช่น meow-spot-images)
 ```
 
 ### 3. เริ่มต้นเซิร์ฟเวอร์
@@ -62,25 +57,20 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 ## 🔧 คุณสมบัติหลัก
 
-### 📊 Database
-- **SQLAlchemy ORM**: การจัดการฐานข้อมูลแบบ Object-Relational Mapping
-- **PostgreSQL**: ฐานข้อมูลหลัก (รองรับ Supabase)
-- **Auto Migration**: สร้างตารางฐานข้อมูลอัตโนมัติ
-
-### 🔐 Authentication & Security
-- **CORS**: การจัดการ Cross-Origin Resource Sharing
-- **Input Validation**: ตรวจสอบข้อมูลด้วย Pydantic
-- **Error Handling**: การจัดการข้อผิดพลาดแบบครบถ้วน
-
-### 📁 File Management
+### � File Management
 - **AWS S3**: การจัดเก็บรูปภาพบน cloud
-- **Image Optimization**: ปรับปรุงคุณภาพรูปภาพอัตโนมัติ
-- **File Upload**: รองรับการอัปโหลดไฟล์หลายรูปแบบ
+- **Presigned URLs**: สร้าง URL สำหรับอัปโหลดโดยตรงไปยัง S3
+- **Public Access**: รูปภาพสามารถเข้าถึงได้แบบสาธารณะ
+
+### 🔐 Security
+- **Secure Upload**: ใช้ presigned URLs ป้องกันการอัปโหลดที่ไม่ปลอดภัย
+- **Unique Keys**: ใช้ UUID ป้องกันการซ้ำกันของไฟล์
+- **Content Type Validation**: ตรวจสอบประเภทไฟล์
 
 ### 🌐 API Features
 - **RESTful API**: API ที่เป็นมาตรฐาน
 - **Interactive Documentation**: เอกสาร API อัตโนมัติด้วย Swagger UI
-- **Sample Data**: ข้อมูลตัวอย่างเมื่อไม่มีการตั้งค่า S3
+- **Error Handling**: การจัดการข้อผิดพลาดอย่างเหมาะสม
 
 ## 📋 API Endpoints
 
@@ -88,80 +78,103 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - `GET /` - หน้าหลัก API
 - `GET /health` - ตรวจสอบสุขภาพระบบ
 
-### 📸 รูปภาพ
-- `GET /images` - ดูรูปภาพทั้งหมดจากฐานข้อมูล
-- `GET /images/{image_id}` - ดูรูปภาพเฉพาะ
-- `POST /images` - เพิ่มข้อมูลรูปภาพ
-- `DELETE /images/{filename}` - ลบรูปภาพ
+### � อัปโหลด
+- `POST /api/presigned-url` - สร้าง presigned URL สำหรับอัปโหลดรูปภาพ
 
-### 🗺️ ตำแหน่ง
-- `GET /locations` - ดูตำแหน่งทั้งหมด
-- `GET /images_list` - ดูรายการรูปภาพใน S3
+## 💡 ตัวอย่างการใช้งาน
 
-### 📤 อัปโหลด
-- `POST /upload` - อัปโหลดรูปภาพ
-- `POST /generate-presigned-url` - สร้าง URL สำหรับอัปโหลดโดยตรง
+### สร้าง Presigned URL
+```bash
+curl -X POST "http://localhost:8000/api/presigned-url" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "filename": "cat.jpg",
+    "content_type": "image/jpeg"
+  }'
+```
+
+**Response:**
+```json
+{
+  "upload_url": "https://s3.amazonaws.com/...",
+  "public_url": "https://meow-spot-images.s3.ap-southeast-1.amazonaws.com/cats/uuid.jpg",
+  "key": "cats/uuid.jpg"
+}
+```
+
+### อัปโหลดรูปภาพ
+```javascript
+// Frontend JavaScript
+const response = await fetch('/api/presigned-url', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    filename: file.name,
+    content_type: file.type
+  })
+});
+
+const { upload_url, public_url } = await response.json();
+
+// อัปโหลดไฟล์โดยตรงไปยัง S3
+await fetch(upload_url, {
+  method: 'PUT',
+  body: file,
+  headers: { 'Content-Type': file.type }
+});
+
+// ใช้ public_url เพื่อแสดงรูปภาพ
+```
 
 ## 🛠️ การพัฒนา
 
 ### โครงสร้างโค้ด
-- **main.py**: ไฟล์หลักของ FastAPI application
-- **database.py**: การตั้งค่าฐานข้อมูล
-- **models.py**: SQLAlchemy models และ Pydantic schemas
-- **routes.py**: API routes แยกออกจาก main application
-- **utils.py**: Helper functions และ utilities
+- **main.py**: ไฟล์เดียวที่มีทุกอย่าง เรียบง่าย
+- **Minimal Dependencies**: ใช้ dependencies เฉพาะที่จำเป็น
+- **AWS S3 Integration**: เชื่อมต่อกับ S3 โดยตรง
 
 ### หลักการออกแบบ
-- **Separation of Concerns**: แยกส่วนการทำงานออกจากกัน
-- **Modular Design**: ออกแบบแบบโมดูลาร์
-- **Error Handling**: จัดการข้อผิดพลาดอย่างเหมาะสม
-- **Logging**: บันทึกการทำงานของระบบ
+- **Simplicity**: ออกแบบให้เรียบง่าย เข้าใจง่าย
+- **Performance**: ใช้ presigned URLs เพื่อประสิทธิภาพ
+- **Security**: ป้องกันการอัปโหลดที่ไม่ปลอดภัย
 
 ## 🔄 Integration
 
 ### Frontend Integration
 ```javascript
 // ตัวอย่างการเรียกใช้ API จาก Frontend
-const response = await fetch('http://localhost:8000/locations');
-const locations = await response.json();
-```
-
-### Database Schema
-```sql
--- ตารางเก็บข้อมูลรูปภาพ
-CREATE TABLE cat_images (
-    id VARCHAR(36) PRIMARY KEY,
-    s3_key VARCHAR NOT NULL,
-    url VARCHAR NOT NULL,
-    location VARCHAR,
-    description VARCHAR,
-    latitude FLOAT,
-    longitude FLOAT,
-    original_name VARCHAR,
-    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+const createPresignedUrl = async (file) => {
+  const response = await fetch('http://localhost:8000/api/presigned-url', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      filename: file.name,
+      content_type: file.type
+    })
+  });
+  return response.json();
+};
 ```
 
 ## 🐛 การแก้ไขปัญหา
 
 ### ปัญหาทั่วไป
-1. **ไม่สามารถเชื่อมต่อฐานข้อมูล**: ตรวจสอบ DATABASE_URL ใน .env
-2. **ไม่สามารถอัปโหลดรูปภาพ**: ตรวจสอบการตั้งค่า AWS S3
-3. **CORS Error**: ตรวจสอบการตั้งค่า CORS ใน main.py
+1. **ไม่สามารถเชื่อมต่อ S3**: ตรวจสอบ AWS credentials ใน .env
+2. **Presigned URL หมดอายุ**: URL มีอายุ 5 นาที ต้องใช้ทันที
+3. **CORS Error**: อาจต้องเพิ่ม CORS middleware
 
 ### Log การทำงาน
 ```bash
 # ดู log การทำงาน
-tail -f uvicorn.log
+python main.py
 ```
 
 ## 📚 เอกสารเพิ่มเติม
 
 - [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [SQLAlchemy Documentation](https://docs.sqlalchemy.org/)
 - [AWS S3 Documentation](https://docs.aws.amazon.com/s3/)
-- [Supabase Documentation](https://supabase.com/docs)
+- [Presigned URLs](https://docs.aws.amazon.com/AmazonS3/latest/userguide/presigned-urls.html)
 
 ## 🤝 การสนับสนุน
 
-หากมีปัญหาหรือข้อสงสัย สามารถสอบถามได้ที่ README_API.md สำหรับตัวอย่างการใช้งาน API
+หากมีปัญหาหรือข้อสงสัย สามารถดูเอกสาร API ได้ที่ http://localhost:8000/docs
