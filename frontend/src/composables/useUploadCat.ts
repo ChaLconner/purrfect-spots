@@ -20,12 +20,12 @@ export function useUploadCat() {
       // ✅ ใช้ FormData เพื่อส่งไฟล์และข้อมูลไปยัง backend
       const formData = new FormData()
       formData.append("file", file)
-      formData.append("name", locationData.name)
       formData.append("description", locationData.description)
       formData.append("latitude", locationData.latitude.toString())
       formData.append("longitude", locationData.longitude.toString())
+      formData.append("name", locationData.name)
 
-      const res = await fetch("/api/add-location", {
+      const res = await fetch("/api/upload-cat", {
         method: "POST",
         body: formData,
       })

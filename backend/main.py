@@ -52,28 +52,6 @@ class AddCatReq(BaseModel):
     longitude: float
     image_url: str   # ได้มาจากข้อ 1
 
-@app.post("/api/presigned-url")
-def create_presigned_url(req: PresignReq):
-    # สร้าง key แบบสุ่ม ป้องกันชื่อซ้ำ  /cats/{uuid4}.{ext}
-    ext   = mimetypes.guess_extension(req.content_type) or ".jpg"
-    key   = f"cats/{uuid.uuid4()}{ext}"
-
-    try:
-        url = s3_client.generate_presigned_url(
-            "put_object",
-            Params={
-                "Bucket": AWS_BUCKET,
-                "Key": key,
-                "ContentType": req.content_type,
-                "ACL": "public-read"
-            },
-            ExpiresIn=60 * 5  # มีอายุ 5 นาที
-        )
-        public_url = f"https://{AWS_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{key}"
-        return {"upload_url": url, "public_url": public_url, "key": key}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 @app.post("/api/add-location")
 async def add_location(
     file: UploadFile = File(...),
@@ -152,17 +130,6 @@ def get_locations():
         print("[ERROR] Exception in get_locations:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/")
-def root():
-    """Root endpoint"""
-    return {"message": "Purrfect Spots API is running!"}
-
-@app.get("/health")
-def health_check():
-    """Health check endpoint"""
-    import datetime as dt
-    return {"status": "healthy", "timestamp": dt.datetime.utcnow()}
-
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
     try:
@@ -196,6 +163,7 @@ async def upload_cat(
     lat: float = Form(...),
     lng: float = Form(...),
     description: str = Form(...),
+    location_name: str = Form(...),  # เปลี่ยนเป็น location_name
 ):
     """Upload an image to S3 and save its metadata to Supabase."""
 
@@ -221,6 +189,7 @@ async def upload_cat(
         "latitude": lat,
         "longitude": lng,
         "description": description,
+        "location_name": location_name,  # ให้ตรงกับ Supabase
     }
     result = supabase.table("cat_photos").insert(payload).execute()
 

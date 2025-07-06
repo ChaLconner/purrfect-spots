@@ -387,15 +387,39 @@ async function handleSubmit() {
     return;
   }
 
-  const success = await uploadCat(file.value, {
-    name: locationName.value.trim(),
-    description: description.value.trim() || "",
-    latitude: parseFloat(latitude.value),
-    longitude: parseFloat(longitude.value),
-  });
+  // --- ส่งข้อมูลไปยัง /upload-cat ---
+  isUploading.value = true;
+  error.value = null;
+  uploadSuccess.value = false;
 
-  if (success) {
-    uploadSuccess.value = true;
+  const formData = new FormData();
+  formData.append("file", file.value);
+  formData.append("lat", latitude.value);
+  formData.append("lng", longitude.value);
+  formData.append("description", description.value.trim() || "");
+  formData.append("location_name", locationName.value.trim()); // เปลี่ยนเป็น location_name ให้ตรงกับ backend
+
+  try {
+    const res = await fetch("/api/upload-cat", {
+      method: "POST",
+      body: formData,
+    });
+    let data = null;
+    const text = await res.text();
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (e) {
+      data = {};
+    }
+    if (res.ok) {
+      uploadSuccess.value = true;
+    } else {
+      error.value = (data && data.detail) || "Upload failed.";
+    }
+  } catch (e) {
+    error.value = e.message || "Network error.";
+  } finally {
+    isUploading.value = false;
   }
 }
 
@@ -421,7 +445,3 @@ function resetForm() {
   mapZoom.value = 13;
 }
 </script>
-
-<style scoped>
-/* All styles are now handled by Tailwind CSS classes */
-</style>
