@@ -189,3 +189,45 @@ async def upload_file(file: UploadFile = File(...)):
     except Exception as e:
         print("[ERROR] Exception in /upload:", str(e))
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+@app.post("/upload-cat")
+async def upload_cat(
+    file: UploadFile = File(...),
+    lat: float = Form(...),
+    lng: float = Form(...),
+    description: str = Form(...),
+):
+    """Upload an image to S3 and save its metadata to Supabase."""
+
+    # 1. ---------- Upload the binary to S3 ----------
+    ext = (file.filename.split(".")[-1] if "." in file.filename else "bin")
+    key = f"uploads/{uuid.uuid4()}.{ext}"
+
+    try:
+        s3_client.put_object(
+            Bucket=AWS_BUCKET,
+            Key=key,
+            Body=await file.read(),
+            ContentType=file.content_type,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload to S3: {str(e)}")
+
+    s3_url = f"https://{AWS_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{key}"
+
+    # 2. ---------- Insert metadata row into Supabase ----------
+    payload = {
+        "image_url": s3_url,
+        "latitude": lat,
+        "longitude": lng,
+        "description": description,
+    }
+    result = supabase.table("cat_photos").insert(payload).execute()
+
+    if getattr(result, 'error', None):
+        # Roll back the S3 upload if DB insert failed
+        s3_client.delete_object(Bucket=AWS_BUCKET, Key=key)
+        raise HTTPException(500, f"Supabase insert failed: {result.error}")
+
+    # --- สำเร็จ ---
+    return {"message": "Uploaded", "image_url": s3_url, "row": result.data[0]}
