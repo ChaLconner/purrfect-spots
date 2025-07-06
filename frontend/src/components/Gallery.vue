@@ -32,21 +32,23 @@
         <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div
                 v-for="image in images"
-                :key="image.filename"
+                :key="image.id"
                 class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
             >
                 <!-- Image -->
                 <div class="relative">
                     <img
                         :src="image.url"
-                        :alt="image.metadata.description || 'Cat photo'"
+                        :alt="image.description || 'Cat photo'"
                         class="w-full h-64 object-cover cursor-pointer"
                         @click="openModal(image)"
-                        @error="handleImageError"
+                        @error="event.target.src='https://placehold.co/400x300?text=No+Image'"
                     />
+                    <!-- ปิดปุ่มลบชั่วคราว ถ้า backend ยังไม่รองรับ -->
+                    <!--
                     <div class="absolute top-2 right-2">
                         <button
-                            @click="deleteImage(image.filename)"
+                            @click="deleteImage(image.id)"
                             class="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors"
                             title="Delete photo"
                         >
@@ -55,22 +57,22 @@
                             </svg>
                         </button>
                     </div>
+                    -->
                 </div>
-                
                 <!-- Image Info -->
                 <div class="p-4">
                     <h3 class="font-semibold text-gray-800 mb-2">
-                        {{ image.metadata.location || 'Unknown Location' }}
+                        {{ image.name || 'Unknown Location' }}
                     </h3>
                     <p class="text-gray-600 text-sm mb-3">
-                        {{ image.metadata.description || 'No description' }}
+                        {{ image.description || 'No description' }}
                     </p>
                     <div class="flex justify-between items-center text-xs text-gray-500">
                         <span>{{ formatDate(image.last_modified) }}</span>
                         <span>{{ formatFileSize(image.size) }}</span>
                     </div>
-                    <div v-if="image.metadata.latitude && image.metadata.longitude" class="mt-2 text-xs text-gray-500">
-                        📍 {{ parseFloat(image.metadata.latitude).toFixed(4) }}, {{ parseFloat(image.metadata.longitude).toFixed(4) }}
+                    <div v-if="image.latitude && image.longitude" class="mt-2 text-xs text-gray-500">
+                        📍 {{ parseFloat(image.latitude).toFixed(4) }}, {{ parseFloat(image.longitude).toFixed(4) }}
                     </div>
                 </div>
             </div>
@@ -83,7 +85,7 @@
                     <div class="relative">
                         <img
                             :src="selectedImage.url"
-                            :alt="selectedImage.metadata.description || 'Cat photo'"
+                            :alt="selectedImage.description || 'Cat photo'"
                             class="w-full max-h-96 object-contain"
                         />
                         <button
@@ -97,10 +99,10 @@
                     </div>
                     <div class="p-6">
                         <h3 class="text-xl font-bold text-gray-800 mb-2">
-                            {{ selectedImage.metadata.location || 'Unknown Location' }}
+                            {{ selectedImage.name || 'Unknown Location' }}
                         </h3>
                         <p class="text-gray-600 mb-4">
-                            {{ selectedImage.metadata.description || 'No description' }}
+                            {{ selectedImage.description || 'No description' }}
                         </p>
                         <div class="grid grid-cols-2 gap-4 text-sm text-gray-600">
                             <div>
@@ -109,8 +111,8 @@
                             <div>
                                 <strong>Size:</strong> {{ formatFileSize(selectedImage.size) }}
                             </div>
-                            <div v-if="selectedImage.metadata.latitude && selectedImage.metadata.longitude" class="col-span-2">
-                                <strong>Coordinates:</strong> {{ parseFloat(selectedImage.metadata.latitude).toFixed(6) }}, {{ parseFloat(selectedImage.metadata.longitude).toFixed(6) }}
+                            <div v-if="selectedImage.latitude && selectedImage.longitude" class="col-span-2">
+                                <strong>Coordinates:</strong> {{ parseFloat(selectedImage.latitude).toFixed(6) }}, {{ parseFloat(selectedImage.longitude).toFixed(6) }}
                             </div>
                         </div>
                     </div>
@@ -129,60 +131,37 @@ const error = ref('');
 const selectedImage = ref(null);
 
 // Backend API URL
-const API_URL = 'http://localhost:5000';
+const API_URL = '';
 
 onMounted(() => {
-    fetchImages();
+  console.log('[Gallery] onMounted');
+  fetchImages();
 });
 
 async function fetchImages() {
-    loading.value = true;
-    error.value = '';
-    
-    try {
-        const response = await fetch(`${API_URL}/images`);
-        
-        if (!response.ok) {
-            throw new Error('Failed to fetch images');
-        }
-        
-        const data = await response.json();
-        images.value = data.images || [];
-        
-    } catch (err) {
-        console.error('Error fetching images:', err);
-        error.value = err.message || 'Failed to load images';
-    } finally {
-        loading.value = false;
-    }
-}
-
-async function deleteImage(filename) {
-    if (!confirm('Are you sure you want to delete this photo?')) {
-        return;
-    }
-    
-    try {
-        const response = await fetch(`${API_URL}/delete/${filename}`, {
-            method: 'DELETE',
-        });
-        
-        if (!response.ok) {
-            throw new Error('Failed to delete image');
-        }
-        
-        // Remove the image from the local array
-        images.value = images.value.filter(img => img.filename !== filename);
-        
-        // Close modal if the deleted image was selected
-        if (selectedImage.value && selectedImage.value.filename === filename) {
-            selectedImage.value = null;
-        }
-        
-    } catch (err) {
-        console.error('Error deleting image:', err);
-        alert('Failed to delete image: ' + err.message);
-    }
+  loading.value = true;
+  error.value = '';
+  console.log('[Gallery] fetchImages called');
+  try {
+    const response = await fetch('/api/locations');
+    console.log('[Gallery] fetch done', response);
+    if (!response.ok) throw new Error('Failed to fetch images');
+    const data = await response.json();
+    console.log('[Gallery] /api/locations response:', data);
+    images.value = (data.data || []).map(item => ({
+      id: item.id,
+      url: item.image_url || 'https://placehold.co/400x300?text=No+Image',
+      name: item.name,
+      description: item.description,
+      latitude: item.latitude,
+      longitude: item.longitude
+    }));
+  } catch (err) {
+    console.error('[Gallery] fetchImages error:', err);
+    error.value = err.message || 'Failed to load images';
+  } finally {
+    loading.value = false;
+  }
 }
 
 function openModal(image) {
@@ -195,11 +174,10 @@ function closeModal() {
 
 function handleImageError(event) {
     console.error('Error loading image:', event.target.src);
-    // You could set a placeholder image here
-    // event.target.src = '/placeholder-image.jpg';
 }
 
 function formatDate(dateString) {
+    if (!dateString) return '';
     try {
         const date = new Date(dateString);
         return date.toLocaleDateString('en-US', {
@@ -215,12 +193,11 @@ function formatDate(dateString) {
 }
 
 function formatFileSize(bytes) {
+    if (!bytes) return '';
     if (bytes === 0) return '0 Bytes';
-    
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 </script>

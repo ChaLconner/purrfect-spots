@@ -1,5 +1,6 @@
 import os, uuid, mimetypes
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import boto3
 from boto3.s3.transfer import TransferConfig
@@ -9,6 +10,15 @@ from supabase import create_client, Client
 load_dotenv()
 
 app = FastAPI()
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify your frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 AWS_REGION        = os.getenv("AWS_REGION", "ap-southeast-1")
 AWS_BUCKET        = os.getenv("AWS_S3_BUCKET", "purrfect-spots-bucket")
@@ -65,40 +75,81 @@ def create_presigned_url(req: PresignReq):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/add-location")
-def add_location(cat: AddCatReq):
+async def add_location(
+    file: UploadFile = File(...),
+    name: str = Form(...),
+    description: str = Form(""),
+    latitude: float = Form(...),
+    longitude: float = Form(...)
+):
+    print("[DEBUG] AWS_REGION:", AWS_REGION)
+    print("[DEBUG] AWS_BUCKET:", AWS_BUCKET)
+    print("[DEBUG] SUPA_URL:", SUPA_URL)
+    print("[DEBUG] SUPA_KEY exists:", bool(SUPA_KEY))
+    print("[DEBUG] S3_CLIENT:", s3_client)
+    print("[DEBUG] SUPABASE:", supabase)
     if not supabase:
+        print("[ERROR] Supabase not configured!")
         raise HTTPException(status_code=500, detail="Supabase not configured")
-    
-    result = supabase.table("cat_locations").insert(cat.dict()).execute()
-    if result.error:
-        raise HTTPException(status_code=500, detail=result.error.message)
-    return {"status": "ok", "id": result.data[0]["id"]}
+    try:
+        # 1. สร้าง unique filename
+        file_extension = os.path.splitext(file.filename)[1] or ".jpg"
+        unique_filename = f"cats/{uuid.uuid4()}{file_extension}"
+        
+        # 2. อัพโหลดไฟล์ไปยัง S3
+        try:
+            s3_client.upload_fileobj(
+                file.file,
+                AWS_BUCKET,
+                unique_filename,
+                ExtraArgs={
+                    "ContentType": file.content_type,
+                    "ACL": "public-read"
+                }
+            )
+        except Exception as s3_error:
+            raise HTTPException(status_code=500, detail=f"S3 upload failed: {str(s3_error)}")
+        
+        # 3. สร้าง public URL
+        image_url = f"https://{AWS_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{unique_filename}"
+        
+        # 4. บันทึกข้อมูลลง Supabase
+        cat_data = {
+            "name": name,
+            "description": description,
+            "latitude": latitude,
+            "longitude": longitude,
+            "image_url": image_url
+        }
+        
+        result = supabase.table("cat_locations").insert(cat_data).execute()
+        if result.error:
+            print("[ERROR] Supabase insert error:", result.error.message)
+            raise HTTPException(status_code=500, detail=result.error.message)
+        return {"status": "ok", "id": result.data[0]["id"], "image_url": image_url}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("[ERROR] Exception in add_location:", str(e))
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 @app.get("/api/locations")
 def get_locations():
-    """Get all cat locations from Supabase"""
+    print("[DEBUG] get_locations called")
     if not supabase:
-        # Return sample data if Supabase not configured
-        return {
-            "status": "ok", 
-            "data": [
-                {
-                    "id": 1,
-                    "name": "แมวตัวอย่าง",
-                    "description": "แมวน่ารักที่สวนลุมพินี",
-                    "latitude": 13.7367,
-                    "longitude": 100.5408,
-                    "image_url": "https://example.com/cat.jpg"
-                }
-            ]
-        }
-    
+        print("[ERROR] Supabase not configured")
+        raise HTTPException(status_code=500, detail="Supabase not configured")
     try:
         result = supabase.table("cat_locations").select("*").execute()
-        if result.error:
+        print("[DEBUG] Supabase result:", result)
+        if hasattr(result, 'error') and result.error:
+            print("[ERROR] Supabase error:", result.error.message)
             raise HTTPException(status_code=500, detail=result.error.message)
         return {"status": "ok", "data": result.data}
+    except HTTPException:
+        raise
     except Exception as e:
+        print("[ERROR] Exception in get_locations:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/")
@@ -112,6 +163,29 @@ def health_check():
     import datetime as dt
     return {"status": "healthy", "timestamp": dt.datetime.utcnow()}
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+@app.post("/upload")
+async def upload_file(file: UploadFile = File(...)):
+    try:
+        file_extension = file.filename.split(".")[-1]
+        key = f"uploads/{uuid.uuid4()}.{file_extension}"  # สร้างชื่อไฟล์ใหม่ไม่ซ้ำ
+
+        # อ่านไฟล์เข้า memory
+        file_content = await file.read()
+
+        # อัปโหลดไป S3
+        try:
+            s3_client.put_object(
+                Bucket=AWS_BUCKET,
+                Key=key,
+                Body=file_content,
+                ContentType=file.content_type
+            )
+        except Exception as s3_error:
+            print("[ERROR] S3 upload failed:", str(s3_error))
+            raise HTTPException(status_code=500, detail=f"S3 upload failed: {str(s3_error)}")
+
+        s3_url = f"https://{AWS_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{key}"
+        return {"url": s3_url}
+    except Exception as e:
+        print("[ERROR] Exception in /upload:", str(e))
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")

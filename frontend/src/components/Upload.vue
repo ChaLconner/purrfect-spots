@@ -52,6 +52,11 @@
           <p v-if="locationSuccess" class="text-green-500 mt-2 text-sm">
             ✅ Location updated successfully!
           </p>
+          
+          <div class="mt-3 text-sm text-gray-600">
+            <p><strong>Latitude:</strong> {{ latitude }}</p>
+            <p><strong>Longitude:</strong> {{ longitude }}</p>
+          </div>
         </div>
 
         <l-map
