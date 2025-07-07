@@ -2,6 +2,7 @@ import os, uuid, mimetypes
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import List
 import boto3
 from boto3.s3.transfer import TransferConfig
 from dotenv import load_dotenv
@@ -41,16 +42,27 @@ s3_client = boto3.client(
     config=boto3.session.Config(signature_version="s3v4")
 )
 
+
+
 class PresignReq(BaseModel):
     filename: str        # "mew.jpg"
     content_type: str    # "image/jpeg"
-
 class AddCatReq(BaseModel):
     name: str
     description: str | None = None
     latitude: float
     longitude: float
     image_url: str   # ได้มาจากข้อ 1
+
+class CatLocation(BaseModel):
+    id: str  # เปลี่ยนจาก int เป็น str
+    image_url: str
+    latitude: float
+    longitude: float
+    description: str | None = None
+    location_name: str | None = None
+    uploaded_at: str | None = None
+    # image_url: str   # ได้มาจากข้อ 1
 
 @app.post("/api/add-location")
 async def add_location(
@@ -111,19 +123,21 @@ async def add_location(
         print("[ERROR] Exception in add_location:", str(e))
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
-@app.get("/api/locations")
+@app.get("/locations", response_model=List[CatLocation])
 def get_locations():
-    print("[DEBUG] get_locations called")
-    if not supabase:
-        print("[ERROR] Supabase not configured")
-        raise HTTPException(status_code=500, detail="Supabase not configured")
     try:
-        result = supabase.table("cat_locations").select("*").execute()
-        print("[DEBUG] Supabase result:", result)
-        if hasattr(result, 'error') and result.error:
-            print("[ERROR] Supabase error:", result.error.message)
-            raise HTTPException(status_code=500, detail=result.error.message)
-        return {"status": "ok", "data": result.data}
+        resp = (
+            supabase
+            .table("cat_photos")
+            .select("*")
+            .order("uploaded_at", desc=True)
+            .execute()
+        )
+        print("[DEBUG] Supabase resp:", resp)
+        print("[DEBUG] Supabase resp.data:", resp.data)
+        if not resp.data:
+            raise HTTPException(status_code=404, detail="No data returned from Supabase")
+        return resp.data
     except HTTPException:
         raise
     except Exception as e:
