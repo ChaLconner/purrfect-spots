@@ -70,52 +70,43 @@ class CatLocation(BaseModel):
     uploaded_at: str | None = None
 
 
-@app.post("/api/add-location")
-async def add_location(
-    file: UploadFile = File(...),
-    name: str = Form(...),
-    description: str = Form(""),
-    latitude: float = Form(...),
-    longitude: float = Form(...),
-):
-    """Upload a cat image and location to S3 and Supabase."""
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Supabase not configured")
+@app.get("/api/gallery")
+async def get_gallery():
+    """Get all cat images from S3 and return their URLs for gallery display."""
+    PREFIX = "uploads/"        
+
     try:
-        # Generate unique filename
-        file_extension = os.path.splitext(file.filename)[1] or ".jpg"
-        unique_filename = f"cats/{uuid.uuid4()}{file_extension}"
-        # Upload file to S3
-        try:
-            s3_client.upload_fileobj(
-                file.file,
-                AWS_BUCKET,
-                unique_filename,
-                ExtraArgs={
-                    "ContentType": file.content_type,
-                    "ACL": "public-read",
-                },
-            )
-        except Exception as s3_error:
-            raise HTTPException(status_code=500, detail=f"S3 upload failed: {str(s3_error)}")
-        # Create public URL
-        image_url = f"https://{AWS_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{unique_filename}"
-        # Save metadata to Supabase
-        cat_data = {
-            "name": name,
-            "description": description,
-            "latitude": latitude,
-            "longitude": longitude,
-            "image_url": image_url,
-        }
-        result = supabase.table("cat_locations").insert(cat_data).execute()
-        if result.error:
-            raise HTTPException(status_code=500, detail=result.error.message)
-        return {"status": "ok", "id": result.data[0]["id"], "image_url": image_url}
-    except HTTPException:
-        raise
+        response = s3_client.list_objects_v2(
+            Bucket=AWS_BUCKET,
+            Prefix=PREFIX         
+        )
+
+        if "Contents" not in response:
+            return {"images": []}
+
+        images = []
+        for obj in response["Contents"]:
+            if obj["Key"].lower().endswith((".jpg", ".jpeg", ".png", ".gif", ".webp")):
+                image_url = (
+                    f"https://{AWS_BUCKET}.s3-{AWS_REGION}.amazonaws.com/{obj['Key']}"
+                )
+                images.append(
+                    {
+                        "id": obj["Key"].split("/")[-1].rsplit(".", 1)[0],
+                        "url": image_url,
+                        "filename": obj["Key"].split("/")[-1],
+                        "size": obj["Size"],
+                        "last_modified": obj["LastModified"].isoformat(),
+                    }
+                )
+
+        images.sort(key=lambda x: x["last_modified"], reverse=True)
+        return {"images": images}
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to fetch gallery images: {str(e)}"
+        )
 
 
 @app.get("/locations", response_model=List[CatLocation])
