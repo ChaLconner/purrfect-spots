@@ -399,7 +399,7 @@ async function handleSubmit() {
   formData.append("lat", latitude.value);
   formData.append("lng", longitude.value);
   formData.append("description", description.value.trim() || "");
-  formData.append("location_name", locationName.value.trim()); // เปลี่ยนเป็น location_name ให้ตรงกับ backend
+  formData.append("location_name", locationName.value.trim());
 
   try {
     const res = await fetch("http://localhost:8000/upload-cat", {
