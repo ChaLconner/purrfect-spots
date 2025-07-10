@@ -158,12 +158,6 @@
         </svg>
       </div>
       <p class="text-green-600 text-lg mb-4">Photo uploaded successfully!</p>
-      <button
-        @click="resetForm"
-        class="bg-emerald-500 text-white border-none px-6 py-2 rounded-md cursor-pointer transition-colors hover:bg-emerald-600"
-      >
-        Upload Another Photo
-      </button>
     </div>
 
     <!-- Error Message -->
@@ -294,7 +288,7 @@ function onMapClick(event) {
     longitude.value = lng.toFixed(6);
     markerLatLng.value = [lat, lng];
     locationSuccess.value = true;
-    setTimeout(() => (locationSuccess.value = false), 2000);
+    setTimeout(() => (locationSuccess.value = false), 1000);
   }
 }
 
@@ -372,7 +366,6 @@ async function handleSubmit() {
     error.value = "Please select a file to upload.";
     return;
   }
-
   if (
     !latitude.value ||
     !longitude.value ||
@@ -383,24 +376,19 @@ async function handleSubmit() {
       "Please select a location on the map by clicking, dragging the marker, or using your current location.";
     return;
   }
-
   if (!locationName.value.trim()) {
     error.value = "Please enter a location name.";
     return;
   }
-
-  // --- ส่งข้อมูลไปยัง /upload-cat ---
   isUploading.value = true;
   error.value = null;
   uploadSuccess.value = false;
-
   const formData = new FormData();
   formData.append("file", file.value);
   formData.append("lat", latitude.value);
   formData.append("lng", longitude.value);
   formData.append("description", description.value.trim() || "");
   formData.append("location_name", locationName.value.trim());
-
   try {
     const res = await fetch("http://localhost:8000/upload-cat", {
       method: "POST",
@@ -423,10 +411,14 @@ async function handleSubmit() {
           classificationLabel.value = catLabel;
           classificationConfidence.value = null;
         } else {
-            classificationLabel.value = "No cat detected in this image";
+          classificationLabel.value = "No cat detected in this image";
           classificationConfidence.value = null;
         }
       }
+      // Automatically refresh to the upload page after a short delay
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
     } else {
       error.value = (data && data.detail) || "Upload failed.";
     }
