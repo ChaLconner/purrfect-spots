@@ -1,6 +1,7 @@
 import os
 import uuid
 from typing import List
+from io import BytesIO
 
 import boto3
 from boto3.s3.transfer import TransferConfig
@@ -9,6 +10,9 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import Client, create_client
+from PIL import Image
+import torch
+import numpy as np
 
 load_dotenv()
 
@@ -45,6 +49,10 @@ s3_client = boto3.client(
     config=boto3.session.Config(signature_version="s3v4"),
 )
 
+# Load the model
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = torch.hub.load("ultralytics/yolov5", "yolov5s", force_reload=True)
+model.to(device).eval()
 
 # Pydantic models
 class PresignReq(BaseModel):
@@ -158,19 +166,33 @@ async def upload_cat(
     description: str = Form(...),
     location_name: str = Form(...),
 ):
-    """Upload an image to S3 and save its metadata to Supabase."""
+    """Upload an image to S3 and save its metadata to Supabase — only if it's a cat."""
+    contents = await file.read()
+    # ตรวจสอบว่าเป็นภาพแมวหรือไม่
+    try:
+        image = Image.open(BytesIO(contents)).convert("RGB")
+        img_np = np.array(image)
+        results = model(img_np)
+        detected_labels = results.pandas().xyxy[0]['name'].tolist()
+        is_cat = any("cat" in label.lower() for label in detected_labels)
+        if not is_cat:
+            raise HTTPException(status_code=400, detail="Please upload a cat image only.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Image classification failed")
+    # อัปโหลดภาพขึ้น S3
     ext = (file.filename.split(".")[-1] if "." in file.filename else "bin")
     key = f"uploads/{uuid.uuid4()}.{ext}"
     try:
         s3_client.put_object(
             Bucket=AWS_BUCKET,
             Key=key,
-            Body=await file.read(),
+            Body=contents,
             ContentType=file.content_type,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to upload to S3: {str(e)}")
     s3_url = f"https://{AWS_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{key}"
+    # บันทึกข้อมูลลง Supabase
     payload = {
         "image_url": s3_url,
         "latitude": lat,
@@ -182,4 +204,9 @@ async def upload_cat(
     if getattr(result, "error", None):
         s3_client.delete_object(Bucket=AWS_BUCKET, Key=key)
         raise HTTPException(500, f"Supabase insert failed: {result.error}")
-    return {"message": "Uploaded", "image_url": s3_url, "row": result.data[0]}
+    return {
+        "message": "Uploaded",
+        "image_url": s3_url,
+        "row": result.data[0],
+        "classification": detected_labels
+    }

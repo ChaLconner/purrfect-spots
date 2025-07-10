@@ -193,6 +193,8 @@ const fileInput = ref(null);
 const uploadSuccess = ref(false);
 const gettingLocation = ref(false);
 const locationSuccess = ref(false);
+const classificationLabel = ref(null);
+const classificationConfidence = ref(null);
 
 // Use the upload composable
 const { uploadCat, isUploading, error } = useUploadCat();
@@ -400,7 +402,7 @@ async function handleSubmit() {
   formData.append("location_name", locationName.value.trim()); // เปลี่ยนเป็น location_name ให้ตรงกับ backend
 
   try {
-    const res = await fetch("/api/upload-cat", {
+    const res = await fetch("http://localhost:8000/upload-cat", {
       method: "POST",
       body: formData,
     });
@@ -413,11 +415,24 @@ async function handleSubmit() {
     }
     if (res.ok) {
       uploadSuccess.value = true;
+      if (data && Array.isArray(data.classification)) {
+        const catLabel = data.classification.find(
+          (item) => typeof item === "string" && item.toLowerCase().includes("cat")
+        );
+        if (catLabel) {
+          classificationLabel.value = catLabel;
+          classificationConfidence.value = null;
+        } else {
+            classificationLabel.value = "No cat detected in this image";
+          classificationConfidence.value = null;
+        }
+      }
     } else {
       error.value = (data && data.detail) || "Upload failed.";
     }
-  } catch (e) {
-    error.value = e.message || "Network error.";
+  } catch (err) {
+    error.value = "An error occurred while uploading the photo.";
+    console.error("Upload error:", err);
   } finally {
     isUploading.value = false;
   }
@@ -431,17 +446,9 @@ function resetForm() {
   file.value = null;
   previewUrl.value = null;
   uploadSuccess.value = false;
+  gettingLocation.value = false;
   locationSuccess.value = false;
-  error.value = null;
-
-  // Clear the file input
-  if (fileInput.value) {
-    fileInput.value.value = "";
-  }
-
-  // Reset map and marker position
-  mapCenter.value = [18.7883, 98.9853];
-  markerLatLng.value = [18.7883, 98.9853];
-  mapZoom.value = 13;
+  classificationLabel.value = null;
+  classificationConfidence.value = null;
 }
 </script>
