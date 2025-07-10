@@ -426,9 +426,14 @@ async function handleSubmit() {
           classificationConfidence.value = null;
         } else {
           classificationLabel.value = "No cat detected in this image";
+          classificationLabel.value = "No cat detected in this image";
           classificationConfidence.value = null;
         }
       }
+      // Automatically refresh to the upload page after a short delay
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
       // Automatically refresh to the upload page after a short delay
       setTimeout(() => {
         window.location.reload();
