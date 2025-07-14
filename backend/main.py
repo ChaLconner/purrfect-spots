@@ -18,7 +18,7 @@ import numpy as np
 from auth.routes import router as auth_router
 from services.auth_service import AuthService
 from middleware.auth_middleware import get_current_user_optional
-from models.user import User
+from user_models.user import User
 
 load_dotenv()
 

@@ -4,10 +4,9 @@ Authentication routes for Google OAuth
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel
 from supabase import Client
-from ..services.auth_service import AuthService
-from ..models.user import LoginResponse, UserResponse
-from ..middleware.auth_middleware import get_current_user
-from ..models.user import User
+from services.auth_service import AuthService
+from user_models.user import LoginResponse, UserResponse, User
+from middleware.auth_middleware import get_current_user
 
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -17,15 +16,17 @@ class GoogleTokenRequest(BaseModel):
     token: str
 
 
-def get_auth_service(supabase: Client = Depends()) -> AuthService:
+def get_auth_service_for_routes():
     """Dependency to get AuthService instance"""
+    from main import get_supabase_client
+    supabase = get_supabase_client()
     return AuthService(supabase)
 
 
 @router.post("/google", response_model=LoginResponse)
 async def google_login(
     request: GoogleTokenRequest,
-    auth_service: AuthService = Depends(get_auth_service)
+    auth_service = Depends(get_auth_service_for_routes)
 ):
     """
     Login with Google OAuth token
@@ -66,7 +67,7 @@ async def google_login(
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(
-    current_user: User = Depends(get_current_user)
+    current_user = Depends(get_current_user)
 ):
     """
     Get current user information

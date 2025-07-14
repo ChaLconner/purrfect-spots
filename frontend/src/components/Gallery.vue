@@ -2,8 +2,12 @@
     <div class="gallery-masonry-container max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
         <h2 class="text-3xl font-bold text-gray-800 mb-8 text-center">Cat Photo Gallery</h2>
         <div v-if="loading" class="text-center py-12">
-            <div class="animate-spin rounded-full h-16 w-16 border-4 border-emerald-500 border-t-transparent mx-auto"></div>
-            <p class="mt-4 text-gray-600">Loading photos...</p>
+            <CatLoading 
+                size="xl" 
+                title="🐱 กำลังโหลดแกลเลอรี่..."
+                subtitle="เรากำลังรวบรวมรูปแมวน่ารักทั้งหมดให้คุณ"
+                :centered="true"
+            />
         </div>
         <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
             <p class="font-bold">Error:</p>
@@ -45,6 +49,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import CatLoading from './common/CatLoading.vue';
 const images = ref([]);
 const loading = ref(true);
 const error = ref('');

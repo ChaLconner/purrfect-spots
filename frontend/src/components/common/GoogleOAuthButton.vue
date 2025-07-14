@@ -29,7 +29,7 @@
 
     <!-- Loading state -->
     <div v-else class="flex items-center justify-center gap-3 w-full bg-gray-100 border border-gray-300 rounded-lg px-6 py-3">
-      <LoadingSpinner class="w-5 h-5" />
+      <LoadingSpinner size="sm" :show-text="false" />
       <span class="text-gray-600">กำลังเข้าสู่ระบบ...</span>
     </div>
 

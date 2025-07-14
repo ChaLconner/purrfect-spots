@@ -8,7 +8,7 @@ from typing import Optional
 from google.auth.transport import requests
 from google.oauth2 import id_token
 from supabase import Client
-from ..models.user import User, UserCreate
+from user_models.user import User, UserCreate
 
 
 class AuthService:
