@@ -123,6 +123,9 @@ const handleModernGoogleLogin = async () => {
     authUrl.searchParams.set('access_type', 'offline');
     authUrl.searchParams.set('prompt', 'consent');
 
+    console.log('OAuth URL:', authUrl.toString());
+    console.log('Redirect URI:', window.location.origin + '/auth/callback');
+
     // Redirect to Google OAuth
     window.location.href = authUrl.toString();
 
@@ -141,30 +144,43 @@ const handleOAuthCallback = async () => {
   const state = urlParams.get('state');
   const error = urlParams.get('error');
 
+  console.log('OAuth Callback - URL params:', { code: !!code, state: !!state, error });
+
   if (error) {
+    console.error('OAuth Error:', error);
     errorMessage.value = `OAuth Error: ${error}`;
     return;
   }
 
   if (!code || !state) {
+    console.log('No OAuth callback detected');
     return; // Not an OAuth callback
   }
 
   const storedState = sessionStorage.getItem('oauth_state');
   const codeVerifier = sessionStorage.getItem('oauth_code_verifier');
 
+  console.log('OAuth Callback - Stored data:', { 
+    storedState: !!storedState, 
+    codeVerifier: !!codeVerifier,
+    stateMatch: state === storedState 
+  });
+
   if (state !== storedState) {
+    console.error('State mismatch:', { received: state, stored: storedState });
     errorMessage.value = 'Invalid state parameter. Possible security issue.';
     return;
   }
 
   if (!codeVerifier) {
+    console.error('Missing code verifier');
     errorMessage.value = 'Missing code verifier. Please try again.';
     return;
   }
 
   try {
     isLoading.value = true;
+    console.log('Exchanging code for tokens...');
 
     // Exchange authorization code for tokens
     const loginData = await AuthService.exchangeCodeForTokens({
@@ -172,6 +188,8 @@ const handleOAuthCallback = async () => {
       codeVerifier,
       redirectUri: window.location.origin + '/auth/callback'
     });
+
+    console.log('OAuth Success:', { user: loginData.user?.email });
 
     // Clean up
     sessionStorage.removeItem('oauth_state');
@@ -186,6 +204,7 @@ const handleOAuthCallback = async () => {
     emit('loginSuccess', loginData.user);
 
   } catch (error) {
+    console.error('Token exchange error:', error);
     const message = error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการแลกเปลี่ยน token';
     errorMessage.value = message;
     emit('loginError', message);
