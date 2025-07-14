@@ -16,6 +16,12 @@ class GoogleTokenRequest(BaseModel):
     token: str
 
 
+class GoogleCodeExchangeRequest(BaseModel):
+    code: str
+    code_verifier: str
+    redirect_uri: str
+
+
 def get_auth_service_for_routes():
     """Dependency to get AuthService instance"""
     from main import get_supabase_client
@@ -62,6 +68,45 @@ async def google_login(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Login failed"
+        )
+
+
+@router.post("/google/exchange", response_model=LoginResponse)
+async def google_exchange_code(
+    request: GoogleCodeExchangeRequest,
+    auth_service = Depends(get_auth_service_for_routes)
+):
+    """
+    Exchange Google authorization code for tokens (Modern OAuth 2.0 flow)
+    """
+    try:
+        login_response = await auth_service.exchange_google_code(
+            code=request.code,
+            code_verifier=request.code_verifier,
+            redirect_uri=request.redirect_uri
+        )
+        
+        return LoginResponse(
+            access_token=login_response.access_token,
+            token_type=login_response.token_type,
+            user=UserResponse(
+                id=login_response.user.id,
+                email=login_response.user.email,
+                name=login_response.user.name,
+                picture=login_response.user.picture,
+                created_at=login_response.user.created_at
+            )
+        )
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Code exchange failed"
         )
 
 

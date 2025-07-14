@@ -15,12 +15,11 @@
 
     <!-- Loading -->
     <div v-if="isLoading" class="flex items-center justify-center p-12">
-      <CatLoading 
-        size="md" 
-        title="🗺️ กำลังโหลดแผนที่..."
-        subtitle="เรากำลังค้นหาตำแหน่งแมวทั้งหมดให้คุณ"
-        :centered="true"
-      />
+      <div class="flex flex-col items-center">
+        <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mb-4"></div>
+        <h3 class="text-lg font-semibold text-gray-700 mb-2">🗺️ กำลังโหลดแผนที่...</h3>
+        <p class="text-sm text-gray-500">เรากำลังค้นหาตำแหน่งแมวทั้งหมดให้คุณ</p>
+      </div>
     </div>
 
     <!-- Error -->
@@ -119,7 +118,6 @@
 import { onMounted, ref, onUnmounted, nextTick } from "vue";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import CatLoading from "./common/CatLoading.vue";
 
 interface CatLocation {
   id: string;

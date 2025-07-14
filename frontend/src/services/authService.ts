@@ -4,7 +4,33 @@ import { getAuthHeader } from '../store/auth';
 const API_BASE_URL = 'http://localhost:8000';
 
 export class AuthService {
-  // Login with Google OAuth token
+  // Modern OAuth 2.0 Authorization Code Flow with PKCE
+  static async exchangeCodeForTokens(params: {
+    code: string;
+    codeVerifier: string;
+    redirectUri: string;
+  }): Promise<LoginResponse> {
+    const response = await fetch(`${API_BASE_URL}/auth/google/exchange`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        code: params.code,
+        code_verifier: params.codeVerifier,
+        redirect_uri: params.redirectUri,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Token exchange failed');
+    }
+
+    return response.json();
+  }
+
+  // Login with Google OAuth token (legacy method for backward compatibility)
   static async loginWithGoogle(googleToken: string): Promise<LoginResponse> {
     const response = await fetch(`${API_BASE_URL}/auth/google`, {
       method: 'POST',

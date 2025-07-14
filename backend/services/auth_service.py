@@ -3,12 +3,13 @@ Authentication service for Google OAuth
 """
 import os
 import jwt
+import httpx
 from datetime import datetime, timedelta
 from typing import Optional
 from google.auth.transport import requests
 from google.oauth2 import id_token
 from supabase import Client
-from user_models.user import User, UserCreate
+from user_models.user import User, UserCreate, LoginResponse, UserResponse
 
 
 class AuthService:
@@ -94,3 +95,69 @@ class AuthService:
             return None
         except Exception:
             return None
+
+    async def exchange_google_code(self, code: str, code_verifier: str, redirect_uri: str) -> LoginResponse:
+        """
+        Exchange Google authorization code for access token using PKCE flow
+        """
+        try:
+            # Exchange code for access token
+            token_url = "https://oauth2.googleapis.com/token"
+            
+            data = {
+                "client_id": self.google_client_id,
+                "code": code,
+                "code_verifier": code_verifier,
+                "grant_type": "authorization_code",
+                "redirect_uri": redirect_uri,
+            }
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(token_url, data=data)
+                
+                if response.status_code != 200:
+                    raise ValueError(f"Token exchange failed: {response.text}")
+                
+                token_data = response.json()
+                access_token = token_data.get("access_token")
+                id_token_str = token_data.get("id_token")
+                
+                if not access_token or not id_token_str:
+                    raise ValueError("Missing tokens in response")
+                
+                # Verify and decode ID token
+                idinfo = id_token.verify_oauth2_token(
+                    id_token_str, requests.Request(), self.google_client_id
+                )
+                
+                if idinfo['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
+                    raise ValueError('Wrong issuer.')
+                
+                # Extract user info
+                user_data = {
+                    'google_id': idinfo['sub'],
+                    'email': idinfo['email'],
+                    'name': idinfo['name'],
+                    'picture': idinfo.get('picture', '')
+                }
+                
+                # Create or get user
+                user = self.create_or_get_user(user_data)
+                
+                # Create JWT token
+                jwt_token = self.create_access_token(user.id)
+                
+                return LoginResponse(
+                    access_token=jwt_token,
+                    token_type="bearer",
+                    user=UserResponse(
+                        id=user.id,
+                        email=user.email,
+                        name=user.name,
+                        picture=user.picture,
+                        created_at=user.created_at
+                    )
+                )
+                
+        except Exception as e:
+            raise ValueError(f"Code exchange failed: {str(e)}")

@@ -132,12 +132,11 @@
 
     <!-- Upload Progress -->
     <div v-if="isUploading" class="text-center py-8">
-      <CatLoading 
-        size="lg" 
-        title="🐱 กำลังอัปโหลดรูปแมว..."
-        subtitle="กรุณารอสักครู่ เราพยายามประมวลผลรูปภาพของคุณ"
-        :centered="true"
-      />
+      <div class="flex flex-col items-center">
+        <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-orange-500 mb-4"></div>
+        <h3 class="text-lg font-semibold text-gray-700 mb-2">🐱 กำลังอัปโหลดรูปแมว...</h3>
+        <p class="text-sm text-gray-500">กรุณารอสักครู่ เราพยายามประมวลผลรูปภาพของคุณ</p>
+      </div>
     </div>
 
     <!-- Success Message -->
@@ -176,7 +175,6 @@ import { ref, watch, onMounted, onErrorCaptured } from "vue";
 import { LMap, LTileLayer, LMarker } from "@vue-leaflet/vue-leaflet";
 import "leaflet/dist/leaflet.css";
 import { useUploadCat } from "../composables/useUploadCat";
-import CatLoading from "./common/CatLoading.vue";
 
 const locationName = ref("");
 const description = ref("");

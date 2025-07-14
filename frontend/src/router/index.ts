@@ -18,6 +18,12 @@ const routes = [
     path: '/gallery',
     name: 'Gallery',
     component: Gallery
+  },
+  {
+    path: '/auth/callback',
+    name: 'AuthCallback',
+    component: Map, // Redirect to home after auth
+    meta: { isAuthCallback: true }
   }
 ]
 

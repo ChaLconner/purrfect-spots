@@ -1,4 +1,8 @@
-# OAuth Google Setup Guide
+# OAuth Goo4. เลือก **Web application**
+5. กำหนด:
+   - **Authorized JavaScript origins**: `http://localhost:5173`
+   - **Authorized redirect URIs**: `http://localhost:5173/auth/callback`
+6. บันทึก **Client ID** ที่ได้มาetup Guide
 
 ## 📋 สิ่งที่ต้องเตรียม
 
@@ -117,8 +121,7 @@ frontend/
 │   └── components/
 │       └── common/      # Reusable components
 │           ├── GoogleOAuthButton.vue
-│           ├── LoginModal.vue
-│           └── LoadingSpinner.vue
+│           └── LoginModal.vue
 ```
 
 ### 🔄 API Endpoints ใหม่
