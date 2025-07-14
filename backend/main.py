@@ -6,7 +6,7 @@ from io import BytesIO
 import boto3
 from boto3.s3.transfer import TransferConfig
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import Client, create_client
@@ -14,9 +14,22 @@ from PIL import Image
 import torch
 import numpy as np
 
+# Import authentication modules
+from auth.routes import router as auth_router
+from services.auth_service import AuthService
+from middleware.auth_middleware import get_current_user_optional
+from models.user import User
+
 load_dotenv()
 
-app = FastAPI()
+app = FastAPI(
+    title="PurrFect Spots API",
+    description="API for sharing cat photos with locations and OAuth authentication",
+    version="2.0.0"
+)
+
+# Include authentication routes
+app.include_router(auth_router)
 
 # CORS middleware for cross-origin requests
 app.add_middleware(
@@ -39,6 +52,12 @@ SUPA_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 supabase: Client = None
 if SUPA_URL and SUPA_KEY:
     supabase = create_client(SUPA_URL, SUPA_KEY)
+
+# Dependency to get Supabase client
+def get_supabase_client() -> Client:
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    return supabase
 
 # Initialize S3 client
 s3_client = boto3.client(
