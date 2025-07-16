@@ -1,11 +1,11 @@
 """
-Authentication routes for Google OAuth
+Authentication routes for Google OAuth and email/password authentication
 """
 from fastapi import APIRouter, HTTPException, Depends, status
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from supabase import Client
 from services.auth_service import AuthService
-from user_models.user import LoginResponse, UserResponse, User
+from user_models.user import LoginResponse, UserResponse, User, UserCreateWithPassword, UserLogin
 from middleware.auth_middleware import get_current_user
 
 
@@ -22,9 +22,26 @@ class GoogleCodeExchangeRequest(BaseModel):
     redirect_uri: str
 
 
+class SignupRequest(BaseModel):
+    email: EmailStr
+    password: str
+    name: str
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class SimpleLoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: dict
+
+
 def get_auth_service_for_routes():
     """Dependency to get AuthService instance"""
-    from main import get_supabase_client
+    from dependencies import get_supabase_client
     supabase = get_supabase_client()
     return AuthService(supabase)
 
@@ -122,8 +139,140 @@ async def get_current_user_info(
         email=current_user.email,
         name=current_user.name,
         picture=current_user.picture,
-        created_at=current_user.created_at
-    )
+        created_at=current_user.created_at        )
+
+
+@router.post("/signup", response_model=SimpleLoginResponse)
+def signup(req: SignupRequest, auth_service: AuthService = Depends(get_auth_service_for_routes)):
+    """
+    Register new user with email and password
+    """
+    try:
+        if auth_service.get_user_by_email(req.email):
+            raise HTTPException(status_code=400, detail="Email already registered.")
+        
+        user = auth_service.create_user(req.email, req.password, req.name)
+        token = auth_service.create_access_token(user["id"])
+        return {"access_token": token, "user": user}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Registration failed"
+        )
+
+
+@router.post("/login", response_model=SimpleLoginResponse)
+def login(req: LoginRequest, auth_service: AuthService = Depends(get_auth_service_for_routes)):
+    """
+    Login with email and password
+    """
+    try:
+        user = auth_service.authenticate_user(req.email, req.password)
+        if not user:
+            raise HTTPException(status_code=401, detail="Invalid email or password.")
+        
+        token = auth_service.create_access_token(user["id"])
+        return {"access_token": token, "user": user}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Login failed"
+        )
+
+
+@router.post("/register", response_model=LoginResponse)
+async def register(
+    request: UserCreateWithPassword,
+    auth_service = Depends(get_auth_service_for_routes)
+):
+    """
+    Register new user with email and password
+    """
+    try:
+        # Check if user already exists
+        existing_user = auth_service.get_user_by_email(request.email)
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User with this email already exists"
+            )
+        
+        # Create new user
+        user_data = auth_service.create_user_with_password(
+            email=request.email,
+            password=request.password,
+            name=request.name
+        )
+        
+        # Create access token
+        access_token = auth_service.create_access_token(user_data["id"])
+        
+        return LoginResponse(
+            access_token=access_token,
+            token_type="bearer",
+            user=UserResponse(
+                id=user_data["id"],
+                email=user_data["email"],
+                name=user_data["name"],
+                picture=user_data.get("picture"),
+                created_at=user_data["created_at"]
+            )
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Registration failed"
+        )
+
+
+@router.post("/login", response_model=LoginResponse)
+async def login(
+    request: UserLogin,
+    auth_service = Depends(get_auth_service_for_routes)
+):
+    """
+    Login with email and password
+    """
+    try:
+        # Authenticate user
+        user = auth_service.authenticate_user(request.email, request.password)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password"
+            )
+        
+        # Create access token
+        access_token = auth_service.create_access_token(user["id"])
+        
+        return LoginResponse(
+            access_token=access_token,
+            token_type="bearer",
+            user=UserResponse(
+                id=user["id"],
+                email=user["email"],
+                name=user["name"],
+                picture=user.get("picture"),
+                created_at=user["created_at"]
+            )
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Login failed"
+        )
 
 
 @router.post("/logout")

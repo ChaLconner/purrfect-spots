@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Map from '../components/Map.vue'
 import Upload from '../components/Upload.vue'
 import Gallery from '../components/Gallery.vue'
+import AuthView from '../views/AuthView.vue'
 
 const routes = [
   {
@@ -18,6 +19,11 @@ const routes = [
     path: '/gallery',
     name: 'Gallery',
     component: Gallery
+  },
+  {
+    path: '/auth',
+    name: 'Auth',
+    component: AuthView
   },
   {
     path: '/auth/callback',

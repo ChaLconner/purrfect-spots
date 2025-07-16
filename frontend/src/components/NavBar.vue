@@ -75,6 +75,12 @@ onMounted(() => {
                 >
                     เข้าสู่ระบบ
                 </button>
+                <router-link 
+                    to="/auth"
+                    class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all duration-200 font-medium"
+                >
+                    สมัครสมาชิก
+                </router-link>
             </div>
             
             <!-- User Menu (when authenticated) -->

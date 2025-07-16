@@ -15,7 +15,8 @@ import torch
 import numpy as np
 
 # Import authentication modules
-from auth.routes import router as auth_router
+from routes import auth_manual, auth_google  # <-- นำเข้า route ใหม่
+from dependencies import get_supabase_client
 from services.auth_service import AuthService
 from middleware.auth_middleware import get_current_user_optional
 from user_models.user import User
@@ -28,8 +29,9 @@ app = FastAPI(
     version="2.0.0"
 )
 
-# Include authentication routes
-app.include_router(auth_router)
+# รวม route ทั้งหมด
+app.include_router(auth_manual.router)
+app.include_router(auth_google.router)
 
 # CORS middleware for cross-origin requests
 app.add_middleware(
@@ -40,24 +42,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# AWS and Supabase configuration
+# AWS configuration
 AWS_REGION = os.getenv("AWS_REGION", "ap-southeast-1")
 AWS_BUCKET = os.getenv("AWS_S3_BUCKET", "purrfect-spots-bucket")
 AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-SUPA_URL = os.getenv("SUPABASE_URL")
-SUPA_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-
-# Initialize Supabase client
-supabase: Client = None
-if SUPA_URL and SUPA_KEY:
-    supabase = create_client(SUPA_URL, SUPA_KEY)
-
-# Dependency to get Supabase client
-def get_supabase_client() -> Client:
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Database not configured")
-    return supabase
 
 # Initialize S3 client
 s3_client = boto3.client(
@@ -137,7 +126,7 @@ async def get_gallery():
 
 
 @app.get("/locations", response_model=List[CatLocation])
-def get_locations():
+def get_locations(supabase = Depends(get_supabase_client)):
     """Get all cat locations from Supabase."""
     try:
         resp = (
@@ -184,6 +173,7 @@ async def upload_cat(
     lng: float = Form(...),
     description: str = Form(...),
     location_name: str = Form(...),
+    supabase = Depends(get_supabase_client),
 ):
     """Upload an image to S3 and save its metadata to Supabase — only if it's a cat."""
     contents = await file.read()

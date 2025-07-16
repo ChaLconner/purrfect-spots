@@ -11,8 +11,9 @@ export const authStore = reactive<AuthState>({
 
 // Initialize authentication state from localStorage
 export function initializeAuth() {
-  const token = localStorage.getItem('auth_token');
-  const userData = localStorage.getItem('user_data');
+  // Check for tokens with different key names (compatibility with both auth methods)
+  const token = localStorage.getItem('auth_token') || localStorage.getItem('access_token');
+  const userData = localStorage.getItem('user_data') || localStorage.getItem('user');
   
   if (token && userData) {
     try {
@@ -43,9 +44,11 @@ export function clearAuth() {
   authStore.token = null;
   authStore.isAuthenticated = false;
   
-  // Clear localStorage
+  // Clear localStorage (both key formats for compatibility)
   localStorage.removeItem('auth_token');
   localStorage.removeItem('user_data');
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('user');
 }
 
 // Get authorization header

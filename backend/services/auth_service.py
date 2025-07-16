@@ -1,15 +1,16 @@
 """
-Authentication service for Google OAuth
+Authentication service for Google OAuth and traditional email/password auth
 """
 import os
 import jwt
 import httpx
+import bcrypt
 from datetime import datetime, timedelta
 from typing import Optional
 from google.auth.transport import requests
 from google.oauth2 import id_token
 from supabase import Client
-from user_models.user import User, UserCreate, LoginResponse, UserResponse
+from user_models.user import User, UserCreate, UserCreateWithPassword, UserLogin, LoginResponse, UserResponse
 
 
 class AuthService:
@@ -19,6 +20,14 @@ class AuthService:
         self.jwt_secret = os.getenv("JWT_SECRET", "your-secret-key")
         self.jwt_algorithm = "HS256"
         self.jwt_expiration_hours = 24
+
+    def hash_password(self, password: str) -> str:
+        """Hash password using bcrypt"""
+        return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+    def verify_password(self, password: str, hash: str) -> bool:
+        """Verify password against hash"""
+        return bcrypt.checkpw(password.encode("utf-8"), hash.encode("utf-8"))
 
     def verify_google_token(self, token: str) -> dict:
         """Verify Google OAuth token and return user info"""
@@ -72,6 +81,7 @@ class AuthService:
         expire = datetime.utcnow() + timedelta(hours=self.jwt_expiration_hours)
         to_encode = {
             "user_id": user_id,
+            "sub": user_id,  # Add sub claim for compatibility
             "exp": expire
         }
         encoded_jwt = jwt.encode(to_encode, self.jwt_secret, algorithm=self.jwt_algorithm)
@@ -93,6 +103,46 @@ class AuthService:
             if result.data:
                 return User(**result.data[0])
             return None
+        except Exception:
+            return None
+
+    def get_user_by_email(self, email: str) -> Optional[dict]:
+        """Get user by email from database"""
+        try:
+            result = self.supabase.table('users').select('*').eq('email', email).single().execute()
+            return result.data if result.data else None
+        except Exception:
+            return None
+
+    def create_user_with_password(self, email: str, password: str, name: str) -> dict:
+        """Create new user with email and password"""
+        try:
+            password_hash = self.hash_password(password)
+            user_data = {
+                "email": email,
+                "password_hash": password_hash,
+                "name": name,
+                "created_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.utcnow().isoformat()
+            }
+            result = self.supabase.table('users').insert(user_data).execute()
+            return result.data[0]
+        except Exception as e:
+            raise Exception(f"Failed to create user: {str(e)}")
+
+    def create_user(self, email: str, password: str, name: str) -> dict:
+        """Create new user with email and password (alias for create_user_with_password)"""
+        return self.create_user_with_password(email, password, name)
+
+    def authenticate_user(self, email: str, password: str) -> Optional[dict]:
+        """Authenticate user with email and password"""
+        try:
+            user = self.get_user_by_email(email)
+            if not user or not user.get("password_hash"):
+                return None
+            if not self.verify_password(password, user["password_hash"]):
+                return None
+            return user
         except Exception:
             return None
 
