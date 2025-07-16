@@ -1,14 +1,11 @@
 <script setup lang="ts">
 import logo from "../components/icon/logo.vue";
-import LoginModal from "./common/LoginModal.vue";
-import { ref, onMounted } from "vue";
+import { ref, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { authStore, initializeAuth, clearAuth } from "../store/auth";
 import { AuthService } from "../services/authService";
-import type { User } from "../types/auth";
 
 const menuOpen = ref(false);
-const showLoginModal = ref(false);
 const showUserMenu = ref(false);
 const router = useRouter();
 
@@ -16,29 +13,34 @@ function goHome() {
     router.push('/');
 }
 
-const openLoginModal = () => {
-    showLoginModal.value = true;
-};
-
-const handleLoginSuccess = (user: User) => {
-    console.log('User logged in:', user);
-    // You can show a success toast here
-};
-
 const logout = async () => {
     try {
         await AuthService.logout();
         clearAuth();
         showUserMenu.value = false;
+        router.push('/'); // Redirect to home after logout
         // You can show a logout success toast here
     } catch (error) {
         console.error('Logout error:', error);
     }
 };
 
+// Close user menu when clicking outside
+const handleClickOutside = (event: Event) => {
+    const target = event.target as HTMLElement;
+    if (showUserMenu.value && target && !target.closest('.user-menu-container')) {
+        showUserMenu.value = false;
+    }
+};
+
 // Initialize auth state on component mount
 onMounted(() => {
     initializeAuth();
+    document.addEventListener('click', handleClickOutside);
+});
+
+onUnmounted(() => {
+    document.removeEventListener('click', handleClickOutside);
 });
 </script>
 <template>
@@ -69,12 +71,12 @@ onMounted(() => {
             
             <!-- Authentication Section -->
             <div v-if="!authStore.isAuthenticated" class="flex items-center gap-2">
-                <button 
-                    @click="openLoginModal"
+                <router-link 
+                    to="/auth"
                     class="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-200 font-medium"
                 >
                     เข้าสู่ระบบ
-                </button>
+                </router-link>
                 <router-link 
                     to="/auth"
                     class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all duration-200 font-medium"
@@ -107,7 +109,7 @@ onMounted(() => {
                 </button>
                 
                 <!-- User Avatar & Dropdown -->
-                <div class="relative">
+                <div class="relative user-menu-container">
                     <button
                         @click="showUserMenu = !showUserMenu"
                         class="flex items-center gap-2 focus:outline-none"
@@ -146,11 +148,4 @@ onMounted(() => {
             </div>
         </div>
     </nav>
-    
-    <!-- Login Modal -->
-    <LoginModal
-        :show="showLoginModal"
-        @close="showLoginModal = false"
-        @login-success="handleLoginSuccess"
-    />
 </template>

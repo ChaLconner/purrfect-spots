@@ -41,9 +41,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import axios from 'axios';
 import { useRouter } from 'vue-router';
+import { setAuth, isUserReady } from '../store/auth';
 
 // Configure axios base URL
 const API_BASE_URL = 'http://localhost:8000';
@@ -65,6 +66,16 @@ const form = ref({
   name: '',
 });
 
+// Check if user is already logged in
+onMounted(() => {
+  if (isUserReady()) {
+    // User is fully authenticated, redirect to intended destination
+    const redirectPath = sessionStorage.getItem('redirectAfterAuth') || '/';
+    sessionStorage.removeItem('redirectAfterAuth');
+    router.push(redirectPath);
+  }
+});
+
 const toggleMode = () => {
   isLogin.value = !isLogin.value;
   errorMessage.value = '';
@@ -82,12 +93,15 @@ const handleSubmit = async () => {
       ...(isLogin.value ? {} : { name: form.value.name }),
     });
 
-    // Save to localStorage
-    localStorage.setItem('access_token', data.access_token);
-    localStorage.setItem('user', JSON.stringify(data.user));
+    // Use auth store to manage authentication state
+    setAuth(data);
 
-    // Redirect to home/dashboard
-    router.push('/');
+    // Get redirect path from session storage
+    const redirectPath = sessionStorage.getItem('redirectAfterAuth') || '/';
+    sessionStorage.removeItem('redirectAfterAuth');
+    
+    // Redirect to intended destination
+    router.push(redirectPath);
   } catch (err: any) {
     errorMessage.value = err.response?.data?.detail || 'เกิดข้อผิดพลาด';
   } finally {

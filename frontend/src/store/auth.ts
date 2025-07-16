@@ -1,5 +1,5 @@
 import { reactive } from 'vue';
-import type { AuthState, LoginResponse } from '../types/auth';
+import type { AuthState, LoginResponse, User } from '../types/auth';
 
 // Auth store using reactive state
 export const authStore = reactive<AuthState>({
@@ -9,6 +9,11 @@ export const authStore = reactive<AuthState>({
   isLoading: false,
 });
 
+// Check if user has complete profile
+export function hasCompleteProfile(user: User | null): boolean {
+  return !!(user && user.email && user.name);
+}
+
 // Initialize authentication state from localStorage
 export function initializeAuth() {
   // Check for tokens with different key names (compatibility with both auth methods)
@@ -17,8 +22,9 @@ export function initializeAuth() {
   
   if (token && userData) {
     try {
+      const user = JSON.parse(userData);
       authStore.token = token;
-      authStore.user = JSON.parse(userData);
+      authStore.user = user;
       authStore.isAuthenticated = true;
     } catch (error) {
       // Clear invalid data
@@ -54,4 +60,9 @@ export function clearAuth() {
 // Get authorization header
 export function getAuthHeader(): Record<string, string> {
   return authStore.token ? { Authorization: `Bearer ${authStore.token}` } : {};
+}
+
+// Check if user is ready to use protected features
+export function isUserReady(): boolean {
+  return authStore.isAuthenticated && hasCompleteProfile(authStore.user);
 }

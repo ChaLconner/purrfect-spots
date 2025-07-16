@@ -3,6 +3,7 @@ import Map from '../components/Map.vue'
 import Upload from '../components/Upload.vue'
 import Gallery from '../components/Gallery.vue'
 import AuthView from '../views/AuthView.vue'
+import { initializeAuth, isUserReady } from '../store/auth'
 
 const routes = [
   {
@@ -13,7 +14,8 @@ const routes = [
   {
     path: '/upload',
     name: 'Upload', 
-    component: Upload
+    component: Upload,
+    meta: { requiresAuth: true }
   },
   {
     path: '/gallery',
@@ -36,6 +38,27 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes
+})
+
+// Initialize auth state before navigation
+initializeAuth()
+
+// Global navigation guard
+router.beforeEach((to, _from, next) => {
+  if (to.meta.requiresAuth) {
+    if (!isUserReady()) {
+      // Store the intended destination
+      sessionStorage.setItem('redirectAfterAuth', to.fullPath)
+      next({ name: 'Auth' })
+    } else {
+      next()
+    }
+  } else if (to.name === 'Auth' && isUserReady()) {
+    // If user is already logged in and has complete profile, redirect to home
+    next({ name: 'Home' })
+  } else {
+    next()
+  }
 })
 
 export default router

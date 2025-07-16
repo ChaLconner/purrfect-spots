@@ -172,9 +172,23 @@
 
 <script setup>
 import { ref, watch, onMounted, onErrorCaptured } from "vue";
+import { useRouter } from "vue-router";
 import { LMap, LTileLayer, LMarker } from "@vue-leaflet/vue-leaflet";
 import "leaflet/dist/leaflet.css";
 import { useUploadCat } from "../composables/useUploadCat";
+import { isUserReady, getAuthHeader } from "../store/auth";
+
+const router = useRouter();
+
+// Check authentication on component mount
+onMounted(() => {
+  // Double-check authentication (should be handled by router guard)
+  if (!isUserReady()) {
+    sessionStorage.setItem('redirectAfterAuth', '/upload');
+    router.push('/auth');
+    return;
+  }
+});
 
 const locationName = ref("");
 const description = ref("");
@@ -379,6 +393,14 @@ async function handleSubmit() {
     error.value = "Please enter a location name.";
     return;
   }
+
+  // Check authentication before uploading
+  if (!isUserReady()) {
+    sessionStorage.setItem('redirectAfterAuth', '/upload');
+    router.push('/auth');
+    return;
+  }
+
   isUploading.value = true;
   error.value = null;
   uploadSuccess.value = false;
@@ -391,6 +413,9 @@ async function handleSubmit() {
   try {
     const res = await fetch("http://localhost:8000/upload-cat", {
       method: "POST",
+      headers: {
+        ...getAuthHeader()
+      },
       body: formData,
     });
     let data = null;
@@ -419,6 +444,12 @@ async function handleSubmit() {
         window.location.reload();
       }, 500);
     } else {
+      // Handle auth errors
+      if (res.status === 401) {
+        sessionStorage.setItem('redirectAfterAuth', '/upload');
+        router.push('/auth');
+        return;
+      }
       error.value = (data && data.detail) || "Upload failed.";
     }
   } catch (err) {
