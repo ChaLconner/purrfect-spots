@@ -108,11 +108,11 @@ async def get_current_user_info(
     Get current user information
     """
     return UserResponse(
-        id=current_user.id,
-        email=current_user.email,
-        name=current_user.name,
-        picture=current_user.picture,
-        created_at=current_user.created_at
+        id=current_user["id"],
+        email=current_user["email"],
+        name=current_user["name"],
+        picture=current_user["picture"],
+        created_at=current_user["created_at"]
     )
 
 @router.post("/logout")

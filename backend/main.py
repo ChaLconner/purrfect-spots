@@ -4,22 +4,17 @@ from typing import List
 from io import BytesIO
 
 import boto3
-from boto3.s3.transfer import TransferConfig
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from supabase import Client, create_client
 from PIL import Image
 import torch
 import numpy as np
 
 # Import authentication modules
-from routes import auth_manual, auth_google  # <-- นำเข้า route ใหม่
+from routes import auth_manual, auth_google
 from dependencies import get_supabase_client
-from services.auth_service import AuthService
-from middleware.auth_middleware import get_current_user_optional
-from user_models.user import User
 
 load_dotenv()
 

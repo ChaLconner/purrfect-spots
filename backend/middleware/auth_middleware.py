@@ -43,40 +43,6 @@ async def get_current_user(
     return result.data
 
 
-def get_auth_service_dependency():
-    """Dependency to get AuthService instance"""
-    from services.auth_service import AuthService
-    supabase = get_supabase_client()
-    return AuthService(supabase)
-
-
-def get_current_user_via_service(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    auth_service = Depends(get_auth_service_dependency)
-):
-    """Get current authenticated user via AuthService (legacy method)"""
-    from user_models.user import User
-    
-    token = credentials.credentials
-    user_id = auth_service.verify_access_token(token)
-    
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    user = auth_service.get_user_by_id(user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-    
-    return user
-
-
 async def get_current_user_optional(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     supabase: Client = Depends(get_supabase_client)
