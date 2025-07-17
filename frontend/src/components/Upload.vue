@@ -121,12 +121,20 @@
       </div>
 
       <!-- Submit Button -->
+      <div v-if="!authStore.isAuthenticated" class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-lg mb-4">
+        <div class="flex items-center">
+          <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+          </svg>
+          <span>คุณต้องล็อกอินก่อนจึงจะสามารถอัพโหลดรูปภาพได้</span>
+        </div>
+      </div>
       <button
         type="submit"
         :disabled="!file"
         class="w-full bg-emerald-500 text-white border-none py-3.5 px-6 rounded-lg text-lg font-medium cursor-pointer transition-colors hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        Upload Photo
+        {{ authStore.isAuthenticated ? 'Upload Photo' : 'Login to Upload' }}
       </button>
     </form>
 
@@ -176,18 +184,13 @@ import { useRouter } from "vue-router";
 import { LMap, LTileLayer, LMarker } from "@vue-leaflet/vue-leaflet";
 import "leaflet/dist/leaflet.css";
 import { useUploadCat } from "../composables/useUploadCat";
-import { isUserReady, getAuthHeader } from "../store/auth";
+import { authStore, isUserReady, getAuthHeader } from "../store/auth";
 
 const router = useRouter();
 
-// Check authentication on component mount
+// No authentication check on mount - allow access to upload page
 onMounted(() => {
-  // Double-check authentication (should be handled by router guard)
-  if (!isUserReady()) {
-    sessionStorage.setItem('redirectAfterAuth', '/upload');
-    router.push('/auth');
-    return;
-  }
+  // Initialize any necessary data
 });
 
 const locationName = ref("");
@@ -394,10 +397,10 @@ async function handleSubmit() {
     return;
   }
 
-  // Check authentication before uploading
-  if (!isUserReady()) {
+  // Check authentication before uploading - redirect to login if not authenticated
+  if (!authStore.isAuthenticated || !authStore.user) {
     sessionStorage.setItem('redirectAfterAuth', '/upload');
-    router.push('/auth');
+    router.push('/login');
     return;
   }
 
@@ -447,7 +450,7 @@ async function handleSubmit() {
       // Handle auth errors
       if (res.status === 401) {
         sessionStorage.setItem('redirectAfterAuth', '/upload');
-        router.push('/auth');
+        router.push('/login');
         return;
       }
       error.value = (data && data.detail) || "Upload failed.";

@@ -72,13 +72,13 @@ onUnmounted(() => {
             <!-- Authentication Section -->
             <div v-if="!authStore.isAuthenticated" class="flex items-center gap-2">
                 <router-link 
-                    to="/auth"
+                    to="/login"
                     class="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-200 font-medium"
                 >
                     เข้าสู่ระบบ
                 </router-link>
                 <router-link 
-                    to="/auth"
+                    to="/signin"
                     class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all duration-200 font-medium"
                 >
                     สมัครสมาชิก
@@ -137,6 +137,13 @@ onUnmounted(() => {
                             <p class="text-sm font-medium text-gray-900">{{ authStore.user?.name }}</p>
                             <p class="text-xs text-gray-500">{{ authStore.user?.email }}</p>
                         </div>
+                        <router-link
+                            to="/profile"
+                            @click="showUserMenu = false"
+                            class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                            โปรไฟล์
+                        </router-link>
                         <button
                             @click="logout"
                             class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"

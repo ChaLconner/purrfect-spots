@@ -24,6 +24,42 @@ export class AuthService {
     return response.json();
   }
 
+  // Login user
+  static async login(email: string, password: string): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Login failed');
+    }
+
+    return response.json();
+  }
+
+  // Signup user
+  static async signup(email: string, password: string, name: string): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/auth/signup`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password, name }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Signup failed');
+    }
+
+    return response.json();
+  }
+
   // Logout user
   static async logout(): Promise<void> {
     const authHeader = getAuthHeader();

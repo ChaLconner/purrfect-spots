@@ -32,9 +32,12 @@
     <div class="mt-6 text-sm text-center">
       <span>
         {{ isLogin ? 'ยังไม่มีบัญชี?' : 'มีบัญชีแล้ว?' }}
-        <a href="#" @click.prevent="toggleMode" class="text-blue-600 hover:underline">
+        <router-link 
+          :to="isLogin ? '/signin' : '/login'" 
+          class="text-blue-600 hover:underline"
+        >
           {{ isLogin ? 'สมัครสมาชิก' : 'เข้าสู่ระบบ' }}
-        </a>
+        </router-link>
       </span>
     </div>
   </div>
@@ -42,20 +45,19 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import axios from 'axios';
 import { useRouter } from 'vue-router';
 import { setAuth, isUserReady } from '../store/auth';
+import { AuthService } from '../services/authService';
 
-// Configure axios base URL
-const API_BASE_URL = 'http://localhost:8000';
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+interface Props {
+  initialMode?: 'login' | 'signin';
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  initialMode: 'login'
 });
 
-const isLogin = ref(true);
+const isLogin = ref(props.initialMode === 'login');
 const isLoading = ref(false);
 const errorMessage = ref('');
 const router = useRouter();
@@ -76,22 +78,17 @@ onMounted(() => {
   }
 });
 
-const toggleMode = () => {
-  isLogin.value = !isLogin.value;
-  errorMessage.value = '';
-};
-
 const handleSubmit = async () => {
   isLoading.value = true;
   errorMessage.value = '';
 
   try {
-    const url = isLogin.value ? '/auth/login' : '/auth/signup';
-    const { data } = await api.post(url, {
-      email: form.value.email,
-      password: form.value.password,
-      ...(isLogin.value ? {} : { name: form.value.name }),
-    });
+    let data;
+    if (isLogin.value) {
+      data = await AuthService.login(form.value.email, form.value.password);
+    } else {
+      data = await AuthService.signup(form.value.email, form.value.password, form.value.name);
+    }
 
     // Use auth store to manage authentication state
     setAuth(data);
@@ -103,7 +100,7 @@ const handleSubmit = async () => {
     // Redirect to intended destination
     router.push(redirectPath);
   } catch (err: any) {
-    errorMessage.value = err.response?.data?.detail || 'เกิดข้อผิดพลาด';
+    errorMessage.value = err.message || 'เกิดข้อผิดพลาด';
   } finally {
     isLoading.value = false;
   }

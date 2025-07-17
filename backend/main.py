@@ -13,7 +13,7 @@ import torch
 import numpy as np
 
 # Import authentication modules
-from routes import auth_manual, auth_google
+from routes import auth_manual, auth_google, profile
 from dependencies import get_supabase_client
 
 load_dotenv()
@@ -27,6 +27,7 @@ app = FastAPI(
 # รวม route ทั้งหมด
 app.include_router(auth_manual.router)
 app.include_router(auth_google.router)
+app.include_router(profile.router)
 
 # CORS middleware for cross-origin requests
 app.add_middleware(
