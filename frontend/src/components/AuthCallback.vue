@@ -51,9 +51,6 @@ onMounted(async () => {
     const code = route.query.code as string;
     const codeVerifier = sessionStorage.getItem('google_code_verifier');
     
-    console.log('🔍 OAuth Callback - Code:', code);
-    console.log('🔍 OAuth Callback - Code Verifier:', codeVerifier);
-    
     if (!code) {
       throw new Error('ไม่พบรหัสการยืนยัน');
     }
@@ -65,10 +62,16 @@ onMounted(async () => {
     // Exchange code for tokens
     const data = await AuthService.googleCodeExchange(code, codeVerifier);
     
-    console.log('🔍 OAuth Exchange Response:', data);
-    
     // Save authentication data
     setAuth(data);
+    
+    // Sync user data with backend
+    try {
+      await AuthService.syncUser();
+    } catch (syncError) {
+      console.warn('User sync failed:', syncError);
+      // ไม่ให้ sync error หยุดการ login
+    }
     
     // Clean up
     sessionStorage.removeItem('google_code_verifier');

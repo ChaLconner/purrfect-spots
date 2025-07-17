@@ -1,12 +1,15 @@
 """
 Google OAuth authentication routes
 """
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, Header
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from services.auth_service import AuthService
 from user_models.user import LoginResponse, UserResponse
-from middleware.auth_middleware import get_current_user
+from middleware.auth_middleware import get_current_user, get_current_user_from_header
 from dependencies import get_supabase_client
+import os
+from urllib.parse import urlencode
 
 router = APIRouter(prefix="/auth", tags=["Google Authentication"])
 
@@ -20,6 +23,46 @@ class GoogleCodeExchangeRequest(BaseModel):
 
 def get_auth_service():
     return AuthService(get_supabase_client())
+
+@router.get("/google/login")
+async def google_login_redirect():
+    """
+    Redirect to Google OAuth login page
+    """
+    try:
+        google_client_id = os.getenv("GOOGLE_CLIENT_ID")
+        if not google_client_id:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Google Client ID not configured"
+            )
+        
+        # Default redirect URI (frontend callback)
+        redirect_uri = "http://localhost:5173/auth/callback"
+        
+        # OAuth parameters (without PKCE for simple redirect)
+        oauth_params = {
+            'client_id': google_client_id,
+            'redirect_uri': redirect_uri,
+            'response_type': 'code',
+            'scope': 'openid email profile',
+            'access_type': 'offline',
+            'prompt': 'consent'
+        }
+        
+        # Create authorization URL
+        auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(oauth_params)}"
+        
+        print(f"🔍 Redirecting to Google OAuth: {auth_url}")
+        
+        return RedirectResponse(url=auth_url, status_code=302)
+        
+    except Exception as e:
+        print(f"🔥 Error redirecting to Google login: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to redirect to Google login: {str(e)}"
+        )
 
 @router.post("/google", response_model=LoginResponse)
 async def google_login(
@@ -92,13 +135,11 @@ async def google_exchange_code(
         )
         
     except ValueError as e:
-        print("🔥 GOOGLE EXCHANGE ERROR (ValueError):", e)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
-        print("🔥 GOOGLE EXCHANGE ERROR (Exception):", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Code exchange failed"
@@ -119,6 +160,55 @@ async def get_current_user_info(
         bio=current_user.get("bio"),
         created_at=current_user["created_at"]
     )
+
+@router.post("/sync-user")
+async def sync_user_data(
+    user = Depends(get_current_user_from_header),
+    supabase = Depends(get_supabase_client)
+):
+    """
+    Insert/Upsert user into Supabase Table from JWT payload (Supabase Auth compatible)
+    """
+    try:        
+        # Extract user data from Supabase JWT payload
+        user_id = user["sub"]
+        email = user.get("email")
+        
+        # Handle both Supabase and custom token formats
+        user_metadata = user.get("user_metadata", {})
+        app_metadata = user.get("app_metadata", {})
+        
+        # Get name and picture from user_metadata (Supabase standard)
+        name = user_metadata.get("name") or user_metadata.get("full_name") or user.get("name", "")
+        picture = user_metadata.get("avatar_url") or user_metadata.get("picture") or user.get("picture", "")
+        
+        # Get Google provider ID if available
+        google_id = None
+        provider = app_metadata.get("provider", "")
+        if provider == "google":
+            google_id = user_metadata.get("provider_id")
+        elif user.get("google_id"):  # Fallback for custom tokens
+            google_id = user.get("google_id")
+
+        # Upsert user data
+        data = {
+            "id": user_id,
+            "email": email,
+            "name": name,
+            "picture": picture,
+            "google_id": google_id,
+        }
+        
+        # Use service role for direct DB access
+        res = supabase.table("users").upsert(data, on_conflict="id").execute()
+        
+        if hasattr(res, 'data') and res.data:
+            return {"message": "User synced", "data": res.data}
+        else:
+            return {"message": "User sync completed", "data": data}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Sync failed: {str(e)}")
 
 @router.post("/logout")
 async def logout():

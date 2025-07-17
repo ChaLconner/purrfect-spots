@@ -73,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, defineProps, withDefaults } from 'vue';
 import { useRouter } from 'vue-router';
 import { setAuth, isUserReady } from '../store/auth';
 import { AuthService } from '../services/authService';
@@ -92,7 +92,7 @@ const errorMessage = ref('');
 const router = useRouter();
 
 // Watch for changes in initialMode prop
-watch(() => props.initialMode, (newMode) => {
+watch(() => props.initialMode, (newMode: 'login' | 'register' | undefined) => {
   isLogin.value = newMode !== 'register';
   errorMessage.value = '';
 });
@@ -146,7 +146,7 @@ const handleGoogleLogin = async () => {
   errorMessage.value = '';
 
   try {
-    // Generate OAuth URL
+    // Use manual OAuth with PKCE for better security
     const googleClientId = '40710057825-09pahjbe71ncf7adq9c8892r2mivm9b3.apps.googleusercontent.com';
     const redirectUri = `${window.location.origin}/auth/callback`;
     
@@ -165,10 +165,13 @@ const handleGoogleLogin = async () => {
     oauthUrl.searchParams.append('scope', 'openid email profile');
     oauthUrl.searchParams.append('code_challenge', codeChallenge);
     oauthUrl.searchParams.append('code_challenge_method', 'S256');
+    oauthUrl.searchParams.append('access_type', 'offline');
+    oauthUrl.searchParams.append('prompt', 'consent');
     
     // Redirect to Google OAuth
     window.location.href = oauthUrl.toString();
   } catch (err: any) {
+    console.error('Google OAuth Error:', err);
     errorMessage.value = err.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย Google';
     isLoading.value = false;
   }

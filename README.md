@@ -1,33 +1,34 @@
-# 🐱 Purrfect Spots
+# 🐱 PurrfectSpots
 
-แอปพลิเคชันสำหรับค้นหาและแชร์รูปภาพแมวพร้อมตำแหน่งที่ตั้ง สร้างด้วย Vue.js + FastAPI + Supabase + AWS S3 พร้อมระบบ OAuth Google
+A modern cat spotting and sharing platform built with Vue.js, FastAPI, and Supabase.
 
-## ✨ คุณสมบัติ
+## ✨ Features
 
-- 📸 **อัปโหลดรูปภาพ**: อัปโหลดรูปแมวพร้อมข้อมูลตำแหน่งที่ตั้ง
-- 🗺️ **แผนที่แบบโต้ตอบ**: ดูตำแหน่งแมวบนแผนที่
-- 🖼️ **แกลเลอรี่**: เรียกดูรูปภาพแมวทั้งหมด
-- 📍 **ระบบตำแหน่ง**: รองรับพิกัด GPS และชื่อสถานที่
-- 🔐 **OAuth Authentication**: เข้าสู่ระบบด้วย Google (ฟรี!)
-- 👤 **User Profiles**: จัดการโปรไฟล์ผู้ใช้
-- 🛡️ **Security**: ระบบรักษาความปลอดภัยด้วย JWT
-- 🌏 **หลายภาษา**: รองรับภาษาไทยและอังกฤษ
-- 📱 **Responsive**: ใช้งานได้ทั้งคอมพิวเตอร์และมือถือ
+- 📸 **Image Upload** - Upload cat photos with location data
+- 🗺️ **Interactive Maps** - View cat locations on interactive maps
+- 🖼️ **Gallery** - Browse all cat photos in a beautiful gallery
+- 📍 **Location System** - GPS coordinates and place names
+- 🔐 **Google OAuth** - Secure authentication with Google
+- 👤 **User Profiles** - Manage user profiles and data
+- 🛡️ **Security** - JWT-based authentication system
+- 📱 **Responsive** - Works on desktop and mobile devices
 
-## 🚀 Quick Start
+## 🏗️ Architecture
 
-### 1. ดาวน์โหลดโปรเจค
-```bash
-git clone <repository-url>
-cd purrfect-spots
+```
+purrfect-spots/
+├── frontend/           # Vue.js frontend
+├── backend/            # FastAPI backend
+└── README.md          # This file
 ```
 
-### 2. ตั้งค่า OAuth Google
-📖 ดู [OAuth Setup Guide](OAuth_Setup_Guide.md) สำหรับขั้นตอนการตั้งค่าแบบละเอียด
+## � Quick Start
 
-### 3. ตั้งค่า Environment Variables
-
-#### Backend (.env):
+### Prerequisites
+- **Node.js 18+** and npm
+- **Python 3.8+** and pip
+- **Supabase** account and project
+- **Google OAuth 2.0** credentials
 ```env
 # AWS Configuration
 AWS_ACCESS_KEY_ID=your_access_key_id

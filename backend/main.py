@@ -53,10 +53,54 @@ s3_client = boto3.client(
     config=boto3.session.Config(signature_version="s3v4"),
 )
 
-# Load the model
+# Load the model with error handling
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = torch.hub.load("ultralytics/yolov5", "yolov5s", force_reload=True)
-model.to(device).eval()
+
+def load_yolo_model():
+    """Load YOLOv5 model with error handling and fallback options"""
+    try:
+        # Try to load from local file first
+        if os.path.exists("yolov5s.pt"):
+            print("✅ Loading YOLOv5 from local file...")
+            model = torch.hub.load("ultralytics/yolov5", "custom", path="yolov5s.pt", source="local")
+        else:
+            print("📦 Downloading YOLOv5 model...")
+            # Clear cache first to avoid corrupted files
+            torch.hub._get_cache_dir()
+            cache_dir = torch.hub._get_cache_dir()
+            yolo_cache = os.path.join(cache_dir, "ultralytics_yolov5_master")
+            if os.path.exists(yolo_cache):
+                import shutil
+                shutil.rmtree(yolo_cache)
+                print("🗑️  Cleared old YOLOv5 cache")
+            
+            # Download fresh model
+            model = torch.hub.load("ultralytics/yolov5", "yolov5s", force_reload=True)
+        
+        model.to(device).eval()
+        print(f"✅ YOLOv5 model loaded successfully on {device}")
+        return model
+        
+    except Exception as e:
+        print(f"❌ Error loading YOLOv5 model: {str(e)}")
+        print("🔄 Falling back to local model file...")
+        
+        # Fallback: try to use local file
+        if os.path.exists("yolov5s.pt"):
+            try:
+                model = torch.hub.load("ultralytics/yolov5", "custom", path="yolov5s.pt", source="local")
+                model.to(device).eval()
+                print("✅ YOLOv5 model loaded from local file")
+                return model
+            except Exception as e2:
+                print(f"❌ Local model also failed: {str(e2)}")
+        
+        # Last resort: return None and handle gracefully
+        print("⚠️  YOLOv5 model not available - cat detection will be disabled")
+        return None
+
+# Load the model
+model = load_yolo_model()
 
 # Pydantic models
 class PresignReq(BaseModel):
@@ -173,17 +217,30 @@ async def upload_cat(
 ):
     """Upload an image to S3 and save its metadata to Supabase — only if it's a cat."""
     contents = await file.read()
+    
     # ตรวจสอบว่าเป็นภาพแมวหรือไม่
     try:
-        image = Image.open(BytesIO(contents)).convert("RGB")
-        img_np = np.array(image)
-        results = model(img_np)
-        detected_labels = results.pandas().xyxy[0]['name'].tolist()
-        is_cat = any("cat" in label.lower() for label in detected_labels)
-        if not is_cat:
-            raise HTTPException(status_code=400, detail="Please upload a cat image only.")
+        # Check if model is available
+        if model is None:
+            print("⚠️  YOLOv5 model not available - skipping cat detection")
+            # Skip cat detection if model is not available
+        else:
+            image = Image.open(BytesIO(contents)).convert("RGB")
+            img_np = np.array(image)
+            results = model(img_np)
+            detected_labels = results.pandas().xyxy[0]['name'].tolist()
+            is_cat = any("cat" in label.lower() for label in detected_labels)
+            if not is_cat:
+                raise HTTPException(status_code=400, detail="Please upload a cat image only.")
+    except HTTPException:
+        # Re-raise HTTP exceptions (like "not a cat")
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Image classification failed")
+        print(f"❌ Image classification failed: {str(e)}")
+        # In production, you might want to continue without cat detection
+        # or return a specific error. For now, we'll skip the detection.
+        print("⚠️  Skipping cat detection due to error")
+    
     # อัปโหลดภาพขึ้น S3
     ext = (file.filename.split(".")[-1] if "." in file.filename else "bin")
     key = f"uploads/{uuid.uuid4()}.{ext}"

@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "clean": "rm -rf dist node_modules",
+    "install:clean": "npm run clean && npm install",
+    "type-check": "vue-tsc --noEmit"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.11",

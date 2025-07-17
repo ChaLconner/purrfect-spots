@@ -109,4 +109,28 @@ export class AuthService {
 
     return response.json();
   }
+
+  // Sync user data with backend (สำหรับ Supabase Auth integration)
+  static async syncUser(): Promise<any> {
+    const authHeader = getAuthHeader();
+    
+    if (!authHeader.Authorization) {
+      throw new Error('No authentication token available');
+    }
+
+    const response = await fetch(`${API_BASE_URL}/auth/sync-user`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeader,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'User sync failed');
+    }
+
+    return response.json();
+  }
 }

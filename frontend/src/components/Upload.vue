@@ -231,11 +231,6 @@ onMounted(() => {
       event.preventDefault();
     }
   });
-
-  // Log any existing extensions that might be interfering
-  if (window.chrome && window.chrome.runtime) {
-    console.log("Chrome extension environment detected");
-  }
 });
 
 // Map setup
