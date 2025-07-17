@@ -17,6 +17,7 @@ class AuthService:
     def __init__(self, supabase_client: Client):
         self.supabase = supabase_client
         self.google_client_id = os.getenv("GOOGLE_CLIENT_ID")
+        self.google_client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
         self.jwt_secret = os.getenv("JWT_SECRET", "your-secret-key")
         self.jwt_algorithm = "HS256"
         self.jwt_expiration_hours = 24
@@ -67,6 +68,7 @@ class AuthService:
                 # Create new user
                 user_create = UserCreate(**user_data)
                 new_user_data = user_create.dict()
+                new_user_data['bio'] = None  # Set default bio for new Google OAuth users
                 new_user_data['created_at'] = datetime.utcnow().isoformat()
                 new_user_data['updated_at'] = datetime.utcnow().isoformat()
                 
@@ -157,14 +159,20 @@ class AuthService:
             
             data = {
                 "client_id": self.google_client_id,
+                "client_secret": self.google_client_secret,
                 "code": code,
                 "code_verifier": code_verifier,
                 "grant_type": "authorization_code",
                 "redirect_uri": redirect_uri,
             }
             
+            print("🔍 Google OAuth Exchange Request:", data)
+            
             async with httpx.AsyncClient() as client:
                 response = await client.post(token_url, data=data)
+                
+                print("🔍 Google OAuth Response Status:", response.status_code)
+                print("🔍 Google OAuth Response Body:", response.text)
                 
                 if response.status_code != 200:
                     raise ValueError(f"Token exchange failed: {response.text}")
@@ -181,6 +189,8 @@ class AuthService:
                     id_token_str, requests.Request(), self.google_client_id
                 )
                 
+                print("🔍 Google ID Token Info:", idinfo)
+                
                 if idinfo['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
                     raise ValueError('Wrong issuer.')
                 
@@ -192,8 +202,12 @@ class AuthService:
                     'picture': idinfo.get('picture', '')
                 }
                 
+                print("🔍 User Data:", user_data)
+                
                 # Create or get user
                 user = self.create_or_get_user(user_data)
+                
+                print("🔍 Created/Retrieved User:", user)
                 
                 # Create JWT token
                 jwt_token = self.create_access_token(user.id)
@@ -206,9 +220,11 @@ class AuthService:
                         email=user.email,
                         name=user.name,
                         picture=user.picture,
+                        bio=user.bio,
                         created_at=user.created_at
                     )
                 )
                 
         except Exception as e:
+            print("🔥 Google Exchange Error:", str(e))
             raise ValueError(f"Code exchange failed: {str(e)}")

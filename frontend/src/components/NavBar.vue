@@ -78,7 +78,7 @@ onUnmounted(() => {
                     เข้าสู่ระบบ
                 </router-link>
                 <router-link 
-                    to="/signin"
+                    to="/register"
                     class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all duration-200 font-medium"
                 >
                     สมัครสมาชิก

@@ -87,4 +87,26 @@ export class AuthService {
       return false;
     }
   }
+
+  // Google OAuth code exchange
+  static async googleCodeExchange(code: string, codeVerifier: string): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/auth/google/exchange`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        code,
+        code_verifier: codeVerifier,
+        redirect_uri: `${window.location.origin}/auth/callback`
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Google OAuth failed');
+    }
+
+    return response.json();
+  }
 }

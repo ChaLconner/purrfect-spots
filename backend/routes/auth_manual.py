@@ -27,8 +27,8 @@ class LoginResponse(BaseModel):
 def get_auth_service():
     return AuthService(get_supabase_client())
 
-@router.post("/signup", response_model=LoginResponse)
-def signup(req: SignupRequest, auth_service: AuthService = Depends(get_auth_service)):
+@router.post("/register", response_model=LoginResponse)
+def register(req: SignupRequest, auth_service: AuthService = Depends(get_auth_service)):
     """
     Register new user with email and password
     """
@@ -58,9 +58,9 @@ def signup(req: SignupRequest, auth_service: AuthService = Depends(get_auth_serv
     except HTTPException:
         raise
     except Exception as e:
-        print("🔥 SIGNUP ERROR:", e)
+        print("🔥 REGISTER ERROR:", e)  # <== ตรงนี้สำคัญ
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail="Registration failed"
         )
 
@@ -95,9 +95,9 @@ def login(req: LoginRequest, auth_service: AuthService = Depends(get_auth_servic
     except HTTPException:
         raise
     except Exception as e:
-        print("🔥 LOGIN ERROR:", e)
+        print("🔥 LOGIN ERROR:", e)  # <== ตรงนี้สำคัญ
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=500,
             detail="Login failed"
         )
 

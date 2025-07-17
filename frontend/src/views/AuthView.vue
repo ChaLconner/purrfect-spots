@@ -8,7 +8,7 @@
 import AuthForm from '../components/AuthForm.vue';
 
 interface Props {
-  mode?: 'login' | 'signin';
+  mode?: 'login' | 'register';
 }
 
 withDefaults(defineProps<Props>(), {

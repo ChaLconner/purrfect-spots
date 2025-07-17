@@ -47,6 +47,7 @@ async def google_login(
                 email=user.email,
                 name=user.name,
                 picture=user.picture,
+                bio=user.bio,
                 created_at=user.created_at
             )
         )
@@ -85,16 +86,19 @@ async def google_exchange_code(
                 email=login_response.user.email,
                 name=login_response.user.name,
                 picture=login_response.user.picture,
+                bio=login_response.user.bio,
                 created_at=login_response.user.created_at
             )
         )
         
     except ValueError as e:
+        print("🔥 GOOGLE EXCHANGE ERROR (ValueError):", e)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
+        print("🔥 GOOGLE EXCHANGE ERROR (Exception):", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Code exchange failed"
@@ -111,7 +115,8 @@ async def get_current_user_info(
         id=current_user["id"],
         email=current_user["email"],
         name=current_user["name"],
-        picture=current_user["picture"],
+        picture=current_user.get("picture"),
+        bio=current_user.get("bio"),
         created_at=current_user["created_at"]
     )
 
