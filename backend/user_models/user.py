@@ -43,6 +43,7 @@ class UserResponse(BaseModel):
     email: str
     name: str
     picture: Optional[str] = None
+    bio: Optional[str] = None
     created_at: datetime
 
 

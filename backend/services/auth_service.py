@@ -122,6 +122,7 @@ class AuthService:
                 "email": email,
                 "password_hash": password_hash,
                 "name": name,
+                "bio": None,  # Default bio value
                 "created_at": datetime.utcnow().isoformat(),
                 "updated_at": datetime.utcnow().isoformat()
             }

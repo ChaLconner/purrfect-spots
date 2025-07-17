@@ -6,6 +6,7 @@ from pydantic import BaseModel, EmailStr
 from services.auth_service import AuthService
 from dependencies import get_supabase_client
 from middleware.auth_middleware import get_current_user
+from user_models.user import UserResponse
 
 router = APIRouter(prefix="/auth", tags=["Manual Authentication"])
 
@@ -21,7 +22,7 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
-    user: dict
+    user: UserResponse
 
 def get_auth_service():
     return AuthService(get_supabase_client())
@@ -37,11 +38,27 @@ def signup(req: SignupRequest, auth_service: AuthService = Depends(get_auth_serv
         
         user = auth_service.create_user(req.email, req.password, req.name)
         token = auth_service.create_access_token(user["id"])
-        return {"access_token": token, "user": user}
-        
+
+        # 🛠 Map user -> UserResponse schema
+        user_response = UserResponse(
+            id=user["id"],
+            email=user["email"],
+            name=user["name"],
+            picture=user.get("picture"),
+            bio=user.get("bio"),
+            created_at=user["created_at"]
+        )
+
+        return {
+            "access_token": token,
+            "token_type": "bearer",  # ✅ REQUIRED by LoginResponse
+            "user": user_response
+        }
+
     except HTTPException:
         raise
     except Exception as e:
+        print("🔥 SIGNUP ERROR:", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Registration failed"
@@ -58,11 +75,27 @@ def login(req: LoginRequest, auth_service: AuthService = Depends(get_auth_servic
             raise HTTPException(status_code=401, detail="Invalid email or password.")
         
         token = auth_service.create_access_token(user["id"])
-        return {"access_token": token, "user": user}
+        
+        # 🛠 Map user -> UserResponse schema
+        user_response = UserResponse(
+            id=user["id"],
+            email=user["email"],
+            name=user["name"],
+            picture=user.get("picture"),
+            bio=user.get("bio"),
+            created_at=user["created_at"]
+        )
+
+        return {
+            "access_token": token,
+            "token_type": "bearer",  # ✅ REQUIRED by LoginResponse
+            "user": user_response
+        }
         
     except HTTPException:
         raise
     except Exception as e:
+        print("🔥 LOGIN ERROR:", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Login failed"
