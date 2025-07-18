@@ -16,8 +16,8 @@
       </div>
 
       <div v-if="!isLogin">
-        <label class="block mb-1 text-sm">Name</label>
-        <input v-model="form.name" type="text" required class="w-full input" />
+        <label class="block mb-1 text-sm">ชื่อ-นามสกุล</label>
+        <input v-model="form.name" type="text" required class="w-full input" placeholder="กรุณากรอกชื่อ-นามสกุล" />
       </div>
 
       <button :disabled="isLoading" class="btn w-full">
@@ -73,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, defineProps, withDefaults } from 'vue';
+import { ref, onMounted, watch, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import { setAuth, isUserReady } from '../store/auth';
 import { AuthService } from '../services/authService';
@@ -97,7 +97,7 @@ watch(() => props.initialMode, (newMode: 'login' | 'register' | undefined) => {
   errorMessage.value = '';
 });
 
-const form = ref({
+const form = reactive({
   email: '',
   password: '',
   name: '',
@@ -118,11 +118,30 @@ const handleSubmit = async () => {
   errorMessage.value = '';
 
   try {
+    // ✅ Client-side validation
+    if (!form.email.trim()) {
+      throw new Error('กรุณากรอกอีเมล');
+    }
+    
+    if (!form.password.trim()) {
+      throw new Error('กรุณากรอกรหัสผ่าน');
+    }
+    
+    if (!isLogin.value) {
+      if (!form.name.trim()) {
+        throw new Error('กรุณากรอกชื่อ-นามสกุล');
+      }
+      
+      if (form.password.length < 6) {
+        throw new Error('รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร');
+      }
+    }
+
     let data;
     if (isLogin.value) {
-      data = await AuthService.login(form.value.email, form.value.password);
+      data = await AuthService.login(form.email, form.password);
     } else {
-      data = await AuthService.signup(form.value.email, form.value.password, form.value.name);
+      data = await AuthService.signup(form.email, form.password, form.name);
     }
 
     // Use auth store to manage authentication state

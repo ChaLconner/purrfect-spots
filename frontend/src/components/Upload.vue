@@ -131,7 +131,7 @@
       </div>
       <button
         type="submit"
-        :disabled="!file"
+        :disabled="authStore.isAuthenticated && !file"
         class="w-full bg-emerald-500 text-white border-none py-3.5 px-6 rounded-lg text-lg font-medium cursor-pointer transition-colors hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {{ authStore.isAuthenticated ? 'Upload Photo' : 'Login to Upload' }}
@@ -373,6 +373,14 @@ function handleDrop(e) {
 }
 
 async function handleSubmit() {
+  // Check authentication first - redirect to login if not authenticated
+  if (!authStore.isAuthenticated || !authStore.user) {
+    sessionStorage.setItem('redirectAfterAuth', '/upload');
+    router.push('/login');
+    return;
+  }
+
+  // Validation for authenticated users
   if (!file.value) {
     error.value = "Please select a file to upload.";
     return;
@@ -389,13 +397,6 @@ async function handleSubmit() {
   }
   if (!locationName.value.trim()) {
     error.value = "Please enter a location name.";
-    return;
-  }
-
-  // Check authentication before uploading - redirect to login if not authenticated
-  if (!authStore.isAuthenticated || !authStore.user) {
-    sessionStorage.setItem('redirectAfterAuth', '/upload');
-    router.push('/login');
     return;
   }
 
