@@ -410,7 +410,7 @@ async function handleSubmit() {
   formData.append("description", description.value.trim() || "");
   formData.append("location_name", locationName.value.trim());
   try {
-    const res = await fetch("http://localhost:8000/upload-cat", {
+    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/upload/cat`, {
       method: "POST",
       headers: {
         ...getAuthHeader()

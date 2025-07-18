@@ -61,7 +61,7 @@ async function fetchImages() {
   loading.value = true;
   error.value = '';
   try {
-    const response = await fetch('/api/gallery');
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/gallery`);
     if (!response.ok) throw new Error(`Failed to fetch images (${response.status})`);
     const contentType = response.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
