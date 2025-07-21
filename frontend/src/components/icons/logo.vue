@@ -58,5 +58,5 @@
 </template>
 
 <script lang="ts" setup>
-const transform = "rotate(45)"; // หรือรับเป็น prop ก็ได้
+const transform = "rotate(45)";
 </script>

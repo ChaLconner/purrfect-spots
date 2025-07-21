@@ -102,12 +102,6 @@
               >
             </span>
           </div>
-          <button
-            @click="closeModal"
-            class="w-full px-4 py-3 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-medium transition-colors"
-          >
-            ปิด
-          </button>
         </div>
       </div>
     </div>

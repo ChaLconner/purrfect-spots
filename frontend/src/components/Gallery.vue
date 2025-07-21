@@ -19,15 +19,23 @@
             </svg>
             <p class="text-gray-600 text-lg">No photos uploaded yet</p>
         </div>
-        <div v-else class="gallery-masonry grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div v-for="image in images" :key="image.id" class="gallery-item group" @click="openModal(image)">
-                <img
-                    :src="image.url"
-                    :alt="image.filename"
-                    class="gallery-img w-full h-64 object-cover rounded-lg shadow-md group-hover:scale-105 transition-transform duration-200 ease-in-out cursor-pointer"
-                    loading="lazy"
-                    @error="handleImageError"
-                />
+        <div v-else class="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4">
+            <div 
+                v-for="(image, index) in images" 
+                :key="image.id" 
+                :class="`break-inside-avoid mb-4 cursor-pointer transform transition-all duration-300 hover:scale-105 ${getImageClass(index)}`"
+                @click="openModal(image)"
+            >
+                <div :class="`group rounded-lg overflow-hidden shadow-lg hover:shadow-xl bg-white ${getImageHeight(index)}`">
+                    <img
+                        :src="image.url"
+                        :alt="image.filename"
+                        class="w-full h-full object-cover group-hover:brightness-100 transition-all duration-300"
+                        loading="lazy"
+                        @error="handleImageError"
+                    />
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                </div>
             </div>
         </div>
         <!-- Modal -->
@@ -83,11 +91,35 @@ async function fetchImages() {
 function openModal(image) {
   selectedImage.value = image;
 }
+
 function closeModal() {
   selectedImage.value = null;
 }
+
 function handleImageError(event) {
   event.target.src = 'https://placehold.co/400x300?text=No+Image';
+}
+
+// สุ่มความสูงของรูปภาพแบบ Pinterest
+function getImageHeight(index) {
+  const heights = [
+    'h-48',  // Small - 192px
+    'h-64',  // Medium - 256px  
+    'h-80',  // Large - 320px
+    'h-96'   // Extra Large - 384px
+  ];
+  return heights[index % heights.length];
+}
+
+// เพิ่ม class สำหรับ animation และ styling
+function getImageClass(index) {
+  const animations = [
+    'hover:rotate-1',
+    'hover:-rotate-1', 
+    'hover:rotate-0',
+    'hover:rotate-2'
+  ];
+  return `relative ${animations[index % animations.length]}`;
 }
 function formatDate(dateString) {
   if (!dateString) return '';
@@ -109,3 +141,46 @@ function formatFileSize(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 </script>
+
+<style scoped>
+/* Pinterest-style masonry layout */
+.columns-1 {
+  column-count: 1;
+  column-gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .columns-1.sm\:columns-2 {
+    column-count: 2;
+  }
+}
+
+@media (min-width: 1024px) {
+  .columns-1.sm\:columns-2.lg\:columns-3 {
+    column-count: 3;
+  }
+}
+
+@media (min-width: 1280px) {
+  .columns-1.sm\:columns-2.lg\:columns-3.xl\:columns-4 {
+    column-count: 4;
+  }
+}
+
+/* Ensure images don't break across columns */
+.break-inside-avoid {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+/* Smooth hover effects */
+.group:hover img {
+  transform: scale(1.05);
+}
+
+/* Random height variations for Pinterest effect */
+.h-48 { height: 12rem; }
+.h-64 { height: 16rem; }
+.h-80 { height: 20rem; }
+.h-96 { height: 24rem; }
+</style>

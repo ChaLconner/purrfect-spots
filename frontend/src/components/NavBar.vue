@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import logo from "../components/icon/logo.vue";
+import logo from "../components/icons/logo.vue";
 import { ref, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { authStore, initializeAuth, clearAuth } from "../store/auth";
 import { AuthService } from "../services/authService";
+import Upload from "./icons/upload.vue";
+import Map from "./icons/map.vue";
+import gallery from "./icons/gallery.vue";
 
 const menuOpen = ref(false);
 const showUserMenu = ref(false);
@@ -79,9 +82,9 @@ onUnmounted(() => {
       class="flex-col md:flex-row items-center gap-4 md:gap-6 md:flex"
       :class="menuOpen ? 'flex' : 'hidden'"
     >
-      <router-link to="/" class="hover:underline"> Map </router-link>
-      <router-link to="/upload" class="hover:underline"> Upload </router-link>
-      <router-link to="/gallery" class="hover:underline"> Gallery </router-link>
+      <router-link to="/" class="hover:underline"><Map/> Map </router-link>
+      <router-link to="/upload" class="hover:underline"><Upload/> Upload </router-link>
+      <router-link to="/gallery" class="hover:underline"><gallery/> Gallery </router-link>
 
       <!-- Authentication Section -->
       <div v-if="!authStore.isAuthenticated" class="flex items-center gap-2">
@@ -89,7 +92,7 @@ onUnmounted(() => {
           to="/login"
           class="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-200 font-medium"
         >
-          เข้าสู่ระบบ
+          Login
         </router-link>
       </div>
 
