@@ -1,10 +1,14 @@
 """
-User profile management routes
+User profile m@router.put("/")
+async def update_profile(
+    request: ProfileUpdateRequest,
+    current_user: User = Depends(get_current_user_from_credentials)
+):ment routes
 """
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-from middleware.auth_middleware import get_current_user
+from middleware.auth_middleware import get_current_user_from_credentials
 from dependencies import get_supabase_client
 from user_models.user import User
 
@@ -20,7 +24,7 @@ class ProfileUpdateRequest(BaseModel):
 @router.put("/")
 async def update_profile(
     profile_data: ProfileUpdateRequest,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_from_credentials)
 ):
     """
     Update user profile information
@@ -65,7 +69,7 @@ async def update_profile(
 
 
 @router.get("/")
-async def get_profile(current_user: User = Depends(get_current_user)):
+async def get_profile(current_user: User = Depends(get_current_user_from_credentials)):
     """
     Get current user profile
     """
@@ -93,20 +97,49 @@ async def get_profile(current_user: User = Depends(get_current_user)):
 
 
 @router.get("/uploads")
-async def get_user_uploads(current_user: User = Depends(get_current_user)):
+async def get_user_uploads(current_user: User = Depends(get_current_user_from_credentials)):
     """
-    Get all uploads by current user
+    Get all uploads by current user - filtered by user_id
     """
     try:
         supabase = get_supabase_client()
+        user_id = current_user.id
         
-        # Get uploads from database (you'll need to create this table)
-        result = supabase.table("uploads").select("*").eq("user_id", current_user.id).order("created_at", desc=True).execute()
+        print(f"Fetching uploads for user_id: {user_id}")
+        
+        # Get uploads from cat_photos table filtered by user_id
+        result = supabase.table("cat_photos").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+        
+        print(f"Found {len(result.data)} uploads for user {user_id}")
+        
+        # Format the data to match frontend expectations
+        uploads = []
+        for photo in result.data:
+            upload_item = {
+                "id": photo["id"],
+                "image_url": photo["image_url"],  # ใช้ image_url แทน url
+                "description": photo.get("description", ""),
+                "location_name": photo.get("location_name", ""),
+                "created_at": photo.get("created_at", photo.get("uploaded_at", "")),
+                "latitude": photo.get("latitude"),
+                "longitude": photo.get("longitude")
+            }
+            
+            # Add location data if available
+            if photo.get("latitude") and photo.get("longitude"):
+                upload_item["location"] = {
+                    "lat": float(photo["latitude"]),
+                    "lng": float(photo["longitude"])
+                }
+            
+            uploads.append(upload_item)
         
         return {
-            "uploads": result.data
+            "uploads": uploads,
+            "count": len(uploads)
         }
         
     except Exception as e:
-        # Return empty list if table doesn't exist yet
-        return {"uploads": []}
+        print(f"Error getting user uploads for user {user_id}: {e}")
+        # Return empty list if there's an error
+        return {"uploads": [], "count": 0}

@@ -11,6 +11,7 @@ import torch
 import numpy as np
 
 from dependencies import get_supabase_client
+from middleware.auth_middleware import get_current_user_from_credentials
 
 router = APIRouter(
     prefix="/upload",
@@ -125,6 +126,7 @@ async def upload_cat(
     lng: float = Form(...),
     description: str = Form(...),
     location_name: str = Form(...),
+    current_user = Depends(get_current_user_from_credentials),
     supabase = Depends(get_supabase_client),
 ):
     """Upload an image to S3 and save its metadata to Supabase — only if it's a cat."""
@@ -168,13 +170,14 @@ async def upload_cat(
         raise HTTPException(status_code=500, detail=f"Failed to upload to S3: {str(e)}")
     s3_url = f"https://{AWS_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{key}"
     
-    # บันทึกข้อมูลลง Supabase
+    # บันทึกข้อมูลลง Supabase พร้อมกับ user_id
     payload = {
         "image_url": s3_url,
         "latitude": lat,
         "longitude": lng,
         "description": description,
         "location_name": location_name,
+        "user_id": current_user["id"]  # เพิ่ม user_id เข้าไป
     }
     result = supabase.table("cat_photos").insert(payload).execute()
     if getattr(result, "error", None):

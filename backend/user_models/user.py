@@ -7,7 +7,7 @@ from datetime import datetime
 
 
 class User(BaseModel):
-    id: Optional[str] = None
+    id: str
     google_id: Optional[str] = None
     email: str
     name: str

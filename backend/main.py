@@ -3,8 +3,12 @@ from typing import List
 
 import boto3
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.exception_handlers import http_exception_handler
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel
 
 # Import authentication modules
@@ -19,6 +23,34 @@ app = FastAPI(
     version="2.0.0"
 )
 
+# ✅ Exception handlers (add before middleware and routers)
+@app.exception_handler(Exception)
+async def generic_exception_handler(request: Request, exc: Exception):
+    print(f"🔥 Unhandled Exception: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error"},
+        headers={"Access-Control-Allow-Origin": "*"}  # CORS fallback (dev only!)
+    )
+
+@app.exception_handler(StarletteHTTPException)
+async def custom_http_exception_handler(request: Request, exc: StarletteHTTPException):
+    print(f"🔥 HTTP Exception: {exc.status_code} - {exc.detail}")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers={"Access-Control-Allow-Origin": "*"}  # CORS fallback
+    )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    print(f"🔥 Validation Error: {exc}")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": "Request validation failed", "errors": exc.errors()},
+        headers={"Access-Control-Allow-Origin": "*"}  # CORS fallback
+    )
+
 # ✅ CORS middleware must be added BEFORE including routers
 app.add_middleware(
     CORSMiddleware,
@@ -27,6 +59,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ✅ Health check endpoint
+@app.get("/health")
+async def health_check():
+    """Simple health check endpoint"""
+    return {"status": "healthy", "message": "PurrFect Spots API is running"}
 
 # ✅ Include routers AFTER middleware
 app.include_router(auth_manual.router)

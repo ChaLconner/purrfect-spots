@@ -81,28 +81,67 @@
       <div class="bg-white rounded-lg shadow-sm p-6">
         <!-- My Uploads Tab -->
         <div v-if="activeTab === 'uploads'">
-          <div v-if="uploads.length === 0" class="text-center py-12">
-            <p class="text-gray-500 mb-4">No uploads yet</p>
+          <!-- Loading State -->
+          <div v-if="uploadsLoading" class="flex justify-center items-center py-12">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+            <span class="ml-3 text-gray-600">กำลังโหลดรูปภาพ...</span>
+          </div>
+          
+          <!-- Error State -->
+          <div v-else-if="uploadsError" class="text-center py-12">
+            <p class="text-red-500 mb-4">{{ uploadsError }}</p>
+            <button 
+              @click="loadUploads"
+              class="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+            >
+              ลองใหม่อีกครั้ง
+            </button>
+          </div>
+          
+          <!-- No Uploads State -->
+          <div v-else-if="uploads.length === 0" class="text-center py-12">
+            <div class="mb-4">
+              <svg class="h-16 w-16 text-gray-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" 
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-600 mb-2">ยังไม่มีรูปภาพที่อัปโหลด</h3>
+            <p class="text-gray-500 mb-4">เริ่มแชร์รูปแมวสุดน่ารักของคุณ</p>
             <button 
               @click="router.push('/upload')"
               class="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
             >
-              Upload Your First Photo
+              อัปโหลดรูปแรกของคุณ
             </button>
           </div>
-          <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            <div 
-              v-for="upload in uploads" 
-              :key="upload.id"
-              class="relative group aspect-square bg-gray-100 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
-              @click="openImageModal(upload)"
-            >
-              <img 
-                :src="upload.image_url" 
-                :alt="upload.description || 'Cat photo'"
-                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              />
-              <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity"></div>
+          
+          <!-- Uploads Grid -->
+          <div v-else>
+            <div class="mb-4 flex justify-between items-center">
+              <h3 class="text-lg font-semibold text-gray-800">รูปภาพของคุณ</h3>
+              <span class="text-sm text-gray-500">{{ uploads.length }} รูป</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              <div 
+                v-for="upload in uploads" 
+                :key="upload.id"
+                class="relative group aspect-square bg-gray-100 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+                @click="openImageModal(upload)"
+              >
+                <img 
+                  :src="upload.image_url" 
+                  :alt="upload.description || upload.location_name || 'Cat photo'"
+                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
+                <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity"></div>
+                
+                <!-- Upload Info Overlay -->
+                <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                  <p class="text-white text-xs truncate">{{ upload.location_name || 'Unknown location' }}</p>
+                  <p class="text-white/80 text-xs">{{ formatUploadDate(upload.created_at) }}</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -189,21 +228,48 @@
 
     <!-- Image Modal -->
     <div v-if="selectedImage" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50" @click="closeImageModal">
-      <div class="relative max-w-4xl max-h-full p-4">
+      <div class="relative max-w-4xl max-h-full p-4 flex flex-col md:flex-row">
+        <!-- Close button -->
         <button 
           @click="closeImageModal"
-          class="absolute top-2 right-2 z-10 text-white hover:text-gray-300"
+          class="absolute top-2 right-2 z-10 text-white hover:text-gray-300 bg-black/50 rounded-full p-2"
         >
-          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
           </svg>
         </button>
-        <img 
-          :src="selectedImage.image_url" 
-          :alt="selectedImage.description || 'Cat photo'"
-          class="max-w-full max-h-full object-contain"
-          @click.stop
-        />
+        
+        <!-- Image -->
+        <div class="flex-1">
+          <img 
+            :src="selectedImage.image_url" 
+            :alt="selectedImage.description || selectedImage.location_name || 'Cat photo'"
+            class="max-w-full max-h-full object-contain rounded-lg"
+            @click.stop
+          />
+        </div>
+        
+        <!-- Image Info (desktop only) -->
+        <div class="md:w-80 md:ml-6 mt-4 md:mt-0 text-white" @click.stop>
+          <div class="bg-black/50 rounded-lg p-4">
+            <h3 class="text-lg font-semibold mb-2">{{ selectedImage.location_name || 'Unknown Location' }}</h3>
+            
+            <div v-if="selectedImage.description" class="mb-3">
+              <p class="text-sm text-gray-300">คำอธิบาย:</p>
+              <p class="text-sm">{{ selectedImage.description }}</p>
+            </div>
+            
+            <div class="mb-3">
+              <p class="text-sm text-gray-300">วันที่อัปโหลด:</p>
+              <p class="text-sm">{{ formatUploadDate(selectedImage.created_at) }}</p>
+            </div>
+            
+            <div v-if="selectedImage.latitude && selectedImage.longitude" class="mb-3">
+              <p class="text-sm text-gray-300">พิกัด:</p>
+              <p class="text-xs font-mono">{{ selectedImage.latitude.toFixed(6) }}, {{ selectedImage.longitude.toFixed(6) }}</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -221,11 +287,16 @@ interface Upload {
   id: string;
   image_url: string;
   description?: string;
+  location_name?: string;
+  latitude?: number;
+  longitude?: number;
   created_at: string;
 }
 
 const activeTab = ref('uploads');
 const uploads = ref<Upload[]>([]);
+const uploadsLoading = ref(false);
+const uploadsError = ref<string | null>(null);
 const showEditModal = ref(false);
 const selectedImage = ref<Upload | null>(null);
 
@@ -235,51 +306,43 @@ const editForm = reactive({
   picture: ''
 });
 
-// Mock data for uploads - replace with actual API call
-const mockUploads: Upload[] = [
-  {
-    id: '1',
-    image_url: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=300&h=300&fit=crop',
-    description: 'Cute tabby cat',
-    created_at: '2024-01-15T10:30:00Z'
-  },
-  {
-    id: '2',
-    image_url: 'https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=300&h=300&fit=crop',
-    description: 'Orange cat in garden',
-    created_at: '2024-01-10T14:20:00Z'
-  },
-  {
-    id: '3',
-    image_url: 'https://images.unsplash.com/photo-1592194996308-7b43878e84a6?w=300&h=300&fit=crop',
-    description: 'Sleepy kitten',
-    created_at: '2024-01-05T09:15:00Z'
-  },
-  {
-    id: '4',
-    image_url: 'https://images.unsplash.com/photo-1533743983669-94fa5c4338ec?w=300&h=300&fit=crop',
-    description: 'Black and white cat',
-    created_at: '2024-01-01T16:45:00Z'
-  },
-  {
-    id: '5',
-    image_url: 'https://images.unsplash.com/photo-1561948955-570b270e7c36?w=300&h=300&fit=crop',
-    description: 'Persian cat',
-    created_at: '2023-12-28T11:30:00Z'
-  },
-  {
-    id: '6',
-    image_url: 'https://images.unsplash.com/photo-1596854407944-bf87f6fdd49e?w=300&h=300&fit=crop',
-    description: 'Cat in library',
-    created_at: '2023-12-25T13:20:00Z'
-  }
-];
-
 const formatJoinDate = (dateString: string | undefined) => {
   if (!dateString) return 'Unknown';
   
   const date = new Date(dateString);
   return date.getFullYear().toString();
+};
+
+const formatUploadDate = (dateString: string) => {
+  if (!dateString) return 'Unknown date';
+  
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('th-TH', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  } catch {
+    return 'Invalid date';
+  }
+};
+
+const loadUploads = async () => {
+  uploadsLoading.value = true;
+  uploadsError.value = null;
+  
+  try {
+    const userUploads = await ProfileService.getUserUploads();
+    uploads.value = userUploads;
+    console.log('Loaded user uploads:', userUploads);
+  } catch (error) {
+    console.error('Error loading uploads:', error);
+    uploadsError.value = 'ไม่สามารถโหลดรูปภาพได้ กรุณาลองใหม่อีกครั้ง';
+    uploads.value = [];
+  } finally {
+    uploadsLoading.value = false;
+  }
 };
 
 const openImageModal = (upload: Upload) => {
@@ -318,15 +381,8 @@ const saveProfile = async () => {
 };
 
 onMounted(async () => {
-  try {
-    // Load user uploads from API
-    const userUploads = await ProfileService.getUserUploads();
-    uploads.value = userUploads;
-  } catch (error) {
-    console.error('Error loading uploads:', error);
-    // Fallback to mock data
-    uploads.value = mockUploads;
-  }
+  // Load user uploads
+  await loadUploads();
   
   // Initialize edit form with current user data
   if (authStore.user) {

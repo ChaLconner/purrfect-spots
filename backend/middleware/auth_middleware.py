@@ -1,14 +1,16 @@
 """
 Authentication middleware for protecting routes with Supabase Auth
 """
-from fastapi import HTTPException, Depends, status, Header
+from fastapi import HTTPException, Depends, status, Header, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 from supabase import Client
 import jwt
+from jwt import PyJWTError
 import os
 import requests
 from dependencies import get_supabase_client
+from user_models.user import User
 
 
 security = HTTPBearer()
@@ -90,11 +92,11 @@ def get_current_user_from_header(authorization: str = Header(...)):
         raise HTTPException(status_code=401, detail="Authentication failed")
 
 
-async def get_current_user(
+async def get_current_user_from_credentials(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     supabase: Client = Depends(get_supabase_client)
 ):
-    """Get current authenticated user using Supabase Auth"""
+    """Get current authenticated user using Supabase Auth (original function)"""
     token = credentials.credentials
     
     # Try Supabase token first
@@ -109,7 +111,15 @@ async def get_current_user(
         try:
             result = supabase.table("users").select("*").eq("id", user_id).single().execute()
             if result.data:
-                return result.data
+                # Convert dict to User object
+                return User(
+                    id=result.data["id"],
+                    email=result.data.get("email", ""),
+                    name=result.data.get("name", ""),
+                    picture=result.data.get("picture", ""),
+                    bio=result.data.get("bio"),
+                    created_at=result.data.get("created_at", "")
+                )
         except Exception:
             pass
         
@@ -117,15 +127,14 @@ async def get_current_user(
         user_metadata = payload.get("user_metadata", {})
         app_metadata = payload.get("app_metadata", {})
         
-        user_data = {
-            "id": user_id,
-            "email": payload.get("email", ""),
-            "name": user_metadata.get("name", user_metadata.get("full_name", "")),
-            "picture": user_metadata.get("avatar_url", user_metadata.get("picture", "")),
-            "google_id": user_metadata.get("provider_id") if app_metadata.get("provider") == "google" else None,
-            "created_at": payload.get("iat", ""),
-            "bio": None
-        }
+        return User(
+            id=user_id,
+            email=payload.get("email", ""),
+            name=user_metadata.get("name", user_metadata.get("full_name", "")),
+            picture=user_metadata.get("avatar_url", user_metadata.get("picture", "")),
+            bio=None,
+            created_at=str(payload.get("iat", ""))
+        )
         
         return user_data
         
@@ -142,24 +151,65 @@ async def get_current_user(
             try:
                 result = supabase.table("users").select("*").eq("id", user_id).single().execute()
                 if result.data:
-                    return result.data
+                    # Convert dict to User object
+                    return User(
+                        id=result.data["id"],
+                        email=result.data.get("email", ""),
+                        name=result.data.get("name", ""),
+                        picture=result.data.get("picture", ""),
+                        bio=result.data.get("bio"),
+                        created_at=result.data.get("created_at", "")
+                    )
             except Exception:
                 pass
             
             # If user not found in database, return custom JWT payload data
-            user_data = {
-                "id": user_id,
-                "email": payload.get("email", ""),
-                "name": payload.get("name", ""),
-                "picture": payload.get("picture", ""),
-                "created_at": payload.get("iat", ""),
-                "bio": None
-            }
-            
-            return user_data
+            return User(
+                id=user_id,
+                email=payload.get("email", ""),
+                name=payload.get("name", ""),
+                picture=payload.get("picture", ""),
+                bio=None,
+                created_at=str(payload.get("iat", ""))
+            )
             
         except Exception:
             raise HTTPException(status_code=401, detail="Authentication failed")
+
+
+def get_current_user(request: Request):
+    """Get current user from request headers using JWT token"""
+    try:
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Missing or invalid token")
+
+        token = auth_header.split(" ")[1]
+        payload = jwt.decode(
+            token,
+            os.getenv("JWT_SECRET_KEY", os.getenv("JWT_SECRET", "your-secret")),
+            algorithms=["HS256"]
+        )
+
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token payload")
+
+        return User(
+            id=user_id, 
+            email=payload.get("email", ""),
+            name=payload.get("name", ""),
+            picture=payload.get("picture", ""),
+            bio=payload.get("bio"),
+            created_at=payload.get("iat", "")
+        )
+
+    except (jwt.PyJWTError, ValueError, TypeError, KeyError) as e:
+        print(f"🛑 JWT Decode Error: {e}")
+        raise HTTPException(status_code=401, detail="Token is invalid or expired")
+    except Exception as e:
+        print(f"🛑 Unknown Auth Error: {e}")
+        raise HTTPException(status_code=401, detail="Authentication failed")
 
 
 async def get_current_user_optional(
@@ -171,6 +221,6 @@ async def get_current_user_optional(
         return None
     
     try:
-        return await get_current_user(credentials, supabase)
+        return await get_current_user_from_credentials(credentials, supabase)
     except HTTPException:
         return None
