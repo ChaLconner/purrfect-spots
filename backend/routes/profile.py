@@ -77,7 +77,7 @@ async def get_profile(current_user: User = Depends(get_current_user_from_credent
         supabase = get_supabase_client()
         
         # Get user data from database
-        result = supabase.table("users").select("*").eq("id", current_user.id).execute()
+        result = supabase.table("cat_photos").select("*").eq("id", current_user.id).execute()
         
         if not result.data:
             raise HTTPException(status_code=404, detail="User not found")
@@ -107,39 +107,39 @@ async def get_user_uploads(current_user: User = Depends(get_current_user_from_cr
         
         print(f"Fetching uploads for user_id: {user_id}")
         
-        # Get uploads from cat_photos table filtered by user_id
-        result = supabase.table("cat_photos").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+        # ✅ Query ก่อน แล้วค่อย print
+        result = supabase.table("cat_photos").select("*").eq("user_id", user_id).order("uploaded_at", desc=True).execute()
         
+        print(f"Supabase Result: {result.data}")
         print(f"Found {len(result.data)} uploads for user {user_id}")
         
-        # Format the data to match frontend expectations
+        # ✅ Format the data
         uploads = []
         for photo in result.data:
             upload_item = {
                 "id": photo["id"],
-                "image_url": photo["image_url"],  # ใช้ image_url แทน url
+                "image_url": photo["image_url"],
                 "description": photo.get("description", ""),
                 "location_name": photo.get("location_name", ""),
-                "created_at": photo.get("created_at", photo.get("uploaded_at", "")),
+                "created_at": photo.get("uploaded_at", ""),
                 "latitude": photo.get("latitude"),
                 "longitude": photo.get("longitude")
             }
-            
-            # Add location data if available
+
             if photo.get("latitude") and photo.get("longitude"):
                 upload_item["location"] = {
                     "lat": float(photo["latitude"]),
                     "lng": float(photo["longitude"])
                 }
-            
+
             uploads.append(upload_item)
-        
+
         return {
             "uploads": uploads,
             "count": len(uploads)
         }
-        
+
     except Exception as e:
-        print(f"Error getting user uploads for user {user_id}: {e}")
-        # Return empty list if there's an error
+        print(f"Error getting user uploads for user {current_user.id}: {e}")
         return {"uploads": [], "count": 0}
+

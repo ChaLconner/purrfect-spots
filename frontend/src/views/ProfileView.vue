@@ -134,13 +134,6 @@
                   :alt="upload.description || upload.location_name || 'Cat photo'"
                   class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
-                <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity"></div>
-                
-                <!-- Upload Info Overlay -->
-                <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
-                  <p class="text-white text-xs truncate">{{ upload.location_name || 'Unknown location' }}</p>
-                  <p class="text-white/80 text-xs">{{ formatUploadDate(upload.created_at) }}</p>
-                </div>
               </div>
             </div>
           </div>

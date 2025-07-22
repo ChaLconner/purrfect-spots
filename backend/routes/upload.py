@@ -177,7 +177,7 @@ async def upload_cat(
         "longitude": lng,
         "description": description,
         "location_name": location_name,
-        "user_id": current_user["id"]  # เพิ่ม user_id เข้าไป
+        "user_id": current_user.id  # เพิ่ม user_id เข้าไป
     }
     result = supabase.table("cat_photos").insert(payload).execute()
     if getattr(result, "error", None):
