@@ -97,6 +97,66 @@
             class="max-w-full max-h-72 rounded-lg shadow-md mx-auto"
           />
           <p class="mt-4 text-gray-600">{{ file?.name }}</p>
+          
+          <!-- Cat Detection Loading -->
+          <div v-if="isDetectingCats" class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div class="flex items-center justify-center">
+              <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mr-3"></div>
+              <span class="text-blue-700">🔍 กำลังตรวจสอบแมวในรูปภาพ...</span>
+            </div>
+          </div>
+          
+          <!-- Cat Detection Results -->
+          <div v-if="showDetectionResults && catDetectionResult" class="mt-4">
+            <!-- Success: Cat Found -->
+            <div v-if="catDetectionResult.has_cats" class="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div class="flex items-center mb-2">
+                <svg class="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                </svg>
+                <span class="text-green-700 font-semibold">✅ พบแมวในรูปภาพ!</span>
+              </div>
+              <div class="text-sm text-green-600">
+                <p>🐱 จำนวนแมว: {{ catDetectionResult.cat_count }} ตัว</p>
+                <p>📊 ความมั่นใจ: {{ catDetectionResult.confidence }}%</p>
+                <p>🏠 เหมาะสำหรับ Cat Spot: {{ catDetectionResult.suitable_for_cat_spot ? 'ใช่' : 'ไม่' }}</p>
+                <p v-if="catDetectionResult.reasoning" class="mt-2 italic">💭 {{ catDetectionResult.reasoning }}</p>
+                
+                <!-- แสดงข้อมูลแมวที่พบ -->
+                <div v-if="catDetectionResult.cats_detected && catDetectionResult.cats_detected.length > 0" class="mt-3">
+                  <p class="font-semibold mb-2">รายละเอียดแมวที่พบ:</p>
+                  <div v-for="(cat, index) in catDetectionResult.cats_detected" :key="index" class="bg-white p-2 rounded border mb-2">
+                    <p><strong>คำอธิบาย:</strong> {{ cat.description }}</p>
+                    <p><strong>พันธุ์ (คาดการณ์):</strong> {{ cat.breed_guess }}</p>
+                    <p><strong>ตำแหน่ง:</strong> {{ cat.position }}</p>
+                    <p><strong>ขนาด:</strong> {{ cat.size }}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div v-if="catDetectionResult.note" class="mt-2 text-xs text-gray-500 italic">
+                📝 {{ catDetectionResult.note }}
+              </div>
+            </div>
+            
+            <!-- Error: No Cat Found -->
+            <div v-else class="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div class="flex items-center mb-2">
+                <svg class="w-5 h-5 text-red-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                </svg>
+                <span class="text-red-700 font-semibold">❌ ไม่พบแมวในรูปภาพ</span>
+              </div>
+              <div class="text-sm text-red-600">
+                <p>📊 ความมั่นใจ: {{ catDetectionResult.confidence }}%</p>
+                <p>📷 คุณภาพรูป: {{ catDetectionResult.image_quality }}</p>
+                <p v-if="catDetectionResult.reasoning" class="mt-2 italic">💭 {{ catDetectionResult.reasoning }}</p>
+              </div>
+              <p class="text-sm text-red-700 mt-3 font-medium">
+                กรุณาอัพโหลดรูปภาพที่มีแมวเท่านั้น
+              </p>
+            </div>
+          </div>
         </div>
         <div v-else>
           <p class="mb-4 text-gray-500 text-lg">
@@ -122,10 +182,13 @@
       </div>
       <button
         type="submit"
-        :disabled="authStore.isAuthenticated && !file"
+        :disabled="!authStore.isAuthenticated || !file || isDetectingCats || (catDetectionResult && !catDetectionResult.has_cats)"
         class="w-full bg-emerald-500 text-white border-none py-3.5 px-6 rounded-lg text-lg font-medium cursor-pointer transition-colors hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {{ authStore.isAuthenticated ? 'Upload Photo' : 'Login to Upload' }}
+        <span v-if="!authStore.isAuthenticated">Login to Upload</span>
+        <span v-else-if="isDetectingCats">🔍 Detecting Cats...</span>
+        <span v-else-if="catDetectionResult && !catDetectionResult.has_cats">❌ No Cat Detected</span>
+        <span v-else>🐱 Upload Cat Photo</span>
       </button>
     </form>
 
@@ -176,6 +239,7 @@ import { LMap, LTileLayer, LMarker } from "@vue-leaflet/vue-leaflet";
 import "leaflet/dist/leaflet.css";
 import { useUploadCat } from "../composables/useUploadCat";
 import { authStore, isUserReady, getAuthHeader } from "../store/auth";
+import { catDetectionService } from "../services/catDetectionService";
 
 const router = useRouter();
 
@@ -196,6 +260,9 @@ const gettingLocation = ref(false);
 const locationSuccess = ref(false);
 const classificationLabel = ref(null);
 const classificationConfidence = ref(null);
+const isDetectingCats = ref(false);
+const catDetectionResult = ref(null);
+const showDetectionResults = ref(false);
 
 // Use the upload composable
 const { uploadCat, isUploading, error } = useUploadCat();
@@ -351,6 +418,9 @@ function handleFileChange(e) {
     file.value = selected;
     previewUrl.value = URL.createObjectURL(selected);
     error.value = null;
+    
+    // ตรวจจับแมวในรูปภาพที่เลือก
+    detectCatsInImage(selected);
   }
 }
 
@@ -360,6 +430,55 @@ function handleDrop(e) {
     file.value = dropped;
     previewUrl.value = URL.createObjectURL(dropped);
     error.value = null;
+    
+    // ตรวจจับแมวในรูปภาพที่ drop
+    detectCatsInImage(dropped);
+  }
+}
+
+async function detectCatsInImage(imageFile) {
+  if (!imageFile) return;
+  
+  isDetectingCats.value = true;
+  catDetectionResult.value = null;
+  showDetectionResults.value = false;
+  error.value = null;
+  
+  try {
+    console.log('🔍 Starting cat detection for:', imageFile.name);
+    
+    // ใช้ test endpoint ที่ไม่ต้อง authentication
+    const result = await catDetectionService.testDetectCats(imageFile);
+    
+    catDetectionResult.value = result;
+    showDetectionResults.value = true;
+    
+    console.log('✅ Cat detection result:', result);
+    
+    // ตรวจสอบว่ามีแมวในรูปหรือไม่
+    if (!result.has_cats || result.cat_count === 0) {
+      error.value = `❌ ไม่พบแมวในรูปภาพนี้! กรุณาอัพโหลดรูปภาพที่มีแมว (Confidence: ${result.confidence}%)`;
+      file.value = null;
+      previewUrl.value = null;
+      showDetectionResults.value = false;
+    } else {
+      console.log(`✅ พบแมว ${result.cat_count} ตัว! (Confidence: ${result.confidence}%)`);
+    }
+    
+  } catch (error) {
+    console.error('❌ Cat detection failed:', error);
+    
+    // ถ้า detection ล้มเหลว ให้ใช้ fallback
+    error.value = `⚠️ ไม่สามารถตรวจสอบแมวได้: ${error.message}. คุณยังสามารถอัพโหลดได้`;
+    catDetectionResult.value = {
+      has_cats: true, // สมมติว่ามีแมว
+      cat_count: 1,
+      confidence: 50,
+      note: "ไม่สามารถตรวจสอบได้ - กรุณาตรวจสอบด้วยตนเอง"
+    };
+    showDetectionResults.value = true;
+  } finally {
+    isDetectingCats.value = false;
   }
 }
 
@@ -376,6 +495,19 @@ async function handleSubmit() {
     error.value = "Please select a file to upload.";
     return;
   }
+  
+  // ตรวจสอบว่ามีการตรวจจับแมวแล้วหรือยัง
+  if (!catDetectionResult.value) {
+    error.value = "กรุณารอให้ระบบตรวจสอบแมวในรูปภาพเสร็จสิ้น";
+    return;
+  }
+  
+  // ตรวจสอบว่ามีแมวในรูปหรือไม่
+  if (!catDetectionResult.value.has_cats || catDetectionResult.value.cat_count === 0) {
+    error.value = "ไม่สามารถอัพโหลดได้ เนื่องจากไม่พบแมวในรูปภาพนี้ กรุณาเลือกรูปภาพที่มีแมว";
+    return;
+  }
+  
   if (
     !latitude.value ||
     !longitude.value ||
@@ -394,19 +526,31 @@ async function handleSubmit() {
   isUploading.value = true;
   error.value = null;
   uploadSuccess.value = false;
+  
   const formData = new FormData();
   formData.append("file", file.value);
   formData.append("lat", latitude.value);
   formData.append("lng", longitude.value);
   formData.append("description", description.value.trim() || "");
   formData.append("location_name", locationName.value.trim());
+  
+  // เพิ่มข้อมูลการตรวจจับแมว
+  formData.append("cat_detection_data", JSON.stringify({
+    has_cats: catDetectionResult.value.has_cats,
+    cat_count: catDetectionResult.value.cat_count,
+    confidence: catDetectionResult.value.confidence,
+    suitable_for_cat_spot: catDetectionResult.value.suitable_for_cat_spot,
+    cats_detected: catDetectionResult.value.cats_detected || [],
+    detection_timestamp: new Date().toISOString()
+  }));
+  
   try {
     const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/upload/cat`, {
       method: "POST",
       headers: {
-        ...getAuthHeader()
+      ...getAuthHeader()
       },
-      body: formData,
+      body: formData
     });
     let data = null;
     const text = await res.text();

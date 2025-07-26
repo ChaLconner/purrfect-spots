@@ -10,6 +10,7 @@ from fastapi.exception_handlers import http_exception_handler
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel
+from routes import auth_google, cat_detection
 
 # Import authentication modules
 from routes import auth_manual, auth_google, profile, upload
@@ -71,6 +72,7 @@ app.include_router(auth_manual.router)
 app.include_router(auth_google.router)
 app.include_router(profile.router)
 app.include_router(upload.router)
+app.include_router(cat_detection.router)
 
 # AWS configuration for gallery
 AWS_REGION = os.getenv("AWS_REGION", "ap-southeast-1")
@@ -149,3 +151,7 @@ def get_locations(supabase = Depends(get_supabase_client)):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)

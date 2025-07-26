@@ -10,7 +10,7 @@ class User(BaseModel):
     id: str
     google_id: Optional[str] = None
     email: str
-    name: str
+    name: Optional[str]
     picture: Optional[str] = None
     bio: Optional[str] = None
     password_hash: Optional[str] = None

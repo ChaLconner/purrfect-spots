@@ -1,192 +1,177 @@
-import os
-import uuid
-from typing import List
-from io import BytesIO
-
-import boto3
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Depends
-from pydantic import BaseModel
-from PIL import Image
-import torch
-import numpy as np
-
+"""
+Upload routes for cat photos
+"""
+from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Depends
+from fastapi.responses import JSONResponse
+from middleware.auth_middleware import get_current_user
+from routes.cat_detection import CatDetectionService
 from dependencies import get_supabase_client
-from middleware.auth_middleware import get_current_user_from_credentials
+import logging
+import json
+import uuid
+from datetime import datetime
+from typing import Optional
+import boto3
+import os
+import io
 
-router = APIRouter(
-    prefix="/upload",
-    tags=["upload"]
-)
+router = APIRouter(prefix="/upload", tags=["Upload"])
 
-# AWS configuration
-AWS_REGION = os.getenv("AWS_REGION", "ap-southeast-1")
-AWS_BUCKET = os.getenv("AWS_S3_BUCKET", "purrfect-spots-bucket")
-AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID")
-AWS_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-
-# Initialize S3 client
-s3_client = boto3.client(
-    "s3",
-    region_name=AWS_REGION,
-    aws_access_key_id=AWS_ACCESS_KEY,
-    aws_secret_access_key=AWS_SECRET_KEY,
-    config=boto3.session.Config(signature_version="s3v4"),
-)
-
-# Load the model with error handling
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-def load_yolo_model():
-    """Load YOLOv5 model with error handling and fallback options"""
-    try:
-        print("🔄 Attempting to load YOLOv5 model...")
-        
-        # Method 1: Try downloading fresh model (clear cache first)
-        try:
-            print("📦 Downloading YOLOv5 model from ultralytics...")
-            # Clear cache to avoid outdated cache issues
-            import shutil
-            cache_dir = torch.hub.get_dir()
-            yolo_cache = os.path.join(cache_dir, "ultralytics_yolov5_master")
-            if os.path.exists(yolo_cache):
-                shutil.rmtree(yolo_cache)
-                print("🗑️ Cleared YOLOv5 cache")
-            
-            model = torch.hub.load("ultralytics/yolov5", "yolov5s", pretrained=True, force_reload=True, trust_repo=True)
-            model.to(device).eval()
-            print(f"✅ YOLOv5 model downloaded and loaded successfully on {device}")
-            return model
-        except Exception as e1:
-            print(f"⚠️ Download with cache clear failed: {e1}")
-        
-        # Method 2: Try using local file with different approach
-        try:
-            model_path = os.path.abspath("yolov5s.pt")
-            if os.path.exists(model_path):
-                print(f"� Trying to load local model: {model_path}")
-                # Try loading as a regular PyTorch model with weights_only=False
-                model = torch.load(model_path, map_location=device, weights_only=False)
-                if hasattr(model, 'eval'):
-                    model.eval()
-                print(f"✅ Local model loaded successfully on {device}")
-                return model
-            else:
-                print("❌ Local model file not found")
-        except Exception as e2:
-            print(f"⚠️ Local model loading failed: {e2}")
-        
-        # Method 3: Try without force_reload
-        try:
-            print("� Trying standard YOLOv5 download...")
-            model = torch.hub.load("ultralytics/yolov5", "yolov5s", pretrained=True, trust_repo=True)
-            model.to(device).eval()
-            print(f"✅ YOLOv5 model loaded successfully on {device}")
-            return model
-        except Exception as e3:
-            print(f"⚠️ Standard download failed: {e3}")
-        
-        # If all methods fail, disable cat detection
-        print("❌ All model loading methods failed")
-        print("⚠️ YOLOv5 model not available - cat detection will be disabled")
-        return None
-        
-    except Exception as e:
-        print(f"❌ Unexpected error in load_yolo_model: {str(e)}")
-        print("⚠️ YOLOv5 model not available - cat detection will be disabled")
-        return None
-
-# Initialize the model
-model = load_yolo_model()
-
-@router.post("/")
-async def upload_file(file: UploadFile = File(...)):
-    """Upload a file to S3 and return its public URL."""
-    try:
-        file_extension = file.filename.split(".")[-1]
-        key = f"uploads/{uuid.uuid4()}.{file_extension}"
-        file_content = await file.read()
-        try:
-            s3_client.put_object(
-                Bucket=AWS_BUCKET,
-                Key=key,
-                Body=file_content,
-                ContentType=file.content_type,
-            )
-        except Exception as s3_error:
-            raise HTTPException(status_code=500, detail=f"S3 upload failed: {str(s3_error)}")
-        s3_url = f"https://{AWS_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{key}"
-        return {"url": s3_url}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+def get_cat_detection_service():
+    return CatDetectionService()
 
 @router.post("/cat")
-async def upload_cat(
+async def upload_cat_photo(
     file: UploadFile = File(...),
-    lat: float = Form(...),
-    lng: float = Form(...),
-    description: str = Form(...),
+    lat: str = Form(...),
+    lng: str = Form(...),
     location_name: str = Form(...),
-    current_user = Depends(get_current_user_from_credentials),
+    description: Optional[str] = Form(""),
+    cat_detection_data: Optional[str] = Form(None),
+    current_user = Depends(get_current_user),
     supabase = Depends(get_supabase_client),
+    detection_service: CatDetectionService = Depends(get_cat_detection_service)
 ):
-    """Upload an image to S3 and save its metadata to Supabase — only if it's a cat."""
-    contents = await file.read()
-    detected_labels = []
-    
-    # ตรวจสอบว่าเป็นภาพแมวหรือไม่
+    """
+    อัพโหลดรูปภาพแมวพร้อมข้อมูลตำแหน่ง
+    """
     try:
-        # Check if model is available
-        if model is None:
-            print("⚠️  YOLOv5 model not available - skipping cat detection")
-            # Skip cat detection if model is not available
-        else:
-            image = Image.open(BytesIO(contents)).convert("RGB")
-            img_np = np.array(image)
-            results = model(img_np)
-            detected_labels = results.pandas().xyxy[0]['name'].tolist()
-            is_cat = any("cat" in label.lower() for label in detected_labels)
-            if not is_cat:
-                raise HTTPException(status_code=400, detail="Please upload a cat image only.")
+        print(f"🐱 Uploading cat photo for user: {getattr(current_user, 'email', getattr(current_user, 'id', 'unknown'))}")
+        print(f"📁 File: {file.filename}, Location: {location_name}")
+        
+        # Validate file
+        if not file.content_type or not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="File must be an image")
+        
+        # Read file contents
+        contents = await file.read()
+        if len(contents) > 10 * 1024 * 1024:  # 10MB limit
+            raise HTTPException(status_code=400, detail="File too large (max 10MB)")
+        
+        # Parse cat detection data if provided
+        cat_data = None
+        if cat_detection_data:
+            try:
+                cat_data = json.loads(cat_detection_data)
+                print(f"🔍 Cat detection data: {cat_data}")
+            except json.JSONDecodeError:
+                print("⚠️ Invalid cat detection data format")
+        
+        # If no cat detection data provided, detect cats now
+        if not cat_data:
+            print("🔍 No cat detection data provided, detecting cats...")
+            detection_result = await detection_service.detect_cats(contents)
+            
+            # Reject if no cats found
+            if not detection_result.get('has_cats', False):
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"No cats detected in image (confidence: {detection_result.get('confidence', 0)}%)"
+                )
+            
+            cat_data = {
+                "has_cats": detection_result.get('has_cats'),
+                "cat_count": detection_result.get('cat_count', 0),
+                "confidence": detection_result.get('confidence', 0),
+                "suitable_for_cat_photo": detection_result.get('suitable_for_cat_photo', False),
+                "cats_detected": detection_result.get('cats_detected', []),
+                "detection_timestamp": datetime.now().isoformat()
+            }
+        
+        # Validate that cats were detected
+        if not cat_data.get('has_cats', False) or cat_data.get('cat_count', 0) == 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot upload: No cats detected in the image"
+            )
+        
+        # Validate coordinates
+        try:
+            latitude = float(lat)
+            longitude = float(lng)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid coordinates")
+        
+        # Validate required fields
+        if not location_name.strip():
+            raise HTTPException(status_code=400, detail="Location name is required")
+        
+        # Generate unique filename
+        file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+        unique_filename = f"{uuid.uuid4()}.{file_extension}"
+        
+        # Upload file to S3
+        s3 = boto3.client(
+            "s3",
+            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+            region_name=os.getenv("AWS_REGION")
+        )
+        s3_key = f"uploads/{unique_filename}"
+        s3.upload_fileobj(
+            Fileobj=io.BytesIO(contents),
+            Bucket=os.getenv("AWS_S3_BUCKET"),
+            Key=s3_key,
+            ExtraArgs={"ContentType": file.content_type}
+        )
+        # Public URL (ปรับตาม bucket policy)
+        image_url = f"https://{os.getenv('AWS_S3_BUCKET')}.s3.{os.getenv('AWS_REGION')}.amazonaws.com/{s3_key}"
+
+        # Insert into database
+        photo_data = {
+            "id": str(uuid.uuid4()),
+            "image_url": image_url,
+            "latitude": latitude,
+            "longitude": longitude,
+            "description": description.strip() if description else None,
+            "uploaded_at": datetime.now().isoformat(),
+            "location_name": location_name.strip(),
+            "user_id": getattr(current_user, "id", None)
+        }
+        
+        # Insert into cat_photos table
+        result = supabase.table("cat_photos").insert(photo_data).execute()
+
+        if not result.data:
+            raise HTTPException(status_code=500, detail="Failed to save cat photo")
+
+        created_photo = result.data[0]
+
+        # Log successful upload
+        print(f"✅ Cat photo created successfully: {created_photo['id']}")
+
+        return JSONResponse(
+            status_code=201,
+            content={
+                "success": True,
+                "message": "Cat photo uploaded successfully!",
+                "photo": {
+                    "id": created_photo["id"],
+                    "image_url": created_photo["image_url"],
+                    "latitude": created_photo["latitude"],
+                    "longitude": created_photo["longitude"],
+                    "description": created_photo["description"],
+                    "uploaded_at": created_photo["uploaded_at"],
+                    "location_name": created_photo["location_name"],
+                    "user_id": created_photo["user_id"]
+                },                
+                "uploaded_by": getattr(current_user, "email", getattr(current_user, "id", "unknown"))
+
+            }
+        )
+        
     except HTTPException:
-        # Re-raise HTTP exceptions (like "not a cat")
         raise
     except Exception as e:
-        print(f"❌ Image classification failed: {str(e)}")
-        # In production, you might want to continue without cat detection
-        # or return a specific error. For now, we'll skip the detection.
-        print("⚠️  Skipping cat detection due to error")
-    
-    # อัปโหลดภาพขึ้น S3
-    ext = (file.filename.split(".")[-1] if "." in file.filename else "bin")
-    key = f"uploads/{uuid.uuid4()}.{ext}"
-    try:
-        s3_client.put_object(
-            Bucket=AWS_BUCKET,
-            Key=key,
-            Body=contents,
-            ContentType=file.content_type,
+        print(f"❌ Upload error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Upload failed: {str(e)}"
         )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to upload to S3: {str(e)}")
-    s3_url = f"https://{AWS_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{key}"
-    
-    # บันทึกข้อมูลลง Supabase พร้อมกับ user_id
-    payload = {
-        "image_url": s3_url,
-        "latitude": lat,
-        "longitude": lng,
-        "description": description,
-        "location_name": location_name,
-        "user_id": current_user.id  # เพิ่ม user_id เข้าไป
-    }
-    result = supabase.table("cat_photos").insert(payload).execute()
-    if getattr(result, "error", None):
-        s3_client.delete_object(Bucket=AWS_BUCKET, Key=key)
-        raise HTTPException(500, f"Supabase insert failed: {result.error}")
-    
-    return {
-        "message": "Uploaded",
-        "image_url": s3_url,
-        "row": result.data[0],
-        "classification": detected_labels
-    }
+
+@router.get("/test")
+async def test_upload_endpoint():
+    """
+    ทดสอบว่า upload endpoint ทำงานได้หรือไม่
+    """
+    return {"message": "Upload endpoint is working!", "timestamp": datetime.now().isoformat()}
