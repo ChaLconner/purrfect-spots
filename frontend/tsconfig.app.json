@@ -13,7 +13,7 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "src/**/*.js"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.js"],
   "vueCompilerOptions": {
     "globalTypesPath": "./src/types/global.d.ts"
   }
