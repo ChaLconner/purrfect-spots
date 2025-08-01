@@ -82,6 +82,8 @@ async def get_current_user_from_credentials(
         user_id = payload.get("sub")
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid token payload")
+        
+        # Try to get user from database first
         try:
             result = supabase.table("users").select("*").eq("id", user_id).single().execute()
             if result.data:
@@ -95,6 +97,8 @@ async def get_current_user_from_credentials(
                 )
         except Exception:
             pass
+        
+        # Fallback to JWT payload
         user_metadata = payload.get("user_metadata", {})
         return User(
             id=user_id,
@@ -104,7 +108,8 @@ async def get_current_user_from_credentials(
             bio=None,
             created_at=str(payload.get("iat", ""))
         )
-    except HTTPException:
+    except HTTPException as e:
+        raise e
         try:
             payload = decode_custom_token(token)
             user_id = payload.get("sub") or payload.get("user_id")

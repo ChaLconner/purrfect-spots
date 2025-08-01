@@ -1,53 +1,71 @@
-# 🐱 PurrfectSpots
+# 🐱 Purrfect Spots
 
-A modern cat spotting and sharing platform built with Vue.js, FastAPI, and Supabase.
+A modern cat photo sharing platform with AI-powered cat detection, built with Vue.js, FastAPI, and Supabase.
 
 ## ✨ Features
 
-- 📸 **Image Upload** - Upload cat photos with location data
-- 🗺️ **Interactive Maps** - View cat locations on interactive maps
-- 🖼️ **Gallery** - Browse all cat photos in a beautiful gallery
-- 📍 **Location System** - GPS coordinates and place names
-- 🔐 **Google OAuth** - Secure authentication with Google
-- 👤 **User Profiles** - Manage user profiles and data
-- 🛡️ **Security** - JWT-based authentication system
-- 📱 **Responsive** - Works on desktop and mobile devices
+- 📸 **Smart Upload** - Upload cat photos with AI-powered cat detection using Google AI Studio
+- �️ **Cat Validation** - Automatically validates uploaded images contain cats
+- �️ **Location Tagging** - Add GPS coordinates and location names to photos  
+- �️ **Photo Gallery** - Browse all cat photos in a beautiful masonry gallery
+- 👤 **User Profiles** - Personal profiles with bio and photo management
+- � **Secure Auth** - Google OAuth and manual registration with Supabase
+- 📱 **Responsive Design** - Works perfectly on desktop and mobile
+- ☁️ **Cloud Storage** - Images stored securely in AWS S3
 
-## 🏗️ Architecture
+## 🏗️ Tech Stack
 
-```
-purrfect-spots/
-├── frontend/           # Vue.js frontend
-├── backend/            # FastAPI backend
-└── README.md          # This file
-```
+### Frontend
+- **Vue.js 3** with Composition API
+- **TypeScript** for type safety
+- **Tailwind CSS** for styling
+- **Vite** for fast development
 
-## � Quick Start
+### Backend  
+- **FastAPI** for high-performance API
+- **Google AI Studio** for cat detection
+- **Supabase** for database and auth
+- **AWS S3** for image storage
+- **JWT** for secure sessions
+
+## 🚀 Quick Start
 
 ### Prerequisites
-- **Node.js 18+** and npm
-- **Python 3.8+** and pip
-- **Supabase** account and project
-- **Google OAuth 2.0** credentials
-```env
-# AWS Configuration
-AWS_ACCESS_KEY_ID=your_access_key_id
-AWS_SECRET_ACCESS_KEY=your_secret_access_key
-AWS_REGION=us-east-1
-S3_BUCKET_NAME=purrfect-spots-bucket
+- Node.js 18+
+- Python 3.11+
+- AWS S3 bucket
+- Supabase project
+- Google OAuth credentials
+- Google AI Studio API key
+
+### 1. Clone Repository
+```bash
+git clone https://github.com/ChaLconner/purrfect-spots.git
+cd purrfect-spots
 ```
 
-### 3. เปิดใช้งาน
-- **เว็บไซต์**: http://localhost:5173
-- **API**: http://localhost:5000
+### 2. Setup Backend
+```bash
+cd backend
+pip install -r requirements.txt
+cp .env.example .env
+# Edit .env with your credentials
+uvicorn main:app --reload
+```
 
-## � เทคโนโลยีที่ใช้
+### 3. Setup Frontend
+```bash
+cd frontend  
+npm install
+cp .env.example .env
+# Edit .env with your API URLs
+npm run dev
+```
 
-### 🎨 Frontend
-- **Vue.js 3** - JavaScript framework
-- **Vite** - Build tool ที่เร็วมาก
-- **Leaflet** - แผนที่แบบโต้ตอบ
-- **Tailwind CSS** - Styling
+### 4. Access Application
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:8000
+- API Docs: http://localhost:8000/docs
 
 ### ⚙️ Backend
 - **Flask** - Python web framework

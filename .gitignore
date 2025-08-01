@@ -1,9 +1,11 @@
 # Dependencies
 node_modules/
 */node_modules/
+package-lock.json
 
 # Python
 __pycache__/
+*/__pycache__/
 *.py[cod]
 *$py.class
 *.so
@@ -27,15 +29,19 @@ MANIFEST
 
 # Virtual environments
 .env
-.venv
+.env.*
+!.env.example
+.venv/
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+*/venv/
+*/.venv/
 
-# Environment variables
-.env
+# Production secrets
+.env.production
 .env.local
 .env.development.local
 .env.test.local
