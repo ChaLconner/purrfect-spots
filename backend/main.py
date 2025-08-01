@@ -99,7 +99,7 @@ async def get_gallery(supabase = Depends(get_supabase_client)):
         for photo in resp.data:
             images.append({
                 "id": photo.get("id"),
-                "url": photo.get("image_url"),
+                "image_url": photo.get("image_url"),
                 "description": photo.get("description"),
                 "latitude": photo.get("latitude"),
                 "longitude": photo.get("longitude"),

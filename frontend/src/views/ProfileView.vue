@@ -119,7 +119,7 @@
           <!-- Uploads Grid -->
           <div v-else>
             <div class="mb-4 flex justify-between items-center">
-              <h3 class="text-lg font-semibold text-gray-800">รูปภาพของคุณ</h3>
+              <h3 class="text-lg font-semibold text-gray-800">Your Photos</h3>
               <span class="text-sm text-gray-500">{{ uploads.length }} รูป</span>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -254,7 +254,7 @@
             
             <div class="mb-3">
               <p class="text-sm text-gray-300">วันที่อัปโหลด:</p>
-              <p class="text-sm">{{ formatUploadDate(selectedImage.created_at) }}</p>
+              <p class="text-sm">{{ formatUploadDate(selectedImage.uploaded_at) }}</p>
             </div>
             
             <div v-if="selectedImage.latitude && selectedImage.longitude" class="mb-3">
@@ -283,7 +283,7 @@ interface Upload {
   location_name?: string;
   latitude?: number;
   longitude?: number;
-  created_at: string;
+  uploaded_at: string;
 }
 
 const activeTab = ref('uploads');

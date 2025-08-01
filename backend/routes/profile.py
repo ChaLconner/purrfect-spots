@@ -121,7 +121,7 @@ async def get_user_uploads(current_user: User = Depends(get_current_user_from_cr
                 "image_url": photo["image_url"],
                 "description": photo.get("description", ""),
                 "location_name": photo.get("location_name", ""),
-                "created_at": photo.get("uploaded_at", ""),
+                "uploaded_at": photo.get("uploaded_at", ""),
                 "latitude": photo.get("latitude"),
                 "longitude": photo.get("longitude")
             }

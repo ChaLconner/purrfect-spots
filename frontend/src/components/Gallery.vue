@@ -28,7 +28,7 @@
             >
                 <div :class="`group rounded-lg overflow-hidden shadow-lg hover:shadow-xl bg-white ${getImageHeight(index)}`">
                     <img
-                        :src="image.url"
+                        :src="image.image_url"
                         :alt="image.filename"
                         class="w-full h-full object-cover group-hover:brightness-100 transition-all duration-300"
                         loading="lazy"
@@ -42,7 +42,7 @@
         <div v-if="selectedImage" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50" @click="closeModal">
             <div class="max-w-4xl w-full p-4" @click.stop>
                 <div class="relative">
-                    <img :src="selectedImage.url" :alt="selectedImage.filename" class="w-full max-h-[90vh] object-contain mx-auto rounded-lg" />
+                    <img :src="selectedImage.image_url" :alt="selectedImage.filename" class="w-full max-h-[90vh] object-contain mx-auto rounded-lg" />
                     <button @click="closeModal" class="absolute top-2 right-2 bg-black bg-opacity-60 text-white p-2 rounded-full hover:bg-opacity-80">
                         <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
