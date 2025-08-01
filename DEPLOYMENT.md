@@ -1,7 +1,7 @@
 # Deployment Guide for Purrfect Spots
 
 ## Prerequisites
-- Python 3.11+ 
+- Python 3.11 (recommended for deployment compatibility)
 - Node.js 18+
 - AWS S3 bucket
 - Supabase project
@@ -28,7 +28,7 @@ pip install -r requirements.txt
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 # Production
-uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
+uvicorn main:app --host 0.0.0.0 --port $PORT --workers 4
 ```
 
 ## Frontend Deployment
@@ -63,10 +63,16 @@ npm run preview
 2. Set environment variables in Vercel dashboard
 3. Deploy automatically from main branch
 
-### Railway/Render (Backend)
+### Render (Backend)
 1. Connect your GitHub repository
-2. Set environment variables in platform dashboard
+2. Set environment variables in Render dashboard
 3. Use start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+4. Python version will be automatically detected from `runtime.txt`
+
+### Railway (Backend)
+1. Connect your GitHub repository
+2. Set environment variables in Railway dashboard
+3. Use start command from `Procfile`
 
 ### AWS EC2
 1. Install Python 3.11 and Node.js
