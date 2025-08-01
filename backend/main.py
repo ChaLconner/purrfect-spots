@@ -1,7 +1,6 @@
 import os
 from typing import List
 
-import boto3
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,10 +9,9 @@ from fastapi.exception_handlers import http_exception_handler
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel
-from routes import auth_google, cat_detection
 
 # Import authentication modules
-from routes import auth_manual, auth_google, profile, upload
+from routes import auth_manual, auth_google, profile, upload, cat_detection
 from dependencies import get_supabase_client
 
 load_dotenv()
@@ -74,55 +72,6 @@ app.include_router(profile.router)
 app.include_router(upload.router)
 app.include_router(cat_detection.router)
 
-# AWS configuration for gallery
-AWS_REGION = os.getenv("AWS_REGION", "ap-southeast-1")
-AWS_BUCKET = os.getenv("AWS_S3_BUCKET", "purrfect-spots-bucket")
-AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID")
-AWS_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-
-# Initialize S3 client for gallery
-s3_client = boto3.client(
-    "s3",
-    region_name=AWS_REGION,
-    aws_access_key_id=AWS_ACCESS_KEY,
-    aws_secret_access_key=AWS_SECRET_KEY,
-    config=boto3.session.Config(signature_version="s3v4"),
-)
-
-@app.get("/api/gallery")
-async def get_gallery():
-    """Get all cat images from S3 and return their URLs for gallery display."""
-    PREFIX = "uploads/"
-    
-    try:
-        response = s3_client.list_objects_v2(
-            Bucket=AWS_BUCKET,
-            Prefix=PREFIX
-        )
-        
-        if "Contents" not in response:
-            return {"images": []}
-        
-        images = []
-        for obj in response["Contents"]:
-            if obj["Key"].lower().endswith((".jpg", ".jpeg", ".png", ".gif", ".webp")):
-                image_url = f"https://{AWS_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{obj['Key']}"
-                images.append({
-                    "id": obj["Key"].split("/")[-1].rsplit(".", 1)[0],
-                    "url": image_url,
-                    "filename": obj["Key"].split("/")[-1],
-                    "size": obj["Size"],
-                    "last_modified": obj["LastModified"].isoformat(),
-                })
-        
-        images.sort(key=lambda x: x["last_modified"], reverse=True)
-        return {"images": images}
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to fetch gallery images: {str(e)}"
-        )
-
 # Pydantic models
 class CatLocation(BaseModel):
     id: str
@@ -132,6 +81,37 @@ class CatLocation(BaseModel):
     description: str | None = None
     location_name: str | None = None
     uploaded_at: str | None = None
+
+@app.get("/api/gallery")
+async def get_gallery(supabase = Depends(get_supabase_client)):
+    """Get all cat images from Supabase for gallery display."""
+    try:
+        resp = (
+            supabase.table("cat_photos")
+            .select("*")
+            .order("uploaded_at", desc=True)
+            .execute()
+        )
+        if not resp.data:
+            return {"images": []}
+        
+        images = []
+        for photo in resp.data:
+            images.append({
+                "id": photo.get("id"),
+                "url": photo.get("image_url"),
+                "description": photo.get("description"),
+                "latitude": photo.get("latitude"),
+                "longitude": photo.get("longitude"),
+                "uploaded_at": photo.get("uploaded_at"),
+            })
+        
+        return {"images": images}
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to fetch gallery images: {str(e)}"
+        )
 
 
 @app.get("/locations", response_model=List[CatLocation])
