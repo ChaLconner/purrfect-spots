@@ -66,8 +66,10 @@ npm run preview
 ### Render (Backend)
 1. Connect your GitHub repository
 2. Set environment variables in Render dashboard
-3. Use start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-4. Python version will be automatically detected from `runtime.txt`
+3. **Build Command**: `pip install -r requirements.txt`
+4. **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+5. Python version will be automatically detected from `runtime.txt`
+6. Alternative: Use `render.yaml` for Infrastructure as Code
 
 ### Railway (Backend)
 1. Connect your GitHub repository
