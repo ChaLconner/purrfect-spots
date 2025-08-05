@@ -46,7 +46,7 @@ export interface CombinedAnalysisResult {
 }
 
 export class CatDetectionService {
-  private baseURL = 'http://localhost:8000/detect'; // ✅ URL ถูกต้องแล้ว
+  private baseURL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/detect`;
 
   private getAuthHeaders() {
     const token = localStorage.getItem('access_token');
