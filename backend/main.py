@@ -60,8 +60,11 @@ else:
     allowed_origins = [
         "http://localhost:5173", 
         "http://localhost:5174",
-        "https://purrfect-spots-mojjn4lys-chalconners-projects.vercel.app",  # Current Vercel URL
-        "https://*.vercel.app",  # Allow all Vercel deployments (wildcard)
+        # Known Vercel deployment URLs
+        "https://purrfect-spots-mojjn4lys-chalconners-projects.vercel.app", 
+        "https://purrfect-spots-qu2kn0dcs-chalconners-projects.vercel.app",
+        # Allow all purrfect-spots vercel deployments
+        "https://purrfect-spots.vercel.app",
     ]
 
 # Add specific Vercel URL if provided
@@ -69,7 +72,7 @@ vercel_url = os.getenv("VERCEL_URL")
 if vercel_url:
     allowed_origins.append(f"https://{vercel_url}")
 
-# For development, you can temporarily allow all origins
+# For development, allow all origins OR for production allow Vercel pattern
 is_dev = os.getenv("DEBUG", "False").lower() == "true"
 if is_dev:
     print("🚨 Development mode: Allowing all origins")
@@ -77,13 +80,45 @@ if is_dev:
 
 print(f"🌐 CORS allowed origins: {allowed_origins}")
 
+# Custom CORS handler for Vercel pattern matching
+def is_vercel_origin_allowed(origin: str) -> bool:
+    """Check if origin matches allowed Vercel pattern"""
+    import re
+    vercel_patterns = [
+        r"https://purrfect-spots-[a-zA-Z0-9]+-chalconners-projects\.vercel\.app",
+        r"https://purrfect-spots.*\.vercel\.app"
+    ]
+    for pattern in vercel_patterns:
+        if re.match(pattern, origin):
+            return True
+    return False
+
+# Extend allowed_origins to support Vercel pattern matching
+original_allowed_origins = allowed_origins.copy()
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=allowed_origins if not is_dev else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add custom middleware to handle dynamic CORS for Vercel
+@app.middleware("http")
+async def custom_cors_handler(request: Request, call_next):
+    origin = request.headers.get("origin")
+    
+    # If origin is not in static list but matches Vercel pattern, add CORS headers
+    if origin and origin not in original_allowed_origins and is_vercel_origin_allowed(origin):
+        response = await call_next(request)
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "*"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        return response
+    
+    return await call_next(request)
 
 # ✅ Health check endpoint
 @app.get("/health")
