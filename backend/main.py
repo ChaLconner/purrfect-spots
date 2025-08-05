@@ -51,9 +51,35 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 # ✅ CORS middleware must be added BEFORE including routers
+# Get allowed origins from environment variable or use defaults
+cors_origins_env = os.getenv("CORS_ORIGINS", "")
+if cors_origins_env:
+    allowed_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+else:
+    # Default origins for development and production
+    allowed_origins = [
+        "http://localhost:5173", 
+        "http://localhost:5174",
+        "https://purrfect-spots-mojjn4lys-chalconners-projects.vercel.app",  # Current Vercel URL
+        "https://*.vercel.app",  # Allow all Vercel deployments (wildcard)
+    ]
+
+# Add specific Vercel URL if provided
+vercel_url = os.getenv("VERCEL_URL")
+if vercel_url:
+    allowed_origins.append(f"https://{vercel_url}")
+
+# For development, you can temporarily allow all origins
+is_dev = os.getenv("DEBUG", "False").lower() == "true"
+if is_dev:
+    print("🚨 Development mode: Allowing all origins")
+    allowed_origins = ["*"]
+
+print(f"🌐 CORS allowed origins: {allowed_origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174"],  # Frontend URLs
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

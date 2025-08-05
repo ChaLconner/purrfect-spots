@@ -96,6 +96,7 @@ npm run preview
 - [ ] GOOGLE_CLIENT_SECRET
 - [ ] JWT_SECRET
 - [ ] GOOGLE_AI_API_KEY
+- [ ] CORS_ORIGINS (e.g., "https://your-frontend.vercel.app")
 
 ### Frontend (.env.production)
 - [ ] VITE_API_BASE_URL
