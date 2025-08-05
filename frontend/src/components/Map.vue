@@ -112,6 +112,7 @@
 import { onMounted, ref, onUnmounted, nextTick } from "vue";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { getApiUrl } from '../utils/api';
 
 interface CatLocation {
   id: string;
@@ -144,7 +145,7 @@ const loadCatLocations = async () => {
   error.value = null;
 
   try {
-    const response = await fetch("http://localhost:8000/locations", {
+    const response = await fetch(getApiUrl('/locations'), {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
