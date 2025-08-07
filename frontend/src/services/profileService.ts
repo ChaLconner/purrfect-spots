@@ -54,6 +54,7 @@ export class ProfileService {
   // Get user uploads
   static async getUserUploads(): Promise<any[]> {
     const authHeader = getAuthHeader();
+    
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...authHeader,
@@ -64,11 +65,15 @@ export class ProfileService {
       headers,
     });
 
+    if (response.status === 401) {
+      throw new Error('Authentication expired');
+    }
+
     if (!response.ok) {
       throw new Error('Failed to get user uploads');
     }
 
     const result = await response.json();
-    return result.uploads;
+    return result.uploads || [];
   }
 }

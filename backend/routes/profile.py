@@ -76,8 +76,8 @@ async def get_profile(current_user: User = Depends(get_current_user_from_credent
     try:
         supabase = get_supabase_client()
         
-        # Get user data from database
-        result = supabase.table("cat_photos").select("*").eq("id", current_user.id).execute()
+        # Get user data from database - ✅ แก้ไข table name
+        result = supabase.table("users").select("*").eq("id", current_user.id).execute()
         
         if not result.data:
             raise HTTPException(status_code=404, detail="User not found")
@@ -105,17 +105,12 @@ async def get_user_uploads(current_user: User = Depends(get_current_user_from_cr
         supabase = get_supabase_client()
         user_id = current_user.id
         
-        print(f"Fetching uploads for user_id: {user_id}")
-        
-        # ✅ Query ก่อน แล้วค่อย print
+        # Query uploads for this user
         result = supabase.table("cat_photos").select("*").eq("user_id", user_id).order("uploaded_at", desc=True).execute()
         
-        print(f"Supabase Result: {result.data}")
-        print(f"Found {len(result.data)} uploads for user {user_id}")
-        
-        # ✅ Format the data
+        # Format the data
         uploads = []
-        for photo in result.data:
+        for photo in result.data or []:
             upload_item = {
                 "id": photo["id"],
                 "image_url": photo["image_url"],
@@ -133,13 +128,12 @@ async def get_user_uploads(current_user: User = Depends(get_current_user_from_cr
                 }
 
             uploads.append(upload_item)
-
+        
         return {
             "uploads": uploads,
             "count": len(uploads)
         }
 
     except Exception as e:
-        print(f"Error getting user uploads for user {current_user.id}: {e}")
-        return {"uploads": [], "count": 0}
+        raise HTTPException(status_code=500, detail=f"Failed to get uploads: {str(e)}")
 

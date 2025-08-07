@@ -59,7 +59,8 @@ export function clearAuth() {
 
 // Get authorization header
 export function getAuthHeader(): Record<string, string> {
-  return authStore.token ? { Authorization: `Bearer ${authStore.token}` } : {};
+  const token = authStore.token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 // Check if user is ready to use protected features
