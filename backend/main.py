@@ -63,6 +63,7 @@ else:
         # Known Vercel deployment URLs
         "https://purrfect-spots-mojjn4lys-chalconners-projects.vercel.app", 
         "https://purrfect-spots-qu2kn0dcs-chalconners-projects.vercel.app",
+        "https://purrfect-spots-5ye7goyyf-chalconners-projects.vercel.app",  # Latest Vercel URL
         # Allow all purrfect-spots vercel deployments
         "https://purrfect-spots.vercel.app",
     ]
