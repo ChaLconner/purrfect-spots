@@ -4,7 +4,14 @@
 
 // Get API base URL from environment variable
 export const getApiBaseUrl = (): string => {
-  return import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  const fallbackUrl = 'http://localhost:8000';
+  
+  console.log('🔍 Environment variables:', import.meta.env);
+  console.log('🌐 VITE_API_BASE_URL:', envUrl);
+  console.log('📍 Using API URL:', envUrl || fallbackUrl);
+  
+  return envUrl || fallbackUrl;
 };
 
 // Create API URL with endpoint
