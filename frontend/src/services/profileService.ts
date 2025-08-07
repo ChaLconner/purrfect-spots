@@ -1,7 +1,6 @@
 import type { User } from '../types/auth';
 import { getAuthHeader } from '../store/auth';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+import { createApiUrl } from '../config/api';
 
 export interface ProfileUpdateData {
   name?: string;
@@ -18,7 +17,7 @@ export class ProfileService {
       ...authHeader,
     };
 
-    const response = await fetch(`${API_BASE_URL}/api/profile`, {
+    const response = await fetch(createApiUrl('/api/profile'), {
       method: 'GET',
       headers,
     });
@@ -38,7 +37,7 @@ export class ProfileService {
       ...authHeader,
     };
 
-    const response = await fetch(`${API_BASE_URL}/api/profile`, {
+    const response = await fetch(createApiUrl('/api/profile'), {
       method: 'PUT',
       headers,
       body: JSON.stringify(data),
@@ -60,7 +59,7 @@ export class ProfileService {
       ...authHeader,
     };
 
-    const response = await fetch(`${API_BASE_URL}/api/profile/uploads`, {
+    const response = await fetch(createApiUrl('/api/profile/uploads'), {
       method: 'GET',
       headers,
     });

@@ -1,3 +1,4 @@
+
 export interface CatDetectionResult {
   has_cats: boolean;
   cat_count: number;
@@ -11,7 +12,7 @@ export interface CatDetectionResult {
   image_quality: string;
   suitable_for_cat_spot: boolean;
   reasoning: string;
-  note?: string; // เพิ่มสำหรับ fallback response
+  note?: string;
 }
 
 export interface SpotAnalysisResult {
@@ -46,7 +47,10 @@ export interface CombinedAnalysisResult {
 }
 
 export class CatDetectionService {
-  private baseURL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/detect`;
+  private getBaseURL() {
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://purrfect-spots-backend.onrender.com';
+    return `${apiBaseUrl}/detect`;
+  }
 
   private getAuthHeaders() {
     const token = localStorage.getItem('access_token');
@@ -63,7 +67,7 @@ export class CatDetectionService {
     formData.append('file', file);
 
     try {
-      const response = await fetch(`${this.baseURL}/cats`, {
+      const response = await fetch(`${this.getBaseURL()}/cats`, {
         method: 'POST',
         headers: this.getAuthHeaders(),
         body: formData
@@ -87,7 +91,7 @@ export class CatDetectionService {
     formData.append('file', file);
 
     try {
-      const response = await fetch(`${this.baseURL}/spot-analysis`, {
+      const response = await fetch(`${this.getBaseURL()}/spot-analysis`, {
         method: 'POST',
         headers: this.getAuthHeaders(),
         body: formData
@@ -116,7 +120,7 @@ export class CatDetectionService {
     formData.append('file', file);
 
     try {
-      const response = await fetch(`${this.baseURL}/combined`, {
+      const response = await fetch(`${this.getBaseURL()}/combined`, {
         method: 'POST',
         headers: this.getAuthHeaders(),
         body: formData
@@ -158,7 +162,7 @@ export class CatDetectionService {
     formData.append('file', file);
 
     try {
-      const response = await fetch(`${this.baseURL}/test-cats`, {
+      const response = await fetch(`${this.getBaseURL()}/test-cats`, {
         method: 'POST',
         body: formData // ไม่ใส่ Authorization header
       });
@@ -188,7 +192,7 @@ export class CatDetectionService {
     formData.append('file', file);
 
     try {
-      const response = await fetch(`${this.baseURL}/test-spot`, {
+      const response = await fetch(`${this.getBaseURL()}/test-spot`, {
         method: 'POST',
         body: formData
       });

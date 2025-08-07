@@ -166,7 +166,7 @@ const handleGoogleLogin = async () => {
 
   try {
     // Use manual OAuth with PKCE for better security
-    const googleClientId = '40710057825-09pahjbe71ncf7adq9c8892r2mivm9b3.apps.googleusercontent.com';
+    const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '40710057825-09pahjbe71ncf7adq9c8892r2mivm9b3.apps.googleusercontent.com';
     const redirectUri = `${window.location.origin}/auth/callback`;
     
     // Generate PKCE parameters
