@@ -394,15 +394,11 @@ async function detectCatsInImage(imageFile) {
   error.value = null;
   
   try {
-    console.log('🔍 Starting cat detection for:', imageFile.name);
-    
     // ใช้ test endpoint ที่ไม่ต้อง authentication
     const result = await catDetectionService.testDetectCats(imageFile);
     
     catDetectionResult.value = result;
     showDetectionResults.value = true;
-    
-    console.log('✅ Cat detection result:', result);
     
     // ตรวจสอบว่ามีแมวในรูปหรือไม่
     if (!result.has_cats || result.cat_count === 0) {
@@ -410,8 +406,6 @@ async function detectCatsInImage(imageFile) {
       file.value = null;
       previewUrl.value = null;
       showDetectionResults.value = false;
-    } else {
-      console.log(`✅`);
     }
     
   } catch (error) {

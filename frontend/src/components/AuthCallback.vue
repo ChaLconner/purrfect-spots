@@ -112,12 +112,8 @@ const handleAuthCallback = async () => {
         throw new Error('ไม่พบข้อมูลการยืนยัน');
       }
       
-      console.log('🔄 Exchanging Google code for tokens...');
-      
       // Exchange code for tokens with retry logic
       const data = await AuthService.googleCodeExchange(code, codeVerifier);
-      
-      console.log('✅ Token exchange successful');
       
       // Save authentication data
       setAuth(data);
@@ -125,7 +121,6 @@ const handleAuthCallback = async () => {
       // Sync user data with backend
       try {
         await AuthService.syncUser();
-        console.log('✅ User sync successful');
       } catch (syncError: any) {
         console.warn('⚠️ User sync failed:', syncError);
         // Don't let sync error stop the login process

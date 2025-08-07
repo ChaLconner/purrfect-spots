@@ -104,7 +104,6 @@ export class CatDetectionService {
       }
 
       const result = await response.json();
-      console.log('✅ Spot analysis result:', result);
       return result;
 
     } catch (error) {
@@ -114,8 +113,6 @@ export class CatDetectionService {
   }
 
   async combinedAnalysis(file: File): Promise<CombinedAnalysisResult> {
-    console.log('🔄 Running combined analysis:', file.name);
-    
     const formData = new FormData();
     formData.append('file', file);
 
@@ -126,8 +123,6 @@ export class CatDetectionService {
         body: formData
       });
 
-      console.log('📡 Combined analysis response status:', response.status);
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
         console.error('❌ Combined analysis failed:', errorData);
@@ -135,7 +130,6 @@ export class CatDetectionService {
       }
 
       const result = await response.json();
-      console.log('✅ Combined analysis result:', result);
       return result;
 
     } catch (error) {
@@ -156,8 +150,6 @@ export class CatDetectionService {
 
   // Test methods ที่ไม่ต้อง authentication
   async testDetectCats(file: File): Promise<CatDetectionResult> {
-    console.log('🧪 Testing cat detection (no auth):', file.name);
-    
     const formData = new FormData();
     formData.append('file', file);
 
@@ -167,8 +159,6 @@ export class CatDetectionService {
         body: formData // ไม่ใส่ Authorization header
       });
 
-      console.log('📡 Test cat detection response status:', response.status);
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
         console.error('❌ Test cat detection failed:', errorData);
@@ -176,18 +166,14 @@ export class CatDetectionService {
       }
 
       const result = await response.json();
-      console.log('✅ Test cat detection result:', result);
       return result;
 
     } catch (error) {
-      console.error('🔥 Test cat detection error:', error);
       throw error;
     }
   }
 
   async testAnalyzeSpot(file: File): Promise<SpotAnalysisResult> {
-    console.log('🧪 Testing spot analysis (no auth):', file.name);
-    
     const formData = new FormData();
     formData.append('file', file);
 
@@ -197,8 +183,6 @@ export class CatDetectionService {
         body: formData
       });
 
-      console.log('📡 Test spot analysis response status:', response.status);
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
         console.error('❌ Test spot analysis failed:', errorData);
@@ -206,11 +190,9 @@ export class CatDetectionService {
       }
 
       const result = await response.json();
-      console.log('✅ Test spot analysis result:', result);
       return result;
 
     } catch (error) {
-      console.error('🔥 Test spot analysis error:', error);
       throw error;
     }
   }
