@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc && vite build",
+    "build:prod": "NODE_ENV=production vue-tsc && vite build --mode production",
     "preview": "vite preview",
     "type-check": "vue-tsc --noEmit"
   },

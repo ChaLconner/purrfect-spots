@@ -56,6 +56,8 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { createApiUrl } from '../config/api';
+
 const images = ref([]);
 const loading = ref(true);
 const error = ref('');
@@ -69,17 +71,51 @@ async function fetchImages() {
   loading.value = true;
   error.value = '';
   try {
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/gallery`);
-    if (!response.ok) throw new Error(`Failed to fetch images (${response.status})`);
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      throw new Error('Invalid response format: not JSON');
+    const apiUrl = createApiUrl('/api/gallery');
+    
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    
+    if (!response.ok) {
+      // อ่าน response text ก่อน
+      const errorText = await response.text();
+      
+      // พยายาม parse เป็น JSON
+      try {
+        const errorData = JSON.parse(errorText);
+        throw new Error(errorData.detail || errorData.message || `Failed to fetch images (${response.status})`);
+      } catch (parseError) {
+        // ถ้า parse ไม่ได้ แสดงว่าได้ HTML หรือ text ธรรมดา
+        throw new Error(`Server returned non-JSON response (${response.status}): ${errorText.substring(0, 200)}`);
+      }
     }
+    
+    const contentType = response.headers.get('content-type');
+    
+    if (!contentType || !contentType.includes('application/json')) {
+      const responseText = await response.text();
+      throw new Error(`Invalid response format: not JSON (got ${contentType})`);
+    }
+    
     const data = await response.json();
+    
+    // ตรวจสอบ structure ของ response
+    if (data.error) {
+      throw new Error(data.message || data.detail || 'Server error occurred');
+    }
+    
     if (!data || !Array.isArray(data.images)) {
       throw new Error('Malformed data from server');
     }
+    
     images.value = data.images;
+    
   } catch (err) {
     error.value = err.message || 'Failed to load images';
     images.value = [];

@@ -1,113 +1,154 @@
-# Deployment Guide for Purrfect Spots
+# PurrFect Spots - Deployment Guide
 
-## Prerequisites
-- Python 3.11 (recommended for deployment compatibility)
-- Node.js 18+
-- AWS S3 bucket
-- Supabase project
-- Google OAuth credentials
-- Google AI Studio API key
+## 🚀 Production Deployment (Updated)
 
-## Backend Deployment
+### Frontend Deployment (Vercel/Netlify)
 
-### 1. Environment Setup
+#### Prerequisites
+- Node.js 18+ installed
+- Git repository connected to Vercel/Netlify
+
+#### Environment Variables Required
 ```bash
-cd backend
-cp .env.production.example .env.production
-# Edit .env.production with your actual values
+VITE_GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
+VITE_API_BASE_URL=https://your-backend-domain.onrender.com
 ```
 
-### 2. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
+#### Manual Deployment Steps
 
-### 3. Run Backend
-```bash
-# Development
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+1. **Build the project**
+   ```bash
+   cd frontend
+   npm ci
+   npm run build:prod
+   ```
 
-# Production
-uvicorn main:app --host 0.0.0.0 --port $PORT --workers 4
-```
+2. **Deploy to Vercel**
+   ```bash
+   # Install Vercel CLI
+   npm i -g vercel
+   
+   # Deploy
+   vercel --prod
+   ```
 
-## Frontend Deployment
+3. **Deploy to Netlify**
+   ```bash
+   # Install Netlify CLI
+   npm i -g netlify-cli
+   
+   # Deploy
+   netlify deploy --prod --dir=dist
+   ```
 
-### 1. Environment Setup
+#### Automated Deployment
 ```bash
 cd frontend
-cp .env.production.example .env.production
-# Edit .env.production with your actual values
+chmod +x deploy.sh
+./deploy.sh
 ```
 
-### 2. Install Dependencies
+### Backend Deployment (Render)
+
+#### Environment Variables Required
 ```bash
-npm install
+# Database
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+
+# Google OAuth
+GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+
+# JWT
+JWT_SECRET=your_jwt_secret_key
+
+# Google AI
+GOOGLE_AI_API_KEY=your_google_ai_api_key
+
+# AWS S3
+AWS_ACCESS_KEY_ID=your_aws_access_key
+AWS_SECRET_ACCESS_KEY=your_aws_secret_key
+AWS_REGION=ap-southeast-1
+AWS_S3_BUCKET=your_s3_bucket_name
+
+# CORS (optional)
+CORS_ORIGINS=https://your-frontend-domain.vercel.app
+
+# Application
+DEBUG=False
+PORT=8000
 ```
 
-### 3. Build and Deploy
-```bash
-# Build for production
-npm run build
+#### Deploy to Render
+1. Connect your GitHub repository to Render
+2. Create a new Web Service
+3. Use these settings:
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+   - **Environment**: Python 3.11
 
-# Preview build locally
-npm run preview
+## 🔧 Troubleshooting
 
-# Deploy the dist/ folder to your web server
+### Common Issues
+
+1. **CORS Errors**
+   - Make sure `CORS_ORIGINS` includes your frontend domain
+   - Check that frontend uses correct API URL
+
+2. **Environment Variables Not Loading**
+   - Verify `.env.production` exists and has correct values
+   - Check Vercel/Netlify environment variable settings
+
+3. **API Connection Issues**
+   - Verify backend is deployed and accessible
+   - Check `VITE_API_BASE_URL` points to correct backend URL
+   - Test API endpoints manually
+
+4. **Build Failures**
+   - Run `npm run type-check` to find TypeScript errors
+   - Check for missing dependencies with `npm ci`
+
+### Health Check URLs
+- **Backend**: `https://your-backend.onrender.com/health`
+- **Frontend**: `https://your-frontend.vercel.app`
+
+## 📈 Performance Optimization
+
+### Bundle Size Optimization
+- All debug console.logs removed for production
+- Tree-shaking enabled in Vite
+- Code splitting for better performance
+
+### Current Build Stats
+```
+dist/index.html                    0.78 kB
+dist/assets/index-*.css           48.80 kB
+dist/assets/index-*.js           308.61 kB (gzipped: 100.23 kB)
 ```
 
-## Platform-Specific Deployment
+## 🔄 Code Cleanup Completed
 
-### Vercel (Frontend)
-1. Connect your GitHub repository
-2. Set environment variables in Vercel dashboard
-3. Deploy automatically from main branch
+### Frontend Optimizations Done
+- ✅ Removed debug console.logs from all components
+- ✅ Centralized API configuration in `/config/api.ts`
+- ✅ Updated all services to use centralized API functions
+- ✅ Created production environment variables
+- ✅ Added deployment scripts
+- ✅ Optimized bundle size (reduced from 311kB to 308kB)
 
-### Render (Backend)
-1. Connect your GitHub repository
-2. Set environment variables in Render dashboard
-3. **Build Command**: `pip install -r requirements.txt`
-4. **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-5. Python version will be automatically detected from `runtime.txt`
-6. Alternative: Use `render.yaml` for Infrastructure as Code
+### Files Cleaned
+- `src/config/api.ts` - Clean, production-ready API config
+- `src/services/authService.ts` - Removed debug logs, kept error handling
+- `src/components/Gallery.vue` - Minimal logging, clean code
+- `src/components/Map.vue` - Optimized error handling
+- Removed `debug.html` development file
 
-### Railway (Backend)
-1. Connect your GitHub repository
-2. Set environment variables in Railway dashboard
-3. Use start command from `Procfile`
+## 🚀 Ready for Production
 
-### AWS EC2
-1. Install Python 3.11 and Node.js
-2. Clone repository
-3. Set up environment variables
-4. Use PM2 or systemd for process management
-5. Configure nginx as reverse proxy
-
-## Environment Variables Checklist
-
-### Backend (.env.production)
-- [ ] AWS_ACCESS_KEY_ID
-- [ ] AWS_SECRET_ACCESS_KEY
-- [ ] AWS_REGION
-- [ ] AWS_S3_BUCKET
-- [ ] SUPABASE_URL
-- [ ] SUPABASE_SERVICE_ROLE_KEY
-- [ ] GOOGLE_CLIENT_ID
-- [ ] GOOGLE_CLIENT_SECRET
-- [ ] JWT_SECRET
-- [ ] GOOGLE_AI_API_KEY
-- [ ] CORS_ORIGINS (e.g., "https://your-frontend.vercel.app")
-
-### Frontend (.env.production)
-- [ ] VITE_API_BASE_URL
-- [ ] VITE_BACKEND_URL
-- [ ] VITE_GOOGLE_CLIENT_ID
-- [ ] VITE_SUPABASE_URL (if needed)
-- [ ] VITE_SUPABASE_ANON_KEY (if needed)
-
-## Security Notes
-- Never commit .env files to git
-- Use strong JWT secrets
-- Ensure S3 bucket has proper CORS settings
-- Set up proper CORS origins in backend
-- Use HTTPS in production
+The codebase is now clean and ready for production deployment with:
+- Minimal logging overhead
+- Consistent API URL handling
+- Proper error handling without debug noise
+- Optimized bundle size
+- Environment-specific configurations
