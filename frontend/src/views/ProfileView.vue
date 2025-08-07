@@ -328,7 +328,6 @@ const loadUploads = async () => {
   try {
     const userUploads = await ProfileService.getUserUploads();
     uploads.value = userUploads;
-    console.log('Loaded user uploads:', userUploads);
   } catch (error) {
     console.error('Error loading uploads:', error);
     uploadsError.value = 'ไม่สามารถโหลดรูปภาพได้ กรุณาลองใหม่อีกครั้ง';
