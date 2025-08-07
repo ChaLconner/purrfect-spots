@@ -145,24 +145,36 @@ const loadCatLocations = async () => {
   error.value = null;
 
   try {
-    const response = await fetch(getApiUrl('/locations'), {
+    const apiUrl = getApiUrl('/locations');
+    
+    const response = await fetch(apiUrl, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
+        "Accept": "application/json"
       },
     });
     
-    if (!response.ok) throw new Error("เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ");
+    if (!response.ok) {
+      throw new Error(`เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ (${response.status})`);
+    }
+
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error('รูปแบบข้อมูลไม่ถูกต้อง (ไม่ใช่ JSON)');
+    }
 
     const json = await response.json();
-    if (!Array.isArray(json)) throw new Error("รูปแบบข้อมูลไม่ถูกต้อง");
-    if (!Array.isArray(json)) throw new Error("รูปแบบข้อมูลไม่ถูกต้อง");
+    
+    if (!Array.isArray(json)) {
+      throw new Error("รูปแบบข้อมูลไม่ถูกต้อง");
+    }
+    
     locations.value = json as CatLocation[];
 
     // Clear previous markers
     clearMarkers();
   } catch (err: unknown) {
-    console.warn("ดึงข้อมูลไม่สำเร็จ:", err);
     error.value = (err as Error).message;
   } finally {
     isLoading.value = false;
