@@ -188,6 +188,7 @@ import "leaflet/dist/leaflet.css";
 import { useUploadCat } from "../composables/useUploadCat";
 import { authStore, isUserReady, getAuthHeader } from "../store/auth";
 import { catDetectionService } from "../services/catDetectionService";
+import { createApiUrl } from "../config/api";
 
 const router = useRouter();
 
@@ -493,7 +494,7 @@ async function handleSubmit() {
   }));
   
   try {
-    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/upload/cat`, {
+    const res = await fetch(createApiUrl('/upload/cat'), {
       method: "POST",
       headers: {
       ...getAuthHeader()
