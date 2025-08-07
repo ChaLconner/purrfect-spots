@@ -107,7 +107,7 @@ onUnmounted(() => {
             <img
               :src="
                 authStore.user?.picture ||
-                'https://randomuser.me/api/portraits/men/32.jpg'
+                '/frontend/src/assets/default-avatar.png'
               "
               :alt="authStore.user?.name || 'User Avatar'"
               class="w-8 h-8 rounded-full border border-gray-300"
