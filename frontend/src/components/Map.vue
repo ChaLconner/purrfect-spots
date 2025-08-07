@@ -151,9 +151,24 @@ const loadCatLocations = async () => {
         "Content-Type": "application/json",
       },
     });
+    
+    console.log('Response status:', response.status);
+    console.log('Response headers:', response.headers);
+    
     if (!response.ok) throw new Error("เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ");
 
-    const json = await response.json();
+    // Debug: Check what we're actually getting
+    const responseText = await response.text();
+    console.log('Raw response:', responseText);
+    
+    let json;
+    try {
+      json = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      console.error('Response was:', responseText);
+      throw new Error("รูปแบบข้อมูลไม่ถูกต้อง - ไม่ใช่ JSON");
+    }
     if (!Array.isArray(json)) throw new Error("รูปแบบข้อมูลไม่ถูกต้อง");
     locations.value = json as CatLocation[];
 
