@@ -5,7 +5,12 @@
 // Get API base URL from environment variable
 export const getApiBaseUrl = (): string => {
   const envUrl = import.meta.env.VITE_API_BASE_URL;
-  return envUrl 
+  
+  if (!envUrl) {
+    return 'https://purrfect-spots-backend.onrender.com'; // fallback
+  }
+  
+  return envUrl;
 };
 
 // Create API URL with endpoint
