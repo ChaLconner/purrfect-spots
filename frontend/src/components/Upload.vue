@@ -72,7 +72,7 @@
         </l-map>
 
         <p class="text-sm text-gray-600 mt-2">
-          💡 คลิกบนแผนที่หรือลาก marker เพื่อเลือกตำแหน่ง
+          💡 Click on the map or drag the marker to select a location.
         </p>
       </div>
 
@@ -102,7 +102,7 @@
           <div v-if="isDetectingCats" class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <div class="flex items-center justify-center">
               <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mr-3"></div>
-              <span class="text-blue-700">🔍 กำลังตรวจสอบแมวในรูปภาพ...</span>
+              <span class="text-blue-700">🔍 Detecting cats in your photo...</span>
             </div>
           </div>       
         </div>
@@ -128,24 +128,30 @@
           <span>You must be logged in to upload photos.</span>
         </div>
       </div>
-      <button
-        type="submit"
-        :disabled="!authStore.isAuthenticated || !file || isDetectingCats || (catDetectionResult && !catDetectionResult.has_cats)"
-        class="w-full bg-emerald-500 text-white border-none py-3.5 px-6 rounded-lg text-lg font-medium cursor-pointer transition-colors hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
+      <div
+        @click="!authStore.isAuthenticated ? router.push('/login') : null"
+        style="cursor:pointer;display:block;width:100%"
       >
-        <span v-if="!authStore.isAuthenticated">Login to Upload</span>
-        <span v-else-if="isDetectingCats">🔍 Detecting Cats...</span>
-        <span v-else-if="catDetectionResult && !catDetectionResult.has_cats">❌ No Cat Detected</span>
-        <span v-else>Upload Cat Photo</span>
-      </button>
+        <button
+          type="submit"
+          :disabled="!authStore.isAuthenticated || !file || isDetectingCats || (catDetectionResult && !catDetectionResult.has_cats)"
+          class="w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white border-none py-3.5 px-6 rounded-lg text-lg font-semibold shadow-md cursor-pointer transition-all duration-200 hover:from-emerald-600 hover:via-teal-600 hover:to-cyan-600 hover:shadow-lg disabled:opacity-50"
+          style="pointer-events:none"
+        >
+          <span v-if="!authStore.isAuthenticated">Login to Upload</span>
+          <span v-else-if="isDetectingCats">🔍 Detecting Cats...</span>
+          <span v-else-if="catDetectionResult && !catDetectionResult.has_cats">❌ No Cat Detected</span>
+          <span v-else>Upload Cat Photo</span>
+        </button>
+      </div>
     </form>
 
     <!-- Upload Progress -->
     <div v-if="isUploading" class="text-center py-8">
       <div class="flex flex-col items-center">
         <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-orange-500 mb-4"></div>
-        <h3 class="text-lg font-semibold text-gray-700 mb-2">🐱 กำลังอัปโหลดรูปแมว...</h3>
-        <p class="text-sm text-gray-500">กรุณารอสักครู่ เราพยายามประมวลผลรูปภาพของคุณ</p>
+        <h3 class="text-lg font-semibold text-gray-700 mb-2">🐱 Uploading your cat photo...</h3>
+        <p class="text-sm text-gray-500">Please wait a moment while we process your image.</p>
       </div>
     </div>
 
@@ -192,7 +198,6 @@ import { createApiUrl } from "../config/api";
 
 const router = useRouter();
 
-// No authentication check on mount - allow access to upload page
 onMounted(() => {
   // Initialize any necessary data
 });
@@ -213,20 +218,16 @@ const isDetectingCats = ref(false);
 const catDetectionResult = ref(null);
 const showDetectionResults = ref(false);
 
-// Use the upload composable
 const { uploadCat, isUploading, error } = useUploadCat();
 
-// Error handling for browser extension conflicts
 onErrorCaptured((err) => {
-  // Ignore extension-related errors
   if (err.message && err.message.includes("message channel closed")) {
     console.warn("Browser extension conflict detected, ignoring:", err.message);
-    return false; // Prevent the error from propagating
+    return false;
   }
-  return true; // Let other errors propagate normally
+  return true;
 });
 
-// Handle unhandled promise rejections (often from extensions)
 onMounted(() => {
   window.addEventListener("unhandledrejection", (event) => {
     if (
@@ -240,15 +241,13 @@ onMounted(() => {
   });
 });
 
-// Map setup
 const mapZoom = ref(13);
-const mapCenter = ref([18.7883, 98.9853]); // Default: Chiang Mai
+const mapCenter = ref([18.7883, 98.9853]);
 const markerLatLng = ref([18.7883, 98.9853]);
 const tileLayerUrl = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 const tileLayerAttr =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
-// Sync marker <-> input
 watch([latitude, longitude], ([lat, lng]) => {
   if (lat && lng) {
     markerLatLng.value = [parseFloat(lat), parseFloat(lng)];
@@ -257,15 +256,12 @@ watch([latitude, longitude], ([lat, lng]) => {
 });
 
 function onMarkerDrag(newLatLng) {
-  // Handle different possible data structures from Vue-Leaflet
   let lat, lng;
 
   if (Array.isArray(newLatLng)) {
-    // Array format [lat, lng]
     lat = newLatLng[0];
     lng = newLatLng[1];
   } else if (newLatLng && typeof newLatLng === "object") {
-    // Object format with lat/lng properties
     lat = newLatLng.lat || newLatLng.latitude;
     lng = newLatLng.lng || newLatLng.longitude;
   } else {
@@ -287,7 +283,6 @@ function onMapMove(newCenter) {
 }
 
 function onMapClick(event) {
-  // Handle different possible event structures
   let lat, lng;
 
   if (event && event.latlng) {
@@ -321,6 +316,13 @@ function getCurrentLocation() {
     return;
   }
 
+  // เพิ่ม options เพื่อความแม่นยำสูงสุด
+  const geoOptions = {
+    enableHighAccuracy: true, // ขอความแม่นยำสูงสุด
+    timeout: 15000,           // รอสูงสุด 15 วินาที
+    maximumAge: 0             // ไม่ใช้ cache
+  };
+
   navigator.geolocation.getCurrentPosition(
     (position) => {
       const lat = position.coords.latitude;
@@ -334,7 +336,6 @@ function getCurrentLocation() {
       locationSuccess.value = true;
       gettingLocation.value = false;
 
-      // Hide success message after 2 seconds
       setTimeout(() => (locationSuccess.value = false), 2000);
     },
     (err) => {
@@ -353,7 +354,8 @@ function getCurrentLocation() {
           break;
       }
       gettingLocation.value = false;
-    }
+    },
+    geoOptions // <-- ส่ง options นี้เข้าไป
   );
 }
 
@@ -367,8 +369,6 @@ function handleFileChange(e) {
     file.value = selected;
     previewUrl.value = URL.createObjectURL(selected);
     error.value = null;
-    
-    // ตรวจจับแมวในรูปภาพที่เลือก
     detectCatsInImage(selected);
   }
 }
@@ -379,8 +379,6 @@ function handleDrop(e) {
     file.value = dropped;
     previewUrl.value = URL.createObjectURL(dropped);
     error.value = null;
-    
-    // ตรวจจับแมวในรูปภาพที่ drop
     detectCatsInImage(dropped);
   }
 }
@@ -394,15 +392,13 @@ async function detectCatsInImage(imageFile) {
   error.value = null;
   
   try {
-    // ใช้ test endpoint ที่ไม่ต้อง authentication
     const result = await catDetectionService.testDetectCats(imageFile);
     
     catDetectionResult.value = result;
     showDetectionResults.value = true;
     
-    // ตรวจสอบว่ามีแมวในรูปหรือไม่
     if (!result.has_cats || result.cat_count === 0) {
-      error.value = `Please upload a cat photo.`;
+      error.value = `Please upload a photo that contains a cat.`;
       file.value = null;
       previewUrl.value = null;
       showDetectionResults.value = false;
@@ -410,14 +406,12 @@ async function detectCatsInImage(imageFile) {
     
   } catch (error) {
     console.error('❌ Cat detection failed:', error);
-    
-    // ถ้า detection ล้มเหลว ให้ใช้ fallback
-    error.value = `⚠️ ไม่สามารถตรวจสอบแมวได้: ${error.message}. คุณยังสามารถอัพโหลดได้`;
+    error.value = `⚠️ We couldn't check for cats: ${error.message}. You can still upload your photo.`;
     catDetectionResult.value = {
-      has_cats: true, // สมมติว่ามีแมว
+      has_cats: true,
       cat_count: 1,
       confidence: 50,
-      note: "ไม่สามารถตรวจสอบได้ - กรุณาตรวจสอบด้วยตนเอง"
+      note: "Detection unavailable - please check manually"
     };
     showDetectionResults.value = true;
   } finally {
@@ -426,28 +420,24 @@ async function detectCatsInImage(imageFile) {
 }
 
 async function handleSubmit() {
-  // Check authentication first - redirect to login if not authenticated
   if (!authStore.isAuthenticated || !authStore.user) {
     sessionStorage.setItem('redirectAfterAuth', '/upload');
     router.push('/login');
     return;
   }
 
-  // Validation for authenticated users
   if (!file.value) {
     error.value = "Please select a file to upload.";
     return;
   }
   
-  // ตรวจสอบว่ามีการตรวจจับแมวแล้วหรือยัง
   if (!catDetectionResult.value) {
-    error.value = "กรุณารอให้ระบบตรวจสอบแมวในรูปภาพเสร็จสิ้น";
+    error.value = "Please wait for the cat detection to finish.";
     return;
   }
   
-  // ตรวจสอบว่ามีแมวในรูปหรือไม่
   if (!catDetectionResult.value.has_cats || catDetectionResult.value.cat_count === 0) {
-    error.value = "ไม่สามารถอัพโหลดได้ เนื่องจากไม่พบแมวในรูปภาพนี้ กรุณาเลือกรูปภาพที่มีแมว";
+    error.value = "Sorry, we couldn't find a cat in your photo. Please choose another photo with a cat.";
     return;
   }
   
@@ -477,7 +467,6 @@ async function handleSubmit() {
   formData.append("description", description.value.trim() || "");
   formData.append("location_name", locationName.value.trim());
   
-  // เพิ่มข้อมูลการตรวจจับแมว
   formData.append("cat_detection_data", JSON.stringify({
     has_cats: catDetectionResult.value.has_cats,
     cat_count: catDetectionResult.value.cat_count,
@@ -513,20 +502,16 @@ async function handleSubmit() {
           classificationConfidence.value = null;
         } else {
           classificationLabel.value = "No cat detected in this image";
-          classificationLabel.value = "No cat detected in this image";
           classificationConfidence.value = null;
         }
       }
-      // Automatically refresh to the upload page after a short delay
       setTimeout(() => {
         window.location.reload();
       }, 500);
-      // Automatically refresh to the upload page after a short delay
       setTimeout(() => {
         window.location.reload();
       }, 500);
     } else {
-      // Handle auth errors
       if (res.status === 401) {
         sessionStorage.setItem('redirectAfterAuth', '/upload');
         router.push('/login');

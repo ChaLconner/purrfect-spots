@@ -3,9 +3,9 @@
         <h2 class="text-3xl font-bold text-gray-800 mb-8 text-center">Cat Photo Gallery</h2>
         <div v-if="loading" class="text-center py-12">
             <div class="flex flex-col items-center">
-                <div class="animate-spin rounded-full h-20 w-20 border-b-2 border-orange-500 mb-4"></div>
-                <h3 class="text-lg font-semibold text-gray-700 mb-2">🐱 กำลังโหลดแกลเลอรี่...</h3>
-                <p class="text-sm text-gray-500">เรากำลังรวบรวมรูปแมวน่ารักทั้งหมดให้คุณ</p>
+              <div class="animate-spin rounded-full h-20 w-20 border-b-2 border-orange-500 mb-4"></div>
+              <h3 class="text-lg font-semibold text-gray-700 mb-2">🐱 Loading the gallery...</h3>
+              <p class="text-sm text-gray-500">Hang tight! We’re fetching all the adorable cat photos for you.</p>
             </div>
         </div>
         <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
