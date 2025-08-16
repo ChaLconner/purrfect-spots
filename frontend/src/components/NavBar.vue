@@ -5,7 +5,7 @@ import { useRouter } from "vue-router";
 import { authStore, initializeAuth, clearAuth } from "../store/auth";
 import { AuthService } from "../services/authService";
 import Upload from "./icons/upload.vue";
-import Map from "./icons/Map.vue";
+import Map from "./icons/map.vue";
 import gallery from "./icons/gallery.vue";
 
 const menuOpen = ref(false);
