@@ -5,7 +5,7 @@ import { useRouter } from "vue-router";
 import { authStore, initializeAuth, clearAuth } from "../store/auth";
 import { AuthService } from "../services/authService";
 import Upload from "./icons/upload.vue";
-import Map from "./icons/map.vue";
+import Map from "./icons/Map.vue";
 import gallery from "./icons/gallery.vue";
 
 const menuOpen = ref(false);
@@ -47,15 +47,19 @@ onUnmounted(() => {
 });
 </script>
 <template>
-  <nav
-    class="flex flex-col md:flex-row items-center justify-between px-6 py-4 bg-white shadow-md"
-  >
+  <nav class="navbar-glass flex items-center justify-between">
+    <!-- โลโก้ -->
     <div
       class="flex items-center mb-2 md:mb-0 space-x-2 cursor-pointer"
       @click="goHome"
     >
       <logo class="w-8 h-8" />
-      <div class="text-lg font-bold whitespace-nowrap">Purrfect Spots</div>
+      <div
+        class="text-lg font-bold whitespace-nowrap cursor-pointer"
+        @click.stop="router.push('/map')"
+      >
+        Purrfect Spots
+      </div>
     </div>
     <!-- Hamburger button (mobile only) -->
     <button
@@ -82,15 +86,26 @@ onUnmounted(() => {
       class="flex-col md:flex-row items-center gap-4 md:gap-6 md:flex"
       :class="menuOpen ? 'flex' : 'hidden'"
     >
-      <router-link to="/" class="hover:underline"><Map/> Map </router-link>
-      <router-link to="/upload" class="hover:underline"><Upload/> Upload </router-link>
-      <router-link to="/gallery" class="hover:underline"><gallery/> Gallery </router-link>
+      <div class="flex gap-4 items-center">
+        <router-link to="/map" class="flex items-center gap-2 group menu-hover-map">
+          <Map class="w-6 h-6 md:w-7 md:h-7" />
+          <span class="hidden md:inline text-sm font-medium group-hover:underline">Map</span>
+        </router-link>
+        <router-link to="/upload" class="flex items-center gap-2 group menu-hover-upload">
+          <Upload class="w-6 h-6 md:w-7 md:h-7" />
+          <span class="hidden md:inline text-sm font-medium group-hover:underline">Upload</span>
+        </router-link>
+        <router-link to="/gallery" class="flex items-center gap-2 group menu-hover-gallery">
+          <gallery class="w-6 h-6 md:w-7 md:h-7" />
+          <span class="hidden md:inline text-sm font-medium group-hover:underline">Gallery</span>
+        </router-link>
+      </div>
 
       <!-- Authentication Section -->
       <div v-if="!authStore.isAuthenticated" class="flex items-center gap-2">
         <router-link
           to="/login"
-          class="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-200 font-medium"
+          class="login-gradient-btn"
         >
           Login
         </router-link>

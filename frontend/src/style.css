@@ -11,6 +11,21 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Beautiful gradient background */
+body {
+  background: linear-gradient(
+    160deg,
+    rgba(168, 218, 220, 0.7) 0%,
+    rgba(183, 228, 199, 0.7) 30%,
+    rgba(253, 229, 200, 0.7) 65%,
+    rgba(246, 166, 161, 0.7) 100%
+  );
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  min-height: 100vh;
+  background-attachment: fixed;
+}
+
 #app {
   min-height: 100vh;
 }
@@ -36,4 +51,98 @@ html {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #a1a1a1;
+}
+
+/* Custom Tailwind utilities */
+@layer utilities {
+  .bg-gradient-pastel {
+    background: linear-gradient(
+      160deg,
+      rgba(168, 218, 220, 0.7) 0%,
+      rgba(183, 228, 199, 0.7) 30%,
+      rgba(253, 229, 200, 0.7) 65%,
+      rgba(246, 166, 161, 0.7) 100%
+    );
+  }
+  
+  .backdrop-blur-glass {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  
+  .bg-glass {
+    background: linear-gradient(
+      160deg,
+      rgba(168, 218, 220, 0.7) 0%,
+      rgba(183, 228, 199, 0.7) 30%,
+      rgba(253, 229, 200, 0.7) 65%,
+      rgba(246, 166, 161, 0.7) 100%
+    );
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  .login-gradient-btn {
+    background: linear-gradient(
+      135deg,
+      rgba(168, 218, 220, 0.95) 0%,
+      rgba(183, 228, 199, 0.95) 60%,
+      rgba(246, 166, 161, 0.90) 100%
+    );
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: #2d2d2d;
+    font-weight: bold;
+    padding: 0.7rem 1.5rem;
+    border-radius: 999px;
+    border: 2px solid #5ec49e;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  .login-gradient-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(168, 218, 220, 0.25);
+    border-color: #f6a6a1;
+  }
+
+  .navbar-glass {
+    background: linear-gradient(
+      120deg,
+      rgba(52, 120, 168, 0.92) 0%,   /* ฟ้าเข้ม pastel */
+      rgba(34, 193, 195, 0.92) 100%  /* teal pastel */
+    );
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    padding: 1rem 2rem;
+    border-radius: 2rem;
+    margin: 1rem 2rem;
+    box-shadow:
+      0 8px 32px 0 rgba(52, 120, 168, 0.18),
+      0 4px 24px 0 rgba(34, 193, 195, 0.18);
+    transition: box-shadow 0.3s, background 0.3s;
+  }
+  .navbar-glass:hover {
+    box-shadow:
+      0 16px 48px 0 rgba(52, 120, 168, 0.28),
+      0 8px 32px 0 rgba(34, 193, 195, 0.22);
+    background: linear-gradient(
+      120deg,
+      rgba(52, 120, 168, 1) 0%,
+      rgba(34, 193, 195, 1) 100%
+    );
+  }
+
+  .menu-hover-map:hover,
+  .menu-hover-gallery:hover,
+  .menu-hover-upload:hover {
+    background: linear-gradient(120deg, #a8dadc 60%, #b7e4c7 100%);
+  }
+
+  .menu-hover-map,
+  .menu-hover-upload,
+  .menu-hover-gallery {
+    border-radius: 999px;
+    transition: background 0.2s;
+    padding: 0.25rem 0.75rem;
+  }
 }

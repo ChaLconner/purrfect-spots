@@ -9,8 +9,8 @@ import { initializeAuth, isUserReady } from "../store/auth";
 
 const routes = [
   {
-    path: "/",
-    name: "Home",
+    path: "/map",
+    name: "Map",
     component: Map,
   },
   {

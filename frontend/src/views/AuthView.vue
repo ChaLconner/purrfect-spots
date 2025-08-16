@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gray-50 py-8">
+  <div class="min-h-screen bg-transition py-8">
     <AuthForm :initial-mode="mode" />
   </div>
 </template>
