@@ -61,3 +61,7 @@ Thumbs.db
 *.db
 *.sqlite
 *.sqlite3
+
+# Vercel
+.vercel
+*.log

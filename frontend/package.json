@@ -8,7 +8,9 @@
     "build": "vue-tsc && vite build",
     "build:prod": "NODE_ENV=production vue-tsc && vite build --mode production",
     "preview": "vite preview",
-    "type-check": "vue-tsc --noEmit"
+    "type-check": "vue-tsc --noEmit",
+    "deploy": "vercel --prod",
+    "deploy:preview": "vercel"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.11",

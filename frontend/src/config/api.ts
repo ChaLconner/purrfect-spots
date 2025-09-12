@@ -7,8 +7,8 @@ export function getApiBaseUrl(): string {
   // ดึงจาก environment variable
   const envUrl = import.meta.env.VITE_API_BASE_URL;
   
-  // Production fallback
-  const fallbackUrl = 'https://purrfect-spots-backend.onrender.com';
+  // Production fallback - your actual Vercel backend deployment URL
+  const fallbackUrl = 'https://purrfect-spots-backend.vercel.app';
   
   const apiUrl = envUrl || fallbackUrl;
   
