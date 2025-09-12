@@ -48,7 +48,7 @@ export interface CombinedAnalysisResult {
 
 export class CatDetectionService {
   private getBaseURL() {
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://purrfect-spots-backend.onrender.com';
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://purrfect-spots-backend.vercel.app';
     return `${apiBaseUrl}/detect`;
   }
 
