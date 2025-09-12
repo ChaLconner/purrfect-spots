@@ -4,4 +4,3 @@ This module imports and exposes the FastAPI app for Vercel's Python runtime.
 """
 
 from main import app
-handler = app
