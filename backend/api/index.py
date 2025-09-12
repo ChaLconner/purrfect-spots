@@ -11,5 +11,6 @@ sys.path.insert(0, current_dir)
 # Import the FastAPI app
 from main import app
 
-# For Vercel Python runtime, just export the app
-# Vercel handles ASGI automatically for FastAPI apps
+# Export the app for Vercel
+# Vercel looks for 'app' variable by default
+# No need for explicit handler
