@@ -56,41 +56,43 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 cors_origins_env = os.getenv("CORS_ORIGINS", "")
 is_dev = os.getenv("DEBUG", "False").lower() == "true"
 
+# Default production origins - always include these
+default_allowed_origins = [
+    "https://purrfect-spots.vercel.app",
+    "https://purrfect-spots-frontend.vercel.app", 
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:3000",
+    "http://localhost:8000"
+]
+
 if is_dev:
     print("🚨 Development mode: Allowing all origins")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-elif cors_origins_env:
-    # Use environment variable if set
-    allowed_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
-    print(f"🌐 CORS allowed origins from env: {allowed_origins}")
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=allowed_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["*"],
     )
 else:
-    # Production: Allow specific domains including Vercel deployments
-    allowed_origins = [
-        "https://purrfect-spots.vercel.app",
-        "https://purrfect-spots-frontend.vercel.app",
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://localhost:3000"
-    ]
+    # Production: Combine default origins with any additional ones from env
+    allowed_origins = default_allowed_origins.copy()
+    
+    if cors_origins_env:
+        # Add additional origins from environment variable
+        env_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+        allowed_origins.extend(env_origins)
+    
+    # Remove duplicates while preserving order
+    allowed_origins = list(dict.fromkeys(allowed_origins))
+    
     print(f"🌐 CORS allowed origins: {allowed_origins}")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,
         allow_credentials=True,
-        allow_methods=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["*"],
     )
 
@@ -104,6 +106,20 @@ async def root():
 async def health_check():
     """Simple health check endpoint"""
     return {"status": "healthy", "message": "PurrFect Spots API is running"}
+
+# ✅ CORS preflight handler for all routes
+@app.options("/{full_path:path}")
+async def options_handler(request: Request, full_path: str):
+    """Handle CORS preflight requests"""
+    return JSONResponse(
+        content={"message": "OK"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+        }
+    )
 
 # ✅ Include routers AFTER middleware
 app.include_router(auth_manual.router)
