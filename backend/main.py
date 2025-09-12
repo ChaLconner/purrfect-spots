@@ -75,8 +75,20 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
+    allow_headers=[
+        "Accept",
+        "Accept-Language",
+        "Content-Language",
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Origin",
+        "Access-Control-Request-Method",
+        "Access-Control-Request-Headers",
+    ],
+    expose_headers=["*"],
+    max_age=86400,  # 24 hours
 )
 
 # ✅ Health check endpoint
@@ -94,15 +106,31 @@ async def health_check():
 @app.options("/{full_path:path}")
 async def options_handler(request: Request, full_path: str):
     """Handle CORS preflight requests"""
-    return JSONResponse(
-        content={"message": "OK"},
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-            "Access-Control-Allow-Headers": "*",
-            "Access-Control-Allow-Credentials": "true",
-        }
-    )
+    origin = request.headers.get("origin")
+    
+    # Check if origin is allowed
+    if origin in allowed_origins:
+        return JSONResponse(
+            content={"message": "OK"},
+            headers={
+                "Access-Control-Allow-Origin": origin,
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+                "Access-Control-Allow-Headers": "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Max-Age": "86400",
+            }
+        )
+    else:
+        # For development, allow all origins (remove in production)
+        return JSONResponse(
+            content={"message": "OK"},
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+                "Access-Control-Allow-Headers": "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+                "Access-Control-Max-Age": "86400",
+            }
+        )
 
 # ✅ Include routers AFTER middleware
 app.include_router(auth_manual.router)
@@ -154,7 +182,7 @@ async def get_gallery(supabase = Depends(get_supabase_client)):
 
 
 @app.get("/locations", response_model=List[CatLocation])
-def get_locations(supabase = Depends(get_supabase_client)):
+async def get_locations(request: Request, supabase = Depends(get_supabase_client)):
     """Get all cat locations from Supabase."""
     try:
         resp = (
@@ -170,6 +198,33 @@ def get_locations(supabase = Depends(get_supabase_client)):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.options("/locations")
+async def locations_options(request: Request):
+    """Handle CORS preflight for locations endpoint"""
+    origin = request.headers.get("origin")
+    
+    if origin in allowed_origins:
+        return JSONResponse(
+            content={"message": "OK"},
+            headers={
+                "Access-Control-Allow-Origin": origin,
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Access-Control-Allow-Headers": "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin",
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Max-Age": "86400",
+            }
+        )
+    else:
+        return JSONResponse(
+            content={"message": "OK"},
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Access-Control-Allow-Headers": "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin",
+                "Access-Control-Max-Age": "86400",
+            }
+        )
 
 # Vercel expects this to be available
 handler = app
