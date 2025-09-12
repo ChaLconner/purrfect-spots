@@ -52,49 +52,32 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 # ✅ CORS middleware must be added BEFORE including routers
-# Get allowed origins from environment variable or use defaults
-cors_origins_env = os.getenv("CORS_ORIGINS", "")
-is_dev = os.getenv("DEBUG", "False").lower() == "true"
-
-# Default production origins - always include these
-default_allowed_origins = [
-    "https://purrfect-spots.vercel.app",
+# List of allowed origins - include your frontend domain
+allowed_origins = [
+    "https://purrfect-spots.vercel.app",  # Your frontend domain
     "https://purrfect-spots-frontend.vercel.app", 
-    "http://localhost:5173",
+    "http://localhost:5173",  # Local development
     "http://localhost:5174",
     "http://localhost:3000",
     "http://localhost:8000"
 ]
 
-if is_dev:
-    print("🚨 Development mode: Allowing all origins")
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["*"],
-    )
-else:
-    # Production: Combine default origins with any additional ones from env
-    allowed_origins = default_allowed_origins.copy()
-    
-    if cors_origins_env:
-        # Add additional origins from environment variable
-        env_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
-        allowed_origins.extend(env_origins)
-    
-    # Remove duplicates while preserving order
-    allowed_origins = list(dict.fromkeys(allowed_origins))
-    
-    print(f"🌐 CORS allowed origins: {allowed_origins}")
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=allowed_origins,
-        allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["*"],
-    )
+# Add any additional origins from environment variable
+cors_origins_env = os.getenv("CORS_ORIGINS", "")
+if cors_origins_env:
+    env_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+    allowed_origins.extend(env_origins)
+
+print(f"🌐 CORS allowed origins: {allowed_origins}")
+
+# Add CORS middleware with explicit configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 # ✅ Health check endpoint
 @app.get("/")
