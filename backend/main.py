@@ -88,6 +88,11 @@ else:
     )
 
 # ✅ Health check endpoint
+@app.get("/")
+async def root():
+    """Root endpoint"""
+    return {"status": "healthy", "message": "PurrFect Spots API is running"}
+
 @app.get("/health")
 async def health_check():
     """Simple health check endpoint"""
@@ -159,6 +164,9 @@ def get_locations(supabase = Depends(get_supabase_client)):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# Vercel expects this to be available
+handler = app
 
 if __name__ == "__main__":
     import uvicorn
