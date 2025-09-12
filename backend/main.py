@@ -81,7 +81,7 @@ else:
     print("🌐 CORS using regex pattern for Vercel deployments")
     app.add_middleware(
         CORSMiddleware,
-        allow_origin_regex=r"https://purrfect-spots.*\.vercel\.app|http://localhost:(5173|5174)",
+        allow_origin_regex=r"https://.*\.vercel\.app|http://localhost:(5173|5174)",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
