@@ -7,7 +7,7 @@ export const getApiBaseUrl = (): string => {
   const envUrl = import.meta.env.VITE_API_BASE_URL;
   
   if (!envUrl) {
-    return 'https://purrfect-spots-backend.onrender.com'; // fallback
+    return 'https://purrfect-spots-backend.vercel.app'; // fallback - updated to use Vercel
   }
   
   return envUrl;

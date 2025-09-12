@@ -77,11 +77,18 @@ elif cors_origins_env:
         allow_headers=["*"],
     )
 else:
-    # Production: Use regex pattern for Vercel + specific localhost URLs
-    print("🌐 CORS using regex pattern for Vercel deployments")
+    # Production: Allow specific domains including Vercel deployments
+    allowed_origins = [
+        "https://purrfect-spots.vercel.app",
+        "https://purrfect-spots-frontend.vercel.app",
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:3000"
+    ]
+    print(f"🌐 CORS allowed origins: {allowed_origins}")
     app.add_middleware(
         CORSMiddleware,
-        allow_origin_regex=r"https://.*\.vercel\.app|http://localhost:(5173|5174)",
+        allow_origins=allowed_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
