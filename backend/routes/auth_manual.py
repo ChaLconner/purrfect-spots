@@ -47,27 +47,26 @@ async def register(data: RegisterInput, auth_service: AuthService = Depends(get_
         if existing_user:
             raise HTTPException(
                 status_code=400, 
-                detail="อีเมลนี้ถูกใช้งานแล้ว กรุณาใช้อีเมลอื่น"
+                detail="This email is already in use. Please use another email"
             )
         
         # ✅ Validate password strength
         if len(data.password) < 6:
             raise HTTPException(
                 status_code=400,
-                detail="รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร"
+                detail="Password must be at least 6 characters long"
             )
         
         # ✅ Validate name
         if not data.name.strip():
             raise HTTPException(
                 status_code=400,
-                detail="กรุณากรอกชื่อ-นามสกุล"
+                detail="Please enter first and last name"
             )
         
         # 🔐 Hash password and insert directly to Supabase
         password_hash = hash_password(data.password)
         
-        print(f"🔄 Creating user: {data.email}")
         
         # Direct insert to Supabase table
         supabase = get_supabase_client()
@@ -79,7 +78,6 @@ async def register(data: RegisterInput, auth_service: AuthService = Depends(get_
         
         if hasattr(result, 'data') and result.data:
             user = result.data[0]
-            print(f"✅ User created successfully: {user['id']}")
         else:
             raise HTTPException(
                 status_code=400, 
@@ -109,12 +107,9 @@ async def register(data: RegisterInput, auth_service: AuthService = Depends(get_
         # Re-raise HTTP exceptions (validation errors, etc.)
         raise
     except Exception as e:
-        print(f"🔥 REGISTER ERROR: {type(e).__name__}: {str(e)}")
-        import traceback
-        traceback.print_exc()
         raise HTTPException(
             status_code=500,
-            detail="การสมัครสมาชิกล้มเหลว กรุณาลองใหม่อีกครั้ง"
+            detail="Registration failed. Please try again"
         )
 
 @router.post("/login", response_model=LoginResponse)
@@ -148,7 +143,6 @@ def login(req: LoginRequest, auth_service: AuthService = Depends(get_auth_servic
     except HTTPException:
         raise
     except Exception as e:
-        print("🔥 LOGIN ERROR:", e)  # <== ตรงนี้สำคัญ
         raise HTTPException(
             status_code=500,
             detail="Login failed"

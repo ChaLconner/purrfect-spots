@@ -2,10 +2,12 @@
  * API Configuration
  */
 
+import { isDev, getEnvVar } from '../utils/env';
+
 // Helper function to get API base URL
 export function getApiBaseUrl(): string {
-  // ดึงจาก environment variable
-  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  // Get from environment variable
+  const envUrl = getEnvVar('VITE_API_BASE_URL');
   
   // Production fallback - your actual Vercel backend deployment URL
   const fallbackUrl = 'https://purrfect-spots-backend.vercel.app';
@@ -34,7 +36,8 @@ export function getDefaultHeaders(): Record<string, string> {
 
 // Headers with authentication
 export function getAuthHeaders(): Record<string, string> {
-  const token = localStorage.getItem('access_token');
+  // Try both token keys for compatibility
+  const token = localStorage.getItem('auth_token') || localStorage.getItem('access_token');
   const headers = getDefaultHeaders();
   
   if (token) {
@@ -65,7 +68,9 @@ export async function apiRequest(
     
     return response;
   } catch (error) {
-    console.error('API request failed:', error);
+    if (isDev()) {
+      console.error('API request failed:', error);
+    }
     throw error;
   }
 }

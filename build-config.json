@@ -1,0 +1,96 @@
+{
+  "environments": {
+    "development": {
+      "description": "Development environment with debugging enabled",
+      "frontend": {
+        "node_env": "development",
+        "build_command": "npm run build",
+        "output_dir": "frontend/dist",
+        "source_map": true,
+        "minify": false,
+        "drop_console": false
+      },
+      "backend": {
+        "python_env": "development",
+        "debug": true,
+        "log_level": "debug"
+      }
+    },
+    "staging": {
+      "description": "Staging environment for testing before production",
+      "frontend": {
+        "node_env": "staging",
+        "build_command": "npm run build",
+        "output_dir": "frontend/dist",
+        "source_map": true,
+        "minify": true,
+        "drop_console": false
+      },
+      "backend": {
+        "python_env": "staging",
+        "debug": false,
+        "log_level": "info"
+      }
+    },
+    "production": {
+      "description": "Production environment with optimizations enabled",
+      "frontend": {
+        "node_env": "production",
+        "build_command": "npm run build:prod",
+        "output_dir": "frontend/dist",
+        "source_map": false,
+        "minify": true,
+        "drop_console": true
+      },
+      "backend": {
+        "python_env": "production",
+        "debug": false,
+        "log_level": "warning"
+      }
+    }
+  },
+  "build_scripts": {
+    "linux_macos": {
+      "main": "build.sh",
+      "frontend": "build-frontend.sh",
+      "backend": "build-backend.sh"
+    },
+    "windows": {
+      "main": "build.bat",
+      "frontend": "build-frontend.bat",
+      "backend": "build-backend.bat"
+    }
+  },
+  "validation": {
+    "frontend": {
+      "type_check": true,
+      "lint": true,
+      "format_check": true,
+      "security_audit": true
+    },
+    "backend": {
+      "syntax_check": true,
+      "lint": true,
+      "format_check": true,
+      "security_audit": true,
+      "import_test": true
+    }
+  },
+  "optimization": {
+    "frontend": {
+      "bundle_analysis": true,
+      "asset_optimization": true,
+      "dependency_optimization": true
+    },
+    "backend": {
+      "dependency_freeze": true,
+      "bytecode_compilation": true
+    }
+  },
+  "reporting": {
+    "output_dir": "build-reports",
+    "formats": ["json"],
+    "include_metrics": true,
+    "include_timestamps": true
+  }
+}

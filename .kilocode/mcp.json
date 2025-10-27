@@ -1,0 +1,29 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp"
+      ],
+      "env": {
+        "DEFAULT_MINIMUM_TOKENS": "6000"
+      },
+      "alwaysAllow": [
+        "resolve-library-id",
+        "get-library-docs"
+      ],
+      "timeout": 60
+    },
+    "microsoft-learn": {
+      "type": "streamable-http",
+      "url": "https://learn.microsoft.com/api/mcp"
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest"
+      ]
+    }
+  }
+}

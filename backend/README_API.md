@@ -1,8 +1,8 @@
 # 🔌 Purrfect Spots API
 
-คู่มือการใช้งาน API สำหรับแอปแชร์รูปแมว - เข้าใจง่าย ใช้งานง่าย!
+API usage guide for cat photo sharing app - Easy to understand, easy to use!
 
-## 🚀 เริ่มต้นใช้งาน
+## 🚀 Getting Started
 
 ```bash
 cd backend
@@ -10,7 +10,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-✅ เซิร์ฟเวอร์จะรันที่: `http://localhost:8000`
+✅ Server will run at: `http://localhost:8000`
 
 ## 📋 API Endpoints
 
@@ -27,14 +27,14 @@ python main.py
 |-----|--------|--------|
 | `/api/presigned-url` | POST | สร้าง presigned URL สำหรับอัปโหลดรูปภาพ |
 
-## 💡 ตัวอย่างการใช้งาน
+## 💡 Usage Examples
 
-### 1. ✅ ตรวจสอบเซิร์ฟเวอร์
+### 1. ✅ Check Server
 ```bash
 curl http://localhost:8000/health
 ```
 
-**ผลลัพธ์:**
+**Result:**
 ```json
 {
   "status": "healthy",
@@ -42,7 +42,7 @@ curl http://localhost:8000/health
 }
 ```
 
-### 2. � สร้าง Presigned URL
+### 2. 🔄 Create Presigned URL
 ```bash
 curl -X POST "http://localhost:8000/api/presigned-url" \
   -H "Content-Type: application/json" \
@@ -61,11 +61,11 @@ curl -X POST "http://localhost:8000/api/presigned-url" \
 }
 ```
 
-### 3. 🔄 อัปโหลดรูปภาพ
+### 3. 🔄 Upload Image
 ```javascript
 // Frontend JavaScript
 const uploadImage = async (file) => {
-  // 1. ขอ presigned URL
+  // 1. Request presigned URL
   const response = await fetch('/api/presigned-url', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -77,46 +77,46 @@ const uploadImage = async (file) => {
   
   const { upload_url, public_url } = await response.json();
   
-  // 2. อัปโหลดไฟล์โดยตรงไปยัง S3
+  // 2. Upload file directly to S3
   await fetch(upload_url, {
     method: 'PUT',
     body: file,
     headers: { 'Content-Type': file.type }
   });
   
-  // 3. ใช้ public_url เพื่อแสดงรูปภาพ
+  // 3. Use public_url to display image
   return public_url;
 };
 ```
-### 2. 📸 อัปโหลดรูปแมว
+### 2. 📸 Upload Cat Photo
 ```bash
 curl -X POST http://localhost:5000/upload \
   -F "file=@cat.jpg" \
-  -F "location=วัดพระสิงห์ เชียงใหม่" \
-  -F "description=แมวน่ารัก" \
+  -F "location=Wat Phra Singh, Chiang Mai" \
+  -F "description=Cute cat" \
   -F "latitude=18.7883" \
   -F "longitude=98.9853"
 ```
 
-**ได้อะไรกลับมา:**
+**What you get back:**
 ```json
 {
-  "message": "อัปโหลดสำเร็จ!",
+  "message": "Upload successful!",
   "filename": "cat_20240120_103000_abc12345.jpg",
   "url": "https://purrfect-spots-bucket.s3.us-east-1.amazonaws.com/...",
   "metadata": {
-    "location": "วัดพระสิงห์ เชียงใหม่",
-    "description": "แมวน่ารัก"
+    "location": "Wat Phra Singh, Chiang Mai",
+    "description": "Cute cat"
   }
 }
 ```
 
-### 3. 🖼️ ดูรูปทั้งหมด
+### 3. 🖼️ View All Images
 ```bash
 curl http://localhost:5000/images
 ```
 
-**ได้อะไรกลับมา:**
+**What you get back:**
 ```json
 {
   "images": [
@@ -125,27 +125,27 @@ curl http://localhost:5000/images
       "url": "https://...",
       "size": 256000,
       "metadata": {
-        "location": "วัดพระสิงห์ เชียงใหม่",
-        "description": "แมวน่ารัก"
+        "location": "Wat Phra Singh, Chiang Mai",
+        "description": "Cute cat"
       }
     }
   ]
 }
 ```
 
-### 4. 🗺️ ดูตำแหน่งทั้งหมด
+### 4. 🗺️ View All Locations
 ```bash
 curl http://localhost:5000/locations
 ```
 
-### 5. 🗑️ ลบรูป
+### 5. 🗑️ Delete Image
 ```bash
 curl -X DELETE http://localhost:5000/delete/cat_20240120_103000_abc12345.jpg
 ```
 
-## 🔧 การตั้งค่า AWS
+## 🔧 AWS Configuration
 
-สร้างไฟล์ `.env` และใส่ข้อมูลนี้:
+Create a `.env` file and add this information:
 
 ```env
 AWS_ACCESS_KEY_ID=your_access_key_id
@@ -154,25 +154,25 @@ AWS_REGION=us-east-1
 S3_BUCKET_NAME=purrfect-spots-bucket
 ```
 
-## 🚨 แก้ปัญหา
+## 🚨 Troubleshooting
 
-### ปัญหาที่พบบ่อย:
-1. **500 Error** → ตรวจสอบการตั้งค่า AWS
-2. **File too large** → ไฟล์ใหญ่เกิน 16MB
-3. **Invalid file type** → รองรับแค่ jpg, png, gif
-4. **Missing location** → ต้องใส่ location ด้วย
+### Common Problems:
+1. **500 Error** → Check AWS configuration
+2. **File too large** → File larger than 16MB
+3. **Invalid file type** → Only supports jpg, png, gif
+4. **Missing location** → Must include location
 
-### ไฟล์ที่รองรับ:
+### Supported Files:
 - `.jpg`, `.jpeg`, `.png`, `.gif`
-- ขนาดไม่เกิน 16MB
+- Maximum size 16MB
 
-## 🔍 ตรวจสอบการทำงาน
+## 🔍 Check Operation
 
 ```bash
-# ตรวจสอบเซิร์ฟเวอร์
+# Check server
 curl http://localhost:5000/health
 
-# ตรวจสอบการตั้งค่า AWS
+# Check AWS configuration
 curl http://localhost:5000/config
 ```
 
@@ -183,10 +183,10 @@ Made with ❤️ for 🐱 lovers!
 
 ## 🔒 File Upload Restrictions
 
-- **รองรับไฟล์**: PNG, JPG, JPEG, GIF, WEBP
-- **ขนาดไฟล์สูงสุด**: 16MB
-- **การปรับขนาด**: รูปภาพจะถูกปรับขนาดอัตโนมัติเป็น 1920x1080 (ถ้าใหญ่กว่า)
-- **คุณภาพ**: JPEG quality 85% สำหรับ optimization
+- **Supported Files**: PNG, JPG, JPEG, GIF, WEBP
+- **Maximum File Size**: 16MB
+- **Resizing**: Images will be automatically resized to 1920x1080 (if larger)
+- **Quality**: JPEG quality 85% for optimization
 
 ## 🚨 Error Responses
 
@@ -199,22 +199,22 @@ Made with ❤️ for 🐱 lovers!
 
 ## 🛠️ Features
 
-- ✅ **Unicode Support**: รองรับภาษาไทยใน metadata
-- ✅ **Image Optimization**: ปรับขนาดและคุณภาพรูปภาพ
-- ✅ **Unique Filenames**: สร้างชื่อไฟล์ unique ด้วย timestamp + UUID
-- ✅ **CORS Support**: รองรับการเรียกใช้จาก frontend
-- ✅ **Error Handling**: จัดการ error ครบถ้วน
-- ✅ **AWS Integration**: เชื่อมต่อกับ S3 bucket จริง
+- ✅ **Unicode Support**: Supports Thai language in metadata
+- ✅ **Image Optimization**: Resize and optimize image quality
+- ✅ **Unique Filenames**: Create unique filenames with timestamp + UUID
+- ✅ **CORS Support**: Support calls from frontend
+- ✅ **Error Handling**: Complete error management
+- ✅ **AWS Integration**: Connect to real S3 bucket
 
 ## 🔍 Logging
 
-Server จะแสดง log ข้อมูล:
-- การเชื่อมต่อ AWS S3
-- การอัปโหลดและลบไฟล์
-- Error และ warning
+Server will display log information:
+- AWS S3 connection
+- File upload and deletion
+- Errors and warnings
 - API request details
 
-ตัวอย่าง log:
+Example log:
 ```
 INFO:aws_config:S3 client initialized successfully
 INFO:aws_config:Using bucket: purrfect-spots-bucket

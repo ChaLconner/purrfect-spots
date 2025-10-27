@@ -71,7 +71,7 @@
         </label>
       </div>
 
-      <button :disabled="isLoading" class="btn w-full">
+      <button :disabled="isLoading" class="btn w-full cursor-pointer">
         {{ isLoading ? 'Loading...' : isLogin ? 'Sign In' : 'Sign Up' }}
       </button>
     </form>
@@ -92,7 +92,7 @@
           @click="handleGoogleLogin"
           :disabled="isLoading"
           type="button"
-          class="w-full flex justify-center items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+          class="w-full flex justify-center items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 cursor-pointer"
         >
           <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -128,6 +128,7 @@ import { ref, onMounted, watch, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import { setAuth, isUserReady } from '../store/auth';
 import { AuthService } from '../services/authService';
+import { isDev, getEnvVar } from '../utils/env';
 
 interface Props {
   initialMode?: 'login' | 'register';
@@ -211,7 +212,7 @@ const handleGoogleLogin = async () => {
   errorMessage.value = '';
 
   try {
-    const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '40710057825-09pahjbe71ncf7adq9c8892r2mivm9b3.apps.googleusercontent.com';
+    const googleClientId = getEnvVar('VITE_GOOGLE_CLIENT_ID') || '40710057825-09pahjbe71ncf7adq9c8892r2mivm9b3.apps.googleusercontent.com';
     const redirectUri = `${window.location.origin}/auth/callback`;
     
     const codeVerifier = generateCodeVerifier();
@@ -231,7 +232,9 @@ const handleGoogleLogin = async () => {
     
     window.location.href = oauthUrl.toString();
   } catch (err: any) {
-    console.error('Google OAuth Error:', err);
+    if (isDev()) {
+      console.error('Google OAuth Error:', err);
+    }
     errorMessage.value = err.message || 'Google sign-in failed';
     isLoading.value = false;
   }

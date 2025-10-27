@@ -1,4 +1,3 @@
-
 export interface CatDetectionResult {
   has_cats: boolean;
   cat_count: number;
@@ -46,155 +45,84 @@ export interface CombinedAnalysisResult {
   };
 }
 
+import { uploadFile, ApiError, ApiErrorTypes } from '../utils/api';
+import { isDev } from '../utils/env';
+
 export class CatDetectionService {
-  private getBaseURL() {
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://purrfect-spots-backend.vercel.app';
-    return `${apiBaseUrl}/detect`;
-  }
-
-  private getAuthHeaders() {
-    const token = localStorage.getItem('access_token');
-    if (!token) {
-      throw new Error('No authentication token found. Please login first.');
-    }
-    return {
-      'Authorization': `Bearer ${token}`
-    };
-  }
-
   async detectCats(file: File): Promise<CatDetectionResult> {
-    const formData = new FormData();
-    formData.append('file', file);
-
     try {
-      const response = await fetch(`${this.getBaseURL()}/cats`, {
-        method: 'POST',
-        headers: this.getAuthHeaders(),
-        body: formData
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
-        throw new Error(`Cat detection failed: ${errorData.detail || response.statusText}`);
-      }
-
-      const result = await response.json();
-      return result;
-
+      return await uploadFile<CatDetectionResult>('/detect/cats', file);
     } catch (error) {
-      throw error;
+      if (error instanceof ApiError) {
+        if (isDev()) {
+          console.error('❌ Cat detection failed:', error.message);
+        }
+        throw error;
+      }
+      
+      if (isDev()) {
+        console.error('🔥 Cat detection error:', error);
+      }
+      throw new ApiError(
+        ApiErrorTypes.UNKNOWN_ERROR,
+        `Cat detection failed: ${error.message || 'Unknown error'}`
+      );
     }
   }
 
   async analyzeSpot(file: File): Promise<SpotAnalysisResult> {
-    const formData = new FormData();
-    formData.append('file', file);
-
     try {
-      const response = await fetch(`${this.getBaseURL()}/spot-analysis`, {
-        method: 'POST',
-        headers: this.getAuthHeaders(),
-        body: formData
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
-        console.error('❌ Spot analysis failed:', errorData);
-        throw new Error(`Spot analysis failed: ${errorData.detail || response.statusText}`);
-      }
-
-      const result = await response.json();
-      return result;
-
+      return await uploadFile<SpotAnalysisResult>('/detect/spot-analysis', file);
     } catch (error) {
-      console.error('🔥 Spot analysis error:', error);
-      throw error;
+      if (error instanceof ApiError) {
+        if (isDev()) {
+          console.error('❌ Spot analysis failed:', error.message);
+        }
+        throw error;
+      }
+      
+      if (isDev()) {
+        console.error('🔥 Spot analysis error:', error);
+      }
+      throw new ApiError(
+        ApiErrorTypes.UNKNOWN_ERROR,
+        `Spot analysis failed: ${error.message || 'Unknown error'}`
+      );
     }
   }
 
   async combinedAnalysis(file: File): Promise<CombinedAnalysisResult> {
-    const formData = new FormData();
-    formData.append('file', file);
-
     try {
-      const response = await fetch(`${this.getBaseURL()}/combined`, {
-        method: 'POST',
-        headers: this.getAuthHeaders(),
-        body: formData
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
-        console.error('❌ Combined analysis failed:', errorData);
-        throw new Error(`Combined analysis failed: ${errorData.detail || response.statusText}`);
-      }
-
-      const result = await response.json();
-      return result;
-
+      return await uploadFile<CombinedAnalysisResult>('/detect/combined', file);
     } catch (error) {
-      console.error('🔥 Combined analysis error:', error);
-      throw error;
+      if (error instanceof ApiError) {
+        if (isDev()) {
+          console.error('❌ Combined analysis failed:', error.message);
+        }
+        throw error;
+      }
+      
+      if (isDev()) {
+        console.error('🔥 Combined analysis error:', error);
+      }
+      throw new ApiError(
+        ApiErrorTypes.UNKNOWN_ERROR,
+        `Combined analysis failed: ${error.message || 'Unknown error'}`
+      );
     }
   }
 
-  // Utility method สำหรับตรวจสอบว่า user login แล้วหรือยัง
+  // Utility method to check if user is logged in
   isAuthenticated(): boolean {
-    return !!localStorage.getItem('access_token');
+    // Check both token keys for compatibility
+    return !!(localStorage.getItem('auth_token') || localStorage.getItem('access_token'));
   }
 
-  // Utility method สำหรับ clear auth data
+  // Utility method to clear auth data
   clearAuth(): void {
+    // Clear both token keys for compatibility
+    localStorage.removeItem('auth_token');
     localStorage.removeItem('access_token');
-  }
-
-  // Test methods ที่ไม่ต้อง authentication
-  async testDetectCats(file: File): Promise<CatDetectionResult> {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const response = await fetch(`${this.getBaseURL()}/test-cats`, {
-        method: 'POST',
-        body: formData // ไม่ใส่ Authorization header
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
-        console.error('❌ Test cat detection failed:', errorData);
-        throw new Error(`Test detection failed: ${errorData.detail || response.statusText}`);
-      }
-
-      const result = await response.json();
-      return result;
-
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  async testAnalyzeSpot(file: File): Promise<SpotAnalysisResult> {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const response = await fetch(`${this.getBaseURL()}/test-spot`, {
-        method: 'POST',
-        body: formData
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
-        console.error('❌ Test spot analysis failed:', errorData);
-        throw new Error(`Test analysis failed: ${errorData.detail || response.statusText}`);
-      }
-
-      const result = await response.json();
-      return result;
-
-    } catch (error) {
-      throw error;
-    }
   }
 }
 

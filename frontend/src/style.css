@@ -108,7 +108,7 @@ html {
   .navbar-glass {
     background: linear-gradient(
       120deg,
-      rgba(52, 120, 168, 0.92) 0%,   /* ฟ้าเข้ม pastel */
+      rgba(52, 120, 168, 0.92) 0%,   /* dark blue pastel */
       rgba(34, 193, 195, 0.92) 100%  /* teal pastel */
     );
     backdrop-filter: blur(16px);
@@ -142,7 +142,27 @@ html {
   .menu-hover-upload,
   .menu-hover-gallery {
     border-radius: 999px;
-    transition: background 0.2s;
+    transition: all 0.2s;
     padding: 0.25rem 0.75rem;
+  }
+
+  /* Mobile-specific enhancements */
+  @media (max-width: 767px) {
+    .navbar-glass {
+      margin: 0.5rem 1rem;
+      padding: 0.75rem 1rem;
+    }
+    
+    .menu-hover-map,
+    .menu-hover-upload,
+    .menu-hover-gallery {
+      padding: 0.5rem 1.25rem;
+      border-radius: 0.75rem;
+    }
+    
+    .login-gradient-btn {
+      padding: 0.875rem 1.5rem;
+      font-size: 1rem;
+    }
   }
 }

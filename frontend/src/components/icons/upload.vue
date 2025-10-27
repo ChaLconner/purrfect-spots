@@ -21,7 +21,7 @@ export default {
     props: {
         size: {
             type: [String, Number],
-            default: 8
+            default: 6
         },
         strokeWidth: {
             type: [String, Number],

@@ -15,7 +15,8 @@ from user_models.user import User, UserCreate, UserCreateWithPassword, UserLogin
 
 # Load environment variables
 import pathlib
-env_path = pathlib.Path(__file__).parent.parent / ".env"
+backend_dir = pathlib.Path(__file__).parent.parent
+env_path = backend_dir / ".env"
 load_dotenv(str(env_path))
 
 # Google OAuth configuration
@@ -26,6 +27,9 @@ GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 class AuthService:
     def __init__(self, supabase_client: Client):
         self.supabase = supabase_client
+        # Import admin client for user creation operations
+        from dependencies import get_supabase_admin_client
+        self.supabase_admin = get_supabase_admin_client()
         self.google_client_id = GOOGLE_CLIENT_ID
         self.google_client_secret = GOOGLE_CLIENT_SECRET
         self.jwt_secret = os.getenv("JWT_SECRET", "your-secret-key")
@@ -62,7 +66,7 @@ class AuthService:
     def create_or_get_user(self, user_data: dict) -> User:
         """Create new user or get existing user from database using Supabase Auth pattern"""
         try:
-            # ใช้ user_id จาก Supabase JWT (auth.uid()) เป็น primary key
+            # Use user_id from Supabase JWT (auth.uid()) as primary key
             user_id = user_data.get('id') or user_data.get('sub')
             
             if not user_id:
@@ -73,7 +77,7 @@ class AuthService:
             picture = user_data.get('picture', '')
             google_id = user_data.get('google_id')
             
-            # Upsert เข้า users table โดยใช้ auth.uid() เป็น primary key
+            # Upsert to users table using auth.uid() as primary key
             user_record = {
                 "id": user_id,
                 "email": email,
@@ -85,12 +89,12 @@ class AuthService:
                 "updated_at": datetime.utcnow().isoformat()
             }
             
-            # เพิ่ม password_hash เป็น None สำหรับ OAuth users
+            # Add password_hash as None for OAuth users
             user_record['password_hash'] = None
             
-            # ใช้ upsert แทน insert/update แยก
-            result = self.supabase.table('users').upsert(
-                user_record, 
+            # Use admin client for user creation (bypass RLS)
+            result = self.supabase_admin.table('users').upsert(
+                user_record,
                 on_conflict="id"
             ).execute()
             
@@ -103,7 +107,6 @@ class AuthService:
             return User(**user_dict)
                 
         except Exception as e:
-            print(f"🔥 Database error in create_or_get_user: {str(e)}")
             raise Exception(f"Database error: {str(e)}")
 
     def create_access_token(self, user_id: str, user_data: dict = None) -> str:
@@ -116,7 +119,7 @@ class AuthService:
             "iat": datetime.utcnow()
         }
         
-        # เพิ่มข้อมูล user ใน JWT payload ในรูปแบบ Supabase
+        # Add user data in JWT payload in Supabase format
         if user_data:
             to_encode.update({
                 "email": user_data.get("email", ""),
@@ -172,7 +175,8 @@ class AuthService:
                 "created_at": datetime.utcnow().isoformat(),
                 "updated_at": datetime.utcnow().isoformat()
             }
-            result = self.supabase.table('users').insert(user_data).execute()
+            # Use admin client for user creation (bypass RLS)
+            result = self.supabase_admin.table('users').insert(user_data).execute()
             return result.data[0]
         except Exception as e:
             raise Exception(f"Failed to create user: {str(e)}")
@@ -198,12 +202,13 @@ class AuthService:
         Exchange Google authorization code for access token using PKCE flow
         """
         try:
-            print(f"🔍 Starting Google OAuth exchange...")
-            print(f"  - google_client_id: {self.google_client_id}")
-            print(f"  - google_client_secret: {'*' * 20}...")
-            print(f"  - code: {code[:20]}...")
-            print(f"  - code_verifier: {code_verifier[:20]}...")
-            print(f"  - redirect_uri: {redirect_uri}")
+            # Validate required parameters
+            if not code:
+                raise ValueError("Authorization code is required")
+            if not code_verifier:
+                raise ValueError("Code verifier is required")
+            if not redirect_uri:
+                raise ValueError("Redirect URI is required")
             
             # Exchange code for access token
             token_url = "https://oauth2.googleapis.com/token"
@@ -217,21 +222,24 @@ class AuthService:
                 "redirect_uri": redirect_uri,
             }
             
-            print("🔍 Google OAuth Exchange Request Data:")
-            for key, value in data.items():
-                if key in ['client_secret', 'code', 'code_verifier']:
-                    print(f"  - {key}: {value[:20]}...")
-                else:
-                    print(f"  - {key}: {value}")
+            headers = {
+                "Content-Type": "application/x-www-form-urlencoded"
+            }
             
             async with httpx.AsyncClient() as client:
-                response = await client.post(token_url, data=data)
-                
-                print("🔍 Google OAuth Response Status:", response.status_code)
-                print("🔍 Google OAuth Response Body:", response.text)
+                response = await client.post(token_url, data=data, headers=headers)
                 
                 if response.status_code != 200:
-                    raise ValueError(f"Token exchange failed: {response.text}")
+                    error_text = response.text
+                    try:
+                        error_json = response.json()
+                        if "error" in error_json:
+                            error_text = f"OAuth error: {error_json['error']}"
+                            if "error_description" in error_json:
+                                error_text += f" - {error_json['error_description']}"
+                    except:
+                        pass
+                    raise ValueError(f"Token exchange failed: {error_text}")
                 
                 token_data = response.json()
                 access_token = token_data.get("access_token")
@@ -253,7 +261,7 @@ class AuthService:
                 
                 google_sub = idinfo['sub']  # Google's user ID
                 
-                # ลองหา user ที่มี google_id ตรงกับ Google sub นี้ก่อน
+                # Try to find user with google_id matching this Google sub first
                 existing_user = None
                 try:
                     result = self.supabase.table('users').select('*').eq('google_id', google_sub).execute()
@@ -262,7 +270,7 @@ class AuthService:
                 except:
                     pass
                 
-                # ถ้าไม่มี user เก่า ให้สร้าง UUID ใหม่สำหรับ auth.uid()
+                # If no existing user, create new UUID for auth.uid()
                 user_uuid = existing_user['id'] if existing_user else str(uuid.uuid4())
                 
                 user_data = {

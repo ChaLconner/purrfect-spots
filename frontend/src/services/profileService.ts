@@ -12,6 +12,12 @@ export class ProfileService {
   // Get current user profile
   static async getProfile(): Promise<User> {
     const authHeader = getAuthHeader();
+    
+    // Check if token exists before making request
+    if (!authHeader.Authorization) {
+      throw new Error('No authentication token found. Please log in again.');
+    }
+    
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...authHeader,
@@ -21,6 +27,20 @@ export class ProfileService {
       method: 'GET',
       headers,
     });
+
+    if (response.status === 401) {
+      // Clear expired tokens
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('user_data');
+      localStorage.removeItem('user');
+      
+      // Update auth store
+      const { clearAuth } = await import('../store/auth');
+      clearAuth();
+      
+      throw new Error('Authentication expired. Please log in again.');
+    }
 
     if (!response.ok) {
       throw new Error('Failed to get profile');
@@ -32,6 +52,12 @@ export class ProfileService {
   // Update user profile
   static async updateProfile(data: ProfileUpdateData): Promise<User> {
     const authHeader = getAuthHeader();
+    
+    // Check if token exists before making request
+    if (!authHeader.Authorization) {
+      throw new Error('No authentication token found. Please log in again.');
+    }
+    
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...authHeader,
@@ -42,6 +68,20 @@ export class ProfileService {
       headers,
       body: JSON.stringify(data),
     });
+
+    if (response.status === 401) {
+      // Clear expired tokens
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('user_data');
+      localStorage.removeItem('user');
+      
+      // Update auth store
+      const { clearAuth } = await import('../store/auth');
+      clearAuth();
+      
+      throw new Error('Authentication expired. Please log in again.');
+    }
 
     if (!response.ok) {
       throw new Error('Failed to update profile');
@@ -55,6 +95,11 @@ export class ProfileService {
   static async getUserUploads(): Promise<any[]> {
     const authHeader = getAuthHeader();
     
+    // Check if token exists before making request
+    if (!authHeader.Authorization) {
+      throw new Error('No authentication token found. Please log in again.');
+    }
+    
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...authHeader,
@@ -66,7 +111,17 @@ export class ProfileService {
     });
 
     if (response.status === 401) {
-      throw new Error('Authentication expired');
+      // Clear expired tokens
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('user_data');
+      localStorage.removeItem('user');
+      
+      // Update auth store
+      const { clearAuth } = await import('../store/auth');
+      clearAuth();
+      
+      throw new Error('Authentication expired. Please log in again.');
     }
 
     if (!response.ok) {

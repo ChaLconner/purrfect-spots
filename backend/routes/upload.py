@@ -45,11 +45,9 @@ async def upload_cat_photo(
     detection_service: CatDetectionService = Depends(get_cat_detection_service)
 ):
     """
-    อัพโหลดรูปภาพแมวพร้อมข้อมูลตำแหน่ง
+    Upload cat photo with location information
     """
     try:
-        print(f"🐱 Uploading cat photo for user: {getattr(current_user, 'email', getattr(current_user, 'id', 'unknown'))}")
-        print(f"📁 File: {file.filename}, Location: {location_name}")
         
         # Validate file
         if not file.content_type or not file.content_type.startswith('image/'):
@@ -65,13 +63,11 @@ async def upload_cat_photo(
         if cat_detection_data:
             try:
                 cat_data = json.loads(cat_detection_data)
-                print(f"🔍 Cat detection data: {cat_data}")
             except json.JSONDecodeError:
-                print("⚠️ Invalid cat detection data format")
+                cat_data = None
         
         # If no cat detection data provided, detect cats now
         if not cat_data:
-            print("🔍 No cat detection data provided, detecting cats...")
             detection_result = await detection_service.detect_cats(contents)
             
             # Reject if no cats found
@@ -124,10 +120,8 @@ async def upload_cat_photo(
             
             # Create S3 public URL
             image_url = f"https://{AWS_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{s3_key}"
-            print(f"✅ File uploaded to S3: {image_url}")
             
         except Exception as s3_error:
-            print(f"❌ S3 upload failed: {s3_error}")
             raise HTTPException(status_code=500, detail=f"Failed to upload image to S3: {str(s3_error)}")
         
         # Insert into database (cat_photos table)
@@ -151,7 +145,6 @@ async def upload_cat_photo(
         created_photo = result.data[0]
         
         # Log successful upload
-        print(f"✅ Cat photo created successfully: {created_photo['id']}")
         
         return JSONResponse(
             status_code=201,
@@ -169,14 +162,13 @@ async def upload_cat_photo(
                     "uploaded_at": created_photo["uploaded_at"]
                 },
                 "cat_detection": cat_data,
-                "uploaded_by": getattr(current_user, 'email', getattr(current_user, 'id', 'unknown'))
+                "uploaded_by": current_user.email
             }
         )
         
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Upload error: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Upload failed: {str(e)}"
@@ -185,6 +177,6 @@ async def upload_cat_photo(
 @router.get("/test")
 async def test_upload_endpoint():
     """
-    ทดสอบว่า upload endpoint ทำงานได้หรือไม่
+    Test if upload endpoint is working
     """
     return {"message": "Upload endpoint is working!", "timestamp": datetime.now().isoformat()}
