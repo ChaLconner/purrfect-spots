@@ -76,7 +76,7 @@ async def get_profile(current_user: User = Depends(get_current_user_from_credent
     try:
         supabase = get_supabase_client()
         
-        # Get user data from database - ✅ แก้ไข table name
+        # Get user data from database - ✅ Fixed table name
         result = supabase.table("users").select("*").eq("id", current_user.id).execute()
         
         if not result.data:

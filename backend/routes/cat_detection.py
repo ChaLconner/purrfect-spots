@@ -1,5 +1,5 @@
 """
-Cat detection API routes
+Cat detection API routes using Google Cloud Vision
 """
 from fastapi import APIRouter, File, UploadFile, HTTPException, Depends
 from middleware.auth_middleware import get_current_user
@@ -70,13 +70,12 @@ class CombinedAnalysisResult(BaseModel):
     metadata: AnalysisMetadata
 
 class CatDetectionService:
-    """Service for cat detection and spot analysis using Google AI Studio"""
+    """Service for cat detection and spot analysis using Google Cloud Vision API"""
     
     def __init__(self):
         """Initialize the service"""
-        self.google_ai_api_key = os.getenv("GOOGLE_AI_API_KEY")
-        if not self.google_ai_api_key:
-            logging.warning("GOOGLE_AI_API_KEY not found, using placeholder responses")
+        from services.google_vision import GoogleVisionService
+        self.vision_service = GoogleVisionService()
     
     def prepare_image(self, image_data: bytes) -> Image.Image:
         """Prepare image for analysis"""
@@ -97,226 +96,69 @@ class CatDetectionService:
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid image: {str(e)}")
     
-    async def detect_cats(self, image_contents: bytes) -> Dict[str, Any]:
+    async def detect_cats(self, file: UploadFile) -> Dict[str, Any]:
         """
-        Detect cats in image
+        Detect cats in image using Google Cloud Vision API
         
         Args:
-            image_contents: Image file contents as bytes
+            file: UploadFile object containing the image
             
         Returns:
             Dict containing detection results
         """
         try:
-            # Prepare image
-            image = self.prepare_image(image_contents)
+            # Use Google Vision API to detect cats
+            vision_result = self.vision_service.detect_cats(file)
             
-            # If Google AI API is available, use it
-            if self.google_ai_api_key:
-                try:
-                    import google.generativeai as genai
-                    
-                    genai.configure(api_key=self.google_ai_api_key)
-                    model = genai.GenerativeModel('gemini-1.5-flash')
-                    
-                    prompt = """
-                    วิเคราะห์รูปภาพนี้และตอบเป็น JSON format ดังนี้:
-                    {
-                        "has_cats": true/false,
-                        "cat_count": จำนวนแมวที่พบ,
-                        "confidence": ระดับความมั่นใจ (0-100),
-                        "cats_detected": [
-                            {
-                                "description": "คำอธิบายแมวตัวนี้",
-                                "breed_guess": "พันธุ์แมวที่คาดว่าเป็น (ถ้ามี)",
-                                "position": "ตำแหน่งในรูป (เช่น ซ้าย, กลาง, ขวา)",
-                                "size": "ขนาดในรูป (เช่น ใหญ่, กลาง, เล็ก)"
-                            }
-                        ],
-                        "image_quality": "คุณภาพรูปภาพ (ดี/ปานกลาง/ไม่ดี)",
-                        "suitable_for_cat_spot": true/false,
-                        "reasoning": "เหตุผลที่เหมาะ/ไม่เหมาะสำหรับเป็น cat spot"
-                    }
-                    
-                    ตอบเป็นภาษาไทยในส่วน description และ reasoning
-                    ถ้าไม่มีแมวในรูป ให้ has_cats เป็น false และ cat_count เป็น 0
-                    """
-                    
-                    response = model.generate_content([prompt, image])
-                    
-                    # Parse JSON response
-                    try:
-                        response_text = response.text.strip()
-                        if response_text.startswith('```json'):
-                            response_text = response_text[7:]
-                        if response_text.endswith('```'):
-                            response_text = response_text[:-3]
-                        
-                        result = json.loads(response_text)
-                        
-                        # Validate and format the result
-                        formatted_result = {
-                            "has_cats": result.get("has_cats", False),
-                            "cat_count": result.get("cat_count", 0),
-                            "confidence": result.get("confidence", 0),
-                            "cats_detected": [
-                                {
-                                    "description": cat.get("description", ""),
-                                    "breed_guess": cat.get("breed_guess", ""),
-                                    "position": cat.get("position", ""),
-                                    "size": cat.get("size", "")
-                                } for cat in result.get("cats_detected", [])
-                            ],
-                            "image_quality": result.get("image_quality", "ปานกลาง"),
-                            "suitable_for_cat_spot": result.get("suitable_for_cat_spot", False),
-                            "reasoning": result.get("reasoning", "")
-                        }
-                        return formatted_result
-                        
-                    except json.JSONDecodeError:
-                        # Fallback if JSON parsing fails
-                        text = response.text.lower()
-                        has_cats = any(word in text for word in ['แมว', 'cat', 'kitten', 'feline'])
-                        
-                        return {
-                            "has_cats": has_cats,
-                            "cat_count": 1 if has_cats else 0,
-                            "confidence": 70 if has_cats else 30,
-                            "cats_detected": [],
-                            "image_quality": "ปานกลาง",
-                            "suitable_for_cat_spot": has_cats,
-                            "reasoning": "ไม่สามารถวิเคราะห์รายละเอียดได้ แต่พบการตรวจจับแมวขั้นพื้นฐาน",
-                            "note": f"Raw AI response: {response.text}"
-                        }
-                
-                except ImportError:
-                    logging.warning("google-generativeai not installed, using placeholder")
-                except Exception as e:
-                    logging.error(f"Google AI API error: {str(e)}")
+            # Convert Vision API result to our expected format
+            cats_detected = []
+            if vision_result.get("cat_objects"):
+                for obj in vision_result.get("cat_objects", []):
+                    cats_detected.append({
+                        "description": f"Detected {obj.get('name', 'cat')}",
+                        "breed_guess": "Domestic cat",
+                        "position": "Center of image",
+                        "size": "Medium"
+                    })
+            elif vision_result.get("cat_labels"):
+                for label in vision_result.get("cat_labels", []):
+                    cats_detected.append({
+                        "description": f"Detected {label.get('description', 'cat')}",
+                        "breed_guess": "Domestic cat",
+                        "position": "Center of image",
+                        "size": "Medium"
+                    })
             
-            # Fallback placeholder response
-            await asyncio.sleep(0.1)  # Simulate processing time
-            return {
-                "has_cats": True,
-                "cat_count": 1,
-                "confidence": 85,
-                "cats_detected": [
-                    {
-                        "description": "แมวสีเทาขนาดกลาง",
-                        "breed_guess": "แมวบ้าน",
-                        "position": "กลางรูป",
-                        "size": "กลาง"
-                    }
-                ],
-                "image_quality": "ดี",
-                "suitable_for_cat_spot": True,
-                "reasoning": "พบแมวในรูปภาพ เหมาะสมสำหรับการเป็น cat spot",
-                "note": "ผลลัพธ์จำลอง - กรุณาตั้งค่า GOOGLE_AI_API_KEY สำหรับการวิเคราะห์จริง"
+            # Format the result
+            result = {
+                "has_cats": vision_result.get("has_cats", False),
+                "cat_count": vision_result.get("cat_count", 0),
+                "confidence": int(vision_result.get("confidence", 0)),
+                "cats_detected": cats_detected,
+                "image_quality": vision_result.get("image_quality", "Medium"),
+                "suitable_for_cat_spot": vision_result.get("has_cats", False),
+                "reasoning": vision_result.get("reasoning", "Cannot analyze")
             }
+            
+            return result
             
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Cat detection failed: {str(e)}")
     
-    async def analyze_cat_spot_suitability(self, image_contents: bytes) -> Dict[str, Any]:
+    async def analyze_cat_spot_suitability(self, file: UploadFile) -> Dict[str, Any]:
         """
-        Analyze spot suitability for cats
+        Analyze spot suitability for cats using Google Cloud Vision
         
         Args:
-            image_contents: Image file contents as bytes
+            file: UploadFile object containing the image
             
         Returns:
             Dict containing suitability analysis
         """
         try:
-            # Prepare image
-            image = self.prepare_image(image_contents)
-            
-            # If Google AI API is available, use it
-            if self.google_ai_api_key:
-                try:
-                    import google.generativeai as genai
-                    
-                    genai.configure(api_key=self.google_ai_api_key)
-                    model = genai.GenerativeModel('gemini-1.5-flash')
-                    
-                    prompt = """
-                    วิเคราะห์สถานที่ในรูปภาพนี้ว่าเหมาะสำหรับแมวหรือไม่ และตอบเป็น JSON:
-                    {
-                        "suitability_score": 0-100,
-                        "safety_factors": {
-                            "safe_from_traffic": true/false,
-                            "has_shelter": true/false,
-                            "food_source_nearby": true/false,
-                            "water_access": true/false,
-                            "escape_routes": true/false
-                        },
-                        "environment_type": "ประเภทสถานที่ (เช่น สวน, ตรอกซอย, ร้านอาหาร)",
-                        "pros": ["ข้อดีของสถานที่นี้สำหรับแมว"],
-                        "cons": ["ข้อเสียของสถานที่นี้สำหรับแมว"],
-                        "recommendations": ["ข้อเสนอแนะในการปรับปรุง"],
-                        "best_times": ["เวลาที่เหมาะสมที่สุดสำหรับแมว"]
-                    }
-                    """
-                    
-                    response = model.generate_content([prompt, image])
-                    
-                    try:
-                        response_text = response.text.strip()
-                        if response_text.startswith('```json'):
-                            response_text = response_text[7:]
-                        if response_text.endswith('```'):
-                            response_text = response_text[:-3]
-                        
-                        return json.loads(response_text)
-                        
-                    except json.JSONDecodeError:
-                        return {
-                            "suitability_score": 50,
-                            "environment_type": "ไม่สามารถระบุได้",
-                            "pros": ["ต้องการการวิเคราะห์เพิ่มเติม"],
-                            "cons": ["ไม่สามารถวิเคราะห์รายละเอียดได้"],
-                            "recommendations": ["อัพโหลดรูปภาพที่ชัดเจนมากขึ้น"],
-                            "best_times": [],
-                            "note": f"Raw AI response: {response.text}"
-                        }
-                
-                except ImportError:
-                    logging.warning("google-generativeai not installed, using placeholder")
-                except Exception as e:
-                    logging.error(f"Google AI API error: {str(e)}")
-            
-            # Fallback placeholder response
-            await asyncio.sleep(0.1)  # Simulate processing time
-            return {
-                "suitability_score": 75,
-                "safety_factors": {
-                    "safe_from_traffic": True,
-                    "has_shelter": True,
-                    "food_source_nearby": False,
-                    "water_access": False,
-                    "escape_routes": True
-                },
-                "environment_type": "สวนสาธารณะ",
-                "pros": [
-                    "มีที่กำบังแสงแดดและฝน",
-                    "ปลอดภัยจากรถยนต์",
-                    "มีทางหนีได้หลายเส้นทาง"
-                ],
-                "cons": [
-                    "ไม่มีแหล่งอาหาร",
-                    "ไม่มีแหล่งน้ำ"
-                ],
-                "recommendations": [
-                    "วางภาชนะน้ำสะอาด",
-                    "ให้อาหารแมวเป็นประจำ",
-                    "สร้างบ้านแมวเล็กๆ เพิ่มเติม"
-                ],
-                "best_times": [
-                    "เช้า 06:00-08:00",
-                    "เย็น 17:00-19:00"
-                ],
-                "note": "ผลลัพธ์จำลอง - กรุณาตั้งค่า GOOGLE_AI_API_KEY สำหรับการวิเคราะห์จริง"
-            }
+            # Use Google Vision API to analyze spot suitability
+            result = self.vision_service.analyze_cat_spot_suitability(file)
+            return result
             
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Spot analysis failed: {str(e)}")
@@ -331,10 +173,8 @@ async def detect_cats_in_image(
     detection_service: CatDetectionService = Depends(get_cat_detection_service)
 ):
     """
-    ตรวจจับแมวในรูปภาพ
+    Detect cats in images using Google Cloud Vision API
     """
-    print(f"🔍 Detecting cats for user: {current_user.get('email', 'unknown')}")
-    print(f"📁 File: {file.filename}, Type: {file.content_type}, Size: {file.size}")
     
     # Validate file type
     if not file.content_type or not file.content_type.startswith('image/'):
@@ -346,25 +186,24 @@ async def detect_cats_in_image(
         if len(contents) > 10 * 1024 * 1024:
             raise HTTPException(status_code=400, detail="File too large (max 10MB)")
         
-        print(f"📊 File size: {len(contents)} bytes")
+        # Reset file position before passing to service
+        await file.seek(0)
         
-        # Detect cats
-        result = await detection_service.detect_cats(contents)
+        # Detect cats using Google Cloud Vision
+        result = await detection_service.detect_cats(file)
         
         # Add metadata
         result.update({
             "filename": file.filename,
             "file_size": len(contents),
-            "detected_by": current_user.get("email", "unknown")
+            "detected_by": current_user.email
         })
         
-        print(f"✅ Cat detection completed: {result.get('has_cats', False)}")
         return result
         
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Cat detection error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Detection failed: {str(e)}")
 
 @router.post("/spot-analysis", response_model=SpotAnalysisResult)
@@ -374,7 +213,7 @@ async def analyze_cat_spot(
     detection_service: CatDetectionService = Depends(get_cat_detection_service)
 ):
     """
-    วิเคราะห์ความเหมาะสมของสถานที่สำหรับแมว
+    Analyze suitability of locations for cats using Google Cloud Vision
     """
     if not file.content_type.startswith('image/'):
         raise HTTPException(status_code=400, detail="File must be an image")
@@ -384,19 +223,22 @@ async def analyze_cat_spot(
         raise HTTPException(status_code=400, detail="File too large (max 10MB)")
     
     try:
-        # Analyze spot
-        result = await detection_service.analyze_cat_spot_suitability(contents)
+        # Reset file position before passing to service
+        await file.seek(0)
+        
+        # Analyze spot using Google Cloud Vision
+        result = await detection_service.analyze_cat_spot_suitability(file)
         
         # Add metadata
         result.update({
             "filename": file.filename,
-            "analyzed_by": current_user.get("email", "unknown")
+            "analyzed_by": current_user.email
         })
         
         return result
         
     except Exception as e:
-        logging.error(f"❌ Spot analysis error: {str(e)}")
+        logging.error(f"Spot analysis error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/combined", response_model=CombinedAnalysisResult)
@@ -406,7 +248,7 @@ async def combined_cat_and_spot_analysis(
     detection_service: CatDetectionService = Depends(get_cat_detection_service)
 ):
     """
-    วิเคราะห์ทั้งการตรวจจับแมวและความเหมาะสมของสถานที่
+    Analyze both cat detection and location suitability using Google Cloud Vision
     """
     if not file.content_type.startswith('image/'):
         raise HTTPException(status_code=400, detail="File must be an image")
@@ -416,9 +258,15 @@ async def combined_cat_and_spot_analysis(
         raise HTTPException(status_code=400, detail="File too large (max 10MB)")
     
     try:
-        # Run both analyses
-        cat_detection = await detection_service.detect_cats(contents)
-        spot_analysis = await detection_service.analyze_cat_spot_suitability(contents)
+        # Reset file position before passing to service
+        await file.seek(0)
+        
+        # Run both analyses using Google Cloud Vision
+        cat_detection = await detection_service.detect_cats(file)
+        
+        # Reset file position again for second analysis
+        await file.seek(0)
+        spot_analysis = await detection_service.analyze_cat_spot_suitability(file)
         
         # Combine results
         result = {
@@ -427,19 +275,19 @@ async def combined_cat_and_spot_analysis(
             "overall_recommendation": {
                 "suitable_for_cat_spot": cat_detection.get("suitable_for_cat_spot", False),
                 "confidence": (cat_detection.get("confidence", 0) + spot_analysis.get("suitability_score", 0)) / 2,
-                "summary": f"พบแมว: {cat_detection.get('cat_count', 0)} ตัว, คะแนนความเหมาะสม: {spot_analysis.get('suitability_score', 0)}/100"
+                "summary": f"Found cats: {cat_detection.get('cat_count', 0)}, Suitability score: {spot_analysis.get('suitability_score', 0)}/100"
             },
             "metadata": {
                 "filename": file.filename,
                 "file_size": len(contents),
-                "analyzed_by": current_user.get("email", "unknown")
+                "analyzed_by": current_user.email
             }
         }
         
         return result
         
     except Exception as e:
-        logging.error(f"❌ Combined analysis error: {str(e)}")
+        logging.error(f"Combined analysis error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Test endpoints without authentication
@@ -449,19 +297,23 @@ async def test_detect_cats(
     detection_service: CatDetectionService = Depends(get_cat_detection_service)
 ):
     """
-    ทดสอบการตรวจจับแมว (ไม่ต้อง authentication)
+    Test cat detection using Google Cloud Vision (no authentication required)
     """
-    print(f"🧪 Testing cat detection for file: {file.filename}")
     
     if not file.content_type or not file.content_type.startswith('image/'):
         raise HTTPException(status_code=400, detail="File must be an image")
     
     try:
         contents = await file.read()
+        
         if len(contents) > 10 * 1024 * 1024:
             raise HTTPException(status_code=400, detail="File too large (max 10MB)")
         
-        result = await detection_service.detect_cats(contents)
+        # Reset file position before passing to service
+        await file.seek(0)
+        
+        result = await detection_service.detect_cats(file)
+        
         result.update({
             "filename": file.filename,
             "file_size": len(contents),
@@ -471,7 +323,6 @@ async def test_detect_cats(
         return result
         
     except Exception as e:
-        print(f"❌ Test detection error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Test failed: {str(e)}")
 
 @router.post("/test-spot")
@@ -480,9 +331,8 @@ async def test_analyze_spot(
     detection_service: CatDetectionService = Depends(get_cat_detection_service)
 ):
     """
-    ทดสอบการวิเคราะห์สถานที่ (ไม่ต้อง authentication)
+    Test location analysis using Google Cloud Vision (no authentication required)
     """
-    print(f"🧪 Testing spot analysis for file: {file.filename}")
     
     if not file.content_type or not file.content_type.startswith('image/'):
         raise HTTPException(status_code=400, detail="File must be an image")
@@ -492,7 +342,10 @@ async def test_analyze_spot(
         if len(contents) > 10 * 1024 * 1024:
             raise HTTPException(status_code=400, detail="File too large (max 10MB)")
         
-        result = await detection_service.analyze_cat_spot_suitability(contents)
+        # Reset file position before passing to service
+        await file.seek(0)
+        
+        result = await detection_service.analyze_cat_spot_suitability(file)
         result.update({
             "filename": file.filename,
             "analyzed_by": "test_user"
@@ -501,5 +354,4 @@ async def test_analyze_spot(
         return result
         
     except Exception as e:
-        print(f"❌ Test spot analysis error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Test failed: {str(e)}")

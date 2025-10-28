@@ -156,22 +156,58 @@ def get_current_user(request: Request):
         if not auth_header or not auth_header.startswith("Bearer "):
             raise HTTPException(status_code=401, detail="Missing or invalid token")
         token = auth_header.split(" ")[1]
-        payload = jwt.decode(
-            token,
-            os.getenv("JWT_SECRET_KEY", os.getenv("JWT_SECRET", "your-secret")),
-            algorithms=["HS256"]
-        )
-        user_id = payload.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid token payload")
-        return User(
-            id=user_id, 
-            email=payload.get("email", ""),
-            name=payload.get("name", ""),
-            picture=payload.get("picture", ""),
-            bio=payload.get("bio"),
-            created_at=payload.get("iat", "")
-        )
+        
+        # Try Supabase token first
+        try:
+            payload = decode_supabase_token(token)
+            user_id = payload.get("sub")
+            
+            if not user_id:
+                raise HTTPException(status_code=401, detail="Invalid token payload")
+            
+            # Try to get user from database first
+            try:
+                supabase = get_supabase_client()
+                result = supabase.table("users").select("*").eq("id", user_id).single().execute()
+                if result.data:
+                    return User(
+                        id=result.data["id"],
+                        email=result.data.get("email", ""),
+                        name=result.data.get("name", ""),
+                        picture=result.data.get("picture", ""),
+                        bio=result.data.get("bio"),
+                        created_at=result.data.get("created_at", "")
+                    )
+            except Exception:
+                pass
+            
+            # Fallback to JWT payload
+            user_metadata = payload.get("user_metadata", {})
+            return User(
+                id=user_id,
+                email=payload.get("email", ""),
+                name=user_metadata.get("name", user_metadata.get("full_name", "")),
+                picture=user_metadata.get("avatar_url", user_metadata.get("picture", "")),
+                bio=None,
+                created_at=str(payload.get("iat", ""))
+            )
+        except Exception:
+            # Try custom token as fallback
+            payload = decode_custom_token(token)
+            user_id = payload.get("sub") or payload.get("user_id")
+            
+            if not user_id:
+                raise HTTPException(status_code=401, detail="Invalid token payload")
+            
+            return User(
+                id=user_id,
+                email=payload.get("email", ""),
+                name=payload.get("name", ""),
+                picture=payload.get("picture", ""),
+                bio=payload.get("bio"),
+                created_at=payload.get("iat", "")
+            )
+            
     except (jwt.PyJWTError, ValueError, TypeError, KeyError) as e:
         raise HTTPException(status_code=401, detail="Token is invalid or expired")
     except Exception:

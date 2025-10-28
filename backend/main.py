@@ -15,7 +15,14 @@ from pydantic import BaseModel
 from routes import auth_manual, auth_google, profile, upload, cat_detection
 from dependencies import get_supabase_client
 
-load_dotenv()
+# Load .env from backend directory
+from pathlib import Path
+backend_dir = Path(__file__).parent
+env_path = backend_dir / ".env"
+if env_path.exists():
+    load_dotenv(env_path)
+else:
+    load_dotenv()
 
 app = FastAPI(
     title="PurrFect Spots API",
@@ -26,16 +33,20 @@ app = FastAPI(
 # ✅ Exception handlers (add before middleware and routers)
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
-    print(f"🔥 Unhandled Exception: {exc}")
+    print(f"Unhandled Exception: {exc}")
+    print(f"Exception type: {type(exc)}")
+    print(f"Exception traceback: {exc.__traceback__}")
+    import traceback
+    traceback.print_exc()
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal Server Error"},
+        content={"detail": f"Internal Server Error: {str(exc)}"},
         headers={"Access-Control-Allow-Origin": "*"}  # CORS fallback (dev only!)
     )
 
 @app.exception_handler(StarletteHTTPException)
 async def custom_http_exception_handler(request: Request, exc: StarletteHTTPException):
-    print(f"🔥 HTTP Exception: {exc.status_code} - {exc.detail}")
+    print(f"HTTP Exception: {exc.status_code} - {exc.detail}")
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail},
@@ -44,7 +55,7 @@ async def custom_http_exception_handler(request: Request, exc: StarletteHTTPExce
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    print(f"🔥 Validation Error: {exc}")
+    print(f"Validation Error: {exc}")
     return JSONResponse(
         status_code=422,
         content={"detail": "Request validation failed", "errors": exc.errors()},
@@ -68,7 +79,7 @@ if cors_origins_env:
     env_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
     allowed_origins.extend(env_origins)
 
-print(f"🌐 CORS allowed origins: {allowed_origins}")
+print(f"CORS allowed origins: {allowed_origins}")
 
 # Add CORS middleware with explicit configuration
 app.add_middleware(

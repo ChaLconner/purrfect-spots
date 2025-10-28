@@ -9,6 +9,11 @@ import { initializeAuth, isUserReady } from "../store/auth";
 
 const routes = [
   {
+    path: "/",
+    name: "Home",
+    component: Map,
+  },
+  {
     path: "/map",
     name: "Map",
     component: Map,

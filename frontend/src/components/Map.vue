@@ -1,87 +1,81 @@
 <template>
-  <div
-    class="relative bg-gradient-to-br from-cyan-100 via-blue-50 to-white rounded-2xl shadow-2xl border border-blue-200 overflow-hidden"
-  >
+  <div class="mx-auto px-4 max-w-6xl h-full flex flex-col">
     <!-- Header -->
     <div
-      class="bg-gradient-to-r from-cyan-700 to-blue-600 text-white px-8 py-7 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+      class="bg-gradient-to-r from-cyan-700 to-blue-600 text-white px-3 py-2 flex-col md:flex-row md:items-center md:justify-between gap-2 w-full h-min-content rounded-2xl hidden md:flex"
     >
-      <div class="flex items-center gap-4">
-        <span class="text-4xl drop-shadow-lg">🐾</span>
+      <div class="flex items-center gap-2">
+        <span class="text-2xl drop-shadow-lg animate-bounce">🐾</span>
         <div>
-          <h2 class="text-3xl font-extrabold tracking-tight">Purrfect Spots</h2>
-          <p class="text-cyan-100 text-base mt-1">
+          <h2 class="text-xl font-extrabold tracking-tight">Purrfect Spots</h2>
+          <p class="text-cyan-100 text-xs mt-0">
             Find and share adorable cat locations near you!
           </p>
         </div>
       </div>
     </div>
-
-    <!-- Loading -->
+    
     <div
-      v-if="isLoading"
-      class="flex flex-col items-center justify-center py-24"
+      class="relative bg-gradient-to-br from-cyan-100 via-blue-50 to-white rounded-2xl shadow-2xl border border-blue-200 overflow-hidden flex-1 flex flex-col"
     >
-      <div class="relative mb-6">
-        <div
-          class="animate-spin rounded-full h-20 w-20 border-t-4 border-cyan-400 border-opacity-60"
-        ></div>
-        <span class="absolute inset-0 flex items-center justify-center text-4xl"
-          >🐱</span
-        >
-      </div>
-      <h3 class="text-xl font-bold text-cyan-700 mb-1">
-        Loading the cat map...
-      </h3>
-      <p class="text-gray-500">Fetching all cat locations for you</p>
-    </div>
-
-    <!-- Error -->
-    <div
-      v-if="error"
-      class="bg-red-100/80 border border-red-300 rounded-xl mx-8 my-8 p-8 shadow flex flex-col items-center"
-    >
-      <div class="flex items-center gap-3 mb-2">
-        <span class="text-3xl">😿</span>
-        <h3 class="text-red-800 font-bold text-lg">
-          Oops! Something went wrong
+      <!-- Loading -->
+      <div
+        v-if="isLoading"
+        class="flex flex-col items-center justify-center flex-1 h-min-content p-6"
+      >
+        <div class="relative mb-6">
+          <div
+            class="animate-spin rounded-full h-20 w-20 border-t-4 border-cyan-400 border-opacity-60"
+          ></div>
+          <span class="absolute inset-0 flex items-center justify-center text-4xl"
+            >🐱</span
+          >
+        </div>
+        <h3 class="text-xl font-bold text-cyan-700 mb-1">
+          Loading cat locations...
         </h3>
       </div>
-      <p class="text-red-700 mb-4 text-center">{{ error }}</p>
-      <button
-        @click="loadCatLocations"
-        class="px-8 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-lg font-semibold shadow transition"
-      >
-        Try Again
-      </button>
-    </div>
 
-    <!-- Map -->
-    <div v-if="!isLoading && !error" class="relative">
-      <div id="map" class="h-[28rem] w-full z-[1] rounded-b-2xl"></div>
-      <!-- Floating Stats Panel -->
+      <!-- Error -->
       <div
-        class="absolute top-5 right-5 bg-white/90 backdrop-blur-md rounded-xl shadow-lg px-6 py-3 border border-cyan-200 flex items-center gap-3"
+        v-if="error"
+        class="bg-red-100/80 border border-red-300 rounded-xl mx-8 my-4 p-6 shadow flex flex-col items-center flex-1 content-center"
       >
-        <span
-          class="inline-flex items-center justify-center w-6 h-6 bg-cyan-500 text-white rounded-full shadow text-lg"
-          >🐾</span
+        <div class="flex items-center gap-3 mb-2">
+          <span class="text-3xl">😿</span>
+          <h3 class="text-red-800 font-bold text-lg">
+            Oops! Something went wrong
+          </h3>
+        </div>
+        <p class="text-red-700 mb-4 text-center">{{ error }}</p>
+        <button
+          @click="loadCatLocations"
+          class="px-8 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-lg font-semibold shadow transition"
         >
-        <span class="text-base font-medium text-cyan-700">
-          <span class="font-bold">{{ locations.length }}</span> cat spots
-        </span>
+          Try Again
+        </button>
+      </div>
+
+      <!-- Map View -->
+      <div v-if="!isLoading && !error" class="flex-1 relative">
+        <div id="map" class="w-full h-full min-h-[550px] md:min-h-[500px]"></div>
       </div>
     </div>
 
     <!-- Cat Details Modal -->
-    <transition name="fade">
+    <transition
+      enter-active-class="transition-opacity duration-300 ease"
+      leave-active-class="transition-opacity duration-300 ease"
+      enter-from-class="opacity-0"
+      leave-to-class="opacity-0"
+    >
       <div
         v-if="selectedCat"
         class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
         @click="closeModal"
       >
         <div
-          class="bg-transition rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl relative animate-fadeIn"
+          class="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl relative animate-[fadeIn_0.3s_ease-in-out]"
           @click.stop
         >
           <div class="relative">
@@ -94,24 +88,22 @@
               @click="closeModal"
               class="absolute top-2 right-2 rounded-full px-3 py-2 transition"
             >
-                <span class="text-white text-2xl font-bold"
+                <span class="text-white text-2xl font-bold cursor-pointer"
                 >×</span
-              >
+                >
             </button>
-            </div>
-            <div class="p-8 bg-gradient-to-br from-cyan-100 via-blue-50 to-cyan-200">
+          </div>
+          <div class="p-8 bg-gradient-to-br from-cyan-100 via-blue-50 to-cyan-200">
             <h3
               class="font-extrabold text-xl md:text-2xl text-cyan-800 mb-3 flex items-center gap-3"
             >
-              <span class="text-lg md:text-xl">🐱Location Cat :</span>
+              <span class="text-lg md:text-xl">🐱 Location Cat :</span>
               <span class="text-base md:text-lg">{{ selectedCat.location_name }}</span>
             </h3>
-            <p
-              class="text-gray-700 text-sm md:text-base mb-6 leading-relaxed border-l-4 border-cyan-400 pl-4 bg-cyan-50/60 rounded"
-            >
-              {{ selectedCat.description }}
+            <p>
+              {{ selectedCat.description || '-' }}
             </p>
-            </div>
+          </div>
         </div>
       </div>
     </transition>
@@ -119,10 +111,10 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, onUnmounted, nextTick } from "vue";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
+import { onMounted, ref, nextTick } from "vue";
 import { getApiUrl } from "../utils/api";
+import { loadGoogleMaps, isGoogleMapsLoaded } from "../utils/googleMapsLoader";
+import { getEnvVar } from "../utils/env";
 
 interface CatLocation {
   id: string;
@@ -137,18 +129,8 @@ const isLoading = ref(false);
 const error = ref<string | null>(null);
 const locations = ref<CatLocation[]>([]);
 const selectedCat = ref<CatLocation | null>(null);
-let map: L.Map | null = null;
-let markers: L.Marker[] = [];
-
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
-  iconUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
-  shadowUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
-});
+const map = ref<any>(null);
+const markers = ref<any[]>([]);
 
 const loadCatLocations = async () => {
   isLoading.value = true;
@@ -181,68 +163,132 @@ const loadCatLocations = async () => {
     }
 
     locations.value = json as CatLocation[];
-
-    // Clear previous markers
-    clearMarkers();
+    
+    // Initialize map after loading locations
+    if (locations.value.length > 0) {
+      // Add delay to ensure DOM is fully rendered
+      setTimeout(() => {
+        initializeMap();
+      }, 200);
+    }
   } catch (err: unknown) {
     error.value = (err as Error).message;
   } finally {
     isLoading.value = false;
-    await nextTick();
-    initializeMap();
   }
 };
 
-const clearMarkers = () => {
-  markers.forEach((m) => m.remove());
-  markers = [];
-};
-
-const fitMapBounds = () => {
-  if (!map || locations.value.length === 0) return;
-  if (locations.value.length === 1) {
-    map.setView(
-      [locations.value[0].latitude, locations.value[0].longitude],
-      13
-    );
-  } else {
-    const group = L.featureGroup(
-      locations.value.map((loc) => L.marker([loc.latitude, loc.longitude]))
-    );
-    map.fitBounds(group.getBounds().pad(0.1));
-  }
-};
-
-const initializeMap = () => {
-  const mapContainer = document.getElementById("map");
-  if (!mapContainer) return;
-
-  if (!map) {
-    map = L.map(mapContainer).setView([18.7883, 98.9853], 13);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "© OpenStreetMap contributors",
-    }).addTo(map);
+const initializeMap = async () => {
+  // Wait for the DOM to be updated multiple times to ensure rendering
+  await nextTick();
+  await new Promise(resolve => setTimeout(resolve, 100));
+  
+  // Check if Google Maps is already loaded
+  if (!isGoogleMapsLoaded()) {
+    try {
+      // Load Google Maps API
+      const apiKey = getEnvVar('VITE_GOOGLE_MAPS_API_KEY');
+      if (!apiKey) {
+        throw new Error("Google Maps API key is missing. Please set VITE_GOOGLE_MAPS_API_KEY in your .env file.");
+      }
+      
+      await loadGoogleMaps({
+        apiKey,
+        libraries: "places",
+        version: "weekly"
+      });
+    } catch (err: any) {
+      error.value = err.message;
+      return;
+    }
   }
 
-  clearMarkers();
+  try {
+    // Get the map container element with retry logic
+    let mapElement = document.getElementById("map");
+    let retries = 0;
+    const maxRetries = 10;
+    
+    while (!mapElement && retries < maxRetries) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      mapElement = document.getElementById("map");
+      retries++;
+    }
+    
+    if (!mapElement) {
+      throw new Error("Map container not found after multiple attempts");
+    }
 
-  locations.value.forEach((loc) => {
-    const marker = L.marker([loc.latitude, loc.longitude]).addTo(map!);
-    marker.bindPopup(
-      `<strong>${loc.location_name}</strong><br/>${loc.description || ""}`,
-      { closeButton: false }
-    );
-    marker.on("mouseover", function () {
-      marker.openPopup();
+    // Ensure the map container has proper dimensions
+    if (mapElement.offsetWidth === 0 || mapElement.offsetHeight === 0) {
+      // Force a reflow to ensure proper dimensions
+      mapElement.style.height = '400px';
+      mapElement.style.width = '100%';
+    }
+
+    // Create the map
+    const google = (window as any).google;
+    map.value = new google.maps.Map(mapElement, {
+      zoom: 12,
+      center: { lat: 13.7563, lng: 100.5018 }, // Default to Bangkok
+      mapTypeControl: true,
+      streetViewControl: true,
+      fullscreenControl: true,
     });
-    marker.on("mouseout", function () {
-      marker.closePopup();
+
+    // Add markers for each cat location
+    addMarkers();
+  } catch (err: any) {
+    error.value = `Failed to initialize map: ${err.message}`;
+  }
+};
+
+const addMarkers = () => {
+  // Clear existing markers
+  markers.value.forEach(marker => marker.setMap(null));
+  markers.value = [];
+
+  if (!map.value || locations.value.length === 0) return;
+
+  const google = (window as any).google;
+
+  // Create bounds to fit all markers
+  const bounds = new google.maps.LatLngBounds();
+
+  locations.value.forEach(location => {
+    const marker = new google.maps.Marker({
+      position: { lat: location.latitude, lng: location.longitude },
+      map: map.value,
+      title: location.location_name,
+      animation: google.maps.Animation.DROP,
+      icon: {
+        url: '/location_10753796.png',
+        scaledSize: new google.maps.Size(32, 32)
+      }
     });
-    marker.on("click", () => (selectedCat.value = loc));
-    markers.push(marker);
+
+    // Add click listener to marker
+    marker.addListener("click", () => {
+      selectCat(location);
+    });
+
+    markers.value.push(marker);
+    bounds.extend({ lat: location.latitude, lng: location.longitude });
   });
 
-  fitMapBounds();
+  // Fit map to show all markers
+  if (locations.value.length > 1) {
+    map.value.fitBounds(bounds);
+  } else if (locations.value.length === 1) {
+    // If only one location, center on it with appropriate zoom
+    map.value.setCenter({ lat: locations.value[0].latitude, lng: locations.value[0].longitude });
+    map.value.setZoom(15);
+  }
+};
+
+
+const selectCat = (cat: CatLocation) => {
+  selectedCat.value = cat;
 };
 
 const closeModal = () => {
@@ -252,8 +298,8 @@ const closeModal = () => {
 onMounted(() => {
   loadCatLocations();
 });
-
-onUnmounted(() => {
-  if (map) map.remove();
-});
 </script>
+
+<style scoped>
+/* No custom styles needed - all converted to Tailwind CSS */
+</style>
