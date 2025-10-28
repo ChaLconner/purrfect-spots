@@ -41,7 +41,10 @@ async def generic_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=500,
         content={"detail": f"Internal Server Error: {str(exc)}"},
-        headers={"Access-Control-Allow-Origin": "*"}  # CORS fallback (dev only!)
+        headers={
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*"  # CORS fallback (dev only!)
+        }
     )
 
 @app.exception_handler(StarletteHTTPException)
@@ -50,7 +53,10 @@ async def custom_http_exception_handler(request: Request, exc: StarletteHTTPExce
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail},
-        headers={"Access-Control-Allow-Origin": "*"}  # CORS fallback
+        headers={
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*"  # CORS fallback
+        }
     )
 
 @app.exception_handler(RequestValidationError)
@@ -59,7 +65,10 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return JSONResponse(
         status_code=422,
         content={"detail": "Request validation failed", "errors": exc.errors()},
-        headers={"Access-Control-Allow-Origin": "*"}  # CORS fallback
+        headers={
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*"  # CORS fallback
+        }
     )
 
 # CORS middleware must be added BEFORE including routers
@@ -110,12 +119,34 @@ app.add_middleware(
 @app.get("/")
 async def root():
     """Root endpoint"""
-    return {"status": "healthy", "message": "PurrFect Spots API is running"}
+    return JSONResponse(
+        content={"status": "healthy", "message": "PurrFect Spots API is running"},
+        headers={"Content-Type": "application/json"}
+    )
 
 @app.get("/health")
 async def health_check():
     """Simple health check endpoint"""
-    return {"status": "healthy", "message": "PurrFect Spots API is running"}
+    return JSONResponse(
+        content={"status": "healthy", "message": "PurrFect Spots API is running"},
+        headers={"Content-Type": "application/json"}
+    )
+
+@app.get("/api/test-json")
+async def test_json_response():
+    """Test endpoint to verify JSON responses are working correctly"""
+    return JSONResponse(
+        content={
+            "success": True,
+            "message": "JSON response test successful",
+            "timestamp": "2025-10-28T11:24:00.000Z",
+            "data": {
+                "test": "JSON parsing should work correctly",
+                "content_type": "application/json"
+            }
+        },
+        headers={"Content-Type": "application/json"}
+    )
 
 # CORS preflight handler for all routes
 @app.options("/{full_path:path}")
@@ -128,6 +159,7 @@ async def options_handler(request: Request, full_path: str):
         return JSONResponse(
             content={"message": "OK"},
             headers={
+                "Content-Type": "application/json",
                 "Access-Control-Allow-Origin": origin,
                 "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
                 "Access-Control-Allow-Headers": "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
@@ -140,6 +172,7 @@ async def options_handler(request: Request, full_path: str):
         return JSONResponse(
             content={"message": "OK"},
             headers={
+                "Content-Type": "application/json",
                 "Access-Control-Allow-Origin": "*",
                 "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
                 "Access-Control-Allow-Headers": "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
@@ -223,6 +256,7 @@ async def locations_options(request: Request):
         return JSONResponse(
             content={"message": "OK"},
             headers={
+                "Content-Type": "application/json",
                 "Access-Control-Allow-Origin": origin,
                 "Access-Control-Allow-Methods": "GET, OPTIONS",
                 "Access-Control-Allow-Headers": "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin",
@@ -234,6 +268,7 @@ async def locations_options(request: Request):
         return JSONResponse(
             content={"message": "OK"},
             headers={
+                "Content-Type": "application/json",
                 "Access-Control-Allow-Origin": "*",
                 "Access-Control-Allow-Methods": "GET, OPTIONS",
                 "Access-Control-Allow-Headers": "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin",

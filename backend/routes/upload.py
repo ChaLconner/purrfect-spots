@@ -163,7 +163,8 @@ async def upload_cat_photo(
                 },
                 "cat_detection": cat_data,
                 "uploaded_by": current_user.email
-            }
+            },
+            headers={"Content-Type": "application/json"}
         )
         
     except HTTPException:

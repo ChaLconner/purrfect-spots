@@ -123,7 +123,27 @@ const createApiInstance = (): AxiosInstance => {
   // Response interceptor for centralized error handling
   instance.interceptors.response.use(
     (response) => {
-      // Response logging removed for cleaner console
+      // Check if response is actually JSON
+      const contentType = response.headers['content-type'];
+      if (contentType && !contentType.includes('application/json')) {
+        // Handle non-JSON responses
+        console.warn('Received non-JSON response:', contentType, response.data);
+        
+        // Try to parse as JSON anyway in case Content-Type header is wrong
+        if (typeof response.data === 'string') {
+          try {
+            response.data = JSON.parse(response.data);
+          } catch (parseError) {
+            // If it's not JSON, create a proper error response
+            throw new ApiError(
+              ApiErrorTypes.UNKNOWN_ERROR,
+              `Invalid response format from server. Expected JSON but received ${contentType}`,
+              response.status,
+              new Error(`Non-JSON response: ${response.data}`)
+            );
+          }
+        }
+      }
       
       return response;
     },
@@ -194,7 +214,17 @@ const createApiInstance = (): AxiosInstance => {
           );
           
         default:
-          // Unknown error
+          // Unknown error - check if response is HTML (common error page)
+          const contentType = error.response.headers['content-type'];
+          if (contentType && contentType.includes('text/html')) {
+            throw new ApiError(
+              ApiErrorTypes.SERVER_ERROR,
+              'Server returned HTML error page instead of JSON. Please try again.',
+              status,
+              error
+            );
+          }
+          
           const errorMessage = (data as any)?.detail || (data as any)?.message || (error as Error).message || 'An unknown error occurred';
           throw new ApiError(
             ApiErrorTypes.UNKNOWN_ERROR,
