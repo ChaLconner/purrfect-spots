@@ -17,9 +17,9 @@ else:
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_ANON_KEY")
 
-print(f"🔍 Debug: SUPABASE_URL found: {bool(supabase_url)}")
-print(f"🔍 Debug: SUPABASE_KEY found: {bool(supabase_key)}")
-print(f"🔍 Debug: SUPABASE_ANON_KEY found: {bool(os.getenv('SUPABASE_ANON_KEY'))}")
+print(f"Debug: SUPABASE_URL found: {bool(supabase_url)}")
+print(f"Debug: SUPABASE_KEY found: {bool(supabase_key)}")
+print(f"Debug: SUPABASE_ANON_KEY found: {bool(os.getenv('SUPABASE_ANON_KEY'))}")
 
 if not supabase_url:
     raise ValueError("SUPABASE_URL must be set in environment variables")
@@ -35,9 +35,9 @@ supabase_service_key = os.getenv("SUPABASE_SECRET_KEY") or os.getenv("SUPABASE_S
 supabase_admin = None
 if supabase_service_key:
     supabase_admin = create_client(supabase_url, supabase_service_key)
-    print(f"🔍 Debug: SUPABASE_SERVICE_KEY found: {bool(supabase_service_key)}")
+    print(f"Debug: SUPABASE_SERVICE_KEY found: {bool(supabase_service_key)}")
 else:
-    print("⚠️ Warning: SUPABASE_SECRET_KEY not found - admin operations will use regular client")
+    print("Warning: SUPABASE_SECRET_KEY not found - admin operations will use regular client")
 
 def get_supabase_client():
     """Get Supabase client instance"""

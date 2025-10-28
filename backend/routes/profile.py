@@ -1,9 +1,5 @@
 """
-User profile m@router.put("/")
-async def update_profile(
-    request: ProfileUpdateRequest,
-    current_user: User = Depends(get_current_user_from_credentials)
-):ment routes
+User profile management routes
 """
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -76,7 +72,7 @@ async def get_profile(current_user: User = Depends(get_current_user_from_credent
     try:
         supabase = get_supabase_client()
         
-        # Get user data from database - ✅ Fixed table name
+        # Get user data from database - Fixed table name
         result = supabase.table("users").select("*").eq("id", current_user.id).execute()
         
         if not result.data:
@@ -106,13 +102,10 @@ async def get_user_uploads(current_user: User = Depends(get_current_user_from_cr
         user_id = current_user.id
         
         # Query uploads for this user
-        # Query uploads for this user
         result = supabase.table("cat_photos").select("*").eq("user_id", user_id).order("uploaded_at", desc=True).execute()
         
-        # Format the data
-        # Format the data
+        # Format data
         uploads = []
-        for photo in result.data or []:
         for photo in result.data or []:
             upload_item = {
                 "id": photo["id"],
@@ -132,7 +125,6 @@ async def get_user_uploads(current_user: User = Depends(get_current_user_from_cr
 
             uploads.append(upload_item)
         
-        
         return {
             "uploads": uploads,
             "count": len(uploads)
@@ -140,5 +132,3 @@ async def get_user_uploads(current_user: User = Depends(get_current_user_from_cr
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get uploads: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to get uploads: {str(e)}")
-

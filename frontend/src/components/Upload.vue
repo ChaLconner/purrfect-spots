@@ -500,34 +500,6 @@ function handleMarkerDrag(event) {
   updateCoordinates(lat, lng);
 }
 
-// Handle map click to set coordinates - optimize by debouncing
-let mapUpdateTimeout = null;
-const updateCoordinates = (lat, lng) => {
-  const latStr = lat.toFixed(6);
-  const lngStr = lng.toFixed(6);
-  
-  latitude.value = latStr;
-  longitude.value = lngStr;
-  mapCenter.value = { lat, lng };
-  
-  // Debounce map updates
-  if (mapUpdateTimeout) clearTimeout(mapUpdateTimeout);
-  mapUpdateTimeout = setTimeout(() => updateUploadMap(), 16); // ~60fps
-};
-
-function handleMapClick(event) {
-  const lat = event.latLng.lat();
-  const lng = event.latLng.lng();
-  updateCoordinates(lat, lng);
-}
-
-// Handle marker drag to update coordinates
-function handleMarkerDrag(event) {
-  const lat = event.latLng.lat();
-  const lng = event.latLng.lng();
-  updateCoordinates(lat, lng);
-}
-
 function triggerFileInput() {
   fileInput.value.click();
 }

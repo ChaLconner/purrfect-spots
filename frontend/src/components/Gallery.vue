@@ -187,8 +187,6 @@ async function fetchImages() {
     if (!contentType || !contentType.includes('application/json')) {
       const responseText = await response.text();
       throw new Error(`Invalid response format: not JSON (got ${contentType})`);
-      const responseText = await response.text();
-      throw new Error(`Invalid response format: not JSON (got ${contentType})`);
     }
     
     
