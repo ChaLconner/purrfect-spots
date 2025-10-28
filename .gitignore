@@ -62,6 +62,11 @@ lerna-debug.log*
 *.swo
 *~
 
+# Development tools
+.github/
+.kilocode/
+.roo/
+
 # OS generated files
 .DS_Store
 .DS_Store?
