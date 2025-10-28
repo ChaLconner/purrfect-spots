@@ -26,6 +26,21 @@ body {
   background-attachment: fixed;
 }
 
+/* Beautiful gradient background */
+body {
+  background: linear-gradient(
+    160deg,
+    rgba(168, 218, 220, 0.7) 0%,
+    rgba(183, 228, 199, 0.7) 30%,
+    rgba(253, 229, 200, 0.7) 65%,
+    rgba(246, 166, 161, 0.7) 100%
+  );
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  min-height: 100vh;
+  background-attachment: fixed;
+}
+
 #app {
   min-height: 100vh;
 }

@@ -1,10 +1,32 @@
 <template>
   <div class="max-w-md mx-auto mt-10 p-6 bg-indigo-50 shadow rounded-xl">
+  <div class="max-w-md mx-auto mt-10 p-6 bg-indigo-50 shadow rounded-xl">
     <h2 class="text-2xl font-semibold mb-4 text-center">
+      {{ isLogin ? 'Sign In' : 'Sign Up' }}
       {{ isLogin ? 'Sign In' : 'Sign Up' }}
     </h2>
 
     <form @submit.prevent="handleSubmit" class="space-y-4">
+      <div class="relative w-full mb-4">
+        <input
+          v-model="form.email"
+          type="email"
+          required
+          placeholder=" "
+          class="peer block w-full rounded-md border border-gray-300 bg-transparent px-3 pt-5 pb-2 text-gray-900 transition-all duration-300 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-300"
+        />
+        <label
+          for="email"
+          class="absolute left-3 top-2 text-gray-500 transition-all duration-300
+            peer-placeholder-shown:top-5
+            peer-placeholder-shown:text-gray-400
+            peer-placeholder-shown:text-base
+            peer-focus:top-2
+            peer-focus:text-sm
+            peer-focus:text-blue-500"
+        >
+          Email
+        </label>
       <div class="relative w-full mb-4">
         <input
           v-model="form.email"
@@ -47,8 +69,48 @@
         >
           Password
         </label>
+      <div class="relative w-full mb-4">
+        <input
+          v-model="form.password"
+          type="password"
+          required
+          placeholder=" "
+          class="peer block w-full rounded-md border border-gray-300 bg-transparent px-3 pt-5 pb-2 text-gray-900 transition-all duration-300 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-300"
+        />
+        <label
+          for="password"
+          class="absolute left-3 top-2 text-gray-500 transition-all duration-300
+            peer-placeholder-shown:top-5
+            peer-placeholder-shown:text-gray-400
+            peer-placeholder-shown:text-base
+            peer-focus:top-2
+            peer-focus:text-sm
+            peer-focus:text-blue-500"
+        >
+          Password
+        </label>
       </div>
 
+      <div v-if="!isLogin" class="relative w-full mb-4">
+        <input
+          v-model="form.name"
+          type="text"
+          required
+          placeholder=" "
+          class="peer block w-full rounded-md border border-gray-300 bg-transparent px-3 pt-5 pb-2 text-gray-900 transition-all duration-300 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-300"
+        />
+        <label
+          for="name"
+          class="absolute left-3 top-2 text-gray-500 transition-all duration-300
+            peer-placeholder-shown:top-5
+            peer-placeholder-shown:text-gray-400
+            peer-placeholder-shown:text-base
+            peer-focus:top-2
+            peer-focus:text-sm
+            peer-focus:text-blue-500"
+        >
+          Full Name
+        </label>
       <div v-if="!isLogin" class="relative w-full mb-4">
         <input
           v-model="form.name"
@@ -84,6 +146,7 @@
         </div>
         <div class="relative flex justify-center text-sm">
           <span class="px-2 bg-indigo-50 text-gray-500">or</span>
+          <span class="px-2 bg-indigo-50 text-gray-500">or</span>
         </div>
       </div>
       
@@ -101,6 +164,7 @@
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
           </svg>
           Sign in with Google
+          Sign in with Google
         </button>
       </div>
     </div>
@@ -112,10 +176,12 @@
     <div class="mt-6 text-sm text-center">
       <span>
         {{ isLogin ? "Don't have an account?" : 'Already have an account?' }}
+        {{ isLogin ? "Don't have an account?" : 'Already have an account?' }}
         <router-link 
           :to="isLogin ? '/register' : '/login'" 
           class="text-blue-600 hover:underline"
         >
+          {{ isLogin ? 'Sign Up' : 'Sign In' }}
           {{ isLogin ? 'Sign Up' : 'Sign In' }}
         </router-link>
       </span>
@@ -172,18 +238,22 @@ const handleSubmit = async () => {
     // ✅ Client-side validation
     if (!form.email.trim()) {
       throw new Error('Please enter your email');
+      throw new Error('Please enter your email');
     }
     
     if (!form.password.trim()) {
+      throw new Error('Please enter your password');
       throw new Error('Please enter your password');
     }
     
     if (!isLogin.value) {
       if (!form.name.trim()) {
         throw new Error('Please enter your full name');
+        throw new Error('Please enter your full name');
       }
       
       if (form.password.length < 6) {
+        throw new Error('Password must be at least 6 characters');
         throw new Error('Password must be at least 6 characters');
       }
     }
@@ -201,6 +271,7 @@ const handleSubmit = async () => {
     sessionStorage.removeItem('redirectAfterAuth');
     router.push(redirectPath);
   } catch (err: any) {
+    errorMessage.value = err.message || 'Something went wrong';
     errorMessage.value = err.message || 'Something went wrong';
   } finally {
     isLoading.value = false;
@@ -268,10 +339,53 @@ function base64URLEncode(array: Uint8Array): string {
   margin-bottom: 1.5rem;
 }
 
+.input-wrapper {
+  position: relative;
+  margin-bottom: 1.5rem;
+}
+
 .input {
   border: 1px solid #ccc;
   padding: 0.5rem 0.75rem;
+  padding: 0.5rem 0.75rem;
   border-radius: 6px;
+  background: #f8fafc;
+  width: 100%;
+  transition: border-color 0.2s;
+}
+
+.input:focus {
+  border-color: #4f46e5;
+  outline: none;
+}
+
+.floating-label {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%) translateX(-120%);
+  color: #6b7280;
+  pointer-events: none;
+  background: transparent;
+  padding: 0 0.25rem;
+  font-size: 1rem;
+  opacity: 0;
+  transition:
+    transform 0.3s cubic-bezier(.4,0,.2,1),
+    opacity 0.2s,
+    color 0.2s,
+    font-size 0.2s;
+}
+
+.input:focus + .floating-label,
+.input:not(:placeholder-shown) + .floating-label {
+  transform: translateY(-50%) translateX(0);
+  opacity: 1;
+  color: #4f46e5;
+  font-size: 0.95rem;
+  background: #f8fafc;
+}
+
   background: #f8fafc;
   width: 100%;
   transition: border-color 0.2s;
@@ -315,6 +429,7 @@ function base64URLEncode(array: Uint8Array): string {
   padding: 0.6rem;
   border-radius: 6px;
   font-weight: bold;
+  transition: background 0.2s;
   transition: background 0.2s;
 }
 .btn:disabled {

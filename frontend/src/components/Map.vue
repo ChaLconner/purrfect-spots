@@ -13,6 +13,10 @@
           </p>
         </div>
       </div>
+      <h3 class="text-xl font-bold text-cyan-700 mb-1">
+        Loading the cat map...
+      </h3>
+      <p class="text-gray-500">Fetching all cat locations for you</p>
     </div>
     
     <div
@@ -107,6 +111,7 @@
         </div>
       </div>
     </transition>
+    </transition>
   </div>
 </template>
 
@@ -140,9 +145,13 @@ const loadCatLocations = async () => {
     const apiUrl = getApiUrl("/locations");
 
     const response = await fetch(apiUrl, {
+    const apiUrl = getApiUrl("/locations");
+
+    const response = await fetch(apiUrl, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
+        Accept: "application/json",
         Accept: "application/json",
       },
     });
@@ -156,7 +165,21 @@ const loadCatLocations = async () => {
       throw new Error("Invalid data format (not JSON)");
     }
 
+    if (!response.ok) {
+      throw new Error(`Failed to connect to server (${response.status})`);
+    }
+
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      throw new Error("Invalid data format (not JSON)");
+    }
+
     const json = await response.json();
+
+    if (!Array.isArray(json)) {
+      throw new Error("Invalid data format");
+    }
+
 
     if (!Array.isArray(json)) {
       throw new Error("Invalid data format");

@@ -1,3 +1,4 @@
+
 export interface CatDetectionResult {
   has_cats: boolean;
   cat_count: number;
@@ -11,6 +12,7 @@ export interface CatDetectionResult {
   image_quality: string;
   suitable_for_cat_spot: boolean;
   reasoning: string;
+  note?: string;
   note?: string;
 }
 

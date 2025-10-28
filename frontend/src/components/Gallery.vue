@@ -183,10 +183,14 @@ async function fetchImages() {
     
     const contentType = response.headers.get('content-type');
     
+    
     if (!contentType || !contentType.includes('application/json')) {
       const responseText = await response.text();
       throw new Error(`Invalid response format: not JSON (got ${contentType})`);
+      const responseText = await response.text();
+      throw new Error(`Invalid response format: not JSON (got ${contentType})`);
     }
+    
     
     const data = await response.json();
     
@@ -197,6 +201,7 @@ async function fetchImages() {
     if (!data || !Array.isArray(data.images)) {
       throw new Error('Malformed data from server');
     }
+    
     
     images.value = data.images;
     updateVisibleImages();
@@ -455,3 +460,4 @@ img {
   transition: opacity 0.3s ease-in-out;
 }
 </style>
+

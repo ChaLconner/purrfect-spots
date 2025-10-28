@@ -1,6 +1,7 @@
 import os
 from typing import List
 import re
+import re
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Depends, Request
@@ -74,6 +75,17 @@ allowed_origins = [
 ]
 
 # Add any additional origins from environment variable
+# List of allowed origins - include your frontend domain
+allowed_origins = [
+    "https://purrfect-spots.vercel.app",  # Your frontend domain
+    "https://purrfect-spots-frontend.vercel.app", 
+    "http://localhost:5173",  # Local development
+    "http://localhost:5174",
+    "http://localhost:3000",
+    "http://localhost:8000"
+]
+
+# Add any additional origins from environment variable
 cors_origins_env = os.getenv("CORS_ORIGINS", "")
 if cors_origins_env:
     env_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
@@ -82,10 +94,27 @@ if cors_origins_env:
 print(f"CORS allowed origins: {allowed_origins}")
 
 # Add CORS middleware with explicit configuration
+# Add CORS middleware with explicit configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
+    allow_origins=allowed_origins,
     allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
+    allow_headers=[
+        "Accept",
+        "Accept-Language",
+        "Content-Language",
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Origin",
+        "Access-Control-Request-Method",
+        "Access-Control-Request-Headers",
+    ],
+    expose_headers=["*"],
+    max_age=86400,  # 24 hours
+)
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
     allow_headers=[
         "Accept",
@@ -108,10 +137,45 @@ async def root():
     """Root endpoint"""
     return {"status": "healthy", "message": "PurrFect Spots API is running"}
 
+@app.get("/")
+async def root():
+    """Root endpoint"""
+    return {"status": "healthy", "message": "PurrFect Spots API is running"}
+
 @app.get("/health")
 async def health_check():
     """Simple health check endpoint"""
     return {"status": "healthy", "message": "PurrFect Spots API is running"}
+
+# ✅ CORS preflight handler for all routes
+@app.options("/{full_path:path}")
+async def options_handler(request: Request, full_path: str):
+    """Handle CORS preflight requests"""
+    origin = request.headers.get("origin")
+    
+    # Check if origin is allowed
+    if origin in allowed_origins:
+        return JSONResponse(
+            content={"message": "OK"},
+            headers={
+                "Access-Control-Allow-Origin": origin,
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+                "Access-Control-Allow-Headers": "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Max-Age": "86400",
+            }
+        )
+    else:
+        # For development, allow all origins (remove in production)
+        return JSONResponse(
+            content={"message": "OK"},
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+                "Access-Control-Allow-Headers": "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+                "Access-Control-Max-Age": "86400",
+            }
+        )
 
 # ✅ CORS preflight handler for all routes
 @app.options("/{full_path:path}")
@@ -194,6 +258,7 @@ async def get_gallery(supabase = Depends(get_supabase_client)):
 
 @app.get("/locations", response_model=List[CatLocation])
 async def get_locations(request: Request, supabase = Depends(get_supabase_client)):
+async def get_locations(request: Request, supabase = Depends(get_supabase_client)):
     """Get all cat locations from Supabase."""
     try:
         resp = (
@@ -209,6 +274,36 @@ async def get_locations(request: Request, supabase = Depends(get_supabase_client
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.options("/locations")
+async def locations_options(request: Request):
+    """Handle CORS preflight for locations endpoint"""
+    origin = request.headers.get("origin")
+    
+    if origin in allowed_origins:
+        return JSONResponse(
+            content={"message": "OK"},
+            headers={
+                "Access-Control-Allow-Origin": origin,
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Access-Control-Allow-Headers": "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin",
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Max-Age": "86400",
+            }
+        )
+    else:
+        return JSONResponse(
+            content={"message": "OK"},
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Access-Control-Allow-Headers": "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin",
+                "Access-Control-Max-Age": "86400",
+            }
+        )
+
+# Vercel expects this to be available
+handler = app
 
 @app.options("/locations")
 async def locations_options(request: Request):
