@@ -88,7 +88,10 @@ async def get_current_user_from_credentials(
         
         # Try to get user from database first
         try:
-            result = supabase.table("users").select("*").eq("id", user_id).single().execute()
+            # Use admin client to bypass RLS
+            from dependencies import get_supabase_admin_client
+            supabase_admin = get_supabase_admin_client()
+            result = supabase_admin.table("users").select("*").eq("id", user_id).single().execute()
             if result.data:
                 return User(
                     id=result.data["id"],
@@ -123,7 +126,10 @@ async def get_current_user_from_credentials(
             
             # Try to get from database
             try:
-                result = supabase.table("users").select("*").eq("id", user_id).single().execute()
+                # Use admin client to bypass RLS
+                from dependencies import get_supabase_admin_client
+                supabase_admin = get_supabase_admin_client()
+                result = supabase_admin.table("users").select("*").eq("id", user_id).single().execute()
                 if result.data:
                     return User(
                         id=result.data["id"],
@@ -167,8 +173,10 @@ def get_current_user(request: Request):
             
             # Try to get user from database first
             try:
-                supabase = get_supabase_client()
-                result = supabase.table("users").select("*").eq("id", user_id).single().execute()
+                # Use admin client to bypass RLS
+                from dependencies import get_supabase_admin_client
+                supabase_admin = get_supabase_admin_client()
+                result = supabase_admin.table("users").select("*").eq("id", user_id).single().execute()
                 if result.data:
                     return User(
                         id=result.data["id"],

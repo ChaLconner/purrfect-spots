@@ -136,8 +136,12 @@ async def upload_cat_photo(
             "uploaded_at": datetime.now().isoformat()
         }
         
+        # Use admin client to bypass RLS
+        from dependencies import get_supabase_admin_client
+        supabase_admin = get_supabase_admin_client()
+        
         # Insert into cat_photos table
-        result = supabase.table("cat_photos").insert(photo_data).execute()
+        result = supabase_admin.table("cat_photos").insert(photo_data).execute()
         
         if not result.data:
             raise HTTPException(status_code=500, detail="Failed to save cat photo")

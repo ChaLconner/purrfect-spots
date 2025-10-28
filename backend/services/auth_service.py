@@ -148,7 +148,8 @@ class AuthService:
     def get_user_by_id(self, user_id: str) -> Optional[User]:
         """Get user by ID from database"""
         try:
-            result = self.supabase.table('users').select('*').eq('id', user_id).execute()
+            # Use admin client to bypass RLS
+            result = self.supabase_admin.table('users').select('*').eq('id', user_id).execute()
             if result.data:
                 return User(**result.data[0])
             return None
@@ -158,7 +159,8 @@ class AuthService:
     def get_user_by_email(self, email: str) -> Optional[dict]:
         """Get user by email from database"""
         try:
-            result = self.supabase.table('users').select('*').eq('email', email).single().execute()
+            # Use admin client to bypass RLS
+            result = self.supabase_admin.table('users').select('*').eq('email', email).single().execute()
             return result.data if result.data else None
         except Exception:
             return None
@@ -264,7 +266,8 @@ class AuthService:
                 # Try to find user with google_id matching this Google sub first
                 existing_user = None
                 try:
-                    result = self.supabase.table('users').select('*').eq('google_id', google_sub).execute()
+                    # Use admin client to bypass RLS
+                    result = self.supabase_admin.table('users').select('*').eq('google_id', google_sub).execute()
                     if result.data:
                         existing_user = result.data[0]
                 except:

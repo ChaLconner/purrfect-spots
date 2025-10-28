@@ -68,9 +68,10 @@ async def register(data: RegisterInput, auth_service: AuthService = Depends(get_
         password_hash = hash_password(data.password)
         
         
-        # Direct insert to Supabase table
-        supabase = get_supabase_client()
-        result = supabase.table("users").insert({
+        # Direct insert to Supabase table using admin client to bypass RLS
+        from dependencies import get_supabase_admin_client
+        supabase_admin = get_supabase_admin_client()
+        result = supabase_admin.table("users").insert({
             "email": data.email,
             "name": data.name.strip(),
             "password_hash": password_hash

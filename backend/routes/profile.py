@@ -26,7 +26,9 @@ async def update_profile(
     Update user profile information
     """
     try:
-        supabase = get_supabase_client()
+        # Use admin client to bypass RLS
+        from dependencies import get_supabase_admin_client
+        supabase_admin = get_supabase_admin_client()
         
         # Prepare update data
         update_data = {}
@@ -41,7 +43,7 @@ async def update_profile(
             raise HTTPException(status_code=400, detail="No data provided for update")
         
         # Update user in database
-        result = supabase.table("users").update(update_data).eq("id", current_user.id).execute()
+        result = supabase_admin.table("users").update(update_data).eq("id", current_user.id).execute()
         
         if not result.data:
             raise HTTPException(status_code=404, detail="User not found")
@@ -70,10 +72,12 @@ async def get_profile(current_user: User = Depends(get_current_user_from_credent
     Get current user profile
     """
     try:
-        supabase = get_supabase_client()
+        # Use admin client to bypass RLS
+        from dependencies import get_supabase_admin_client
+        supabase_admin = get_supabase_admin_client()
         
         # Get user data from database - Fixed table name
-        result = supabase.table("users").select("*").eq("id", current_user.id).execute()
+        result = supabase_admin.table("users").select("*").eq("id", current_user.id).execute()
         
         if not result.data:
             raise HTTPException(status_code=404, detail="User not found")
@@ -98,11 +102,13 @@ async def get_user_uploads(current_user: User = Depends(get_current_user_from_cr
     Get all uploads by current user - filtered by user_id
     """
     try:
-        supabase = get_supabase_client()
+        # Use admin client to bypass RLS
+        from dependencies import get_supabase_admin_client
+        supabase_admin = get_supabase_admin_client()
         user_id = current_user.id
         
         # Query uploads for this user
-        result = supabase.table("cat_photos").select("*").eq("user_id", user_id).order("uploaded_at", desc=True).execute()
+        result = supabase_admin.table("cat_photos").select("*").eq("user_id", user_id).order("uploaded_at", desc=True).execute()
         
         # Format data
         uploads = []

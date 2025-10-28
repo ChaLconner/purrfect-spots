@@ -1,5 +1,4 @@
 import type { User } from '../types/auth';
-import { getAuthHeader } from '../store/auth';
 import { api, ApiError, ApiErrorTypes } from '../utils/api';
 import { isDev } from '../utils/env';
 import { isBrowserExtensionError, handleBrowserExtensionError } from '../utils/browserExtensionHandler';

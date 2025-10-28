@@ -209,11 +209,15 @@ class CatLocation(BaseModel):
     uploaded_at: str | None = None
 
 @app.get("/api/gallery")
-async def get_gallery(supabase = Depends(get_supabase_client)):
+async def get_gallery():
     """Get all cat images from Supabase for gallery display."""
     try:
+        # Use admin client to bypass RLS
+        from dependencies import get_supabase_admin_client
+        supabase_admin = get_supabase_admin_client()
+        
         resp = (
-            supabase.table("cat_photos")
+            supabase_admin.table("cat_photos")
             .select("*")
             .order("uploaded_at", desc=True)
             .execute()
@@ -241,11 +245,15 @@ async def get_gallery(supabase = Depends(get_supabase_client)):
 
 
 @app.get("/locations", response_model=List[CatLocation])
-async def get_locations(request: Request, supabase = Depends(get_supabase_client)):
+async def get_locations(request: Request):
     """Get all cat locations from Supabase."""
     try:
+        # Use admin client to bypass RLS
+        from dependencies import get_supabase_admin_client
+        supabase_admin = get_supabase_admin_client()
+        
         resp = (
-            supabase.table("cat_photos")
+            supabase_admin.table("cat_photos")
             .select("*")
             .order("uploaded_at", desc=True)
             .execute()
