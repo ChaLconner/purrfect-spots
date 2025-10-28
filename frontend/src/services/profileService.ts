@@ -1,5 +1,5 @@
 import type { User } from '../types/auth';
-import { api, ApiError, ApiErrorTypes } from '../utils/api';
+import { api, ApiError } from '../utils/api';
 
 export interface ProfileUpdateData {
   name?: string;

@@ -143,6 +143,16 @@ const createApiInstance = (): AxiosInstance => {
             );
           }
         }
+        
+        // If response data is not an object (likely HTML), throw an error
+        if (typeof response.data !== 'object' || response.data === null) {
+          throw new ApiError(
+            ApiErrorTypes.SERVER_ERROR,
+            'Server returned invalid response format. Please try again.',
+            response.status,
+            new Error(`Invalid response data type: ${typeof response.data}`)
+          );
+        }
       }
       
       return response;
@@ -217,9 +227,33 @@ const createApiInstance = (): AxiosInstance => {
           // Unknown error - check if response is HTML (common error page)
           const contentType = error.response.headers['content-type'];
           if (contentType && contentType.includes('text/html')) {
+            console.error('Server returned HTML instead of JSON:', {
+              status,
+              contentType,
+              url: error.config?.url,
+              data: error.response.data
+            });
+            
             throw new ApiError(
               ApiErrorTypes.SERVER_ERROR,
               'Server returned HTML error page instead of JSON. Please try again.',
+              status,
+              error
+            );
+          }
+          
+          // Also check for non-object responses that might indicate HTML
+          if (typeof error.response.data === 'string' && error.response.data.includes('<html')) {
+            console.error('Server returned HTML content:', {
+              status,
+              contentType,
+              url: error.config?.url,
+              dataPreview: error.response.data.substring(0, 200)
+            });
+            
+            throw new ApiError(
+              ApiErrorTypes.SERVER_ERROR,
+              'Server returned HTML content instead of JSON. Please try again.',
               status,
               error
             );

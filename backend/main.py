@@ -38,36 +38,45 @@ async def generic_exception_handler(request: Request, exc: Exception):
     print(f"Exception traceback: {exc.__traceback__}")
     import traceback
     traceback.print_exc()
+    
+    # Always return JSON response, even for unexpected errors
     return JSONResponse(
         status_code=500,
         content={"detail": f"Internal Server Error: {str(exc)}"},
         headers={
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*"  # CORS fallback (dev only!)
+            "Access-Control-Allow-Origin": "*",  # CORS fallback (dev only!)
+            "Access-Control-Allow-Credentials": "true"
         }
     )
 
 @app.exception_handler(StarletteHTTPException)
 async def custom_http_exception_handler(request: Request, exc: StarletteHTTPException):
     print(f"HTTP Exception: {exc.status_code} - {exc.detail}")
+    
+    # Always return JSON response for HTTP exceptions
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail},
         headers={
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*"  # CORS fallback
+            "Access-Control-Allow-Origin": "*",  # CORS fallback
+            "Access-Control-Allow-Credentials": "true"
         }
     )
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     print(f"Validation Error: {exc}")
+    
+    # Always return JSON response for validation errors
     return JSONResponse(
         status_code=422,
         content={"detail": "Request validation failed", "errors": exc.errors()},
         headers={
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*"  # CORS fallback
+            "Access-Control-Allow-Origin": "*",  # CORS fallback
+            "Access-Control-Allow-Credentials": "true"
         }
     )
 
@@ -99,7 +108,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
     allow_headers=[
         "Accept",
         "Accept-Language",
@@ -110,6 +119,8 @@ app.add_middleware(
         "Origin",
         "Access-Control-Request-Method",
         "Access-Control-Request-Headers",
+        "Cache-Control",
+        "Pragma",
     ],
     expose_headers=["*"],
     max_age=86400,  # 24 hours
