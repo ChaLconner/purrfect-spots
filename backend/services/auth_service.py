@@ -301,5 +301,8 @@ class AuthService:
                     )
                 )
                 
+        except ValueError as e:
+            # Re-raise ValueError with original message
+            raise e
         except Exception as e:
             raise ValueError(f"Code exchange failed: {str(e)}")

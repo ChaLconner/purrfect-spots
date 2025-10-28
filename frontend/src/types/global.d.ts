@@ -5,6 +5,13 @@ export {};
 	const __VLS_directiveBindingRestFields: { instance: null, oldValue: null, modifiers: any, dir: any };
 	const __VLS_unref: typeof import('vue').unref;
 	const __VLS_placeholder: any;
+	
+	// Google Maps API types
+	interface Window {
+		google?: {
+			maps?: any;
+		};
+	}
 
 	type __VLS_NativeElements = __VLS_SpreadMerge<SVGElementTagNameMap, HTMLElementTagNameMap>;
 	type __VLS_IntrinsicElements = import('vue/jsx-runtime').JSX.IntrinsicElements;

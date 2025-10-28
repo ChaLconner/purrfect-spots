@@ -65,12 +65,10 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 # CORS middleware must be added BEFORE including routers
 # List of allowed origins - include your frontend domain
 allowed_origins = [
-    "https://purrfect-spots.vercel.app",  # Your frontend domain
-    "https://purrfect-spots-frontend.vercel.app", 
-    "http://localhost:5173",  # Local development
-    "http://localhost:5174",
-    "http://localhost:3000",
-    "http://localhost:8000"
+    "http://localhost:3000",  # Local development
+    "http://localhost:5173",  # Vite default port
+    "https://purrfect-spots.vercel.app",  # Custom domain if applicable
+    "https://purrfect-spots-backend.vercel.app"  # Backend URL for direct API access
 ]
 
 # Add any additional origins from environment variable
@@ -78,6 +76,12 @@ cors_origins_env = os.getenv("CORS_ORIGINS", "")
 if cors_origins_env:
     env_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
     allowed_origins.extend(env_origins)
+
+# In Vercel environment, automatically add the deployment URL
+if os.getenv("VERCEL_URL"):
+    vercel_url = f"https://{os.getenv('VERCEL_URL')}"
+    if vercel_url not in allowed_origins:
+        allowed_origins.append(vercel_url)
 
 print(f"CORS allowed origins: {allowed_origins}")
 

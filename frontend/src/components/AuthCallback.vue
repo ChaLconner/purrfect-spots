@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-transparent flex items-center justify-center">
+  <div class="fixed inset-0 min-h-screen bg-transparent flex items-center justify-center z-50">
     <div class="max-w-md w-full bg-white rounded-lg shadow-md p-6">
       <div class="text-center">
         <div v-if="isLoading" class="mb-4">
@@ -112,7 +112,9 @@ const handleAuthCallback = async () => {
       }
       
       // Exchange code for tokens with retry logic
+      console.log('Exchanging code for tokens...', { code: code ? 'present' : 'missing', codeVerifier: codeVerifier ? 'present' : 'missing' });
       const data = await AuthService.googleCodeExchange(code, codeVerifier);
+      console.log('Token exchange successful', data);
       
       // Save authentication data
       setAuth(data);
@@ -131,7 +133,7 @@ const handleAuthCallback = async () => {
       
       // Redirect to intended destination
       setTimeout(() => {
-        const redirectPath = sessionStorage.getItem('redirectAfterAuth') || '/';
+        const redirectPath = sessionStorage.getItem('redirectAfterAuth') || '/upload';
         sessionStorage.removeItem('redirectAfterAuth');
         router.push(redirectPath);
       }, 1000);

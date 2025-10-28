@@ -13,10 +13,6 @@
           </p>
         </div>
       </div>
-      <h3 class="text-xl font-bold text-cyan-700 mb-1">
-        Loading the cat map...
-      </h3>
-      <p class="text-gray-500">Fetching all cat locations for you</p>
     </div>
     
     <div

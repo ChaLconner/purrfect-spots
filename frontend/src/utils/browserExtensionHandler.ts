@@ -162,33 +162,34 @@ export const withBrowserExtensionHandling = <T extends any[], R>(
  * Global error handler for unhandled promise rejections
  * @param event The unhandledrejection event
  */
-export const handleUnhandledRejection = (event: PromiseRejectionEvent): void => {
+export const handleUnhandledRejection = (event: PromiseRejectionEvent): boolean => {
   if (isBrowserExtensionError(event.reason)) {
     logBrowserExtensionError(event.reason, 'unhandled rejection');
     event.preventDefault();
     return false;
   }
+  return true;
 };
 
 /**
  * Global error handler for window errors
  * @param event The error event
  */
-export const handleError = (event: ErrorEvent): void => {
+export const handleError = (event: ErrorEvent): boolean => {
   if (isBrowserExtensionError(event.error || event.message)) {
     logBrowserExtensionError(event.error || event.message, 'window error');
     event.preventDefault();
     return false;
   }
+  return true;
 };
 
 /**
  * Vue error handler for browser extension errors
  * @param err The error that occurred
- * @param instance The Vue component instance
  * @param info Vue-specific error information
  */
-export const handleVueError = (err: any, instance: any, info: string): boolean | undefined => {
+export const handleVueError = (err: any, info: string): boolean | undefined => {
   if (isBrowserExtensionError(err)) {
     logBrowserExtensionError(err, `Vue error in ${info}`);
     return false;

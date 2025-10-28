@@ -99,7 +99,7 @@ onUnmounted(() => {
       <div class="flex flex-row md:flex-row justify-around md:gap-2 w-full md:w-auto">
         <router-link
           to="/map"
-          class="flex items-center gap-3 px-4 py-2 md:py-2 md:px-3 rounded-xl hover:bg-gray-100/50 transition-all duration-200 group active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
+          class="flex items-center gap-3 px-4 py-2 md:py-2 md:px-3 rounded-xl hover:bg-gray-100/50 transition-all duration-200 group active:scale-95"
           @click="menuOpen = false"
           aria-label="Navigate to Map page"
         >
@@ -108,7 +108,7 @@ onUnmounted(() => {
         </router-link>
         <router-link
           to="/upload"
-          class="flex items-center gap-3 px-4 py-2 md:py-2 md:px-3 rounded-xl hover:bg-gray-100/50 transition-all duration-200 group active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
+          class="flex items-center gap-3 px-4 py-2 md:py-2 md:px-3 rounded-xl hover:bg-gray-100/50 transition-all duration-200 group active:scale-95"
           @click="menuOpen = false"
           aria-label="Navigate to Upload page"
         >
@@ -117,7 +117,7 @@ onUnmounted(() => {
         </router-link>
         <router-link
           to="/gallery"
-          class="flex items-center gap-3 px-4 py-2 md:py-2 md:px-3 rounded-xl hover:bg-gray-100/50 transition-all duration-200 group active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
+          class="flex items-center gap-3 px-4 py-2 md:py-2 md:px-3 rounded-xl hover:bg-gray-100/50 transition-all duration-200 group active:scale-95"
           @click="menuOpen = false"
           aria-label="Navigate to Gallery page"
         >
@@ -127,7 +127,7 @@ onUnmounted(() => {
       </div>
 
       <!-- Authentication Section -->
-      <div v-if="!authStore.isAuthenticated" class="w-full md:w-auto px-5 md:px-0 pt-2 md:pt-0">
+      <div v-if="!authStore.isAuthenticated" class="w-full md:w-auto px-5 md:px-0 pt-2 md:pt-0 flex justify-center md:justify-start text-center">
         <router-link
           to="/login"
           class="login-gradient-btn w-full md:w-auto justify-center text-base py-3 md:py-2 active:scale-95 transition-transform focus:outline-none focus:ring-2 focus:ring-blue-400/50"
@@ -151,15 +151,14 @@ onUnmounted(() => {
           >
             <img
               :src="
-                authStore.user?.picture ||
-                '/default-avatar.svg'
+                authStore.user?.picture || '/default-avatar.svg'
               "
               :alt="authStore.user?.name || 'User Avatar'"
               class="w-10 h-10 md:w-8 md:h-8 rounded-full border-2 border-gray-300 shadow-sm"
             />
             <span class="flex-1 md:hidden text-base font-medium text-gray-700 text-left">
               {{ authStore.user?.name }}
-            </span>
+            </span>            
             <span class="hidden md:block text-sm font-medium text-gray-700">
               {{ authStore.user?.name }}
             </span>

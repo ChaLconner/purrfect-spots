@@ -9,12 +9,25 @@ export function getApiBaseUrl(): string {
   // Get from environment variable
   const envUrl = getEnvVar('VITE_API_BASE_URL');
   
-  // Production fallback - your actual Vercel backend deployment URL
-  const fallbackUrl = 'https://purrfect-spots-backend.vercel.app';
+  if (envUrl) {
+    return envUrl;
+  }
   
-  const apiUrl = envUrl || fallbackUrl;
+  // Auto-detect environment
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const isVercel = window.location.hostname.includes('vercel.app');
   
-  return apiUrl;
+  if (isLocalhost) {
+    // Local development - use localhost backend
+    return 'http://localhost:8000';
+  } else if (isVercel) {
+    // Vercel deployment - use relative path for same-origin requests
+    // This will automatically route to the backend through vercel.json routes
+    return '/api';
+  } else {
+    // Fallback for other environments
+    return 'https://purrfect-spots-backend.vercel.app';
+  }
 }
 
 // Create full API URL

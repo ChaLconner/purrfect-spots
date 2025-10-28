@@ -1,1 +1,0 @@
-# This file has been removed - cat detection functionality moved to Google Vision service

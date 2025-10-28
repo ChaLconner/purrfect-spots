@@ -9,8 +9,8 @@ import { initializeAuth, isUserReady } from "../store/auth";
 
 const routes = [
   {
-    path: "/map",
-    name: "Map",
+    path: "/",
+    name: "Home",
     component: Map,
   },
   {
@@ -77,8 +77,8 @@ router.beforeEach((to, _from, next) => {
     (to.name === "Login" || to.name === "Register" || to.name === "Auth") &&
     isUserReady()
   ) {
-    // If user is already logged in and has complete profile, redirect to home
-    next({ name: "Home" });
+    // If user is already logged in and has complete profile, redirect to upload
+    next({ name: "Upload" });
   } else {
     next();
   }

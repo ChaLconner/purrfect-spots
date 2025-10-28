@@ -130,5 +130,4 @@ export const onGoogleMapsLoaded = (callback: () => void): void => {
   }
 };
 
-// Note: The Window interface with google property is already defined in frontend/src/types/global.d.ts
-// No need to redeclare it here
+// Note: The Window interface with google property is defined in frontend/src/types/global.d.ts

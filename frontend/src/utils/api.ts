@@ -5,7 +5,8 @@
 import axios from 'axios';
 import type { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios';
 import { clearAuth } from '../store/auth';
-import { isDev, getEnvVar } from './env';
+import { getEnvVar } from './env';
+import { isBrowserExtensionError, handleBrowserExtensionError } from './browserExtensionHandler';
 
 // API Error Types
 export const ApiErrorTypes = {
@@ -43,11 +44,25 @@ export class ApiError extends Error {
 export const getApiBaseUrl = (): string => {
   const envUrl = getEnvVar('VITE_API_BASE_URL');
   
-  if (!envUrl) {
-    return 'https://purrfect-spots-backend.vercel.app'; // fallback - updated to use Vercel
+  if (envUrl) {
+    return envUrl;
   }
   
-  return envUrl;
+  // Auto-detect environment
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const isVercel = window.location.hostname.includes('vercel.app');
+  
+  if (isLocalhost) {
+    // Local development - use localhost backend
+    return 'http://localhost:8000';
+  } else if (isVercel) {
+    // Vercel deployment - use relative path for same-origin requests
+    // This will automatically route to the backend through vercel.json routes
+    return '/api';
+  } else {
+    // Fallback for other environments
+    return 'https://purrfect-spots-backend.vercel.app';
+  }
 };
 
 // Create API URL with endpoint
@@ -96,10 +111,7 @@ const createApiInstance = (): AxiosInstance => {
         config.headers.Authorization = `Bearer ${token}`;
       }
       
-      // Log request in development
-      if (isDev()) {
-        console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`, config.data);
-      }
+      // Request logging removed for cleaner console
       
       return config;
     },
@@ -111,17 +123,11 @@ const createApiInstance = (): AxiosInstance => {
   // Response interceptor for centralized error handling
   instance.interceptors.response.use(
     (response) => {
-      // Log response in development
-      if (isDev()) {
-        console.log(`API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`, response.data);
-      }
+      // Response logging removed for cleaner console
       
       return response;
     },
     (error: AxiosError) => {
-      // Import here to avoid circular dependency
-      const { isBrowserExtensionError, handleBrowserExtensionError } = require('./browserExtensionHandler');
-      
       // Handle browser extension errors first
       if (isBrowserExtensionError(error)) {
         // Retry the request once for browser extension errors

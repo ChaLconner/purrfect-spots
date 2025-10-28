@@ -158,7 +158,7 @@ const form = reactive({
 // Check if user is already logged in
 onMounted(() => {
   if (isUserReady()) {
-    const redirectPath = sessionStorage.getItem('redirectAfterAuth') || '/';
+    const redirectPath = sessionStorage.getItem('redirectAfterAuth') || '/upload';
     sessionStorage.removeItem('redirectAfterAuth');
     router.push(redirectPath);
   }
@@ -197,7 +197,7 @@ const handleSubmit = async () => {
 
     setAuth(data);
 
-    const redirectPath = sessionStorage.getItem('redirectAfterAuth') || '/';
+    const redirectPath = sessionStorage.getItem('redirectAfterAuth') || '/upload';
     sessionStorage.removeItem('redirectAfterAuth');
     router.push(redirectPath);
   } catch (err: any) {

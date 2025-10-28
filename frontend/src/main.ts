@@ -23,7 +23,7 @@ const app = createApp(App)
 
 // Global error handler for browser extension conflicts
 app.config.errorHandler = (err, instance, info) => {
-  const result = handleVueError(err, instance, info);
+  const result = handleVueError(err, info);
   
   // If handleVueError returned false, it means the error was handled
   if (result === false) {
