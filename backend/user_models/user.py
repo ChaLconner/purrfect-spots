@@ -51,3 +51,4 @@ class LoginResponse(BaseModel):
     access_token: str
     token_type: str
     user: UserResponse
+    refresh_token: Optional[str] = None

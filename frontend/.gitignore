@@ -21,6 +21,7 @@ build/
 .env
 .env.*
 !.env.example
+NEW_LOCAL_ENV
 
 # Editor directories and files
 .vscode/

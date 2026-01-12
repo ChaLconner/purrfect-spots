@@ -2,7 +2,7 @@
   <svg
     viewBox="0 0 512.00 512.00"
     xmlns="http://www.w3.org/2000/svg"
-    fill="#000000"
+    fill="none"
     :transform="transform"
   >
     <g stroke-width="0">
@@ -12,11 +12,11 @@
         width="512.00"
         height="512.00"
         rx="256"
-        fill="#7ed0ec"
+        fill="#C97B49"
       />
     </g>
     <g stroke-linecap="round" stroke-linejoin="round"></g>
-    <g>
+    <g fill="#FAF6EC">
       <path
         class="cls-1"
         d="M324.5,282.26c-11.49-19.8-36.22-33.5-64.9-33.5s-53.41,13.7-64.9,33.5c-20.53,9.58-33.5,23.62-33.5,39.28,0,28.87,44.05,52.27,98.4,52.27s98.4-23.4,98.4-52.27c0-15.66-12.97-29.7-33.5-39.28Z"

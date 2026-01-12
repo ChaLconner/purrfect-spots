@@ -1,0 +1,159 @@
+"""
+Pytest configuration and fixtures for backend tests
+"""
+import pytest
+import sys
+import os
+from unittest.mock import MagicMock, AsyncMock, patch
+import pytest
+
+# Add backend directory to path so imports work
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Mock supabase module if it cannot be imported
+try:
+    import supabase
+except ImportError:
+    mock_supabase_module = MagicMock()
+    sys.modules["supabase"] = mock_supabase_module
+    sys.modules["supabase.client"] = MagicMock()
+
+# Mock google cloud modules if they are missing
+try:
+    import google.cloud.vision
+except ImportError:
+    # Logic to mock only the missing parts
+    # We assume google package itself might exist because of google-auth
+    mock_vision = MagicMock()
+    sys.modules["google.cloud.vision"] = mock_vision
+    
+    # Ensure google.cloud exists as a module/package if not already
+    if "google.cloud" not in sys.modules:
+        sys.modules["google.cloud"] = MagicMock()
+
+# Mock slowapi if not present
+try:
+    import slowapi
+except ImportError:
+    mock_slowapi = MagicMock()
+    sys.modules["slowapi"] = mock_slowapi
+    sys.modules["slowapi.errors"] = MagicMock()
+    sys.modules["slowapi.util"] = MagicMock()
+    # Mock limiter instance since it's used in decorators
+    sys.modules["limiter"] = MagicMock()
+    sys.modules["limiter"].limiter = MagicMock()
+    sys.modules["limiter"].limiter.limit = lambda x: lambda f: f  # Mock decorator
+
+from fastapi.testclient import TestClient
+from main import app
+
+
+@pytest.fixture
+def client():
+    """Create a test client for the FastAPI app"""
+    return TestClient(app)
+
+
+@pytest.fixture
+def mock_supabase():
+    """Create a mock Supabase client"""
+    mock = MagicMock()
+    mock.table.return_value = mock
+    mock.select.return_value = mock
+    mock.insert.return_value = mock
+    mock.update.return_value = mock
+    mock.delete.return_value = mock
+    mock.eq.return_value = mock
+    mock.single.return_value = mock
+    mock.order.return_value = mock
+    mock.range.return_value = mock
+    mock.limit.return_value = mock
+    mock.or_.return_value = mock
+    mock.contains.return_value = mock
+    mock.execute.return_value = MagicMock(data=[], count=0)
+    return mock
+
+
+@pytest.fixture
+def mock_supabase_admin():
+    """Create a mock Supabase admin client"""
+    mock = MagicMock()
+    mock.table.return_value = mock
+    mock.select.return_value = mock
+    mock.insert.return_value = mock
+    mock.update.return_value = mock
+    mock.delete.return_value = mock
+    mock.eq.return_value = mock
+    mock.single.return_value = mock
+    mock.order.return_value = mock
+    mock.range.return_value = mock
+    mock.limit.return_value = mock
+    mock.or_.return_value = mock
+    mock.contains.return_value = mock
+    mock.execute.return_value = MagicMock(data=[], count=0)
+    return mock
+
+
+class MockUser:
+    """Mock user class for testing"""
+    def __init__(self):
+        self.id = "test-user-123"
+        self.email = "test@example.com"
+        self.name = "Test User"
+        self.picture = "https://example.com/avatar.jpg"
+        self.bio = "Test bio"
+        self.created_at = "2024-01-01T00:00:00Z"
+
+
+@pytest.fixture
+def mock_user():
+    """Create a mock authenticated user"""
+    return MockUser()
+
+
+@pytest.fixture
+def mock_cat_photo():
+    """Create a mock cat photo record"""
+    return {
+        "id": "test-photo-123",
+        "user_id": "test-user-123",
+        "location_name": "Test Cat Spot",
+        "description": "A cute cat #orange #friendly",
+        "tags": ["orange", "friendly"],
+        "latitude": 13.7563,
+        "longitude": 100.5018,
+        "image_url": "https://example.com/cat.jpg",
+        "uploaded_at": "2024-01-01T12:00:00Z"
+    }
+
+
+@pytest.fixture
+def auth_headers():
+    """Create mock authentication headers"""
+    return {"Authorization": "Bearer test-token-123"}
+
+
+@pytest.fixture
+def sample_image_bytes():
+    """Create sample JPEG image bytes for testing"""
+    from PIL import Image
+    import io
+    
+    # Create a simple test image
+    img = Image.new('RGB', (100, 100), color='red')
+    buffer = io.BytesIO()
+    img.save(buffer, format='JPEG')
+    return buffer.getvalue()
+
+
+@pytest.fixture
+def sample_large_image_bytes():
+    """Create a large image for resize testing"""
+    from PIL import Image
+    import io
+    
+    # Create a large test image
+    img = Image.new('RGB', (3000, 2000), color='blue')
+    buffer = io.BytesIO()
+    img.save(buffer, format='JPEG', quality=100)
+    return buffer.getvalue()

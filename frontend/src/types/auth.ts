@@ -11,6 +11,7 @@ export interface LoginResponse {
   access_token: string;
   token_type: string;
   user: User;
+  refresh_token?: string; // Optional refresh token from backend
 }
 
 export interface AuthState {

@@ -1,0 +1,353 @@
+/**
+ * Pinia Cats Store
+ * 
+ * State management for cat locations and gallery data.
+ * Supports search, filtering, pagination, and tag-based queries.
+ */
+import { defineStore } from 'pinia';
+import { ref, computed } from 'vue';
+
+// Re-export CatLocation from types/api.ts (single source of truth)
+export type { CatLocation } from '../types/api';
+import type { CatLocation } from '../types/api';
+
+export interface PaginationMeta {
+  total: number;
+  limit: number;
+  offset: number;
+  has_more: boolean;
+  page: number;
+  total_pages: number;
+}
+
+export interface TagInfo {
+  tag: string;
+  count: number;
+}
+
+// ========== Store Definition ==========
+export const useCatsStore = defineStore('cats', () => {
+  // ========== State ==========
+  const locations = ref<CatLocation[]>([]);
+  const isLoading = ref(false);
+  const error = ref<string | null>(null);
+  const searchQuery = ref('');
+  const popularTags = ref<TagInfo[]>([]);
+  const selectedTags = ref<string[]>([]);
+  
+  // Pagination state
+  const pagination = ref<PaginationMeta>({
+    total: 0,
+    limit: 20,
+    offset: 0,
+    has_more: false,
+    page: 1,
+    total_pages: 0,
+  });
+
+  // ========== Getters ==========
+  
+  const catCount = computed(() => locations.value.length);
+  
+  const totalCount = computed(() => pagination.value.total);
+  
+  const hasMore = computed(() => pagination.value.has_more);
+  
+  const currentPage = computed(() => pagination.value.page);
+  
+  const totalPages = computed(() => pagination.value.total_pages);
+
+  /**
+   * Filter locations by search query (client-side)
+   */
+  const filteredLocations = computed(() => {
+    if (!searchQuery.value.trim()) {
+      return locations.value;
+    }
+
+    const rawQuery = searchQuery.value.toLowerCase().trim();
+    const normalizedQuery = rawQuery.replace(/^#/, '');
+    const hashtagQuery = `#${normalizedQuery}`;
+
+    return locations.value.filter(cat => {
+      const locationMatch = cat.location_name?.toLowerCase().includes(normalizedQuery);
+      const descriptionMatch = cat.description?.toLowerCase().includes(normalizedQuery);
+      const hashtagMatch = cat.description?.toLowerCase().includes(hashtagQuery);
+      const tagMatch = cat.tags?.some(tag => tag.toLowerCase().includes(normalizedQuery));
+
+      return locationMatch || descriptionMatch || hashtagMatch || tagMatch;
+    });
+  });
+
+  const filteredCount = computed(() => filteredLocations.value.length);
+
+  /**
+   * Get all unique tags from loaded locations
+   */
+  const allTags = computed(() => {
+    const tagSet = new Set<string>();
+    locations.value.forEach(location => {
+      extractTags(location.description).forEach(tag => tagSet.add(tag));
+      location.tags?.forEach(tag => tagSet.add(tag.toLowerCase()));
+    });
+    return Array.from(tagSet).sort();
+  });
+
+  /**
+   * Get popular tags from loaded locations (computed locally)
+   */
+  const popularTagsComputed = computed(() => {
+    const tagCounts = new Map<string, number>();
+
+    locations.value.forEach(location => {
+      const tags = location.tags || extractTags(location.description);
+      tags.forEach(tag => {
+        const normalizedTag = tag.toLowerCase();
+        tagCounts.set(normalizedTag, (tagCounts.get(normalizedTag) || 0) + 1);
+      });
+    });
+
+    return Array.from(tagCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([tag, count]) => ({ tag, count }));
+  });
+
+  // ========== Actions ==========
+
+  /**
+   * Set locations data with pagination info
+   */
+  function setLocations(data: CatLocation[], paginationData?: PaginationMeta) {
+    locations.value = data;
+    if (paginationData) {
+      pagination.value = paginationData;
+    }
+  }
+
+  /**
+   * Append more locations (for infinite scroll)
+   */
+  function appendLocations(data: CatLocation[], paginationData?: PaginationMeta) {
+    locations.value = [...locations.value, ...data];
+    if (paginationData) {
+      pagination.value = paginationData;
+    }
+  }
+
+  /**
+   * Set loading state
+   */
+  function setLoading(loading: boolean) {
+    isLoading.value = loading;
+  }
+
+  /**
+   * Set error state
+   */
+  function setError(err: string | null) {
+    error.value = err;
+  }
+
+  /**
+   * Set search query
+   */
+  function setSearchQuery(query: string) {
+    searchQuery.value = query;
+  }
+
+  /**
+   * Clear search query
+   */
+  function clearSearch() {
+    searchQuery.value = '';
+    selectedTags.value = [];
+  }
+
+  /**
+   * Set popular tags from API
+   */
+  function setPopularTags(tags: TagInfo[]) {
+    popularTags.value = tags;
+  }
+
+  /**
+   * Toggle tag selection for filtering
+   */
+  function toggleTag(tag: string) {
+    const index = selectedTags.value.indexOf(tag);
+    if (index === -1) {
+      selectedTags.value.push(tag);
+    } else {
+      selectedTags.value.splice(index, 1);
+    }
+  }
+
+  /**
+   * Clear all filters
+   */
+  function clearFilters() {
+    searchQuery.value = '';
+    selectedTags.value = [];
+  }
+
+  /**
+   * Reset pagination to first page
+   */
+  function resetPagination() {
+    pagination.value = {
+      ...pagination.value,
+      offset: 0,
+      page: 1,
+    };
+  }
+
+  /**
+   * Go to next page
+   */
+  function nextPage() {
+    if (pagination.value.has_more) {
+      pagination.value.page++;
+      pagination.value.offset = (pagination.value.page - 1) * pagination.value.limit;
+    }
+  }
+
+  /**
+   * Go to previous page
+   */
+  function prevPage() {
+    if (pagination.value.page > 1) {
+      pagination.value.page--;
+      pagination.value.offset = (pagination.value.page - 1) * pagination.value.limit;
+    }
+  }
+
+  /**
+   * Go to specific page
+   */
+  function goToPage(page: number) {
+    if (page >= 1 && page <= pagination.value.total_pages) {
+      pagination.value.page = page;
+      pagination.value.offset = (page - 1) * pagination.value.limit;
+    }
+  }
+
+  return {
+    // State
+    locations,
+    isLoading,
+    error,
+    searchQuery,
+    popularTags,
+    selectedTags,
+    pagination,
+
+    // Getters
+    catCount,
+    totalCount,
+    hasMore,
+    currentPage,
+    totalPages,
+    filteredLocations,
+    filteredCount,
+    allTags,
+    popularTagsComputed,
+
+    // Actions
+    setLocations,
+    appendLocations,
+    setLoading,
+    setError,
+    setSearchQuery,
+    clearSearch,
+    setPopularTags,
+    toggleTag,
+    clearFilters,
+    resetPagination,
+    nextPage,
+    prevPage,
+    goToPage,
+  };
+});
+
+// ========== Utility Functions ==========
+
+/**
+ * Extract hashtags from a description string
+ */
+export function extractTags(description: string | null | undefined): string[] {
+  if (!description) return [];
+  const matches = description.match(/#[a-z0-9ก-๙]+/gi);
+  if (!matches) return [];
+  return [...new Set(matches.map(tag => tag.slice(1).toLowerCase()))];
+}
+
+/**
+ * Get clean description without hashtags section
+ */
+export function getCleanDescription(description: string | null | undefined): string {
+  if (!description) return '';
+  return description.replace(/\n\n#.+$/s, '').trim();
+}
+
+/**
+ * Check if a location matches the given tag
+ */
+export function hasTag(location: CatLocation, tag: string): boolean {
+  const normalizedTag = tag.toLowerCase().replace(/^#/, '');
+  const tags = location.tags || extractTags(location.description);
+  return tags.some(t => t.toLowerCase() === normalizedTag);
+}
+
+// ========== Legacy exports for backward compatibility ==========
+import { storeToRefs } from 'pinia';
+
+let _store: ReturnType<typeof useCatsStore> | null = null;
+
+function getStore() {
+  if (!_store) {
+    try {
+      _store = useCatsStore();
+    } catch {
+      return null;
+    }
+  }
+  return _store;
+}
+
+// Legacy reactive exports
+export const catStore = {
+  get locations() { return getStore()?.locations ?? []; },
+  get isLoading() { return getStore()?.isLoading ?? false; },
+  get error() { return getStore()?.error ?? null; },
+  get searchQuery() { return getStore()?.searchQuery ?? ''; },
+  get popularTags() { return getStore()?.popularTags ?? []; },
+};
+
+// Legacy computed exports
+export const catCount = computed(() => getStore()?.catCount ?? 0);
+export const filteredLocations = computed(() => getStore()?.filteredLocations ?? []);
+export const filteredCount = computed(() => getStore()?.filteredCount ?? 0);
+export const allTags = computed(() => getStore()?.allTags ?? []);
+export const popularTagsComputed = computed(() => getStore()?.popularTagsComputed ?? []);
+
+// Legacy action exports
+export function setLocations(data: CatLocation[]) {
+  getStore()?.setLocations(data);
+}
+
+export function setLoading(loading: boolean) {
+  getStore()?.setLoading(loading);
+}
+
+export function setError(err: string | null) {
+  getStore()?.setError(err);
+}
+
+export function setSearchQuery(query: string) {
+  getStore()?.setSearchQuery(query);
+}
+
+export function clearSearch() {
+  getStore()?.clearSearch();
+}

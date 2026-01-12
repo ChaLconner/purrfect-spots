@@ -28,6 +28,7 @@ MANIFEST
 .env.development.local
 .env.test.local
 .env.production.local
+NEW_ENV
 
 # Virtual environment
 venv/
@@ -61,3 +62,12 @@ Thumbs.db
 *.db
 *.sqlite
 *.sqlite3
+
+# Vercel
+.vercel
+*.log
+
+# Keys
+keys/
+google_vision.json
+*.json

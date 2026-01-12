@@ -1,0 +1,13 @@
+/**
+ * Theme - CSS Custom Properties
+ * 
+ * Note: Core design tokens are now defined in tailwind.config.js
+ * and usage should rely on Tailwind utility classes.
+ */
+
+@theme {
+  /* 
+   * Transition mappings for backwards compatibility if needed, 
+   * but prefer using Tailwind utilites directly.
+   */
+}

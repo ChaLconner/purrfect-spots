@@ -1,51 +1,51 @@
 # 🎨 Purrfect Spots Frontend
 
-ส่วน Frontend ของแอปแชร์รูปแมว - สวยงามและใช้งานง่าย!
+Frontend of the cat photo sharing app - Beautiful and easy to use!
 
-## ✨ คุณสมบัติ
+## ✨ Features
 
-- 📱 **Responsive Design** - ใช้งานได้ทั้งมือถือและคอมพิวเตอร์
-- 🗺️ **แผนที่แบบโต้ตอบ** - ดูตำแหน่งแมวแบบ real-time
-- 🖼️ **แกลเลอรี่สวยงาม** - ดูรูปแบบ modal
-- 📍 **ระบุตำแหน่ง** - รองรับ GPS
-- 🌏 **ภาษาไทย** - รองรับภาษาไทยเต็มรูปแบบ
+- 📱 **Responsive Design** - Works on both mobile and desktop
+- 🗺️ **Interactive Map** - View cat locations in real-time
+- 🖼️ **Beautiful Gallery** - View photos in modal format
+- 📍 **Location Detection** - GPS support
+- 🌏 **Multi-language** - Full language support
 
-## 🛠️ เทคโนโลยี
+## 🛠️ Technologies
 
 - **Vue.js 3** - JavaScript framework
-- **Vite** - Build tool เร็วมาก
-- **Vue Router** - การนำทาง
-- **Tailwind CSS** - Styling สวยงาม
-- **Leaflet** - แผนที่แบบโต้ตอบ
+- **Vite** - Very fast build tool
+- **Vue Router** - Navigation
+- **Tailwind CSS** - Beautiful styling
+- **Leaflet** - Interactive maps
 
 ## 🧩 Components
 
-- **NavBar** - แถบเมนูหลัก
-- **Gallery** - แสดงรูปภาพแบบ grid
-- **Map** - แผนที่แสดงตำแหน่งแมว
-- **Upload** - ฟอร์มอัปโหลดรูป
+- **NavBar** - Main menu bar
+- **Gallery** - Display photos in grid format
+- **Map** - Map showing cat locations
+- **Upload** - Photo upload form
 
-## 🚀 การพัฒนา
+## 🚀 Development
 
 ```bash
-# ติดตั้ง dependencies
+# Install dependencies
 npm install
 
-# รันเซิร์ฟเวอร์พัฒนา
+# Run development server
 npm run dev
 
-# Build สำหรับ production
+# Build for production
 npm run build
 ```
 
 ## 🔗 API Integration
 
-เชื่อมต่อกับ Flask backend ที่ `http://localhost:5000`:
-- ดึงรายการรูปภาพ
-- อัปโหลดรูปใหม่
-- ดึงข้อมูลตำแหน่ง
-- จัดการ metadata
+Connect to Flask backend at `http://localhost:5000`:
+- Get photo lists
+- Upload new photos
+- Get location data
+- Manage metadata
 
 ---
 
-Made with ❤️ และ Vue.js 🐱
+Made with ❤️ and Vue.js 🐱

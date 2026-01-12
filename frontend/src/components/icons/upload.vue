@@ -1,17 +1,11 @@
 <template>
     <svg 
         xmlns="http://www.w3.org/2000/svg" 
-        fill="none" 
         viewBox="0 0 24 24" 
-        :stroke-width="strokeWidth" 
-        stroke="currentColor" 
+        fill="currentColor" 
         :class="classes"
     >
-        <path 
-            stroke-linecap="round" 
-            stroke-linejoin="round" 
-            d="M7.5 7.5h-.75A2.25 2.25 0 0 0 4.5 9.75v7.5a2.25 2.25 0 0 0 2.25 2.25h7.5a2.25 2.25 0 0 0 2.25-2.25v-7.5a2.25 2.25 0 0 0-2.25-2.25h-.75m0-3-3-3m0 0-3 3m3-3v11.25m6-2.25h.75a2.25 2.25 0 0 1 2.25 2.25v7.5a2.25 2.25 0 0 1-2.25 2.25h-7.5a2.25 2.25 0 0 1-2.25-2.25v-.75" 
-        />
+        <path fill-rule="evenodd" d="M11.47 2.47a.75.75 0 0 1 1.06 0l4.5 4.5a.75.75 0 0 1-1.06 1.06l-3.22-3.22V16.5a.75.75 0 0 1-1.5 0V4.81L8.03 8.03a.75.75 0 0 1-1.06-1.06l4.5-4.5ZM3 15.75a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
     </svg>
 </template>
 
@@ -21,7 +15,7 @@ export default {
     props: {
         size: {
             type: [String, Number],
-            default: 8
+            default: 6
         },
         strokeWidth: {
             type: [String, Number],

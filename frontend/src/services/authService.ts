@@ -1,86 +1,46 @@
-import type { User } from '../types/auth';
-import { getAuthHeader } from '../store/auth';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+import type { User, LoginResponse } from '../types/auth';
+import { apiV1, ApiError, ApiErrorTypes } from '../utils/api';
+import { isDev } from '../utils/env';
+import { isBrowserExtensionError, handleBrowserExtensionError } from '../utils/browserExtensionHandler';
 
 export class AuthService {
   // Get current user information
   static async getCurrentUser(): Promise<User> {
-    const authHeader = getAuthHeader();
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...authHeader,
-    };
-
-    const response = await fetch(`${API_BASE_URL}/auth/me`, {
-      method: 'GET',
-      headers,
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to get user information');
+    try {
+      return await apiV1.get<User>('/auth/me');
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        ApiErrorTypes.UNKNOWN_ERROR,
+        'Failed to get user information'
+      );
     }
-
-    return response.json();
   }
 
   // Login user
-  static async login(email: string, password: string): Promise<any> {
+  static async login(email: string, password: string): Promise<LoginResponse> {
     try {
-      console.log('🔄 Attempting to login user:', email);
-      
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      console.log('📡 Login response status:', response.status);
-
-      if (!response.ok) {
-        const error = await response.json();
-        console.error('❌ Login failed:', error);
-        throw new Error(error.detail || 'เข้าสู่ระบบล้มเหลว');
+      return await apiV1.post('/auth/login', { email, password });
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
       }
-
-      const result = await response.json();
-      console.log('✅ Login successful');
-      return result;
-      
-    } catch (error: any) {
-      console.error('🔥 Login error:', error);
       
       // Handle browser extension errors
-      if (error.message && error.message.includes('message channel closed')) {
-        console.warn('🔧 Browser extension conflict detected in login, retrying...');
-        
+      if (isBrowserExtensionError(error)) {
         try {
-          // Retry the request
-          const response = await fetch(`${API_BASE_URL}/auth/login`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ email, password }),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.detail || 'เข้าสู่ระบบล้มเหลว');
-          }
-
-          return response.json();
+          return await handleBrowserExtensionError(
+            error,
+            () => apiV1.post('/auth/login', { email, password })
+          );
         } catch (retryError: any) {
-          console.error('🔥 Login retry failed:', retryError);
-          throw new Error(retryError.message || 'เข้าสู่ระบบล้มเหลว');
+          throw new ApiError(
+            ApiErrorTypes.UNKNOWN_ERROR,
+            retryError.message || 'Login failed'
+          );
         }
-      }
-      
-      // Handle network errors
-      if (error.message === 'Failed to fetch') {
-        throw new Error('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
       }
       
       throw error;
@@ -88,62 +48,27 @@ export class AuthService {
   }
 
   // Signup user
-  static async signup(email: string, password: string, name: string): Promise<any> {
+  static async signup(email: string, password: string, name: string): Promise<LoginResponse> {
     try {
-      console.log('🔄 Attempting to register user:', email);
-      
-      const response = await fetch(`${API_BASE_URL}/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password, name }),
-      });
-
-      console.log('📡 Registration response status:', response.status);
-
-      if (!response.ok) {
-        const error = await response.json();
-        console.error('❌ Registration failed:', error);
-        throw new Error(error.detail || 'สมัครสมาชิกล้มเหลว');
+      return await apiV1.post('/auth/register', { email, password, name });
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
       }
-
-      const result = await response.json();
-      console.log('✅ Registration successful');
-      return result;
-      
-    } catch (error: any) {
-      console.error('🔥 Signup error:', error);
       
       // Handle browser extension errors
-      if (error.message && error.message.includes('message channel closed')) {
-        console.warn('🔧 Browser extension conflict detected, retrying...');
-        
+      if (isBrowserExtensionError(error)) {
         try {
-          // Retry the request
-          const response = await fetch(`${API_BASE_URL}/auth/register`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ email, password, name }),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.detail || 'สมัครสมาชิกล้มเหลว');
-          }
-
-          return response.json();
+          return await handleBrowserExtensionError(
+            error,
+            () => apiV1.post('/auth/register', { email, password, name })
+          );
         } catch (retryError: any) {
-          console.error('🔥 Retry failed:', retryError);
-          throw new Error(retryError.message || 'สมัครสมาชิกล้มเหลว');
+          throw new ApiError(
+            ApiErrorTypes.UNKNOWN_ERROR,
+            retryError.message || 'Registration failed'
+          );
         }
-      }
-      
-      // Handle network errors
-      if (error.message === 'Failed to fetch') {
-        throw new Error('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
       }
       
       throw error;
@@ -152,19 +77,16 @@ export class AuthService {
 
   // Logout user
   static async logout(): Promise<void> {
-    const authHeader = getAuthHeader();
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...authHeader,
-    };
-
-    const response = await fetch(`${API_BASE_URL}/auth/logout`, {
-      method: 'POST',
-      headers,
-    });
-
-    if (!response.ok) {
-      throw new Error('Logout failed');
+    try {
+      await apiV1.post('/auth/logout');
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        ApiErrorTypes.UNKNOWN_ERROR,
+        'Logout failed'
+      );
     }
   }
 
@@ -179,97 +101,80 @@ export class AuthService {
   }
 
   // Google OAuth code exchange
-  static async googleCodeExchange(code: string, codeVerifier: string): Promise<any> {
+  static async googleCodeExchange(code: string, codeVerifier: string): Promise<LoginResponse> {
     try {
-      console.log('🔄 Exchanging Google OAuth code...');
+      const redirectUri = `${window.location.origin}/auth/callback`;
       
-      const response = await fetch(`${API_BASE_URL}/auth/google/exchange`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          code,
-          code_verifier: codeVerifier,
-          redirect_uri: `${window.location.origin}/auth/callback`
-        }),
-      });
-
-      console.log('📡 OAuth exchange response status:', response.status);
-
-      if (!response.ok) {
-        const error = await response.json();
-        console.error('❌ OAuth exchange failed:', error);
-        throw new Error(error.detail || 'Google OAuth failed');
+      // Log request for debugging
+      if (isDev()) {
+        console.log('Google OAuth exchange request:', {
+          code: code ? 'present' : 'missing',
+          code_verifier: codeVerifier ? 'present' : 'missing',
+          redirect_uri: redirectUri
+        });
       }
-
-      const result = await response.json();
-      console.log('✅ OAuth exchange successful');
-      return result;
       
-    } catch (error: any) {
-      console.error('🔥 OAuth exchange error:', error);
+      return await apiV1.post('/auth/google/exchange', {
+        code,
+        code_verifier: codeVerifier,
+        redirect_uri: redirectUri
+      });
+      
+    } catch (error) {
+      if (error instanceof ApiError) {
+        // Provide more detailed error messages for specific cases
+        if (error.message.includes('invalid_grant')) {
+          throw new ApiError(
+            error.type,
+            'Authentication expired. Please try signing in again.',
+            error.statusCode
+          );
+        } else if (error.message.includes('redirect_uri')) {
+          throw new ApiError(
+            error.type,
+            'Redirect URI mismatch. Please check your OAuth configuration.',
+            error.statusCode
+          );
+        }
+        throw error;
+      }
       
       // Handle browser extension errors
-      if (error.message && error.message.includes('message channel closed')) {
-        console.warn('🔧 Browser extension conflict detected in OAuth, retrying...');
-        
+      if (isBrowserExtensionError(error)) {
         try {
-          // Retry the request
-          const response = await fetch(`${API_BASE_URL}/auth/google/exchange`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
+          const redirectUri = `${window.location.origin}/auth/callback`;
+          return await handleBrowserExtensionError(
+            error,
+            () => apiV1.post('/auth/google/exchange', {
               code,
               code_verifier: codeVerifier,
-              redirect_uri: `${window.location.origin}/auth/callback`
-            }),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.detail || 'Google OAuth failed');
-          }
-
-          return response.json();
+              redirect_uri: redirectUri
+            })
+          );
         } catch (retryError: any) {
-          console.error('🔥 OAuth retry failed:', retryError);
-          throw new Error(retryError.message || 'Google OAuth failed');
+          throw new ApiError(
+            ApiErrorTypes.UNKNOWN_ERROR,
+            retryError.message || 'Google OAuth failed'
+          );
         }
-      }
-      
-      // Handle network errors
-      if (error.message === 'Failed to fetch') {
-        throw new Error('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
       }
       
       throw error;
     }
   }
 
-  // Sync user data with backend (สำหรับ Supabase Auth integration)
+  // Sync user data with backend (for Supabase Auth integration)
   static async syncUser(): Promise<any> {
-    const authHeader = getAuthHeader();
-    
-    if (!authHeader.Authorization) {
-      throw new Error('No authentication token available');
+    try {
+      return await apiV1.post('/auth/sync-user');
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(
+        ApiErrorTypes.UNKNOWN_ERROR,
+        'User sync failed'
+      );
     }
-
-    const response = await fetch(`${API_BASE_URL}/auth/sync-user`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeader,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'User sync failed');
-    }
-
-    return response.json();
   }
 }

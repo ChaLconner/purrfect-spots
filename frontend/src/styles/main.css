@@ -1,0 +1,59 @@
+@import "tailwindcss";
+@import "./theme.css";
+@import "./components.css";
+
+@layer base {
+  body {
+    @apply min-h-screen;
+    background-color: #EAF6F3;
+    color: #5A4632;
+    font-family: "Inter", sans-serif;
+    background-image: linear-gradient(to bottom, #EAF6F3, #ffffff);
+  }
+}
+
+@layer utilities {
+  .backdrop-blur-glass {
+    @apply backdrop-blur-[12px];
+  }
+
+  /* Navbar update */
+  .navbar-glass {
+    @apply backdrop-blur-[12px] px-8 py-4 mx-8 my-4 transition-all duration-300;
+    border-radius: 1.75rem; /* rounded-2xl */
+    background-color: rgba(255,255,255,0.7); /* bg-surface */
+    box-shadow: 0 8px 24px rgba(0,0,0,0.06); /* shadow-soft */
+  }
+  
+  .navbar-glass:hover {
+    box-shadow: 0 12px 30px rgba(0,0,0,0.08); /* shadow-card */
+  }
+  
+  /* Menu Items */
+  .menu-item {
+    @apply px-4 py-2 rounded-full transition-colors;
+    color: #7D7D7D; /* text-text-secondary */
+  }
+  
+  .menu-item:hover {
+    color: #7FB7A4; /* text-primary */
+    background-color: rgba(127, 183, 164, 0.1); /* bg-primary/10 */
+  }
+  
+  .menu-item.active {
+    @apply font-bold;
+    color: #7FB7A4; /* text-primary */
+    background-color: rgba(127, 183, 164, 0.1); /* bg-primary/10 */
+  }
+
+  .login-btn {
+    @apply text-white font-bold px-6 py-2 rounded-full hover:-translate-y-0.5 transition-all duration-300;
+    background-color: #7FB7A4; /* bg-primary */
+    box-shadow: 0 8px 24px rgba(0,0,0,0.06); /* shadow-soft */
+    font-family: "Nunito", sans-serif;
+  }
+  
+  .login-btn:hover {
+     box-shadow: 0 12px 30px rgba(0,0,0,0.08); /* shadow-card */
+  }
+}

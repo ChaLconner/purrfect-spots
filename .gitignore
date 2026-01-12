@@ -47,6 +47,12 @@ venv.bak/
 .env.test.local
 .env.production.local
 
+# Exposed env files (security fix)
+NEW_ENV
+NEW_LOCAL_ENV
+*/NEW_ENV
+*/NEW_LOCAL_ENV
+
 # Logs
 npm-debug.log*
 yarn-debug.log*
@@ -61,6 +67,11 @@ lerna-debug.log*
 *.swp
 *.swo
 *~
+
+# Development tools
+.github/
+.kilocode/
+.roo/
 
 # OS generated files
 .DS_Store
@@ -94,6 +105,23 @@ build/
 */dist/
 */build/
 
+# Build scripts and reports
+build.bat
+build.sh
+build-frontend.bat
+build-frontend.sh
+build-backend.bat
+build-backend.sh
+build-config.json
+build-reports/
+
+# API keys and secrets
+backend/keys/
+*.json
+!package.json
+!tsconfig*.json
+!package-lock.json
+
 # IDE
 .vscode/
 .idea/
@@ -107,3 +135,7 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Vercel
+.vercel/
+*.log

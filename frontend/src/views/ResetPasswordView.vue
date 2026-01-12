@@ -1,0 +1,180 @@
+<template>
+  <div class="auth-container">
+    <div class="clouds-bg">
+        <!-- Clouds... -->
+    </div>
+
+    <div class="auth-card">
+      <div class="auth-illustration">
+        <div class="illustration-content">
+          <img src="/cat-illustration.png" alt="Cute cat illustration" class="cat-image" />
+          <div class="illustration-text">
+            <h2 class="welcome-title">Welcome Back</h2>
+            <p class="welcome-subtitle">Set your new password and start exploring!</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="auth-form-section">
+        <div class="form-header">
+          <h1 class="form-title">Reset Password</h1>
+          <p class="form-subtitle">Choose a strong password</p>
+        </div>
+
+        <form @submit.prevent="handleSubmit" class="auth-form">
+          <div class="form-group">
+            <label for="password" class="form-label">New Password</label>
+            <div class="input-wrapper">
+              <input
+                id="password"
+                v-model="password"
+                type="password"
+                required
+                placeholder="••••••••"
+                class="form-input"
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="confirmParams" class="form-label">Confirm Password</label>
+            <div class="input-wrapper">
+              <input
+                id="confirmPassword"
+                v-model="confirmPassword"
+                type="password"
+                required
+                placeholder="••••••••"
+                class="form-input"
+              />
+            </div>
+          </div>
+
+          <button :disabled="isLoading" class="submit-btn">
+            <span v-if="isLoading" class="loading-spinner"></span>
+            {{ isLoading ? 'Updating...' : 'Set New Password' }}
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { apiV1 } from '@/utils/api';
+import { showSuccess, showError } from '@/store/toast';
+
+const route = useRoute();
+const router = useRouter();
+
+const password = ref('');
+const confirmPassword = ref('');
+const isLoading = ref(false);
+const token = ref('');
+
+onMounted(() => {
+    token.value = route.query.token as string;
+    if (!token.value) {
+        showError('Invalid reset link', 'Error');
+        router.push('/login');
+    }
+});
+
+const handleSubmit = async () => {
+    if (password.value !== confirmPassword.value) {
+        showError('Passwords do not match', 'Validation Error');
+        return;
+    }
+    
+    if (password.value.length < 8) {
+        showError('Password must be at least 8 characters', 'Validation Error');
+        return;
+    }
+
+    isLoading.value = true;
+    try {
+        await apiV1.post('/auth/reset-password', { 
+            token: token.value,
+            new_password: password.value 
+        });
+        showSuccess('Password updated successfully. Please login.', 'Success');
+        router.push('/login');
+    } catch (err: any) {
+        showError(err.message || 'Failed to reset password', 'Error');
+    } finally {
+        isLoading.value = false;
+    }
+};
+</script>
+
+<style scoped>
+/* Reusing styles... same as ForgotPasswordView */
+.auth-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background-color: #EAF6F3;
+}
+.auth-card {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  max-width: 1000px;
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(20px);
+  border-radius: 2rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+.auth-illustration {
+    background: linear-gradient(135deg, rgba(127, 183, 164, 0.85) 0%, rgba(149, 196, 180, 0.85) 50%, rgba(168, 212, 197, 0.85) 100%);
+    padding: 3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.illustration-content { text-align: center; }
+.cat-image {
+  width: 200px; height: 200px; border-radius: 50%;
+  border: 6px solid rgba(255, 255, 255, 0.4);
+  object-fit: cover;
+}
+.welcome-title {
+  font-family: 'Nunito', sans-serif; font-size: 1.8rem; font-weight: 800; color: white; margin-top: 1rem;
+}
+.welcome-subtitle {
+  font-family: 'Inter', sans-serif; color: rgba(255, 255, 255, 0.9); margin-top: 0.5rem;
+}
+.auth-form-section { padding: 3rem; display: flex; flex-direction: column; justify-content: center; }
+.form-header { text-align: center; margin-bottom: 2rem; }
+.form-title { font-family: 'Nunito', sans-serif; font-size: 2rem; font-weight: 800; color: #5A4632; }
+.form-subtitle { font-family: 'Inter', sans-serif; color: #7D7D7D; }
+.auth-form { display: flex; flex-direction: column; gap: 1.25rem; }
+.form-group { display: flex; flex-direction: column; gap: 0.5rem; }
+.form-label { font-family: 'Nunito', sans-serif; font-weight: 600; color: #5A4632; }
+.form-input {
+  width: 100%; padding: 1rem 1.25rem;
+  border: 2px solid rgba(127, 183, 164, 0.2);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.7);
+  outline: none;
+  font-family: 'Inter', sans-serif;
+}
+.form-input:focus { background: white; border-color: #7FB7A4; }
+.submit-btn {
+  width: 100%; padding: 1rem; font-family: 'Nunito', sans-serif; font-weight: 700;
+  color: white; background: linear-gradient(135deg, #7FB7A4 0%, #6DA491 100%);
+  border: none; border-radius: 1rem; cursor: pointer;
+}
+.submit-btn:hover:not(:disabled) { transform: translateY(-2px); }
+.submit-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+
+@media (max-width: 768px) {
+    .auth-card { grid-template-columns: 1fr; max-width: 450px; }
+    .auth-illustration { display: none; }
+}
+</style>

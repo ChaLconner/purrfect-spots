@@ -1,0 +1,425 @@
+/**
+ * Component Styles
+ * Reusable component classes using layout tokens
+ */
+
+@layer components {
+  /* ============================================
+   * BUTTONS
+   * ============================================ */
+  
+  .btn-base {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 font-bold rounded-full transition-all duration-300 border-none outline-none cursor-pointer;
+    font-family: "Nunito", sans-serif;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 font-bold rounded-full transition-all duration-300 border-none outline-none cursor-pointer text-white;
+    background-color: #7FB7A4;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.06); /* shadow-soft */
+    font-family: "Nunito", sans-serif;
+  }
+
+  .btn-primary:hover {
+    @apply transform -translate-y-0.5;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.08); /* shadow-card */
+    background-color: #6DA491;
+  }
+
+  .btn-primary:active {
+    @apply transform scale-95;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 font-bold rounded-full transition-all duration-300 border-none outline-none cursor-pointer;
+    background-color: #F6C1B1;
+    color: #5A4632;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.06); /* shadow-soft */
+    font-family: "Nunito", sans-serif;
+  }
+
+  .btn-secondary:hover {
+    @apply transform -translate-y-0.5;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.08); /* shadow-card */
+    background-color: #E5B0A0;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 font-bold rounded-full transition-all duration-300 border-none outline-none cursor-pointer bg-transparent;
+    color: #5A4632;
+    font-family: "Nunito", sans-serif;
+  }
+
+  .btn-ghost:hover {
+    background-color: rgba(255, 255, 255, 0.35);
+  }
+
+  /* ============================================
+   * CARDS
+   * ============================================ */
+  
+  .card-glass {
+    @apply backdrop-blur-[12px] p-3 transition duration-300;
+    border-radius: 1.5rem; /* rounded-card */
+    background-color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.5);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.08); /* shadow-card */
+  }
+
+  .card-glass:hover {
+    @apply scale-[1.03];
+  }
+
+  .search-bar {
+    @apply flex items-center gap-2 backdrop-blur-[12px] rounded-full px-5 py-3;
+    background-color: rgba(255,255,255,0.7);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.06); /* shadow-soft */
+  }
+
+
+  /* ============================================
+   * INPUTS
+   * ============================================ */
+  
+  .input-glass {
+    @apply w-full px-4 py-3 text-base backdrop-blur-[12px] outline-none transition-all duration-200;
+    border-radius: 1.25rem; /* rounded-xl */
+    background-color: rgba(255,255,255,0.35); /* surface/50 */
+    border: 1px solid rgba(255,255,255,0.5);
+    color: #5A4632;
+    font-family: "Inter", sans-serif;
+  }
+
+  .input-glass::placeholder {
+    color: rgba(125, 125, 125, 0.7); /* text-secondary/70 */
+  }
+
+  .input-glass:focus {
+    /* Hardcode the shadow just in case */
+    box-shadow: 0 0 0 3px rgba(127,183,164,0.2); 
+    border-color: #7FB7A4;
+    background-color: rgba(255,255,255,0.7);
+  }
+
+  /* ============================================
+   * NAVIGATION
+   * ============================================ */
+  
+  .nav-glass {
+    @apply backdrop-blur-[12px] rounded-full px-6 py-3;
+    background-color: rgba(255,255,255,0.7);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.06); /* shadow-soft */
+  }
+
+  .nav-item {
+    @apply px-4 py-2 font-bold rounded-full transition-all duration-200;
+    color: #5A4632;
+    font-family: "Nunito", sans-serif;
+  }
+
+  .nav-item:hover {
+    background-color: rgba(127, 183, 164, 0.1);
+    color: #7FB7A4;
+  }
+
+  .nav-item.active {
+    background-color: #7FB7A4;
+    color: white;
+  }
+
+  /* ============================================
+   * BADGES
+   * ============================================ */
+  
+  .badge {
+    @apply inline-flex items-center px-3 py-1 text-xs font-bold rounded-full;
+    font-family: "Nunito", sans-serif;
+  }
+
+  .badge-primary {
+    background-color: #7FB7A4;
+    color: white;
+  }
+
+  .badge-secondary {
+    background-color: #F6C1B1;
+    color: #5A4632;
+  }
+
+  /* ============================================
+   * TAG PILLS (NEW)
+   * ============================================ */
+  
+  .tag-pill {
+    @apply inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full transition-colors cursor-pointer;
+    background-color: rgba(149, 167, 146, 0.2);
+    color: #6D8B6A;
+  }
+
+  .tag-pill:hover {
+    background-color: rgba(149, 167, 146, 0.35);
+    color: #5A7558;
+  }
+
+  /* ============================================
+   * MODAL OVERLAY (NEW)
+   * ============================================ */
+  
+  .modal-overlay {
+    @apply fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4;
+  }
+
+  .modal-content {
+    @apply bg-white rounded-3xl overflow-hidden shadow-2xl relative transform transition-all;
+    max-width: 24rem;
+    width: 100%;
+  }
+
+  .modal-close-btn {
+    @apply absolute top-4 right-4 w-8 h-8 rounded-full bg-black/20 backdrop-blur-md flex items-center justify-center text-white transition-all cursor-pointer border border-white/20;
+  }
+
+  .modal-close-btn:hover {
+    @apply bg-black/40;
+  }
+
+  /* ============================================
+   * LOADING STATES (NEW)
+   * ============================================ */
+  
+  .loading-container {
+    @apply flex flex-col items-center justify-center min-h-[300px];
+  }
+
+  .loading-overlay {
+    @apply absolute inset-0 flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm z-20;
+  }
+
+  /* ============================================
+   * IMAGE CARDS (NEW - FROM GALLERY)
+   * ============================================ */
+  
+  .image-card {
+    @apply bg-white/40 backdrop-blur-xl rounded-[2rem] border border-white/60 shadow-sm p-2 transition-all duration-500 ease-out relative cursor-pointer;
+  }
+
+  .image-card:hover {
+    @apply scale-[1.02] shadow-lg bg-white/50 border-white/80;
+  }
+
+  .image-wrapper {
+    @apply relative rounded-[1.25rem] overflow-hidden w-full block;
+  }
+
+  /* ============================================
+   * UTILITIES / ANIMATIONS
+   * ============================================ */
+  
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-float-gentle {
+    animation: float-gentle 4s ease-in-out infinite;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  .animate-fade-in-up {
+    animation: fadeInUp 0.5s ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.3s ease-out;
+  }
+
+  /* ============================================
+   * GHIBLI THEME COMPONENTS
+   * ============================================ */
+  
+  /* Ghibli Input */
+  .input-ghibli {
+    @apply w-full px-4 py-3 text-base outline-none transition-all duration-200;
+    border-radius: 0.75rem;
+    background-color: #FAF6EC; /* cream-light */
+    border: 2px solid #E8DFC4; /* cream-dark */
+    color: #A65D37; /* brown */
+    font-family: "Inter", sans-serif;
+  }
+
+  .input-ghibli::placeholder {
+    color: #C4855C; /* brown-light */
+    opacity: 0.7;
+  }
+
+  .input-ghibli:focus {
+    border-color: #95A792; /* sage */
+    box-shadow: 0 0 0 3px rgba(149, 167, 146, 0.2);
+    background-color: #FFFFFF;
+  }
+
+  /* Ghibli Buttons */
+  .btn-ghibli {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 font-semibold transition-all duration-300 border-none outline-none cursor-pointer;
+    border-radius: 0.75rem;
+    font-family: "Nunito", sans-serif;
+  }
+
+  .btn-ghibli-primary {
+    background-color: #95A792; /* sage */
+    color: #FFFFFF;
+    box-shadow: 0 4px 12px rgba(149, 167, 146, 0.3);
+  }
+
+  .btn-ghibli-primary:hover {
+    background-color: #6D8B6A; /* sage-dark */
+    box-shadow: 0 6px 16px rgba(149, 167, 146, 0.4);
+    transform: translateY(-1px);
+  }
+
+  .btn-ghibli-primary:active {
+    transform: scale(0.98);
+  }
+
+  .btn-ghibli-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .btn-ghibli-secondary {
+    background-color: #C97B49; /* terracotta */
+    color: #FFFFFF;
+    box-shadow: 0 4px 12px rgba(201, 123, 73, 0.3);
+  }
+
+  .btn-ghibli-secondary:hover {
+    background-color: #A85D2E; /* terracotta-dark */
+    box-shadow: 0 6px 16px rgba(201, 123, 73, 0.4);
+    transform: translateY(-1px);
+  }
+}
+
+/* ============================================
+ * KEYFRAMES (outside @layer)
+ * ============================================ */
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { transform: scale(0.8); opacity: 0.5; }
+  50% { transform: scale(1.2); opacity: 0.8; }
+}
+
+/* ============================================
+ * GHIBLI UTILITIES (outside @layer for priority)
+ * ============================================ */
+
+/* Ghibli Shadows */
+.shadow-ghibli-sm {
+  box-shadow: 0 2px 8px rgba(166, 93, 55, 0.1);
+}
+
+.shadow-ghibli-md {
+  box-shadow: 0 4px 16px rgba(166, 93, 55, 0.12);
+}
+
+.shadow-ghibli-lg {
+  box-shadow: 0 8px 24px rgba(166, 93, 55, 0.15);
+}
+
+/* Ghibli Border Radius */
+.rounded-ghibli-sm {
+  border-radius: 0.5rem;
+}
+
+.rounded-ghibli-md {
+  border-radius: 0.75rem;
+}
+
+.rounded-ghibli-lg {
+  border-radius: 1rem;
+}
+
+/* Background Transition for Auth Pages */
+.bg-transition {
+  background: linear-gradient(180deg, #EAF6F3 0%, #FAF6EC 50%, #F4EBD0 100%);
+}
+
+/* ============================================
+ * SCROLLBAR STYLING
+ * ============================================ */
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(127, 183, 164, 0.3) transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: rgba(127, 183, 164, 0.3);
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(127, 183, 164, 0.5);
+}
+

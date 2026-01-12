@@ -1,27 +1,32 @@
 import { createRouter, createWebHistory } from "vue-router";
-import Map from "../components/Map.vue";
-import Upload from "../components/Upload.vue";
-import Gallery from "../components/Gallery.vue";
-import AuthView from "../views/AuthView.vue";
-import ProfileView from "../views/ProfileView.vue";
-import AuthCallback from "../components/AuthCallback.vue";
-import { initializeAuth, isUserReady } from "../store/auth";
+import MapView from "@/views/MapView.vue";
+import UploadView from "@/views/UploadView.vue";
+import GalleryView from "@/views/GalleryView.vue";
+import AuthView from "@/views/AuthView.vue";
+import ProfileView from "@/views/ProfileView.vue";
+import AuthCallback from "@/components/AuthCallback.vue";
+import { useAuthStore } from "@/store/authStore";
 
 const routes = [
   {
     path: "/",
     name: "Home",
-    component: Map,
+    component: MapView,
+  },
+  {
+    path: "/map",
+    name: "Map",
+    component: MapView,
   },
   {
     path: "/upload",
     name: "Upload",
-    component: Upload,
+    component: UploadView,
   },
   {
     path: "/gallery",
     name: "Gallery",
-    component: Gallery,
+    component: GalleryView,
   },
   {
     path: "/profile",
@@ -41,6 +46,16 @@ const routes = [
     component: AuthView,
     props: { mode: "register" },
   },
+  {
+    path: "/forgot-password",
+    name: "ForgotPassword",
+    component: () => import("@/views/ForgotPasswordView.vue"),
+  },
+  {
+    path: "/reset-password",
+    name: "ResetPassword",
+    component: () => import("@/views/ResetPasswordView.vue"),
+  },
 
   {
     path: "/auth/callback",
@@ -56,12 +71,13 @@ const router = createRouter({
 });
 
 // Initialize auth state before navigation
-initializeAuth();
+// Initialize auth state is handled by Pinia store automatically on first use
 
 // Global navigation guard
 router.beforeEach((to, _from, next) => {
   if (to.meta.requiresAuth) {
-    if (!isUserReady()) {
+    const auth = useAuthStore();
+    if (!auth.isUserReady) {
       // Store the intended destination
       sessionStorage.setItem("redirectAfterAuth", to.fullPath);
       next({ name: "Login" });
@@ -70,10 +86,10 @@ router.beforeEach((to, _from, next) => {
     }
   } else if (
     (to.name === "Login" || to.name === "Register" || to.name === "Auth") &&
-    isUserReady()
+    useAuthStore().isUserReady
   ) {
-    // If user is already logged in and has complete profile, redirect to home
-    next({ name: "Home" });
+    // If user is already logged in and has complete profile, redirect to upload
+    next({ name: "Upload" });
   } else {
     next();
   }

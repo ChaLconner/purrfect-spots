@@ -1,15 +1,115 @@
+/// <reference types="vitest" />
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import tailwindcss from "@tailwindcss/vite";
+import { fileURLToPath, URL } from "node:url";
 
 export default defineConfig({
+  test: {
+    globals: true,
+    environment: "jsdom",
+    root: "./",
+    include: ["tests/**/*.spec.ts"],
+  },
   plugins: [vue(), tailwindcss()],
+  base: "/",
+  resolve: {
+    alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+    },
+  },
+  build: {
+    outDir: "dist",
+    assetsDir: "assets",
+    // Chunk size warning limit (500kb)
+    chunkSizeWarningLimit: 500,
+    rollupOptions: {
+      output: {
+        // Code splitting for better caching
+        manualChunks: (id) => {
+          // Vue and related packages
+          if (id.includes('node_modules/vue') || 
+              id.includes('node_modules/@vue') ||
+              id.includes('node_modules/pinia')) {
+            return 'vue-vendor';
+          }
+          // Axios
+          if (id.includes('node_modules/axios')) {
+            return 'axios';
+          }
+          // Google Maps
+          if (id.includes('node_modules/@googlemaps')) {
+            return 'google-maps';
+          }
+          // Tailwind utilities - can grow large
+          if (id.includes('node_modules/tailwindcss')) {
+            return 'tailwind';
+          }
+        },
+        // Optimize asset file names
+        assetFileNames: (assetInfo) => {
+          const extType = assetInfo.name?.split('.').pop() || 'asset';
+          if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(extType)) {
+            return 'assets/images/[name]-[hash][extname]';
+          }
+          if (/woff2?|eot|ttf|otf/i.test(extType)) {
+            return 'assets/fonts/[name]-[hash][extname]';
+          }
+          return 'assets/[name]-[hash][extname]';
+        },
+        // Chunk file names
+        chunkFileNames: 'assets/js/[name]-[hash].js',
+        // Entry file names
+        entryFileNames: 'assets/js/[name]-[hash].js',
+      },
+    },
+    // Enable asset optimization
+    assetsInlineLimit: 4096, // Inline assets smaller than 4kb
+    sourcemap: false, // Disable sourcemaps in production
+    minify: "terser",
+    terserOptions: {
+      compress: {
+        drop_console: true, // Remove console.log in production
+        drop_debugger: true, // Remove debugger statements
+      },
+    },
+  },
+  optimizeDeps: {
+    include: ["@googlemaps/js-api-loader"],
+    force: true
+  },
+  define: {
+    // Ensure environment variables are properly replaced
+    __VITE_GOOGLE_MAPS_API_KEY__: JSON.stringify(process.env.VITE_GOOGLE_MAPS_API_KEY),
+  },
   server: {
     proxy: {
       "/api": {
         target: "http://localhost:8000",
         changeOrigin: true,
       },
+    },
+  },
+  // Configure env file location to look at frontend directory
+  envDir: "./",
+  // Add CDN configuration for production
+  experimental: {
+    renderBuiltUrl(filename, { hostType }) {
+      if (hostType === 'js' || hostType === 'css') {
+        // For JS and CSS files, use relative paths
+        return { relative: true };
+      } else {
+        // For other assets (images, fonts), use CDN in production
+        if (process.env.NODE_ENV === 'production' && process.env.VITE_CDN_BASE_URL) {
+          return {
+            // Use CDN URL for assets
+            js: `${process.env.VITE_CDN_BASE_URL}/${filename}`,
+            css: `${process.env.VITE_CDN_BASE_URL}/${filename}`,
+            asset: `${process.env.VITE_CDN_BASE_URL}/${filename}`,
+          };
+        }
+        return { relative: true };
+      }
     },
   },
 });

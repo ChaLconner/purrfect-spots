@@ -1,84 +1,197 @@
 """
-Upload routes for cat photos
+Upload routes for cat photo uploads with location information
+Enhanced with security features: rate limiting, input sanitization, security logging
 """
-from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Depends
+from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Depends, Request
 from fastapi.responses import JSONResponse
 from middleware.auth_middleware import get_current_user
-from routes.cat_detection import CatDetectionService
+from services.cat_detection_service import CatDetectionService
 from dependencies import get_supabase_client
+from typing import Optional
+from datetime import datetime
 import json
 import uuid
-import os
-import boto3
-from datetime import datetime
-from typing import Optional
+from services.storage_service import StorageService
+from logger import logger
+from limiter import limiter
+from utils.file_processing import (
+    process_uploaded_image,
+    validate_coordinates,
+    validate_location_data
+)
+from utils.security import (
+    sanitize_tags,
+    sanitize_location_name,
+    sanitize_description,
+    log_security_event
+)
+from utils.cache import invalidate_gallery_cache, invalidate_tags_cache
+from config import config
 
 router = APIRouter(prefix="/upload", tags=["Upload"])
 
-# AWS S3 configuration
-AWS_REGION = os.getenv("AWS_REGION", "ap-southeast-2")
-AWS_BUCKET = os.getenv("AWS_S3_BUCKET", "purrfect-spots-bucket")
-AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID")
-AWS_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 
-# Initialize S3 client
-s3_client = boto3.client(
-    "s3",
-    region_name=AWS_REGION,
-    aws_access_key_id=AWS_ACCESS_KEY,
-    aws_secret_access_key=AWS_SECRET_KEY,
-)
+# Alias for backward compatibility with tests
+def parse_tags(tags_json):
+    """Backward compatible alias for parse_and_sanitize_tags"""
+    return parse_and_sanitize_tags(tags_json)
 
-def get_cat_detection_service():
+
+def get_storage_service() -> StorageService:
+    return StorageService()
+
+
+def get_cat_detection_service() -> CatDetectionService:
     return CatDetectionService()
 
+
+def parse_and_sanitize_tags(tags_json: Optional[str]) -> list:
+    """Parse and sanitize tags from JSON string with security measures."""
+    if not tags_json:
+        return []
+    
+    try:
+        tag_list = json.loads(tags_json)
+        if tag_list and isinstance(tag_list, list):
+            # Use security utility for sanitization
+            return sanitize_tags(tag_list)
+    except Exception as e:
+        logger.warning(f"Failed to parse tags: {e}")
+    
+    return []
+
+
+def format_tags_for_description(tags: list, description: str) -> str:
+    """Append hashtags to description for backward compatibility."""
+    if not tags:
+        return description
+    
+    hashtag_string = " ".join([f"#{tag}" for tag in tags])
+    if description:
+        return f"{description}\n\n{hashtag_string}"
+    return hashtag_string
+
+
+def validate_cat_detection_data(cat_data: dict) -> bool:
+    """
+    Validate cat detection data structure and values.
+    
+    Returns:
+        True if valid, False otherwise
+    """
+    if not cat_data or not isinstance(cat_data, dict):
+        return False
+    
+    # Required fields
+    required_fields = ['has_cats', 'cat_count', 'confidence']
+    for field in required_fields:
+        if field not in cat_data:
+            return False
+    
+    # Validate values
+    if not isinstance(cat_data.get('has_cats'), bool):
+        return False
+    
+    cat_count = cat_data.get('cat_count', 0)
+    if not isinstance(cat_count, (int, float)) or cat_count < 0:
+        return False
+    
+    confidence = cat_data.get('confidence', 0)
+    if not isinstance(confidence, (int, float)) or not (0 <= confidence <= 100):
+        return False
+    
+    return True
+
+
 @router.post("/cat")
+@limiter.limit(config.UPLOAD_RATE_LIMIT)  # Rate limit from config
 async def upload_cat_photo(
+    request: Request,  # Required for rate limiting
     file: UploadFile = File(...),
     lat: str = Form(...),
     lng: str = Form(...),
     location_name: str = Form(...),
     description: Optional[str] = Form(""),
+    tags: Optional[str] = Form(None),
     cat_detection_data: Optional[str] = Form(None),
-    current_user = Depends(get_current_user),
-    supabase = Depends(get_supabase_client),
-    detection_service: CatDetectionService = Depends(get_cat_detection_service)
+    current_user=Depends(get_current_user),
+    supabase=Depends(get_supabase_client),
+    detection_service: CatDetectionService = Depends(get_cat_detection_service),
+    storage_service: StorageService = Depends(get_storage_service)
 ):
     """
-    อัพโหลดรูปภาพแมวพร้อมข้อมูลตำแหน่ง
+    Upload cat photo with location information.
+    
+    Security features:
+    - Rate limited: 5 requests per minute
+    - Magic bytes validation for file type
+    - Input sanitization for all text fields
+    - Security event logging
+    
+    The image is automatically optimized (resized/compressed) before upload to S3.
     """
+    user_id = str(current_user.id)
+    
     try:
-        print(f"🐱 Uploading cat photo for user: {getattr(current_user, 'email', getattr(current_user, 'id', 'unknown'))}")
-        print(f"📁 File: {file.filename}, Location: {location_name}")
+        # Log upload attempt
+        log_security_event(
+            "cat_photo_upload_started",
+            user_id=user_id,
+            details={
+                "filename": file.filename,
+                "location_name": location_name[:50] if location_name else "unknown"
+            }
+        )
         
-        # Validate file
-        if not file.content_type or not file.content_type.startswith('image/'):
-            raise HTTPException(status_code=400, detail="File must be an image")
+        # Process and validate the uploaded image with optimization and security checks
+        contents, content_type, file_extension = await process_uploaded_image(
+            file,
+            max_size_mb=config.UPLOAD_MAX_SIZE_MB,
+            optimize=True,
+            max_dimension=config.UPLOAD_MAX_DIMENSION,
+            user_id=user_id
+        )
         
-        # Read file contents
-        contents = await file.read()
-        if len(contents) > 10 * 1024 * 1024:  # 10MB limit
-            raise HTTPException(status_code=400, detail="File too large (max 10MB)")
-        
-        # Parse cat detection data if provided
+        # Parse and validate cat detection data if provided
         cat_data = None
         if cat_detection_data:
             try:
                 cat_data = json.loads(cat_detection_data)
-                print(f"🔍 Cat detection data: {cat_data}")
+                
+                # Validate the structure and values
+                if not validate_cat_detection_data(cat_data):
+                    log_security_event(
+                        "invalid_cat_detection_data",
+                        user_id=user_id,
+                        details={"data": str(cat_data)[:200]},
+                        severity="WARNING"
+                    )
+                    cat_data = None  # Force server-side detection
+                    
             except json.JSONDecodeError:
-                print("⚠️ Invalid cat detection data format")
+                log_security_event(
+                    "cat_detection_json_parse_error",
+                    user_id=user_id,
+                    severity="WARNING"
+                )
+                cat_data = None
         
-        # If no cat detection data provided, detect cats now
+        # If no valid cat detection data provided, detect cats on server
         if not cat_data:
-            print("🔍 No cat detection data provided, detecting cats...")
-            detection_result = await detection_service.detect_cats(contents)
+            await file.seek(0)
+            detection_result = await detection_service.detect_cats(file)
             
             # Reject if no cats found
             if not detection_result.get('has_cats', False):
+                log_security_event(
+                    "upload_rejected_no_cats",
+                    user_id=user_id,
+                    details={"detection_result": str(detection_result)[:200]},
+                    severity="INFO"
+                )
                 raise HTTPException(
-                    status_code=400, 
-                    detail=f"No cats detected in image (confidence: {detection_result.get('confidence', 0)}%)"
+                    status_code=400,
+                    detail="No cats detected in the image. Please upload a photo containing cats."
                 )
             
             cat_data = {
@@ -87,71 +200,96 @@ async def upload_cat_photo(
                 "confidence": detection_result.get('confidence', 0),
                 "suitable_for_cat_spot": detection_result.get('suitable_for_cat_spot', False),
                 "cats_detected": detection_result.get('cats_detected', []),
-                "detection_timestamp": datetime.now().isoformat()
+                "detection_timestamp": datetime.now().isoformat(),
+                "detection_source": "server"
             }
         
         # Validate that cats were detected
         if not cat_data.get('has_cats', False) or cat_data.get('cat_count', 0) == 0:
+            log_security_event(
+                "upload_rejected_invalid_detection",
+                user_id=user_id,
+                severity="INFO"
+            )
             raise HTTPException(
                 status_code=400,
                 detail="Cannot upload: No cats detected in the image"
             )
         
-        # Validate coordinates
+        # Use shared validation utilities for coordinates
+        latitude, longitude = validate_coordinates(lat, lng)
+        
+        # Sanitize text inputs
+        cleaned_location_name = sanitize_location_name(location_name)
+        cleaned_description = sanitize_description(description) if description else ""
+        
+        # Validate location name after sanitization
+        if not cleaned_location_name or len(cleaned_location_name) < 3:
+            raise HTTPException(status_code=400, detail="Location name must be at least 3 characters")
+        
+        if len(cleaned_location_name) > 100:
+            raise HTTPException(status_code=400, detail="Location name must be under 100 characters")
+        
+        # Process and sanitize tags
+        parsed_tags = parse_and_sanitize_tags(tags)
+        if parsed_tags:
+            cleaned_description = format_tags_for_description(parsed_tags, cleaned_description)
+        
+        # Upload optimized file to S3
         try:
-            latitude = float(lat)
-            longitude = float(lng)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid coordinates")
-        
-        # Validate required fields
-        if not location_name.strip():
-            raise HTTPException(status_code=400, detail="Location name is required")
-        
-        # Generate unique filename
-        file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
-        unique_filename = f"{uuid.uuid4()}.{file_extension}"
-        s3_key = f"upload/{unique_filename}"
-        
-        # Upload file to S3
-        try:
-            s3_client.put_object(
-                Bucket=AWS_BUCKET,
-                Key=s3_key,
-                Body=contents,
-                ContentType=file.content_type
+            image_url = await storage_service.upload_file(
+                file_content=contents,
+                content_type=content_type,
+                file_extension=file_extension
             )
-            
-            # Create S3 public URL
-            image_url = f"https://{AWS_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{s3_key}"
-            print(f"✅ File uploaded to S3: {image_url}")
-            
         except Exception as s3_error:
-            print(f"❌ S3 upload failed: {s3_error}")
-            raise HTTPException(status_code=500, detail=f"Failed to upload image to S3: {str(s3_error)}")
+            logger.error(f"S3 upload failed: {str(s3_error)}")
+            log_security_event(
+                "s3_upload_failed",
+                user_id=user_id,
+                details={"error": str(s3_error)[:200]},
+                severity="ERROR"
+            )
+            raise HTTPException(status_code=500, detail="Failed to upload image")
         
         # Insert into database (cat_photos table)
         photo_data = {
             "id": str(uuid.uuid4()),
             "user_id": current_user.id,
-            "location_name": location_name.strip(),
-            "description": description.strip() if description else None,
+            "location_name": cleaned_location_name,
+            "description": cleaned_description if cleaned_description else None,
+            "tags": parsed_tags if parsed_tags else [],
             "latitude": latitude,
             "longitude": longitude,
             "image_url": image_url,
             "uploaded_at": datetime.now().isoformat()
         }
         
-        # Insert into cat_photos table
-        result = supabase.table("cat_photos").insert(photo_data).execute()
+        # Use admin client to bypass RLS
+        from dependencies import get_supabase_admin_client
+        supabase_admin = get_supabase_admin_client()
+        
+        result = supabase_admin.table("cat_photos").insert(photo_data).execute()
         
         if not result.data:
             raise HTTPException(status_code=500, detail="Failed to save cat photo")
         
         created_photo = result.data[0]
         
-        # Log successful upload
-        print(f"✅ Cat photo created successfully: {created_photo['id']}")
+        # Invalidate gallery and tags cache after new upload
+        invalidate_gallery_cache()
+        invalidate_tags_cache()
+        
+        log_security_event(
+            "cat_photo_upload_success",
+            user_id=user_id,
+            details={
+                "photo_id": created_photo['id'],
+                "location_name": cleaned_location_name
+            }
+        )
+        
+        logger.info(f"Cat photo uploaded successfully: {created_photo['id']} by {current_user.email}")
         
         return JSONResponse(
             status_code=201,
@@ -169,22 +307,30 @@ async def upload_cat_photo(
                     "uploaded_at": created_photo["uploaded_at"]
                 },
                 "cat_detection": cat_data,
-                "uploaded_by": getattr(current_user, 'email', getattr(current_user, 'id', 'unknown'))
-            }
+                "uploaded_by": current_user.email
+            },
+            headers={"Content-Type": "application/json"}
         )
         
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Upload error: {str(e)}")
+        logger.error(f"Upload error: {str(e)}", exc_info=True)
+        log_security_event(
+            "upload_error",
+            user_id=user_id,
+            details={"error": str(e)[:200]},
+            severity="ERROR"
+        )
         raise HTTPException(
             status_code=500,
-            detail=f"Upload failed: {str(e)}"
+            detail="Upload failed due to an internal error"
         )
+
 
 @router.get("/test")
 async def test_upload_endpoint():
     """
-    ทดสอบว่า upload endpoint ทำงานได้หรือไม่
+    Test if upload endpoint is working
     """
     return {"message": "Upload endpoint is working!", "timestamp": datetime.now().isoformat()}

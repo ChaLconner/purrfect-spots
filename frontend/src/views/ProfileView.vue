@@ -1,166 +1,167 @@
 <template>
-  <div class="min-h-screen bg-gray-50 pt-20">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <!-- Profile Header -->
-      <div class="bg-white rounded-lg shadow-sm p-8 mb-8">
-        <div class="flex flex-col items-center text-center">
+  <div class="min-h-screen pt-24 pb-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-5xl mx-auto">
+      <!-- Profile Card -->
+      <div class="bg-glass rounded-3xl shadow-lg p-8 mb-12 relative overflow-hidden backdrop-blur-sm border border-white/40">
+        <!-- Decoration Circles -->
+        <div class="absolute -top-10 -right-10 w-40 h-40 bg-orange-100 rounded-full opacity-50 blur-3xl"></div>
+        <div class="absolute -bottom-10 -left-10 w-40 h-40 bg-green-100 rounded-full opacity-50 blur-3xl"></div>
+
+        <div class="flex flex-col md:flex-row items-center gap-8 relative z-10">
           <!-- Profile Picture -->
-          <div class="relative mb-4">
-            <img 
-              :src="authStore.user?.picture || '/default-avatar.svg'" 
+          <div class="relative group">
+            <div class="absolute inset-0 bg-terracotta rounded-full blur-md opacity-20 group-hover:opacity-40 transition-opacity duration-500"></div>
+            <img
+              :src="authStore.user?.picture || '/default-avatar.svg'"
               :alt="authStore.user?.name || 'User'"
-              class="w-32 h-32 rounded-full object-cover border-4 border-orange-200"
+              class="w-40 h-40 rounded-full object-cover border-4 border-white shadow-md relative z-10"
+              @error="handleImageError"
             />
+            <button 
+              @click="showEditModal = true"
+              class="absolute bottom-2 right-2 p-2 bg-white text-terracotta rounded-full shadow-lg hover:bg-terracotta hover:text-white transition-all transform hover:scale-110 z-20 cursor-pointer"
+              title="Edit Profile"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+              </svg>
+            </button>
           </div>
           
-          <!-- Name -->
-          <h1 class="text-3xl font-bold text-gray-900 mb-2">
-            {{ authStore.user?.name || 'Unknown User' }}
-          </h1>
-          
-          <!-- Bio -->
-          <p class="text-gray-600 mb-2">
-            {{ authStore.user?.bio || 'Cat lover and explorer' }}
-          </p>
-          
-          <!-- Join Date -->
-          <p class="text-sm text-gray-500 mb-6">
-            Joined in {{ formatJoinDate(authStore.user?.created_at) }}
-          </p>
-          
-          <!-- Edit Profile Button -->
-          <button 
-            @click="showEditModal = true"
-            class="px-6 py-2 bg-green-100 text-green-700 rounded-full hover:bg-green-200 transition-colors"
-          >
-            Edit Profile
-          </button>
+          <!-- Profile Info -->
+          <div class="flex-1 text-center md:text-left">
+            <h1 class="text-4xl font-heading font-bold text-brown mb-3">
+              {{ authStore.user?.name || 'Unknown User' }}
+            </h1>
+            
+            <p class="text-brown-light text-lg mb-4 max-w-xl font-body leading-relaxed">
+              {{ authStore.user?.bio || 'Just a cat wandering through the world...' }}
+            </p>
+            
+            <div class="flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm text-gray-500 font-medium">
+              <span class="flex items-center px-3 py-1 bg-white/50 rounded-full border border-white/60">
+                <svg class="w-4 h-4 mr-2 text-sage-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Joined {{ formatJoinDate(authStore.user?.created_at) }}
+              </span>
+              <span class="flex items-center px-3 py-1 bg-white/50 rounded-full border border-white/60">
+                <svg class="w-4 h-4 mr-2 text-terracotta" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                {{ uploads.length }} Uploads
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Navigation Tabs -->
-      <div class="bg-white rounded-lg shadow-sm mb-8">
-        <div class="flex border-b border-gray-200">
+      <!-- Content Tabs -->
+      <div class="flex justify-center mb-8">
+        <div class="bg-white/40 p-1.5 rounded-full inline-flex backdrop-blur-sm border border-white/40 shadow-sm">
           <button 
             @click="activeTab = 'uploads'"
             :class="[
-              'px-6 py-3 text-sm font-medium border-b-2 transition-colors',
+              'px-6 py-2 rounded-full font-heading font-semibold transition-all duration-300 transform cursor-pointer',
               activeTab === 'uploads' 
-                ? 'border-orange-500 text-orange-600' 
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'bg-white text-terracotta shadow-md scale-105' 
+                : 'text-brown-light hover:text-brown hover:bg-white/30'
             ]"
           >
-            My Uploads
-          </button>
-          <button 
-            @click="activeTab = 'saved'"
-            :class="[
-              'px-6 py-3 text-sm font-medium border-b-2 transition-colors',
-              activeTab === 'saved' 
-                ? 'border-orange-500 text-orange-600' 
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            ]"
-          >
-            Saved Spots
+            My Collection
           </button>
           <button 
             @click="activeTab = 'about'"
             :class="[
-              'px-6 py-3 text-sm font-medium border-b-2 transition-colors',
+              'px-6 py-2 rounded-full font-heading font-semibold transition-all duration-300 transform cursor-pointer',
               activeTab === 'about' 
-                ? 'border-orange-500 text-orange-600' 
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'bg-white text-terracotta shadow-md scale-105' 
+                : 'text-brown-light hover:text-brown hover:bg-white/30'
             ]"
           >
-            About
+            About Me
           </button>
         </div>
       </div>
 
-      <!-- Tab Content -->
-      <div class="bg-white rounded-lg shadow-sm p-6">
-        <!-- My Uploads Tab -->
-        <div v-if="activeTab === 'uploads'">
-          <!-- Loading State -->
-          <div v-if="uploadsLoading" class="flex justify-center items-center py-12">
-            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-            <span class="ml-3 text-gray-600">กำลังโหลดรูปภาพ...</span>
-          </div>
-          
-          <!-- Error State -->
-          <div v-else-if="uploadsError" class="text-center py-12">
-            <p class="text-red-500 mb-4">{{ uploadsError }}</p>
-            <button 
-              @click="loadUploads"
-              class="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
-            >
-              ลองใหม่อีกครั้ง
-            </button>
-          </div>
-          
-          <!-- No Uploads State -->
-          <div v-else-if="uploads.length === 0" class="text-center py-12">
-            <div class="mb-4">
-              <svg class="h-16 w-16 text-gray-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" 
-                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <h3 class="text-lg font-semibold text-gray-600 mb-2">ยังไม่มีรูปภาพที่อัปโหลด</h3>
-            <p class="text-gray-500 mb-4">เริ่มแชร์รูปแมวสุดน่ารักของคุณ</p>
-            <button 
-              @click="router.push('/upload')"
-              class="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
-            >
-              อัปโหลดรูปแรกของคุณ
-            </button>
-          </div>
-          
-          <!-- Uploads Grid -->
-          <div v-else>
-            <div class="mb-4 flex justify-between items-center">
-              <h3 class="text-lg font-semibold text-gray-800">Your Photos</h3>
-              <span class="text-sm text-gray-500">{{ uploads.length }} รูป</span>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              <div 
-                v-for="upload in uploads" 
-                :key="upload.id"
-                class="relative group aspect-square bg-gray-100 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
-                @click="openImageModal(upload)"
-              >
-                <img 
-                  :src="upload.image_url" 
-                  :alt="upload.description || upload.location_name || 'Cat photo'"
-                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-              </div>
-            </div>
+      <!-- Tab Content: Uploads -->
+      <div v-if="activeTab === 'uploads'" class="min-h-[300px]">
+        <!-- Loading State -->
+        <!-- Loading State -->
+        <div v-if="uploadsLoading" class="flex flex-col justify-center items-center py-20">
+          <GhibliLoader text="Gathering memories..." />
+        </div>
+        
+        <!-- Error State -->
+        <ErrorState 
+          v-else-if="uploadsError" 
+          :message="uploadsError" 
+          @retry="loadUploads"
+        />
+        
+        <!-- No Uploads State -->
+        <EmptyState 
+          v-else-if="uploads.length === 0"
+          title="Your Collection"
+          message="No photos yet"
+          subMessage="Start your journey by uploading a cat photo!"
+          actionText="Upload Photo"
+          actionLink="/upload"
+        />
+        
+        <!-- Uploads Grid (Pinterest Masonry Style) -->
+        <div v-else class="columns-2 md:columns-3 lg:columns-4 gap-4 p-4 space-y-4">
+          <div 
+            v-for="upload in uploads" 
+            :key="upload.id"
+            class="break-inside-avoid mb-4 group relative rounded-2xl overflow-hidden cursor-pointer shadow-md hover:shadow-xl transition-all duration-300"
+            @click="openImageModal(upload)"
+          >
+            <!-- Image -->
+            <img 
+              :src="upload.image_url" 
+              :alt="upload.description || 'Cat photo'"
+              class="w-full h-auto block"
+              loading="lazy"
+            />
           </div>
         </div>
+      </div>
 
-        <!-- Saved Spots Tab -->
-        <div v-if="activeTab === 'saved'">
-          <div class="text-center py-12">
-            <p class="text-gray-500">Saved spots feature coming soon!</p>
-          </div>
-        </div>
-
-        <!-- About Tab -->
-        <div v-if="activeTab === 'about'">
-          <div class="max-w-2xl">
-            <h3 class="text-lg font-semibold mb-4">About {{ authStore.user?.name }}</h3>
-            <p class="text-gray-600 leading-relaxed">
-              {{ authStore.user?.bio || 'This user hasn\'t added a bio yet.' }}
+      <!-- Tab Content: About -->
+      <div v-if="activeTab === 'about'" class="bg-white/60 p-8 rounded-3xl shadow-sm border border-white/50 backdrop-blur-md max-w-2xl mx-auto">
+        <h3 class="text-2xl font-heading font-bold text-brown mb-6 flex items-center">
+          <span class="text-4xl mr-3">🍃</span> About Me
+        </h3>
+        <div class="space-y-6">
+          <div class="bg-white/50 p-6 rounded-2xl border border-white/60">
+            <p class="text-brown leading-relaxed font-body text-lg">
+              {{ authStore.user?.bio || 'This user hasn\'t written a bio yet.' }}
             </p>
-            <div class="mt-6 space-y-2">
-              <div class="flex items-center text-sm text-gray-500">
-                <span class="font-medium">Email:</span>
-                <span class="ml-2">{{ authStore.user?.email }}</span>
+          </div>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="flex items-center p-4 bg-sage/10 rounded-xl border border-sage/20">
+              <div class="bg-sage/20 p-2 rounded-full mr-3 text-sage-dark">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
               </div>
-              <div class="flex items-center text-sm text-gray-500">
-                <span class="font-medium">Member since:</span>
-                <span class="ml-2">{{ formatJoinDate(authStore.user?.created_at) }}</span>
+              <div class="min-w-0">
+                <p class="text-xs text-sage-dark uppercase font-bold tracking-wider">Email</p>
+                <p class="text-brown text-sm font-medium truncate" :title="authStore.user?.email">{{ authStore.user?.email }}</p>
+              </div>
+            </div>
+            
+            <div class="flex items-center p-4 bg-terracotta/10 rounded-xl border border-terracotta/20">
+              <div class="bg-terracotta/20 p-2 rounded-full mr-3 text-terracotta-dark">
+                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div>
+                <p class="text-xs text-terracotta-dark uppercase font-bold tracking-wider">Joined</p>
+                <p class="text-brown text-sm font-medium">{{ formatJoinDate(authStore.user?.created_at) }}</p>
               </div>
             </div>
           </div>
@@ -169,112 +170,247 @@
     </div>
 
     <!-- Edit Profile Modal -->
-    <div v-if="showEditModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-        <h2 class="text-xl font-bold mb-4">Edit Profile</h2>
-        <form @submit.prevent="saveProfile">
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Name</label>
-            <input 
-              v-model="editForm.name"
-              type="text"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-              required
-            />
-          </div>
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Bio</label>
-            <textarea 
-              v-model="editForm.bio"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-              rows="3"
-              placeholder="Tell us about yourself..."
-            ></textarea>
-          </div>
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Profile Picture URL</label>
-            <input 
-              v-model="editForm.picture"
-              type="url"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-              placeholder="https://example.com/image.jpg"
-            />
-          </div>
-          <div class="flex justify-end space-x-3">
-            <button 
-              type="button" 
-              @click="showEditModal = false"
-              class="px-4 py-2 text-gray-600 hover:text-gray-800"
-            >
-              Cancel
-            </button>
-            <button 
-              type="submit"
-              class="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600"
-            >
-              Save Changes
-            </button>
-          </div>
-        </form>
+    <div v-if="showEditModal" class="fixed inset-0 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all duration-300">
+      <div 
+        class="bg-white/90 backdrop-blur-xl rounded-[2rem] shadow-2xl p-8 w-full max-w-lg border border-white/50 transform transition-all scale-100 relative overflow-hidden flex flex-col max-h-[90vh]"
+      >
+        <!-- Decorative background elements -->
+        <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-sage to-terracotta"></div>
+        <div class="absolute -top-10 -right-10 w-32 h-32 bg-terracotta/10 rounded-full blur-2xl"></div>
+        <div class="absolute -bottom-10 -left-10 w-32 h-32 bg-sage/10 rounded-full blur-2xl"></div>
+
+        <div class="overflow-y-auto pr-2 custom-scrollbar relative z-10">
+          <h2 class="text-3xl font-heading font-bold mb-8 text-brown text-center">Edit Profile</h2>
+          
+          <form @submit.prevent="saveProfile" class="space-y-6">
+            <!-- Profile Picture Upload -->
+            <div class="flex flex-col items-center mb-6">
+              <div class="relative group cursor-pointer" @click="triggerFileInput">
+                <img 
+                  :src="editForm.picture || '/default-avatar.svg'" 
+                  class="w-32 h-32 rounded-full object-cover border-4 border-white shadow-md transition-transform group-hover:scale-105"
+                />
+                <div class="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span class="text-white text-sm font-bold">Change Photo</span>
+                </div>
+                <div v-if="isUploading" class="absolute inset-0 bg-white/60 rounded-full flex items-center justify-center">
+                  <div class="w-8 h-8 border-2 border-terracotta border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              </div>
+              <input 
+                ref="fileInput"
+                type="file" 
+                accept="image/*" 
+                class="hidden" 
+                @change="handleFileSelect"
+              />
+              <p class="text-xs text-brown-light mt-2">Click to upload new picture</p>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-brown-light mb-2 uppercase tracking-widest pl-1">Name</label>
+              <input 
+                v-model="editForm.name"
+                type="text"
+                class="w-full px-5 py-3.5 bg-white/60 border-2 border-stone-200 rounded-2xl focus:outline-none focus:border-terracotta focus:bg-white focus:ring-4 focus:ring-terracotta/10 transition-all duration-300 text-brown font-medium placeholder-stone-400"
+                placeholder="Your name"
+                required
+              />
+            </div>
+            
+            <div>
+              <label class="block text-xs font-bold text-brown-light mb-2 uppercase tracking-widest pl-1">Bio</label>
+              <textarea 
+                v-model="editForm.bio"
+                class="w-full px-5 py-3.5 bg-white/60 border-2 border-stone-200 rounded-2xl focus:outline-none focus:border-terracotta focus:bg-white focus:ring-4 focus:ring-terracotta/10 transition-all duration-300 text-brown font-medium resize-none placeholder-stone-400"
+                rows="4"
+                placeholder="Tell us a bit about yourself..."
+              ></textarea>
+            </div>
+            
+            <!-- Change Password Section -->
+            <div class="border-t border-stone-200 pt-6 mt-6">
+              <button 
+                type="button" 
+                @click="showPasswordSection = !showPasswordSection"
+                class="flex items-center text-terracotta font-bold text-sm uppercase tracking-wider hover:text-terracotta-dark transition-colors"
+              >
+                <span class="mr-2">{{ showPasswordSection ? '−' : '+' }}</span>
+                Change Password
+              </button>
+              
+              <div v-if="showPasswordSection" class="mt-4 space-y-4 bg-white/40 p-4 rounded-xl border border-white/60">
+                <div>
+                  <label class="block text-xs font-bold text-brown-light mb-1 uppercase tracking-wider">Current Password</label>
+                  <input 
+                    v-model="passwordForm.current"
+                    type="password"
+                    class="w-full px-4 py-2 bg-white/60 border-2 border-stone-200 rounded-xl focus:border-terracotta focus:ring-2 focus:ring-terracotta/10 outline-none text-brown"
+                  />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-brown-light mb-1 uppercase tracking-wider">New Password</label>
+                  <input 
+                    v-model="passwordForm.new"
+                    type="password"
+                    class="w-full px-4 py-2 bg-white/60 border-2 border-stone-200 rounded-xl focus:border-terracotta focus:ring-2 focus:ring-terracotta/10 outline-none text-brown"
+                  />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-brown-light mb-1 uppercase tracking-wider">Confirm New Password</label>
+                  <input 
+                    v-model="passwordForm.confirm"
+                    type="password"
+                    class="w-full px-4 py-2 bg-white/60 border-2 border-stone-200 rounded-xl focus:border-terracotta focus:ring-2 focus:ring-terracotta/10 outline-none text-brown"
+                  />
+                </div>
+                <!-- Password Save Button -->
+                <div class="flex justify-end mt-2">
+                  <button 
+                    type="button"
+                    @click="updatePassword"
+                    :disabled="isUpdatingPassword || !passwordForm.current || !passwordForm.new"
+                    class="px-5 py-2.5 bg-[#C07040] text-white rounded-lg text-sm font-bold hover:bg-[#A05030] shadow-md transition-all disabled:opacity-50 disabled:shadow-none"
+                  >
+                    {{ isUpdatingPassword ? 'Updating...' : 'Update Password' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <div class="flex justify-end items-center gap-4 mt-8 pt-4 border-t border-stone-200/50 sticky bottom-0 bg-white/0 backdrop-blur-none p-2">
+              <button 
+                type="button" 
+                @click="showEditModal = false"
+                class="px-6 py-3 text-brown-dark hover:text-black font-heading font-bold transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button 
+                type="submit"
+                class="px-8 py-3 bg-[#C07040] hover:bg-[#A05030] text-white rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-300 cursor-pointer font-heading font-extrabold tracking-wide"
+              >
+                Save Profile
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
 
     <!-- Image Modal -->
-    <div v-if="selectedImage" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50" @click="closeImageModal">
-      <div class="relative max-w-4xl max-h-full p-4 flex flex-col md:flex-row">
-        <!-- Close button -->
-        <button 
-          @click="closeImageModal"
-          class="absolute top-2 right-2 z-10 text-white hover:text-gray-300 bg-black/50 rounded-full p-2"
+    <Transition
+      enter-active-class="transition duration-300 ease-out"
+      enter-from-class="opacity-0 scale-95"
+      enter-to-class="opacity-100 scale-100"
+      leave-active-class="transition duration-200 ease-in"
+      leave-from-class="opacity-100 scale-100"
+      leave-to-class="opacity-0 scale-95"
+    >
+      <div v-if="selectedImage" class="fixed inset-0 bg-stone-900/80 backdrop-blur-md z-50 flex items-center justify-center p-4 md:p-8" @click="closeImageModal">
+        <div 
+          class="relative bg-white rounded-3xl overflow-hidden shadow-2xl max-w-6xl w-full max-h-[90vh] flex flex-col md:flex-row transform transition-all"
+          @click.stop
         >
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-          </svg>
-        </button>
-        
-        <!-- Image -->
-        <div class="flex-1">
-          <img 
-            :src="selectedImage.image_url" 
-            :alt="selectedImage.description || selectedImage.location_name || 'Cat photo'"
-            class="max-w-full max-h-full object-contain rounded-lg"
-            @click.stop
-          />
-        </div>
-        
-        <!-- Image Info (desktop only) -->
-        <div class="md:w-80 md:ml-6 mt-4 md:mt-0 text-white" @click.stop>
-          <div class="bg-black/50 rounded-lg p-4">
-            <h3 class="text-lg font-semibold mb-2">{{ selectedImage.location_name || 'Unknown Location' }}</h3>
-            
-            <div v-if="selectedImage.description" class="mb-3">
-              <p class="text-sm text-gray-300">คำอธิบาย:</p>
-              <p class="text-sm">{{ selectedImage.description }}</p>
-            </div>
-            
-            <div class="mb-3">
-              <p class="text-sm text-gray-300">วันที่อัปโหลด:</p>
-              <p class="text-sm">{{ formatUploadDate(selectedImage.uploaded_at) }}</p>
-            </div>
-            
-            <div v-if="selectedImage.latitude && selectedImage.longitude" class="mb-3">
-              <p class="text-sm text-gray-300">พิกัด:</p>
-              <p class="text-xs font-mono">{{ selectedImage.latitude.toFixed(6) }}, {{ selectedImage.longitude.toFixed(6) }}</p>
-            </div>
+          <!-- Close Button (Minimalist) -->
+          <button
+            @click="closeImageModal"
+            class="absolute top-6 right-6 z-20 text-stone-400 hover:text-brown bg-transparent transition-colors p-1"
+          >
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+
+          <!-- Image Section -->
+          <div class="w-full md:w-3/5 bg-stone-100 flex items-center justify-center relative overflow-hidden h-[45vh] md:h-auto group">
+             <!-- Main Image -->
+             <img
+              :src="selectedImage.image_url"
+              class="w-full h-full object-cover z-10"
+              :alt="selectedImage.description || 'Cat photo'"
+            />
+          </div>
+
+          <!-- Details Section -->
+          <div class="w-full md:w-2/5 bg-white flex flex-col h-auto md:h-auto relative">
+             <div class="p-8 md:p-10 flex flex-col h-full">
+               <!-- Header: User Info -->
+               <div class="flex items-center gap-4 mb-8 pt-2">
+                  <img :src="authStore.user?.picture || '/default-avatar.svg'" class="w-14 h-14 rounded-full object-cover border-2 border-stone-100 shadow-sm">
+                  <div>
+                    <h4 class="text-brown font-heading font-bold text-xl leading-none mb-1">{{ authStore.user?.name }}</h4>
+                    <p class="text-xs text-stone-400 font-medium uppercase tracking-widest">
+                      Uploaded {{ new Date(selectedImage.uploaded_at).toLocaleDateString() }}
+                    </p>
+                  </div>
+               </div>
+
+               <!-- Content -->
+               <div class="flex-grow overflow-y-auto custom-scrollbar pr-2 space-y-4">
+                 <div>
+                   <h3 class="text-3xl font-heading font-extrabold text-terracotta mb-2 leading-tight">
+                     {{ selectedImage.location_name || 'Unknown Spot' }}
+                   </h3>
+                   <div class="h-1 w-20 bg-sage/30 rounded-full"></div>
+                 </div>
+                 
+                 <p class="text-brown-light font-body leading-relaxed text-lg whitespace-pre-wrap" v-if="selectedImage.description && selectedImage.description !== '-'">
+                   {{ selectedImage.description }}
+                 </p>
+                 <p v-else class="text-stone-300 italic">No description provided.</p>
+               </div>
+
+               <!-- Footer Actions -->
+               <div class="mt-8 pt-6 border-t border-stone-100 flex justify-between items-center text-stone-400 text-sm">
+                  <span class="flex items-center text-brown-light font-medium bg-stone-50 px-3 py-1.5 rounded-lg">
+                    <svg class="w-4 h-4 mr-2 text-terracotta" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    {{ selectedImage.latitude ? 'Location tagged' : 'No location' }}
+                  </span>
+                  
+                   <!-- Like/Action buttons could go here -->
+               </div>
+             </div>
           </div>
         </div>
       </div>
-    </div>
+    </Transition>
   </div>
 </template>
 
+<style scoped>
+/* Scoped styles mainly for specific overrides if needed */
+.aspect-square {
+  aspect-ratio: 1 / 1;
+}
+
+/* Custom scrollbar for textareas if needed */
+textarea::-webkit-scrollbar {
+  width: 8px;
+}
+textarea::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+textarea::-webkit-scrollbar-thumb {
+  background: #C97B49;
+  border-radius: 4px;
+}
+</style>
+
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue';
-import { useRouter } from 'vue-router';
-import { authStore } from '../store/auth';
+import { ref, onMounted, reactive, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
+import { useAuthStore } from '../store/authStore';
+const authStore = useAuthStore();
+import { showError, showSuccess } from '../store/toast';
 import { ProfileService, type ProfileUpdateData } from '../services/profileService';
+import { isDev } from '../utils/env';
+import ErrorState from '@/components/ui/ErrorState.vue';
+import EmptyState from '@/components/ui/EmptyState.vue';
+import GhibliLoader from '@/components/ui/GhibliLoader.vue';
 
 const router = useRouter();
+const route = useRoute();
 
 interface Upload {
   id: string;
@@ -290,8 +426,13 @@ const activeTab = ref('uploads');
 const uploads = ref<Upload[]>([]);
 const uploadsLoading = ref(false);
 const uploadsError = ref<string | null>(null);
+
 const showEditModal = ref(false);
 const selectedImage = ref<Upload | null>(null);
+const fileInput = ref<HTMLInputElement | null>(null);
+const isUploading = ref(false);
+const showPasswordSection = ref(false);
+const isUpdatingPassword = ref(false);
 
 const editForm = reactive({
   name: '',
@@ -299,25 +440,82 @@ const editForm = reactive({
   picture: ''
 });
 
+const passwordForm = reactive({
+  current: '',
+  new: '',
+  confirm: ''
+});
+
+const triggerFileInput = () => {
+    fileInput.value?.click();
+};
+
+const handleFileSelect = async (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    if (target.files && target.files[0]) {
+        const file = target.files[0];
+        
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            showError('Please upload an image file');
+            return;
+        }
+
+        // Upload immediately
+        isUploading.value = true;
+        try {
+            const imageUrl = await ProfileService.uploadProfilePicture(file);
+            editForm.picture = imageUrl;
+            showSuccess('Photo uploaded!');
+        } catch (error) {
+            showError('Failed to upload photo');
+        } finally {
+            isUploading.value = false;
+        }
+    }
+};
+
+const updatePassword = async () => {
+    if (passwordForm.new !== passwordForm.confirm) {
+        showError('New passwords do not match');
+        return;
+    }
+    
+    if (passwordForm.new.length < 8) {
+        showError('Password must be at least 8 characters');
+        return;
+    }
+
+    isUpdatingPassword.value = true;
+    try {
+        await ProfileService.changePassword({
+            current_password: passwordForm.current,
+            new_password: passwordForm.new
+        });
+        showSuccess('Password updated successfully');
+        // Reset password form
+        passwordForm.current = '';
+        passwordForm.new = '';
+        passwordForm.confirm = '';
+        showPasswordSection.value = false;
+    } catch (error: any) {
+        showError(error.message || 'Failed to update password');
+    } finally {
+        isUpdatingPassword.value = false;
+    }
+};
+
 const formatJoinDate = (dateString: string | undefined) => {
   if (!dateString) return 'Unknown';
   
   const date = new Date(dateString);
-  return date.getFullYear().toString();
+  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
 };
 
-const formatUploadDate = (dateString: string) => {
-  if (!dateString) return 'Unknown date';
-  
-  try {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('th-TH', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  } catch {
-    return 'Invalid date';
+const handleImageError = (event: Event) => {
+  const target = event.target as HTMLImageElement;
+  if (!target.src.includes('default-avatar.svg')) {
+    target.src = '/default-avatar.svg';
   }
 };
 
@@ -328,22 +526,59 @@ const loadUploads = async () => {
   try {
     const userUploads = await ProfileService.getUserUploads();
     uploads.value = userUploads;
-    console.log('Loaded user uploads:', userUploads);
   } catch (error) {
-    console.error('Error loading uploads:', error);
-    uploadsError.value = 'ไม่สามารถโหลดรูปภาพได้ กรุณาลองใหม่อีกครั้ง';
+    if (isDev()) {
+      console.error('Error loading uploads:', error);
+    }
+    
+    if (error instanceof Error && error.message.includes('Authentication expired')) {
+      uploadsError.value = 'Your session has expired. Please log in again.';
+      setTimeout(() => {
+        router.push('/auth');
+      }, 2000);
+    } else if (error instanceof Error && error.message.includes('No authentication token')) {
+      uploadsError.value = 'Please log in to view your uploads.';
+      setTimeout(() => {
+        router.push('/auth');
+      }, 2000);
+    } else {
+      uploadsError.value = 'Failed to load uploads. Please try again later.';
+    }
+    showError(uploadsError.value);
+    
     uploads.value = [];
   } finally {
     uploadsLoading.value = false;
   }
 };
 
+// Sync modal state from URL
+const syncStateFromUrl = () => {
+  const imageId = route.query.image as string;
+  if (!imageId) {
+    selectedImage.value = null;
+    return;
+  }
+  
+  const foundImage = uploads.value.find(img => img.id === imageId);
+  if (foundImage) {
+    selectedImage.value = foundImage;
+  }
+};
+
+// Watch for URL changes
+watch(() => route.query.image, () => {
+  syncStateFromUrl();
+});
+
 const openImageModal = (upload: Upload) => {
-  selectedImage.value = upload;
+  router.push({ query: { ...route.query, image: upload.id } });
 };
 
 const closeImageModal = () => {
-  selectedImage.value = null;
+  const query = { ...route.query };
+  delete query.image;
+  router.push({ query });
 };
 
 const saveProfile = async () => {
@@ -367,15 +602,36 @@ const saveProfile = async () => {
     }
     
     showEditModal.value = false;
+    showSuccess('Profile updated successfully!');
   } catch (error) {
-    console.error('Error saving profile:', error);
-    // You can add toast notification here
+    if (isDev()) {
+      console.error('Error saving profile:', error);
+    }
+    
+    // Handle authentication errors specifically
+    if (error instanceof Error && error.message.includes('Authentication expired')) {
+      // Redirect to login after a short delay
+      setTimeout(() => {
+        router.push('/auth');
+      }, 2000);
+    } else if (error instanceof Error && error.message.includes('No authentication token')) {
+      // Redirect to login after a short delay
+      setTimeout(() => {
+        router.push('/auth');
+      }, 2000);
+    }
+    
+    const msg = error instanceof Error ? error.message : 'Failed to update profile';
+    showError(msg);
   }
 };
 
 onMounted(async () => {
   // Load user uploads
   await loadUploads();
+  
+  // Sync state from URL after data is loaded
+  syncStateFromUrl();
   
   // Initialize edit form with current user data
   if (authStore.user) {

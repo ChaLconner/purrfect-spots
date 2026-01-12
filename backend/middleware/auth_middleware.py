@@ -7,98 +7,109 @@ from typing import Optional
 from supabase import Client
 import jwt
 import os
-import requests
+import httpx
+import time
 from dependencies import get_supabase_client
 from user_models.user import User
 
 security = HTTPBearer()
-JWT_SECRET = os.getenv("JWT_SECRET", "your-secret")
 
-# Supabase JWKS setup
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-if SUPABASE_URL:
-    PROJECT_ID = SUPABASE_URL.split("//")[1].split(".")[0]
-    JWKS_URL = f"https://{PROJECT_ID}.supabase.co/auth/v1/keys"
+# JWKS Cache
+_jwks_cache = None
+_jwks_last_update = 0
+JWKS_CACHE_TTL = 3600  # 1 hour
+
+async def get_jwks():
+    """Lazily fetch and cache JWKS"""
+    global _jwks_cache, _jwks_last_update
+    
+    supabase_url = os.getenv("SUPABASE_URL")
+    if not supabase_url:
+        return None
+        
+    project_id = supabase_url.split("//")[1].split(".")[0]
+    jwks_url = f"https://{project_id}.supabase.co/auth/v1/keys"
+    
+    current_time = time.time()
+    if _jwks_cache and (current_time - _jwks_last_update < JWKS_CACHE_TTL):
+        return _jwks_cache
+        
     try:
-        jwks_response = requests.get(JWKS_URL)
-        jwks = jwks_response.json() if jwks_response.status_code == 200 else None
+        async with httpx.AsyncClient() as client:
+            response = await client.get(jwks_url, timeout=5)
+            if response.status_code == 200:
+                _jwks_cache = response.json()
+                _jwks_last_update = current_time
+                return _jwks_cache
     except Exception:
-        jwks = None
-else:
-    jwks = None
-    PROJECT_ID = None
+        pass
+    
+    return _jwks_cache
 
-def decode_supabase_token(token: str):
+async def decode_supabase_token(token: str):
     """Decode Supabase JWT token using JWKS"""
     try:
+        jwks = await get_jwks()
         if not jwks:
+            # If JWKS is not available, we can't verify Supabase tokens properly
+            # But we might be in an environment without Supabase URL (unlikely but possible)
             raise ValueError("JWKS not available")
+            
         unverified_header = jwt.get_unverified_header(token)
         kid = unverified_header.get("kid")
         if not kid:
             raise ValueError("Token missing 'kid' in header")
+            
         key = next((k for k in jwks["keys"] if k["kid"] == kid), None)
         if not key:
             raise ValueError(f"Key with kid '{kid}' not found in JWKS")
+            
         public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key)
-        payload = jwt.decode(token, public_key, algorithms=["RS256"])
+        payload = jwt.decode(token, public_key, algorithms=["RS256"], audience="authenticated")
         return payload
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Invalid Supabase token: {str(e)}")
 
 def decode_custom_token(token: str):
     """Decode custom JWT token (fallback)"""
+    jwt_secret = os.getenv("JWT_SECRET")
+    if not jwt_secret:
+         raise HTTPException(status_code=500, detail="Server misconfiguration: JWT_SECRET not set")
+         
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        payload = jwt.decode(token, jwt_secret, algorithms=["HS256"])
         return payload
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-def get_current_user_from_header(authorization: str = Header(...)):
-    """Get current user from Authorization header (Supabase style)"""
-    try:
-        if not authorization or not authorization.startswith("Bearer "):
-            raise HTTPException(status_code=401, detail="Invalid authorization header")
-        token = authorization.split(" ")[1]
-        try:
-            payload = decode_supabase_token(token)
-            return payload
-        except HTTPException:
-            payload = decode_custom_token(token)
-            return payload
-    except Exception as e:
-        raise HTTPException(status_code=401, detail="Authentication failed")
+def _get_user_from_payload(payload: dict, source: str) -> User:
+    """Helper to convert JWT payload to User object"""
+    user_id = payload.get("sub") or payload.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
 
-async def get_current_user_from_credentials(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    supabase: Client = Depends(get_supabase_client)
-):
-    """Get current authenticated user using Supabase Auth"""
-    token = credentials.credentials
+    # Try to get user from database (bypassing RLS)
     try:
-        payload = decode_supabase_token(token)
-        user_id = payload.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid token payload")
-        
-        # Try to get user from database first
-        try:
-            result = supabase.table("users").select("*").eq("id", user_id).single().execute()
-            if result.data:
-                return User(
-                    id=result.data["id"],
-                    email=result.data.get("email", ""),
-                    name=result.data.get("name", ""),
-                    picture=result.data.get("picture", ""),
-                    bio=result.data.get("bio"),
-                    created_at=result.data.get("created_at", "")
-                )
-        except Exception:
-            pass
-        
-        # Fallback to JWT payload
+        from dependencies import get_supabase_admin_client
+        supabase_admin = get_supabase_admin_client()
+        result = supabase_admin.table("users").select("*").eq("id", user_id).single().execute()
+        if result.data:
+            return User(
+                id=result.data["id"],
+                email=result.data.get("email", ""),
+                name=result.data.get("name", ""),
+                picture=result.data.get("picture", ""),
+                bio=result.data.get("bio"),
+                created_at=result.data.get("created_at", "")
+            )
+    except Exception:
+        # Fallback to payload data if DB lookup fails
+        pass
+
+    # Construct User from payload
+    if source == "supabase":
         user_metadata = payload.get("user_metadata", {})
         return User(
             id=user_id,
@@ -108,64 +119,50 @@ async def get_current_user_from_credentials(
             bio=None,
             created_at=str(payload.get("iat", ""))
         )
-    except HTTPException as e:
-        raise e
-        try:
-            payload = decode_custom_token(token)
-            user_id = payload.get("sub") or payload.get("user_id")
-            if not user_id:
-                raise HTTPException(status_code=401, detail="Invalid token payload")
-            try:
-                result = supabase.table("users").select("*").eq("id", user_id).single().execute()
-                if result.data:
-                    return User(
-                        id=result.data["id"],
-                        email=result.data.get("email", ""),
-                        name=result.data.get("name", ""),
-                        picture=result.data.get("picture", ""),
-                        bio=result.data.get("bio"),
-                        created_at=result.data.get("created_at", "")
-                    )
-            except Exception:
-                pass
-            return User(
-                id=user_id,
-                email=payload.get("email", ""),
-                name=payload.get("name", ""),
-                picture=payload.get("picture", ""),
-                bio=None,
-                created_at=str(payload.get("iat", ""))
-            )
-        except Exception:
-            raise HTTPException(status_code=401, detail="Authentication failed")
-
-def get_current_user(request: Request):
-    """Get current user from request headers using JWT token"""
-    try:
-        auth_header = request.headers.get("Authorization")
-        if not auth_header or not auth_header.startswith("Bearer "):
-            raise HTTPException(status_code=401, detail="Missing or invalid token")
-        token = auth_header.split(" ")[1]
-        payload = jwt.decode(
-            token,
-            os.getenv("JWT_SECRET_KEY", os.getenv("JWT_SECRET", "your-secret")),
-            algorithms=["HS256"]
-        )
-        user_id = payload.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid token payload")
+    else: # custom
         return User(
-            id=user_id, 
+            id=user_id,
             email=payload.get("email", ""),
             name=payload.get("name", ""),
             picture=payload.get("picture", ""),
             bio=payload.get("bio"),
             created_at=payload.get("iat", "")
         )
-    except (jwt.PyJWTError, ValueError, TypeError, KeyError) as e:
-        raise HTTPException(status_code=401, detail="Token is invalid or expired")
+
+async def _verify_and_decode_token(token: str) -> tuple[dict, str]:
+    """Helper to verify and decode token, trying Supabase first then custom"""
+    try:
+        # Try Supabase token first
+        payload = await decode_supabase_token(token)
+        return payload, "supabase"
+    except (HTTPException, ValueError):
+        # Try custom token as fallback
+        try:
+            payload = decode_custom_token(token)
+            return payload, "custom"
+        except Exception:
+            raise HTTPException(status_code=401, detail="Authentication failed")
     except Exception:
         raise HTTPException(status_code=401, detail="Authentication failed")
+
+async def get_current_user_from_credentials(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    supabase: Client = Depends(get_supabase_client)
+):
+    """Get current authenticated user using Supabase Auth"""
+    token = credentials.credentials
+    payload, source = await _verify_and_decode_token(token)
+    return _get_user_from_payload(payload, source)
+
+async def get_current_user(request: Request):
+    """Get current user from request headers using JWT token"""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+    
+    token = auth_header.split(" ")[1]
+    payload, source = await _verify_and_decode_token(token)
+    return _get_user_from_payload(payload, source)
 
 async def get_current_user_optional(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
@@ -178,3 +175,13 @@ async def get_current_user_optional(
         return await get_current_user_from_credentials(credentials, supabase)
     except HTTPException:
         return None
+
+async def get_current_user_from_header(request: Request):
+    """Get decoded token payload from request headers"""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+    
+    token = auth_header.split(" ")[1]
+    payload, _ = await _verify_and_decode_token(token)
+    return payload

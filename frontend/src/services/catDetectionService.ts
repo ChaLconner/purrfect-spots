@@ -1,3 +1,4 @@
+
 export interface CatDetectionResult {
   has_cats: boolean;
   cat_count: number;
@@ -11,7 +12,9 @@ export interface CatDetectionResult {
   image_quality: string;
   suitable_for_cat_spot: boolean;
   reasoning: string;
-  note?: string; // เพิ่มสำหรับ fallback response
+  note?: string;
+  requires_server_verification?: boolean;
+  client_error?: boolean;
 }
 
 export interface SpotAnalysisResult {
@@ -45,181 +48,84 @@ export interface CombinedAnalysisResult {
   };
 }
 
+import { uploadFile, ApiError, ApiErrorTypes } from '../utils/api';
+import { isDev } from '../utils/env';
+
 export class CatDetectionService {
-  private baseURL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/detect`;
-
-  private getAuthHeaders() {
-    const token = localStorage.getItem('access_token');
-    if (!token) {
-      throw new Error('No authentication token found. Please login first.');
-    }
-    return {
-      'Authorization': `Bearer ${token}`
-    };
-  }
-
   async detectCats(file: File): Promise<CatDetectionResult> {
-    console.log('🔍 Detecting cats in image:', file.name);
-    
-    const formData = new FormData();
-    formData.append('file', file);
-
     try {
-      const response = await fetch(`${this.baseURL}/cats`, {
-        method: 'POST',
-        headers: this.getAuthHeaders(),
-        body: formData
-      });
-
-      console.log('📡 Cat detection response status:', response.status);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
-        console.error('❌ Cat detection failed:', errorData);
-        throw new Error(`Cat detection failed: ${errorData.detail || response.statusText}`);
-      }
-
-      const result = await response.json();
-      console.log('✅ Cat detection result:', result);
-      return result;
-
+      return await uploadFile<CatDetectionResult>('/api/v1/detect/cats', file);
     } catch (error) {
-      console.error('🔥 Cat detection error:', error);
-      throw error;
+      if (error instanceof ApiError) {
+        if (isDev()) {
+          console.error('❌ Cat detection failed:', error.message);
+        }
+        throw error;
+      }
+      
+      if (isDev()) {
+        console.error('🔥 Cat detection error:', error);
+      }
+      throw new ApiError(
+        ApiErrorTypes.UNKNOWN_ERROR,
+        `Cat detection failed: ${error.message || 'Unknown error'}`
+      );
     }
   }
 
   async analyzeSpot(file: File): Promise<SpotAnalysisResult> {
-    console.log('🏠 Analyzing spot suitability:', file.name);
-    
-    const formData = new FormData();
-    formData.append('file', file);
-
     try {
-      const response = await fetch(`${this.baseURL}/spot-analysis`, {
-        method: 'POST',
-        headers: this.getAuthHeaders(),
-        body: formData
-      });
-
-      console.log('📡 Spot analysis response status:', response.status);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
-        console.error('❌ Spot analysis failed:', errorData);
-        throw new Error(`Spot analysis failed: ${errorData.detail || response.statusText}`);
-      }
-
-      const result = await response.json();
-      console.log('✅ Spot analysis result:', result);
-      return result;
-
+      return await uploadFile<SpotAnalysisResult>('/api/v1/detect/spot-analysis', file);
     } catch (error) {
-      console.error('🔥 Spot analysis error:', error);
-      throw error;
+      if (error instanceof ApiError) {
+        if (isDev()) {
+          console.error('❌ Spot analysis failed:', error.message);
+        }
+        throw error;
+      }
+      
+      if (isDev()) {
+        console.error('🔥 Spot analysis error:', error);
+      }
+      throw new ApiError(
+        ApiErrorTypes.UNKNOWN_ERROR,
+        `Spot analysis failed: ${error.message || 'Unknown error'}`
+      );
     }
   }
 
   async combinedAnalysis(file: File): Promise<CombinedAnalysisResult> {
-    console.log('🔄 Running combined analysis:', file.name);
-    
-    const formData = new FormData();
-    formData.append('file', file);
-
     try {
-      const response = await fetch(`${this.baseURL}/combined`, {
-        method: 'POST',
-        headers: this.getAuthHeaders(),
-        body: formData
-      });
-
-      console.log('📡 Combined analysis response status:', response.status);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
-        console.error('❌ Combined analysis failed:', errorData);
-        throw new Error(`Combined analysis failed: ${errorData.detail || response.statusText}`);
-      }
-
-      const result = await response.json();
-      console.log('✅ Combined analysis result:', result);
-      return result;
-
+      return await uploadFile<CombinedAnalysisResult>('/api/v1/detect/combined', file);
     } catch (error) {
-      console.error('🔥 Combined analysis error:', error);
-      throw error;
+      if (error instanceof ApiError) {
+        if (isDev()) {
+          console.error('❌ Combined analysis failed:', error.message);
+        }
+        throw error;
+      }
+      
+      if (isDev()) {
+        console.error('🔥 Combined analysis error:', error);
+      }
+      throw new ApiError(
+        ApiErrorTypes.UNKNOWN_ERROR,
+        `Combined analysis failed: ${error.message || 'Unknown error'}`
+      );
     }
   }
 
-  // Utility method สำหรับตรวจสอบว่า user login แล้วหรือยัง
+  // Utility method to check if user is logged in
   isAuthenticated(): boolean {
-    return !!localStorage.getItem('access_token');
+    // Check both token keys for compatibility
+    return !!(localStorage.getItem('auth_token') || localStorage.getItem('access_token'));
   }
 
-  // Utility method สำหรับ clear auth data
+  // Utility method to clear auth data
   clearAuth(): void {
+    // Clear both token keys for compatibility
+    localStorage.removeItem('auth_token');
     localStorage.removeItem('access_token');
-  }
-
-  // Test methods ที่ไม่ต้อง authentication
-  async testDetectCats(file: File): Promise<CatDetectionResult> {
-    console.log('🧪 Testing cat detection (no auth):', file.name);
-    
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const response = await fetch(`${this.baseURL}/test-cats`, {
-        method: 'POST',
-        body: formData // ไม่ใส่ Authorization header
-      });
-
-      console.log('📡 Test cat detection response status:', response.status);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
-        console.error('❌ Test cat detection failed:', errorData);
-        throw new Error(`Test detection failed: ${errorData.detail || response.statusText}`);
-      }
-
-      const result = await response.json();
-      console.log('✅ Test cat detection result:', result);
-      return result;
-
-    } catch (error) {
-      console.error('🔥 Test cat detection error:', error);
-      throw error;
-    }
-  }
-
-  async testAnalyzeSpot(file: File): Promise<SpotAnalysisResult> {
-    console.log('🧪 Testing spot analysis (no auth):', file.name);
-    
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const response = await fetch(`${this.baseURL}/test-spot`, {
-        method: 'POST',
-        body: formData
-      });
-
-      console.log('📡 Test spot analysis response status:', response.status);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
-        console.error('❌ Test spot analysis failed:', errorData);
-        throw new Error(`Test analysis failed: ${errorData.detail || response.statusText}`);
-      }
-
-      const result = await response.json();
-      console.log('✅ Test spot analysis result:', result);
-      return result;
-
-    } catch (error) {
-      console.error('🔥 Test spot analysis error:', error);
-      throw error;
-    }
   }
 }
 
