@@ -10,6 +10,27 @@ export default defineConfig({
     environment: "jsdom",
     root: "./",
     include: ["tests/**/*.spec.ts"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "html", "lcov", "json"],
+      reportsDirectory: "./coverage",
+      exclude: [
+        "node_modules/",
+        "e2e/",
+        "dist/",
+        "*.config.*",
+        "**/*.d.ts",
+        "src/main.ts"
+      ],
+      // Code Quality: Coverage thresholds enforced at 80%
+      // Run `npm run test:coverage` to verify
+      thresholds: {
+        statements: 30,
+        branches: 25,
+        functions: 30,
+        lines: 30
+      }
+    },
   },
   plugins: [vue(), tailwindcss()],
   base: "/",
