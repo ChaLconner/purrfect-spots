@@ -30,9 +30,9 @@
           v-else-if="visibleImages.length === 0"
           title="A Quiet Spot"
           message="No photos have been discovered here yet."
-          subMessage="Be the first to share a moment in this collection."
-          actionText="Upload Photo"
-          actionLink="/upload"
+          sub-message="Be the first to share a moment in this collection."
+          action-text="Upload Photo"
+          action-link="/upload"
         />
         
         <!-- Virtual Scroller Gallery -->
@@ -51,55 +51,55 @@
                 :data-index="index"
               >
                 <div class="gallery-grid" role="grid" aria-label="Cat photo gallery chunk">
-                    <div
+                  <div
                     v-for="(image, subIndex) in item.images"
                     :key="image.id"
                     class="gallery-item"
                     :class="[getBentoClass(item.index + subIndex), { 'item-loaded': loadedImages[image.id] }]"
                     :style="{ 'animation-delay': `${(subIndex % 10) * 0.05}s` }"
-                    @click="openModal(image, item.index + subIndex)"
-                    @keydown.enter="openModal(image, item.index + subIndex)"
-                    @keydown.space.prevent="openModal(image, item.index + subIndex)"
                     role="gridcell"
                     tabindex="0"
                     :aria-label="`View photo: ${image.location_name || 'Cat photo'}`"
-                    >
+                    @click="openModal(image, item.index + subIndex)"
+                    @keydown.enter="openModal(image, item.index + subIndex)"
+                    @keydown.space.prevent="openModal(image, item.index + subIndex)"
+                  >
                     <!-- Glass-framed Image Card -->
                     <div class="image-card">
-                        <!-- Placeholder -->
-                        <div 
+                      <!-- Placeholder -->
+                      <div 
                         v-if="!loadedImages[image.id]" 
                         class="image-placeholder h-full w-full" 
                         aria-hidden="true"
-                        >
+                      >
                         <div class="placeholder-content">
-                            <div class="soot-dot"></div>
+                          <div class="soot-dot"></div>
                         </div>
-                        </div>
+                      </div>
                         
-                        <!-- Actual Image with native lazy loading -->
-                        <div class="image-wrapper">
-                            <img
-                            loading="lazy"
-                            :src="image.image_url"
-                            :alt="image.location_name || 'Cat photo'"
-                            class="gallery-image shadow-md"
-                            :class="{ 'image-visible': loadedImages[image.id] }"
-                            @load="handleImageLoad(image.id)"
-                            @error="handleImageError"
-                            />
-                        </div>
+                      <!-- Actual Image with native lazy loading -->
+                      <div class="image-wrapper">
+                        <img
+                          loading="lazy"
+                          :src="image.image_url"
+                          :alt="image.location_name || 'Cat photo'"
+                          class="gallery-image shadow-md"
+                          :class="{ 'image-visible': loadedImages[image.id] }"
+                          @load="handleImageLoad(image.id)"
+                          @error="handleImageError"
+                        />
+                      </div>
                     </div>
-                    </div>
+                  </div>
                 </div>
               </DynamicScrollerItem>
             </template>
           </DynamicScroller>
           <!-- Load More -->
-           <div v-if="hasMoreImages && !loadingMore" ref="loadMoreTrigger" class="load-more h-4 w-full" aria-hidden="true"></div>
-           <div v-if="loadingMore" class="py-4 flex justify-center w-full" role="status" aria-live="polite">
-             <GhibliLoader size="small" />
-           </div>
+          <div v-if="hasMoreImages && !loadingMore" ref="loadMoreTrigger" class="load-more h-4 w-full" aria-hidden="true"></div>
+          <div v-if="loadingMore" class="py-4 flex justify-center w-full" role="status" aria-live="polite">
+            <GhibliLoader size="small" />
+          </div>
         </div>
       </div>
       
@@ -107,8 +107,8 @@
       <GalleryModal 
         :image="selectedImage"
         :images="modalImages"
-        :currentIndex="modalCurrentIndex"
-        :totalImages="modalTotalImages"
+        :current-index="modalCurrentIndex"
+        :total-images="modalTotalImages"
         @close="closeModal"
         @navigate="handleModalNavigate"
       />
@@ -139,6 +139,10 @@ import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
 
 // SEO
 const { setMetaTags, resetMetaTags } = useSeo();
+
+const props = defineProps<{
+  id?: string;
+}>();
 
 
 // Handle browser extension errors
@@ -205,9 +209,14 @@ onMounted(() => {
   window.addEventListener('resize', updateWidth);
   fetchImages();
   
+  // Check for search query in URL on mount
+  if (route.query.search) {
+     catStore.setSearchQuery(route.query.search as string);
+  }
+
   // Set SEO meta tags
   setMetaTags({
-    title: 'Cat Photo Gallery | Purrfect Spots',
+    title: 'Gallery | Purrfect Spots',
     description: 'Browse our collection of adorable cat photos from around the world. Find your favorite feline friends and discover cat-friendly locations.',
     type: 'website'
   });
@@ -252,14 +261,32 @@ watch(
   { deep: false }
 );
 
-// Watch search query from store to trigger server-side search
-watch(() => catStore.searchQuery, () => {
+// Watch search query from store to update URL and fetch data
+watch(() => catStore.searchQuery, (newQuery) => {
+  // Sync URL query param
+  const query = { ...route.query };
+  if (newQuery) {
+    query.search = newQuery;
+  } else {
+    delete query.search;
+  }
+  // Replace to avoid cluttering history, preserve path params
+  router.replace({ params: route.params, query });
+  
   fetchGalleryData(true);
 });
 
-// Watch URL changes to sync modal state
-watch(() => route.query.image, () => {
+// Watch URL changes to sync modal state (using Path Params now)
+watch(() => props.id, () => {
   syncStateFromUrl();
+});
+
+// Watch route query specifically for browser back/forward buttons affecting search
+watch(() => route.query.search, (newSearch) => {
+    const term = newSearch as string || '';
+    if (term !== catStore.searchQuery) {
+        catStore.setSearchQuery(term);
+    }
 });
 
 // Computed props for modal to handle both list and deep link scenarios
@@ -276,7 +303,7 @@ const modalCurrentIndex = computed(() => {
 });
 
 async function syncStateFromUrl() {
-  const imageId = route.query.image as string;
+  const imageId = props.id;
   
   if (!imageId) {
     selectedImage.value = null;
@@ -367,7 +394,7 @@ async function fetchGalleryData(reset = false) {
     else totalImages.value = visibleImages.value.length;
     
     // Initial sync with URL after data load (only on first load)
-    if (reset && route.query.image) {
+    if (reset && props.id) {
       nextTick(() => syncStateFromUrl());
     }
     
@@ -414,6 +441,7 @@ function cleanupLoadedImagesCache(visibleIds: Set<string>) {
   });
   
   if (isDev() && keysToRemove.length > 0) {
+    // eslint-disable-next-line no-console
     console.log(`🧹 Cleaned up ${keysToRemove.length} cached image states`);
   }
 }
@@ -459,15 +487,21 @@ function loadMoreImages() {
 }
 
 function openModal(image: CatLocation, index: number) {
-  // Update URL instead of local state directly
-  router.push({ query: { ...route.query, image: image.id } });
+  // Update URL using Path Parameter
+  router.push({ 
+    name: 'Gallery', 
+    params: { id: image.id },
+    query: route.query // Preserve search query
+  });
 }
 
 function closeModal() {
-  // Remove image from URL
-  const query = { ...route.query };
-  delete query.image;
-  router.push({ query });
+  // Remove ID from Path
+  router.push({ 
+    name: 'Gallery', 
+    params: { id: '' }, // Empty ID to go back to list
+    query: route.query 
+  });
 }
 
 function handleModalNavigate(direction: 'prev' | 'next') {
@@ -490,7 +524,11 @@ function handleModalNavigate(direction: 'prev' | 'next') {
       // Since we only navigate within visibleImages, it is by definition loaded
       
       // Use replace for navigation to allow back button to close modal
-      router.replace({ query: { ...route.query, image: nextImage.id } });
+      router.replace({ 
+        name: 'Gallery', 
+        params: { id: nextImage.id },
+        query: route.query
+      });
     }
   }
 }

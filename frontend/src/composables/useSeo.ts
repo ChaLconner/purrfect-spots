@@ -13,7 +13,8 @@ interface MetaTagOptions {
   type?: string;
 }
 
-const DEFAULT_TITLE = 'Purrfect Spots - Find Cat-Friendly Places';
+const SITE_NAME = 'Purrfect Spots';
+const DEFAULT_TITLE = `Home | ${SITE_NAME}`;
 const DEFAULT_DESCRIPTION = 'Discover and share adorable cat photos from around the world. Find cat-friendly spots near you.';
 const DEFAULT_IMAGE = '/og-image.png';
 
@@ -82,6 +83,7 @@ export function useSeo() {
   return {
     setMetaTags,
     resetMetaTags,
+    SITE_NAME,
     DEFAULT_TITLE,
     DEFAULT_DESCRIPTION
   };

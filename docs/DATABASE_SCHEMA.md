@@ -92,6 +92,7 @@ Stores uploaded cat photos with location information.
 - `idx_cat_photos_user_uploaded` - Composite index on `(user_id, uploaded_at DESC)`
 - `idx_cat_photos_geo` - Composite index for geospatial queries
 - `idx_cat_photos_search_vector` - GIN index on `search_vector` for full-text search
+- `idx_cat_photos_location_gist` - GIST index on `location` geography column (PostGIS)
 
 #### SQL Definition
 ```sql
@@ -105,6 +106,7 @@ CREATE TABLE cat_photos (
     image_url TEXT NOT NULL,
     tags TEXT[] DEFAULT '{}',
     search_vector tsvector,  -- Full-text search vector
+    location GEOGRAPHY(POINT, 4326),  -- PostGIS geography column for accurate distance queries
     uploaded_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 
@@ -301,8 +303,9 @@ ORDER BY uploaded_at DESC;
 
 1. **Pagination**: Always use `LIMIT` and `OFFSET` or cursor-based pagination
 2. **Tag searches**: GIN index enables efficient array containment queries
-3. **Location queries**: Consider PostGIS extension for geographic queries
+3. **Location queries**: PostGIS extension enabled with `ST_DWithin` for accurate radius searches
 4. **Image storage**: Images stored in S3, only URLs in database
+5. **PostGIS**: Use `search_nearby_photos()` RPC function for efficient nearby queries
 
 ---
 
@@ -321,3 +324,4 @@ ORDER BY uploaded_at DESC;
 | 1.0.0 | 2024-01-01 | Initial schema creation |
 | 1.1.0 | 2024-06-01 | Added tags array column |
 | 1.2.0 | 2024-12-01 | Added GIN index for tags |
+| 1.3.0 | 2026-01-15 | Added PostGIS extension, geography column, and `search_nearby_photos` RPC |

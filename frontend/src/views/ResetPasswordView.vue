@@ -1,8 +1,6 @@
 <template>
   <div class="auth-container">
-    <div class="clouds-bg">
-        <!-- Clouds... -->
-    </div>
+    <GhibliBackground />
 
     <div class="auth-card">
       <div class="auth-illustration">
@@ -21,7 +19,7 @@
           <p class="form-subtitle">Choose a strong password</p>
         </div>
 
-        <form @submit.prevent="handleSubmit" class="auth-form">
+        <form class="auth-form" @submit.prevent="handleSubmit">
           <div class="form-group">
             <label for="password" class="form-label">New Password</label>
             <div class="input-wrapper">
@@ -34,6 +32,7 @@
                 class="form-input"
               />
             </div>
+            <PasswordStrengthMeter :password="password" />
           </div>
 
           <div class="form-group">
@@ -60,11 +59,16 @@
   </div>
 </template>
 
+
+
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { apiV1 } from '@/utils/api';
 import { showSuccess, showError } from '@/store/toast';
+import PasswordStrengthMeter from '@/components/ui/PasswordStrengthMeter.vue';
+import GhibliBackground from '@/components/ui/GhibliBackground.vue';
+import { useSeo } from '@/composables/useSeo';
 
 const route = useRoute();
 const router = useRouter();
@@ -74,12 +78,26 @@ const confirmPassword = ref('');
 const isLoading = ref(false);
 const token = ref('');
 
+// SEO Setup
+const { setMetaTags, resetMetaTags } = useSeo();
+
 onMounted(() => {
+    // Set SEO meta tags
+    setMetaTags({
+        title: 'Reset Password | Purrfect Spots',
+        description: 'Set a new password for your Purrfect Spots account.',
+        type: 'website'
+    });
+    
     token.value = route.query.token as string;
     if (!token.value) {
         showError('Invalid reset link', 'Error');
         router.push('/login');
     }
+});
+
+onUnmounted(() => {
+    resetMetaTags();
 });
 
 const handleSubmit = async () => {

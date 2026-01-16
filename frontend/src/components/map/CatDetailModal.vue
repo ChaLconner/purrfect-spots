@@ -25,13 +25,22 @@
           
           <!-- Close button (Top right) -->
           <button
-            @click="$emit('close')"
             class="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/40 transition-all cursor-pointer border border-white/20"
             aria-label="Close"
+            @click="$emit('close')"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="w-5 h-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
 
@@ -62,8 +71,8 @@
             <button
               v-for="tag in tags"
               :key="tag"
-              @click="$emit('tag-click', tag)"
               class="inline-flex items-center px-3 py-1 bg-sage-light/30 hover:bg-sage-light/50 text-sage-dark text-xs font-semibold rounded-full transition-colors cursor-pointer"
+              @click="$emit('tag-click', tag)"
             >
               #{{ tag }}
             </button>
@@ -72,8 +81,8 @@
           <!-- Action buttons -->
           <div class="flex flex-col gap-3 mt-4">
             <button 
-              @click="$emit('get-directions', cat)"
               class="w-full py-4 rounded-2xl bg-gradient-to-r from-[#C97B49] to-[#A85D2E] text-white font-extrabold tracking-wide hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 active:scale-95 shadow-lg shadow-orange-500/20 cursor-pointer"
+              @click="$emit('get-directions', cat)"
             >
               GET DIRECTIONS
             </button>

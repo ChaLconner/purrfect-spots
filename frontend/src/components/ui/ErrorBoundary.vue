@@ -49,6 +49,21 @@ onErrorCaptured((error: Error, instance, info) => {
   errorMessage.value = error.message || props.fallbackMessage;
   errorStack.value = error.stack || '';
   
+  // Report to Sentry if available
+  if (typeof window !== 'undefined' && (window as any).Sentry) {
+    (window as any).Sentry.captureException(error, {
+      extra: {
+        componentInfo: info,
+        componentName: instance?.$options?.name || 'Unknown',
+        timestamp: new Date().toISOString()
+      },
+      tags: {
+        errorBoundary: 'true',
+        environment: import.meta.env.MODE
+      }
+    });
+  }
+  
   emit('error', error);
   
   // Prevent error from propagating
@@ -134,15 +149,15 @@ provide('errorBoundary', {
         </summary>
         <pre class="mt-2 text-xs text-red-600 overflow-x-auto whitespace-pre-wrap">{{ errorMessage }}
 
-{{ errorStack }}</pre>
+        {{ errorStack }}</pre>
       </details>
 
       <!-- Action Buttons -->
       <div class="flex flex-col sm:flex-row gap-3 justify-center">
         <button
           v-if="showRetry"
-          @click="handleRetry"
           class="px-6 py-3 bg-terracotta text-white rounded-full font-medium hover:bg-terracotta-dark transition-colors focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2"
+          @click="handleRetry"
         >
           <span class="flex items-center justify-center gap-2">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -154,15 +169,15 @@ provide('errorBoundary', {
 
         <button
           v-if="showHome"
-          @click="handleGoHome"
           class="px-6 py-3 bg-white text-gray-700 rounded-full font-medium border border-gray-300 hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+          @click="handleGoHome"
         >
           Go Home
         </button>
 
         <button
-          @click="handleReload"
           class="px-6 py-3 text-gray-500 hover:text-gray-700 transition-colors text-sm underline"
+          @click="handleReload"
         >
           Reload Page
         </button>
@@ -171,7 +186,7 @@ provide('errorBoundary', {
   </div>
 
   <!-- Normal Content -->
-  <slot v-else />
+  <slot v-else></slot>
 </template>
 
 <style scoped>

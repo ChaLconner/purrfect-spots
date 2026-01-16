@@ -2,7 +2,7 @@
  * Image utilities for optimization and CDN handling
  */
 
-import { isProd, getEnvVar } from './env';
+import { isProd, isDev, getEnvVar } from './env';
 
 // Image optimization settings
 export interface ImageOptimizationOptions {
@@ -30,14 +30,26 @@ export interface CDNConfig {
 }
 
 // Default CDN configuration
+const envCdnUrl = getEnvVar('VITE_CDN_BASE_URL');
 const DEFAULT_CDN_CONFIG: CDNConfig = {
-  enabled: isProd(), // Enable CDN in production
-  baseUrl: getEnvVar('VITE_CDN_BASE_URL') || '',
+  enabled: isProd() && !!envCdnUrl, // Only enable if in prod AND url is set
+  baseUrl: envCdnUrl || '',
   defaultParams: {
     auto: 'format,compress',
     q: '85', // quality
   },
 };
+
+// Debug log in dev
+// Debug log only in development
+if (isDev()) {
+  // eslint-disable-next-line no-console
+  console.log('[ImageUtils] CDN Config:', {
+    configured: !!envCdnUrl,
+    url: envCdnUrl || '(none)',
+    enabled: DEFAULT_CDN_CONFIG.enabled
+  });
+}
 
 /**
  * Check if CDN is available and configured

@@ -61,9 +61,7 @@ const handleAuthCallback = async () => {
       }
       
       // Exchange code for tokens with retry logic
-      console.log('Exchanging code for tokens...', { code: code ? 'present' : 'missing', codeVerifier: codeVerifier ? 'present' : 'missing' });
       const data = await AuthService.googleCodeExchange(code, codeVerifier);
-      console.log('Token exchange successful', data);
       
       // Save authentication data
       useAuthStore().setAuth(data);

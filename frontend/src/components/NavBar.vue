@@ -128,8 +128,8 @@ onUnmounted(() => {
       <div class="center-section">
         <div class="search-box">
           <input 
-            type="text" 
-            v-model="searchQuery"
+            v-model="searchQuery" 
+            type="text"
             placeholder="Find a spot..."
             class="search-input"
             @keyup.enter="handleSearch"
@@ -137,15 +137,25 @@ onUnmounted(() => {
           <button 
             v-if="searchQuery" 
             class="search-btn clear-mode" 
-            @click="clearSearch"
             aria-label="Clear search"
+            @click="clearSearch"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
-          <button v-else class="search-btn" @click="handleSearch" aria-label="Search">
+          <button v-else class="search-btn" aria-label="Search" @click="handleSearch">
             <Search class="search-icon" />
           </button>
         </div>
@@ -195,9 +205,9 @@ onUnmounted(() => {
         <!-- User Menu (authenticated) -->
         <div v-else class="user-menu-container">
           <button
-            @click="showUserMenu = !showUserMenu"
             class="user-btn"
             :aria-expanded="showUserMenu"
+            @click="showUserMenu = !showUserMenu"
           >
             <img
               :src="authStore.user?.picture || '/default-avatar.svg'"
@@ -241,10 +251,10 @@ onUnmounted(() => {
       <!-- Hamburger button (mobile only) -->
       <button
         class="hamburger-btn"
-        @click="menuOpen = !menuOpen"
         :aria-expanded="menuOpen"
         aria-controls="mobile-menu"
         aria-label="Toggle navigation menu"
+        @click="menuOpen = !menuOpen"
       >
         <div class="hamburger-lines">
           <span
@@ -275,8 +285,8 @@ onUnmounted(() => {
       <div class="mobile-search-section">
         <div class="search-box">
           <input 
-            type="text" 
-            v-model="searchQuery"
+            v-model="searchQuery" 
+            type="text"
             placeholder="Find a spot..."
             class="search-input"
             @keyup.enter="handleSearch"
@@ -284,15 +294,25 @@ onUnmounted(() => {
           <button 
             v-if="searchQuery" 
             class="search-btn clear-mode" 
-            @click="clearSearch"
             aria-label="Clear search"
+            @click="clearSearch"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
-          <button v-else class="search-btn" @click="handleSearch" aria-label="Search">
+          <button v-else class="search-btn" aria-label="Search" @click="handleSearch">
             <Search class="search-icon" />
           </button>
         </div>

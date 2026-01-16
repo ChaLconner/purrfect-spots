@@ -1,9 +1,10 @@
-
 import os
 import smtplib
-from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
 from logger import logger
+
 
 class EmailService:
     def __init__(self):
@@ -21,16 +22,18 @@ class EmailService:
         if not self.smtp_user or not self.smtp_password:
             logger.warning("SMTP credentials not set. Skipping email send.")
             # For dev: still logging the token
-            print(f"============================================")
-            print(f"PASSWORD RESET LINK: {self.frontend_url}/reset-password?token={token}")
-            print(f"============================================")
+            print("============================================")
+            print(
+                f"PASSWORD RESET LINK: {self.frontend_url}/reset-password?token={token}"
+            )
+            print("============================================")
             return True
 
         try:
             msg = MIMEMultipart()
-            msg['From'] = self.sender_email
-            msg['To'] = to_email
-            msg['Subject'] = "Reset Your Password - Purrfect Spots"
+            msg["From"] = self.sender_email
+            msg["To"] = to_email
+            msg["Subject"] = "Reset Your Password - Purrfect Spots"
 
             reset_link = f"{self.frontend_url}/reset-password?token={token}"
 
@@ -50,19 +53,20 @@ class EmailService:
             </html>
             """
 
-            msg.attach(MIMEText(body, 'html'))
+            msg.attach(MIMEText(body, "html"))
 
             server = smtplib.SMTP(self.smtp_server, self.smtp_port)
             server.starttls()
             server.login(self.smtp_user, self.smtp_password)
             server.send_message(msg)
             server.quit()
-            
+
             logger.info(f"Reset password email sent to {to_email}")
             return True
-            
+
         except Exception as e:
-            logger.error(f"Failed to send email: {str(e)}")
+            logger.error(f"Failed to send email: {e!s}")
             return False
+
 
 email_service = EmailService()

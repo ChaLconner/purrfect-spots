@@ -8,13 +8,17 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import type { User, LoginResponse } from '../types/auth';
 import { ProfileService } from '../services/profileService';
-import { apiV1 } from '../utils/api';
+
+import { apiV1, setAccessToken } from '../utils/api';
+
 
 export const useAuthStore = defineStore('auth', () => {
   // ========== State ==========
+
   const user = ref<User | null>(null);
-  const token = ref<string | null>(localStorage.getItem('auth_token'));
+  const token = ref<string | null>(null); // Memory only, no localStorage!
   const isAuthenticated = ref(false);
+
   const isLoading = ref(false);
   const error = ref<string | null>(null);
 
@@ -56,8 +60,11 @@ export const useAuthStore = defineStore('auth', () => {
       }
     }
 
+
     // Always try to refresh token on init to check valid session
+    // This effectively restores the session using the HttpOnly cookie
     await refreshToken();
+
   }
 
   /**
@@ -78,15 +85,17 @@ export const useAuthStore = defineStore('auth', () => {
           localStorage.setItem('user_data', JSON.stringify(response.user));
         }
         
+        
         // Update axios default header
         updateApiHeader(response.access_token);
+
         
         return true;
       }
       return false;
     } catch (e) {
       // Silent fail on init - just means not logged in
-      console.log('No active session found');
+      console.debug('No active session found');
       // Only clear if we thought we were authenticated
       if (isAuthenticated.value) {
         clearAuth();
@@ -96,22 +105,15 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function updateApiHeader(accessToken: string | null) {
-      // Dynamically import to avoid circular dependency issues if possible, 
-      // or rely on api.ts interceptor reading from a simpler state in future.
-      // For now, we update localStorage for api.ts logic compatibility 
-      // BUT we should really move to interceptor reading from store.
-      
-      // Temporary: Keep using localStorage for access_token to maintain compatibility with api.ts interceptor
-      // until api.ts is fully refactored to read from memory.
-      // SECURITY NOTE: This is still XSS vulnerable for access token (short lived), 
-      // but Refresh Token is now safe in HttpOnly Cookie.
       if (accessToken) {
-        localStorage.setItem('access_token', accessToken);
+        setAccessToken(accessToken);
       } else {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('auth_token');
+        setAccessToken(null);
+        localStorage.removeItem('auth_token'); // Clean up legacy
+        localStorage.removeItem('access_token'); // Clean up legacy
       }
   }
+
 
   /**
    * Validate user object shape

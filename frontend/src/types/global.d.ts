@@ -1,7 +1,7 @@
 // @ts-nocheck
 export {};
 
-; declare global {
+ declare global {
 	const __VLS_directiveBindingRestFields: { instance: null, oldValue: null, modifiers: any, dir: any };
 	const __VLS_unref: typeof import('vue').unref;
 	const __VLS_placeholder: any;

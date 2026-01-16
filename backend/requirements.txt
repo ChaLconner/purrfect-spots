@@ -27,3 +27,9 @@ pytest-cov>=4.1.0,<6.0.0
 redis>=5.0.0,<6.0.0
 python-magic-bin>=0.4.14,<1.0.0
 bleach>=6.0.0,<7.0.0
+orjson>=3.9.10
+# Observability
+opentelemetry-api>=1.20.0
+opentelemetry-sdk>=1.20.0
+opentelemetry-instrumentation-fastapi>=0.40b0
+opentelemetry-exporter-otlp>=1.20.0

@@ -28,15 +28,15 @@
 
         <div class="pt-4 space-y-3">
           <button 
-            @click="handleLogin"
             class="w-full py-3 bg-[#C97B49] text-white font-heading font-bold rounded-xl shadow-lg hover:bg-[#A85D2E] hover:scale-[1.02] transition-all duration-300"
+            @click="handleLogin"
           >
             Log In Now
           </button>
           
           <button 
-            @click="close"
             class="w-full py-3 bg-stone-100 text-stone-500 font-heading font-bold rounded-xl hover:bg-stone-200 transition-all duration-300"
+            @click="close"
           >
             Maybe Later
           </button>

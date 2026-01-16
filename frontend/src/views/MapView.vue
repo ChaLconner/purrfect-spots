@@ -2,7 +2,6 @@
   <div class="relative h-full flex flex-col bg-[#EAF6F3]">
     <!-- Map Container - Full width, no padding -->
     <div class="relative flex-1 overflow-hidden rounded-card shadow-card group">
-      
       <div
         v-if="isLoading"
         class="absolute inset-0 flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm z-20"
@@ -28,40 +27,67 @@
       <div class="absolute bottom-6 right-6 flex flex-col gap-3 z-10">
         <!-- Find Me Button -->
         <button 
-          @click="handleCenterLocation"
           :class="[
             'w-12 h-12 rounded-2xl flex items-center justify-center backdrop-blur-md shadow-card border border-white/60 transition-all duration-300 group/btn',
             userLocation ? 'bg-white/90 text-terracotta hover:bg-white' : 'bg-gray-100/80 text-gray-400 cursor-not-allowed'
           ]"
           :disabled="!userLocation"
           title="Find my location"
+          @click="handleCenterLocation"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 transition-transform group-hover/btn:scale-110" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="w-6 h-6 transition-transform group-hover/btn:scale-110"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polygon points="3 11 22 2 13 21 11 13 3 11" />
           </svg>
         </button>
 
         <div class="flex flex-col rounded-2xl bg-white/90 backdrop-blur-md shadow-card border border-white/60 overflow-hidden divide-y divide-gray-100">
           <!-- Zoom In -->
           <button 
-            @click="handleZoomIn"
             class="w-12 h-12 flex items-center justify-center text-brown hover:bg-white hover:text-brown-dark transition-colors"
             title="Zoom In"
+            @click="handleZoomIn"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="w-6 h-6"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
           </button>
           
           <!-- Zoom Out -->
           <button 
-            @click="handleZoomOut"
             class="w-12 h-12 flex items-center justify-center text-brown hover:bg-white hover:text-brown-dark transition-colors"
             title="Zoom Out"
+            @click="handleZoomOut"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="5" y1="12" x2="19" y2="12"></line>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="w-6 h-6"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
           </button>
         </div>
@@ -83,18 +109,26 @@
               Found <strong class="text-terracotta">{{ displayedLocations.length }}</strong> cats for "<span class="italic text-brown">{{ searchQuery }}</span>"
             </span>
             <button 
-              @click="clearSearch"
               class="w-7 h-7 rounded-full bg-sage-light/20 hover:bg-terracotta hover:text-white flex items-center justify-center text-xs text-sage-dark transition-all duration-300"
+              @click="clearSearch"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="w-4 h-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
           </div>
         </div>
       </transition>
-
     </div>
 
     <!-- Cat Details Modal -->
@@ -133,6 +167,7 @@ import {
 // Composables
 import { useGeolocation } from "../composables/useGeolocation";
 import { useMapMarkers } from "../composables/useMapMarkers";
+import { useSeo } from "../composables/useSeo";
 
 const route = useRoute();
 const router = useRouter();
@@ -158,6 +193,9 @@ const {
   updateUserMarker, 
   clearMarkers 
 } = useMapMarkers(map);
+
+// SEO Setup
+const { setMetaTags, resetMetaTags } = useSeo();
 
 // Search Query
 const searchQuery = computed(() => catStore.searchQuery);
@@ -385,8 +423,15 @@ watch(displayedLocations, (locations) => {
 }, { deep: false }); // Shallow watch is fine since we replace the array
 
 // Watch user location
-watch(userLocation, (pos) => {
+watch(userLocation, (pos, oldPos) => {
   updateUserMarker(pos);
+  
+  // Auto-pan to user's location if newly detected and map is ready
+  // Only if no search is active (don't disrupt user's current view if they are searching)
+  if (pos && !oldPos && map.value && !searchQuery.value && !route.query.image) {
+    map.value.panTo(pos);
+    map.value.setZoom(15);
+  }
 });
 
 // Watch Search from URL
@@ -444,6 +489,13 @@ const openDirections = (cat: CatLocation) => {
 // ==========================================
 
 onMounted(() => {
+  // Set SEO meta tags
+  setMetaTags({
+    title: 'Cat Map | Purrfect Spots',
+    description: 'Explore cat sightings on an interactive map. Find cat-friendly spots near you.',
+    type: 'website'
+  });
+  
   // Parallel fetch: location + data
   getCurrentPosition().then(() => startWatchingPosition());
   loadCatLocations();
@@ -456,6 +508,7 @@ onUnmounted(() => {
   }
   clearMarkers(); // Clean up all map objects
   map.value = null;
+  resetMetaTags(); // Reset SEO meta tags
 });
 </script>
 

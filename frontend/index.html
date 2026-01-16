@@ -4,14 +4,41 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="https://cdn.pixabay.com/photo/2024/04/09/09/35/cat-8685499_1280.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Purrfect Spots</title>
-    <!-- Google Fonts: Ghibli Theme (Quicksand, Montserrat, Zen Maru Gothic) -->
+    <meta name="description" content="Purrfect Spots - Discover and share cat-friendly locations with AI-powered cat detection. Find the best spots to see cats in your area." />
+    <meta name="theme-color" content="#6b8e7d" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://maps.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://maps.googleapis.com https://*.supabase.co https://*.sentry.io wss://*.supabase.co http://localhost:8000 http://127.0.0.1:8000 https://ipapi.co;" />
+    <title>Home | Purrfect Spots</title>
+    <!-- Preconnect to critical origins -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
-    </head>
+    <link rel="preconnect" href="https://maps.googleapis.com">
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <!-- Skip link styles (inline for immediate availability) -->
+    <style>
+      .skip-link {
+        position: absolute;
+        top: -40px;
+        left: 0;
+        background: #6b8e7d;
+        color: white;
+        padding: 8px 16px;
+        z-index: 9999;
+        transition: top 0.3s;
+        border-radius: 0 0 8px 0;
+        text-decoration: none;
+        font-weight: 500;
+      }
+      .skip-link:focus {
+        top: 0;
+      }
+    </style>
+  </head>
   <body>
+    <!-- Skip to main content link for accessibility -->
+    <a href="#main-content" class="skip-link" id="skip-to-main">Skip to main content</a>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
+

@@ -139,3 +139,17 @@ Thumbs.db
 # Vercel
 .vercel/
 *.log
+
+# Test artifacts
+test-results/
+*/test-results/
+playwright-report/
+*/playwright-report/
+.last-run.json
+
+# Coverage
+.coverage
+*.coverage
+.coverage.*
+htmlcov/
+coverage.xml

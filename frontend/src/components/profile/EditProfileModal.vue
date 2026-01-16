@@ -159,11 +159,11 @@ const handleKeydown = (event: KeyboardEvent) => {
       <div 
         v-if="isOpen" 
         class="fixed inset-0 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-        @click="handleBackdropClick"
-        @keydown="handleKeydown"
         role="dialog"
         aria-modal="true"
         aria-labelledby="edit-profile-title"
+        @click="handleBackdropClick"
+        @keydown="handleKeydown"
       >
         <div 
           ref="modalRef"
@@ -180,7 +180,7 @@ const handleKeydown = (event: KeyboardEvent) => {
               Edit Profile
             </h2>
             
-            <form @submit.prevent="handleSave" class="space-y-6">
+            <form class="space-y-6" @submit.prevent="handleSave">
               <!-- Profile Picture Upload -->
               <div class="flex flex-col items-center mb-6">
                 <div class="relative group cursor-pointer" @click="triggerFileInput">
@@ -201,8 +201,8 @@ const handleKeydown = (event: KeyboardEvent) => {
                   type="file" 
                   accept="image/*" 
                   class="hidden" 
-                  @change="handleFileSelect"
                   aria-label="Upload profile picture"
+                  @change="handleFileSelect"
                 />
                 <p class="text-xs text-brown-light mt-2">Click to upload new picture</p>
               </div>
@@ -238,9 +238,9 @@ const handleKeydown = (event: KeyboardEvent) => {
               <div class="border-t border-stone-200 pt-6 mt-6">
                 <button 
                   type="button" 
-                  @click="showPasswordSection = !showPasswordSection"
                   class="flex items-center text-terracotta font-bold text-sm uppercase tracking-wider hover:text-terracotta-dark transition-colors"
                   :aria-expanded="showPasswordSection"
+                  @click="showPasswordSection = !showPasswordSection"
                 >
                   <span class="mr-2">{{ showPasswordSection ? '−' : '+' }}</span>
                   Change Password
@@ -287,9 +287,9 @@ const handleKeydown = (event: KeyboardEvent) => {
                   <div class="flex justify-end mt-2">
                     <button 
                       type="button"
-                      @click="updatePassword"
                       :disabled="isUpdatingPassword || !passwordForm.current || !passwordForm.new"
                       class="px-5 py-2.5 bg-[#C07040] text-white rounded-lg text-sm font-bold hover:bg-[#A05030] shadow-md transition-all disabled:opacity-50 disabled:shadow-none"
+                      @click="updatePassword"
                     >
                       {{ isUpdatingPassword ? 'Updating...' : 'Update Password' }}
                     </button>
@@ -300,8 +300,8 @@ const handleKeydown = (event: KeyboardEvent) => {
               <div class="flex justify-end items-center gap-4 mt-8 pt-4 border-t border-stone-200/50 sticky bottom-0 p-2">
                 <button 
                   type="button" 
-                  @click="handleClose"
                   class="px-6 py-3 text-brown-dark hover:text-black font-heading font-bold transition-colors cursor-pointer"
+                  @click="handleClose"
                 >
                   Cancel
                 </button>

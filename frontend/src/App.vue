@@ -73,13 +73,13 @@ onErrorCaptured((err, instance, info) => {
 </script>
 
 <template>
-<div class="flex flex-col min-h-screen relative">
-  <div class="ghibli-texture-overlay"></div>
-  <NavBar />
-  <ToastContainer />
-  <div class="flex-1 overflow-auto flex flex-col">
-    <router-view />
+  <div class="flex flex-col min-h-screen relative">
+    <div class="ghibli-texture-overlay"></div>
+    <NavBar />
+    <ToastContainer />
+    <main id="main-content" tabindex="-1" class="flex-1 overflow-auto flex flex-col focus:outline-none">
+      <router-view />
+    </main>
   </div>
-</div>
 </template>
 

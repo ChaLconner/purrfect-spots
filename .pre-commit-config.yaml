@@ -1,0 +1,88 @@
+repos:
+  # ==============================================================================
+  # Python Linting & Formatting
+  # ==============================================================================
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.0
+    hooks:
+      - id: ruff
+        name: Ruff Linting
+        args: [--fix, --exit-non-zero-on-fix]
+        types_or: [python, pyi]
+        files: ^backend/
+      - id: ruff-format
+        name: Ruff Formatting
+        types_or: [python, pyi]
+        files: ^backend/
+
+  # ==============================================================================
+  # Security Scanning
+  # ==============================================================================
+  - repo: https://github.com/PyCQA/bandit
+    rev: '1.7.10'
+    hooks:
+      - id: bandit
+        name: Bandit Security Scan
+        args: [-c, backend/pyproject.toml, -r, backend]
+        files: ^backend/
+        exclude: ^backend/tests/
+
+  # ==============================================================================
+  # Secret Detection
+  # ==============================================================================
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        name: Detect Secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: package-lock\.json|\.env\.example
+
+  # ==============================================================================
+  # General Hooks
+  # ==============================================================================
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        name: Trim Trailing Whitespace
+      - id: end-of-file-fixer
+        name: Fix End of Files
+      - id: check-yaml
+        name: Check YAML
+      - id: check-json
+        name: Check JSON
+      - id: check-added-large-files
+        name: Check Large Files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+        name: Check Merge Conflicts
+      - id: detect-private-key
+        name: Detect Private Keys
+
+  # ==============================================================================
+  # Frontend Linting (Local)
+  # ==============================================================================
+  - repo: local
+    hooks:
+      - id: eslint
+        name: ESLint
+        entry: bash -c 'cd frontend && npm run lint:check'
+        language: system
+        types_or: [javascript, typescript, vue]
+        pass_filenames: false
+        files: ^frontend/src/
+
+      - id: typescript-check
+        name: TypeScript Check
+        entry: bash -c 'cd frontend && npm run type-check'
+        language: system
+        types_or: [typescript, vue]
+        pass_filenames: false
+        files: ^frontend/src/
+
+# ==============================================================================
+# Configuration
+# ==============================================================================
+default_stages: [commit]
+fail_fast: false

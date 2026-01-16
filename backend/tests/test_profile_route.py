@@ -1,9 +1,11 @@
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from unittest.mock import MagicMock, AsyncMock
+
 from main import app
-from routes.profile import get_auth_service, get_gallery_service, get_storage_service
 from middleware.auth_middleware import get_current_user_from_credentials
+from routes.profile import get_auth_service, get_gallery_service, get_storage_service
+
 
 class TestProfileRoutes:
     """Test suite for Profile routes"""
@@ -30,7 +32,7 @@ class TestProfileRoutes:
         app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
 
         response = client.get("/api/v1/profile/")
-        
+
         # Cleanup
         app.dependency_overrides = {}
 
@@ -47,19 +49,16 @@ class TestProfileRoutes:
             "name": "Updated Name",
             "bio": "Updated Bio",
             "picture": mock_user.picture,
-            "created_at": mock_user.created_at
+            "created_at": mock_user.created_at,
         }
         mock_auth_service.update_user_profile.return_value = updated_user_data
 
         app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
         app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
 
-        payload = {
-            "name": "Updated Name",
-            "bio": "Updated Bio"
-        }
+        payload = {"name": "Updated Name", "bio": "Updated Bio"}
         response = client.put("/api/v1/profile/", json=payload)
-        
+
         # Cleanup
         app.dependency_overrides = {}
 
@@ -75,12 +74,14 @@ class TestProfileRoutes:
 
         payload = {}
         response = client.put("/api/v1/profile/", json=payload)
-        
+
         app.dependency_overrides = {}
 
         assert response.status_code == 400
 
-    def test_get_user_uploads(self, client, mock_user, mock_gallery_service, mock_cat_photo):
+    def test_get_user_uploads(
+        self, client, mock_user, mock_gallery_service, mock_cat_photo
+    ):
         """Test getting user uploads"""
         mock_gallery_service.get_user_photos.return_value = [mock_cat_photo]
 
@@ -88,7 +89,7 @@ class TestProfileRoutes:
         app.dependency_overrides[get_gallery_service] = lambda: mock_gallery_service
 
         response = client.get("/api/v1/profile/uploads")
-        
+
         app.dependency_overrides = {}
 
         assert response.status_code == 200
@@ -96,18 +97,28 @@ class TestProfileRoutes:
         assert len(data["uploads"]) == 1
         assert data["uploads"][0]["location_name"] == mock_cat_photo["location_name"]
 
-    def test_upload_profile_picture(self, client, mock_user, mock_auth_service, mock_storage_service, sample_image_bytes):
+    def test_upload_profile_picture(
+        self,
+        client,
+        mock_user,
+        mock_auth_service,
+        mock_storage_service,
+        sample_image_bytes,
+    ):
         """Test uploading profile picture"""
-        mock_storage_service.upload_file.return_value = "https://example.com/new-avatar.jpg"
-        
+        mock_storage_service.upload_file.return_value = (
+            "https://example.com/new-avatar.jpg"
+        )
+
         app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
         app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
         app.dependency_overrides[get_storage_service] = lambda: mock_storage_service
 
         # Mock process_uploaded_image (since it's imported in the route, we might mock where it's used or rely on real implementation if fast)
         # Using real implementation requires PIL, which is fine as we have sample_image_bytes.
-        
+
         from unittest.mock import patch
+
         with patch("routes.profile.process_uploaded_image") as mock_process:
             mock_process.return_value = (sample_image_bytes, "image/jpeg", "jpg")
 
@@ -128,12 +139,9 @@ class TestProfileRoutes:
         app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
         app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
 
-        payload = {
-            "current_password": "old_password",
-            "new_password": "new_password"
-        }
+        payload = {"current_password": "old_password", "new_password": "new_password"}
         response = client.put("/api/v1/profile/password", json=payload)
-        
+
         app.dependency_overrides = {}
 
         assert response.status_code == 200
@@ -146,12 +154,9 @@ class TestProfileRoutes:
         app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
         app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
 
-        payload = {
-            "current_password": "wrong_password",
-            "new_password": "new_password"
-        }
+        payload = {"current_password": "wrong_password", "new_password": "new_password"}
         response = client.put("/api/v1/profile/password", json=payload)
-        
+
         app.dependency_overrides = {}
 
         assert response.status_code == 400

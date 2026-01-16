@@ -15,7 +15,7 @@
         fill="#C97B49"
       />
     </g>
-    <g stroke-linecap="round" stroke-linejoin="round"></g>
+    <g stroke-linecap="round" stroke-linejoin="round" />
     <g fill="#FAF6EC">
       <path
         class="cls-1"

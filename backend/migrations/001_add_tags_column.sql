@@ -14,9 +14,9 @@ ON cat_photos USING GIN (tags);
 UPDATE cat_photos 
 SET tags = (
     SELECT ARRAY(
-        SELECT DISTINCT LOWER(TRIM(BOTH '#' FROM match[1]))
-        FROM regexp_matches(description, '#([a-zA-Z0-9_]+)', 'g') AS match
-        WHERE match[1] IS NOT NULL
+        SELECT DISTINCT LOWER(TRIM(BOTH '#' FROM captures[1]))
+        FROM regexp_matches(description, '#([a-zA-Z0-9_]+)', 'g') AS m(captures)
+        WHERE captures[1] IS NOT NULL
     )
 )
 WHERE description LIKE '%#%' AND (tags IS NULL OR tags = '{}');

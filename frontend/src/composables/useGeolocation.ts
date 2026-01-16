@@ -10,6 +10,26 @@ export function useGeolocation() {
   const error = ref<string | null>(null);
   const isLoading = ref(false);
   const watchId = ref<number | null>(null);
+  const permissionDenied = ref(false);
+
+  /**
+   * Get approx location via IP (Fallback)
+   */
+  const getIpLocation = async (): Promise<Coordinates | null> => {
+    try {
+      const response = await fetch('https://ipapi.co/json/');
+      const data = await response.json();
+      if (data.latitude && data.longitude) {
+        return { 
+          lat: parseFloat(data.latitude), 
+          lng: parseFloat(data.longitude) 
+        };
+      }
+    } catch (e) {
+      console.warn('IP Geolocation failed:', e);
+    }
+    return null;
+  };
 
   /**
    * Get current position once (Promise-based)
@@ -18,33 +38,50 @@ export function useGeolocation() {
     isLoading.value = true;
     error.value = null;
 
-    return new Promise((resolve) => {
-      if (!navigator.geolocation) {
-        error.value = 'Geolocation is not supported by this browser';
+    return new Promise(async (resolve) => {
+      // Helper to handle success from native API
+      const handleSuccess = (position: GeolocationPosition) => {
+        const coords = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        };
+        userLocation.value = coords;
+        permissionDenied.value = false;
         isLoading.value = false;
-        resolve(null);
+        resolve(coords);
+      };
+
+      // Helper to handle failure/fallback
+      const handleFailure = async (msg: string) => {
+        // If user denied, mark it so we don't try to watch
+        if (msg.includes("denied") || msg.includes("permission")) {
+            permissionDenied.value = true;
+        }
+        
+        console.debug('Geolocation error/denied:', msg);
+        // Try fallback
+        const fallbackCoords = await getIpLocation();
+        if (fallbackCoords) {
+          userLocation.value = fallbackCoords;
+          // Don't set error if fallback works, so UI acts like we found a location
+        } else {
+          error.value = msg;
+        }
+        isLoading.value = false;
+        resolve(fallbackCoords);
+      };
+
+      if (!navigator.geolocation) {
+        await handleFailure('Geolocation is not supported by this browser');
         return;
       }
 
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const coords = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          };
-          userLocation.value = coords;
-          isLoading.value = false;
-          resolve(coords);
-        },
-        (err) => {
-          error.value = err.message;
-          console.warn('Geolocation error:', err.message);
-          isLoading.value = false;
-          resolve(null);
-        },
+        handleSuccess,
+        (err) => handleFailure(err.message),
         {
           enableHighAccuracy: true,
-          timeout: 15000,
+          timeout: 5000,
           maximumAge: 0,
           ...options
         }
@@ -55,8 +92,22 @@ export function useGeolocation() {
   /**
    * Start watching position for continuous updates
    */
-  const startWatchingPosition = (options?: PositionOptions) => {
+  const startWatchingPosition = async (options?: PositionOptions) => {
     if (!navigator.geolocation || watchId.value !== null) return;
+    
+    // Don't start watching if we already know permission is denied
+    if (permissionDenied.value) {
+        // eslint-disable-next-line no-console
+        console.debug('Skipping watchPosition: Permission previously denied');
+        return;
+    }
+
+    // Initial check to set start location (handling fallback if needed)
+    if (!userLocation.value) {
+      await getCurrentPosition(options);
+      // Re-check permission after get attempt
+      if (permissionDenied.value) return; 
+    }
 
     watchId.value = navigator.geolocation.watchPosition(
       (position) => {
@@ -64,12 +115,16 @@ export function useGeolocation() {
           lat: position.coords.latitude,
           lng: position.coords.longitude
         };
-
-        // Update state
         userLocation.value = newCoords;
+        error.value = null; // Clear error on success
       },
       (err) => {
-        console.warn('Watch position error:', err.message);
+        // eslint-disable-next-line no-console
+        console.debug('Watch position error:', err.message);
+        if (err.message.includes("denied")) {
+             permissionDenied.value = true;
+             stopWatchingPosition();
+        }
       },
       {
         enableHighAccuracy: true,
@@ -99,6 +154,7 @@ export function useGeolocation() {
     userLocation,
     error,
     isLoading,
+    permissionDenied,
     getCurrentPosition,
     startWatchingPosition,
     stopWatchingPosition

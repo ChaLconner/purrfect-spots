@@ -2,6 +2,7 @@
 Environment utilities for Purrfect Spots
 Provides helper functions for environment detection
 """
+
 import os
 
 

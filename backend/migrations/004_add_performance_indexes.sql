@@ -61,10 +61,10 @@ WHERE tags IS NOT NULL AND array_length(tags, 1) > 0;
 -- =====================================================
 CREATE INDEX IF NOT EXISTS idx_password_resets_token 
 ON password_resets(token) 
-WHERE used = false AND expires_at > NOW();
+WHERE is_used = false AND expires_at > NOW();
 
-CREATE INDEX IF NOT EXISTS idx_password_resets_email 
-ON password_resets(email);
+-- Index on email is not possible as email column doesn't exist in password_resets table
+-- users table should be indexed instead if needed (covered in other migrations)
 
 -- =====================================================
 -- ANALYZE TABLES TO UPDATE STATISTICS

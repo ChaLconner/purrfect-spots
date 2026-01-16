@@ -103,8 +103,9 @@ export class ProfileService {
         localStorage.removeItem('user');
         
         // Update auth store
-        const { clearAuth } = await import('../store/auth');
-        clearAuth();
+        const { useAuthStore } = await import('../store/authStore');
+        const auth = useAuthStore();
+        auth.clearAuth();
         
         throw new Error('Authentication expired. Please log in again.');
       }
@@ -126,8 +127,9 @@ export class ProfileService {
         localStorage.removeItem('user');
         
         // Update auth store
-        const { clearAuth } = await import('../store/auth');
-        clearAuth();
+        const { useAuthStore } = await import('../store/authStore');
+        const auth = useAuthStore();
+        auth.clearAuth();
         
         throw new Error('Authentication expired. Please log in again.');
       }

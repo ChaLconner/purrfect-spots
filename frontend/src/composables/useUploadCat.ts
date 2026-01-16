@@ -46,7 +46,10 @@ export function useUploadCat() {
         format: 'jpeg',
       });
 
-      console.log('Optimized file size:', (optimizedFile.size / 1024 / 1024).toFixed(2), 'MB');
+      if (isDev()) {
+        // eslint-disable-next-line no-console
+        console.log('Optimized file size:', (optimizedFile.size / 1024 / 1024).toFixed(2), 'MB');
+      }
 
       // Prepare additional data
       const additionalData = {

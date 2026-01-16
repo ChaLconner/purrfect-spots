@@ -22,11 +22,13 @@ const routes = [
     path: "/upload",
     name: "Upload",
     component: UploadView,
+    meta: { requiresAuth: false },
   },
   {
-    path: "/gallery",
+    path: "/gallery/:id?",
     name: "Gallery",
     component: GalleryView,
+    props: true,
   },
   {
     path: "/profile",

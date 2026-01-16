@@ -10,11 +10,11 @@ import ToastItem from './ToastItem.vue';
   >
     <!-- Container for toasts -->
     <div class="flex flex-col w-full max-w-sm gap-2 pointer-events-none">
-       <ToastItem 
-         v-for="toast in toastState.toasts" 
-         :key="toast.id" 
-         :toast="toast" 
-       />
+      <ToastItem 
+        v-for="toast in toastState.toasts" 
+        :key="toast.id" 
+        :toast="toast" 
+      />
     </div>
   </div>
 </template>

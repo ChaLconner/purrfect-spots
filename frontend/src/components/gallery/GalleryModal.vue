@@ -4,14 +4,13 @@
       <div 
         v-if="image" 
         class="modal-backdrop" 
-        @click="$emit('close')"
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
+        @click="$emit('close')"
       >
         <div class="modal-container" @click.stop>
           <div class="modal-card">
-            
             <!-- Left Side: Image Stage -->
             <div ref="imageStageRef" class="modal-image-stage">
               <!-- Loading State -->
@@ -35,27 +34,39 @@
               <!-- Navigation Arrows (Floating) -->
               <button 
                 v-if="hasPrevious"
-                @click.stop="navigatePrev"
                 class="nav-btn prev-btn"
                 aria-label="Previous image"
+                @click.stop="navigatePrev"
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path d="M15 18L9 12L15 6" stroke-linecap="round" stroke-linejoin="round"/>
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                >
+                  <path d="M15 18L9 12L15 6" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
               </button>
               
               <button 
                 v-if="hasNext"
-                @click.stop="navigateNext"
                 class="nav-btn next-btn"
                 aria-label="Next image"
+                @click.stop="navigateNext"
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path d="M9 18L15 12L9 6" stroke-linecap="round" stroke-linejoin="round"/>
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                >
+                  <path d="M9 18L15 12L9 6" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
               </button>
-
-
             </div>
 
             <!-- Right Side: Content -->
@@ -65,10 +76,18 @@
                 <div>
                   <h3 id="modal-title" class="cat-title">Cat Details</h3>
                   <div class="cat-meta">
-                    <span class="location-badge" v-if="image.location_name">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="mr-1">
-                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                        <circle cx="12" cy="10" r="3"></circle>
+                    <span v-if="image.location_name" class="location-badge">
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        class="mr-1"
+                      >
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                        <circle cx="12" cy="10" r="3" />
                       </svg>
                       {{ image.location_name }}
                     </span>
@@ -77,14 +96,21 @@
                 </div>
                 
                 <button 
-                  @click="$emit('close')" 
+                  ref="closeButtonRef" 
                   class="close-btn"
                   aria-label="Close"
-                  ref="closeButtonRef"
+                  @click="$emit('close')"
                 >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
                 </button>
               </div>
@@ -107,8 +133,8 @@
                     <button
                       v-for="tag in imageTags"
                       :key="tag"
-                      @click="searchByTag(tag)"
                       class="tag-chip"
+                      @click="searchByTag(tag)"
                     >
                       #{{ tag }}
                     </button>
@@ -120,13 +146,20 @@
               <div class="content-footer">
                 <button class="action-btn primary" @click="openDirections">
                   Get Directions
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="ml-2">
-                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    class="ml-2"
+                  >
+                    <path d="M5 12h14M12 5l7 7-7 7" />
                   </svg>
                 </button>
               </div>
             </div>
-
           </div>
         </div>
       </div>

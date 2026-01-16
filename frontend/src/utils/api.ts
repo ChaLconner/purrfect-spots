@@ -8,9 +8,17 @@
 
 import axios from 'axios';
 import type { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios';
-import { useAuthStore } from '../store/authStore';
-import { getEnvVar, isDev } from './env';
 import { isBrowserExtensionError, handleBrowserExtensionError } from './browserExtensionHandler';
+import { isDev } from './env';
+import { useAuthStore } from '../store/authStore';
+
+// In-memory access token (not exposed to window/global)
+let currentAccessToken: string | null = null;
+
+export const setAccessToken = (token: string | null) => {
+  currentAccessToken = token;
+};
+
 
 // ========== API Configuration ==========
 export const API_VERSION = 'v1';
@@ -108,16 +116,15 @@ export const getDefaultHeaders = (): Record<string, string> => {
 
 // Get headers with authentication
 export const getAuthHeaders = (): Record<string, string> => {
-  // Try both token keys for compatibility
-  const token = localStorage.getItem('auth_token') || localStorage.getItem('access_token');
   const headers = getDefaultHeaders();
   
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  if (currentAccessToken) {
+    headers['Authorization'] = `Bearer ${currentAccessToken}`;
   }
   
   return headers;
 };
+
 
 // Create axios instance with default configuration
 const createApiInstance = (): AxiosInstance => {
@@ -131,14 +138,11 @@ const createApiInstance = (): AxiosInstance => {
   // Request interceptor to add auth token
   instance.interceptors.request.use(
     (config) => {
-      // Add auth token if available (from memory via store, not localStorage anymore ideally)
-      // Accessing store directly here creates circular dependency, so we rely on caller to set header
-      // OR we read from localStorage for migration period ONLY for access_token if we chose to execute hybrid
-      
-      const token = localStorage.getItem('auth_token') || localStorage.getItem('access_token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+      // Add auth token if available (from memory)
+      if (currentAccessToken) {
+        config.headers.Authorization = `Bearer ${currentAccessToken}`;
       }
+
       
       return config;
     },
@@ -154,7 +158,10 @@ const createApiInstance = (): AxiosInstance => {
       const contentType = response.headers['content-type'];
       if (contentType && !contentType.includes('application/json')) {
         // Handle non-JSON responses
-        console.warn('Received non-JSON response:', contentType, response.data);
+        if (isDev()) {
+          // eslint-disable-next-line no-console
+          console.warn('Received non-JSON response:', contentType, response.data);
+        }
         
         // Try to parse as JSON anyway in case Content-Type header is wrong
         if (typeof response.data === 'string') {
@@ -402,6 +409,7 @@ export const apiRequest = async <T = any>(
       if (shouldRetry) {
         const delay = calculateBackoffDelay(attempt, config);
         if (isDev()) {
+          // eslint-disable-next-line no-console
           console.log(`[API Retry] Attempt ${attempt + 1}/${config.maxRetries + 1} failed, retrying in ${delay}ms...`, endpoint);
         }
         await sleep(delay);

@@ -34,8 +34,8 @@
 
       <button 
         v-else 
-        @click="$emit('action')"
         class="group relative inline-flex items-center justify-center px-10 py-4 overflow-hidden bg-white hover:bg-[#FFFDF5] text-[#8B7355] hover:text-[#5A4A3A] rounded-full transition-all duration-500 shadow-md hover:shadow-xl hover:shadow-white/40 transform hover:-translate-y-1 z-10 cursor-pointer"
+        @click="$emit('action')"
       >
         <span class="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/50 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out"></span>
         <span class="relative font-bold text-lg tracking-wider">{{ actionText }}</span>

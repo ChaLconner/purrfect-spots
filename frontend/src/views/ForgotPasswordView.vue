@@ -1,11 +1,6 @@
 <template>
   <div class="auth-container">
-    <div class="clouds-bg">
-      <div class="cloud cloud-1"></div>
-      <div class="cloud cloud-2"></div>
-      <div class="cloud cloud-3"></div>
-      <div class="cloud cloud-4"></div>
-    </div>
+    <GhibliBackground />
 
     <div class="auth-card">
       <div class="auth-illustration">
@@ -24,7 +19,7 @@
           <p class="form-subtitle">Enter your email to receive reset instructions</p>
         </div>
 
-        <form @submit.prevent="handleSubmit" class="auth-form">
+        <form class="auth-form" @submit.prevent="handleSubmit">
           <div class="form-group">
             <label for="email" class="form-label">Email</label>
             <div class="input-wrapper">
@@ -54,12 +49,29 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { apiV1 } from '@/utils/api';
 import { showSuccess, showError } from '@/store/toast';
+import GhibliBackground from '@/components/ui/GhibliBackground.vue';
+import { useSeo } from '@/composables/useSeo';
 
 const email = ref('');
 const isLoading = ref(false);
+
+// SEO Setup
+const { setMetaTags, resetMetaTags } = useSeo();
+
+onMounted(() => {
+  setMetaTags({
+    title: 'Forgot Password | Purrfect Spots',
+    description: 'Reset your Purrfect Spots password to regain access to your account.',
+    type: 'website'
+  });
+});
+
+onUnmounted(() => {
+  resetMetaTags();
+});
 
 const handleSubmit = async () => {
     isLoading.value = true;
@@ -88,12 +100,7 @@ const handleSubmit = async () => {
   background-color: #EAF6F3;
 }
 
-.clouds-bg {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
+
 
 .auth-card {
   display: grid;
@@ -238,21 +245,7 @@ const handleSubmit = async () => {
     text-decoration: none;
 }
 
-/* Cloud styles copied from AuthForm for consistency - omitting full keyframes for brevity in tool call, 
-   but ideally should be shared css. 
-   Assuming globally available or simply simplifying here. 
-*/
-.cloud {
-  position: absolute;
-  background: white;
-  border-radius: 50%;
-  filter: blur(10px);
-  opacity: 0.6;
-}
-.cloud-1 { width: 100px; height: 40px; top: 10%; left: 10%; }
-.cloud-2 { width: 120px; height: 50px; top: 20%; right: 10%; }
-.cloud-3 { width: 80px; height: 30px; bottom: 20%; left: 20%; }
-.cloud-4 { width: 90px; height: 35px; bottom: 10%; right: 20%; }
+
 
 @media (max-width: 768px) {
     .auth-card {

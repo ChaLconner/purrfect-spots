@@ -18,12 +18,12 @@
 
     <!-- Retry Button -->
     <button 
-      @click="$emit('retry')" 
-      class="group relative px-10 py-3.5 overflow-hidden bg-white/40 hover:bg-white/60 backdrop-blur-md border border-white/60 rounded-full transition-all duration-500 shadow-sm hover:shadow-lg hover:-translate-y-0.5 cursor-pointer z-10"
+      class="group relative px-10 py-3.5 overflow-hidden bg-white/40 hover:bg-white/60 backdrop-blur-md border border-white/60 rounded-full transition-all duration-500 shadow-sm hover:shadow-lg hover:-translate-y-0.5 cursor-pointer z-10" 
+      @click="$emit('retry')"
     >
-       <span class="relative z-10 font-bold text-[#5A4A3A] group-hover:text-[#3A2A1A] transition-colors tracking-wide">
-         {{ retryText }}
-       </span>
+      <span class="relative z-10 font-bold text-[#5A4A3A] group-hover:text-[#3A2A1A] transition-colors tracking-wide">
+        {{ retryText }}
+      </span>
     </button>
   </div>
 </template>
