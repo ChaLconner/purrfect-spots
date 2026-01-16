@@ -1,10 +1,11 @@
 """
 Pytest configuration and fixtures for backend tests
 """
-import pytest
-import sys
+
 import os
-from unittest.mock import MagicMock, AsyncMock, patch
+import sys
+from unittest.mock import MagicMock
+
 import pytest
 
 # Add backend directory to path so imports work
@@ -26,7 +27,7 @@ except ImportError:
     # We assume google package itself might exist because of google-auth
     mock_vision = MagicMock()
     sys.modules["google.cloud.vision"] = mock_vision
-    
+
     # Ensure google.cloud exists as a module/package if not already
     if "google.cloud" not in sys.modules:
         sys.modules["google.cloud"] = MagicMock()
@@ -44,7 +45,17 @@ except ImportError:
     sys.modules["limiter"].limiter = MagicMock()
     sys.modules["limiter"].limiter.limit = lambda x: lambda f: f  # Mock decorator
 
+# Disable rate limiting for all tests
+@pytest.fixture(autouse=True)
+def disable_rate_limit():
+    """Disable rate limiting for all tests"""
+    from limiter import limiter
+    limiter.enabled = False
+    yield
+    limiter.enabled = True
+
 from fastapi.testclient import TestClient
+
 from main import app
 
 
@@ -96,6 +107,7 @@ def mock_supabase_admin():
 
 class MockUser:
     """Mock user class for testing"""
+
     def __init__(self):
         self.id = "test-user-123"
         self.email = "test@example.com"
@@ -123,7 +135,7 @@ def mock_cat_photo():
         "latitude": 13.7563,
         "longitude": 100.5018,
         "image_url": "https://example.com/cat.jpg",
-        "uploaded_at": "2024-01-01T12:00:00Z"
+        "uploaded_at": "2024-01-01T12:00:00Z",
     }
 
 
@@ -136,24 +148,26 @@ def auth_headers():
 @pytest.fixture
 def sample_image_bytes():
     """Create sample JPEG image bytes for testing"""
-    from PIL import Image
     import io
-    
+
+    from PIL import Image
+
     # Create a simple test image
-    img = Image.new('RGB', (100, 100), color='red')
+    img = Image.new("RGB", (100, 100), color="red")
     buffer = io.BytesIO()
-    img.save(buffer, format='JPEG')
+    img.save(buffer, format="JPEG")
     return buffer.getvalue()
 
 
 @pytest.fixture
 def sample_large_image_bytes():
     """Create a large image for resize testing"""
-    from PIL import Image
     import io
-    
+
+    from PIL import Image
+
     # Create a large test image
-    img = Image.new('RGB', (3000, 2000), color='blue')
+    img = Image.new("RGB", (3000, 2000), color="blue")
     buffer = io.BytesIO()
-    img.save(buffer, format='JPEG', quality=100)
+    img.save(buffer, format="JPEG", quality=100)
     return buffer.getvalue()

@@ -16,14 +16,12 @@
 
       <!-- Main Upload Card -->
       <div class="bg-white/90 backdrop-blur-md rounded-3xl shadow-xl border border-white/50 overflow-hidden transition-all duration-500">
-        
         <!-- Loading / Progress State -->
         <div v-if="isUploading" class="p-16 text-center flex flex-col items-center justify-center min-h-[400px]">
-          <div class="w-16 h-16 border-4 border-terracotta/30 border-t-terracotta rounded-full animate-spin mb-6"></div>
-          <h3 class="text-2xl font-heading font-bold text-brown mb-2">Uploading...</h3>
+          <GhibliLoader text="Uploading..." class="mb-6" />
           <p class="text-brown-light mb-8">Saving your discovery to the map</p>
           <div class="w-full max-w-md h-2 bg-stone-100 rounded-full overflow-hidden">
-             <div class="h-full bg-terracotta transition-all duration-300 ease-out" :style="{ width: `${uploadProgress}%` }"></div>
+            <div class="h-full bg-terracotta transition-all duration-300 ease-out" :style="{ width: `${uploadProgress}%` }"></div>
           </div>
         </div>
 
@@ -31,30 +29,37 @@
         <div v-else-if="uploadSuccess" class="p-16 text-center flex flex-col items-center justify-center min-h-[400px]">
           <div class="w-20 h-20 bg-sage/20 rounded-full flex items-center justify-center mb-6 text-sage-dark">
             <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
             </svg>
           </div>
           <h3 class="text-3xl font-heading font-bold text-brown mb-4">Spot Added!</h3>
           <p class="text-brown-light mb-10 text-lg">Thank you for contributing to the map.</p>
           <div class="flex flex-col sm:flex-row gap-4 justify-center w-full max-w-md">
-            <button @click="window.location.reload()" class="px-8 py-3 bg-white border-2 border-terracotta text-terracotta font-heading font-bold rounded-xl hover:bg-terracotta hover:text-white transition-all duration-300 transform hover:-translate-y-1">
+            <button class="px-8 py-3 bg-white border-2 border-terracotta text-terracotta font-heading font-bold rounded-xl hover:bg-terracotta hover:text-white transition-all duration-300 transform hover:-translate-y-1" @click="window.location.reload()">
               Upload Another
             </button>
-            <button @click="router.push('/map')" class="px-8 py-3 bg-terracotta text-white font-heading font-bold rounded-xl hover:bg-terracotta-dark shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+            <button class="px-8 py-3 bg-terracotta text-white font-heading font-bold rounded-xl hover:bg-terracotta-dark shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1" @click="router.push('/map')">
               View Map
             </button>
           </div>
         </div>
 
         <!-- Upload Form -->
-        <form v-else @submit.prevent="handleSubmit" class="p-6 md:p-10 space-y-12">
-          
+        <form v-else class="p-6 md:p-10 space-y-12" @submit.prevent="handleSubmit">
           <!-- Section 1: Photo -->
           <div class="space-y-6">
             <div class="flex items-baseline justify-between border-b border-stone-200 pb-4">
               <h2 class="text-2xl font-heading font-bold text-brown flex items-center">
                 01. The Photo
-                <svg v-if="!isAuthenticated" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-2 text-stone-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" title="Login required">
+                <svg
+                  v-if="!isAuthenticated"
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 ml-2 text-stone-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  title="Login required"
+                >
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               </h2>
@@ -76,16 +81,16 @@
                 ref="fileInput"
                 type="file"
                 accept="image/*"
-                @change="handleFileChange"
                 class="hidden"
+                @change="handleFileChange"
               />
 
               <!-- Preview State -->
               <div v-if="previewUrl" class="w-full h-full absolute inset-0 z-10 bg-stone-50">
-                <img :src="previewUrl" class="w-full h-full object-contain" alt="Preview"/>
+                <img :src="previewUrl" class="w-full h-full object-contain" alt="Preview" />
                 
                 <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                  <button type="button" @click.stop="triggerFileInput" class="px-6 py-2 bg-white text-brown rounded-full font-bold hover:scale-105 transition-transform">
+                  <button type="button" class="px-6 py-2 bg-white text-brown rounded-full font-bold hover:scale-105 transition-transform" @click.stop="triggerFileInput">
                     Change Photo
                   </button>
                 </div>
@@ -104,25 +109,33 @@
                   </svg>
                 </div>
                 <div>
-                   <p class="text-xl font-heading font-medium text-brown mb-1">Drag and drop photo</p>
-                   <p class="text-stone-500 text-sm">or click to browse from your device</p>
+                  <p class="text-xl font-heading font-medium text-brown mb-1">Drag and drop photo</p>
+                  <p class="text-stone-500 text-sm">or click to browse from your device</p>
                 </div>
               </div>
 
-               <!-- Detecting State Overlay -->
-               <div v-if="isDetectingCats" class="absolute inset-0 z-20 bg-white/90 flex flex-col items-center justify-center">
-                  <div class="w-10 h-10 border-2 border-terracotta border-t-transparent rounded-full animate-spin mb-3"></div>
-                  <p class="text-terracotta font-medium tracking-wide text-sm uppercase">Verifying Cat Content...</p>
-               </div>
+              <!-- Detecting State Overlay -->
+              <div v-if="isDetectingCats" class="absolute inset-0 z-20 bg-white/90 flex flex-col items-center justify-center">
+                <div class="w-10 h-10 border-2 border-terracotta border-t-transparent rounded-full animate-spin mb-3"></div>
+                <p class="text-terracotta font-medium tracking-wide text-sm uppercase">Verifying Cat Content...</p>
+              </div>
             </div>
           </div>
 
           <!-- Section 2: Details -->
           <div class="space-y-6">
-             <div class="flex items-baseline justify-between border-b border-stone-200 pb-4">
+            <div class="flex items-baseline justify-between border-b border-stone-200 pb-4">
               <h2 class="text-2xl font-heading font-bold text-brown flex items-center">
                 02. Details
-                <svg v-if="!isAuthenticated" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-2 text-stone-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" title="Login required">
+                <svg
+                  v-if="!isAuthenticated"
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 ml-2 text-stone-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  title="Login required"
+                >
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               </h2>
@@ -171,16 +184,24 @@
             <div class="flex items-baseline justify-between border-b border-stone-200 pb-4">
               <h2 class="text-2xl font-heading font-bold text-brown flex items-center">
                 03. Location
-                <svg v-if="!isAuthenticated" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-2 text-stone-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" title="Login required">
+                <svg
+                  v-if="!isAuthenticated"
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 ml-2 text-stone-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  title="Login required"
+                >
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               </h2>
               <div class="flex items-center gap-2">
-                 <button
+                <button
                   type="button"
-                  @click="handleGetLocation"
                   :disabled="gettingLocation"
                   class="text-xs font-bold uppercase tracking-wider text-terracotta hover:text-terracotta-dark transition-colors disabled:opacity-50 cursor-pointer"
+                  @click="handleGetLocation"
                 >
                   {{ gettingLocation ? "Locating..." : "Use My Location" }}
                 </button>
@@ -191,7 +212,7 @@
               <div id="uploadMap" class="w-full h-full opacity-90 transition-opacity duration-300"></div>
               
               <!-- Login Overlay for Map -->
-              <div v-if="!isAuthenticated" @click="checkAuth" class="absolute inset-0 z-10 cursor-pointer bg-transparent" title="Login to use map"></div>
+              <div v-if="!isAuthenticated" class="absolute inset-0 z-10 cursor-pointer bg-transparent" title="Login to use map" @click="checkAuth"></div>
 
               <!-- Map Instruction Overlay -->
               <div class="absolute bottom-4 left-4 right-4 bg-white/80 backdrop-blur-sm p-3 rounded-lg text-xs text-brown text-center pointer-events-none border border-white/50 shadow-sm transition-all duration-300">
@@ -211,8 +232,6 @@
 
           <!-- Submit Action -->
           <div class="pt-8">
-
-
             <button
               type="submit"
               :disabled="!canSubmit"
@@ -221,7 +240,6 @@
               Share This Spot
             </button>
           </div>
-
         </form>
       </div>
     </div>
@@ -246,9 +264,12 @@ import { catDetectionService } from "../services/catDetectionService";
 import { isDev, getEnvVar } from "../utils/env";
 import { DEFAULT_COORDINATES } from "../utils/constants";
 import GhibliBackground from "../components/ui/GhibliBackground.vue";
+import GhibliLoader from "../components/ui/GhibliLoader.vue";
 import LoginRequiredModal from "../components/ui/LoginRequiredModal.vue";
+import { useSeo } from "../composables/useSeo";
 
 const router = useRouter();
+const { setMetaTags, resetMetaTags } = useSeo();
 
 const locationName = ref("");
 const description = ref("");
@@ -289,6 +310,13 @@ const canSubmit = computed(() =>
 const { uploadCatPhoto, isUploading, error, uploadProgress } = useUploadCat();
 
 onMounted(async () => {
+  // Set SEO meta tags
+  setMetaTags({
+    title: 'Upload | Purrfect Spots',
+    description: 'Share your cat photos and help others discover cat-friendly spots.',
+    type: 'website'
+  });
+  
   if (!googleMapsApiKey) {
     showError("Map service is unavailable. Please contact support.");
     return;
@@ -308,6 +336,7 @@ onUnmounted(() => {
     URL.revokeObjectURL(previewUrl.value);
   }
   cleanupLocationPicker();
+  resetMetaTags(); // Reset SEO meta tags
 });
 
 const checkAuth = () => {
@@ -392,6 +421,7 @@ async function detectCatsInImage(imageFile) {
     }
     
   } catch (error) {
+    if (isDev()) console.error('Cat detection error:', error);
     // SECURITY FIX: Do NOT auto-approve on error - this was a bypass vulnerability
     // Instead, mark as requiring server-side verification
     showError('Unable to verify image. The server will verify during upload.', 'Verification Notice');
@@ -459,7 +489,7 @@ async function handleSubmit() {
 
 <style scoped>
 
-/* Blob animations removed as they are replaced by GhibliBackground */
+/* Blob animations restored */
 
 /* Custom scrollbar for better aesthetic in specific containers if needed */
 ::-webkit-scrollbar {

@@ -1,41 +1,44 @@
 """
 PurrFect Spots API - Main Application
 
+
 Features:
 - API versioning (/api/v1/*)
 - Sentry error monitoring
 - Rate limiting
 - CORS configuration
 """
+
 import os
-from typing import List
-
-from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Depends, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.exception_handlers import http_exception_handler
-from fastapi.exceptions import RequestValidationError
-from starlette.exceptions import HTTPException as StarletteHTTPException
-from pydantic import BaseModel
-
-# Import versioned API router
-from routes.api_v1 import router as api_v1_router
-# Legacy imports for backward compatibility
-from routes import auth_manual, auth_google, profile, upload, cat_detection, gallery
-
-from dependencies import get_supabase_client
-from limiter import limiter
-from slowapi import _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-
-from config import config
-from logger import logger
 
 # ========== Sentry Integration ==========
 import sentry_sdk
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse, ORJSONResponse
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from config import config
+
+# Import custom exceptions
+from limiter import limiter
+from logger import logger
+from middleware.csrf_middleware import CSRFMiddleware
+from middleware.request_id_middleware import RequestIdMiddleware
+from middleware.security_middleware import (
+    HTTPSRedirectMiddleware,
+    SecurityHeadersMiddleware,
+)
+
+# Import versioned API router
+from routes.api_v1 import router as api_v1_router
+from routes.health import router as health_router
 
 SENTRY_DSN = os.getenv("SENTRY_DSN")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
@@ -91,6 +94,10 @@ tags_metadata = [
     },
 ]
 
+
+# Import telemetry setup
+from utils.telemetry import setup_telemetry
+
 # ========== FastAPI Application ==========
 app = FastAPI(
     title="PurrFect Spots API",
@@ -111,6 +118,7 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
+    default_response_class=ORJSONResponse,
     contact={
         "name": "Purrfect Spots Team",
         "email": "support@purrfectspots.com",
@@ -118,8 +126,11 @@ app = FastAPI(
     license_info={
         "name": "MIT",
     },
-    openapi_tags=tags_metadata
+    openapi_tags=tags_metadata,
 )
+
+# Initialize Telemetry (OpenTelemetry)
+setup_telemetry(app)
 
 # ========== Rate Limiter ==========
 app.state.limiter = limiter
@@ -148,11 +159,11 @@ async def generic_exception_handler(request: Request, exc: Exception):
     # Capture exception in Sentry
     if SENTRY_DSN:
         sentry_sdk.capture_exception(exc)
-    
+
     logger.error(f"Unhandled Exception: {exc}", exc_info=True)
-    
+
     cors_origin = _get_cors_origin_for_request(request)
-    
+
     # Return generic message to client, detailed error stays in logs
     return JSONResponse(
         status_code=500,
@@ -160,41 +171,50 @@ async def generic_exception_handler(request: Request, exc: Exception):
         headers={
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": cors_origin,
-            "Access-Control-Allow-Credentials": "true"
-        } if cors_origin else {"Content-Type": "application/json"}
+            "Access-Control-Allow-Credentials": "true",
+        }
+        if cors_origin
+        else {"Content-Type": "application/json"},
     )
+
 
 @app.exception_handler(StarletteHTTPException)
 async def custom_http_exception_handler(request: Request, exc: StarletteHTTPException):
     logger.warning(f"HTTP Exception: {exc.status_code} - {exc.detail}")
-    
+
     cors_origin = _get_cors_origin_for_request(request)
-    
+
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail},
         headers={
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": cors_origin,
-            "Access-Control-Allow-Credentials": "true"
-        } if cors_origin else {"Content-Type": "application/json"}
+            "Access-Control-Allow-Credentials": "true",
+        }
+        if cors_origin
+        else {"Content-Type": "application/json"},
     )
+
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     logger.warning(f"Validation Error: {exc}")
-    
+
     cors_origin = _get_cors_origin_for_request(request)
-    
+
     return JSONResponse(
         status_code=422,
         content={"detail": "Request validation failed", "errors": exc.errors()},
         headers={
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": cors_origin,
-            "Access-Control-Allow-Credentials": "true"
-        } if cors_origin else {"Content-Type": "application/json"}
+            "Access-Control-Allow-Credentials": "true",
+        }
+        if cors_origin
+        else {"Content-Type": "application/json"},
     )
+
 
 # ========== CORS Middleware ==========
 allowed_origins = config.get_allowed_origins()
@@ -222,31 +242,34 @@ app.add_middleware(
     max_age=86400,  # 24 hours
 )
 
+
 # ========== Health Check Endpoints ==========
 @app.get("/")
 async def root():
     """Root endpoint"""
     return JSONResponse(
         content={
-            "status": "healthy", 
+            "status": "healthy",
             "message": "PurrFect Spots API is running",
             "version": "3.0.0",
-            "api_versions": ["v1"]
+            "api_versions": ["v1"],
         },
-        headers={"Content-Type": "application/json"}
+        headers={"Content-Type": "application/json"},
     )
+
 
 @app.get("/health")
 async def health_check():
     """Simple health check endpoint"""
     return JSONResponse(
         content={
-            "status": "healthy", 
+            "status": "healthy",
             "message": "PurrFect Spots API is running",
-            "sentry_enabled": bool(SENTRY_DSN)
+            "sentry_enabled": bool(SENTRY_DSN),
         },
-        headers={"Content-Type": "application/json"}
+        headers={"Content-Type": "application/json"},
     )
+
 
 @app.get("/api/test-json")
 async def test_json_response():
@@ -258,16 +281,39 @@ async def test_json_response():
             "api_version": "v1",
             "data": {
                 "test": "JSON parsing should work correctly",
-                "content_type": "application/json"
-            }
+                "content_type": "application/json",
+            },
         },
-        headers={"Content-Type": "application/json"}
+        headers={"Content-Type": "application/json"},
     )
 
 
 # ========== API Routes ==========
 # Include versioned API router (recommended)
 app.include_router(api_v1_router)
+
+# Include health check routes (no prefix, accessible at /health/*)
+app.include_router(health_router)
+
+# ========== Security Middleware ==========
+# Order matters: First added = Last executed
+# Execution order: GZip -> RequestId -> CSRF -> SecurityHeaders -> HTTPSRedirect
+
+# HTTPS redirect (must be added last to run first)
+app.add_middleware(HTTPSRedirectMiddleware)
+
+# Security headers (CSP, HSTS, X-Frame-Options, etc.)
+app.add_middleware(SecurityHeadersMiddleware)
+
+# CSRF protection for state-changing requests
+app.add_middleware(CSRFMiddleware)
+
+# Request ID for tracing and audit logs
+app.add_middleware(RequestIdMiddleware)
+
+# ========== Compression ==========
+
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # Legacy routes removed as of v3.0.0 - Use /api/v1/* endpoints instead
 # All frontend code should use the apiV1 client from utils/api.ts
@@ -287,4 +333,5 @@ handler = app
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
