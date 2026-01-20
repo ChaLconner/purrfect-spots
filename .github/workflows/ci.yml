@@ -1,0 +1,696 @@
+# ==============================================================================
+# Purrfect Spots - CI/CD Pipeline
+# ==============================================================================
+# Comprehensive CI/CD workflow for the Purrfect Spots application
+# Includes linting, testing, security scanning, and build verification
+# ==============================================================================
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.vscode/**'
+  pull_request:
+    branches: [main, develop]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.vscode/**'
+  workflow_dispatch:
+    inputs:
+      skip_e2e:
+        description: 'Skip E2E tests'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: '3.12'
+  NODE_VERSION: '20'
+
+# ==============================================================================
+# JOBS DEFINITION
+# ==============================================================================
+jobs:
+  # ============================================================================
+  # CHANGE DETECTION - Determine which parts of the codebase changed
+  # ============================================================================
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      docker: ${{ steps.filter.outputs.docker }}
+      ci: ${{ steps.filter.outputs.ci }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Filter paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'api-client/**'
+            frontend:
+              - 'frontend/**'
+            docker:
+              - '**/Dockerfile'
+              - 'docker-compose.yml'
+            ci:
+              - '.github/workflows/**'
+
+  # ============================================================================
+  # BACKEND JOBS
+  # ============================================================================
+  backend-lint:
+    name: 🐍 Backend Lint & Quality
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.ci == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install linting tools
+        run: |
+          pip install --upgrade pip
+          pip install ruff mypy
+
+      - name: Run Ruff (Linting)
+        run: |
+          cd backend
+          ruff check . --output-format=github
+
+      - name: Run Ruff (Formatting Check)
+        run: |
+          cd backend
+          ruff format --check .
+
+      - name: Run MyPy (Type Check)
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          mypy . --ignore-missing-imports --no-error-summary || true
+        continue-on-error: true
+
+  backend-test:
+    name: 🧪 Backend Unit Tests
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.ci == 'true'
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmagic1
+
+      - name: Install Python dependencies
+        run: |
+          cd backend
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest-cov pytest-xdist
+
+      - name: Run tests with coverage
+        env:
+          ENVIRONMENT: test
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test-secret-key-for-ci-minimum-32-chars
+          JWT_REFRESH_SECRET: test-refresh-secret-for-ci-minimum-32
+          SUPABASE_URL: https://test.supabase.co
+          SUPABASE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test
+          SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test
+        run: |
+          cd backend
+          pytest \
+            --cov=. \
+            --cov-report=xml:coverage.xml \
+            --cov-report=term-missing \
+            --cov-report=html:coverage_html \
+            --cov-fail-under=70 \
+            -n auto \
+            -v
+
+      - name: Upload coverage HTML report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-coverage-report
+          path: backend/coverage_html
+          retention-days: 14
+
+  api-contract-check:
+    name: 📄 API Contract Check
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.ci == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmagic1
+
+      - name: Install Python dependencies
+        run: |
+          cd backend
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Check for API breaking changes
+        env:
+          ENVIRONMENT: test
+          JWT_SECRET: test-secret-key-for-ci-minimum-32-chars
+          JWT_REFRESH_SECRET: test-refresh-secret-for-ci-minimum-32
+          SUPABASE_URL: https://test.supabase.co
+          SUPABASE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test
+          SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test
+        run: |
+          cd backend
+          python scripts/check_api_breaking_changes.py --baseline ../docs/openapi-baseline.json
+
+      - name: Export current OpenAPI spec
+        if: always()
+        env:
+          ENVIRONMENT: test
+          JWT_SECRET: test-secret-key-for-ci-minimum-32-chars
+          JWT_REFRESH_SECRET: test-refresh-secret-for-ci-minimum-32
+          SUPABASE_URL: https://test.supabase.co
+          SUPABASE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test
+          SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test
+        run: |
+          cd backend
+          python scripts/export_openapi.py --output ../docs/openapi-current.json
+
+      - name: Upload OpenAPI specs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: openapi-specs
+          path: |
+            docs/openapi-baseline.json
+            docs/openapi-current.json
+          retention-days: 30
+
+  backend-build:
+    name: 🐳 Backend Docker Build
+    runs-on: ubuntu-latest
+    needs: [backend-lint, backend-test]
+    if: |
+      always() &&
+      (needs.backend-lint.result == 'success' || needs.backend-lint.result == 'skipped') &&
+      (needs.backend-test.result == 'success' || needs.backend-test.result == 'skipped')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Backend Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false
+          tags: purrfect-spots-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================================================
+  # FRONTEND JOBS
+  # ============================================================================
+  frontend-lint:
+    name: 🎨 Frontend Lint & Type Check
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.ci == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Run Type Check (TypeScript)
+        run: |
+          cd frontend
+          npm run type-check
+
+      - name: Run ESLint
+        run: |
+          cd frontend
+          npm run lint:check
+
+  frontend-test:
+    name: 🧪 Frontend Unit Tests
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.ci == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Run Vitest
+        run: |
+          cd frontend
+          npm run test:coverage
+
+      - name: Upload coverage HTML report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-coverage-report
+          path: frontend/coverage
+          retention-days: 14
+
+  frontend-build:
+    name: 📦 Frontend Build
+    runs-on: ubuntu-latest
+    needs: [frontend-lint, frontend-test]
+    if: |
+      always() &&
+      (needs.frontend-lint.result == 'success' || needs.frontend-lint.result == 'skipped') &&
+      (needs.frontend-test.result == 'success' || needs.frontend-test.result == 'skipped')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Build Production Bundle
+        run: |
+          cd frontend
+          npm run build
+        env:
+          VITE_API_BASE_URL: https://api.purrfect-spots.com
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/dist
+          retention-days: 7
+
+      - name: Analyze bundle size
+        run: |
+          cd frontend
+          echo "📊 Bundle Size Analysis"
+          echo "========================"
+          du -sh dist/
+          du -sh dist/assets/* || true
+
+  frontend-docker:
+    name: 🐳 Frontend Docker Build
+    runs-on: ubuntu-latest
+    needs: frontend-build
+    if: needs.frontend-build.result == 'success'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/dist
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Frontend Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: false
+          tags: purrfect-spots-frontend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================================================
+  # E2E TESTS
+  # ============================================================================
+  e2e-tests:
+    name: 🎭 E2E Tests (Playwright)
+    runs-on: ubuntu-latest
+    needs: [frontend-build, backend-test]
+    if: |
+      !inputs.skip_e2e &&
+      (github.event_name == 'push' || github.event_name == 'pull_request')
+    timeout-minutes: 30
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmagic1
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Install Playwright browsers
+        run: |
+          cd frontend
+          npx playwright install --with-deps chromium
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Download frontend build
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/dist
+
+      - name: Start backend server
+        env:
+          ENVIRONMENT: test
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test-secret-key-for-ci-minimum-32-chars
+          JWT_REFRESH_SECRET: test-refresh-secret-for-ci-minimum-32
+          SUPABASE_URL: https://test.supabase.co
+          SUPABASE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test
+          SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test
+        run: |
+          cd backend
+          uvicorn main:app --host 0.0.0.0 --port 8000 &
+          sleep 5
+          curl -f http://localhost:8000/health || exit 1
+
+      - name: Start frontend preview server
+        run: |
+          cd frontend
+          npx vite preview --port 5173 &
+          sleep 5
+          curl -f http://localhost:5173 || exit 1
+
+      - name: Run Playwright tests
+        run: |
+          cd frontend
+          npx playwright test --project=chromium --reporter=html
+        env:
+          VITE_API_BASE_URL: http://localhost:8000
+          CI: true
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          retention-days: 14
+
+      - name: Upload test screenshots
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-screenshots
+          path: frontend/test-results
+          retention-days: 7
+
+  # ============================================================================
+  # SECURITY SCANS
+  # ============================================================================
+  security-scan:
+    name: 🔒 Security Scan (Trivy)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner (filesystem)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+          ignore-unfixed: true
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  secret-scan:
+    name: 🔐 Secret Detection
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Trufflehog
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --only-verified
+
+  sast-scan:
+    name: 🛡️ SAST Scan (Semgrep)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/python
+            p/javascript
+            p/typescript
+            p/security-audit
+            p/owasp-top-ten
+          generateSarif: '1'
+        continue-on-error: true
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+
+  dependency-review:
+    name: 📦 Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC
+
+  # ============================================================================
+  # QUALITY GATES
+  # ============================================================================
+  quality-gate:
+    name: ✅ Quality Gate
+    runs-on: ubuntu-latest
+    needs:
+      - backend-lint
+      - backend-test
+      - api-contract-check
+      - frontend-lint
+      - frontend-test
+      - frontend-build
+      - security-scan
+      - secret-scan
+    if: always()
+    steps:
+      - name: Check all quality gates
+        run: |
+          echo "Checking quality gate status..."
+          
+          # Check backend jobs
+          if [ "${{ needs.backend-lint.result }}" = "failure" ]; then
+            echo "❌ Backend lint failed"
+            exit 1
+          fi
+          
+          if [ "${{ needs.backend-test.result }}" = "failure" ]; then
+            echo "❌ Backend tests failed"
+            exit 1
+          fi
+          
+          if [ "${{ needs.api-contract-check.result }}" = "failure" ]; then
+            echo "⚠️ API contract check failed (non-blocking)"
+          fi
+          
+          # Check frontend jobs
+          if [ "${{ needs.frontend-lint.result }}" = "failure" ]; then
+            echo "❌ Frontend lint failed"
+            exit 1
+          fi
+          
+          if [ "${{ needs.frontend-test.result }}" = "failure" ]; then
+            echo "❌ Frontend tests failed"
+            exit 1
+          fi
+          
+          if [ "${{ needs.frontend-build.result }}" = "failure" ]; then
+            echo "❌ Frontend build failed"
+            exit 1
+          fi
+          
+          # Check security jobs
+          if [ "${{ needs.security-scan.result }}" = "failure" ]; then
+            echo "❌ Security scan found vulnerabilities"
+            exit 1
+          fi
+          
+          if [ "${{ needs.secret-scan.result }}" = "failure" ]; then
+            echo "❌ Secret detection found issues"
+            exit 1
+          fi
+          
+          echo "✅ All quality gates passed!"
+
+  # ============================================================================
+  # BUILD SUMMARY
+  # ============================================================================
+  build-summary:
+    name: 📋 Build Summary
+    runs-on: ubuntu-latest
+    needs: [quality-gate, e2e-tests, backend-build, frontend-docker]
+    if: always()
+    steps:
+      - name: Create build summary
+        run: |
+          echo "## 🐱 Purrfect Spots CI/CD Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Quality Gate | ${{ needs.quality-gate.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| E2E Tests | ${{ needs.e2e-tests.result == 'success' && '✅ Passed' || needs.e2e-tests.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend Docker | ${{ needs.backend-build.result == 'success' && '✅ Built' || needs.backend-build.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend Docker | ${{ needs.frontend-docker.result == 'success' && '✅ Built' || needs.frontend-docker.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY

@@ -21,6 +21,9 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isLoading = ref(false);
   const error = ref<string | null>(null);
+  
+  // Singleton promise to avoid parallel refresh calls
+  let refreshPromise: Promise<boolean> | null = null;
 
   // ========== Getters ==========
   const hasCompleteProfile = computed(() => {
@@ -55,8 +58,9 @@ export const useAuthStore = defineStore('auth', () => {
         if (isValidUser(parsedUser)) {
           user.value = parsedUser;
         }
-      } catch (e) {
-        console.error('Failed to parse stored user data:', e);
+      } catch (_e) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to parse stored user data:', _e);
       }
     }
 
@@ -71,37 +75,53 @@ export const useAuthStore = defineStore('auth', () => {
    * Refresh access token using HttpOnly cookie
    */
   async function refreshToken(): Promise<boolean> {
-    try {
-      // Calls endpoint that reads HttpOnly cookie
-      const response = await apiV1.post<{ access_token: string, token_type: string, user?: User }>('/auth/refresh-token');
-      
-      if (response.access_token) {
-        token.value = response.access_token;
-        isAuthenticated.value = true;
+    // If a refresh is already in progress, return the existing promise
+    if (refreshPromise) {
+      return refreshPromise;
+    }
+
+    refreshPromise = (async () => {
+      try {
+        // Calls endpoint that reads HttpOnly cookie
+        const response = await apiV1.post<{ access_token: string, token_type: string, user?: User }>('/auth/refresh-token');
         
-        // Update user if returned
-        if (response.user) {
-          user.value = response.user;
-          localStorage.setItem('user_data', JSON.stringify(response.user));
+        if (response.access_token) {
+          token.value = response.access_token;
+          isAuthenticated.value = true;
+          
+          // Update user if returned
+          if (response.user) {
+            user.value = response.user;
+            localStorage.setItem('user_data', JSON.stringify(response.user));
+          }
+          
+          
+          // Update axios default header
+          updateApiHeader(response.access_token);
+
+          
+          return true;
+        }
+        return false;
+      } catch {
+        // Silent fail on init - just means not logged in
+        // eslint-disable-next-line no-console
+        console.debug('No active session found');
+        
+        // Only clear if we thought we were authenticated
+        // This avoids clearing the UX-fallback user data for guests
+        if (isAuthenticated.value) {
+          clearAuth();
         }
         
-        
-        // Update axios default header
-        updateApiHeader(response.access_token);
+        return false;
+      } finally {
+        // Clear the promise so next call can trigger a new refresh if needed
+        refreshPromise = null;
+      }
+    })();
 
-        
-        return true;
-      }
-      return false;
-    } catch (e) {
-      // Silent fail on init - just means not logged in
-      console.debug('No active session found');
-      // Only clear if we thought we were authenticated
-      if (isAuthenticated.value) {
-        clearAuth();
-      }
-      return false;
-    }
+    return refreshPromise;
   }
 
   function updateApiHeader(accessToken: string | null) {
@@ -118,12 +138,14 @@ export const useAuthStore = defineStore('auth', () => {
   /**
    * Validate user object shape
    */
-  function isValidUser(userData: any): userData is User {
+  function isValidUser(userData: unknown): userData is User {
+    if (typeof userData !== 'object' || userData === null) {
+      return false;
+    }
+    const obj = userData as Record<string, unknown>;
     return (
-      typeof userData === 'object' &&
-      userData !== null &&
-      typeof userData.id === 'string' &&
-      typeof userData.email === 'string'
+      typeof obj.id === 'string' &&
+      typeof obj.email === 'string'
     );
   }
 
@@ -171,7 +193,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       await ProfileService.getProfile();
       return true;
-    } catch (e) {
+    } catch {
       // If profile fetch failed, try one last refresh
       return await refreshToken();
     }

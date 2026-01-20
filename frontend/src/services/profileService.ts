@@ -10,6 +10,7 @@
  * @module ProfileService
  */
 import type { User } from '../types/auth';
+import type { CatLocation } from '../types/api';
 import { apiV1, ApiError } from '../utils/api';
 
 /**
@@ -114,9 +115,9 @@ export class ProfileService {
   }
 
   // Get user uploads
-  static async getUserUploads(): Promise<any[]> {
+  static async getUserUploads(): Promise<CatLocation[]> {
     try {
-      const result = await apiV1.get<{uploads: any[]}>('/profile/uploads');
+      const result = await apiV1.get<{uploads: CatLocation[]}>('/profile/uploads');
       return result.uploads || [];
     } catch (error) {
       if (error instanceof ApiError && error.statusCode === 401) {

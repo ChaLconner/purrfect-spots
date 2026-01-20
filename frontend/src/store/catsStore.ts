@@ -300,7 +300,6 @@ export function hasTag(location: CatLocation, tag: string): boolean {
 }
 
 // ========== Legacy exports for backward compatibility ==========
-import { storeToRefs } from 'pinia';
 
 let _store: ReturnType<typeof useCatsStore> | null = null;
 

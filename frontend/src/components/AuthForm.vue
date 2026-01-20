@@ -256,8 +256,9 @@ const handleSubmit = async () => {
     const redirectPath = sessionStorage.getItem('redirectAfterAuth') || '/upload';
     sessionStorage.removeItem('redirectAfterAuth');
     router.push(redirectPath);
-  } catch (err: any) {
-    showError(err.message || 'Something went wrong', 'Authentication Failed');
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Something went wrong';
+    showError(message, 'Authentication Failed');
   } finally {
     isLoading.value = false;
   }
@@ -291,11 +292,12 @@ const handleGoogleLogin = async () => {
     oauthUrl.searchParams.append('prompt', 'consent');
     
     window.location.href = oauthUrl.toString();
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (isDev()) {
       console.error('Google OAuth Error:', err);
     }
-    showError(err.message || 'Google sign-in failed', 'Google Login Error');
+    const message = err instanceof Error ? err.message : 'Google sign-in failed';
+    showError(message, 'Google Login Error');
     isLoading.value = false;
   }
 };

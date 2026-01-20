@@ -6,4 +6,8 @@ export interface Toast {
   title?: string;
   message: string;
   duration?: number; // ms, 0 for persistent
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
 }

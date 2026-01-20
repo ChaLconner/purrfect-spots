@@ -235,8 +235,7 @@ const closeModal = () => {
 
 const initializeMap = async () => {
   await nextTick();
-  // Small delay to ensure container is ready
-  await new Promise(resolve => setTimeout(resolve, 100));
+  // Ensure we don't have artificial delays that hurt LCP
   
   if (!isGoogleMapsLoaded()) {
     try {
@@ -250,22 +249,20 @@ const initializeMap = async () => {
         libraries: "places",
         version: "weekly"
       });
-    } catch (err: any) {
-      error.value = err.message;
-      showError(err.message);
+    } catch (err: unknown) {
+      error.value = (err as Error).message;
+      showError(error.value);
       return;
     }
   }
 
   try {
     let mapElement = document.getElementById("map");
-    let retries = 0;
     
     // Ensure map container exists
-    while (!mapElement && retries < 10) {
-      await new Promise(resolve => setTimeout(resolve, 100));
+    if (!mapElement) {
+      // Just one check, if it's not there, something is wrong with the template
       mapElement = document.getElementById("map");
-      retries++;
     }
     
     if (!mapElement) {
@@ -304,8 +301,9 @@ const initializeMap = async () => {
     
     updateMarkers(displayedLocations.value, selectCat);
     
-  } catch (err: any) {
-    error.value = `Failed to initialize map: ${err.message}`;
+  } catch (err: unknown) {
+    const message = (err as Error).message;
+    error.value = `Failed to initialize map: ${message}`;
     showError(error.value);
   }
 };
@@ -333,11 +331,8 @@ const loadCatLocations = async () => {
 
     setLocations(locations);
     
-    // Init map if not ready
-    setTimeout(() => {
-      initializeMap();
-      syncStateFromUrl();
-    }, 200);
+    // sync state from URL if needed
+    syncStateFromUrl();
 
   } catch (err: unknown) {
     // Error handling
@@ -496,8 +491,13 @@ onMounted(() => {
     type: 'website'
   });
   
-  // Parallel fetch: location + data
+  // Parallel fetch and initialization
   getCurrentPosition().then(() => startWatchingPosition());
+  
+  // Start map initialization immediately to improve LCP
+  initializeMap();
+  
+  // Load data concurrently
   loadCatLocations();
 });
 

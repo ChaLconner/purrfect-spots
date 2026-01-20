@@ -50,11 +50,12 @@ onErrorCaptured((error: Error, instance, info) => {
   errorStack.value = error.stack || '';
   
   // Report to Sentry if available
-  if (typeof window !== 'undefined' && (window as any).Sentry) {
-    (window as any).Sentry.captureException(error, {
+  const win = window as Window & { Sentry?: { captureException: (error: Error, context: Record<string, unknown>) => void } };
+  if (typeof window !== 'undefined' && win.Sentry) {
+    win.Sentry.captureException(error, {
       extra: {
         componentInfo: info,
-        componentName: instance?.$options?.name || 'Unknown',
+        componentName: (instance as { $options?: { name?: string } } | null)?.$options?.name || 'Unknown',
         timestamp: new Date().toISOString()
       },
       tags: {

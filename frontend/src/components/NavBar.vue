@@ -2,9 +2,9 @@
 import { ref, onMounted, onUnmounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useAuthStore } from "../store/authStore";
-import { catStore, catCount, setSearchQuery } from "../store/cats";
+import { catCount, setSearchQuery } from "../store/cats";
 import { AuthService } from "../services/authService";
-import { showError, showSuccess } from "../store/toast";
+import { showSuccess } from "../store/toast";
 import { isDev } from "../utils/env";
 
 // Icons

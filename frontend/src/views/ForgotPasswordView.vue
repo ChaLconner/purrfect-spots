@@ -79,8 +79,8 @@ const handleSubmit = async () => {
         await apiV1.post('/auth/forgot-password', { email: email.value });
         showSuccess('If an account exists, you will receive an email shortly.', 'Check your inbox');
         // We don't clear email or redirect immediately so user can see message
-    } catch (err: any) {
-        showError(err.message || 'Something went wrong', 'Error');
+    } catch (err: unknown) {
+        showError((err as Error).message || 'Something went wrong', 'Error');
     } finally {
         isLoading.value = false;
     }

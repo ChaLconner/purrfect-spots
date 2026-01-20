@@ -7,7 +7,7 @@
         style="animation-duration: 3s;"
       ></div>
       <h3 class="relative text-3xl md:text-5xl font-bold text-white drop-shadow-sm font-serif tracking-wide leading-tight">
-        <span v-html="formattedTitle"></span>
+        <span class="whitespace-pre-line">{{ title }}</span>
       </h3>
     </div>
 
@@ -29,9 +29,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-
-const props = defineProps({
+defineProps({
   title: {
     type: String,
     default: 'Something went\nwrong'
@@ -48,9 +46,6 @@ const props = defineProps({
 
 defineEmits(['retry']);
 
-const formattedTitle = computed(() => {
-  return props.title.replace(/\n/g, '<br/>');
-});
 </script>
 
 <style scoped>

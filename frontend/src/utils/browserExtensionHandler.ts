@@ -4,6 +4,7 @@
  * This utility provides centralized handling for browser extension conflicts
  * that cause "message channel closed" errors and similar issues.
  */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { isDev } from './env';
 

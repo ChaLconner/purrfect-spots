@@ -1,16 +1,18 @@
 import pytest
+
 from exceptions import (
-    PurrfectSpotsException,
-    ValidationError,
     AuthenticationError,
     AuthorizationError,
-    RateLimitError,
-    NotFoundError,
+    CatDetectionError,
     ConflictError,
     ExternalServiceError,
     FileProcessingError,
-    CatDetectionError,
+    NotFoundError,
+    PurrfectSpotsException,
+    RateLimitError,
+    ValidationError,
 )
+
 
 def test_base_exception():
     exc = PurrfectSpotsException("Something wrong", status_code=501, error_code="TEST_ERROR", details={"foo": "bar"})

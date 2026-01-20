@@ -1,7 +1,7 @@
-import { ref, shallowRef, watch, nextTick } from 'vue';
+import { ref, shallowRef, watch } from 'vue';
 import { getGoogleMaps, loadGoogleMaps } from '../utils/googleMapsLoader';
 import { getEnvVar } from '../utils/env';
-import { showError } from '../store/toast';
+import { showError, addToast } from '../store/toast';
 
 interface Coordinates {
   lat: number;
@@ -26,8 +26,8 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
   
   const mapCenter = shallowRef<Coordinates>(DEFAULT_MAP_CENTER);
   
-  const mapInstance = shallowRef<any>(null);
-  const mapMarker = shallowRef<any>(null);
+  const mapInstance = shallowRef<google.maps.Map | null>(null);
+  const mapMarker = shallowRef<google.maps.Marker | null>(null);
   const gettingLocation = ref(false);
   const mapElementId = options.mapElementId || "uploadMap";
 
@@ -63,7 +63,7 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
     }
   };
 
-  const createMarkerWithHover = (position: Coordinates, title: string, map: any) => {
+  const createMarkerWithHover = (position: Coordinates, title: string, map: google.maps.Map) => {
     const googleMaps = getGoogleMaps();
     if (!googleMaps) return null;
     
@@ -120,13 +120,15 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
       // Don't create marker initially - wait for user to select location
       // Marker will be created when user clicks on map or uses "Get My Location"
       
-      mapInstance.value.addListener('click', (event: any) => {
-        const lat = event.latLng.lat();
-        const lng = event.latLng.lng();
-        setCoordinates(lat, lng);
+      mapInstance.value.addListener('click', (event: google.maps.MapMouseEvent) => {
+        if (event.latLng) {
+          const lat = event.latLng.lat();
+          const lng = event.latLng.lng();
+          setCoordinates(lat, lng);
+        }
       });
       
-    } catch (err) {
+    } catch {
       if (mapInitializationAttempts < 3) {
         const backoffDelay = 2000 * Math.pow(2, mapInitializationAttempts);
         mapInitializationAttempts++;
@@ -147,15 +149,17 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
     
     if (mapMarker.value) {
       mapMarker.value.setDraggable(true);
-      mapMarker.value.addListener('dragend', (event: any) => {
-        const lat = event.latLng.lat();
-        const lng = event.latLng.lng();
-        setCoordinates(lat, lng);
+      mapMarker.value.addListener('dragend', (event: google.maps.MapMouseEvent) => {
+        if (event.latLng) {
+          const lat = event.latLng.lat();
+          const lng = event.latLng.lng();
+          setCoordinates(lat, lng);
+        }
       });
     }
   };
 
-  let mapUpdateDebounce: any = null;
+  let mapUpdateDebounce: ReturnType<typeof setTimeout> | null = null;
   const debouncedUpdateMap = () => {
     if (!mapInstance.value) return;
     if (mapUpdateDebounce) clearTimeout(mapUpdateDebounce);
@@ -174,11 +178,31 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
     }, 16);
   };
 
-  const getCurrentLocation = (silent = false) => {
+  // Fetch approximate location from IP geolocation API
+  const getApproximateLocationFromIP = async (): Promise<Coordinates | null> => {
+    try {
+      // Using ipapi.co (free tier, HTTPS, allowed by CSP)
+      const response = await fetch('https://ipapi.co/json/');
+      if (!response.ok) return null;
+      
+      const data = await response.json();
+      if (data.latitude && data.longitude) {
+        return { lat: data.latitude, lng: data.longitude };
+      }
+      return null;
+    } catch {
+      // If API fails, return null to use default
+      return null;
+    }
+  };
+
+  const getCurrentLocation = async (silent = false) => {
     gettingLocation.value = true;
 
     if (!navigator.geolocation) {
       if (!silent) showError("Geolocation is not supported by your browser.");
+      // Fallback: try IP geolocation, then default
+      await setApproximateLocationMarker(silent);
       gettingLocation.value = false;
       return;
     }
@@ -196,12 +220,52 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
         setCoordinates(lat, lng);
         gettingLocation.value = false;
       },
-      (err) => {
-        if (!silent) showError("Unable to get location. Please allow location access.");
+      async (_err) => {
+        if (!silent) showError("Unable to get precise location. Using approximate location.");
+        // Fallback: try IP geolocation, then default
+        await setApproximateLocationMarker(silent);
         gettingLocation.value = false;
       },
       geoOptions
     );
+  };
+
+  // Helper to set marker at approximate location from IP or default
+  const setApproximateLocationMarker = async (silent = false) => {
+    if (!mapInstance.value) return;
+    
+    // Try to get approximate location from IP
+    const approximatePos = await getApproximateLocationFromIP();
+    const position = approximatePos || DEFAULT_MAP_CENTER;
+    
+    // Create marker if it doesn't exist
+    if (!mapMarker.value) {
+      createDraggableMarker(position);
+    }
+    
+    // Update marker position
+    if (mapMarker.value) {
+      mapMarker.value.setPosition(position);
+    }
+    
+    // Center map on position
+    mapInstance.value.setCenter(position);
+    
+    // Use different zoom levels based on whether we got IP location
+    if (approximatePos) {
+      mapInstance.value.setZoom(12); // Closer zoom for IP-based location
+      if (!silent) {
+        // Show info that this is approximate location
+        addToast("Showing approximate location based on your network. Please adjust the marker to the exact location.", "info", 6000, "Approximate Location");
+      }
+    } else {
+      mapInstance.value.setZoom(10); // Wider zoom for default location
+    }
+    
+    // Mark as having a selected location so user can see they need to adjust
+    latitude.value = position.lat.toFixed(6);
+    longitude.value = position.lng.toFixed(6);
+    hasSelectedLocation.value = true;
   };
 
   // Watch for external coordinate changes

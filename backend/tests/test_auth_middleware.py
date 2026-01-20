@@ -1,19 +1,21 @@
-import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
 import os
 import sys
 import time
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 from fastapi import HTTPException
+
 from middleware.auth_middleware import (
-    get_jwks,
-    decode_supabase_token,
-    decode_custom_token,
     _get_user_from_payload,
     _verify_and_decode_token,
-    get_current_user_from_credentials,
+    decode_custom_token,
+    decode_supabase_token,
     get_current_user,
+    get_current_user_from_credentials,
+    get_current_user_from_header,
     get_current_user_optional,
-    get_current_user_from_header
+    get_jwks,
 )
 from user_models.user import User
 
@@ -116,13 +118,17 @@ async def test_decode_supabase_token_missing_kid(mock_env, mock_jwks_response):
 # --- Tests for decode_custom_token ---
 
 def test_decode_custom_token_success(mock_env):
-    with patch("jwt.decode", return_value={"sub": "user123"}) as mock_decode:
-        payload = decode_custom_token("token")
-        assert payload["sub"] == "user123"
-        mock_decode.assert_called_with("token", "supersecretkey", algorithms=["HS256"])
+    with patch("middleware.auth_middleware.config.JWT_SECRET", "supersecretkey"):
+        with patch("jwt.decode", return_value={"sub": "user123"}) as mock_decode:
+            payload = decode_custom_token("token")
+            assert payload["sub"] == "user123"
+            mock_decode.assert_called()
+            args = mock_decode.call_args
+            assert args[0][0] == "token"
+            assert args[0][1] == "supersecretkey"
 
 def test_decode_custom_token_no_secret():
-    with patch.dict(os.environ, {}, clear=True):
+    with patch("middleware.auth_middleware.config.JWT_SECRET", None):
         with pytest.raises(HTTPException) as exc:
             decode_custom_token("token")
         assert exc.value.status_code == 500
@@ -179,10 +185,7 @@ def test_get_user_from_payload_db_success(mock_env):
         "id": "user123", "email": "db@example.com", "name": "DB User", "picture": "db.jpg", "bio": "Hello", "created_at": None
     }
     
-    mock_deps = MagicMock()
-    mock_deps.get_supabase_admin_client.return_value = mock_sb
-    
-    with patch.dict(sys.modules, {"dependencies": mock_deps}):
+    with patch("middleware.auth_middleware.get_supabase_admin_client", return_value=mock_sb):
          user = _get_user_from_payload(payload, "supabase")
          assert user.email == "db@example.com"
          assert user.bio == "Hello"

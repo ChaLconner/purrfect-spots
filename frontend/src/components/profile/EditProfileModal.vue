@@ -81,7 +81,7 @@ const handleFileSelect = async (event: Event) => {
       editForm.picture = imageUrl;
       showSuccess('Photo uploaded!');
       announce('Profile photo uploaded successfully');
-    } catch (error) {
+    } catch {
       showError('Failed to upload photo');
     } finally {
       isUploading.value = false;
@@ -114,8 +114,9 @@ const updatePassword = async () => {
     passwordForm.new = '';
     passwordForm.confirm = '';
     showPasswordSection.value = false;
-  } catch (error: any) {
-    showError(error.message || 'Failed to update password');
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to update password';
+    showError(message);
   } finally {
     isUpdatingPassword.value = false;
   }

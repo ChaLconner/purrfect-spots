@@ -1,0 +1,87 @@
+# ==============================================================================
+# GitHub CODEOWNERS
+# ==============================================================================
+# Defines who is responsible for code in the repository
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# ==============================================================================
+# Default Owners
+# ==============================================================================
+# These people will be requested for review when changes are made
+# to files that don't match more specific patterns below
+
+* @purrfect-spots/core-team
+
+# ==============================================================================
+# Backend Code
+# ==============================================================================
+/backend/ @purrfect-spots/backend-team
+
+# Backend API routes
+/backend/routes/ @purrfect-spots/backend-team
+
+# Backend services
+/backend/services/ @purrfect-spots/backend-team
+
+# ==============================================================================
+# Frontend Code
+# ==============================================================================
+/frontend/ @purrfect-spots/frontend-team
+
+# Frontend components
+/frontend/src/components/ @purrfect-spots/frontend-team
+
+# Frontend views/pages
+/frontend/src/views/ @purrfect-spots/frontend-team
+
+# ==============================================================================
+# Security-Sensitive Files (CRITICAL)
+# ==============================================================================
+# These files require security team review
+
+# Authentication and authorization
+/backend/middleware/auth_middleware.py @purrfect-spots/security
+/backend/middleware/csrf_middleware.py @purrfect-spots/security
+/backend/middleware/security_middleware.py @purrfect-spots/security
+/backend/services/auth_service.py @purrfect-spots/security
+/backend/services/token_service.py @purrfect-spots/security
+
+# Security utilities
+/backend/utils/security.py @purrfect-spots/security
+/backend/utils/db_security.py @purrfect-spots/security
+
+# Configuration
+/backend/config.py @purrfect-spots/security
+
+# ==============================================================================
+# Infrastructure & DevOps
+# ==============================================================================
+/.github/ @purrfect-spots/devops
+/.github/workflows/ @purrfect-spots/devops
+
+# Docker configurations
+**/Dockerfile @purrfect-spots/devops
+**/docker-compose*.yml @purrfect-spots/devops
+
+# Vercel deployments
+**/vercel.json @purrfect-spots/devops
+
+# ==============================================================================
+# Environment & Secrets (CRITICAL)
+# ==============================================================================
+# Any changes to environment files require security review
+
+*.env* @purrfect-spots/security
+.env.example @purrfect-spots/security
+**/.env* @purrfect-spots/security
+
+# ==============================================================================
+# Database & Migrations
+# ==============================================================================
+/backend/migrations/ @purrfect-spots/backend-team @purrfect-spots/security
+
+# ==============================================================================
+# Documentation
+# ==============================================================================
+/docs/ @purrfect-spots/core-team
+*.md @purrfect-spots/core-team

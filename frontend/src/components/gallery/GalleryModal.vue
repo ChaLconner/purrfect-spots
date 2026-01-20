@@ -168,7 +168,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onUnmounted, onMounted, computed } from 'vue';
+import { ref, watch, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import SkeletonLoader from '@/components/ui/SkeletonLoader.vue';
 import { extractTags, getCleanDescription, setSearchQuery, type CatLocation } from '@/store/cats';

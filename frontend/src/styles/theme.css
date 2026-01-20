@@ -1,13 +1,36 @@
 /**
  * Theme - CSS Custom Properties
  * 
- * Note: Core design tokens are now defined in tailwind.config.js
- * and usage should rely on Tailwind utility classes.
+ * Note: Core design tokens are defined using Tailwind CSS v4's
+ * CSS-based configuration via @tailwindcss/vite plugin.
  */
 
 @theme {
-  /* 
-   * Transition mappings for backwards compatibility if needed, 
-   * but prefer using Tailwind utilites directly.
-   */
+  /* Colors - Ghibli Palette */
+  --color-cream: #F4EBD0;
+  --color-cream-light: #FAF6EC;
+  --color-cream-dark: #E8DFC4;
+
+  --color-brown: #A65D37;
+  --color-brown-light: #C4855C;
+  --color-brown-dark: #8B4D2D;
+
+  --color-sage: #95A792;
+  --color-sage-light: #B3C4B0;
+  --color-sage-dark: #6D8B6A;
+
+  --color-terracotta: #C97B49;
+  --color-terracotta-light: #E09A6B;
+  --color-terracotta-dark: #A85D2E;
+
+  /* Semantic Aliases */
+  --color-primary: #A65D37;
+  --color-secondary: #95A792;
+  --color-accent: #C97B49;
+
+  /* Fonts */
+  --font-heading: "Quicksand", sans-serif;
+  --font-body: "Montserrat", sans-serif;
+  --font-accent: "Zen Maru Gothic", sans-serif;
+  --font-zen-maru: "Zen Maru Gothic", sans-serif;
 }

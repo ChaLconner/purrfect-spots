@@ -10,11 +10,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-
 const starCount = 12; // Increased count for better distribution
 
-const getStarStyle = (n: number) => {
+const getStarStyle = (_n: number) => {
   // Randomize start position across the entire container
   const top = Math.random() * 120 - 20; // Start from -20% to 100% height
   const left = Math.random() * 140 - 20; // Start from -20% to 120% width

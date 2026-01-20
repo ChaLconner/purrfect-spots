@@ -58,6 +58,7 @@ export function useGeolocation() {
             permissionDenied.value = true;
         }
         
+        // eslint-disable-next-line no-console
         console.debug('Geolocation error/denied:', msg);
         // Try fallback
         const fallbackCoords = await getIpLocation();

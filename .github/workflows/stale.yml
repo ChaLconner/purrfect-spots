@@ -1,0 +1,82 @@
+# ==============================================================================
+# Purrfect Spots - Stale Issue/PR Management
+# ==============================================================================
+# Automatically marks and closes stale issues and pull requests
+# ==============================================================================
+
+name: Stale Issues
+
+on:
+  schedule:
+    # Run every day at 1:00 AM UTC
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    name: Mark Stale Issues and PRs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark stale issues and PRs
+        uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          
+          # Issue configuration
+          stale-issue-message: |
+            👋 This issue has been automatically marked as stale because it has not had
+            any activity in the last 30 days. It will be closed in 14 days if no further
+            activity occurs.
+            
+            If this issue is still relevant, please:
+            - Comment with an update on the status
+            - Add the `keep-open` label to prevent auto-closing
+            
+            Thank you for your contributions! 🐱
+          
+          stale-issue-label: 'stale'
+          days-before-issue-stale: 30
+          days-before-issue-close: 14
+          
+          # PR configuration
+          stale-pr-message: |
+            👋 This pull request has been automatically marked as stale because it has not had
+            any activity in the last 14 days. It will be closed in 7 days if no further
+            activity occurs.
+            
+            If this PR is still in progress, please:
+            - Push new commits
+            - Comment with an update
+            - Add the `work-in-progress` label
+            
+            Thank you for your contributions! 🐱
+          
+          stale-pr-label: 'stale'
+          days-before-pr-stale: 14
+          days-before-pr-close: 7
+          
+          # Exempt labels - these will not be marked as stale
+          exempt-issue-labels: 'keep-open,bug,security,critical,in-progress'
+          exempt-pr-labels: 'keep-open,work-in-progress,blocked,needs-review'
+          
+          # Do not mark as stale if any of these labels are present
+          exempt-all-milestones: true
+          
+          # Limit operations per run
+          operations-per-run: 100
+          
+          # Remove stale label when activity occurs
+          remove-stale-when-updated: true
+          
+          # Close message
+          close-issue-message: |
+            🔒 This issue was automatically closed because it has been stale for too long.
+            Feel free to re-open it if still relevant!
+          
+          close-pr-message: |
+            🔒 This pull request was automatically closed because it has been stale for too long.
+            Feel free to re-open it or create a new PR if the changes are still relevant!

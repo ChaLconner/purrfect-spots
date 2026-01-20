@@ -18,7 +18,7 @@ export function useUploadCat() {
       description?: string;
       tags?: string[];
     },
-    catDetectionData?: any
+    catDetectionData?: Record<string, unknown>
   ) => {
     try {
       isUploading.value = true;
@@ -35,6 +35,7 @@ export function useUploadCat() {
       // Get image dimensions
       const dimensions = await getImageDimensions(file);
       if (isDev()) {
+        // eslint-disable-next-line no-console
         console.log('Original image dimensions:', dimensions);
       }
 

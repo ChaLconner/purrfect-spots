@@ -92,8 +92,8 @@ class TestRegisterEndpoint:
             },
         )
 
-        assert response.status_code == 400
-        assert "8 characters" in response.json()["detail"]
+        assert response.status_code == 422
+        assert "8 characters" in str(response.json()["detail"])
 
     def test_register_password_no_special_chars_allowed(self, client, mock_auth_service, mock_limiter):
         """Test registration succeeds with password that has no numbers (policy: 8+ chars only)"""
@@ -210,7 +210,8 @@ class TestRefreshTokenEndpoint:
 
     def test_refresh_token_success(self, client, mock_auth_service):
         """Test successful token refresh"""
-        mock_auth_service.verify_refresh_token.return_value = {"user_id": "test-user-id"}
+        from unittest.mock import AsyncMock
+        mock_auth_service.verify_refresh_token = AsyncMock(return_value={"user_id": "test-user-id"})
         mock_auth_service.create_access_token.return_value = "new-access-token"
 
         # Set refresh token cookie
@@ -231,7 +232,8 @@ class TestRefreshTokenEndpoint:
 
     def test_refresh_token_invalid(self, client, mock_auth_service):
         """Test refresh fails with invalid token"""
-        mock_auth_service.verify_refresh_token.return_value = None
+        from unittest.mock import AsyncMock
+        mock_auth_service.verify_refresh_token = AsyncMock(return_value=None)
 
         client.cookies.set("refresh_token", "invalid-token")
         response = client.post("/api/v1/auth/refresh-token")
@@ -242,9 +244,13 @@ class TestRefreshTokenEndpoint:
 class TestLogoutEndpoint:
     """Tests for POST /auth/logout"""
 
-    def test_logout_success(self, client):
+    def test_logout_success(self, client, mock_auth_service):
         """Test successful logout clears cookie"""
         client.cookies.set("refresh_token", "some-token")
+        
+        from unittest.mock import AsyncMock
+        mock_auth_service.verify_refresh_token = AsyncMock(return_value={"jti": "J", "user_id": "U", "exp": 123})
+        mock_auth_service.revoke_token = AsyncMock(return_value=True)
 
         response = client.post("/api/v1/auth/logout")
 

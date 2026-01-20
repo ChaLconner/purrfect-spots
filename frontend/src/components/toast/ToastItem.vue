@@ -36,26 +36,26 @@ const styles = computed(() => {
     case 'success': 
       return {
         wrapper: 'bg-[#FAF6EC] shadow-md', 
-        iconWrapper: 'text-[#6D8B6A]',
+        iconColor: '#6D8B6A',
         titleColor: '#2F3E2F'
       };
     case 'error': 
       return {
         wrapper: 'bg-[#FFF5F5] shadow-md', 
-        iconWrapper: 'text-[#C75B5B]',
+        iconColor: '#C75B5B',
         titleColor: '#5C2B2B'
       };
     case 'warning': 
       return {
         wrapper: 'bg-[#FFF9F5] shadow-md', 
-        iconWrapper: 'text-[#C97B49]',
+        iconColor: '#C97B49',
         titleColor: '#5C3A2B'
       };
     case 'info':
     default: 
       return {
         wrapper: 'bg-[#F4EBD0] shadow-md', 
-        iconWrapper: 'text-[#95A792]',
+        iconColor: '#95A792',
         titleColor: '#3A4439'
       };
   }
@@ -79,40 +79,28 @@ const styles = computed(() => {
       >
       </div>
 
-      <div class="shrink-0">
-        <div class="w-10 h-10 rounded-full flex items-center justify-center" :class="styles.iconWrapper">
-          <!-- Cute Cat/Paw Icon replacement or standard rounded icons -->
-          
-          <!-- Success: Paw -->
-          <svg v-if="toast.type === 'success'" class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM10 17L5 12L6.41 10.59L10 14.17L17.59 6.58L19 8L10 17Z" />
-          </svg>
-
-          <!-- Error: Round Close -->
-          <svg v-else-if="toast.type === 'error'" class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.47 2 2 6.47 2 12C2 17.53 6.47 22 12 22C17.53 22 22 17.53 22 12C22 6.47 17.53 2 12 2ZM17 15.59L15.59 17L12 13.41L8.41 17L7 15.59L10.59 12L7 8.41L8.41 7L12 10.59L15.59 7L17 8.41L13.41 12L17 15.59Z" />
-          </svg>
-
-          <!-- Warning: Round Exclamation -->
-          <svg v-else-if="toast.type === 'warning'" class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z" />
-          </svg>
-
-          <!-- Info: Round Info -->
-          <svg v-else class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13 17H11V11H13V17ZM13 9H11V7H13V9Z" />
-          </svg>
-        </div>
-      </div>
-
-      <div class="ml-4 w-0 flex-1">
+      <div class="flex-1">
         <p v-if="toast.title" class="text-sm font-bold tracking-wide" :style="{ color: styles.titleColor }">{{ toast.title }}</p>
         <p class="text-sm mt-0.5 text-brown-dark opacity-80 font-medium leading-relaxed">
           {{ toast.message }}
         </p>
       </div>
 
-      <div class="ml-2 flex shrink-0">
+      <div class="ml-4 flex items-center shrink-0 space-x-2">
+        <!-- Action Button -->
+        <button 
+          v-if="toast.action"
+          class="px-3 py-1 text-xs font-bold rounded-full transition-all duration-200 hover:brightness-95 active:scale-95 shadow-sm"
+          :style="{ 
+            backgroundColor: styles.iconColor,
+            color: '#fff' 
+          }"
+          @click="toast.action.onClick"
+        >
+          {{ toast.action.label }}
+        </button>
+
+        <!-- Close Button -->
         <button 
           class="inline-flex rounded-full bg-transparent p-1 text-brown/50 hover:text-brown hover:bg-black/5 focus:outline-none transition-all"
           @click="close"

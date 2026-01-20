@@ -38,9 +38,9 @@ class TestGalleryService:
             service.supabase_admin = mock_supabase_admin
             return service
 
-    def test_get_all_photos_empty(self, gallery_service, mock_supabase_admin):
+    def test_get_all_photos_empty(self, gallery_service, mock_supabase):
         """Test getting photos when database is empty"""
-        mock_supabase_admin.execute.return_value = MagicMock(data=[], count=0)
+        mock_supabase.execute.return_value = MagicMock(data=[], count=0)
 
         result = gallery_service.get_all_photos()
 
@@ -49,10 +49,10 @@ class TestGalleryService:
         assert result["has_more"] is False
 
     def test_get_all_photos_with_data(
-        self, gallery_service, mock_supabase_admin, mock_cat_photo
+        self, gallery_service, mock_supabase, mock_cat_photo
     ):
         """Test getting photos with existing data"""
-        mock_supabase_admin.execute.return_value = MagicMock(
+        mock_supabase.execute.return_value = MagicMock(
             data=[mock_cat_photo], count=1
         )
 
@@ -64,10 +64,10 @@ class TestGalleryService:
         assert result["offset"] == 0
 
     def test_get_all_photos_pagination(
-        self, gallery_service, mock_supabase_admin, mock_cat_photo
+        self, gallery_service, mock_supabase, mock_cat_photo
     ):
         """Test pagination parameters"""
-        mock_supabase_admin.execute.return_value = MagicMock(
+        mock_supabase.execute.return_value = MagicMock(
             data=[mock_cat_photo], count=50
         )
 
@@ -78,9 +78,9 @@ class TestGalleryService:
         assert result["total"] == 50
         assert result["has_more"] is True  # 20 + 1 < 50
 
-    def test_get_all_photos_limit_clamping(self, gallery_service, mock_supabase_admin):
+    def test_get_all_photos_limit_clamping(self, gallery_service, mock_supabase):
         """Test that limit is clamped to valid range"""
-        mock_supabase_admin.execute.return_value = MagicMock(data=[], count=0)
+        mock_supabase.execute.return_value = MagicMock(data=[], count=0)
 
         # Test max limit clamping
         result = gallery_service.get_all_photos(limit=500)
@@ -91,10 +91,10 @@ class TestGalleryService:
         assert result["limit"] == 1  # Min is 1
 
     def test_get_all_photos_simple(
-        self, gallery_service, mock_supabase_admin, mock_cat_photo
+        self, gallery_service, mock_supabase, mock_cat_photo
     ):
         """Test simple get all photos without pagination"""
-        mock_supabase_admin.execute.return_value = MagicMock(data=[mock_cat_photo])
+        mock_supabase.execute.return_value = MagicMock(data=[mock_cat_photo])
 
         result = gallery_service.get_all_photos_simple()
 
@@ -103,10 +103,10 @@ class TestGalleryService:
         assert result[0]["id"] == mock_cat_photo["id"]
 
     def test_search_photos_by_query(
-        self, gallery_service, mock_supabase_admin, mock_cat_photo
+        self, gallery_service, mock_supabase, mock_cat_photo
     ):
         """Test searching photos by text query (using ILIKE fallback)"""
-        mock_supabase_admin.execute.return_value = MagicMock(data=[mock_cat_photo])
+        mock_supabase.execute.return_value = MagicMock(data=[mock_cat_photo])
 
         # Use use_fulltext=False to test ILIKE search path
         result = gallery_service.search_photos(query="Cat Spot", use_fulltext=False)
@@ -115,10 +115,10 @@ class TestGalleryService:
         assert result[0]["location_name"] == "Test Cat Spot"
 
     def test_search_photos_by_tags(
-        self, gallery_service, mock_supabase_admin, mock_cat_photo
+        self, gallery_service, mock_supabase, mock_cat_photo
     ):
         """Test searching photos by tags"""
-        mock_supabase_admin.execute.return_value = MagicMock(data=[mock_cat_photo])
+        mock_supabase.execute.return_value = MagicMock(data=[mock_cat_photo])
 
         # Tags-only search uses ILIKE path
         result = gallery_service.search_photos(
@@ -128,10 +128,10 @@ class TestGalleryService:
         assert len(result) == 1
 
     def test_search_photos_combined(
-        self, gallery_service, mock_supabase_admin, mock_cat_photo
+        self, gallery_service, mock_supabase, mock_cat_photo
     ):
         """Test combined text and tag search"""
-        mock_supabase_admin.execute.return_value = MagicMock(data=[mock_cat_photo])
+        mock_supabase.execute.return_value = MagicMock(data=[mock_cat_photo])
 
         result = gallery_service.search_photos(
             query="Cat", tags=["orange"], use_fulltext=False
@@ -139,17 +139,17 @@ class TestGalleryService:
 
         assert len(result) == 1
 
-    def test_search_photos_empty_result(self, gallery_service, mock_supabase_admin):
+    def test_search_photos_empty_result(self, gallery_service, mock_supabase):
         """Test search with no results"""
-        mock_supabase_admin.execute.return_value = MagicMock(data=[])
+        mock_supabase.execute.return_value = MagicMock(data=[])
 
         result = gallery_service.search_photos(query="nonexistent", use_fulltext=False)
 
         assert result == []
 
-    def test_get_popular_tags(self, gallery_service, mock_supabase_admin):
+    def test_get_popular_tags(self, gallery_service, mock_supabase):
         """Test getting popular tags"""
-        mock_supabase_admin.execute.return_value = MagicMock(
+        mock_supabase.execute.return_value = MagicMock(
             data=[
                 {"tags": ["orange", "cute"], "description": "#orange #cute"},
                 {"tags": ["orange", "sleeping"], "description": "#orange #sleeping"},
@@ -167,45 +167,45 @@ class TestGalleryService:
                 result[0]["count"] >= result[-1]["count"] if len(result) > 1 else True
             )
 
-    def test_get_popular_tags_empty(self, gallery_service, mock_supabase_admin):
+    def test_get_popular_tags_empty(self, gallery_service, mock_supabase):
         """Test getting popular tags when no photos exist"""
-        mock_supabase_admin.execute.return_value = MagicMock(data=[])
+        mock_supabase.execute.return_value = MagicMock(data=[])
 
         result = gallery_service.get_popular_tags()
 
         assert result == []
 
     def test_get_user_photos(
-        self, gallery_service, mock_supabase_admin, mock_cat_photo
+        self, gallery_service, mock_supabase, mock_cat_photo
     ):
         """Test getting photos for a specific user"""
-        mock_supabase_admin.execute.return_value = MagicMock(data=[mock_cat_photo])
+        mock_supabase.execute.return_value = MagicMock(data=[mock_cat_photo])
 
         result = gallery_service.get_user_photos("test-user-123")
 
         assert len(result) == 1
         assert result[0]["user_id"] == "test-user-123"
 
-    def test_get_user_photos_empty(self, gallery_service, mock_supabase_admin):
+    def test_get_user_photos_empty(self, gallery_service, mock_supabase):
         """Test getting photos for user with no uploads"""
-        mock_supabase_admin.execute.return_value = MagicMock(data=[])
+        mock_supabase.execute.return_value = MagicMock(data=[])
 
         result = gallery_service.get_user_photos("user-with-no-photos")
 
         assert result == []
 
-    def test_get_all_photos_error_handling(self, gallery_service, mock_supabase_admin):
+    def test_get_all_photos_error_handling(self, gallery_service, mock_supabase):
         """Test error handling in get_all_photos"""
-        mock_supabase_admin.execute.side_effect = Exception("Database error")
+        mock_supabase.execute.side_effect = Exception("Database error")
 
         with pytest.raises(Exception) as excinfo:
             gallery_service.get_all_photos()
 
         assert "Failed to fetch gallery images" in str(excinfo.value)
 
-    def test_search_photos_error_handling(self, gallery_service, mock_supabase_admin):
+    def test_search_photos_error_handling(self, gallery_service, mock_supabase):
         """Test error handling in search_photos"""
-        mock_supabase_admin.execute.side_effect = Exception("Database error")
+        mock_supabase.execute.side_effect = Exception("Database error")
 
         with pytest.raises(Exception) as excinfo:
             # Force ILIKE search to test error handling

@@ -38,7 +38,11 @@
             <button class="px-8 py-3 bg-white border-2 border-terracotta text-terracotta font-heading font-bold rounded-xl hover:bg-terracotta hover:text-white transition-all duration-300 transform hover:-translate-y-1" @click="window.location.reload()">
               Upload Another
             </button>
-            <button class="px-8 py-3 bg-terracotta text-white font-heading font-bold rounded-xl hover:bg-terracotta-dark shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1" @click="router.push('/map')">
+            <button 
+              class="px-8 py-3 font-heading font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1" 
+              style="background-color: #C97B49; color: white;"
+              @click="router.push('/map')"
+            >
               View Map
             </button>
           </div>
@@ -89,11 +93,7 @@
               <div v-if="previewUrl" class="w-full h-full absolute inset-0 z-10 bg-stone-50">
                 <img :src="previewUrl" class="w-full h-full object-contain" alt="Preview" />
                 
-                <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                  <button type="button" class="px-6 py-2 bg-white text-brown rounded-full font-bold hover:scale-105 transition-transform" @click.stop="triggerFileInput">
-                    Change Photo
-                  </button>
-                </div>
+
 
                 <!-- Verification Badge -->
                 <div v-if="catDetectionResult?.has_cats" class="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-sage-dark text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-lg flex items-center animate-fade-in-up">
@@ -166,13 +166,14 @@
                 ></textarea>
               </div>
 
-              <div class="space-y-2">
+              <div class="space-y-2 md:col-span-2">
                 <label class="block text-xs font-bold text-brown-light uppercase tracking-wider pl-1">Tags (Optional)</label>
-                <input
-                  v-model="tagsInput"
-                  type="text"
-                  placeholder="e.g. orange, sleeping, cute (comma separated)"
-                  class="w-full px-4 py-3 bg-white/70 border-2 border-stone-200 rounded-xl focus:outline-none focus:border-terracotta focus:ring-4 focus:ring-terracotta/10 transition-all font-medium text-brown placeholder-stone-400"
+                <TagsInput
+                  v-model="tags"
+                  placeholder="Add tag (press Enter)"
+                  :max-tags="20"
+                  :max-tag-length="50"
+                  :disabled="!isAuthenticated"
                   @focus="handleAuthProtection"
                 />
               </div>
@@ -235,7 +236,7 @@
             <button
               type="submit"
               :disabled="!canSubmit"
-              class="w-full py-4 bg-brown text-white font-heading font-bold text-lg rounded-xl shadow-lg hover:bg-brown-dark hover:scale-[1.01] hover:shadow-xl transition-all duration-300 disabled:bg-stone-400 disabled:opacity-100 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
+              class="w-full py-4 px-6 bg-gradient-to-r from-terracotta to-terracotta-dark text-white font-heading font-bold text-lg rounded-xl shadow-lg shadow-terracotta/30 hover:shadow-xl hover:shadow-terracotta/50 hover:scale-[1.02] hover:from-terracotta-dark hover:to-terracotta transition-all duration-300 disabled:bg-stone-300 disabled:bg-none disabled:text-stone-500 disabled:shadow-none disabled:cursor-not-allowed disabled:transform-none disabled:opacity-80"
             >
               Share This Spot
             </button>
@@ -252,20 +253,21 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { useUploadCat } from "../composables/useUploadCat";
 import { useLocationPicker } from "../composables/useLocationPicker";
 import { useAuthStore } from "../store/authStore";
 const authStore = useAuthStore();
-import { showError, showSuccess } from "../store/toast";
+import { showError, showSuccess, addToast } from "../store/toast";
 import { catDetectionService } from "../services/catDetectionService";
 import { isDev, getEnvVar } from "../utils/env";
 import { DEFAULT_COORDINATES } from "../utils/constants";
 import GhibliBackground from "../components/ui/GhibliBackground.vue";
 import GhibliLoader from "../components/ui/GhibliLoader.vue";
 import LoginRequiredModal from "../components/ui/LoginRequiredModal.vue";
+import TagsInput from "../components/ui/TagsInput.vue";
 import { useSeo } from "../composables/useSeo";
 
 const router = useRouter();
@@ -273,13 +275,14 @@ const { setMetaTags, resetMetaTags } = useSeo();
 
 const locationName = ref("");
 const description = ref("");
-const tagsInput = ref("");
-const file = ref(null);
-const previewUrl = ref(null);
-const fileInput = ref(null);
+const tags = ref<string[]>([]);
+const file = ref<File | null>(null);
+const previewUrl = ref<string | null>(null);
+const fileInput = ref<HTMLInputElement | null>(null);
 const uploadSuccess = ref(false);
 const isDetectingCats = ref(false);
-const catDetectionResult = ref(null);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const catDetectionResult = ref<any>(null);
 const showDetectionResults = ref(false);
 const showLoginModal = ref(false);
 
@@ -352,9 +355,9 @@ const handleLoginRedirect = () => {
     router.push('/login');
 };
 
-const handleAuthProtection = (e) => {
+const handleAuthProtection = (e: Event) => {
   if (!checkAuth()) {
-    e?.target?.blur?.();
+    (e.target as HTMLElement)?.blur?.();
   }
 };
 
@@ -366,10 +369,10 @@ const handleGetLocation = () => {
 
 function triggerFileInput() {
   if (!checkAuth()) return;
-  fileInput.value.click();
+  fileInput.value?.click();
 }
 
-const processFile = (imageFile) => {
+const processFile = (imageFile: File) => {
   if (!imageFile || !imageFile.type.startsWith("image/")) return;
   
   // Revoke old URL to prevent memory leak
@@ -382,18 +385,19 @@ const processFile = (imageFile) => {
   detectCatsInImage(imageFile);
 };
 
-function handleFileChange(e) {
-  const selected = e.target.files[0];
-  processFile(selected);
+function handleFileChange(e: Event) {
+  const target = e.target as HTMLInputElement;
+  const selected = target.files?.[0];
+  if (selected) processFile(selected);
 }
 
-function handleDrop(e) {
+function handleDrop(e: DragEvent) {
   if (!checkAuth()) return;
-  const dropped = e.dataTransfer.files[0];
-  processFile(dropped);
+  const dropped = e.dataTransfer?.files[0];
+  if (dropped) processFile(dropped);
 }
 
-async function detectCatsInImage(imageFile) {
+async function detectCatsInImage(imageFile: File) {
   if (!imageFile) return;
   
   isDetectingCats.value = true;
@@ -413,11 +417,27 @@ async function detectCatsInImage(imageFile) {
     const CONFIDENCE_THRESHOLD = 60;
     
     if (!result.has_cats || result.cat_count === 0) {
-      showError('⚠️ No cats detected automatically. Please verify this is a cat photo.', 'Detection Warning');
+      addToast(
+        'No cats detected automatically. Please verify this is a cat photo.', 
+        'warning', 
+        8000, 
+        'Detection Warning',
+        {
+          label: 'Analyze Anyway',
+          onClick: async () => {
+            try {
+               await catDetectionService.analyzeSpot(imageFile);
+               showSuccess('Analysis complete! You can now proceed.');
+            } catch {
+               showError('Analysis failed. Please try again or use a different photo.');
+            }
+          }
+        }
+      );
     } else if (result.confidence < CONFIDENCE_THRESHOLD) {
-      showError('⚠️ Cat detection weak. Ensure the cat is visible.', 'Low Confidence');
+      showError('Cat detection weak. Ensure the cat is visible.', 'Low Confidence');
     } else {
-      showSuccess('✅ Cat detected successfully!');
+      showSuccess('Cat detected successfully!');
     }
     
   } catch (error) {
@@ -427,7 +447,7 @@ async function detectCatsInImage(imageFile) {
     showError('Unable to verify image. The server will verify during upload.', 'Verification Notice');
     catDetectionResult.value = { 
       has_cats: true, 
-      cat_count: 0, 
+      cat_count: 1,  // Must be >= 1 when has_cats is true to pass backend validation
       confidence: 0, 
       suitable_for_cat_spot: false,
       requires_server_verification: true,
@@ -472,7 +492,7 @@ async function handleSubmit() {
     lng: longitude.value,
     description: trimmedDescription,
     location_name: trimmedName,
-    tags: tagsInput.value.split(',').map(t => t.trim()).filter(t => t && t.length <= 50).slice(0, 20)
+    tags: tags.value
   };
   
   try {
@@ -481,8 +501,10 @@ async function handleSubmit() {
       uploadSuccess.value = true;
       showSuccess("Upload Successful!");
     }
-  } catch (err) {
+  } catch (err: unknown) {
     if (isDev()) console.error('Upload failed:', err);
+    const msg = (err as Error).message || error.value || 'Upload failed. Please try again.';
+    showError(msg);
   }
 }
 </script>

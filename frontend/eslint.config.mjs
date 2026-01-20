@@ -3,7 +3,8 @@ import pluginVue from "eslint-plugin-vue";
 import tseslint from "typescript-eslint";
 import pluginSecurity from "eslint-plugin-security";
 
-export default [
+/** @type {import('eslint').Linter.Config[]} */
+const config = [
   js.configs.recommended,
   ...tseslint.configs.recommended,
   ...tseslint.configs.strict,
@@ -106,3 +107,5 @@ export default [
     ignores: ["dist/**", "node_modules/**", "*.config.js", "*.config.ts", "coverage/**"],
   },
 ];
+
+export default config;

@@ -132,7 +132,7 @@ class TestImageUtils:
         )
 
         assert optimized_bytes is not None
-        assert content_type == "image/jpeg"
+        assert content_type == "image/webp"
         # Optimized should be resized
         opt_img = Image.open(io.BytesIO(optimized_bytes))
         assert max(opt_img.size) <= 1920
@@ -150,8 +150,8 @@ class TestImageUtils:
 
         optimized_bytes, content_type = optimize_image(buffer.getvalue(), "image/png")
 
-        # Should convert to JPEG (default) and flatten transparency
-        assert content_type == "image/jpeg"
+        # Should convert to WebP (default) and handle transparency
+        assert content_type == "image/webp"
         opt_img = Image.open(io.BytesIO(optimized_bytes))
         assert opt_img.mode == "RGB"
 

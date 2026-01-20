@@ -18,10 +18,17 @@ let idCounter = 0;
  * @param type 'success' | 'error' | 'warning' | 'info'
  * @param duration Duration in ms (default 5000), 0 for persistent
  * @param title Optional title
+ * @param action Optional action button { label: string, onClick: () => void }
  */
-export function addToast(message: string, type: ToastType = 'info', duration: number = 5000, title?: string) {
+export function addToast(
+  message: string, 
+  type: ToastType = 'info', 
+  duration: number = 5000, 
+  title?: string, 
+  action?: { label: string; onClick: () => void }
+) {
   const id = Date.now().toString() + '-' + (idCounter++);
-  const toast: Toast = { id, type, message, duration, title };
+  const toast: Toast = { id, type, message, duration, title, action };
   
   // Add to the beginning of the array for stack effect (newest on top/bottom depending on rendering)
   // Usually appending is better for "stacking up"

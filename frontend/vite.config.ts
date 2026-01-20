@@ -4,6 +4,9 @@ import vue from "@vitejs/plugin-vue";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath, URL } from "node:url";
 
+import viteCompression from "vite-plugin-compression";
+import { ViteImageOptimizer } from "vite-plugin-image-optimizer";
+
 export default defineConfig({
   test: {
     globals: true,
@@ -32,7 +35,79 @@ export default defineConfig({
       }
     },
   },
-  plugins: [vue(), tailwindcss()],
+  plugins: [
+    vue(), 
+    tailwindcss(),
+    viteCompression({
+      verbose: true,
+      disable: false,
+      threshold: 10240,
+      algorithm: 'gzip',
+      ext: '.gz',
+    }),
+    viteCompression({
+      verbose: true,
+      disable: false,
+      threshold: 10240,
+      algorithm: 'brotliCompress',
+      ext: '.br',
+    }),
+    ViteImageOptimizer({
+      test: /\.(jpe?g|png|gif|tiff|webp|svg|avif)$/i,
+      exclude: undefined,
+      include: undefined,
+      includePublic: true,
+      logStats: true,
+      ansiColors: true,
+      svg: {
+        multipass: true,
+        plugins: [
+          {
+            name: 'preset-default',
+            params: {
+              overrides: {
+                cleanupNumericValues: false,
+              },
+            },
+          },
+          // Disable removeViewBox to keep viewBox attribute
+          {
+            name: 'removeViewBox',
+            active: false,
+          },
+          'sortAttrs',
+          {
+            name: 'addAttributesToSVGElement',
+            params: {
+              attributes: [{ xmlns: 'http://www.w3.org/2000/svg' }],
+            },
+          },
+        ],
+      },
+      png: {
+        // quality: 1-100
+        quality: 85,
+      },
+      jpeg: {
+        // quality: 1-100
+        quality: 85,
+      },
+      jpg: {
+        // quality: 1-100
+        quality: 85,
+      },
+      webp: {
+        // lossy used for webp
+        lossless: false,
+        quality: 85,
+      },
+      avif: {
+        // lossy used for avif
+        lossless: false,
+        quality: 85,
+      },
+    }),
+  ],
   base: "/",
   resolve: {
     alias: {
@@ -115,22 +190,13 @@ export default defineConfig({
   envDir: "./",
   // Add CDN configuration for production
   experimental: {
-    renderBuiltUrl(filename, { hostType }) {
-      if (hostType === 'js' || hostType === 'css') {
-        // For JS and CSS files, use relative paths
-        return { relative: true };
-      } else {
-        // For other assets (images, fonts), use CDN in production
-        if (process.env.NODE_ENV === 'production' && process.env.VITE_CDN_BASE_URL) {
-          return {
-            // Use CDN URL for assets
-            js: `${process.env.VITE_CDN_BASE_URL}/${filename}`,
-            css: `${process.env.VITE_CDN_BASE_URL}/${filename}`,
-            asset: `${process.env.VITE_CDN_BASE_URL}/${filename}`,
-          };
-        }
-        return { relative: true };
+    renderBuiltUrl(filename) {
+      if (process.env.NODE_ENV === 'production' && process.env.VITE_CDN_BASE_URL) {
+        // Remove trailing slash from CDN base URL if present
+        const baseUrl = process.env.VITE_CDN_BASE_URL.replace(/\/$/, '');
+        return `${baseUrl}/${filename}`;
       }
+      return { relative: true };
     },
   },
 });

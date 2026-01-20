@@ -9,7 +9,7 @@
  * 
  * @module usePerformance
  */
-import { onMounted, onUnmounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 
 /**
  * Performance metric entry
@@ -37,7 +37,7 @@ const VITALS_THRESHOLDS = {
  * Performance metrics store
  */
 const metrics = ref<PerformanceMetric[]>([]);
-const isMonitoring = ref(false);
+const _isMonitoring = ref(false);
 
 /**
  * Rate a metric as good, needs improvement, or poor
@@ -61,6 +61,7 @@ export function logMetric(metric: PerformanceMetric): void {
   if (import.meta.env.DEV) {
     const rating = rateMetric(metric.name, metric.value);
     const emoji = rating === 'good' ? '✅' : rating === 'needs-improvement' ? '⚠️' : '❌';
+    // eslint-disable-next-line no-console
     console.log(
       `[Perf] ${emoji} ${metric.name}: ${metric.value.toFixed(2)}${metric.unit}`,
       metric.metadata || ''
@@ -180,7 +181,7 @@ export function useWebVitals() {
       // Cumulative Layout Shift
       let clsValue = 0;
       const clsObserver = new PerformanceObserver((list) => {
-        const entries = list.getEntries() as any[];
+        const entries = list.getEntries() as LayoutShiftEntry[];
         entries.forEach(entry => {
           if (!entry.hadRecentInput) {
             clsValue += entry.value;
@@ -318,11 +319,16 @@ export function getPerformanceSummary(): Record<string, { avg: number; min: numb
 // TypeScript declarations for window extensions
 declare global {
   interface Window {
-    gtag?: (...args: any[]) => void;
+    gtag?: (...args: unknown[]) => void;
   }
   
   interface PerformanceEventTiming extends PerformanceEntry {
     processingStart: number;
+  }
+  
+  interface LayoutShiftEntry extends PerformanceEntry {
+    hadRecentInput: boolean;
+    value: number;
   }
 }
 

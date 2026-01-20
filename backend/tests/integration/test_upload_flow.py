@@ -121,11 +121,11 @@ class TestUploadFlowIntegration:
         mock_client.table.return_value.insert.return_value.execute.return_value = mock_supabase_params
         
         # Override dependencies
-        from main import app
         from dependencies import get_supabase_client
+        from main import app
+        from routes.upload import get_cat_detection_service, get_current_user, get_storage_service
         from services.cat_detection_service import CatDetectionService
         from services.storage_service import StorageService
-        from routes.upload import get_cat_detection_service, get_storage_service, get_current_user
         
         app.dependency_overrides[get_supabase_client] = lambda: mock_client
         app.dependency_overrides[get_cat_detection_service] = lambda: mock_detection_service
@@ -189,8 +189,8 @@ class TestGalleryFlowIntegration:
         }
         
         # Override dependency
-        from routes.gallery import get_gallery_service
         from main import app
+        from routes.gallery import get_gallery_service
         
         app.dependency_overrides[get_gallery_service] = lambda: mock_service
         

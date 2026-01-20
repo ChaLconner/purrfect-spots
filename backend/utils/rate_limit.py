@@ -33,10 +33,13 @@ def get_client_ip(request: Request) -> str:
 
 
 # Initialize the limiter
+from config import config
+
 limiter = Limiter(
     key_func=get_client_ip,
-    default_limits=["200 per minute"],  # Default limit for all endpoints
+    default_limits=["200 per minute"],
     enabled=True,
+    storage_uri=config.REDIS_URL or "memory://",
     strategy="fixed-window",
 )
 

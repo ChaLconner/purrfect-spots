@@ -12,7 +12,9 @@ from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from supabase import Client
 
-from dependencies import get_supabase_client
+from config import config
+from dependencies import get_supabase_admin_client, get_supabase_client
+from services.token_service import get_token_service
 from user_models.user import User
 
 security = HTTPBearer()
@@ -27,12 +29,15 @@ async def get_jwks():
     """Lazily fetch and cache JWKS"""
     global _jwks_cache, _jwks_last_update
 
-    supabase_url = os.getenv("SUPABASE_URL")
+    supabase_url = config.SUPABASE_URL
     if not supabase_url:
         return None
 
-    project_id = supabase_url.split("//")[1].split(".")[0]
-    jwks_url = f"https://{project_id}.supabase.co/auth/v1/keys"
+    try:
+        project_id = supabase_url.split("//")[1].split(".")[0]
+        jwks_url = f"https://{project_id}.supabase.co/auth/v1/keys"
+    except IndexError:
+        return None
 
     current_time = time.time()
     if _jwks_cache and (current_time - _jwks_last_update < JWKS_CACHE_TTL):
@@ -56,8 +61,6 @@ async def decode_supabase_token(token: str):
     try:
         jwks = await get_jwks()
         if not jwks:
-            # If JWKS is not available, we can't verify Supabase tokens properly
-            # But we might be in an environment without Supabase URL (unlikely but possible)
             raise ValueError("JWKS not available")
 
         unverified_header = jwt.get_unverified_header(token)
@@ -79,15 +82,15 @@ async def decode_supabase_token(token: str):
 
 
 def decode_custom_token(token: str):
-    """Decode custom JWT token (fallback)"""
-    jwt_secret = os.getenv("JWT_SECRET")
+    """Decode custom JWT token (fallback) - Sync part"""
+    jwt_secret = config.JWT_SECRET
     if not jwt_secret:
         raise HTTPException(
             status_code=500, detail="Server misconfiguration: JWT_SECRET not set"
         )
 
     try:
-        payload = jwt.decode(token, jwt_secret, algorithms=["HS256"])
+        payload = jwt.decode(token, jwt_secret, algorithms=[config.JWT_ALGORITHM])
         return payload
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
@@ -95,30 +98,18 @@ def decode_custom_token(token: str):
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
-def _is_token_revoked(jti: str) -> bool:
-    """Check if token JTI is in blacklist"""
+async def _is_token_revoked(jti: str) -> bool:
+    """Check if token JTI is in blacklist using TokenService"""
     if not jti:
         return False
     
     try:
-        from dependencies import get_supabase_admin_client
-        supabase_admin = get_supabase_admin_client()
-        
-        result = (
-            supabase_admin.table("token_blacklist")
-            .select("id")
-            .eq("token_jti", jti)
-            .execute()
-        )
-        return bool(result.data)
+        token_service = await get_token_service()
+        return await token_service.is_blacklisted(jti=jti)
     except Exception:
-        # If DB check fails, we fail open (allow) or closed (deny)?
-        # For security, fail closed is better, but for reliability fail open is common.
-        # Given this is a blacklist, failing open (returning False) means we allow potential malicious token if DB is down.
-        # Failing closed means no one can login if DB is down.
-        # We'll fail open for now but log error.
+        # Fallback to allow if service fails, but log it
+        # Ideally we should fail open for reliability unless security is paramount
         return False
-
 
 
 def _get_user_from_payload(payload: dict, source: str) -> User:
@@ -129,8 +120,6 @@ def _get_user_from_payload(payload: dict, source: str) -> User:
 
     # Try to get user from database (bypassing RLS)
     try:
-        from dependencies import get_supabase_admin_client
-
         supabase_admin = get_supabase_admin_client()
         result = (
             supabase_admin.table("users")
@@ -140,13 +129,14 @@ def _get_user_from_payload(payload: dict, source: str) -> User:
             .execute()
         )
         if result.data:
+            data = result.data
             return User(
-                id=result.data["id"],
-                email=result.data.get("email", ""),
-                name=result.data.get("name", ""),
-                picture=result.data.get("picture", ""),
-                bio=result.data.get("bio"),
-                created_at=result.data.get("created_at", ""),
+                id=data["id"],
+                email=data.get("email", ""),
+                name=data.get("name", ""),
+                picture=data.get("picture", ""),
+                bio=data.get("bio"),
+                created_at=data.get("created_at", ""),
             )
     except Exception:
         # Fallback to payload data if DB lookup fails
@@ -193,7 +183,7 @@ async def _verify_and_decode_token(token: str) -> tuple[dict, str]:
             
             # Check revocation for custom tokens
             jti = payload.get("jti")
-            if jti and _is_token_revoked(jti):
+            if jti and await _is_token_revoked(jti):
                 raise HTTPException(status_code=401, detail="Token revoked")
                 
             return payload, "custom"

@@ -119,8 +119,8 @@ const handleSubmit = async () => {
         });
         showSuccess('Password updated successfully. Please login.', 'Success');
         router.push('/login');
-    } catch (err: any) {
-        showError(err.message || 'Failed to reset password', 'Error');
+    } catch (err: unknown) {
+        showError((err as Error).message || 'Failed to reset password', 'Error');
     } finally {
         isLoading.value = false;
     }

@@ -142,6 +142,7 @@ class Config:
 
     JWT_REFRESH_EXPIRATION_DAYS = int(os.getenv("JWT_REFRESH_EXPIRATION_DAYS", "7"))
     JWT_ACCESS_EXPIRATION_HOURS = int(os.getenv("JWT_ACCESS_EXPIRATION_HOURS", "1"))
+    JWT_ALGORITHM = "HS256"
 
     # Redis (optional)
     REDIS_URL = os.getenv("REDIS_URL")

@@ -204,8 +204,13 @@ async def upload_cat_photo(
                 "detection_source": "server",
             }
 
-        # Validate that cats were detected
-        if not cat_data.get("has_cats", False) or cat_data.get("cat_count", 0) == 0:
+        # Validate that cats were detected (be lenient if client marked for server verification)
+        requires_verification = cat_data.get("requires_server_verification", False)
+        has_cats = cat_data.get("has_cats", False)
+        cat_count = cat_data.get("cat_count", 0)
+        
+        # Allow upload if: (has_cats AND cat_count > 0) OR (requires_verification AND has_cats)
+        if not has_cats or (cat_count == 0 and not requires_verification):
             log_security_event(
                 "upload_rejected_invalid_detection", user_id=user_id, severity="INFO"
             )

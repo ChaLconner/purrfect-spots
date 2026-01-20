@@ -71,7 +71,11 @@ function sendToAnalytics(metric: WebVitalMetric) {
   }
 
   // Report to Sentry if available
-  const Sentry = (window as any).Sentry;
+  const win = window as Window & { Sentry?: {
+    addBreadcrumb: (data: Record<string, unknown>) => void;
+    captureMessage: (msg: string, data: Record<string, unknown>) => void;
+  }};
+  const Sentry = win.Sentry;
   if (Sentry) {
     Sentry.addBreadcrumb({
       category: 'web-vitals',

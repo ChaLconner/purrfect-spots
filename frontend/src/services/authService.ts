@@ -35,10 +35,11 @@ export class AuthService {
             error,
             () => apiV1.post('/auth/login', { email, password })
           );
-        } catch (retryError: any) {
+        } catch (retryError: unknown) {
+          const message = retryError instanceof Error ? retryError.message : 'Login failed';
           throw new ApiError(
             ApiErrorTypes.UNKNOWN_ERROR,
-            retryError.message || 'Login failed'
+            message
           );
         }
       }
@@ -63,10 +64,11 @@ export class AuthService {
             error,
             () => apiV1.post('/auth/register', { email, password, name })
           );
-        } catch (retryError: any) {
+        } catch (retryError: unknown) {
+          const message = retryError instanceof Error ? retryError.message : 'Registration failed';
           throw new ApiError(
             ApiErrorTypes.UNKNOWN_ERROR,
-            retryError.message || 'Registration failed'
+            message
           );
         }
       }
@@ -107,6 +109,7 @@ export class AuthService {
       
       // Log request for debugging
       if (isDev()) {
+        // eslint-disable-next-line no-console
         console.log('Google OAuth exchange request:', {
           code: code ? 'present' : 'missing',
           code_verifier: codeVerifier ? 'present' : 'missing',
@@ -151,10 +154,11 @@ export class AuthService {
               redirect_uri: redirectUri
             })
           );
-        } catch (retryError: any) {
+        } catch (retryError: unknown) {
+          const message = retryError instanceof Error ? retryError.message : 'Google OAuth failed';
           throw new ApiError(
             ApiErrorTypes.UNKNOWN_ERROR,
-            retryError.message || 'Google OAuth failed'
+            message
           );
         }
       }
@@ -164,7 +168,7 @@ export class AuthService {
   }
 
   // Sync user data with backend (for Supabase Auth integration)
-  static async syncUser(): Promise<any> {
+  static async syncUser(): Promise<User> {
     try {
       return await apiV1.post('/auth/sync-user');
     } catch (error) {

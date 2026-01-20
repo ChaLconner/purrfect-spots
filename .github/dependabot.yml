@@ -1,0 +1,120 @@
+# ==============================================================================
+# Dependabot Configuration
+# ==============================================================================
+# Automatically creates pull requests to update dependencies
+# https://docs.github.com/en/code-security/dependabot
+
+version: 2
+
+updates:
+  # ==============================================================================
+  # Python Dependencies (Backend)
+  # ==============================================================================
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Bangkok"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "python"
+      - "backend"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    # Group minor and patch updates to reduce PR noise
+    groups:
+      python-minor:
+        update-types:
+          - "minor"
+          - "patch"
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "fastapi"
+          - "pydantic"
+          - "sentry-sdk"
+    # Security updates are always prioritized
+    reviewers:
+      - "purrfect-spots/backend-team"
+
+  # ==============================================================================
+  # NPM Dependencies (Frontend)
+  # ==============================================================================
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Bangkok"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "javascript"
+      - "frontend"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    groups:
+      npm-minor:
+        update-types:
+          - "minor"
+          - "patch"
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "vue"
+          - "vite"
+          - "typescript"
+    # Ignore problematic updates
+    ignore:
+      - dependency-name: "@types/*"
+        update-types: ["version-update:semver-patch"]
+    reviewers:
+      - "purrfect-spots/frontend-team"
+
+  # ==============================================================================
+  # GitHub Actions
+  # ==============================================================================
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "ci"
+      - "github-actions"
+    commit-message:
+      prefix: "chore(ci)"
+    reviewers:
+      - "purrfect-spots/devops"
+
+  # ==============================================================================
+  # Docker Images
+  # ==============================================================================
+  - package-ecosystem: "docker"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "backend"
+    commit-message:
+      prefix: "chore(docker)"
+
+  - package-ecosystem: "docker"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "frontend"
+    commit-message:
+      prefix: "chore(docker)"

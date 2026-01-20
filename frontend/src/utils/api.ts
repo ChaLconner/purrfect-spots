@@ -5,11 +5,12 @@
  * - All new endpoints should use /api/v1/ prefix
  * - Legacy endpoints (without prefix) are maintained for backward compatibility
  */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import axios from 'axios';
 import type { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios';
 import { isBrowserExtensionError, handleBrowserExtensionError } from './browserExtensionHandler';
-import { isDev } from './env';
+import { isDev, getEnvVar } from './env';
 import { useAuthStore } from '../store/authStore';
 
 // In-memory access token (not exposed to window/global)
@@ -167,7 +168,7 @@ const createApiInstance = (): AxiosInstance => {
         if (typeof response.data === 'string') {
           try {
             response.data = JSON.parse(response.data);
-          } catch (parseError) {
+          } catch {
             // If it's not JSON, create a proper error response
             throw new ApiError(
               ApiErrorTypes.UNKNOWN_ERROR,
@@ -191,7 +192,7 @@ const createApiInstance = (): AxiosInstance => {
       
       return response;
     },
-    (error: AxiosError) => {
+    async (error: AxiosError) => {
       // Handle browser extension errors first
       if (isBrowserExtensionError(error)) {
         // Retry the request once for browser extension errors
@@ -216,16 +217,75 @@ const createApiInstance = (): AxiosInstance => {
       
       // Handle specific HTTP status codes
       switch (status) {
-        case 401:
-          // Authentication error - clear auth data and redirect to login
-          const auth = useAuthStore();
-          auth.clearAuth();
+          // Authentication error - 401
+          case 401: {
+          const originalRequest = error.config;
+          const isRefreshRequest = originalRequest?.url?.includes('/auth/refresh-token');
+          
+          // If it's a refresh token request that failed, we are properly logged out
+          if (isRefreshRequest) {
+             const auth = useAuthStore();
+             auth.clearAuth();
+             throw new ApiError(
+              ApiErrorTypes.AUTHENTICATION_ERROR,
+              'Session expired',
+              status,
+              error
+            );
+          }
+
+          // If it's a normal request, try to refresh the token
+          if (status === 401 && originalRequest && !(originalRequest as any)._retry) {
+            (originalRequest as any)._retry = true;
+            
+            try {
+              const auth = useAuthStore();
+              const refreshed = await auth.refreshToken();
+              
+              if (refreshed && auth.token) {
+                // Update authorization header with new token
+                originalRequest.headers['Authorization'] = `Bearer ${auth.token}`;
+                // Retry original request
+                return apiInstance(originalRequest);
+              }
+            } catch (refreshError) {
+              // Refresh failed - proceed to logout
+              if (isDev()) {
+                console.warn('Silent refresh failed:', refreshError);
+              }
+            }
+            
+            // If we get here, refresh failed or return false
+            const auth = useAuthStore();
+            auth.clearAuth();
+            throw new ApiError(
+              ApiErrorTypes.AUTHENTICATION_ERROR,
+              'Login session expired. Please log in again',
+              status,
+              error
+            );
+          }
+           
+          // Fallback if retry logic was bypassed (shouldn't happen often)
+          if (!isRefreshRequest) {
+            const auth = useAuthStore();
+            auth.clearAuth();
+            throw new ApiError(
+              ApiErrorTypes.AUTHENTICATION_ERROR,
+              'Login session expired. Please log in again',
+              status,
+              error
+            );
+          }
+          
+          // For refresh-token requests (redundant fallback but keeps types safe)
           throw new ApiError(
             ApiErrorTypes.AUTHENTICATION_ERROR,
-            'Login session expired. Please log in again',
+            'No active session',
             status,
             error
           );
+        }
           
         case 403:
           // Authorization error

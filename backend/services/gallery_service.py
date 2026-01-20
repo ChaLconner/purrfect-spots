@@ -34,9 +34,9 @@ class GalleryService:
         Falls back to ILIKE search if not available.
         """
         try:
-            # Try to select the search_vector column
+            # Try to select the search_vector column - using standard client (RLS safe)
             resp = (
-                self.supabase_admin.table("cat_photos")
+                self.supabase.table("cat_photos")
                 .select("search_vector")
                 .limit(1)
                 .execute()
@@ -68,7 +68,7 @@ class GalleryService:
 
             # Get paginated data
             resp = (
-                self.supabase_admin.table("cat_photos")
+                self.supabase.table("cat_photos")
                 .select("*")
                 .order("uploaded_at", desc=True)
                 .range(offset, offset + limit - 1)
@@ -81,7 +81,7 @@ class GalleryService:
             # Get total count if requested
             if include_total:
                 count_resp = (
-                    self.supabase_admin.table("cat_photos")
+                    self.supabase.table("cat_photos")
                     .select("id", count="exact")
                     .execute()
                 )
@@ -111,11 +111,11 @@ class GalleryService:
 
     @staticmethod
     @cached_gallery
-    def _get_all_photos_simple_impl(supabase_admin, limit: int) -> list[dict[str, Any]]:
+    def _get_all_photos_simple_impl(supabase_client, limit: int) -> list[dict[str, Any]]:
         """Internal cached implementation."""
         try:
             resp = (
-                supabase_admin.table("cat_photos")
+                supabase_client.table("cat_photos")
                 .select("*")
                 .order("uploaded_at", desc=True)
                 .limit(limit)
@@ -127,7 +127,7 @@ class GalleryService:
 
     def _get_all_photos_simple_cached(self, limit: int) -> list[dict[str, Any]]:
         """Wrapper to pass supabase client to cached function."""
-        return GalleryService._get_all_photos_simple_impl(self.supabase_admin, limit)
+        return GalleryService._get_all_photos_simple_impl(self.supabase, limit)
 
     def search_photos(
         self,
@@ -188,7 +188,8 @@ class GalleryService:
             # Use the search_cat_photos RPC function if available
             # This provides ranking by relevance
             try:
-                resp = self.supabase_admin.rpc(
+                # Use standard client for RPC call
+                resp = self.supabase.rpc(
                     "search_cat_photos", {"search_query": query, "result_limit": limit}
                 ).execute()
 
@@ -211,7 +212,7 @@ class GalleryService:
 
                 # Note: This requires PostgREST fulltext filter syntax
                 db_query = (
-                    self.supabase_admin.table("cat_photos")
+                    self.supabase.table("cat_photos")
                     .select("*")
                     .textSearch("search_vector", search_term, {"type": "websearch"})
                     .order("uploaded_at", desc=True)
@@ -250,8 +251,8 @@ class GalleryService:
             List of matching photos
         """
         try:
-            # Start with base query
-            db_query = self.supabase_admin.table("cat_photos").select("*")
+            # Start with base query using standard client
+            db_query = self.supabase.table("cat_photos").select("*")
 
             # Apply text search if provided
             if query:
@@ -314,13 +315,13 @@ class GalleryService:
 
     @staticmethod
     @cached_tags
-    def _get_popular_tags_impl(supabase_admin, limit: int) -> list[dict[str, Any]]:
+    def _get_popular_tags_impl(supabase_client, limit: int) -> list[dict[str, Any]]:
         """Internal cached implementation for popular tags."""
         try:
             # Fetch only tags column for better performance
             # Limit to recent photos to reduce processing time
             resp = (
-                supabase_admin.table("cat_photos")
+                supabase_client.table("cat_photos")
                 .select("tags")
                 .not_.is_("tags", "null")
                 .limit(1000)  # Sample from most recent 1000 photos
@@ -349,13 +350,13 @@ class GalleryService:
 
     def _get_popular_tags_cached(self, limit: int) -> list[dict[str, Any]]:
         """Wrapper to pass supabase client to cached function."""
-        return GalleryService._get_popular_tags_impl(self.supabase_admin, limit)
+        return GalleryService._get_popular_tags_impl(self.supabase, limit)
 
     def get_user_photos(self, user_id: str) -> list[dict[str, Any]]:
         """Get all photos uploaded by a specific user"""
         try:
             resp = (
-                self.supabase_admin.table("cat_photos")
+                self.supabase.table("cat_photos")
                 .select("*")
                 .eq("user_id", user_id)
                 .order("uploaded_at", desc=True)
@@ -401,7 +402,7 @@ class GalleryService:
         try:
             # Use RPC function for PostGIS query
             # This requires the search_nearby_photos function to exist in Supabase
-            resp = self.supabase_admin.rpc(
+            resp = self.supabase.rpc(
                 "search_nearby_photos",
                 {
                     "lat": latitude,
@@ -439,7 +440,7 @@ class GalleryService:
             max_lng = longitude + lng_delta
 
             resp = (
-                self.supabase_admin.table("cat_photos")
+                self.supabase.table("cat_photos")
                 .select("*")
                 .gte("latitude", min_lat)
                 .lte("latitude", max_lat)
@@ -459,7 +460,7 @@ class GalleryService:
         """Get a specific photo by ID."""
         try:
             resp = (
-                self.supabase_admin.table("cat_photos")
+                self.supabase.table("cat_photos")
                 .select("*")
                 .eq("id", photo_id)
                 .single()

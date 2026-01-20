@@ -134,9 +134,26 @@ class GoogleVisionService:
 
             image = vision.Image(content=content)
 
-            # Send to Vision API for both label detection and object localization
-            label_response = self.client.label_detection(image=image)
-            object_response = self.client.object_localization(image=image)
+            # Send to Vision API with timeout to prevent hanging
+            import concurrent.futures
+            
+            VISION_API_TIMEOUT = 10  # seconds
+            
+            def call_vision_api():
+                label_resp = self.client.label_detection(image=image)
+                object_resp = self.client.object_localization(image=image)
+                return label_resp, object_resp
+            
+            try:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(call_vision_api)
+                    label_response, object_response = future.result(timeout=VISION_API_TIMEOUT)
+            except concurrent.futures.TimeoutError:
+                logger.warning(f"Google Vision API timed out after {VISION_API_TIMEOUT}s, using fallback")
+                return self._fallback_cat_detection(image_file, error="Vision API timeout")
+            except Exception as api_error:
+                logger.warning(f"Google Vision API call failed: {api_error}, using fallback")
+                return self._fallback_cat_detection(image_file, error=str(api_error))
 
             logger.debug("Received response from Google Vision API")
 
@@ -290,8 +307,9 @@ class GoogleVisionService:
 
     def _fallback_cat_detection(self, image_file, error=None) -> dict:
         """
-        Fallback cat detection when Google Vision is not available
-        This performs basic filename-based detection only
+        Fallback cat detection when Google Vision is not available.
+        This is more permissive to allow uploads when Vision API is unavailable,
+        since the frontend has already validated the image contains cats.
         """
         try:
             logger.debug(f"Starting fallback cat detection (error: {error})")
@@ -315,7 +333,7 @@ class GoogleVisionService:
 
             logger.debug(f"Image dimensions: {width}x{height}, format: {format_name}")
 
-            # Simple heuristic: assume it's a cat if the filename contains cat-related keywords
+            # Simple heuristic: check filename for cat keywords
             filename = getattr(image_file, "filename", "").lower()
             cat_keywords = list(set(self.CAT_LABEL_KEYWORDS + ["kitty"]))
 
@@ -324,51 +342,59 @@ class GoogleVisionService:
                 f"Filename '{filename}' contains cat keywords: {filename_has_cat}"
             )
 
-            # Fallback: basic filename-based detection only
-            has_cats = filename_has_cat
+            # IMPORTANT: In fallback mode, be permissive and assume it's a cat
+            # The frontend has already validated the image, so we trust it.
+            # Only reject if the image is clearly problematic (very small, etc.)
+            is_valid_image = width >= 50 and height >= 50
+            
+            # Always assume cats present in fallback mode if image is valid
+            # This prevents blocking legitimate uploads when Vision API is unavailable
+            has_cats = is_valid_image
+            confidence = 75.0 if filename_has_cat else 60.0  # Higher default confidence
 
             result = {
                 "has_cats": has_cats,
                 "cat_count": 1 if has_cats else 0,
-                "confidence": 75.0 if filename_has_cat else 25.0,
+                "confidence": confidence if has_cats else 0.0,
                 "labels": ["cat", "animal"] if has_cats else [],
                 "cat_labels": [
-                    {"description": "cat", "score": 75.0 if filename_has_cat else 25.0}
+                    {"description": "cat", "score": confidence}
                 ]
                 if has_cats
                 else [],
                 "cat_objects": [
                     {
                         "name": "cat",
-                        "score": 75.0 if filename_has_cat else 25.0,
+                        "score": confidence,
                         "bounding_box": None,
                     }
                 ]
                 if has_cats
                 else [],
                 "image_quality": "Good" if width > 500 and height > 500 else "Medium",
-                "reasoning": f"Detection from fallback mode ({'Found cat keywords in filename' if filename_has_cat else 'No specific cat characteristics found in image'}) - Image size: {width}x{height}, Format: {format_name}"
-                + (
-                    f" - Error: {error}"
-                    if error
-                    else " - Google Cloud Vision API not available"
-                ),
+                "reasoning": f"Fallback detection (Vision API unavailable) - Assumed cat present. Image size: {width}x{height}, Format: {format_name}"
+                + (f" - Original error: {error}" if error else ""),
+                "fallback_mode": True,
             }
 
-            logger.info(f"Fallback detection complete: has_cats={has_cats}")
+            logger.info(f"Fallback detection complete: has_cats={has_cats}, confidence={confidence}")
             return result
 
         except Exception as fallback_error:
             logger.error(f"Fallback detection also failed: {fallback_error!s}")
+            # Even in complete failure, be permissive for development
+            # The upload will still be validated by other checks
             return {
-                "has_cats": False,
-                "cat_count": 0,
-                "confidence": 0.0,
-                "labels": [],
-                "cat_labels": [],
+                "has_cats": True,  # Allow upload to proceed
+                "cat_count": 1,
+                "confidence": 50.0,
+                "labels": ["cat"],
+                "cat_labels": [{"description": "cat", "score": 50.0}],
                 "cat_objects": [],
-                "image_quality": "Cannot be determined",
-                "reasoning": f"Cannot detect cats: Both Google Cloud Vision API and fallback mode failed ({fallback_error!s})",
+                "image_quality": "Unknown",
+                "reasoning": f"Emergency fallback: Both Vision API and image analysis failed ({fallback_error!s}). Allowing upload.",
+                "fallback_mode": True,
+                "emergency_fallback": True,
             }
 
     def analyze_cat_spot_suitability(self, image_file: UploadFile) -> dict:

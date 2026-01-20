@@ -1,0 +1,106 @@
+# ==============================================================================
+# PR Labeler Configuration
+# ==============================================================================
+# Automatically applies labels to PRs based on changed files
+# ==============================================================================
+
+# Backend labels
+backend:
+  - changed-files:
+      - any-glob-to-any-file: 'backend/**/*'
+
+python:
+  - changed-files:
+      - any-glob-to-any-file: 'backend/**/*.py'
+
+api:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'backend/routes/**/*'
+          - 'backend/schemas/**/*'
+
+database:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'backend/migrations/**/*'
+          - 'backend/services/supabase*.py'
+
+# Frontend labels
+frontend:
+  - changed-files:
+      - any-glob-to-any-file: 'frontend/**/*'
+
+typescript:
+  - changed-files:
+      - any-glob-to-any-file: 'frontend/**/*.ts'
+
+vue:
+  - changed-files:
+      - any-glob-to-any-file: 'frontend/**/*.vue'
+
+styles:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'frontend/**/*.css'
+          - 'frontend/**/*.scss'
+
+# Testing labels
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'backend/tests/**/*'
+          - 'frontend/tests/**/*'
+          - 'frontend/e2e/**/*'
+
+e2e:
+  - changed-files:
+      - any-glob-to-any-file: 'frontend/e2e/**/*'
+
+# Infrastructure labels
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/**/*'
+          - '*.yml'
+          - '*.yaml'
+
+docker:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/Dockerfile'
+          - 'docker-compose*.yml'
+
+config:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '*.toml'
+          - '*.json'
+          - '*.config.*'
+          - 'vite.config.*'
+          - 'tsconfig*'
+          - 'pyproject.toml'
+
+# Documentation
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'docs/**/*'
+          - '**/*.md'
+          - 'README*'
+
+# Security
+security:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'backend/services/auth*.py'
+          - 'backend/middleware/security*.py'
+          - 'backend/utils/security*.py'
+          - 'backend/utils/jwt*.py'
+
+# Dependencies
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'backend/requirements.txt'
+          - 'frontend/package*.json'
+          - '.github/dependabot.yml'

@@ -16,7 +16,9 @@ import {
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN
 const ENVIRONMENT = import.meta.env.MODE
 
-async function initSentry(app: any) {
+import type { App } from 'vue'
+
+async function initSentry(app: App) {
   if (!SENTRY_DSN) {
     if (isDev()) {
       // eslint-disable-next-line no-console
@@ -62,7 +64,8 @@ async function initSentry(app: any) {
     })
     
     // Make Sentry available globally for ErrorBoundary
-    ;(window as any).Sentry = Sentry
+    const win = window as Window & { Sentry?: typeof Sentry };
+    win.Sentry = Sentry;
     
     if (isDev()) {
       // eslint-disable-next-line no-console
@@ -78,7 +81,7 @@ async function initSentry(app: any) {
 
 const app = createApp(App)
 
-// Initialize Sentry with app instance
+// Initialize Sentry with app instance (non-blocking)
 initSentry(app)
 
 // Install Pinia BEFORE using any stores
@@ -104,8 +107,9 @@ app.config.errorHandler = (err, instance, info) => {
   }
   
   // Report to Sentry if available
-  if ((window as any).Sentry) {
-    (window as any).Sentry.captureException(err, {
+  const win = window as Window & { Sentry?: { captureException: (err: unknown, context: { extra: { info: string }; tags: { handler: string } }) => void } };
+  if (win.Sentry) {
+    win.Sentry.captureException(err, {
       extra: { info },
       tags: { handler: 'global' }
     })

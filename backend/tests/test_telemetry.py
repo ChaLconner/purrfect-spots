@@ -1,9 +1,12 @@
-import pytest
-from unittest.mock import MagicMock, patch
 import os
 import sys
+from unittest.mock import MagicMock, patch
+
+import pytest
 from fastapi import FastAPI
-from utils.telemetry import setup_telemetry, get_tracer
+
+from utils.telemetry import get_tracer, setup_telemetry
+
 
 @pytest.fixture
 def mock_app():

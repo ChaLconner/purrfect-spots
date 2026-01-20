@@ -1,6 +1,8 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
 from fastapi.testclient import TestClient
+
 from main import app
 from middleware.auth_middleware import get_current_user
 from user_models.user import User

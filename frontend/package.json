@@ -48,10 +48,14 @@
     "eslint-plugin-vue": "^9.28.0",
     "jsdom": "^27.4.0",
     "prettier": "^3.3.0",
+    "sharp": "^0.34.5",
+    "svgo": "^4.0.0",
     "terser": "^5.44.0",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.53.0",
     "vite": "^7.0.0",
+    "vite-plugin-compression": "^0.5.1",
+    "vite-plugin-image-optimizer": "^2.0.3",
     "vitest": "^4.0.16",
     "vue-tsc": "^2.2.10"
   }

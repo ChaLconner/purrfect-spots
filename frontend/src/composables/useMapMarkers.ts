@@ -1,4 +1,4 @@
-import { ref, shallowRef, watch } from 'vue';
+import { shallowRef } from 'vue';
 import type { CatLocation } from '../types/api';
 import { EXTERNAL_URLS } from '../utils/constants';
 

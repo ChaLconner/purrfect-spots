@@ -69,7 +69,7 @@ lerna-debug.log*
 *~
 
 # Development tools
-.github/
+# .github/
 .kilocode/
 .roo/
 
@@ -121,6 +121,8 @@ backend/keys/
 !package.json
 !tsconfig*.json
 !package-lock.json
+!vercel.json
+!s3_bucket_policy.json
 
 # IDE
 .vscode/

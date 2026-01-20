@@ -1,4 +1,5 @@
 // Google Maps API Loader - Centralized loader to prevent multiple script loads
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { isDev } from './env';
 
 interface GoogleMapsLoaderOptions {

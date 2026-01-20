@@ -1,8 +1,11 @@
-import pytest
-from unittest.mock import MagicMock, patch, mock_open
-import os
 import io
+import os
+from unittest.mock import MagicMock, mock_open, patch
+
+import pytest
+
 from services.google_vision import GoogleVisionService
+
 
 class TestGoogleVisionServiceExtended:
 
@@ -23,7 +26,7 @@ class TestGoogleVisionServiceExtended:
                 assert service.client is not None
 
     def test_init_with_key_path(self, mock_vision_client):
-        with patch.dict(os.environ, {"GOOGLE_VISION_SERVICE_ACCOUNT": "", "GOOGLE_VISION_KEY_PATH": "/tmp/key.json"}):
+        with patch.dict(os.environ, {"GOOGLE_VISION_SERVICE_ACCOUNT": "", "GOOGLE_VISION_KEY_PATH": "/tmp/key.json"}):  # noqa: S108
             with patch("os.path.exists", return_value=True):
                 with patch("services.google_vision.VISION_AVAILABLE", True):
                     service = GoogleVisionService()
@@ -86,8 +89,8 @@ class TestGoogleVisionServiceExtended:
                 service = GoogleVisionService()
                 
                 result = service.detect_cats(mock_file)
-                assert result["has_cats"] is True # Because "kitty" in filename
-                assert result["reasoning"].startswith("Detection from fallback")
+                assert result["has_cats"] is True, f"Result: {result}"
+                assert result["reasoning"].startswith("Fallback detection")
 
     def test_analyze_suitability(self, mock_vision_client):
         # Setup detect_cats to return specific result

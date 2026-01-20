@@ -7,7 +7,7 @@
         style="animation-duration: 4s;"
       ></div>
       <h3 class="relative text-4xl md:text-6xl font-bold text-white drop-shadow-sm font-serif tracking-wide mb-3">
-        <span v-html="formattedTitle"></span>
+        <span class="whitespace-pre-line">{{ title }}</span>
       </h3>
     </div>
     
@@ -45,9 +45,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-
-const props = defineProps({
+defineProps({
   title: {
     type: String,
     default: 'A Quiet Spot'
@@ -72,9 +70,6 @@ const props = defineProps({
 
 defineEmits(['action']);
 
-const formattedTitle = computed(() => {
-  return props.title.replace(/\n/g, '<br/>');
-});
 </script>
 
 <style scoped>

@@ -1,6 +1,7 @@
 /**
  * Utility functions for environment variables
  */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 /**
  * Check if the application is running in development mode

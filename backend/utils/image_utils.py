@@ -78,20 +78,13 @@ def optimize_image(
             img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
             logger.debug(f"Resized image to: {img.size}")
 
-        # Determine output format
+        # Determine output format - Default to WEBP for best performance
         if target_format:
             output_format = target_format.upper()
-        elif original_format in ("JPEG", "JPG"):
-            output_format = "JPEG"
-        elif original_format == "PNG":
-            # Keep PNG for images that might need transparency, otherwise JPEG
-            output_format = "JPEG"  # Optimize to JPEG for smaller size
-        elif original_format == "WEBP":
-            output_format = "WEBP"
         elif original_format == "GIF":
             output_format = "GIF"  # Keep GIF as-is (might be animated)
         else:
-            output_format = "JPEG"  # Default to JPEG for best compression
+            output_format = "WEBP"  # Default to WEBP for best compression/performance
 
         # Save optimized image to bytes
         output_buffer = io.BytesIO()

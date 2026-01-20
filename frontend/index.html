@@ -6,12 +6,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Purrfect Spots - Discover and share cat-friendly locations with AI-powered cat detection. Find the best spots to see cats in your area." />
     <meta name="theme-color" content="#6b8e7d" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://maps.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://maps.googleapis.com https://*.supabase.co https://*.sentry.io wss://*.supabase.co http://localhost:8000 http://127.0.0.1:8000 https://ipapi.co;" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://maps.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://maps.googleapis.com https://*.supabase.co https://*.sentry.io wss://*.supabase.co http://localhost:8000 http://127.0.0.1:8000 https://ipapi.co https://purrfect-spots-bucket.s3.ap-southeast-2.amazonaws.com;" />
     <title>Home | Purrfect Spots</title>
     <!-- Preconnect to critical origins -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://maps.googleapis.com">
+    <link rel="preconnect" href="https://maps.gstatic.com" crossorigin>
+    <link rel="dns-prefetch" href="https://ipapi.co">
+    <link rel="dns-prefetch" href="https://o4510681445761024.ingest.us.sentry.io">
+    <link rel="preconnect" href="https://ipapi.co">
+    
+    <!-- Preload critical fonts -->
+    <link rel="preload" href="https://fonts.gstatic.com/s/kanit/v15/nHK0sWqXz7n2w3oIc6mD.woff2" as="font" type="font/woff2" crossorigin>
+
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap" rel="stylesheet">
     <!-- Skip link styles (inline for immediate availability) -->

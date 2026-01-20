@@ -1,51 +1,45 @@
 import { createRouter, createWebHistory } from "vue-router";
-import MapView from "@/views/MapView.vue";
-import UploadView from "@/views/UploadView.vue";
-import GalleryView from "@/views/GalleryView.vue";
-import AuthView from "@/views/AuthView.vue";
-import ProfileView from "@/views/ProfileView.vue";
-import AuthCallback from "@/components/AuthCallback.vue";
 import { useAuthStore } from "@/store/authStore";
 
 const routes = [
   {
     path: "/",
     name: "Home",
-    component: MapView,
+    component: () => import("@/views/MapView.vue"),
   },
   {
     path: "/map",
     name: "Map",
-    component: MapView,
+    component: () => import("@/views/MapView.vue"),
   },
   {
     path: "/upload",
     name: "Upload",
-    component: UploadView,
+    component: () => import("@/views/UploadView.vue"),
     meta: { requiresAuth: false },
   },
   {
     path: "/gallery/:id?",
     name: "Gallery",
-    component: GalleryView,
+    component: () => import("@/views/GalleryView.vue"),
     props: true,
   },
   {
     path: "/profile",
     name: "Profile",
-    component: ProfileView,
+    component: () => import("@/views/ProfileView.vue"),
     meta: { requiresAuth: true },
   },
   {
     path: "/login",
     name: "Login",
-    component: AuthView,
+    component: () => import("@/views/AuthView.vue"),
     props: { mode: "login" },
   },
   {
     path: "/register",
     name: "Register",
-    component: AuthView,
+    component: () => import("@/views/AuthView.vue"),
     props: { mode: "register" },
   },
   {
@@ -62,7 +56,7 @@ const routes = [
   {
     path: "/auth/callback",
     name: "AuthCallback",
-    component: AuthCallback,
+    component: () => import("@/components/AuthCallback.vue"),
     meta: { isAuthCallback: true },
   },
 ];

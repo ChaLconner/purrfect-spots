@@ -71,3 +71,4 @@ Thumbs.db
 keys/
 google_vision.json
 *.json
+!vercel.json

@@ -1,9 +1,11 @@
-import pytest
 from datetime import datetime
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from services.auth_service import AuthService
 from user_models.user import User
+
 
 class TestAuthServiceExtended:
     @pytest.fixture
@@ -54,40 +56,48 @@ class TestAuthServiceExtended:
         user_id = auth_service.verify_access_token(token)
         assert user_id == "user123"
 
-    def test_create_and_verify_refresh_token(self, auth_service, mock_supabase):
-        # Mock revocation check to return False (empty list)
-        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
-
-        # Create token with fingerprint
-        token = auth_service.create_refresh_token("user123", ip="1.2.3.4", user_agent="Mozilla")
-
-        assert token is not None
+    @pytest.mark.asyncio
+    async def test_create_and_verify_refresh_token(self, auth_service, mock_supabase):
+        # Mock TokenService
+        mock_token_service = AsyncMock()
+        mock_token_service.is_blacklisted.return_value = False
         
-        # Verify with matching fingerprint
-        payload = auth_service.verify_refresh_token(token, ip="1.2.3.4", user_agent="Mozilla")
-        assert payload is not None
-        assert payload["user_id"] == "user123"
-        assert "jti" in payload
-        assert "fingerprint" in payload
-        
-        # Verify with mismatching fingerprint
-        payload_mismatch = auth_service.verify_refresh_token(token, ip="9.9.9.9", user_agent="Bot")
-        assert payload_mismatch is None
+        with patch("services.auth_service.get_token_service", new_callable=AsyncMock) as mock_get_service:
+            mock_get_service.return_value = mock_token_service
 
-    def test_revocation_logic(self, auth_service, mock_supabase):
-        # Test is_token_revoked
-        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(data=[{"id": "revoked"}])
-        assert auth_service.is_token_revoked("jti_123") is True
-        
-        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
-        assert auth_service.is_token_revoked("jti_clean") is False
-        
-        # Test revoke_token
-        success = auth_service.revoke_token("jti_new", "u1", datetime(2025, 1, 1))
-        assert success is True
+            # Create token with fingerprint
+            token = auth_service.create_refresh_token("user123", ip="1.2.3.4", user_agent="Mozilla")
 
-        mock_supabase.table.assert_called_with("token_blacklist")
-        mock_supabase.table.return_value.insert.assert_called()
+            assert token is not None
+            
+            # Verify with matching fingerprint - await added
+            payload = await auth_service.verify_refresh_token(token, ip="1.2.3.4", user_agent="Mozilla")
+            assert payload is not None
+            assert payload["user_id"] == "user123"
+            
+            # Verify with mismatching fingerprint - await added
+            payload_mismatch = await auth_service.verify_refresh_token(token, ip="9.9.9.9", user_agent="Bot")
+            assert payload_mismatch is None
+
+    @pytest.mark.asyncio
+    async def test_revocation_logic(self, auth_service):
+        # Mock TokenService
+        mock_token_service = AsyncMock()
+        mock_token_service.is_blacklisted.side_effect = lambda jti: jti == "jti_123"
+        mock_token_service.blacklist_token.return_value = True
+
+        with patch("services.auth_service.get_token_service", new_callable=AsyncMock) as mock_get_service:
+            mock_get_service.return_value = mock_token_service
+            
+            # Test is_token_revoked
+            assert await auth_service.is_token_revoked("jti_123") is True
+            assert await auth_service.is_token_revoked("jti_clean") is False
+            
+            # Test revoke_token
+            success = await auth_service.revoke_token("jti_new", "u1", datetime(2025, 1, 1))
+            assert success is True
+            
+            mock_token_service.blacklist_token.assert_called_once()
 
 
     def test_verify_access_token_invalid(self, auth_service):

@@ -54,26 +54,14 @@ class StorageService:
             )
 
             # Create S3 public URL
-            # Create S3 public URL or CDN URL
-            if hasattr(self, "config") and self.config.CDN_BASE_URL:
-                url = f"{self.config.CDN_BASE_URL}/{key}"
-            else:
-                # Import config dynamically or use class attribute if I inject it, but better to import at top or just use the imported config if available.
-                # Let's check imports. config is not imported yet. I should verify if I can import it at top or if I should use os.getenv directly pattern used in this file.
-                # The file uses os.getenv in __init__. Let's stick to that pattern OR better, import config.
-                # But to avoid circular imports if any (unlikely here), let's see.
-                # Actually, I'll just check if I can import config.
-                pass
-
-            # Let's retry the replacement content to be cleaner.
-
-            # Use config from import
+            # Generate public URL (S3 or CDN)
             from config import config
 
             if config.CDN_BASE_URL:
                 url = f"{config.CDN_BASE_URL}/{key}"
             else:
                 url = f"https://{self.aws_bucket}.s3.{self.aws_region}.amazonaws.com/{key}"
+            
             return url
 
         except Exception as e:

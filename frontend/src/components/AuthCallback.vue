@@ -69,7 +69,7 @@ const handleAuthCallback = async () => {
       // Sync user data with backend
       try {
         await AuthService.syncUser();
-      } catch (syncError: any) {
+      } catch {
         // Don't let sync error stop the login process
       }
       
@@ -88,7 +88,7 @@ const handleAuthCallback = async () => {
       
       return; // Success, exit retry loop
       
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Handle browser extension errors
       if (err.message && err.message.includes('message channel closed')) {
         retryCount++;
