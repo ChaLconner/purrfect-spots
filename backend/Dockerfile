@@ -5,7 +5,7 @@
 # Base image: Python 3.12 slim
 
 # Stage 1: Builder
-FROM python:3.12-slim as builder
+FROM python:3.14-slim as builder
 
 WORKDIR /build
 
@@ -26,7 +26,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # Stage 2: Production
-FROM python:3.12-slim as production
+FROM python:3.14-slim as production
 
 LABEL maintainer="Purrfect Spots Team <support@purrfectspots.com>"
 LABEL description="Purrfect Spots API - Cat location sharing platform"
