@@ -174,7 +174,7 @@ jobs:
             -v
 
       - name: Upload coverage HTML report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: backend-coverage-report
@@ -236,7 +236,7 @@ jobs:
           python scripts/export_openapi.py --output ../docs/openapi-current.json
 
       - name: Upload OpenAPI specs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: openapi-specs
@@ -331,7 +331,7 @@ jobs:
           npm run test:coverage
 
       - name: Upload coverage HTML report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: frontend-coverage-report
@@ -370,7 +370,7 @@ jobs:
           VITE_API_BASE_URL: https://api.purrfect-spots.com
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: frontend-build
           path: frontend/dist
@@ -504,7 +504,7 @@ jobs:
           CI: true
 
       - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: playwright-report
@@ -512,7 +512,7 @@ jobs:
           retention-days: 14
 
       - name: Upload test screenshots
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: playwright-screenshots
