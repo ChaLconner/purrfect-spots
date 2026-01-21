@@ -53,7 +53,7 @@ class TokenService:
 
     async def blacklist_token(
         self,
-        token: str,
+        token: str | None,
         reason: str = "logout",
         ttl_seconds: int | None = None,
         user_id: str | None = None,
@@ -116,7 +116,7 @@ class TokenService:
 
         return True
 
-    async def is_blacklisted(self, token: str = None, jti: str = None) -> bool:
+    async def is_blacklisted(self, token: str | None = None, jti: str | None = None) -> bool:
         """
         Check if token is blacklisted.
 

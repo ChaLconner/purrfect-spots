@@ -31,7 +31,7 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
 RUN npm run build
 
 # Stage 2: Production with nginx
-FROM nginx:alpine as production
+FROM nginx:1.25-alpine as production
 
 LABEL maintainer="Purrfect Spots Team <support@purrfectspots.com>"
 LABEL description="Purrfect Spots Frontend - Vue.js application"

@@ -150,7 +150,7 @@ class AuthService:
         except Exception as e:
             raise Exception(f"Database error: {e!s}")
 
-    def create_access_token(self, user_id: str, user_data: dict = None) -> str:
+    def create_access_token(self, user_id: str, user_data: dict | None = None) -> str:
         """Create JWT access token with user data"""
         expire = utc_now() + timedelta(hours=self.jwt_expiration_hours)
         jti = str(uuid.uuid4())
@@ -259,7 +259,7 @@ class AuthService:
             raise Exception(f"Failed to update profile: {e!s}")
 
     async def exchange_google_code(
-        self, code: str, code_verifier: str, redirect_uri: str, ip: str = None, user_agent: str = None
+        self, code: str, code_verifier: str, redirect_uri: str, ip: str | None = None, user_agent: str | None = None
     ) -> LoginResponse:
         """Exchange Google authorization code for access token using PKCE flow"""
         try:
@@ -347,7 +347,7 @@ class AuthService:
             logger.error(f"[OAuth] Exchange exception: {e}")
             raise ValueError(f"Code exchange failed: {e!s}")
 
-    def create_refresh_token(self, user_id: str, ip: str = None, user_agent: str = None) -> str:
+    def create_refresh_token(self, user_id: str, ip: str | None = None, user_agent: str | None = None) -> str:
         """Create long-lived refresh token"""
         expire = utc_now() + timedelta(days=config.JWT_REFRESH_EXPIRATION_DAYS)
         jti = str(uuid.uuid4())
@@ -362,15 +362,17 @@ class AuthService:
         }
 
         if ip or user_agent:
-            to_encode["fingerprint"] = self._generate_fingerprint(ip, user_agent)
+            to_encode["fingerprint"] = self._generate_fingerprint(ip or "", user_agent or "")
 
-        encoded_jwt = jwt.encode(to_encode, config.JWT_REFRESH_SECRET, algorithm=self.jwt_algorithm)
+        encoded_jwt = jwt.encode(to_encode, config.JWT_REFRESH_SECRET, algorithm=self.jwt_algorithm)  # type: ignore[arg-type]
         return encoded_jwt
 
-    async def verify_refresh_token(self, token: str, ip: str = None, user_agent: str = None) -> dict | None:
+    async def verify_refresh_token(
+        self, token: str, ip: str | None = None, user_agent: str | None = None
+    ) -> dict | None:
         """Verify refresh token"""
         try:
-            payload = jwt.decode(token, config.JWT_REFRESH_SECRET, algorithms=[self.jwt_algorithm])
+            payload = jwt.decode(token, config.JWT_REFRESH_SECRET, algorithms=[self.jwt_algorithm])  # type: ignore[arg-type]
 
             if payload.get("type") != "refresh":
                 return None
@@ -382,7 +384,7 @@ class AuthService:
 
             token_fingerprint = payload.get("fingerprint")
             if token_fingerprint and (ip or user_agent):
-                current_fingerprint = self._generate_fingerprint(ip, user_agent)
+                current_fingerprint = self._generate_fingerprint(ip or "", user_agent or "")
                 if token_fingerprint != current_fingerprint:
                     logger.warning("Token fingerprint mismatch!")
                     return None

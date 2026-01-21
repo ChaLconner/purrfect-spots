@@ -20,8 +20,8 @@ from user_models.user import User
 security = HTTPBearer()
 
 # JWKS Cache
-_jwks_cache = None
-_jwks_last_update = 0
+_jwks_cache: dict | None = None
+_jwks_last_update: int = 0
 JWKS_CACHE_TTL = 3600  # 1 hour
 
 
@@ -48,7 +48,7 @@ async def get_jwks():
             response = await client.get(jwks_url, timeout=5)
             if response.status_code == 200:
                 _jwks_cache = response.json()
-                _jwks_last_update = current_time
+                _jwks_last_update = int(current_time)
                 return _jwks_cache
     except Exception:
         pass
@@ -73,7 +73,7 @@ async def decode_supabase_token(token: str):
             raise ValueError(f"Key with kid '{kid}' not found in JWKS")
 
         public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key)
-        payload = jwt.decode(token, public_key, algorithms=["RS256"], audience="authenticated")
+        payload = jwt.decode(token, public_key, algorithms=["RS256"], audience="authenticated")  # type: ignore[arg-type]
         return payload
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Invalid Supabase token: {e!s}")

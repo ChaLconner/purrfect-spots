@@ -42,10 +42,10 @@ class UserLogin(BaseModel):
 class UserResponse(BaseModel):
     id: str
     email: str
-    name: str
+    name: str | None = None
     picture: str | None = None
     bio: str | None = None
-    created_at: datetime
+    created_at: datetime | None = None
 
 
 class LoginResponse(BaseModel):

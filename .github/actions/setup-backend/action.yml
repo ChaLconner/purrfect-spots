@@ -1,0 +1,41 @@
+name: 'Setup Backend'
+description: 'Sets up Python environment, installs system dependencies, and installs Python packages'
+
+inputs:
+  python-version:
+    description: 'Python version to use'
+    required: false
+    default: '3.12'
+  install-deps:
+    description: 'Whether to install dependencies'
+    required: false
+    default: 'true'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache: 'pip'
+        cache-dependency-path: backend/requirements.txt
+
+    - name: Install system dependencies
+      shell: bash
+      if: inputs.install-deps == 'true'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libmagic1
+
+    - name: Install Python dependencies
+      shell: bash
+      if: inputs.install-deps == 'true'
+      run: |
+        cd backend
+        pip install --upgrade pip
+        pip install -r requirements.txt
+        # Install dev/link dependencies if needed, but requirements.txt usually has them or we might need extra text
+        # In ci.yml, some jobs install pytest-cov, some handled differently.
+        # Let's keep it simple: requirements.txt only. 
+        # Jobs needing extra deps can install them after this action.

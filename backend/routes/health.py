@@ -14,6 +14,7 @@ These endpoints are designed for:
 
 import asyncio
 import os
+import sys
 from datetime import UTC, datetime
 from typing import Any
 
@@ -262,7 +263,10 @@ async def readiness_check():
     critical_services = ["database"]
 
     # Check if all critical services are healthy
-    all_critical_healthy = all(results.get(service, {}).get("status") == "healthy" for service in critical_services)
+    all_critical_healthy = all(
+        isinstance(results.get(service), dict) and results.get(service, {}).get("status") == "healthy"
+        for service in critical_services
+    )
 
     # Overall status
     if all_critical_healthy:
@@ -357,7 +361,7 @@ async def metrics():
             "timestamp": datetime.now(UTC).isoformat(),
             "cache": cache_stats,
             "environment": os.getenv("ENVIRONMENT", "development"),
-            "python_version": os.sys.version.split()[0],
+            "python_version": sys.version.split()[0],
         },
         headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
     )

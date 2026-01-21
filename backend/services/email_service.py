@@ -12,7 +12,7 @@ class EmailService:
         self.smtp_port = int(os.getenv("SMTP_PORT", "587"))
         self.smtp_user = os.getenv("SMTP_USER")
         self.smtp_password = os.getenv("SMTP_PASSWORD")
-        self.sender_email = os.getenv("SMTP_SENDER", self.smtp_user)
+        self.sender_email = os.getenv("SMTP_SENDER") or self.smtp_user or "noreply@purrfectspots.com"
         self.frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
     def send_reset_email(self, to_email: str, token: str) -> bool:

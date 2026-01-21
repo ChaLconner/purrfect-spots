@@ -68,6 +68,8 @@ def generate_cache_key(*args, **kwargs) -> str:
 
 def _redis_get(key: str) -> Any | None:
     """Helper to safely get and deserialize from Redis."""
+    if not redis_client:
+        return None
     try:
         data = redis_client.get(key)
         if data:
@@ -77,8 +79,10 @@ def _redis_get(key: str) -> Any | None:
     return None
 
 
-def _redis_set(key: str, value: Any, ttl: int):
+def _redis_set(key: str, value: Any, ttl: int) -> None:
     """Helper to safely serialize and set to Redis."""
+    if not redis_client:
+        return
     try:
         serialized = json.dumps(value, default=str)
         redis_client.setex(key, ttl, serialized)
@@ -270,9 +274,9 @@ def invalidate_all_caches():
 # ========== Statistics ==========
 
 
-def get_cache_stats() -> dict:
+def get_cache_stats() -> dict[str, Any]:
     """Get current cache statistics."""
-    stats = {
+    stats: dict[str, Any] = {
         "mode": "redis" if redis_client else "memory",
         "redis_connected": redis_client is not None,
     }
@@ -280,18 +284,14 @@ def get_cache_stats() -> dict:
     if not redis_client:
         # Return memory stats
         with _cache_lock:
-            stats.update(
-                {
-                    "gallery": {
-                        "size": len(_gallery_cache),
-                        "maxsize": _gallery_cache.maxsize,
-                    },
-                    "tags": {"size": len(_tags_cache), "maxsize": _tags_cache.maxsize},
-                    "user_photos": {
-                        "size": len(_user_photos_cache),
-                        "maxsize": _user_photos_cache.maxsize,
-                    },
-                }
-            )
+            stats["gallery"] = {
+                "size": len(_gallery_cache),
+                "maxsize": _gallery_cache.maxsize,
+            }
+            stats["tags"] = {"size": len(_tags_cache), "maxsize": _tags_cache.maxsize}
+            stats["user_photos"] = {
+                "size": len(_user_photos_cache),
+                "maxsize": _user_photos_cache.maxsize,
+            }
 
     return stats

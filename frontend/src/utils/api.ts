@@ -5,10 +5,10 @@
  * - All new endpoints should use /api/v1/ prefix
  * - Legacy endpoints (without prefix) are maintained for backward compatibility
  */
-/* eslint-disable @typescript-eslint/no-explicit-any */
+
 
 import axios from 'axios';
-import type { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios';
+import type { AxiosInstance, AxiosRequestConfig, AxiosError, AxiosProgressEvent } from 'axios';
 import { isBrowserExtensionError, handleBrowserExtensionError } from './browserExtensionHandler';
 import { isDev, getEnvVar } from './env';
 import { useAuthStore } from '../store/authStore';
@@ -62,13 +62,13 @@ export type ApiErrorType = typeof ApiErrorTypes[keyof typeof ApiErrorTypes];
 export class ApiError extends Error {
   type: ApiErrorType;
   statusCode?: number;
-  originalError?: any;
+  originalError?: unknown;
 
   constructor(
     type: ApiErrorType,
     message: string,
     statusCode?: number,
-    originalError?: any
+    originalError?: unknown
   ) {
     super(message);
     this.name = 'ApiError';
@@ -235,8 +235,8 @@ const createApiInstance = (): AxiosInstance => {
           }
 
           // If it's a normal request, try to refresh the token
-          if (status === 401 && originalRequest && !(originalRequest as any)._retry) {
-            (originalRequest as any)._retry = true;
+          if (status === 401 && originalRequest && !(originalRequest as AxiosRequestConfig & { _retry?: boolean })._retry) {
+            (originalRequest as AxiosRequestConfig & { _retry?: boolean })._retry = true;
             
             try {
               const auth = useAuthStore();
@@ -298,7 +298,7 @@ const createApiInstance = (): AxiosInstance => {
           
         case 422:
           // Validation error
-          const validationMessage = (data as any)?.detail || 'Invalid data';
+          const validationMessage = (data as { detail?: string })?.detail || 'Invalid data';
           throw new ApiError(
             ApiErrorTypes.VALIDATION_ERROR,
             validationMessage,
@@ -358,7 +358,7 @@ const createApiInstance = (): AxiosInstance => {
             );
           }
           
-          const errorMessage = (data as any)?.detail || (data as any)?.message || (error as Error).message || 'An unknown error occurred';
+          const errorMessage = (data as { detail?: string })?.detail || (data as { message?: string })?.message || (error as Error).message || 'An unknown error occurred';
           throw new ApiError(
             ApiErrorTypes.UNKNOWN_ERROR,
             errorMessage,
@@ -402,7 +402,7 @@ function calculateBackoffDelay(attempt: number, config: RetryConfig): number {
 /**
  * Check if an error is retryable
  */
-function isRetryableError(error: any, config: RetryConfig): boolean {
+function isRetryableError(error: unknown, config: RetryConfig): boolean {
   // Network errors are always retryable
   if (error instanceof ApiError && error.type === ApiErrorTypes.NETWORK_ERROR) {
     return true;
@@ -434,13 +434,13 @@ function sleep(ms: number): Promise<void> {
 }
 
 // Enhanced API request functions using axios with retry logic
-export const apiRequest = async <T = any>(
+export const apiRequest = async <T = unknown>(
   endpoint: string,
   options: AxiosRequestConfig = {},
   retryConfig: Partial<RetryConfig> = {}
 ): Promise<T> => {
   const config = { ...DEFAULT_RETRY_CONFIG, ...retryConfig };
-  let lastError: any;
+  let lastError: unknown;
   
   for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
     try {
@@ -496,7 +496,7 @@ export const apiRequest = async <T = any>(
 
 
 // Authenticated API request
-export const authenticatedApiRequest = async <T = any>(
+export const authenticatedApiRequest = async <T = unknown>(
   endpoint: string,
   options: AxiosRequestConfig = {}
 ): Promise<T> => {
@@ -505,28 +505,28 @@ export const authenticatedApiRequest = async <T = any>(
 
 // Convenience methods for common HTTP operations
 export const api = {
-  get: <T = any>(endpoint: string, config?: AxiosRequestConfig) => 
+  get: <T = unknown>(endpoint: string, config?: AxiosRequestConfig) => 
     apiRequest<T>(endpoint, { method: 'GET', ...config }),
     
-  post: <T = any>(endpoint: string, data?: any, config?: AxiosRequestConfig) => 
+  post: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig) => 
     apiRequest<T>(endpoint, { method: 'POST', data, ...config }),
     
-  put: <T = any>(endpoint: string, data?: any, config?: AxiosRequestConfig) => 
+  put: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig) => 
     apiRequest<T>(endpoint, { method: 'PUT', data, ...config }),
     
-  patch: <T = any>(endpoint: string, data?: any, config?: AxiosRequestConfig) => 
+  patch: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig) => 
     apiRequest<T>(endpoint, { method: 'PATCH', data, ...config }),
     
-  delete: <T = any>(endpoint: string, config?: AxiosRequestConfig) => 
+  delete: <T = unknown>(endpoint: string, config?: AxiosRequestConfig) => 
     apiRequest<T>(endpoint, { method: 'DELETE', ...config }),
 };
 
 // File upload helper
-export const uploadFile = async <T = any>(
+export const uploadFile = async <T = unknown>(
   endpoint: string,
   file: File,
-  additionalData?: Record<string, any>,
-  onUploadProgress?: (progressEvent: any) => void
+  additionalData?: Record<string, unknown>,
+  onUploadProgress?: (progressEvent: AxiosProgressEvent) => void
 ): Promise<T> => {
   const formData = new FormData();
   formData.append('file', file);
@@ -557,19 +557,19 @@ export const uploadFile = async <T = any>(
  * Use this for all new code
  */
 export const apiV1 = {
-  get: <T = any>(endpoint: string, config?: AxiosRequestConfig) => 
+  get: <T = unknown>(endpoint: string, config?: AxiosRequestConfig) => 
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'GET', ...config }),
     
-  post: <T = any>(endpoint: string, data?: any, config?: AxiosRequestConfig) => 
+  post: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig) => 
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'POST', data, ...config }),
     
-  put: <T = any>(endpoint: string, data?: any, config?: AxiosRequestConfig) => 
+  put: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig) => 
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'PUT', data, ...config }),
     
-  patch: <T = any>(endpoint: string, data?: any, config?: AxiosRequestConfig) => 
+  patch: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig) => 
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'PATCH', data, ...config }),
     
-  delete: <T = any>(endpoint: string, config?: AxiosRequestConfig) => 
+  delete: <T = unknown>(endpoint: string, config?: AxiosRequestConfig) => 
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'DELETE', ...config }),
 };
 

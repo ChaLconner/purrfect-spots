@@ -26,6 +26,7 @@ export function useGeolocation() {
         };
       }
     } catch (e) {
+      // eslint-disable-next-line no-console
       console.warn('IP Geolocation failed:', e);
     }
     return null;

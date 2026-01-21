@@ -137,7 +137,7 @@ def setup_logger(name: str = "purrfect_spots") -> logging.Logger:
 logger = setup_logger()
 
 
-def log_performance(operation_name: str = None):
+def log_performance(operation_name: str | None = None):
     """
     Decorator to log function execution time.
 
@@ -263,7 +263,7 @@ def log_timing(operation_name: str):
             logger.debug(f"⏱️ {operation_name} took {duration_ms:.2f}ms")
 
 
-def log_request(request_id: str, method: str, path: str, user_id: str = None):
+def log_request(request_id: str, method: str, path: str, user_id: str | None = None):
     """
     Log incoming request with context.
 

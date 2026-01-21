@@ -155,3 +155,5 @@ playwright-report/
 .coverage.*
 htmlcov/
 coverage.xml
+trivy-results.sarif
+coverage_html/

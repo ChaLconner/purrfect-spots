@@ -13,9 +13,9 @@ from user_models.user import UserResponse
 from utils.rate_limiter import limiter
 
 
-def get_client_info(request: Request):
+def get_client_info(request: Request) -> tuple[str, str]:
     """Helper to get IP and User-Agent safely"""
-    ip = request.client.host
+    ip = request.client.host if request.client else "unknown"
     user_agent = request.headers.get("user-agent", "")
 
     # Check X-Forwarded-For if behind proxy
