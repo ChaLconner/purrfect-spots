@@ -38,8 +38,7 @@ def get_redis_url() -> str | None:
     # Validate Redis URL format
     if not redis_url.startswith(("redis://", "rediss://")):
         logger.warning(
-            "Invalid REDIS_URL format: should start with redis:// or rediss://. "
-            "Falling back to in-memory storage."
+            "Invalid REDIS_URL format: should start with redis:// or rediss://. Falling back to in-memory storage."
         )
         return None
 

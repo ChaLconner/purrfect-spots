@@ -46,9 +46,7 @@ class TestGoogleAuthRoutes:
             mock_config.get_allowed_origins.return_value = ["http://localhost:5173"]
 
             with patch("os.getenv", return_value="google_id"):
-                response = client.get(
-                    "/api/v1/auth/google/login", follow_redirects=False
-                )
+                response = client.get("/api/v1/auth/google/login", follow_redirects=False)
                 assert response.status_code == 302
                 assert "accounts.google.com" in response.headers["location"]
 
@@ -57,9 +55,7 @@ class TestGoogleAuthRoutes:
         with patch("routes.auth_google.AuthService") as MockServiceClass:
             # Configure instance
             mock_service = MockServiceClass.return_value
-            mock_service.verify_google_token.return_value = {
-                "email": "test@example.com"
-            }
+            mock_service.verify_google_token.return_value = {"email": "test@example.com"}
             mock_service.create_or_get_user.return_value = mock_user_response
             mock_service.create_access_token.return_value = "mock_access_token"
             mock_service.create_refresh_token.return_value = "mock_refresh_token"
@@ -79,9 +75,7 @@ class TestGoogleAuthRoutes:
         """Test exchange code for tokens"""
         with patch("routes.auth_google.AuthService") as MockServiceClass:
             mock_service = MockServiceClass.return_value
-            mock_service.exchange_google_code = AsyncMock(
-                return_value=mock_login_response_obj
-            )
+            mock_service.exchange_google_code = AsyncMock(return_value=mock_login_response_obj)
 
             with patch("routes.auth_google.config") as mock_config:
                 mock_config.get_allowed_origins.return_value = ["http://localhost:5173"]
@@ -112,12 +106,8 @@ class TestGoogleAuthRoutes:
         mock_res.data = [{"id": "user123"}]
         mock_supabase_admin.table().upsert().execute.return_value = mock_res
 
-        with patch(
-            "dependencies.get_supabase_admin_client", return_value=mock_supabase_admin
-        ):
-            app.dependency_overrides[get_current_user_from_header] = (
-                lambda: mock_jwt_payload
-            )
+        with patch("dependencies.get_supabase_admin_client", return_value=mock_supabase_admin):
+            app.dependency_overrides[get_current_user_from_header] = lambda: mock_jwt_payload
 
             response = client.post("/api/v1/auth/sync-user")
 

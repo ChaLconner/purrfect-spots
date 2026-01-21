@@ -206,9 +206,7 @@ def validate_image_magic_bytes(file_content: bytes) -> tuple[bool, str, str]:
         return False, "", f"Failed to validate file type: {e!s}"
 
 
-def validate_content_type_matches(
-    claimed_content_type: str, file_content: bytes
-) -> tuple[bool, str]:
+def validate_content_type_matches(claimed_content_type: str, file_content: bytes) -> tuple[bool, str]:
     """
     Validate that the claimed Content-Type matches the actual file content.
 

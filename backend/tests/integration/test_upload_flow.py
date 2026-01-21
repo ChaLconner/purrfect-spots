@@ -76,9 +76,7 @@ class TestUploadFlowIntegration:
 
         assert response.status_code in [400, 401, 422]
 
-    def test_upload_validates_location(
-        self, authenticated_client, valid_cat_image, mock_auth_user
-    ):
+    def test_upload_validates_location(self, authenticated_client, valid_cat_image, mock_auth_user):
         """Test: Upload validates latitude/longitude ranges"""
         with patch("routes.upload.get_current_user", return_value=mock_auth_user):
             # Invalid latitude (>90)
@@ -94,54 +92,64 @@ class TestUploadFlowIntegration:
 
         assert response.status_code in [400, 401, 422]
 
-    def test_upload_sanitizes_location_name(
-        self, authenticated_client, valid_cat_image, mock_auth_user
-    ):
+    def test_upload_sanitizes_location_name(self, authenticated_client, valid_cat_image, mock_auth_user):
         """Test: Upload sanitizes XSS in location name"""
         malicious_name = "<script>alert('xss')</script>Test Park"
 
         # Mock dependencies
         mock_detection_service = MagicMock()
-        mock_detection_service.detect_cats = AsyncMock(return_value={
-            "has_cats": True,
-            "cat_count": 1, 
-            "confidence": 95,
-            "suitable_for_cat_spot": True,
-            "cats_detected": []
-        })
-        
+        mock_detection_service.detect_cats = AsyncMock(
+            return_value={
+                "has_cats": True,
+                "cat_count": 1,
+                "confidence": 95,
+                "suitable_for_cat_spot": True,
+                "cats_detected": [],
+            }
+        )
+
         mock_storage_service = MagicMock()
         mock_storage_service.upload_file = AsyncMock(return_value="https://s3.example.com/cat.jpg")
-        
+
         # Mock Supabase return for insert
         mock_supabase_params = MagicMock()
-        mock_supabase_params.data = [{"id": "photo-123", "location_name": "Test Park", "image_url": "url", "uploaded_at": "now", "latitude": 13, "longitude": 100}]
+        mock_supabase_params.data = [
+            {
+                "id": "photo-123",
+                "location_name": "Test Park",
+                "image_url": "url",
+                "uploaded_at": "now",
+                "latitude": 13,
+                "longitude": 100,
+            }
+        ]
 
         mock_client = MagicMock()
         mock_client.table.return_value.insert.return_value.execute.return_value = mock_supabase_params
-        
+
         # Override dependencies
         from dependencies import get_supabase_client
         from main import app
         from routes.upload import get_cat_detection_service, get_current_user, get_storage_service
         from services.cat_detection_service import CatDetectionService
         from services.storage_service import StorageService
-        
+
         app.dependency_overrides[get_supabase_client] = lambda: mock_client
         app.dependency_overrides[get_cat_detection_service] = lambda: mock_detection_service
         app.dependency_overrides[get_storage_service] = lambda: mock_storage_service
         app.dependency_overrides[get_current_user] = lambda: MagicMock(id="user-123", email="test@example.com")
 
-        with patch("dependencies.get_supabase_admin_client") as mock_get_admin, \
-             patch("routes.upload.process_uploaded_image") as mock_process_image, \
-             patch("routes.upload.invalidate_gallery_cache"), \
-             patch("routes.upload.invalidate_tags_cache"), \
-             patch("routes.upload.log_security_event"):
-            
+        with (
+            patch("dependencies.get_supabase_admin_client") as mock_get_admin,
+            patch("routes.upload.process_uploaded_image") as mock_process_image,
+            patch("routes.upload.invalidate_gallery_cache"),
+            patch("routes.upload.invalidate_tags_cache"),
+            patch("routes.upload.log_security_event"),
+        ):
             mock_admin_client = MagicMock()
             mock_admin_client.table.return_value.insert.return_value.execute.return_value = mock_supabase_params
             mock_get_admin.return_value = mock_admin_client
-            
+
             # Mock image processing result
             mock_process_image.return_value = (b"image-content", "image/jpeg", "jpg")
 
@@ -154,7 +162,7 @@ class TestUploadFlowIntegration:
                         "latitude": "13.7563",
                         "longitude": "100.5018",
                         "lat": "13.7563",
-                        "lng": "100.5018", 
+                        "lng": "100.5018",
                     },
                 )
             finally:
@@ -181,19 +189,19 @@ class TestGalleryFlowIntegration:
                     "longitude": 100.50,
                     "tags": [],
                     "description": "A cat",
-                    "uploaded_at": "2024-01-01"
+                    "uploaded_at": "2024-01-01",
                 }
             ],
             "total": 1,
-            "has_more": False
+            "has_more": False,
         }
-        
+
         # Override dependency
         from main import app
         from routes.gallery import get_gallery_service
-        
+
         app.dependency_overrides[get_gallery_service] = lambda: mock_service
-        
+
         try:
             response = client.get("/api/v1/gallery/")
         finally:
@@ -201,7 +209,7 @@ class TestGalleryFlowIntegration:
 
         assert response.status_code == 200
         data = response.json()
-        
+
         # Check for paginated response structure
         assert "images" in data
         assert "pagination" in data
@@ -253,22 +261,22 @@ class TestAuthFlowIntegration:
 
     def test_login_returns_tokens(self, client):
         """Test: Login returns access and refresh tokens"""
-        
+
         mock_service = MagicMock()
         mock_service.authenticate_user.return_value = {
             "id": "user-123",
             "email": "test@example.com",
             "name": "Test User",
-            "created_at": "2023-01-01"
+            "created_at": "2023-01-01",
         }
         mock_service.create_access_token.return_value = "access-token"
         mock_service.create_refresh_token.return_value = "refresh-token"
-        
+
         from main import app
         from routes.auth_manual import get_auth_service
-        
+
         app.dependency_overrides[get_auth_service] = lambda: mock_service
-        
+
         try:
             response = client.post(
                 "/api/v1/auth/login",

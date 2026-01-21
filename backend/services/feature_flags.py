@@ -54,5 +54,6 @@ class FeatureFlagService:
             flags[key] = cls.is_enabled(key)
         return flags
 
+
 # Global instance not needed as methods are classmethods, but for DI consistency:
 feature_flags = FeatureFlagService()

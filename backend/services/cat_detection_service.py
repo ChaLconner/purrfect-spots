@@ -88,9 +88,7 @@ class CatDetectionService:
             return result
 
         except Exception as e:
-            raise HTTPException(
-                status_code=500, detail=f"Cat detection failed: {e!s}"
-            )
+            raise HTTPException(status_code=500, detail=f"Cat detection failed: {e!s}")
 
     async def analyze_cat_spot_suitability(self, file: UploadFile) -> dict[str, Any]:
         """
@@ -108,6 +106,4 @@ class CatDetectionService:
             return result
 
         except Exception as e:
-            raise HTTPException(
-                status_code=500, detail=f"Spot analysis failed: {e!s}"
-            )
+            raise HTTPException(status_code=500, detail=f"Spot analysis failed: {e!s}")

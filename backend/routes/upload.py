@@ -196,9 +196,7 @@ async def upload_cat_photo(
                 "has_cats": detection_result.get("has_cats"),
                 "cat_count": detection_result.get("cat_count", 0),
                 "confidence": detection_result.get("confidence", 0),
-                "suitable_for_cat_spot": detection_result.get(
-                    "suitable_for_cat_spot", False
-                ),
+                "suitable_for_cat_spot": detection_result.get("suitable_for_cat_spot", False),
                 "cats_detected": detection_result.get("cats_detected", []),
                 "detection_timestamp": datetime.now().isoformat(),
                 "detection_source": "server",
@@ -208,15 +206,11 @@ async def upload_cat_photo(
         requires_verification = cat_data.get("requires_server_verification", False)
         has_cats = cat_data.get("has_cats", False)
         cat_count = cat_data.get("cat_count", 0)
-        
+
         # Allow upload if: (has_cats AND cat_count > 0) OR (requires_verification AND has_cats)
         if not has_cats or (cat_count == 0 and not requires_verification):
-            log_security_event(
-                "upload_rejected_invalid_detection", user_id=user_id, severity="INFO"
-            )
-            raise HTTPException(
-                status_code=400, detail="Cannot upload: No cats detected in the image"
-            )
+            log_security_event("upload_rejected_invalid_detection", user_id=user_id, severity="INFO")
+            raise HTTPException(status_code=400, detail="Cannot upload: No cats detected in the image")
 
         # Use shared validation utilities for coordinates
         latitude, longitude = validate_coordinates(lat, lng)
@@ -227,21 +221,15 @@ async def upload_cat_photo(
 
         # Validate location name after sanitization
         if not cleaned_location_name or len(cleaned_location_name) < 3:
-            raise HTTPException(
-                status_code=400, detail="Location name must be at least 3 characters"
-            )
+            raise HTTPException(status_code=400, detail="Location name must be at least 3 characters")
 
         if len(cleaned_location_name) > 100:
-            raise HTTPException(
-                status_code=400, detail="Location name must be under 100 characters"
-            )
+            raise HTTPException(status_code=400, detail="Location name must be under 100 characters")
 
         # Process and sanitize tags
         parsed_tags = parse_and_sanitize_tags(tags)
         if parsed_tags:
-            cleaned_description = format_tags_for_description(
-                parsed_tags, cleaned_description
-            )
+            cleaned_description = format_tags_for_description(parsed_tags, cleaned_description)
 
         # Upload optimized file to S3
         try:
@@ -298,9 +286,7 @@ async def upload_cat_photo(
             },
         )
 
-        logger.info(
-            f"Cat photo uploaded successfully: {created_photo['id']} by {current_user.email}"
-        )
+        logger.info(f"Cat photo uploaded successfully: {created_photo['id']} by {current_user.email}")
 
         return JSONResponse(
             status_code=201,
@@ -333,9 +319,7 @@ async def upload_cat_photo(
             details={"error": str(e)[:200]},
             severity="ERROR",
         )
-        raise HTTPException(
-            status_code=500, detail="Upload failed due to an internal error"
-        )
+        raise HTTPException(status_code=500, detail="Upload failed due to an internal error")
 
 
 @router.get("/test")

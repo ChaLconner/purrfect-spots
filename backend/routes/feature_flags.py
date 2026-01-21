@@ -3,7 +3,6 @@ Feature Flags API Routes
 Exposes feature flag status to frontend clients.
 """
 
-
 from fastapi import APIRouter
 from pydantic import BaseModel
 
@@ -14,6 +13,7 @@ router = APIRouter(prefix="/feature-flags", tags=["Feature Flags"])
 
 class FeatureFlagsResponse(BaseModel):
     """Response model for feature flags."""
+
     flags: dict[str, bool]
 
 
@@ -21,7 +21,7 @@ class FeatureFlagsResponse(BaseModel):
 async def get_feature_flags():
     """
     Get all feature flags and their current status.
-    
+
     This endpoint is public and can be called by the frontend
     to determine which features to enable/disable in the UI.
     """
@@ -32,10 +32,10 @@ async def get_feature_flags():
 async def get_feature_flag(flag_name: str):
     """
     Check if a specific feature flag is enabled.
-    
+
     Args:
         flag_name: Name of the feature flag to check
-        
+
     Returns:
         Object with flag name and enabled status
     """

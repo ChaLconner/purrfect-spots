@@ -16,33 +16,15 @@ class TestCompareSchemas:
 
     def test_no_changes(self):
         """Test with identical schemas - no breaking changes."""
-        schema = {
-            "paths": {
-                "/api/v1/users": {
-                    "get": {
-                        "parameters": [],
-                        "responses": {"200": {}}
-                    }
-                }
-            }
-        }
+        schema = {"paths": {"/api/v1/users": {"get": {"parameters": [], "responses": {"200": {}}}}}}
 
         changes = compare_schemas(schema, schema)
         assert len(changes) == 0
 
     def test_endpoint_removed(self):
         """Test detection of removed endpoint."""
-        baseline = {
-            "paths": {
-                "/api/v1/users": {"get": {}},
-                "/api/v1/cats": {"get": {}}
-            }
-        }
-        current = {
-            "paths": {
-                "/api/v1/users": {"get": {}}
-            }
-        }
+        baseline = {"paths": {"/api/v1/users": {"get": {}}, "/api/v1/cats": {"get": {}}}}
+        current = {"paths": {"/api/v1/users": {"get": {}}}}
 
         changes = compare_schemas(baseline, current)
         assert len(changes) == 1
@@ -51,21 +33,8 @@ class TestCompareSchemas:
 
     def test_method_removed(self):
         """Test detection of removed HTTP method."""
-        baseline = {
-            "paths": {
-                "/api/v1/users": {
-                    "get": {},
-                    "post": {}
-                }
-            }
-        }
-        current = {
-            "paths": {
-                "/api/v1/users": {
-                    "get": {}
-                }
-            }
-        }
+        baseline = {"paths": {"/api/v1/users": {"get": {}, "post": {}}}}
+        current = {"paths": {"/api/v1/users": {"get": {}}}}
 
         changes = compare_schemas(baseline, current)
         assert len(changes) == 1
@@ -77,26 +46,11 @@ class TestCompareSchemas:
         baseline = {
             "paths": {
                 "/api/v1/users": {
-                    "get": {
-                        "parameters": [
-                            {"name": "user_id", "required": True},
-                            {"name": "limit", "required": False}
-                        ]
-                    }
+                    "get": {"parameters": [{"name": "user_id", "required": True}, {"name": "limit", "required": False}]}
                 }
             }
         }
-        current = {
-            "paths": {
-                "/api/v1/users": {
-                    "get": {
-                        "parameters": [
-                            {"name": "limit", "required": False}
-                        ]
-                    }
-                }
-            }
-        }
+        current = {"paths": {"/api/v1/users": {"get": {"parameters": [{"name": "limit", "required": False}]}}}}
 
         changes = compare_schemas(baseline, current)
         assert len(changes) == 1
@@ -105,55 +59,16 @@ class TestCompareSchemas:
 
     def test_optional_param_removed_no_breaking_change(self):
         """Test that removing optional parameter is NOT a breaking change."""
-        baseline = {
-            "paths": {
-                "/api/v1/users": {
-                    "get": {
-                        "parameters": [
-                            {"name": "limit", "required": False}
-                        ]
-                    }
-                }
-            }
-        }
-        current = {
-            "paths": {
-                "/api/v1/users": {
-                    "get": {
-                        "parameters": []
-                    }
-                }
-            }
-        }
+        baseline = {"paths": {"/api/v1/users": {"get": {"parameters": [{"name": "limit", "required": False}]}}}}
+        current = {"paths": {"/api/v1/users": {"get": {"parameters": []}}}}
 
         changes = compare_schemas(baseline, current)
         assert len(changes) == 0
 
     def test_response_removed(self):
         """Test detection of removed response code."""
-        baseline = {
-            "paths": {
-                "/api/v1/users": {
-                    "get": {
-                        "responses": {
-                            "200": {},
-                            "404": {}
-                        }
-                    }
-                }
-            }
-        }
-        current = {
-            "paths": {
-                "/api/v1/users": {
-                    "get": {
-                        "responses": {
-                            "404": {}
-                        }
-                    }
-                }
-            }
-        }
+        baseline = {"paths": {"/api/v1/users": {"get": {"responses": {"200": {}, "404": {}}}}}}
+        current = {"paths": {"/api/v1/users": {"get": {"responses": {"404": {}}}}}}
 
         changes = compare_schemas(baseline, current)
         assert len(changes) == 1
@@ -165,19 +80,8 @@ class TestNonBreakingChanges:
 
     def test_new_endpoint_detected(self):
         """Test that new endpoints are reported as warnings."""
-        baseline = {
-            "info": {"version": "1.0.0"},
-            "paths": {
-                "/api/v1/users": {"get": {}}
-            }
-        }
-        current = {
-            "info": {"version": "1.0.0"},
-            "paths": {
-                "/api/v1/users": {"get": {}},
-                "/api/v1/cats": {"get": {}}
-            }
-        }
+        baseline = {"info": {"version": "1.0.0"}, "paths": {"/api/v1/users": {"get": {}}}}
+        current = {"info": {"version": "1.0.0"}, "paths": {"/api/v1/users": {"get": {}}, "/api/v1/cats": {"get": {}}}}
 
         warnings = check_non_breaking_changes(baseline, current)
         assert len(warnings) == 1
@@ -186,14 +90,8 @@ class TestNonBreakingChanges:
 
     def test_version_change_detected(self):
         """Test that version changes are reported."""
-        baseline = {
-            "info": {"version": "1.0.0"},
-            "paths": {}
-        }
-        current = {
-            "info": {"version": "2.0.0"},
-            "paths": {}
-        }
+        baseline = {"info": {"version": "1.0.0"}, "paths": {}}
+        current = {"info": {"version": "2.0.0"}, "paths": {}}
 
         warnings = check_non_breaking_changes(baseline, current)
         assert len(warnings) == 1

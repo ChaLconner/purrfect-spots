@@ -35,21 +35,14 @@ class GalleryService:
         """
         try:
             # Try to select the search_vector column - using standard client (RLS safe)
-            resp = (
-                self.supabase.table("cat_photos")
-                .select("search_vector")
-                .limit(1)
-                .execute()
-            )
+            resp = self.supabase.table("cat_photos").select("search_vector").limit(1).execute()
             logger.info("Full-text search is available")
             return True
         except Exception as e:
             logger.info(f"Full-text search not available, using ILIKE fallback: {e}")
             return False
 
-    def get_all_photos(
-        self, limit: int = 20, offset: int = 0, include_total: bool = True
-    ) -> dict[str, Any]:
+    def get_all_photos(self, limit: int = 20, offset: int = 0, include_total: bool = True) -> dict[str, Any]:
         """
         Get photos for public gallery with pagination
 
@@ -80,11 +73,7 @@ class GalleryService:
 
             # Get total count if requested
             if include_total:
-                count_resp = (
-                    self.supabase.table("cat_photos")
-                    .select("id", count="exact")
-                    .execute()
-                )
+                count_resp = self.supabase.table("cat_photos").select("id", count="exact").execute()
                 total = count_resp.count if count_resp.count else len(data)
 
             return {
@@ -92,9 +81,7 @@ class GalleryService:
                 "total": total,
                 "limit": limit,
                 "offset": offset,
-                "has_more": offset + len(data) < total
-                if include_total
-                else len(data) == limit,
+                "has_more": offset + len(data) < total if include_total else len(data) == limit,
             }
         except Exception as e:
             raise Exception(f"Failed to fetch gallery images: {e!s}")
@@ -115,11 +102,7 @@ class GalleryService:
         """Internal cached implementation."""
         try:
             resp = (
-                supabase_client.table("cat_photos")
-                .select("*")
-                .order("uploaded_at", desc=True)
-                .limit(limit)
-                .execute()
+                supabase_client.table("cat_photos").select("*").order("uploaded_at", desc=True).limit(limit).execute()
             )
             return resp.data if resp.data else []
         except Exception as e:
@@ -170,9 +153,7 @@ class GalleryService:
                     raise Exception(f"Failed to search photos: {e2!s}")
             raise Exception(f"Failed to search photos: {e!s}")
 
-    def _fulltext_search(
-        self, query: str, tags: list[str] | None = None, limit: int = 100
-    ) -> list[dict[str, Any]]:
+    def _fulltext_search(self, query: str, tags: list[str] | None = None, limit: int = 100) -> list[dict[str, Any]]:
         """
         Perform full-text search using PostgreSQL tsvector.
 
@@ -189,9 +170,7 @@ class GalleryService:
             # This provides ranking by relevance
             try:
                 # Use standard client for RPC call
-                resp = self.supabase.rpc(
-                    "search_cat_photos", {"search_query": query, "result_limit": limit}
-                ).execute()
+                resp = self.supabase.rpc("search_cat_photos", {"search_query": query, "result_limit": limit}).execute()
 
                 results = resp.data if resp.data else []
 
@@ -202,9 +181,7 @@ class GalleryService:
                 return results
 
             except Exception as rpc_error:
-                logger.debug(
-                    f"RPC search not available: {rpc_error}, using direct query"
-                )
+                logger.debug(f"RPC search not available: {rpc_error}, using direct query")
 
                 # Direct query with textquery matching on search_vector column
                 # Convert query to tsquery format
@@ -258,9 +235,7 @@ class GalleryService:
             if query:
                 # Supabase uses ilike for case-insensitive search
                 # Search in both location_name and description
-                db_query = db_query.or_(
-                    f"location_name.ilike.%{query}%,description.ilike.%{query}%"
-                )
+                db_query = db_query.or_(f"location_name.ilike.%{query}%,description.ilike.%{query}%")
 
             # Apply tag filters if provided using the tags array column
             if tags:
@@ -280,9 +255,7 @@ class GalleryService:
         except Exception as e:
             raise Exception(f"Failed to search photos: {e!s}")
 
-    def _filter_by_tags(
-        self, photos: list[dict[str, Any]], tags: list[str]
-    ) -> list[dict[str, Any]]:
+    def _filter_by_tags(self, photos: list[dict[str, Any]], tags: list[str]) -> list[dict[str, Any]]:
         """
         Client-side tag filtering for photos.
 
@@ -372,7 +345,7 @@ class GalleryService:
         """
         Get photos within a certain radius of a location.
 
-        Uses PostGIS if enabled via feature flag, otherwise falls back to 
+        Uses PostGIS if enabled via feature flag, otherwise falls back to
         bounding box approximation.
 
         Args:
@@ -404,12 +377,7 @@ class GalleryService:
             # This requires the search_nearby_photos function to exist in Supabase
             resp = self.supabase.rpc(
                 "search_nearby_photos",
-                {
-                    "lat": latitude,
-                    "lng": longitude,
-                    "radius_meters": radius_km * 1000,
-                    "result_limit": limit
-                }
+                {"lat": latitude, "lng": longitude, "radius_meters": radius_km * 1000, "result_limit": limit},
             ).execute()
 
             return resp.data if resp.data else []
@@ -459,13 +427,7 @@ class GalleryService:
     def get_photo_by_id(self, photo_id: str) -> dict[str, Any] | None:
         """Get a specific photo by ID."""
         try:
-            resp = (
-                self.supabase.table("cat_photos")
-                .select("*")
-                .eq("id", photo_id)
-                .single()
-                .execute()
-            )
+            resp = self.supabase.table("cat_photos").select("*").eq("id", photo_id).single().execute()
             return resp.data
         except Exception as e:
             # Check if it's a "not found" error which might yield no rows

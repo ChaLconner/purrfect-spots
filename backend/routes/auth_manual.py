@@ -17,12 +17,12 @@ def get_client_info(request: Request):
     """Helper to get IP and User-Agent safely"""
     ip = request.client.host
     user_agent = request.headers.get("user-agent", "")
-    
+
     # Check X-Forwarded-For if behind proxy
     forwarded = request.headers.get("X-Forwarded-For")
     if forwarded:
         ip = forwarded.split(",")[0].strip()
-        
+
     return ip, user_agent
 
 
@@ -82,7 +82,7 @@ async def register(
     """Register new user with email and password"""
     try:
         if not data.name.strip():
-             raise HTTPException(status_code=400, detail="Please enter first and last name")
+            raise HTTPException(status_code=400, detail="Please enter first and last name")
 
         existing_user = auth_service.get_user_by_email(data.email)
         if existing_user:
@@ -92,9 +92,7 @@ async def register(
             )
 
         try:
-            user = auth_service.create_user_with_password(
-                data.email, data.password, data.name.strip()
-            )
+            user = auth_service.create_user_with_password(data.email, data.password, data.name.strip())
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
 
@@ -123,9 +121,7 @@ async def register(
         raise
     except Exception as e:
         logger.error(f"Registration failed: {e}")
-        raise HTTPException(
-            status_code=500, detail="Registration failed. Please try again"
-        )
+        raise HTTPException(status_code=500, detail="Registration failed. Please try again")
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -184,13 +180,13 @@ async def refresh_token(
 
     ip, ua = get_client_info(request)
     payload = await auth_service.verify_refresh_token(refresh_token, ip, ua)
-    
+
     if not payload:
         response.delete_cookie("refresh_token")
         raise HTTPException(status_code=401, detail="Invalid, expired, or revoked refresh token")
 
     user_id = payload["user_id"]
-    
+
     # Rotate token means we should revoke the OLD one to prevent reuse!
     old_jti = payload.get("jti")
     old_exp = payload.get("exp")
@@ -206,11 +202,7 @@ async def refresh_token(
 
 
 @router.post("/logout")
-async def logout(
-    response: Response,
-    request: Request,
-    auth_service: AuthService = Depends(get_auth_service)
-):
+async def logout(response: Response, request: Request, auth_service: AuthService = Depends(get_auth_service)):
     """Logout user (clear refresh token cookie and revoke it)"""
     refresh_token = request.cookies.get("refresh_token")
     if refresh_token:
@@ -218,11 +210,11 @@ async def logout(
             # We don't check IP/UA here because we want to allow logout even if IP changed
             payload = await auth_service.verify_refresh_token(refresh_token)
             if payload:
-                 jti = payload.get("jti")
-                 user_id = payload.get("user_id")
-                 exp = payload.get("exp")
-                 if jti and user_id and exp:
-                     await auth_service.revoke_token(jti, user_id, datetime.fromtimestamp(exp, timezone.utc))
+                jti = payload.get("jti")
+                user_id = payload.get("user_id")
+                exp = payload.get("exp")
+                if jti and user_id and exp:
+                    await auth_service.revoke_token(jti, user_id, datetime.fromtimestamp(exp, timezone.utc))
         except Exception as e:
             logger.warning(f"Logout cleanup failed (ignore): {e}")
 
@@ -243,14 +235,10 @@ async def forgot_password(
         if token:
             email_service.send_reset_email(req.email, token)
 
-        return {
-            "message": "If this email is registered, you will receive password reset instructions."
-        }
+        return {"message": "If this email is registered, you will receive password reset instructions."}
     except Exception as e:
         logger.error(f"Forgot password error: {e}")
-        return {
-            "message": "If this email is registered, you will receive password reset instructions."
-        }
+        return {"message": "If this email is registered, you will receive password reset instructions."}
 
 
 @router.post("/reset-password")

@@ -76,35 +76,29 @@ class TestUploadRoute:
         # Override dependencies
         app.dependency_overrides[get_current_user] = lambda: mock_user
         app.dependency_overrides[get_storage_service] = lambda: mock_storage_service
-        app.dependency_overrides[get_cat_detection_service] = (
-            lambda: mock_cat_detection_service
-        )
+        app.dependency_overrides[get_cat_detection_service] = lambda: mock_cat_detection_service
         app.dependency_overrides[get_supabase_client] = lambda: mock_supabase
 
         # Mock supabase admin insert
         mock_admin = MagicMock()
-        mock_admin.table.return_value.insert.return_value.execute.return_value = (
-            MagicMock(
-                data=[
-                    {
-                        "id": "new-photo-123",
-                        "location_name": "Test Cat Spot",
-                        "latitude": 13.7563,
-                        "longitude": 100.5018,
-                        "image_url": "https://s3.example.com/cat.jpg",
-                        "uploaded_at": datetime.now().isoformat(),
-                    }
-                ]
-            )
+        mock_admin.table.return_value.insert.return_value.execute.return_value = MagicMock(
+            data=[
+                {
+                    "id": "new-photo-123",
+                    "location_name": "Test Cat Spot",
+                    "latitude": 13.7563,
+                    "longitude": 100.5018,
+                    "image_url": "https://s3.example.com/cat.jpg",
+                    "uploaded_at": datetime.now().isoformat(),
+                }
+            ]
         )
 
         with patch("dependencies.get_supabase_admin_client", return_value=mock_admin):
             with patch("routes.upload.process_uploaded_image") as mock_process:
                 mock_process.return_value = (sample_image_bytes, "image/jpeg", "jpg")
 
-                files = {
-                    "file": ("cat.jpg", io.BytesIO(sample_image_bytes), "image/jpeg")
-                }
+                files = {"file": ("cat.jpg", io.BytesIO(sample_image_bytes), "image/jpeg")}
                 data = {
                     "lat": "13.7563",
                     "lng": "100.5018",
@@ -236,9 +230,7 @@ class TestParsingFunctions:
 class TestUploadValidation:
     """Test validation in upload process"""
 
-    def test_upload_rejects_no_cats(
-        self, client, sample_image_bytes, mock_user, mock_supabase
-    ):
+    def test_upload_rejects_no_cats(self, client, sample_image_bytes, mock_user, mock_supabase):
         """Test that upload rejects images without cats"""
         from dependencies import get_supabase_client
         from main import app
@@ -283,9 +275,7 @@ class TestUploadValidation:
         assert response.status_code == 400
         assert "No cats detected" in response.json()["detail"]
 
-    def test_upload_validates_coordinates(
-        self, client, sample_image_bytes, mock_user, mock_supabase
-    ):
+    def test_upload_validates_coordinates(self, client, sample_image_bytes, mock_user, mock_supabase):
         """Test that invalid coordinates are rejected"""
         from dependencies import get_supabase_client
         from main import app
@@ -309,9 +299,7 @@ class TestUploadValidation:
             with patch("routes.upload.validate_coordinates") as mock_validate:
                 from fastapi import HTTPException
 
-                mock_validate.side_effect = HTTPException(
-                    status_code=400, detail="Invalid coordinate format"
-                )
+                mock_validate.side_effect = HTTPException(status_code=400, detail="Invalid coordinate format")
 
             response = client.post("/api/v1/upload/cat", files=files, data=data)
 
@@ -324,9 +312,7 @@ class TestUploadValidation:
 class TestUploadWithPredetectedCats:
     """Test upload with pre-detected cat data"""
 
-    def test_upload_with_cat_detection_data(
-        self, client, sample_image_bytes, mock_user, mock_supabase
-    ):
+    def test_upload_with_cat_detection_data(self, client, sample_image_bytes, mock_user, mock_supabase):
         """Test upload with pre-provided cat detection data"""
         from dependencies import get_supabase_client
         from main import app
@@ -334,9 +320,7 @@ class TestUploadWithPredetectedCats:
         from routes.upload import get_storage_service
 
         mock_storage = MagicMock()
-        mock_storage.upload_file = AsyncMock(
-            return_value="https://s3.example.com/cat.jpg"
-        )
+        mock_storage.upload_file = AsyncMock(return_value="https://s3.example.com/cat.jpg")
 
         # Override dependencies
         app.dependency_overrides[get_current_user] = lambda: mock_user
@@ -344,19 +328,17 @@ class TestUploadWithPredetectedCats:
         app.dependency_overrides[get_supabase_client] = lambda: mock_supabase
 
         mock_admin = MagicMock()
-        mock_admin.table.return_value.insert.return_value.execute.return_value = (
-            MagicMock(
-                data=[
-                    {
-                        "id": "new-photo-123",
-                        "location_name": "Test Cat Spot",
-                        "latitude": 13.7563,
-                        "longitude": 100.5018,
-                        "image_url": "https://s3.example.com/cat.jpg",
-                        "uploaded_at": datetime.now().isoformat(),
-                    }
-                ]
-            )
+        mock_admin.table.return_value.insert.return_value.execute.return_value = MagicMock(
+            data=[
+                {
+                    "id": "new-photo-123",
+                    "location_name": "Test Cat Spot",
+                    "latitude": 13.7563,
+                    "longitude": 100.5018,
+                    "image_url": "https://s3.example.com/cat.jpg",
+                    "uploaded_at": datetime.now().isoformat(),
+                }
+            ]
         )
 
         with patch("dependencies.get_supabase_admin_client", return_value=mock_admin):
@@ -372,9 +354,7 @@ class TestUploadWithPredetectedCats:
                     }
                 )
 
-                files = {
-                    "file": ("cat.jpg", io.BytesIO(sample_image_bytes), "image/jpeg")
-                }
+                files = {"file": ("cat.jpg", io.BytesIO(sample_image_bytes), "image/jpeg")}
                 data = {
                     "lat": "13.7563",
                     "lng": "100.5018",

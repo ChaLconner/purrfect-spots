@@ -252,28 +252,17 @@ async def readiness_check():
     )
 
     results = {
-        "database": checks[0]
-        if not isinstance(checks[0], Exception)
-        else {"status": "error", "error": str(checks[0])},
-        "redis": checks[1]
-        if not isinstance(checks[1], Exception)
-        else {"status": "error", "error": str(checks[1])},
-        "s3": checks[2]
-        if not isinstance(checks[2], Exception)
-        else {"status": "error", "error": str(checks[2])},
-        "sentry": checks[3]
-        if not isinstance(checks[3], Exception)
-        else {"status": "error", "error": str(checks[3])},
+        "database": checks[0] if not isinstance(checks[0], Exception) else {"status": "error", "error": str(checks[0])},
+        "redis": checks[1] if not isinstance(checks[1], Exception) else {"status": "error", "error": str(checks[1])},
+        "s3": checks[2] if not isinstance(checks[2], Exception) else {"status": "error", "error": str(checks[2])},
+        "sentry": checks[3] if not isinstance(checks[3], Exception) else {"status": "error", "error": str(checks[3])},
     }
 
     # Critical services that must be healthy
     critical_services = ["database"]
 
     # Check if all critical services are healthy
-    all_critical_healthy = all(
-        results.get(service, {}).get("status") == "healthy"
-        for service in critical_services
-    )
+    all_critical_healthy = all(results.get(service, {}).get("status") == "healthy" for service in critical_services)
 
     # Overall status
     if all_critical_healthy:

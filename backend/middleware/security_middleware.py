@@ -25,9 +25,7 @@ class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
 
     def __init__(self, app: ASGIApp):
         super().__init__(app)
-        self.is_production = (
-            os.getenv("ENVIRONMENT", "development").lower() == "production"
-        )
+        self.is_production = os.getenv("ENVIRONMENT", "development").lower() == "production"
 
     async def dispatch(self, request: Request, call_next):
         # Only enforce in production
@@ -63,9 +61,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
     def __init__(self, app: ASGIApp):
         super().__init__(app)
-        self.is_production = (
-            os.getenv("ENVIRONMENT", "development").lower() == "production"
-        )
+        self.is_production = os.getenv("ENVIRONMENT", "development").lower() == "production"
 
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
@@ -76,10 +72,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             # Production CSP (API Only)
             # Remove unsafe-inline as we only serve JSON
             csp_policy = (
-                "default-src 'none'; "
-                "frame-ancestors 'none';"
-                "connect-src 'self';" 
-                "img-src 'self' data: https: blob:;"
+                "default-src 'none'; frame-ancestors 'none';connect-src 'self';img-src 'self' data: https: blob:;"
             )
         else:
             # Dev CSP (allowing docs etc)
@@ -93,7 +86,6 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 "frame-src 'self' https://accounts.google.com; "
                 "frame-ancestors 'none';"
             )
-
 
         response.headers["Content-Security-Policy"] = csp_policy
         response.headers["X-Content-Type-Options"] = "nosniff"
@@ -115,8 +107,6 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         # HSTS - Only in production (1 year max-age)
         if self.is_production:
-            response.headers["Strict-Transport-Security"] = (
-                "max-age=31536000; includeSubDomains; preload"
-            )
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
 
         return response

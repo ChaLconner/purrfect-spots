@@ -43,45 +43,29 @@ class GoogleVisionService:
             if service_account_json:
                 try:
                     service_account_info = json.loads(service_account_json)
-                    self.client = vision.ImageAnnotatorClient.from_service_account_info(
-                        service_account_info
-                    )
+                    self.client = vision.ImageAnnotatorClient.from_service_account_info(service_account_info)
                     self.is_initialized = True
-                    logger.info(
-                        "Google Vision client initialized from GOOGLE_VISION_SERVICE_ACCOUNT"
-                    )
+                    logger.info("Google Vision client initialized from GOOGLE_VISION_SERVICE_ACCOUNT")
                     return
                 except Exception as env_error:
-                    logger.error(
-                        f"Failed to initialize from environment variable: {env_error!s}"
-                    )
+                    logger.error(f"Failed to initialize from environment variable: {env_error!s}")
 
             # 2. Try Key File Path
             env_key_path = os.getenv("GOOGLE_VISION_KEY_PATH")
 
             if env_key_path:
-                key_path = (
-                    env_key_path
-                    if os.path.isabs(env_key_path)
-                    else os.path.abspath(env_key_path)
-                )
+                key_path = env_key_path if os.path.isabs(env_key_path) else os.path.abspath(env_key_path)
             else:
-                key_path = os.path.join(
-                    os.path.dirname(__file__), "..", "keys", "google_vision.json"
-                )
+                key_path = os.path.join(os.path.dirname(__file__), "..", "keys", "google_vision.json")
 
             logger.debug(f"Checking key file at: {key_path}")
 
             if os.path.exists(key_path):
-                self.client = vision.ImageAnnotatorClient.from_service_account_json(
-                    key_path
-                )
+                self.client = vision.ImageAnnotatorClient.from_service_account_json(key_path)
                 self.is_initialized = True
                 logger.info("Google Vision client initialized from key file")
             else:
-                logger.warning(
-                    f"Google Vision key file not found at {key_path}. Using fallback mode."
-                )
+                logger.warning(f"Google Vision key file not found at {key_path}. Using fallback mode.")
 
         except Exception as e:
             logger.error(f"Failed to initialize Google Vision client: {e!s}")
@@ -99,15 +83,11 @@ class GoogleVisionService:
         """
         try:
             filename = getattr(image_file, "filename", "unknown")
-            logger.debug(
-                f"Cat detection started for: {filename}, initialized={self.is_initialized}"
-            )
+            logger.debug(f"Cat detection started for: {filename}, initialized={self.is_initialized}")
 
             # If client is not initialized, use fallback detection
             if not self.is_initialized or not self.client:
-                logger.debug(
-                    "Using fallback cat detection (Google Vision not available)"
-                )
+                logger.debug("Using fallback cat detection (Google Vision not available)")
                 return self._fallback_cat_detection(image_file)
 
             # Read image content with memory-efficient chunked reading for large files
@@ -124,9 +104,7 @@ class GoogleVisionService:
 
                 # Safety check for very large files
                 if bytes_read > MAX_MEMORY_SIZE:
-                    logger.warning(
-                        f"Image exceeds {MAX_MEMORY_SIZE} bytes, may impact memory"
-                    )
+                    logger.warning(f"Image exceeds {MAX_MEMORY_SIZE} bytes, may impact memory")
                     break
 
             content = b"".join(chunks)
@@ -136,14 +114,14 @@ class GoogleVisionService:
 
             # Send to Vision API with timeout to prevent hanging
             import concurrent.futures
-            
+
             VISION_API_TIMEOUT = 10  # seconds
-            
+
             def call_vision_api():
                 label_resp = self.client.label_detection(image=image)
                 object_resp = self.client.object_localization(image=image)
                 return label_resp, object_resp
-            
+
             try:
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                     future = executor.submit(call_vision_api)
@@ -162,9 +140,7 @@ class GoogleVisionService:
                 raise Exception(f"Vision API error: {label_response.error.message}")
 
             if object_response.error.message:
-                logger.error(
-                    f"Object localization error: {object_response.error.message}"
-                )
+                logger.error(f"Object localization error: {object_response.error.message}")
                 raise Exception(f"Vision API error: {object_response.error.message}")
 
             labels = label_response.label_annotations
@@ -178,10 +154,7 @@ class GoogleVisionService:
             cat_labels = [
                 label
                 for label in labels
-                if any(
-                    keyword in label.description.lower()
-                    for keyword in self.CAT_LABEL_KEYWORDS
-                )
+                if any(keyword in label.description.lower() for keyword in self.CAT_LABEL_KEYWORDS)
                 and label.score > self.CAT_LABEL_SCORE_THRESHOLD
             ]
 
@@ -189,27 +162,21 @@ class GoogleVisionService:
             cat_objects = [
                 obj
                 for obj in objects
-                if obj.name.lower() in self.CAT_OBJECT_KEYWORDS
-                and obj.score > self.CAT_OBJECT_SCORE_THRESHOLD
+                if obj.name.lower() in self.CAT_OBJECT_KEYWORDS and obj.score > self.CAT_OBJECT_SCORE_THRESHOLD
             ]
 
-            logger.debug(
-                f"Cat labels: {len(cat_labels)}, Cat objects: {len(cat_objects)}"
-            )
+            logger.debug(f"Cat labels: {len(cat_labels)}, Cat objects: {len(cat_objects)}")
 
             # Check for objects that are NOT cats (dogs, etc.) to reduce false positives
             non_cat_animals = [
                 obj
                 for obj in objects
-                if obj.name.lower() in self.NON_CAT_ANIMALS
-                and obj.score > self.NON_CAT_SCORE_THRESHOLD
+                if obj.name.lower() in self.NON_CAT_ANIMALS and obj.score > self.NON_CAT_SCORE_THRESHOLD
             ]
 
             # If high confidence non-cat animals detected, reduce cat detection confidence
             if non_cat_animals:
-                logger.info(
-                    f"Non-cat animals detected: {[obj.name for obj in non_cat_animals]}"
-                )
+                logger.info(f"Non-cat animals detected: {[obj.name for obj in non_cat_animals]}")
                 result = {
                     "has_cats": False,
                     "cat_count": 0,
@@ -222,12 +189,8 @@ class GoogleVisionService:
                 }
                 return result
 
-            has_high_confidence_labels = any(
-                label.score > self.HIGH_CONFIDENCE_THRESHOLD for label in cat_labels
-            )
-            has_high_confidence_objects = any(
-                obj.score > self.HIGH_CONFIDENCE_THRESHOLD for obj in cat_objects
-            )
+            has_high_confidence_labels = any(label.score > self.HIGH_CONFIDENCE_THRESHOLD for label in cat_labels)
+            has_high_confidence_objects = any(obj.score > self.HIGH_CONFIDENCE_THRESHOLD for obj in cat_objects)
 
             logger.debug(
                 f"High confidence - labels: {has_high_confidence_labels}, objects: {has_high_confidence_objects}"
@@ -280,8 +243,7 @@ class GoogleVisionService:
                         "score": round(obj.score * 100, 2),
                         "bounding_box": {
                             "normalized_vertices": [
-                                {"x": vertex.x, "y": vertex.y}
-                                for vertex in obj.bounding_poly.normalized_vertices
+                                {"x": vertex.x, "y": vertex.y} for vertex in obj.bounding_poly.normalized_vertices
                             ]
                         },
                     }
@@ -291,15 +253,11 @@ class GoogleVisionService:
                 "reasoning": f"Detected cats from Google Cloud Vision API with {round(confidence, 2)}% confidence",
             }
 
-            logger.info(
-                f"Detection complete: has_cats={has_cats}, count={cat_count}, confidence={confidence:.2f}%"
-            )
+            logger.info(f"Detection complete: has_cats={has_cats}, count={cat_count}, confidence={confidence:.2f}%")
             return result
 
         except Exception as e:
-            logger.error(
-                f"Google Vision detection failed: {type(e).__name__}: {e!s}"
-            )
+            logger.error(f"Google Vision detection failed: {type(e).__name__}: {e!s}")
             return self._fallback_cat_detection(image_file, error=str(e))
         finally:
             # Reset file pointer for potential reuse
@@ -338,15 +296,13 @@ class GoogleVisionService:
             cat_keywords = list(set(self.CAT_LABEL_KEYWORDS + ["kitty"]))
 
             filename_has_cat = any(keyword in filename for keyword in cat_keywords)
-            logger.debug(
-                f"Filename '{filename}' contains cat keywords: {filename_has_cat}"
-            )
+            logger.debug(f"Filename '{filename}' contains cat keywords: {filename_has_cat}")
 
             # IMPORTANT: In fallback mode, be permissive and assume it's a cat
             # The frontend has already validated the image, so we trust it.
             # Only reject if the image is clearly problematic (very small, etc.)
             is_valid_image = width >= 50 and height >= 50
-            
+
             # Always assume cats present in fallback mode if image is valid
             # This prevents blocking legitimate uploads when Vision API is unavailable
             has_cats = is_valid_image
@@ -357,11 +313,7 @@ class GoogleVisionService:
                 "cat_count": 1 if has_cats else 0,
                 "confidence": confidence if has_cats else 0.0,
                 "labels": ["cat", "animal"] if has_cats else [],
-                "cat_labels": [
-                    {"description": "cat", "score": confidence}
-                ]
-                if has_cats
-                else [],
+                "cat_labels": [{"description": "cat", "score": confidence}] if has_cats else [],
                 "cat_objects": [
                     {
                         "name": "cat",
@@ -425,10 +377,7 @@ class GoogleVisionService:
             best_times = ["Morning 06:00-08:00", "Evening 17:00-19:00"]
 
             # Analyze labels to determine environment type and safety factors
-            if any(
-                label in labels
-                for label in ["park", "garden", "nature", "tree", "grass"]
-            ):
+            if any(label in labels for label in ["park", "garden", "nature", "tree", "grass"]):
                 environment_type = "Public park"
                 safety_factors["has_shelter"] = True
                 safety_factors["escape_routes"] = True
@@ -438,19 +387,13 @@ class GoogleVisionService:
                 environment_type = "Street or public road"
                 safety_factors["safe_from_traffic"] = False
                 cons.extend(["Near traffic roads", "Potential danger from vehicles"])
-                recommendations.extend(
-                    ["Should have safe shelter", "Install slow down signs"]
-                )
+                recommendations.extend(["Should have safe shelter", "Install slow down signs"])
 
-            if any(
-                label in labels for label in ["building", "house", "shelter", "roof"]
-            ):
+            if any(label in labels for label in ["building", "house", "shelter", "roof"]):
                 environment_type = "Residential area"
                 safety_factors["has_shelter"] = True
                 safety_factors["escape_routes"] = True
-                pros.extend(
-                    ["Has shelter from weather", "Has multiple entry/exit routes"]
-                )
+                pros.extend(["Has shelter from weather", "Has multiple entry/exit routes"])
 
             if any(label in labels for label in ["food", "restaurant", "market"]):
                 safety_factors["food_source_nearby"] = True
@@ -495,9 +438,7 @@ class GoogleVisionService:
                     "Check safety of surrounding area",
                 ]
 
-            logger.info(
-                f"Spot analysis complete: score={suitability_score}, environment={environment_type}"
-            )
+            logger.info(f"Spot analysis complete: score={suitability_score}, environment={environment_type}")
 
             return {
                 "suitability_score": suitability_score,
@@ -511,6 +452,4 @@ class GoogleVisionService:
 
         except Exception as e:
             logger.error(f"Spot analysis failed: {e!s}")
-            raise HTTPException(
-                status_code=500, detail=f"Spot analysis failed: {e!s}"
-            )
+            raise HTTPException(status_code=500, detail=f"Spot analysis failed: {e!s}")

@@ -2,7 +2,6 @@
 Cat detection API routes using Google Cloud Vision
 """
 
-
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
@@ -112,18 +111,14 @@ async def detect_cats_in_image(
             }
         )
 
-        logger.info(
-            f"Cat detection completed for {file.filename} by {current_user.email}"
-        )
+        logger.info(f"Cat detection completed for {file.filename} by {current_user.email}")
         return result
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Detection failed: {e!s}")
-        raise HTTPException(
-            status_code=500, detail="Detection failed due to an internal error"
-        )
+        raise HTTPException(status_code=500, detail="Detection failed due to an internal error")
 
 
 @router.post("/spot-analysis", response_model=SpotAnalysisResult)
@@ -148,18 +143,14 @@ async def analyze_cat_spot(
         # Add metadata
         result.update({"filename": file.filename, "analyzed_by": current_user.email})
 
-        logger.info(
-            f"Spot analysis completed for {file.filename} by {current_user.email}"
-        )
+        logger.info(f"Spot analysis completed for {file.filename} by {current_user.email}")
         return result
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Spot analysis error: {e!s}")
-        raise HTTPException(
-            status_code=500, detail="Spot analysis failed due to an internal error"
-        )
+        raise HTTPException(status_code=500, detail="Spot analysis failed due to an internal error")
 
 
 @router.post("/combined", response_model=CombinedAnalysisResult)
@@ -191,14 +182,8 @@ async def combined_cat_and_spot_analysis(
             "cat_detection": cat_detection,
             "spot_analysis": spot_analysis,
             "overall_recommendation": {
-                "suitable_for_cat_spot": cat_detection.get(
-                    "suitable_for_cat_spot", False
-                ),
-                "confidence": (
-                    cat_detection.get("confidence", 0)
-                    + spot_analysis.get("suitability_score", 0)
-                )
-                / 2,
+                "suitable_for_cat_spot": cat_detection.get("suitable_for_cat_spot", False),
+                "confidence": (cat_detection.get("confidence", 0) + spot_analysis.get("suitability_score", 0)) / 2,
                 "summary": f"Found cats: {cat_detection.get('cat_count', 0)}, Suitability score: {spot_analysis.get('suitability_score', 0)}/100",
             },
             "metadata": {
@@ -208,18 +193,14 @@ async def combined_cat_and_spot_analysis(
             },
         }
 
-        logger.info(
-            f"Combined analysis completed for {file.filename} by {current_user.email}"
-        )
+        logger.info(f"Combined analysis completed for {file.filename} by {current_user.email}")
         return result
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Combined analysis error: {e!s}")
-        raise HTTPException(
-            status_code=500, detail="Combined analysis failed due to an internal error"
-        )
+        raise HTTPException(status_code=500, detail="Combined analysis failed due to an internal error")
 
 
 @router.post("/test-cats")

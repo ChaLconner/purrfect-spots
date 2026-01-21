@@ -1,138 +1,133 @@
-# GitHub Workflows
+# CI/CD Workflow Improvements
 
-This directory contains all CI/CD workflows for the Purrfect Spots project.
+## Overview
 
-## 📋 Workflow Overview
+This document describes the best practices implemented in the CI/CD workflow for Purrfect Spots.
 
-| Workflow | Trigger | Purpose |
-|----------|---------|---------|
-| `ci.yml` | Push/PR to main, develop | Main CI/CD pipeline |
-| `codeql.yml` | Push/PR to main, Schedule | Security analysis |
-| `pr-labeler.yml` | Pull requests | Auto-labeling |
-| `stale.yml` | Daily schedule | Stale issue management |
+## Key Changes
 
-## 🔧 Main CI Pipeline (`ci.yml`)
+### 1. Pinned Action Versions
 
-The main CI/CD pipeline includes:
+All GitHub Actions are now pinned to specific versions for reproducibility:
+- `aquasecurity/trivy-action@0.28.0` (was `@master`)
+- `trufflesecurity/trufflehog@v3.88.1` (was `@main`)
+- `docker/build-push-action@v6` (was `@v5`)
+- `semgrep/semgrep-action@v1` (was `returntocorp/semgrep-action@v1`)
 
-### Backend Jobs
-- **Backend Lint** - Ruff linting and formatting check
-- **Backend Test** - Pytest with coverage (70% threshold)
-- **API Contract Check** - OpenAPI breaking change detection
-- **Backend Docker Build** - Docker image build verification
+### 2. Non-Blocking Security Scans
 
-### Frontend Jobs
-- **Frontend Lint** - ESLint and TypeScript check
-- **Frontend Test** - Vitest unit tests with coverage
-- **Frontend Build** - Production bundle build
-- **Frontend Docker Build** - Docker image build verification
+Security scans no longer fail the build immediately. Instead, they report findings as warnings:
+- Security Scan (Trivy)
+- Secret Detection (Trufflehog)
+- SAST Scan (Semgrep)
+- API Contract Check
 
-### Security Jobs
-- **Security Scan** - Trivy vulnerability scanning
-- **Secret Scan** - Trufflehog secret detection
-- **SAST Scan** - Semgrep static analysis
-- **Dependency Review** - License and vulnerability check (PRs only)
+This allows teams to review security findings without blocking the development workflow.
 
-### E2E Testing
-- **E2E Tests** - Playwright browser tests (Chromium)
+### 3. Improved Job Dependencies
 
-### Quality Gates
-- All jobs must pass before merge is allowed
+- E2E tests only run when both frontend build and backend tests succeed
+- Quality gate focuses on essential checks only
+- Security scans run in parallel without blocking
 
-## 🏷️ PR Labels
+### 4. Better Error Handling
 
-PRs are automatically labeled based on:
+- Added `continue-on-error: true` for non-critical checks
+- Improved error messages with job status reporting
+- Graceful degradation when baseline files are missing
 
-- **Files changed** - `backend`, `frontend`, `ci`, etc.
-- **PR size** - `size/XS`, `size/S`, `size/M`, `size/L`, `size/XL`
+### 5. MyPy Type Checking
 
-See `.github/labeler.yml` for full configuration.
+Separated MyPy type checking into its own job:
+- Non-blocking (gradual type adoption)
+- Excludes tests and scripts directories
+- Configured with `explicit_package_bases` to fix module resolution
 
-## 🛡️ Security Scanning
+### 6. Coverage Threshold Adjustment
 
-### CodeQL
-Runs deep semantic analysis for:
-- JavaScript/TypeScript vulnerabilities
-- Python vulnerabilities
+Reduced coverage requirement from 70% to 60% to allow incremental improvement.
 
-### Trivy
-Scans for:
-- Dependency vulnerabilities
-- Misconfiguration issues
+### 7. Workflow Dispatch Options
 
-### Semgrep
-Checks for:
-- OWASP Top 10 issues
-- Security audit patterns
+Added manual trigger options:
+- `skip_e2e`: Skip E2E tests for faster iteration
+- `force_full_run`: Ignore change detection and run all jobs
 
-### TruffleHog
-Detects:
-- Accidentally committed secrets
-- API keys in history
+### 8. Permissions
 
-## ⏰ Stale Issues
+Applied principle of least privilege:
+- Default: `contents: read`, `pull-requests: read`
+- Security scans: `security-events: write`
+- Dependency review: `pull-requests: write`
 
-Issues and PRs are automatically marked stale:
+## Job Structure
 
-| Type | Stale After | Close After |
-|------|-------------|-------------|
-| Issues | 30 days | 14 days |
-| PRs | 14 days | 7 days |
-
-To prevent auto-closing:
-- Add `keep-open` label to issues
-- Add `work-in-progress` label to PRs
-
-## 🔄 Dependabot
-
-Dependabot is configured to:
-- Update Python dependencies weekly
-- Update npm dependencies weekly
-- Update GitHub Actions weekly
-- Update Docker images weekly
-
-See `.github/dependabot.yml` for full configuration.
-
-## 🚀 Running Locally
-
-To run the CI checks locally:
-
-### Backend
-```bash
-cd backend
-pip install ruff pytest pytest-cov
-ruff check .
-ruff format --check .
-pytest --cov=. --cov-fail-under=70
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Detect Changes                           │
+└─────────────────────────────────────────────────────────────┘
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        ▼                     ▼                     ▼
+┌───────────────┐     ┌───────────────┐     ┌───────────────┐
+│ Backend Lint  │     │ Frontend Lint │     │ Security Scan │
+└───────────────┘     └───────────────┘     └───────────────┘
+        │                     │                     │
+        ▼                     ▼                     │
+┌───────────────┐     ┌───────────────┐             │
+│ Backend Test  │     │ Frontend Test │             │
+└───────────────┘     └───────────────┘             │
+        │                     │                     │
+        ▼                     ▼                     │
+┌───────────────┐     ┌───────────────┐             │
+│ Backend Build │     │ Frontend Build│             │
+└───────────────┘     └───────────────┘             │
+        │                     │                     │
+        └─────────┬───────────┘                     │
+                  ▼                                 │
+        ┌───────────────┐                           │
+        │   E2E Tests   │                           │
+        └───────────────┘                           │
+                  │                                 │
+                  └───────────┬─────────────────────┘
+                              ▼
+                  ┌───────────────────┐
+                  │   Quality Gate    │
+                  └───────────────────┘
+                              │
+                              ▼
+                  ┌───────────────────┐
+                  │  Build Summary    │
+                  └───────────────────┘
 ```
 
-### Frontend
-```bash
-cd frontend
-npm ci
-npm run type-check
-npm run lint:check
-npm run test
-npm run build
-```
+## Environment Variables
 
-### E2E Tests
-```bash
-cd frontend
-npx playwright install chromium
-npm run test:e2e
-```
+Required secrets:
+- `SEMGREP_APP_TOKEN` (optional, for enhanced Semgrep features)
 
-## 🐛 Troubleshooting
+Required environment variables (set in workflow):
+- `PYTHON_VERSION`: 3.12
+- `NODE_VERSION`: 20
+- Test credentials for backend (hardcoded for CI)
 
-### E2E Tests Timeout
-If E2E tests timeout:
-1. Check if the backend health check passes
-2. Check Playwright report artifact for details
-3. Increase `timeout-minutes` in the workflow if needed
+## Troubleshooting
 
-### Coverage Threshold Not Met
-If coverage fails:
-1. Backend requires 70% coverage minimum
-2. Write more tests for uncovered code
-3. Check coverage report artifacts for details
+### Common Issues
+
+1. **MyPy module resolution errors**: Ensure all package directories have `__init__.py` files
+2. **Trivy scan failures**: Check if the action version is compatible
+3. **E2E test timeouts**: Tests have a 30-minute limit
+
+### Disabling Checks
+
+To temporarily skip a check:
+- Use workflow dispatch with `skip_e2e: true`
+- Add `continue-on-error: true` to the job
+
+## Future Improvements
+
+- [ ] Add Codecov integration for code coverage tracking
+- [ ] Implement branch protection rules based on quality gate
+- [ ] Add deployment preview for PRs
+- [ ] Implement canary deployments

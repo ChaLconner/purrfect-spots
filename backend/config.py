@@ -57,9 +57,7 @@ def get_required_env(key: str, production_only: bool = False) -> str:
     return ""
 
 
-def get_env_with_fallback(
-    primary_key: str, *fallback_keys: str, default: str = ""
-) -> str:
+def get_env_with_fallback(primary_key: str, *fallback_keys: str, default: str = "") -> str:
     """
     Get an environment variable with fallback keys for backward compatibility.
 
@@ -80,9 +78,7 @@ def get_env_with_fallback(
         if value:
             # Log deprecation warning in development
             if os.getenv("ENVIRONMENT", "development").lower() == "development":
-                print(
-                    f"[CONFIG WARNING] Using deprecated env var '{key}'. Please use '{primary_key}' instead."
-                )
+                print(f"[CONFIG WARNING] Using deprecated env var '{key}'. Please use '{primary_key}' instead.")
             return value
 
     return default
@@ -131,13 +127,10 @@ class Config:
     if not JWT_REFRESH_SECRET:
         if ENVIRONMENT.lower() == "production":
             raise ConfigurationError(
-                "JWT_REFRESH_SECRET is required in production! "
-                "Do not strictly rely on JWT_SECRET for both tokens."
+                "JWT_REFRESH_SECRET is required in production! Do not strictly rely on JWT_SECRET for both tokens."
             )
         else:
-            print(
-                "[CONFIG WARNING] JWT_REFRESH_SECRET not set. Using JWT_SECRET (NOT SAFE FOR PRODUCTION)."
-            )
+            print("[CONFIG WARNING] JWT_REFRESH_SECRET not set. Using JWT_SECRET (NOT SAFE FOR PRODUCTION).")
             JWT_REFRESH_SECRET = JWT_SECRET
 
     JWT_REFRESH_EXPIRATION_DAYS = int(os.getenv("JWT_REFRESH_EXPIRATION_DAYS", "7"))
@@ -158,9 +151,7 @@ class Config:
     # ==========================================
     UPLOAD_MAX_SIZE_MB = int(os.getenv("UPLOAD_MAX_SIZE_MB", "10"))
     UPLOAD_MAX_DIMENSION = int(os.getenv("UPLOAD_MAX_DIMENSION", "1920"))
-    UPLOAD_ALLOWED_EXTENSIONS = os.getenv(
-        "UPLOAD_ALLOWED_EXTENSIONS", "jpg,jpeg,png,gif,webp"
-    ).split(",")
+    UPLOAD_ALLOWED_EXTENSIONS = os.getenv("UPLOAD_ALLOWED_EXTENSIONS", "jpg,jpeg,png,gif,webp").split(",")
     UPLOAD_RATE_LIMIT = os.getenv("UPLOAD_RATE_LIMIT", "5/minute")
 
     # ==========================================
@@ -181,8 +172,7 @@ class Config:
     # ==========================================
     PASSWORD_MIN_LENGTH = int(os.getenv("PASSWORD_MIN_LENGTH", "8"))
     SESSION_COOKIE_SECURE = (
-        os.getenv("SESSION_COOKIE_SECURE", "").lower() in ("true", "1", "yes")
-        or ENVIRONMENT == "production"
+        os.getenv("SESSION_COOKIE_SECURE", "").lower() in ("true", "1", "yes") or ENVIRONMENT == "production"
     )
     SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "lax")
 
@@ -218,11 +208,7 @@ class Config:
         cors_origins_str = os.getenv("CORS_ORIGINS", "")
 
         if cors_origins_str:
-            allowed = [
-                origin.strip()
-                for origin in cors_origins_str.split(",")
-                if origin.strip()
-            ]
+            allowed = [origin.strip() for origin in cors_origins_str.split(",") if origin.strip()]
         else:
             # Default development origins
             allowed = [
@@ -274,10 +260,7 @@ _missing = config.validate_required_config()
 if _missing:
     if config.is_production():
         raise ConfigurationError(
-            f"Missing required configuration: {', '.join(_missing)}. "
-            "Please check your environment variables."
+            f"Missing required configuration: {', '.join(_missing)}. Please check your environment variables."
         )
     else:
-        print(
-            f"[CONFIG WARNING] Missing recommended configuration: {', '.join(_missing)}"
-        )
+        print(f"[CONFIG WARNING] Missing recommended configuration: {', '.join(_missing)}")

@@ -3,7 +3,6 @@ Gallery routes with API-side pagination support
 Enhanced with rate limiting and caching
 """
 
-
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
@@ -68,9 +67,7 @@ async def get_gallery(
     request: Request,  # Required for rate limiting
     limit: int = Query(20, ge=1, le=100, description="Number of items per page"),
     offset: int = Query(0, ge=0, description="Number of items to skip"),
-    page: int | None = Query(
-        None, ge=1, description="Page number (alternative to offset)"
-    ),
+    page: int | None = Query(None, ge=1, description="Page number (alternative to offset)"),
     gallery_service: GalleryService = Depends(get_gallery_service),
 ):
     """
@@ -90,9 +87,7 @@ async def get_gallery(
         if page is not None:
             actual_offset = (page - 1) * limit
 
-        result = gallery_service.get_all_photos(
-            limit=limit, offset=actual_offset, include_total=True
-        )
+        result = gallery_service.get_all_photos(limit=limit, offset=actual_offset, include_total=True)
 
         if not result["data"]:
             return PaginatedGalleryResponse(
@@ -227,21 +222,15 @@ async def get_locations_in_viewport(
 
     except Exception as e:
         logger.error(f"Viewport fetch error: {e!s}", exc_info=True)
-        raise HTTPException(
-            status_code=500, detail="Failed to fetch locations in viewport"
-        )
+        raise HTTPException(status_code=500, detail="Failed to fetch locations in viewport")
 
 
 @router.get("/search", response_model=SearchResponse)
 @limiter.limit("60/minute")  # Rate limit for search
 async def search_locations(
     request: Request,  # Required for rate limiting
-    q: str | None = Query(
-        None, description="Text to search in location name and description"
-    ),
-    tags: str | None = Query(
-        None, description="Comma-separated list of tags to filter by"
-    ),
+    q: str | None = Query(None, description="Text to search in location name and description"),
+    tags: str | None = Query(None, description="Comma-separated list of tags to filter by"),
     limit: int = Query(100, ge=1, le=500, description="Maximum number of results"),
     gallery_service: GalleryService = Depends(get_gallery_service),
 ):
@@ -262,9 +251,7 @@ async def search_locations(
 
         results = [CatLocation(**photo) for photo in photos] if photos else []
 
-        return SearchResponse(
-            results=results, total=len(results), query=q, tags=tag_list
-        )
+        return SearchResponse(results=results, total=len(results), query=q, tags=tag_list)
 
     except Exception as e:
         logger.error(f"Search error: {e!s}", exc_info=True)

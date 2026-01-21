@@ -42,9 +42,7 @@ def optimize_image(
         original_format = img.format
         original_size = len(image_content)
 
-        logger.debug(
-            f"Original image: {img.size}, format={original_format}, size={original_size / 1024:.1f}KB"
-        )
+        logger.debug(f"Original image: {img.size}, format={original_format}, size={original_size / 1024:.1f}KB")
 
         # Convert RGBA to RGB if saving as JPEG (JPEG doesn't support transparency)
         if img.mode in ("RGBA", "LA", "P"):

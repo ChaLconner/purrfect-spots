@@ -28,4 +28,3 @@ router.include_router(gallery.router)
 
 # System
 router.include_router(feature_flags.router)
-

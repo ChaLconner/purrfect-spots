@@ -40,20 +40,20 @@ class AuthService:
         """Generate SHA256 fingerprint from IP (subnet) and User-Agent"""
         if not user_agent:
             user_agent = "unknown"
-            
+
         # Enhance security: Include IP subnet (e.g., first 2 octets for IPv4)
         # to allow minor roaming but prevent cross-country attacks.
         ip_segment = "unknown"
         if ip:
-            if "." in ip: # IPv4
+            if "." in ip:  # IPv4
                 parts = ip.split(".")
                 if len(parts) >= 2:
                     ip_segment = f"{parts[0]}.{parts[1]}"
-            elif ":" in ip: # IPv6
+            elif ":" in ip:  # IPv6
                 parts = ip.split(":")
                 if len(parts) >= 3:
-                     ip_segment = f"{parts[0]}:{parts[1]}:{parts[2]}"
-        
+                    ip_segment = f"{parts[0]}:{parts[1]}:{parts[2]}"
+
         raw = f"{user_agent}|{ip_segment}"
         return hashlib.sha256(raw.encode()).hexdigest()
 
@@ -61,7 +61,7 @@ class AuthService:
         """Check if token JTI is in blacklist"""
         if not jti:
             return False
-            
+
         try:
             token_service = await get_token_service()
             return await token_service.is_blacklisted(jti=jti)
@@ -74,11 +74,7 @@ class AuthService:
         try:
             token_service = await get_token_service()
             return await token_service.blacklist_token(
-                token=None,
-                jti=jti,
-                user_id=user_id,
-                expires_at=expires_at,
-                reason="logout"
+                token=None, jti=jti, user_id=user_id, expires_at=expires_at, reason="logout"
             )
         except Exception as e:
             logger.error(f"Failed to revoke token: {e!s}")
@@ -143,11 +139,7 @@ class AuthService:
             }
 
             # Use admin client for user creation (bypass RLS)
-            result = (
-                self.supabase_admin.table("users")
-                .upsert(user_record, on_conflict="id")
-                .execute()
-            )
+            result = self.supabase_admin.table("users").upsert(user_record, on_conflict="id").execute()
 
             user_dict = result.data[0]
             if "password_hash" not in user_dict:
@@ -162,7 +154,7 @@ class AuthService:
         """Create JWT access token with user data"""
         expire = utc_now() + timedelta(hours=self.jwt_expiration_hours)
         jti = str(uuid.uuid4())
-        
+
         to_encode = {
             "user_id": user_id,
             "sub": user_id,
@@ -172,29 +164,25 @@ class AuthService:
         }
 
         if user_data:
-            to_encode.update({
-                "email": user_data.get("email", ""),
-                "user_metadata": {
-                    "name": user_data.get("name", ""),
-                    "avatar_url": user_data.get("picture", ""),
-                    "provider_id": user_data.get("google_id"),
-                },
-                "app_metadata": {
-                    "provider": "google" if user_data.get("google_id") else "email"
-                },
-            })
+            to_encode.update(
+                {
+                    "email": user_data.get("email", ""),
+                    "user_metadata": {
+                        "name": user_data.get("name", ""),
+                        "avatar_url": user_data.get("picture", ""),
+                        "provider_id": user_data.get("google_id"),
+                    },
+                    "app_metadata": {"provider": "google" if user_data.get("google_id") else "email"},
+                }
+            )
 
-        encoded_jwt = jwt.encode(
-            to_encode, self.jwt_secret, algorithm=self.jwt_algorithm
-        )
+        encoded_jwt = jwt.encode(to_encode, self.jwt_secret, algorithm=self.jwt_algorithm)
         return encoded_jwt
 
     def verify_access_token(self, token: str) -> str | None:
         """Verify JWT access token and return user_id"""
         try:
-            payload = jwt.decode(
-                token, self.jwt_secret, algorithms=[self.jwt_algorithm]
-            )
+            payload = jwt.decode(token, self.jwt_secret, algorithms=[self.jwt_algorithm])
             return payload.get("user_id")
         except jwt.PyJWTError:
             return None
@@ -202,12 +190,7 @@ class AuthService:
     def get_user_by_id(self, user_id: str) -> User | None:
         """Get user by ID from database"""
         try:
-            result = (
-                self.supabase_admin.table("users")
-                .select("*")
-                .eq("id", user_id)
-                .execute()
-            )
+            result = self.supabase_admin.table("users").select("*").eq("id", user_id).execute()
             if result.data:
                 return User(**result.data[0])
             return None
@@ -217,13 +200,7 @@ class AuthService:
     def get_user_by_email(self, email: str) -> dict | None:
         """Get user by email from database"""
         try:
-            result = (
-                self.supabase_admin.table("users")
-                .select("*")
-                .eq("email", email)
-                .single()
-                .execute()
-            )
+            result = self.supabase_admin.table("users").select("*").eq("email", email).single().execute()
             return result.data if result.data else None
         except Exception:
             return None
@@ -252,7 +229,7 @@ class AuthService:
         """Authenticate user with email and password (timing-safe)"""
         try:
             user = self.get_user_by_email(email)
-            
+
             # Use real hash if user exists, otherwise use a dummy hash to prevent timing attacks
             # (protects against user enumeration)
             if user and user.get("password_hash"):
@@ -260,13 +237,13 @@ class AuthService:
             else:
                 # Valid bcrypt hash for "dummy_password" to ensure checkpw takes time
                 password_hash = "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQOqhN/Md.osUgsgW8.c2e.da"
-            
+
             # Always perform the slow hashing operation
             is_valid = self.verify_password(password, password_hash)
-            
+
             if user and is_valid:
                 return user
-                
+
             return None
         except Exception:
             return None
@@ -274,12 +251,7 @@ class AuthService:
     def update_user_profile(self, user_id: str, update_data: dict) -> dict:
         """Update user profile"""
         try:
-            result = (
-                self.supabase_admin.table("users")
-                .update(update_data)
-                .eq("id", user_id)
-                .execute()
-            )
+            result = self.supabase_admin.table("users").update(update_data).eq("id", user_id).execute()
             if not result.data:
                 raise ValueError("User not found")
             return result.data[0]
@@ -329,16 +301,11 @@ class AuthService:
                 )
 
                 google_sub = idinfo["sub"]
-                
+
                 # Check for existing user by Google ID
                 existing_user = None
                 try:
-                    result = (
-                        self.supabase_admin.table("users")
-                        .select("*")
-                        .eq("google_id", google_sub)
-                        .execute()
-                    )
+                    result = self.supabase_admin.table("users").select("*").eq("google_id", google_sub).execute()
                     if result.data:
                         existing_user = result.data[0]
                 except Exception:
@@ -356,7 +323,7 @@ class AuthService:
                 }
 
                 user = self.create_or_get_user(user_data)
-                
+
                 jwt_token = self.create_access_token(user.id, user_data)
                 refresh_token = self.create_refresh_token(user.id, ip, user_agent)
 
@@ -384,7 +351,7 @@ class AuthService:
         """Create long-lived refresh token"""
         expire = utc_now() + timedelta(days=config.JWT_REFRESH_EXPIRATION_DAYS)
         jti = str(uuid.uuid4())
-        
+
         to_encode = {
             "user_id": user_id,
             "sub": user_id,
@@ -393,37 +360,33 @@ class AuthService:
             "iat": utc_now(),
             "type": "refresh",
         }
-        
+
         if ip or user_agent:
             to_encode["fingerprint"] = self._generate_fingerprint(ip, user_agent)
-            
-        encoded_jwt = jwt.encode(
-            to_encode, config.JWT_REFRESH_SECRET, algorithm=self.jwt_algorithm
-        )
+
+        encoded_jwt = jwt.encode(to_encode, config.JWT_REFRESH_SECRET, algorithm=self.jwt_algorithm)
         return encoded_jwt
 
     async def verify_refresh_token(self, token: str, ip: str = None, user_agent: str = None) -> dict | None:
         """Verify refresh token"""
         try:
-            payload = jwt.decode(
-                token, config.JWT_REFRESH_SECRET, algorithms=[self.jwt_algorithm]
-            )
-            
+            payload = jwt.decode(token, config.JWT_REFRESH_SECRET, algorithms=[self.jwt_algorithm])
+
             if payload.get("type") != "refresh":
                 return None
-                
+
             jti = payload.get("jti")
             if jti and await self.is_token_revoked(jti):
                 logger.warning(f"Attempt to use revoked refresh token: {jti}")
                 return None
-                
+
             token_fingerprint = payload.get("fingerprint")
             if token_fingerprint and (ip or user_agent):
                 current_fingerprint = self._generate_fingerprint(ip, user_agent)
                 if token_fingerprint != current_fingerprint:
                     logger.warning("Token fingerprint mismatch!")
                     return None
-            
+
             return payload
         except jwt.PyJWTError:
             return None
@@ -436,16 +399,14 @@ class AuthService:
         user = self.get_user_by_email(email)
         if not user:
             return None
-            
+
         token = str(uuid.uuid4())
         expires_at = utc_now() + timedelta(hours=1)
-        
+
         try:
-            self.supabase_admin.table("password_resets").insert({
-                "user_id": user["id"],
-                "token": token,
-                "expires_at": expires_at.isoformat()
-            }).execute()
+            self.supabase_admin.table("password_resets").insert(
+                {"user_id": user["id"], "token": token, "expires_at": expires_at.isoformat()}
+            ).execute()
             return token
         except Exception:
             return None
@@ -453,16 +414,22 @@ class AuthService:
     def reset_password(self, token: str, new_password: str) -> bool:
         # Same logic, minimized for brevity in this response but will write full file
         try:
-            result = self.supabase_admin.table("password_resets").select("*").eq("token", token).eq("is_used", False).gt("expires_at", utc_now_iso()).execute()
+            result = (
+                self.supabase_admin.table("password_resets")
+                .select("*")
+                .eq("token", token)
+                .eq("is_used", False)
+                .gt("expires_at", utc_now_iso())
+                .execute()
+            )
             if not result.data:
                 return False
-            
+
             rec = result.data[0]
-            self.supabase_admin.table("users").update({
-                "password_hash": self.hash_password(new_password),
-                "updated_at": utc_now_iso()
-            }).eq("id", rec["user_id"]).execute()
-            
+            self.supabase_admin.table("users").update(
+                {"password_hash": self.hash_password(new_password), "updated_at": utc_now_iso()}
+            ).eq("id", rec["user_id"]).execute()
+
             self.supabase_admin.table("password_resets").update({"is_used": True}).eq("id", rec["id"]).execute()
             return True
         except Exception:
@@ -475,11 +442,10 @@ class AuthService:
                 return False
             if not self.verify_password(current_password, user.password_hash):
                 raise ValueError("Incorrect current password")
-                
-            self.supabase_admin.table("users").update({
-                "password_hash": self.hash_password(new_password),
-                "updated_at": utc_now_iso()
-            }).eq("id", user_id).execute()
+
+            self.supabase_admin.table("users").update(
+                {"password_hash": self.hash_password(new_password), "updated_at": utc_now_iso()}
+            ).eq("id", user_id).execute()
             return True
         except ValueError as e:
             raise e

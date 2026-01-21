@@ -54,9 +54,7 @@ class TestFileProcessing:
         """Test location data validation and cleaning"""
         from utils.file_processing import validate_location_data
 
-        location, description = validate_location_data(
-            "  Test Location  ", "  Test description  "
-        )
+        location, description = validate_location_data("  Test Location  ", "  Test description  ")
 
         assert location == "Test Location"
         assert description == "Test description"
@@ -127,9 +125,7 @@ class TestImageUtils:
         img.save(buffer, format="JPEG", quality=100)
         original_bytes = buffer.getvalue()
 
-        optimized_bytes, content_type = optimize_image(
-            original_bytes, "image/jpeg", max_dimension=1920
-        )
+        optimized_bytes, content_type = optimize_image(original_bytes, "image/jpeg", max_dimension=1920)
 
         assert optimized_bytes is not None
         assert content_type == "image/webp"
@@ -186,9 +182,7 @@ class TestImageUtils:
         buffer = io.BytesIO()
         img.save(buffer, format="JPEG")
 
-        optimized_bytes, content_type = optimize_image(
-            buffer.getvalue(), "image/jpeg", target_format="WEBP"
-        )
+        optimized_bytes, content_type = optimize_image(buffer.getvalue(), "image/jpeg", target_format="WEBP")
 
         assert content_type == "image/webp"
         opt_img = Image.open(io.BytesIO(optimized_bytes))

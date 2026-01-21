@@ -4,7 +4,6 @@ Consolidates common file handling patterns across routes
 Enhanced with security features: magic bytes validation, input sanitization
 """
 
-
 from fastapi import HTTPException, UploadFile
 
 from logger import logger
@@ -55,9 +54,7 @@ async def process_uploaded_image(
         contents = await file.read()
         original_size = len(contents)
 
-        logger.debug(
-            f"Processing uploaded file: {file.filename}, size={original_size / 1024:.1f}KB"
-        )
+        logger.debug(f"Processing uploaded file: {file.filename}, size={original_size / 1024:.1f}KB")
 
         # Log upload attempt
         log_security_event(
@@ -87,9 +84,7 @@ async def process_uploaded_image(
             raise HTTPException(status_code=400, detail=str(e))
 
         # CRITICAL: Validate using magic bytes (more secure than Content-Type)
-        is_valid_magic, detected_mime, magic_error = validate_image_magic_bytes(
-            contents
-        )
+        is_valid_magic, detected_mime, magic_error = validate_image_magic_bytes(contents)
         if not is_valid_magic:
             log_security_event(
                 "magic_bytes_validation_failed",
@@ -104,9 +99,7 @@ async def process_uploaded_image(
             raise HTTPException(status_code=400, detail="Invalid image file type")
 
         # Check Content-Type matches actual file content
-        content_match, actual_mime = validate_content_type_matches(
-            file.content_type, contents
-        )
+        content_match, actual_mime = validate_content_type_matches(file.content_type, contents)
         if not content_match:
             log_security_event(
                 "content_type_mismatch",
@@ -125,16 +118,12 @@ async def process_uploaded_image(
                 details={"filename": file.filename},
                 severity="WARNING",
             )
-            raise HTTPException(
-                status_code=400, detail="Invalid or corrupted image file"
-            )
+            raise HTTPException(status_code=400, detail="Invalid or corrupted image file")
 
         # Optimize image if requested (also strips EXIF metadata)
         content_type = actual_mime if content_match else file.content_type
         if optimize:
-            contents, content_type = optimize_image(
-                contents, content_type, max_dimension=max_dimension
-            )
+            contents, content_type = optimize_image(contents, content_type, max_dimension=max_dimension)
 
         # Get safe file extension based on final content type
         file_extension = get_safe_file_extension(file.filename or "", content_type)
@@ -217,13 +206,9 @@ def validate_coordinates(lat: str, lng: str) -> tuple[float, float]:
         longitude = float(lng)
 
         if not (-90 <= latitude <= 90):
-            raise HTTPException(
-                status_code=400, detail="Latitude must be between -90 and 90"
-            )
+            raise HTTPException(status_code=400, detail="Latitude must be between -90 and 90")
         if not (-180 <= longitude <= 180):
-            raise HTTPException(
-                status_code=400, detail="Longitude must be between -180 and 180"
-            )
+            raise HTTPException(status_code=400, detail="Longitude must be between -180 and 180")
 
         return latitude, longitude
 
@@ -231,9 +216,7 @@ def validate_coordinates(lat: str, lng: str) -> tuple[float, float]:
         raise HTTPException(status_code=400, detail="Invalid coordinate format")
 
 
-def validate_location_data(
-    location_name: str, description: str | None = None
-) -> tuple[str, str]:
+def validate_location_data(location_name: str, description: str | None = None) -> tuple[str, str]:
     """
     Validate and sanitize location name and description.
     Enhanced with XSS prevention and input sanitization.
@@ -255,14 +238,10 @@ def validate_location_data(
         raise HTTPException(status_code=400, detail="Location name is required")
 
     if len(cleaned_name) < 3:
-        raise HTTPException(
-            status_code=400, detail="Location name must be at least 3 characters"
-        )
+        raise HTTPException(status_code=400, detail="Location name must be at least 3 characters")
 
     if len(cleaned_name) > 100:
-        raise HTTPException(
-            status_code=400, detail="Location name must be under 100 characters"
-        )
+        raise HTTPException(status_code=400, detail="Location name must be under 100 characters")
 
     # Sanitize description
     cleaned_description = sanitize_description(description) if description else ""

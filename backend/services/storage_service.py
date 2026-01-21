@@ -61,13 +61,11 @@ class StorageService:
                 url = f"{config.CDN_BASE_URL}/{key}"
             else:
                 url = f"https://{self.aws_bucket}.s3.{self.aws_region}.amazonaws.com/{key}"
-            
+
             return url
 
         except Exception as e:
-            raise HTTPException(
-                status_code=500, detail=f"Failed to upload image to S3: {e!s}"
-            )
+            raise HTTPException(status_code=500, detail=f"Failed to upload image to S3: {e!s}")
 
     def delete_file(self, file_url: str):
         """

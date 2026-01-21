@@ -17,9 +17,7 @@ class TestAuthService:
     def auth_service(self, mock_supabase):
         """Create AuthService instance with mocked supabase"""
         # Patch dependencies.get_supabase_admin_client to return the mock
-        with patch(
-            "dependencies.get_supabase_admin_client", return_value=mock_supabase
-        ):
+        with patch("dependencies.get_supabase_admin_client", return_value=mock_supabase):
             service = AuthService(mock_supabase)
             service.supabase_admin = mock_supabase
             return service
@@ -97,11 +95,11 @@ class TestAuthService:
         with patch.object(auth_service, "get_user_by_id", return_value=mock_user):
             # Mock update
             mock_update_response = MagicMock()
-            auth_service.supabase_admin.table.return_value.update.return_value.eq.return_value.execute.return_value = mock_update_response
-
-            result = auth_service.change_password(
-                user_id, current_password, new_password
+            auth_service.supabase_admin.table.return_value.update.return_value.eq.return_value.execute.return_value = (
+                mock_update_response
             )
+
+            result = auth_service.change_password(user_id, current_password, new_password)
             assert result is True
 
     def test_change_password_incorrect(self, auth_service):
@@ -129,7 +127,9 @@ class TestAuthService:
 
         mock_response = MagicMock()
         mock_response.data = [{"id": user_id, "name": "Updated Name"}]
-        auth_service.supabase_admin.table.return_value.update.return_value.eq.return_value.execute.return_value = mock_response
+        auth_service.supabase_admin.table.return_value.update.return_value.eq.return_value.execute.return_value = (
+            mock_response
+        )
 
         result = auth_service.update_user_profile(user_id, update_data)
 
@@ -147,7 +147,9 @@ class TestAuthService:
             }
         ]
 
-        auth_service.supabase_admin.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_result
+        auth_service.supabase_admin.table.return_value.select.return_value.eq.return_value.execute.return_value = (
+            mock_result
+        )
 
         result = auth_service.get_user_by_id(mock_user.id)
         assert result is not None
@@ -157,7 +159,9 @@ class TestAuthService:
         """Test getting user by ID when user doesn't exist"""
         mock_result = MagicMock()
         mock_result.data = []
-        auth_service.supabase_admin.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_result
+        auth_service.supabase_admin.table.return_value.select.return_value.eq.return_value.execute.return_value = (
+            mock_result
+        )
 
         result = auth_service.get_user_by_id("nonexistent")
         assert result is None

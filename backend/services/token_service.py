@@ -101,12 +101,14 @@ class TokenService:
                 # Note: supabase-py client is synchronous mostly, but can be wrapped.
                 # Here we assume standard synchronous client usage for DB.
                 # Ideally, we should offload this if high throughput, but for logout it's fine.
-                self.supabase_admin.table("token_blacklist").insert({
-                    "token_jti": jti,
-                    "user_id": user_id,
-                    "expires_at": expires_at.isoformat(),
-                    "revoked_at": utc_now_iso()
-                }).execute()
+                self.supabase_admin.table("token_blacklist").insert(
+                    {
+                        "token_jti": jti,
+                        "user_id": user_id,
+                        "expires_at": expires_at.isoformat(),
+                        "revoked_at": utc_now_iso(),
+                    }
+                ).execute()
             except Exception as e:
                 logger.error(f"Failed to persist blacklist to DB: {e}")
                 # We don't return False here because the cache write succeeded,
@@ -117,20 +119,20 @@ class TokenService:
     async def is_blacklisted(self, token: str = None, jti: str = None) -> bool:
         """
         Check if token is blacklisted.
-        
+
         Priority:
         1. Check Redis/Memory (Fastest)
         2. Check Database (Source of Truth for persistence) - Optional optimization: skip if cache miss?
            Actually, for security, if cache misses, we MIGHT want to check DB if we suspect cache is cold.
            But for performance, usually we rely on cache.
-           
-           DECISION: For high performance, we check cache first. 
+
+           DECISION: For high performance, we check cache first.
            If cache is empty/down, should we check DB?
            - Checking DB on every request is the bottleneck we are fixing.
            - So we should ONLY check Redis/Memory. The DB is just for hydration on restart or audit.
            - HOWEVER, to sync across instances without Redis, DB check is needed?
            - The prompt asked to fix performance. So we MUST avoid DB check on every request.
-           
+
            Compromise: We check ONLY cache (Redis/Memory).
            The DB write in `blacklist_token` is for audit and potential cold-start hydration tools (not implemented yet).
         """
@@ -156,7 +158,7 @@ class TokenService:
 
         # 3. (Optional) DB Check - DISABLED for performance
         # We assume if it's not in cache, it's valid.
-        
+
         return False
 
     async def blacklist_all_user_tokens(self, user_id: str, reason: str = "security") -> int:
@@ -189,7 +191,7 @@ class TokenService:
                         invalidated_at = invalidated_at.replace(tzinfo=timezone.utc)
                     if token_issued_at.tzinfo is None:
                         token_issued_at = token_issued_at.replace(tzinfo=timezone.utc)
-                        
+
                     return token_issued_at < invalidated_at
             except Exception as e:
                 logger.warning(f"Redis user check failed: {e}")
@@ -222,6 +224,7 @@ async def get_token_service() -> TokenService:
         if redis_url:
             try:
                 import redis.asyncio as aioredis
+
                 redis_client = aioredis.from_url(redis_url, encoding="utf-8", decode_responses=False)
                 await redis_client.ping()
                 logger.info("Token service initialized with Redis")
@@ -246,6 +249,7 @@ def get_token_service_sync() -> TokenService:
         if redis_url:
             try:
                 import redis.asyncio as aioredis
+
                 redis_client = aioredis.from_url(redis_url, encoding="utf-8", decode_responses=False)
             except Exception:
                 pass

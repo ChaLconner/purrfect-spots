@@ -37,12 +37,12 @@ def get_client_info(request: Request):
     """Helper to get IP and User-Agent safely"""
     ip = request.client.host
     user_agent = request.headers.get("user-agent", "")
-    
+
     # Check X-Forwarded-For if behind proxy
     forwarded = request.headers.get("X-Forwarded-For")
     if forwarded:
         ip = forwarded.split(",")[0].strip()
-        
+
     return ip, user_agent
 
 
@@ -70,12 +70,12 @@ async def google_login_redirect():
             )
 
         allowed_origins = config.get_allowed_origins()
-        
+
         # Priority: localhost:5173 -> First allowed origin -> fallback
         origin = "http://localhost:5173"
         if allowed_origins:
-             origin = allowed_origins[0]
-             for cors_origin in allowed_origins:
+            origin = allowed_origins[0]
+            for cors_origin in allowed_origins:
                 if "localhost:5173" in cors_origin:
                     origin = cors_origin
                     break
@@ -130,16 +130,14 @@ async def google_login(
                 picture=user.picture,
                 bio=user.bio,
                 created_at=user.created_at,
-            )
+            ),
         )
 
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         logger.error(f"Google Login failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Login failed"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Login failed")
 
 
 @router.post("/google/exchange", response_model=LoginResponse)
@@ -152,18 +150,18 @@ async def google_exchange_code(
     """Exchange Google authorization code for tokens (PKCE OAuth 2.0 flow)"""
     try:
         if not exchange_data.code:
-             raise ValueError("Authorization code is required")
+            raise ValueError("Authorization code is required")
         if not exchange_data.code_verifier:
-             raise ValueError("Code verifier is required")
+            raise ValueError("Code verifier is required")
         if not exchange_data.redirect_uri:
-             raise ValueError("Redirect URI is required")
+            raise ValueError("Redirect URI is required")
 
         # Validate redirect URI against allowed origins
         allowed_origins = config.get_allowed_origins()
         redirect_origin = None
 
         logger.debug(f"Auth Exchange Debug: Received redirect_uri={exchange_data.redirect_uri}")
-        
+
         # Check if the redirect URI matches any allowed origin + /auth/callback
         expected_redirects = []
         for origin in allowed_origins:
@@ -245,12 +243,11 @@ async def get_current_user_info(current_user=Depends(get_current_user)):
 
 
 @router.post("/sync-user")
-async def sync_user_data(
-    user=Depends(get_current_user_from_header), supabase=Depends(get_supabase_client)
-):
+async def sync_user_data(user=Depends(get_current_user_from_header), supabase=Depends(get_supabase_client)):
     """Insert/Upsert user into Supabase Table from JWT payload (Supabase Auth compatible)"""
     try:
         from dependencies import get_supabase_admin_client
+
         supabase_admin = get_supabase_admin_client()
 
         user_id = user["sub"]
@@ -258,16 +255,8 @@ async def sync_user_data(
         user_metadata = user.get("user_metadata", {})
         app_metadata = user.get("app_metadata", {})
 
-        name = (
-            user_metadata.get("name")
-            or user_metadata.get("full_name")
-            or user.get("name", "")
-        )
-        picture = (
-            user_metadata.get("avatar_url")
-            or user_metadata.get("picture")
-            or user.get("picture", "")
-        )
+        name = user_metadata.get("name") or user_metadata.get("full_name") or user.get("name", "")
+        picture = user_metadata.get("avatar_url") or user_metadata.get("picture") or user.get("picture", "")
 
         google_id = None
         provider = app_metadata.get("provider", "")
@@ -290,13 +279,3 @@ async def sync_user_data(
     except Exception as e:
         logger.error(f"Sync failed: {e}")
         raise HTTPException(status_code=500, detail=f"Sync failed: {e!s}")
-
-
-@router.post("/logout")
-async def logout(response: Response):
-    """Logout user (client-side token removal + clear cookie)"""
-    # Note: Full logout should probably hit the revoke endpoint too if we want robust blacklist,
-    # but this endpoint seems to be a 'lite' version or for frontend convenience.
-    # The /auth/logout in auth_manual.py handles revocation.
-    response.delete_cookie("refresh_token")
-    return {"message": "Logged out successfully"}

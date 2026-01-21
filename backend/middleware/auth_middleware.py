@@ -73,9 +73,7 @@ async def decode_supabase_token(token: str):
             raise ValueError(f"Key with kid '{kid}' not found in JWKS")
 
         public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key)
-        payload = jwt.decode(
-            token, public_key, algorithms=["RS256"], audience="authenticated"
-        )
+        payload = jwt.decode(token, public_key, algorithms=["RS256"], audience="authenticated")
         return payload
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Invalid Supabase token: {e!s}")
@@ -85,9 +83,7 @@ def decode_custom_token(token: str):
     """Decode custom JWT token (fallback) - Sync part"""
     jwt_secret = config.JWT_SECRET
     if not jwt_secret:
-        raise HTTPException(
-            status_code=500, detail="Server misconfiguration: JWT_SECRET not set"
-        )
+        raise HTTPException(status_code=500, detail="Server misconfiguration: JWT_SECRET not set")
 
     try:
         payload = jwt.decode(token, jwt_secret, algorithms=[config.JWT_ALGORITHM])
@@ -102,7 +98,7 @@ async def _is_token_revoked(jti: str) -> bool:
     """Check if token JTI is in blacklist using TokenService"""
     if not jti:
         return False
-    
+
     try:
         token_service = await get_token_service()
         return await token_service.is_blacklisted(jti=jti)
@@ -121,13 +117,7 @@ def _get_user_from_payload(payload: dict, source: str) -> User:
     # Try to get user from database (bypassing RLS)
     try:
         supabase_admin = get_supabase_admin_client()
-        result = (
-            supabase_admin.table("users")
-            .select("*")
-            .eq("id", user_id)
-            .single()
-            .execute()
-        )
+        result = supabase_admin.table("users").select("*").eq("id", user_id).single().execute()
         if result.data:
             data = result.data
             return User(
@@ -147,7 +137,7 @@ def _get_user_from_payload(payload: dict, source: str) -> User:
         user_metadata = payload.get("user_metadata", {})
         iat = payload.get("iat")
         created_at = datetime.fromtimestamp(iat) if isinstance(iat, (int, float)) else None
-        
+
         return User(
             id=user_id,
             email=payload.get("email", ""),
@@ -159,7 +149,7 @@ def _get_user_from_payload(payload: dict, source: str) -> User:
     else:  # custom
         iat = payload.get("iat")
         created_at = datetime.fromtimestamp(iat) if isinstance(iat, (int, float)) else None
-        
+
         return User(
             id=user_id,
             email=payload.get("email", ""),
@@ -180,12 +170,12 @@ async def _verify_and_decode_token(token: str) -> tuple[dict, str]:
         # Try custom token as fallback
         try:
             payload = decode_custom_token(token)
-            
+
             # Check revocation for custom tokens
             jti = payload.get("jti")
             if jti and await _is_token_revoked(jti):
                 raise HTTPException(status_code=401, detail="Token revoked")
-                
+
             return payload, "custom"
         except HTTPException:
             raise

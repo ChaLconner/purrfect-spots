@@ -34,9 +34,7 @@ if redis_url:
     try:
         # Check if it is a valid redis url syntax
         if redis_url.startswith(("redis://", "rediss://")):
-            _client = redis.from_url(
-                redis_url, socket_connect_timeout=5, decode_responses=True
-            )
+            _client = redis.from_url(redis_url, socket_connect_timeout=5, decode_responses=True)
             # Test connection
             _client.ping()
             redis_client = _client
@@ -44,9 +42,7 @@ if redis_url:
         else:
             logger.warning("Invalid REDIS_URL format. Using in-memory cache.")
     except Exception as e:
-        logger.warning(
-            f"Failed to connect to Redis: {e}. Falling back to in-memory cache."
-        )
+        logger.warning(f"Failed to connect to Redis: {e}. Falling back to in-memory cache.")
 
 # Fallback In-Memory Caches (used if Redis is unavailable)
 _gallery_cache = TTLCache(maxsize=50, ttl=300)
@@ -255,9 +251,7 @@ def invalidate_user_cache(user_id: str | None = None):
 
     with _cache_lock:
         if user_id:
-            keys_to_remove = [
-                k for k in _user_photos_cache.keys() if k.startswith(f"user_{user_id}")
-            ]
+            keys_to_remove = [k for k in _user_photos_cache.keys() if k.startswith(f"user_{user_id}")]
             for key in keys_to_remove:
                 del _user_photos_cache[key]
         else:

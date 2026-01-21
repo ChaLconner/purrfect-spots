@@ -23,9 +23,7 @@ class EmailService:
             logger.warning("SMTP credentials not set. Skipping email send.")
             # For dev: still logging the token
             print("============================================")
-            print(
-                f"PASSWORD RESET LINK: {self.frontend_url}/reset-password?token={token}"
-            )
+            print(f"PASSWORD RESET LINK: {self.frontend_url}/reset-password?token={token}")
             print("============================================")
             return True
 

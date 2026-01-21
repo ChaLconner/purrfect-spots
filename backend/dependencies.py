@@ -39,18 +39,14 @@ supabase = create_client(supabase_url, supabase_key)
 
 # Service role client for admin operations (bypasses RLS)
 supabase_service_key = (
-    os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-    or os.getenv("SUPABASE_SECRET_KEY")
-    or os.getenv("SUPABASE_SERVICE_KEY")
+    os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_SECRET_KEY") or os.getenv("SUPABASE_SERVICE_KEY")
 )
 supabase_admin = None
 if supabase_service_key:
     supabase_admin = create_client(supabase_url, supabase_service_key)
     logger.info(f"SUPABASE_SERVICE_ROLE_KEY found: {bool(supabase_service_key)}")
 else:
-    logger.warning(
-        "SUPABASE_SERVICE_ROLE_KEY not found - admin operations will use regular client"
-    )
+    logger.warning("SUPABASE_SERVICE_ROLE_KEY not found - admin operations will use regular client")
 
 
 def get_supabase_client():

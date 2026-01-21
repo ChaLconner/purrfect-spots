@@ -298,13 +298,7 @@ def log_response(request_id: str, status_code: int, duration_ms: float):
         status_code: HTTP status code
         duration_ms: Request processing duration in milliseconds
     """
-    level = (
-        logging.INFO
-        if status_code < 400
-        else logging.WARNING
-        if status_code < 500
-        else logging.ERROR
-    )
+    level = logging.INFO if status_code < 400 else logging.WARNING if status_code < 500 else logging.ERROR
     status_emoji = "✓" if status_code < 400 else "⚠️" if status_code < 500 else "✗"
 
     log_record = logging.LogRecord(

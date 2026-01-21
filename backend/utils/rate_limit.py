@@ -69,28 +69,20 @@ RATE_LIMITS = {
 # ========== Error Handler ==========
 
 
-async def rate_limit_exceeded_handler(
-    request: Request, exc: RateLimitExceeded
-) -> JSONResponse:
+async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
     """Custom handler for rate limit exceeded errors."""
-    logger.warning(
-        f"Rate limit exceeded for {get_client_ip(request)}: {request.url.path}"
-    )
+    logger.warning(f"Rate limit exceeded for {get_client_ip(request)}: {request.url.path}")
 
     return JSONResponse(
         status_code=429,
         content={
             "error": "Too Many Requests",
             "message": "Rate limit exceeded. Please try again later.",
-            "detail": str(exc.detail)
-            if hasattr(exc, "detail")
-            else "Rate limit exceeded",
+            "detail": str(exc.detail) if hasattr(exc, "detail") else "Rate limit exceeded",
         },
         headers={
             "Retry-After": "60",
-            "X-RateLimit-Limit": str(exc.detail)
-            if hasattr(exc, "detail")
-            else "unknown",
+            "X-RateLimit-Limit": str(exc.detail) if hasattr(exc, "detail") else "unknown",
         },
     )
 

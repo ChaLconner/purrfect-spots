@@ -77,9 +77,7 @@ class TestCatDetectionService:
         assert result["cat_count"] == 0
 
     @pytest.mark.asyncio
-    async def test_analyze_cat_spot_suitability(
-        self, detection_service, mock_upload_file
-    ):
+    async def test_analyze_cat_spot_suitability(self, detection_service, mock_upload_file):
         """Test spot analysis for suitable location"""
         detection_service.vision_service.analyze_cat_spot_suitability.return_value = {
             "suitability_score": 85,
@@ -96,15 +94,11 @@ class TestCatDetectionService:
         assert result["environment_type"] == "park"
 
     @pytest.mark.asyncio
-    async def test_detect_cats_error_handling(
-        self, detection_service, mock_upload_file
-    ):
+    async def test_detect_cats_error_handling(self, detection_service, mock_upload_file):
         """Test error handling in cat detection"""
         from fastapi import HTTPException
 
-        detection_service.vision_service.detect_cats.side_effect = Exception(
-            "Vision API error"
-        )
+        detection_service.vision_service.detect_cats.side_effect = Exception("Vision API error")
 
         with pytest.raises(HTTPException) as excinfo:
             await detection_service.detect_cats(mock_upload_file)

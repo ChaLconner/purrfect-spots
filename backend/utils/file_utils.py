@@ -40,9 +40,7 @@ def get_safe_file_extension(filename: str, content_type: str) -> str:
     return ".jpg"
 
 
-def validate_image_file(
-    content_type: str, file_size: int, max_size_mb: int = 10
-) -> None:
+def validate_image_file(content_type: str, file_size: int, max_size_mb: int = 10) -> None:
     """
     Validate image file size and type.
     Raises ValueError if invalid.

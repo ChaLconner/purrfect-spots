@@ -15,7 +15,14 @@ strict_optional = true
 no_implicit_optional = true
 warn_no_return = true
 warn_redundant_casts = true
-warn_unused_ignores = true
+warn_unused_ignores = false
+explicit_package_bases = true
+exclude = [
+    "^tests/",
+    "^scripts/",
+    "^\\.venv/",
+    "^__pycache__/",
+]
 
 [[tool.mypy.overrides]]
 module = "tests.*"

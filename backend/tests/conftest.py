@@ -45,14 +45,17 @@ except ImportError:
     sys.modules["limiter"].limiter = MagicMock()
     sys.modules["limiter"].limiter.limit = lambda x: lambda f: f  # Mock decorator
 
+
 # Disable rate limiting for all tests
 @pytest.fixture(autouse=True)
 def disable_rate_limit():
     """Disable rate limiting for all tests"""
     from limiter import limiter
+
     limiter.enabled = False
     yield
     limiter.enabled = True
+
 
 from fastapi.testclient import TestClient
 

@@ -40,11 +40,7 @@ def export_openapi_schema(output_path: str = "openapi.json") -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Export OpenAPI schema")
-    parser.add_argument(
-        "--output", "-o",
-        default="openapi.json",
-        help="Output file path (default: openapi.json)"
-    )
+    parser.add_argument("--output", "-o", default="openapi.json", help="Output file path (default: openapi.json)")
     args = parser.parse_args()
 
     export_openapi_schema(args.output)

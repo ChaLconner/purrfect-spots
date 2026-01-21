@@ -41,9 +41,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 
     def __init__(self, app, exempt_paths: list[str] | None = None):
         super().__init__(app)
-        self.is_production = (
-            os.getenv("ENVIRONMENT", "development").lower() == "production"
-        )
+        self.is_production = os.getenv("ENVIRONMENT", "development").lower() == "production"
         # Default exempt paths - APIs that don't need CSRF
         # (they use other auth mechanisms like OAuth tokens)
         self.exempt_paths = exempt_paths or [
@@ -83,9 +81,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             header_token = request.headers.get(self.CSRF_HEADER_NAME)
             if cookie_token and header_token:
                 if not secrets.compare_digest(cookie_token, header_token):
-                    logger.warning(
-                        f"CSRF token mismatch in dev mode: path={request.url.path}"
-                    )
+                    logger.warning(f"CSRF token mismatch in dev mode: path={request.url.path}")
             return await call_next(request)
 
         # Production: Full CSRF validation

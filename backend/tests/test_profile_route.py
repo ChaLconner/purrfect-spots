@@ -79,9 +79,7 @@ class TestProfileRoutes:
 
         assert response.status_code == 400
 
-    def test_get_user_uploads(
-        self, client, mock_user, mock_gallery_service, mock_cat_photo
-    ):
+    def test_get_user_uploads(self, client, mock_user, mock_gallery_service, mock_cat_photo):
         """Test getting user uploads"""
         mock_gallery_service.get_user_photos.return_value = [mock_cat_photo]
 
@@ -106,9 +104,7 @@ class TestProfileRoutes:
         sample_image_bytes,
     ):
         """Test uploading profile picture"""
-        mock_storage_service.upload_file.return_value = (
-            "https://example.com/new-avatar.jpg"
-        )
+        mock_storage_service.upload_file.return_value = "https://example.com/new-avatar.jpg"
 
         app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
         app.dependency_overrides[get_auth_service] = lambda: mock_auth_service

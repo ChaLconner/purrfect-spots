@@ -2,7 +2,6 @@
 User profile management routes
 """
 
-
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
@@ -67,9 +66,7 @@ async def update_profile(
 
         # Update via service
         try:
-            updated_user = auth_service.update_user_profile(
-                current_user.id, update_data
-            )
+            updated_user = auth_service.update_user_profile(current_user.id, update_data)
         except ValueError:
             raise HTTPException(status_code=404, detail="User not found")
 
@@ -91,9 +88,7 @@ async def update_profile(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         print(f"Error updating profile: {e!s}")  # Log the error
-        raise HTTPException(
-            status_code=500, detail="Failed to update profile due to an internal error"
-        )
+        raise HTTPException(status_code=500, detail="Failed to update profile due to an internal error")
 
 
 @router.get("/")

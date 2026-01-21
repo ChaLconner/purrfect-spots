@@ -211,6 +211,7 @@ class TestRefreshTokenEndpoint:
     def test_refresh_token_success(self, client, mock_auth_service):
         """Test successful token refresh"""
         from unittest.mock import AsyncMock
+
         mock_auth_service.verify_refresh_token = AsyncMock(return_value={"user_id": "test-user-id"})
         mock_auth_service.create_access_token.return_value = "new-access-token"
 
@@ -233,6 +234,7 @@ class TestRefreshTokenEndpoint:
     def test_refresh_token_invalid(self, client, mock_auth_service):
         """Test refresh fails with invalid token"""
         from unittest.mock import AsyncMock
+
         mock_auth_service.verify_refresh_token = AsyncMock(return_value=None)
 
         client.cookies.set("refresh_token", "invalid-token")
@@ -247,8 +249,9 @@ class TestLogoutEndpoint:
     def test_logout_success(self, client, mock_auth_service):
         """Test successful logout clears cookie"""
         client.cookies.set("refresh_token", "some-token")
-        
+
         from unittest.mock import AsyncMock
+
         mock_auth_service.verify_refresh_token = AsyncMock(return_value={"jti": "J", "user_id": "U", "exp": 123})
         mock_auth_service.revoke_token = AsyncMock(return_value=True)
 
@@ -261,29 +264,21 @@ class TestLogoutEndpoint:
 class TestForgotPasswordEndpoint:
     """Tests for POST /auth/forgot-password"""
 
-    def test_forgot_password_existing_email(
-        self, client, mock_auth_service, mock_limiter
-    ):
+    def test_forgot_password_existing_email(self, client, mock_auth_service, mock_limiter):
         """Test forgot password for existing email"""
         mock_auth_service.create_password_reset_token.return_value = "reset-token"
 
         with patch("routes.auth_manual.email_service") as mock_email:
-            response = client.post(
-                "/api/v1/auth/forgot-password", json={"email": "existing@example.com"}
-            )
+            response = client.post("/api/v1/auth/forgot-password", json={"email": "existing@example.com"})
 
         if response.status_code == 200:
             assert "instructions" in response.json()["message"]
 
-    def test_forgot_password_nonexistent_email(
-        self, client, mock_auth_service, mock_limiter
-    ):
+    def test_forgot_password_nonexistent_email(self, client, mock_auth_service, mock_limiter):
         """Test forgot password for non-existent email (no enumeration)"""
         mock_auth_service.create_password_reset_token.return_value = None
 
-        response = client.post(
-            "/api/v1/auth/forgot-password", json={"email": "nonexistent@example.com"}
-        )
+        response = client.post("/api/v1/auth/forgot-password", json={"email": "nonexistent@example.com"})
 
         # Should still return 200 to prevent account enumeration
         if response.status_code == 200:
@@ -305,9 +300,7 @@ class TestResetPasswordEndpoint:
         if response.status_code == 200:
             assert "successfully" in response.json()["message"]
 
-    def test_reset_password_invalid_token(
-        self, client, mock_auth_service, mock_limiter
-    ):
+    def test_reset_password_invalid_token(self, client, mock_auth_service, mock_limiter):
         """Test reset fails with invalid token"""
         mock_auth_service.reset_password.return_value = False
 
@@ -327,9 +320,7 @@ class TestAuthMeEndpoint:
     def test_get_current_user(self, client):
         """Test getting current user info"""
         with patch("routes.auth_manual.get_current_user") as mock_user:
-            mock_user.return_value = MagicMock(
-                id="test-id", email="test@example.com", name="Test User"
-            )
+            mock_user.return_value = MagicMock(id="test-id", email="test@example.com", name="Test User")
 
             # This test would need proper auth header setup
             # For now we just verify the endpoint exists
@@ -341,9 +332,7 @@ class TestInputValidation:
 
     def test_register_input_valid(self):
         """Test valid RegisterInput"""
-        data = RegisterInput(
-            email="test@example.com", password="password123", name="Test User"
-        )
+        data = RegisterInput(email="test@example.com", password="password123", name="Test User")
         assert data.email == "test@example.com"
 
     def test_login_request_valid(self):

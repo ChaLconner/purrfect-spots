@@ -15,9 +15,7 @@ class TestProcessUploadedImage:
     def create_mock_upload_file(self):
         """Factory fixture for creating mock upload files"""
 
-        def _create(
-            content: bytes, filename: str = "test.jpg", content_type: str = "image/jpeg"
-        ):
+        def _create(content: bytes, filename: str = "test.jpg", content_type: str = "image/jpeg"):
             mock_file = MagicMock(spec=UploadFile)
             mock_file.filename = filename
             mock_file.content_type = content_type
@@ -28,9 +26,7 @@ class TestProcessUploadedImage:
         return _create
 
     @pytest.mark.asyncio
-    async def test_process_valid_jpeg(
-        self, create_mock_upload_file, sample_image_bytes
-    ):
+    async def test_process_valid_jpeg(self, create_mock_upload_file, sample_image_bytes):
         """Test processing a valid JPEG image"""
         mock_file = create_mock_upload_file(sample_image_bytes, "cat.jpg", "image/jpeg")
 
@@ -98,15 +94,10 @@ class TestProcessUploadedImage:
                     await process_uploaded_image(mock_file)
 
                 assert excinfo.value.status_code == 400
-                assert (
-                    "invalid" in excinfo.value.detail.lower()
-                    or "corrupted" in excinfo.value.detail.lower()
-                )
+                assert "invalid" in excinfo.value.detail.lower() or "corrupted" in excinfo.value.detail.lower()
 
     @pytest.mark.asyncio
-    async def test_process_without_optimization(
-        self, create_mock_upload_file, sample_image_bytes
-    ):
+    async def test_process_without_optimization(self, create_mock_upload_file, sample_image_bytes):
         """Test processing without optimization"""
         mock_file = create_mock_upload_file(sample_image_bytes, "cat.jpg", "image/jpeg")
 

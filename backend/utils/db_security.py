@@ -68,9 +68,7 @@ def is_safe_identifier(identifier: str) -> bool:
     return bool(re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", identifier))
 
 
-def sanitize_order_by(
-    column: str, allowed_columns: list[str], default: str | None = None
-) -> str | None:
+def sanitize_order_by(column: str, allowed_columns: list[str], default: str | None = None) -> str | None:
     """
     Safely validate and return column for ORDER BY clause.
 
@@ -207,9 +205,7 @@ def build_safe_like_pattern(search_term: str, match_type: str = "contains") -> s
 # ==============================================================================
 
 
-UUID_PATTERN = re.compile(
-    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE
-)
+UUID_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
 
 
 def validate_uuid(value: str) -> bool:
@@ -268,9 +264,7 @@ def validate_positive_int(value: str, max_value: int = 1000000) -> int | None:
     return None
 
 
-def validate_pagination(
-    page: str | None, limit: str | None, max_limit: int = 100
-) -> tuple[int, int]:
+def validate_pagination(page: str | None, limit: str | None, max_limit: int = 100) -> tuple[int, int]:
     """
     Validate pagination parameters.
 
