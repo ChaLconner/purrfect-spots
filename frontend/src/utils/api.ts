@@ -95,8 +95,8 @@ export const getApiBaseUrl = (): string => {
   } 
   
   // Production fallback
-  console.warn('VITE_API_BASE_URL not set in production. Defaulting to relative path /api');
-  return '/api';
+  console.warn('VITE_API_BASE_URL not set in production. Defaulting to relative path');
+  return '';
 };
 
 // Create API URL with endpoint

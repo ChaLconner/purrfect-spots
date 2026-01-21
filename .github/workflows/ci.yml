@@ -197,9 +197,9 @@ jobs:
           REDIS_URL: redis://localhost:6379
           JWT_SECRET: test-secret-key-for-ci-minimum-32-chars
           JWT_REFRESH_SECRET: test-refresh-secret-for-ci-minimum-32
-          SUPABASE_URL: https://test.supabase.co
-          SUPABASE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlc3QiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTYyNjI5NjAwMCwiZXhwIjoxOTQxODcyMDAwfQ.test
-          SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlc3QiLCJyb2xlIjoic2VydmljZV9yb2xlIiwiaWF0IjoxNjI2Mjk2MDAwLCJleHAiOjE5NDE4NzIwMDB9.test
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://test.supabase.co' }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY || 'dummy-anon-key-for-testing' }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'dummy-service-key-for-testing' }}
         run: |
           cd backend
           pytest \
@@ -254,9 +254,9 @@ jobs:
           ENVIRONMENT: test
           JWT_SECRET: test-secret-key-for-ci-minimum-32-chars
           JWT_REFRESH_SECRET: test-refresh-secret-for-ci-minimum-32
-          SUPABASE_URL: https://test.supabase.co
-          SUPABASE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlc3QiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTYyNjI5NjAwMCwiZXhwIjoxOTQxODcyMDAwfQ.test
-          SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlc3QiLCJyb2xlIjoic2VydmljZV9yb2xlIiwiaWF0IjoxNjI2Mjk2MDAwLCJleHAiOjE5NDE4NzIwMDB9.test
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://test.supabase.co' }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY || 'dummy-anon-key-for-testing' }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'dummy-service-key-for-testing' }}
         run: |
           cd backend
           if [ -f "../docs/openapi-baseline.json" ]; then
@@ -271,9 +271,9 @@ jobs:
           ENVIRONMENT: test
           JWT_SECRET: test-secret-key-for-ci-minimum-32-chars
           JWT_REFRESH_SECRET: test-refresh-secret-for-ci-minimum-32
-          SUPABASE_URL: https://test.supabase.co
-          SUPABASE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlc3QiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTYyNjI5NjAwMCwiZXhwIjoxOTQxODcyMDAwfQ.test
-          SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlc3QiLCJyb2xlIjoic2VydmljZV9yb2xlIiwiaWF0IjoxNjI2Mjk2MDAwLCJleHAiOjE5NDE4NzIwMDB9.test
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://test.supabase.co' }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY || 'dummy-anon-key-for-testing' }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'dummy-service-key-for-testing' }}
         run: |
           cd backend
           python scripts/export_openapi.py --output ../docs/openapi-current.json || echo "::warning::Failed to export OpenAPI spec"
@@ -491,9 +491,9 @@ jobs:
           REDIS_URL: redis://localhost:6379
           JWT_SECRET: test-secret-key-for-ci-minimum-32-chars
           JWT_REFRESH_SECRET: test-refresh-secret-for-ci-minimum-32
-          SUPABASE_URL: https://test.supabase.co
-          SUPABASE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlc3QiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTYyNjI5NjAwMCwiZXhwIjoxOTQxODcyMDAwfQ.test
-          SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlc3QiLCJyb2xlIjoic2VydmljZV9yb2xlIiwiaWF0IjoxNjI2Mjk2MDAwLCJleHAiOjE5NDE4NzIwMDB9.test
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://test.supabase.co' }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY || 'dummy-anon-key-for-testing' }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'dummy-service-key-for-testing' }}
         run: |
           cd backend
           uvicorn main:app --host 0.0.0.0 --port 8000 &
