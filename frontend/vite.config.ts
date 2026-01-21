@@ -188,15 +188,4 @@ export default defineConfig({
   },
   // Configure env file location to look at frontend directory
   envDir: "./",
-  // Add CDN configuration for production
-  experimental: {
-    renderBuiltUrl(filename) {
-      if (process.env.NODE_ENV === 'production' && process.env.VITE_CDN_BASE_URL) {
-        // Remove trailing slash from CDN base URL if present
-        const baseUrl = process.env.VITE_CDN_BASE_URL.replace(/\/$/, '');
-        return `${baseUrl}/${filename}`;
-      }
-      return { relative: true };
-    },
-  },
 });
