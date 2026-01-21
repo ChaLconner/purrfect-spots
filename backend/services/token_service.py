@@ -10,6 +10,10 @@ Centralized token management providing:
 import hashlib
 import os
 from datetime import datetime, timedelta, timezone
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import redis.asyncio as aioredis
 
 from dependencies import get_supabase_admin_client, get_supabase_client
 from logger import logger
@@ -30,7 +34,7 @@ class TokenService:
     - User-level invalidation support
     """
 
-    def __init__(self, redis_client=None):
+    def __init__(self, redis_client: "aioredis.Redis | None" = None):
         """
         Initialize token service.
 

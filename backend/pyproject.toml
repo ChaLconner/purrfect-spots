@@ -8,9 +8,9 @@ requires-python = ">=3.12"
 python_version = "3.12"
 warn_return_any = false  # Too many false positives with Supabase client
 warn_unused_configs = true
-ignore_missing_imports = true
+ignore_missing_imports = false  # Now we have type stubs installed
 disallow_untyped_defs = false
-check_untyped_defs = false  # Gradually enable
+check_untyped_defs = true  # Enable with type stubs
 strict_optional = true
 no_implicit_optional = true
 warn_no_return = true
@@ -23,6 +23,22 @@ exclude = [
     "^\\.venv/",
     "^__pycache__/",
 ]
+
+# Third-party library overrides (still missing stubs)
+[[tool.mypy.overrides]]
+module = [
+    "supabase.*",
+    "google.*",
+    "google_auth_oauthlib.*",
+    "opentelemetry.*",
+    "slowapi.*",
+    "sentry_sdk.*",
+    "magic",
+    "passlib.*",
+    "boto3.*",
+    "botocore.*",
+]
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "tests.*"

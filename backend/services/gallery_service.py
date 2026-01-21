@@ -191,7 +191,7 @@ class GalleryService:
                 db_query = (
                     self.supabase.table("cat_photos")
                     .select("*")
-                    .textSearch("search_vector", search_term, {"type": "websearch"})
+                    .text_search("search_vector", search_term, options={"type": "websearch"})  # type: ignore
                     .order("uploaded_at", desc=True)
                     .limit(limit)
                 )

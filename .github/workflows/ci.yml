@@ -121,7 +121,7 @@ jobs:
       - name: Install linting tools
         run: |
           pip install --upgrade pip
-          pip install ruff
+          pip install ruff==0.8.0  # Pinned to match pre-commit
 
       - name: Run Ruff (Linting)
         run: |
@@ -152,12 +152,15 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install Type Check Tools
-        run: pip install mypy
+        run: |
+          pip install mypy==1.13.0
+          pip install types-requests types-redis types-Pillow types-bleach
 
       - name: Run MyPy (Type Check)
         run: |
           cd backend
-          mypy . --ignore-missing-imports --no-error-summary --warn-return-any || echo "::warning::Type checking found issues (non-blocking)"
+          # Uses settings from pyproject.toml [tool.mypy]
+          mypy . --config-file pyproject.toml || echo "::warning::Type checking found issues (non-blocking)"
 
   backend-test:
     name: Backend Unit Tests
@@ -208,7 +211,6 @@ jobs:
             --cov-report=term-missing \
             --cov-report=html:coverage_html \
             --cov-fail-under=60 \
-            -n auto \
             -v \
             --tb=short
 
@@ -252,6 +254,8 @@ jobs:
       - name: Check for API breaking changes
         env:
           ENVIRONMENT: test
+          # Ensure fallback to memory if Redis is missing, but provide URL just in case app expects it
+          # No REDIS_URL means memory fallback in limiter.py, which is safer here.
           JWT_SECRET: test-secret-key-for-ci-minimum-32-chars
           JWT_REFRESH_SECRET: test-refresh-secret-for-ci-minimum-32
           SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://test.supabase.co' }}
@@ -484,6 +488,20 @@ jobs:
         with:
           name: frontend-build
           path: frontend/dist
+
+      - name: Validate E2E environment
+        run: |
+          echo "Checking E2E test environment..."
+          if [ -z "${{ secrets.SUPABASE_URL }}" ]; then
+            echo "::warning::SUPABASE_URL secret not configured - using dummy value"
+          fi
+          if [ -z "${{ secrets.SUPABASE_KEY }}" ]; then
+            echo "::warning::SUPABASE_KEY secret not configured - using dummy value"
+          fi
+          if [ -z "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" ]; then
+            echo "::warning::SUPABASE_SERVICE_ROLE_KEY secret not configured - using dummy value"
+          fi
+          echo "E2E environment validation complete"
 
       - name: Start backend server
         env:
