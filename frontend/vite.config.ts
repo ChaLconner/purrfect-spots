@@ -1,5 +1,5 @@
 /// <reference types="vitest" />
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import vue from "@vitejs/plugin-vue";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath, URL } from "node:url";
@@ -67,13 +67,9 @@ export default defineConfig({
             params: {
               overrides: {
                 cleanupNumericValues: false,
+                removeViewBox: false,
               },
             },
-          },
-          // Disable removeViewBox to keep viewBox attribute
-          {
-            name: 'removeViewBox',
-            active: false,
           },
           'sortAttrs',
           {
