@@ -1,87 +1,53 @@
 # ==============================================================================
-# GitHub CODEOWNERS
+# Purrfect Spots - CODEOWNERS
 # ==============================================================================
-# Defines who is responsible for code in the repository
-# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
-
+# This file defines who is responsible for code review in different parts
+# of the repository. When a pull request modifies files matching a pattern,
+# the corresponding owners will be automatically requested for review.
+#
+# Docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 # ==============================================================================
-# Default Owners
-# ==============================================================================
-# These people will be requested for review when changes are made
-# to files that don't match more specific patterns below
 
-* @purrfect-spots/core-team
+# ------------------------------------------------------------------------------
+# Default Owner (fallback for all files not matched below)
+# ------------------------------------------------------------------------------
+*                           @ChaLconner
 
-# ==============================================================================
-# Backend Code
-# ==============================================================================
-/backend/ @purrfect-spots/backend-team
+# ------------------------------------------------------------------------------
+# Backend (Python/FastAPI)
+# ------------------------------------------------------------------------------
+/backend/                   @ChaLconner
+/api-client/                @ChaLconner
 
-# Backend API routes
-/backend/routes/ @purrfect-spots/backend-team
+# ------------------------------------------------------------------------------
+# Frontend (React/TypeScript/Vite)
+# ------------------------------------------------------------------------------
+/frontend/                  @ChaLconner
 
-# Backend services
-/backend/services/ @purrfect-spots/backend-team
-
-# ==============================================================================
-# Frontend Code
-# ==============================================================================
-/frontend/ @purrfect-spots/frontend-team
-
-# Frontend components
-/frontend/src/components/ @purrfect-spots/frontend-team
-
-# Frontend views/pages
-/frontend/src/views/ @purrfect-spots/frontend-team
-
-# ==============================================================================
-# Security-Sensitive Files (CRITICAL)
-# ==============================================================================
-# These files require security team review
-
-# Authentication and authorization
-/backend/middleware/auth_middleware.py @purrfect-spots/security
-/backend/middleware/csrf_middleware.py @purrfect-spots/security
-/backend/middleware/security_middleware.py @purrfect-spots/security
-/backend/services/auth_service.py @purrfect-spots/security
-/backend/services/token_service.py @purrfect-spots/security
-
-# Security utilities
-/backend/utils/security.py @purrfect-spots/security
-/backend/utils/db_security.py @purrfect-spots/security
-
-# Configuration
-/backend/config.py @purrfect-spots/security
-
-# ==============================================================================
+# ------------------------------------------------------------------------------
 # Infrastructure & DevOps
-# ==============================================================================
-/.github/ @purrfect-spots/devops
-/.github/workflows/ @purrfect-spots/devops
+# ------------------------------------------------------------------------------
+/docker-compose.yml         @ChaLconner
+/vercel.json                @ChaLconner
+/.github/                   @ChaLconner
 
-# Docker configurations
-**/Dockerfile @purrfect-spots/devops
-**/docker-compose*.yml @purrfect-spots/devops
+# Deployment workflows (extra protection)
+/.github/workflows/deploy.yml   @ChaLconner
 
-# Vercel deployments
-**/vercel.json @purrfect-spots/devops
+# ------------------------------------------------------------------------------
+# Security-Sensitive Files
+# ------------------------------------------------------------------------------
+# Middleware & Auth Services
+/backend/middleware/        @ChaLconner
+/backend/services/auth_*.py @ChaLconner
+/backend/utils/security.py  @ChaLconner
+/backend/config.py          @ChaLconner
 
-# ==============================================================================
-# Environment & Secrets (CRITICAL)
-# ==============================================================================
-# Any changes to environment files require security review
+# Environment config
+.env.example                @ChaLconner
 
-*.env* @purrfect-spots/security
-.env.example @purrfect-spots/security
-**/.env* @purrfect-spots/security
-
-# ==============================================================================
-# Database & Migrations
-# ==============================================================================
-/backend/migrations/ @purrfect-spots/backend-team @purrfect-spots/security
-
-# ==============================================================================
+# ------------------------------------------------------------------------------
 # Documentation
-# ==============================================================================
-/docs/ @purrfect-spots/core-team
-*.md @purrfect-spots/core-team
+# ------------------------------------------------------------------------------
+/docs/                      @ChaLconner
+/README.md                  @ChaLconner

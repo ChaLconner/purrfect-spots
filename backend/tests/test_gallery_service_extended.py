@@ -18,7 +18,7 @@ class TestGalleryServiceExtended:
         mock.or_.return_value = mock
         mock.contains.return_value = mock
         mock.rpc.return_value = mock
-        mock.textSearch.return_value = mock
+        mock.text_search.return_value = mock
         mock.not_.return_value = mock
         mock.is_.return_value = mock
         mock.gte.return_value = mock
@@ -39,7 +39,7 @@ class TestGalleryServiceExtended:
         mock.or_.return_value = mock
         mock.contains.return_value = mock
         mock.rpc.return_value = mock
-        mock.textSearch.return_value = mock
+        mock.text_search.return_value = mock
         mock.not_.return_value = mock
         mock.is_.return_value = mock
         mock.gte.return_value = mock
@@ -87,14 +87,14 @@ class TestGalleryServiceExtended:
     def test_fulltext_search_rpc_fail_fallback_direct(self, gallery_service, mock_supabase):
         # RPC fails, should fallback to textSearch
         mock_supabase.rpc.side_effect = Exception("RPC missing")
-        mock_supabase.textSearch.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
+        mock_supabase.text_search.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
             data=[{"id": "2"}]
         )
 
         results = gallery_service.search_photos(query="cat", use_fulltext=True)
         assert len(results) == 1
         assert results[0]["id"] == "2"
-        mock_supabase.textSearch.assert_called()
+        mock_supabase.text_search.assert_called()
 
     def test_fulltext_search_filtering(self, gallery_service, mock_supabase):
         # Test client side filtering for RPC path

@@ -8,6 +8,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
+# Disable Sentry during tests to prevent exit issues
+os.environ["SENTRY_DSN"] = ""
+
 # Add backend directory to path so imports work
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
