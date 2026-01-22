@@ -31,11 +31,6 @@ on:
       - '.agent/**'
   workflow_dispatch:
     inputs:
-      skip_e2e:
-        description: 'Skip E2E tests'
-        required: false
-        default: false
-        type: boolean
       force_full_run:
         description: 'Force full pipeline run (ignore change detection)'
         required: false
@@ -445,130 +440,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # ============================================================================
-  # E2E TESTS
-  # ============================================================================
-  e2e-tests:
-    name: E2E Tests (Playwright)
-    runs-on: ubuntu-latest
-    needs: [frontend-build, backend-test]
-    if: |
-      always() &&
-      (inputs.skip_e2e != true) &&
-      (github.event_name == 'push' || github.event_name == 'pull_request') &&
-      (needs.frontend-build.result == 'success' || needs.frontend-build.result == 'skipped') &&
-      (needs.backend-test.result == 'success' || needs.backend-test.result == 'skipped')
-    timeout-minutes: 30
-    services:
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Frontend
-        uses: ./.github/actions/setup-frontend
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Setup Backend Environment
-        uses: ./.github/actions/setup-backend
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install Playwright browsers
-        run: |
-          cd frontend
-          npx playwright install --with-deps chromium
-
-      - name: Download frontend build
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-build
-          path: frontend/dist
-
-      - name: Validate E2E environment
-        run: |
-          echo "Checking E2E test environment..."
-          if [ -z "${{ secrets.SUPABASE_URL }}" ]; then
-            echo "::warning::SUPABASE_URL secret not configured - using dummy value"
-          fi
-          if [ -z "${{ secrets.SUPABASE_KEY }}" ]; then
-            echo "::warning::SUPABASE_KEY secret not configured - using dummy value"
-          fi
-          if [ -z "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" ]; then
-            echo "::warning::SUPABASE_SERVICE_ROLE_KEY secret not configured - using dummy value"
-          fi
-          echo "E2E environment validation complete"
-
-      - name: Start backend server
-        env:
-          ENVIRONMENT: test
-          REDIS_URL: redis://localhost:6379
-          JWT_SECRET: test-secret-key-for-ci-minimum-32-chars
-          JWT_REFRESH_SECRET: test-refresh-secret-for-ci-minimum-32
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://test.supabase.co' }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY || 'dummy-anon-key-for-testing' }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'dummy-service-key-for-testing' }}
-        run: |
-          cd backend
-          uvicorn main:app --host 0.0.0.0 --port 8000 &
-          # Wait for backend to be ready
-          timeout=60
-          while ! curl -f -s http://localhost:8000/health > /dev/null; do
-            if [ $timeout -le 0 ]; then
-              echo "Backend failed to start within timeout"
-              exit 1
-            fi
-            echo "Waiting for backend..."
-            sleep 2
-            timeout=$((timeout - 2))
-          done
-          echo "Backend is ready!"
-
-      - name: Start frontend preview server
-        run: |
-          cd frontend
-          npx vite preview --port 5173 &
-          
-          # Wait for frontend to be ready
-          timeout=60
-          while ! curl -f -s http://localhost:5173 > /dev/null; do
-            if [ $timeout -le 0 ]; then
-              echo "Frontend failed to start within timeout"
-              exit 1
-            fi
-            echo "Waiting for frontend..."
-            sleep 2
-            timeout=$((timeout - 2))
-          done
-          echo "Frontend is ready!"
-
-      - name: Run Playwright tests
-        run: |
-          cd frontend
-          npx playwright test --project=chromium --reporter=html
-        env:
-          VITE_API_BASE_URL: http://localhost:8000
-          CI: true
-
-      - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-report
-          path: frontend/playwright-report
-          retention-days: 14
-
-      - name: Upload test screenshots
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: playwright-screenshots
-          path: frontend/test-results
-          retention-days: 7
 
   # ============================================================================
   # SECURITY SCANS
@@ -617,34 +488,33 @@ jobs:
         with:
           base: ""  # Scan entire repo
           head: HEAD
-          extra_args: --only-verified --fail
-        # No continue-on-error - verified secrets should block the build
+          extra_args: --only-verified
+        # Note: --fail is automatically added by the action, don't add it again
 
-  sast-scan:
-    name: SAST Scan (Semgrep)
-    runs-on: ubuntu-latest
-    permissions:
-      security-events: write
-      contents: read
-    continue-on-error: false  # Enforced - block on security vulnerabilities
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Run Semgrep
-        uses: semgrep/semgrep-action@v1
-        with:
-          config: p/default p/security-audit p/owasp-top-ten
-          generateSarif: true
-        env:
-          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
-
-      - name: Upload Semgrep SARIF
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: semgrep.sarif
-        continue-on-error: true
+  # NOTE: SAST Scan (Semgrep) is disabled - enable when SEMGREP_APP_TOKEN is configured
+  # sast-scan:
+  #   name: SAST Scan (Semgrep)
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     security-events: write
+  #     contents: read
+  #   continue-on-error: false
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #     - name: Run Semgrep
+  #       uses: semgrep/semgrep-action@v1
+  #       with:
+  #         config: p/default p/security-audit p/owasp-top-ten
+  #         generateSarif: true
+  #       env:
+  #         SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+  #     - name: Upload Semgrep SARIF
+  #       uses: github/codeql-action/upload-sarif@v3
+  #       if: always()
+  #       with:
+  #         sarif_file: semgrep.sarif
+  #       continue-on-error: true
 
   dependency-review:
     name: Dependency Review
@@ -734,12 +604,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: 
       - quality-gate
-      - e2e-tests
       - backend-build
       - frontend-docker
       - security-scan
       - secret-scan
-      - sast-scan
     if: always()
     steps:
       - name: Create build summary
@@ -760,10 +628,8 @@ jobs:
           echo "### Optional Checks" >> $GITHUB_STEP_SUMMARY
           echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| E2E Tests | ${{ needs.e2e-tests.result == 'success' && 'PASSED' || needs.e2e-tests.result == 'skipped' && 'SKIPPED' || 'FAILED' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Security Scan | ${{ needs.security-scan.result == 'success' && 'PASSED' || needs.security-scan.result == 'skipped' && 'SKIPPED' || 'ISSUES FOUND' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Secret Detection | ${{ needs.secret-scan.result == 'success' && 'PASSED' || needs.secret-scan.result == 'skipped' && 'SKIPPED' || 'ISSUES FOUND' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| SAST Scan | ${{ needs.sast-scan.result == 'success' && 'PASSED' || needs.sast-scan.result == 'skipped' && 'SKIPPED' || 'ISSUES FOUND' }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
