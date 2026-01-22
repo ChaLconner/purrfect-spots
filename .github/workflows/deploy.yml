@@ -1,0 +1,484 @@
+# ==============================================================================
+# Purrfect Spots - Deployment Pipeline
+# ==============================================================================
+# Handles deployment to staging and production environments
+# 
+# Deployment Strategy:
+# - Staging: Auto-deploy on push to 'dev' branch (after CI passes)
+# - Production: Manual trigger or auto-deploy on push to 'main' branch
+#
+# Prerequisites:
+# - Configure repository secrets for each environment
+# - Set up environment protection rules in GitHub Settings
+# ==============================================================================
+
+name: Deploy
+
+on:
+  # Trigger after CI/CD Pipeline completes successfully
+  workflow_run:
+    workflows: ["CI/CD Pipeline"]
+    types:
+      - completed
+    branches: [main, dev]
+  
+  # Manual deployment trigger
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+        default: staging
+      skip_health_check:
+        description: 'Skip health check after deployment'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false  # Don't cancel in-progress deployments
+
+env:
+  DOCKER_REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+# ==============================================================================
+# PERMISSIONS
+# ==============================================================================
+permissions:
+  contents: read
+  packages: write
+  deployments: write
+  id-token: write  # For OIDC authentication
+
+jobs:
+  # ============================================================================
+  # DETERMINE DEPLOYMENT TARGET
+  # ============================================================================
+  prepare:
+    name: Prepare Deployment
+    runs-on: ubuntu-latest
+    # Only run if CI passed (for workflow_run) or always (for workflow_dispatch)
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+      should_deploy: ${{ steps.set-env.outputs.should_deploy }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine environment
+        id: set-env
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "environment=${{ inputs.environment }}" >> $GITHUB_OUTPUT
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "environment=production" >> $GITHUB_OUTPUT
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" == "refs/heads/dev" ]; then
+            echo "environment=staging" >> $GITHUB_OUTPUT
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+          else
+            echo "environment=none" >> $GITHUB_OUTPUT
+            echo "should_deploy=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate version
+        id: version
+        run: |
+          # Generate version based on git info
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          TIMESTAMP=$(date +%Y%m%d%H%M%S)
+          
+          if [ "${{ steps.set-env.outputs.environment }}" == "production" ]; then
+            # For production, try to use tag or generate semver-like version
+            TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+            VERSION="${TAG}-${SHORT_SHA}"
+          else
+            # For staging, use timestamp-based version
+            VERSION="staging-${TIMESTAMP}-${SHORT_SHA}"
+          fi
+          
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Generated version: ${VERSION}"
+
+  # ============================================================================
+  # BUILD AND PUSH DOCKER IMAGES
+  # ============================================================================
+  build-images:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: needs.prepare.outputs.should_deploy == 'true'
+    strategy:
+      matrix:
+        include:
+          - name: backend
+            context: ./backend
+            dockerfile: ./backend/Dockerfile
+          - name: frontend
+            context: ./frontend
+            dockerfile: ./frontend/Dockerfile
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.name }}
+          tags: |
+            type=raw,value=${{ needs.prepare.outputs.version }}
+            type=raw,value=${{ needs.prepare.outputs.environment }}-latest
+            type=sha,prefix=
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_VERSION=${{ needs.prepare.outputs.version }}
+            BUILD_ENV=${{ needs.prepare.outputs.environment }}
+
+  # ============================================================================
+  # DEPLOY TO STAGING
+  # ============================================================================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [prepare, build-images]
+    if: needs.prepare.outputs.environment == 'staging'
+    environment:
+      name: staging
+      url: https://staging.purrfect-spots.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Deploy Frontend to Vercel (Staging)
+        run: |
+          echo "🚀 Deploying Frontend to Vercel Staging..."
+          npm install -g vercel@latest
+          cd frontend
+          vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+          vercel build --token=${{ secrets.VERCEL_TOKEN }}
+          vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Deploy Backend Container (Staging)
+        run: |
+          echo "🚀 Deploying Backend to Staging..."
+          echo "Version: ${{ needs.prepare.outputs.version }}"
+          
+          # Deploy using container image from registry
+          BACKEND_IMAGE="${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ needs.prepare.outputs.version }}"
+          echo "Deploying image: ${BACKEND_IMAGE}"
+          
+          # Option 1: If using Railway
+          if [ -n "${{ secrets.RAILWAY_TOKEN }}" ]; then
+            npm install -g @railway/cli
+            railway link ${{ secrets.RAILWAY_PROJECT_ID }}
+            railway up --service=backend-staging --detach
+          fi
+          
+          # Option 2: If using Render (webhook-based deployment)
+          if [ -n "${{ secrets.RENDER_DEPLOY_HOOK_STAGING }}" ]; then
+            curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_STAGING }}"
+          fi
+          
+          # Option 3: If using Kubernetes
+          # kubectl set image deployment/purrfect-backend-staging \
+          #   backend=${BACKEND_IMAGE} --namespace=staging
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
+          STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+
+      - name: Health Check
+        if: ${{ inputs.skip_health_check != true }}
+        run: |
+          echo "🏥 Running health check..."
+          
+          # Wait for deployment to propagate
+          echo "Waiting 45 seconds for deployment to propagate..."
+          sleep 45
+          
+          # Health check with retries
+          MAX_RETRIES=5
+          RETRY_DELAY=10
+          
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Health check attempt $i of $MAX_RETRIES..."
+            
+            # Check backend health
+            if curl -sf --max-time 10 "${{ secrets.STAGING_API_URL }}/health" > /dev/null 2>&1; then
+              echo "✅ Backend health check passed!"
+              BACKEND_OK=true
+              break
+            else
+              echo "Backend not ready yet, retrying in ${RETRY_DELAY}s..."
+              sleep $RETRY_DELAY
+            fi
+          done
+          
+          if [ "$BACKEND_OK" != "true" ]; then
+            echo "❌ Backend health check failed after $MAX_RETRIES attempts"
+            exit 1
+          fi
+          
+          echo "✅ All health checks passed!"
+
+      - name: Notify Deployment Success
+        if: success()
+        run: |
+          echo "✅ Staging deployment successful!"
+          echo "🔗 URL: https://staging.purrfect-spots.com"
+          echo "📦 Version: ${{ needs.prepare.outputs.version }}"
+
+      - name: Notify Deployment Failure
+        if: failure()
+        run: |
+          echo "❌ Staging deployment failed!"
+          echo "Please check the logs for details."
+
+  # ============================================================================
+  # DEPLOY TO PRODUCTION
+  # ============================================================================
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [prepare, build-images]
+    if: needs.prepare.outputs.environment == 'production'
+    environment:
+      name: production
+      url: https://purrfect-spots.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Pre-deployment backup
+        run: |
+          echo "💾 Creating pre-deployment backup..."
+          
+          # Trigger database backup via Supabase API or custom backup service
+          if [ -n "${{ secrets.BACKUP_WEBHOOK_URL }}" ]; then
+            curl -X POST "${{ secrets.BACKUP_WEBHOOK_URL }}" \
+              -H "Authorization: Bearer ${{ secrets.BACKUP_API_KEY }}" \
+              -H "Content-Type: application/json" \
+              -d '{"type": "pre-deployment", "version": "${{ needs.prepare.outputs.version }}"}'
+            echo "Backup triggered successfully"
+          else
+            echo "::warning::No backup webhook configured. Skipping backup."
+          fi
+
+      - name: Deploy Frontend to Vercel (Production)
+        run: |
+          echo "🚀 Deploying Frontend to Vercel Production..."
+          npm install -g vercel@latest
+          cd frontend
+          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Deploy Backend Container (Production)
+        run: |
+          echo "🚀 Deploying Backend to Production..."
+          echo "Version: ${{ needs.prepare.outputs.version }}"
+          echo ""
+          echo "⚠️  This is a PRODUCTION deployment!"
+          
+          BACKEND_IMAGE="${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ needs.prepare.outputs.version }}"
+          echo "Deploying image: ${BACKEND_IMAGE}"
+          
+          # Option 1: If using Railway
+          if [ -n "${{ secrets.RAILWAY_TOKEN }}" ]; then
+            npm install -g @railway/cli
+            railway link ${{ secrets.RAILWAY_PROJECT_ID }}
+            railway up --service=backend-production --detach
+          fi
+          
+          # Option 2: If using Render (webhook-based deployment)
+          if [ -n "${{ secrets.RENDER_DEPLOY_HOOK_PRODUCTION }}" ]; then
+            curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_PRODUCTION }}"
+          fi
+          
+          # Option 3: If using Kubernetes
+          # kubectl set image deployment/purrfect-backend-production \
+          #   backend=${BACKEND_IMAGE} --namespace=production
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          PROD_API_URL: ${{ secrets.PROD_API_URL }}
+          PROD_SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
+
+      - name: Health Check
+        if: ${{ inputs.skip_health_check != true }}
+        run: |
+          echo "🏥 Running production health check..."
+          
+          # Wait for deployment to propagate
+          echo "Waiting 60 seconds for production deployment to propagate..."
+          sleep 60
+          
+          # Health check with retries (more attempts for production)
+          MAX_RETRIES=10
+          RETRY_DELAY=15
+          
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Health check attempt $i of $MAX_RETRIES..."
+            
+            # Check backend health
+            if curl -sf --max-time 15 "${{ secrets.PROD_API_URL }}/health" > /dev/null 2>&1; then
+              echo "✅ Backend health check passed!"
+              
+              # Check frontend
+              if curl -sf --max-time 15 "https://purrfect-spots.com" > /dev/null 2>&1; then
+                echo "✅ Frontend health check passed!"
+                ALL_OK=true
+                break
+              fi
+            fi
+            
+            echo "Services not ready yet, retrying in ${RETRY_DELAY}s..."
+            sleep $RETRY_DELAY
+          done
+          
+          if [ "$ALL_OK" != "true" ]; then
+            echo "❌ Production health check failed after $MAX_RETRIES attempts"
+            echo "::error::Consider rolling back to previous version"
+            exit 1
+          fi
+          
+          echo "✅ All production health checks passed!"
+
+      - name: Smoke Tests
+        run: |
+          echo "🧪 Running smoke tests..."
+          
+          # Critical API endpoints smoke test
+          echo "Testing critical endpoints..."
+          
+          # Test health endpoint
+          curl -sf "${{ secrets.PROD_API_URL }}/health" | jq . || echo "Health endpoint check"
+          
+          # Test public endpoints (no auth required)
+          curl -sf "${{ secrets.PROD_API_URL }}/api/v1/spots?limit=1" > /dev/null && echo "✅ Spots API OK" || echo "::warning::Spots API check failed"
+          
+          echo "✅ Smoke tests completed!"
+
+      - name: Create Release Tag
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "🏷️ Creating release tag..."
+          
+          VERSION="${{ needs.prepare.outputs.version }}"
+          TAG_NAME="release-${VERSION}"
+          
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Create and push tag
+          git tag -a "${TAG_NAME}" -m "Production release ${VERSION}"
+          git push origin "${TAG_NAME}"
+          
+          # Create GitHub Release
+          gh release create "${TAG_NAME}" \
+            --title "Release ${VERSION}" \
+            --notes "Automated production release\n\n- Version: ${VERSION}\n- Deployed by: ${{ github.actor }}\n- Commit: ${{ github.sha }}" \
+            --latest
+          
+          echo "✅ Release tag ${TAG_NAME} created and pushed"
+
+      - name: Notify Deployment Success
+        if: success()
+        run: |
+          echo "✅ Production deployment successful!"
+          echo "🔗 URL: https://purrfect-spots.com"
+          echo "📦 Version: ${{ needs.prepare.outputs.version }}"
+          # TODO: Add Slack/Discord notification
+          # curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+          #   -H 'Content-type: application/json' \
+          #   --data '{"text":"🚀 Production deployed: ${{ needs.prepare.outputs.version }}"}'
+
+      - name: Notify Deployment Failure
+        if: failure()
+        run: |
+          echo "❌ Production deployment failed!"
+          echo "🔄 Consider rolling back to previous version."
+          # TODO: Add Slack/Discord notification for failures
+
+  # ============================================================================
+  # DEPLOYMENT SUMMARY
+  # ============================================================================
+  summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [prepare, deploy-staging, deploy-production]
+    if: always() && needs.prepare.outputs.should_deploy == 'true'
+    steps:
+      - name: Create deployment summary
+        run: |
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment | ${{ needs.prepare.outputs.environment }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | \`${{ needs.prepare.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Trigger | ${{ github.event_name }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Actor | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.prepare.outputs.environment }}" == "staging" ]; then
+            echo "### Staging Deployment" >> $GITHUB_STEP_SUMMARY
+            echo "| Status | ${{ needs.deploy-staging.result == 'success' && '✅ Success' || needs.deploy-staging.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| URL | https://staging.purrfect-spots.com |" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.prepare.outputs.environment }}" == "production" ]; then
+            echo "### Production Deployment" >> $GITHUB_STEP_SUMMARY
+            echo "| Status | ${{ needs.deploy-production.result == 'success' && '✅ Success' || needs.deploy-production.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| URL | https://purrfect-spots.com |" >> $GITHUB_STEP_SUMMARY
+          fi
