@@ -137,9 +137,14 @@ jobs:
         run: |
           echo "🚀 Deploying Frontend to Vercel Staging..."
           npm install -g vercel@latest
-          cd frontend
-          # Trigger Vercel Server-Side Build
-          vercel deploy --token=${{ secrets.VERCEL_TOKEN }}
+          # Inject Env Vars for Staging (Server-side)
+          vercel env add VITE_API_BASE_URL "${{ secrets.STAGING_API_URL }}" --target preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes
+          if [ -n "${{ secrets.GOOGLE_MAPS_API_KEY }}" ]; then
+            vercel env add VITE_GOOGLE_MAPS_API_KEY "${{ secrets.GOOGLE_MAPS_API_KEY }}" --target preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes
+          fi
+          
+          # Trigger Vercel Server-Side Build (Staging)
+          vercel deploy --token=${{ secrets.VERCEL_TOKEN }} --yes
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -158,21 +163,17 @@ jobs:
           cd backend
           npm install -g vercel@latest
           
-          # Pull Vercel environment config
-          vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-          
-          # Construct enviroment variables for Vercel
-          vercel env add STAGING_API_URL "${{ secrets.STAGING_API_URL }}" --target preview --force --token=${{ secrets.VERCEL_TOKEN }}
-          vercel env add SUPABASE_URL "${{ secrets.SUPABASE_URL }}" --target preview --force --token=${{ secrets.VERCEL_TOKEN }}
-          vercel env add SUPABASE_KEY "${{ secrets.SUPABASE_KEY }}" --target preview --force --token=${{ secrets.VERCEL_TOKEN }}
+          # Construct enviroment variables for Vercel (Staging)
+          vercel env add STAGING_API_URL "${{ secrets.STAGING_API_URL }}" --target preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes
+          vercel env add SUPABASE_URL "${{ secrets.SUPABASE_URL }}" --target preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes
+          vercel env add SUPABASE_KEY "${{ secrets.SUPABASE_KEY }}" --target preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes
           
           if [ -n "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" ]; then
-             vercel env add SUPABASE_SERVICE_ROLE_KEY "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" --target preview --force --token=${{ secrets.VERCEL_TOKEN }}
+             vercel env add SUPABASE_SERVICE_ROLE_KEY "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" --target preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes
           fi
 
-          # Deploy
-          vercel build --token=${{ secrets.VERCEL_TOKEN }}
-          vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
+          # Deploy to Staging (Cloud Build)
+          vercel deploy --token=${{ secrets.VERCEL_TOKEN }} --yes
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
@@ -273,8 +274,15 @@ jobs:
           echo "🚀 Deploying Frontend to Vercel Production..."
           npm install -g vercel@latest
           cd frontend
+          
+          # Inject Env Vars for Production
+          vercel env add VITE_API_BASE_URL "${{ secrets.PROD_API_URL }}" --target production --force --token=${{ secrets.VERCEL_TOKEN }} --yes
+          if [ -n "${{ secrets.GOOGLE_MAPS_API_KEY }}" ]; then
+            vercel env add VITE_GOOGLE_MAPS_API_KEY "${{ secrets.GOOGLE_MAPS_API_KEY }}" --target production --force --token=${{ secrets.VERCEL_TOKEN }} --yes
+          fi
+          
           # Trigger Vercel Server-Side Build (Production)
-          deployment_url=$(vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }})
+          deployment_url=$(vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --yes)
           echo "deployment_url=$deployment_url" >> $GITHUB_OUTPUT
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -292,9 +300,11 @@ jobs:
           cd backend
           npm install -g vercel@latest
           
-          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+          cd backend
+          npm install -g vercel@latest
+          
+          # Deploy to Production (Cloud Build)
+          vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --yes
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
