@@ -134,46 +134,50 @@ jobs:
           node-version: '20'
 
       - name: Deploy Frontend to Vercel (Staging)
+        shell: bash
         run: |
           echo "🚀 Deploying Frontend to Vercel Staging..."
-          npm install -g vercel@latest
-          # Inject Env Vars for Staging (Server-side)
-          vercel env add VITE_API_BASE_URL "${{ secrets.STAGING_API_URL }}" --target preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes
+          cd frontend
+          
+          # Link to Vercel project
+          npx vercel link --yes --token=${{ secrets.VERCEL_TOKEN }}
+          
+          # Inject Env Vars for Staging
+          npx vercel env add VITE_API_BASE_URL "${{ secrets.STAGING_API_URL }}" preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
           if [ -n "${{ secrets.GOOGLE_MAPS_API_KEY }}" ]; then
-            vercel env add VITE_GOOGLE_MAPS_API_KEY "${{ secrets.GOOGLE_MAPS_API_KEY }}" --target preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes
+            npx vercel env add VITE_GOOGLE_MAPS_API_KEY "${{ secrets.GOOGLE_MAPS_API_KEY }}" preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
           fi
           
-          # Trigger Vercel Server-Side Build (Staging)
-          vercel deploy --token=${{ secrets.VERCEL_TOKEN }} --yes
+          # Deploy to Vercel (server-side build)
+          npx vercel deploy --token=${{ secrets.VERCEL_TOKEN }} --yes
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Deploy Backend to Vercel (Staging)
+        shell: bash
         run: |
           echo "🚀 Deploying Backend to Vercel Staging..."
           
-          # Check for Backend Project ID
           if [ -z "${{ secrets.VERCEL_BACKEND_PROJECT_ID }}" ]; then
             echo "::warning::VERCEL_BACKEND_PROJECT_ID secret is missing! Skipping backend deployment."
-            echo "If you want to deploy backend to Vercel, please add VERCEL_BACKEND_PROJECT_ID secret."
             exit 0
           fi
 
           cd backend
-          npm install -g vercel@latest
           
-          # Construct enviroment variables for Vercel (Staging)
-          vercel env add STAGING_API_URL "${{ secrets.STAGING_API_URL }}" --target preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes
-          vercel env add SUPABASE_URL "${{ secrets.SUPABASE_URL }}" --target preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes
-          vercel env add SUPABASE_KEY "${{ secrets.SUPABASE_KEY }}" --target preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes
+          # Link to Vercel project
+          npx vercel link --yes --token=${{ secrets.VERCEL_TOKEN }}
           
+          # Inject Env Vars for Staging
+          npx vercel env add SUPABASE_URL "${{ secrets.SUPABASE_URL }}" preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
+          npx vercel env add SUPABASE_KEY "${{ secrets.SUPABASE_KEY }}" preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
           if [ -n "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" ]; then
-             vercel env add SUPABASE_SERVICE_ROLE_KEY "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" --target preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes
+            npx vercel env add SUPABASE_SERVICE_ROLE_KEY "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
           fi
 
-          # Deploy to Staging (Cloud Build)
-          vercel deploy --token=${{ secrets.VERCEL_TOKEN }} --yes
+          # Deploy to Staging (server-side build)
+          npx vercel deploy --token=${{ secrets.VERCEL_TOKEN }} --yes
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
@@ -270,25 +274,30 @@ jobs:
 
       - name: Deploy Frontend to Vercel (Production)
         id: deploy-frontend
+        shell: bash
         run: |
           echo "🚀 Deploying Frontend to Vercel Production..."
-          npm install -g vercel@latest
           cd frontend
           
+          # Link to Vercel project (creates .vercel folder)
+          npx vercel link --yes --token=${{ secrets.VERCEL_TOKEN }}
+          
           # Inject Env Vars for Production
-          vercel env add VITE_API_BASE_URL "${{ secrets.PROD_API_URL }}" --target production --force --token=${{ secrets.VERCEL_TOKEN }} --yes
+          npx vercel env add VITE_API_BASE_URL "${{ secrets.PROD_API_URL }}" production --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
           if [ -n "${{ secrets.GOOGLE_MAPS_API_KEY }}" ]; then
-            vercel env add VITE_GOOGLE_MAPS_API_KEY "${{ secrets.GOOGLE_MAPS_API_KEY }}" --target production --force --token=${{ secrets.VERCEL_TOKEN }} --yes
+            npx vercel env add VITE_GOOGLE_MAPS_API_KEY "${{ secrets.GOOGLE_MAPS_API_KEY }}" production --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
           fi
           
-          # Trigger Vercel Server-Side Build (Production)
-          deployment_url=$(vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --yes)
+          # Deploy to Vercel (server-side build) - no local build
+          deployment_url=$(npx vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --yes --no-wait 2>&1 | grep -E '^https://' | head -1)
           echo "deployment_url=$deployment_url" >> $GITHUB_OUTPUT
+          echo "✅ Deployed to: $deployment_url"
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Deploy Backend to Vercel (Production)
+        shell: bash
         run: |
           echo "🚀 Deploying Backend to Vercel Production..."
           
@@ -298,13 +307,12 @@ jobs:
           fi
           
           cd backend
-          npm install -g vercel@latest
           
-          cd backend
-          npm install -g vercel@latest
+          # Link to Vercel project
+          npx vercel link --yes --token=${{ secrets.VERCEL_TOKEN }}
           
-          # Deploy to Production (Cloud Build)
-          vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --yes
+          # Deploy to Production (server-side build)
+          npx vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --yes
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
