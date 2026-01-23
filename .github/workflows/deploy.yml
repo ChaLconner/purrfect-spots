@@ -123,7 +123,7 @@ jobs:
     if: needs.prepare.outputs.environment == 'staging'
     environment:
       name: staging
-      url: https://staging.purrfect-spots.com
+      url: https://purrfect-spots-staging.vercel.app
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -247,7 +247,7 @@ jobs:
     if: needs.prepare.outputs.environment == 'production'
     environment:
       name: production
-      url: https://purrfect-spots.com
+      url: https://purrfect-spots.vercel.app
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
