@@ -138,16 +138,8 @@ jobs:
           echo "🚀 Deploying Frontend to Vercel Staging..."
           npm install -g vercel@latest
           cd frontend
-          vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-          
-          # Inject Env Vars for Staging
-          vercel env add VITE_API_BASE_URL "${{ secrets.STAGING_API_URL }}" --target preview --force --token=${{ secrets.VERCEL_TOKEN }}
-          if [ -n "${{ secrets.GOOGLE_MAPS_API_KEY }}" ]; then
-            vercel env add VITE_GOOGLE_MAPS_API_KEY "${{ secrets.GOOGLE_MAPS_API_KEY }}" --target preview --force --token=${{ secrets.VERCEL_TOKEN }}
-          fi
-          
-          vercel build --token=${{ secrets.VERCEL_TOKEN }}
-          vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
+          # Trigger Vercel Server-Side Build
+          vercel deploy --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -281,16 +273,8 @@ jobs:
           echo "🚀 Deploying Frontend to Vercel Production..."
           npm install -g vercel@latest
           cd frontend
-          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-          
-          # Inject Env Vars for Production
-          vercel env add VITE_API_BASE_URL "${{ secrets.PROD_API_URL }}" --target production --force --token=${{ secrets.VERCEL_TOKEN }}
-          if [ -n "${{ secrets.GOOGLE_MAPS_API_KEY }}" ]; then
-            vercel env add VITE_GOOGLE_MAPS_API_KEY "${{ secrets.GOOGLE_MAPS_API_KEY }}" --target production --force --token=${{ secrets.VERCEL_TOKEN }}
-          fi
-          
-          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-          deployment_url=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          # Trigger Vercel Server-Side Build (Production)
+          deployment_url=$(vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }})
           echo "deployment_url=$deployment_url" >> $GITHUB_OUTPUT
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
