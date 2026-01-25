@@ -123,7 +123,7 @@ jobs:
     if: needs.prepare.outputs.environment == 'staging'
     environment:
       name: staging
-      url: https://purrfect-spots-staging.vercel.app
+      url: ${{ secrets.STAGING_FRONTEND_URL }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -188,11 +188,11 @@ jobs:
           echo "🏥 Running health check..."
           
           # Wait for deployment to propagate
-          echo "Waiting 45 seconds for deployment to propagate..."
-          sleep 45
+          echo "Waiting 10 seconds for service startup..."
+          sleep 10
           
           # Health check with retries
-          MAX_RETRIES=5
+          MAX_RETRIES=20
           RETRY_DELAY=10
           
           for i in $(seq 1 $MAX_RETRIES); do
@@ -225,7 +225,7 @@ jobs:
         if: success()
         run: |
           echo "✅ Staging deployment successful!"
-          echo "🔗 Frontend URL: https://staging.purrfect-spots.com"
+          echo "🔗 Frontend URL: ${{ secrets.STAGING_FRONTEND_URL }}"
           echo "🔗 Backend URL: ${{ secrets.STAGING_API_URL }}"
           echo "📦 Version: ${{ needs.prepare.outputs.version }}"
 
@@ -277,19 +277,44 @@ jobs:
         shell: bash
         run: |
           echo "🚀 Deploying Frontend to Vercel Production..."
+          
+          # Check Secrets presence
+          if [ -z "${{ secrets.VERCEL_TOKEN }}" ]; then
+            echo "::error::VERCEL_TOKEN is not set"
+            exit 1
+          fi
+          if [ -z "$VERCEL_ORG_ID" ]; then
+            echo "::error::VERCEL_ORG_ID is not set"
+            exit 1
+          fi
+          if [ -z "$VERCEL_PROJECT_ID" ]; then
+             echo "::error::VERCEL_PROJECT_ID is not set"
+             exit 1
+          fi
+
           cd frontend
           
           # Link to Vercel project (creates .vercel folder)
-          npx vercel link --yes --token=${{ secrets.VERCEL_TOKEN }}
+          echo "🔗 Linking to Vercel project..."
+          npx vercel link --yes --token=${{ secrets.VERCEL_TOKEN }} || { echo "::error::Vercel link failed"; exit 1; }
           
           # Inject Env Vars for Production
+          echo "🔧 Injecting environment variables..."
           npx vercel env add VITE_API_BASE_URL "${{ secrets.PROD_API_URL }}" production --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
           if [ -n "${{ secrets.GOOGLE_MAPS_API_KEY }}" ]; then
             npx vercel env add VITE_GOOGLE_MAPS_API_KEY "${{ secrets.GOOGLE_MAPS_API_KEY }}" production --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
           fi
           
           # Deploy to Vercel (server-side build) - no local build
+          echo "🚀 Triggering Vercel User Deployment..."
+          set -o pipefail
           deployment_url=$(npx vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --yes --no-wait 2>&1 | grep -E '^https://' | head -1)
+          
+          if [ -z "$deployment_url" ]; then
+            echo "::error::Deployment failed. No URL returned."
+            exit 1
+          fi
+
           echo "deployment_url=$deployment_url" >> $GITHUB_OUTPUT
           echo "✅ Deployed to: $deployment_url"
         env:
@@ -306,12 +331,19 @@ jobs:
             exit 0
           fi
           
+          if [ -z "$VERCEL_ORG_ID" ]; then
+             echo "::error::VERCEL_ORG_ID is not set (Backend)"
+             exit 1
+          fi
+          
           cd backend
           
           # Link to Vercel project
-          npx vercel link --yes --token=${{ secrets.VERCEL_TOKEN }}
+          echo "🔗 Linking Backend to Vercel..."
+          npx vercel link --yes --token=${{ secrets.VERCEL_TOKEN }} || { echo "::error::Vercel link failed for backend"; exit 1; }
           
           # Deploy to Production (server-side build)
+          echo "🚀 Triggering Backend Deployment..."
           npx vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --yes
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -323,12 +355,12 @@ jobs:
           echo "🏥 Running production health check..."
           
           # Wait for deployment to propagate
-          echo "Waiting 60 seconds for production deployment to propagate..."
-          sleep 60
+          echo "Waiting 15 seconds for service startup..."
+          sleep 15
           
           # Health check with retries (more attempts for production)
-          MAX_RETRIES=10
-          RETRY_DELAY=15
+          MAX_RETRIES=30
+          RETRY_DELAY=10
           
           for i in $(seq 1 $MAX_RETRIES); do
             echo "Health check attempt $i of $MAX_RETRIES..."
@@ -442,7 +474,7 @@ jobs:
           if [ "${{ needs.prepare.outputs.environment }}" == "staging" ]; then
             echo "### Staging Deployment" >> $GITHUB_STEP_SUMMARY
             echo "| Status | ${{ needs.deploy-staging.result == 'success' && '✅ Success' || needs.deploy-staging.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-            echo "| URL | https://staging.purrfect-spots.com |" >> $GITHUB_STEP_SUMMARY
+            echo "| URL | ${{ secrets.STAGING_FRONTEND_URL }} |" >> $GITHUB_STEP_SUMMARY
           elif [ "${{ needs.prepare.outputs.environment }}" == "production" ]; then
             echo "### Production Deployment" >> $GITHUB_STEP_SUMMARY
             echo "| Status | ${{ needs.deploy-production.result == 'success' && '✅ Success' || needs.deploy-production.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
