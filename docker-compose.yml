@@ -95,6 +95,11 @@ services:
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -114,6 +119,11 @@ services:
       - "8081:8081"
     environment:
       - REDIS_HOSTS=local:redis:6379
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
     depends_on:
       - redis
     profiles:
@@ -134,6 +144,11 @@ services:
       - "4318:4318"   # OTLP HTTP
     environment:
       - COLLECTOR_OTLP_ENABLED=true
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
     networks:
       - purrfect-network
 

@@ -63,7 +63,10 @@ export function logMetric(metric: PerformanceMetric): void {
     const emoji = rating === 'good' ? '✅' : rating === 'needs-improvement' ? '⚠️' : '❌';
     // eslint-disable-next-line no-console
     console.log(
-      `[Perf] ${emoji} ${metric.name}: ${metric.value.toFixed(2)}${metric.unit}`,
+      '[Perf]',
+      emoji,
+      `${metric.name}:`,
+      `${metric.value.toFixed(2)}${metric.unit}`,
       metric.metadata || ''
     );
   }

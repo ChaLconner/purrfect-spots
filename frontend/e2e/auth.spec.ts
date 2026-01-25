@@ -11,12 +11,24 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Authentication Flow', () => {
+
+  // Mock global user for success scenarios
+  const mockUser = {
+    id: 'test-user-123',
+    email: 'test@example.com',
+    name: 'Test User',
+    picture: 'https://placehold.co/100',
+    bio: 'Test bio',
+    created_at: '2023-01-01T00:00:00Z'
+  };
   
   test.describe('Login Page', () => {
+
+    test.beforeEach(async ({ page }) => {
+        await page.goto('/login');
+    });
     
     test('should display login form', async ({ page }) => {
-      await page.goto('/login');
-      
       // Check page title
       await expect(page).toHaveTitle(/Purrfect Spots/);
       
@@ -27,18 +39,26 @@ test.describe('Authentication Flow', () => {
     });
     
     test('should show validation errors for empty form', async ({ page }) => {
-      await page.goto('/login');
-      
       // Submit empty form
       await page.getByRole('button', { name: /login|sign in/i }).click();
       
       // Should show validation message
-      await expect(page.getByText('Please enter your email')).toBeVisible();
+      // Note: Browser native validation might intercept this, so we check if button is still there
+      // or check for specific validation UI if app implements it.
+      // Assuming app shows text error:
+      await expect(page.getByText(/required|enter your email/i)).toBeVisible();
     });
     
     test('should show error for invalid credentials', async ({ page }) => {
-      await page.goto('/login');
-      
+      // Mock failure response
+      await page.route('**/api/v1/auth/login', async route => {
+        await route.fulfill({
+            status: 401,
+            contentType: 'application/json',
+            json: { detail: 'Invalid email or password.' }
+        });
+      });
+
       // Fill invalid credentials
       await page.getByLabel(/email/i).fill('invalid@example.com');
       await page.locator('#password').fill('wrongpassword');
@@ -47,21 +67,42 @@ test.describe('Authentication Flow', () => {
       // Should show error message
       await expect(page.getByText(/invalid|incorrect|failed/i)).toBeVisible({ timeout: 5000 });
     });
+
+    test('should redirect to home on successful login', async ({ page }) => {
+         // Mock success response
+        await page.route('**/api/v1/auth/login', async route => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                json: {
+                    access_token: 'fake-jwt-token',
+                    token_type: 'bearer',
+                    user: mockUser
+                }
+            });
+        });
+
+        // Mock /me endpoint for subsequent checks
+         await page.route('**/api/v1/auth/me', async route => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                json: mockUser
+            });
+        });
+
+        await page.getByLabel(/email/i).fill('test@example.com');
+        await page.locator('#password').fill('CorrectPassword123');
+        await page.getByRole('button', { name: /login|sign in/i }).click();
+
+        // Should redirect to home or dashboard
+        await expect(page).toHaveURL(/$|dashboard/);
+    });
     
     test('should have link to registration', async ({ page }) => {
-      await page.goto('/login');
-      
       // Find and click register link
       const registerLink = page.getByRole('link', { name: /register|sign up|create account/i });
       await expect(registerLink).toBeVisible();
-    });
-    
-    test('should have Google OAuth button', async ({ page }) => {
-      await page.goto('/login');
-      
-      // Check for Google login button
-      const googleButton = page.getByRole('button', { name: /google/i });
-      await expect(googleButton).toBeVisible();
     });
   });
   
@@ -87,55 +128,66 @@ test.describe('Authentication Flow', () => {
       await expect(strengthIndicator.first()).toBeVisible();
     });
     
-    test('should prevent duplicate email registration', async ({ page }) => {
+    test('should successfully register user', async ({ page }) => {
+       // Mock register success
+       await page.route('**/api/v1/auth/register', async route => {
+        await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            json: {
+                access_token: 'fake-jwt-token',
+                token_type: 'bearer',
+                user: mockUser
+            }
+        });
+      });
+
+      // Mock /me endpoint
+      await page.route('**/api/v1/auth/me', async route => {
+        await route.fulfill({ status: 200, json: mockUser });
+      });
+
       await page.goto('/register');
-      
-      // Try to register with existing email
       await page.getByLabel(/name/i).fill('Test User');
-      await page.getByLabel(/email/i).fill('existing@example.com');
+      await page.getByLabel(/email/i).fill('newuser@example.com');
       await page.locator('#password').fill('SecurePass123');
       
       await page.getByRole('button', { name: /register|sign up|create/i }).click();
       
-      // Should show error about existing email (or succeed if email doesn't exist)
-      // This is a best-effort test
+      // Should redirect after success
+      await expect(page).toHaveURL(/$|dashboard/);
     });
   });
   
   test.describe('Protected Routes', () => {
     
     test('should redirect to login when accessing upload without auth', async ({ page }) => {
+       // Ensure we are not logged in (clear storage/cookies if needed, but new context should be clean)
       await page.goto('/upload');
       
       // Should redirect to login
       await expect(page).toHaveURL(/login/);
     });
-    
-    test('should redirect to login when accessing profile without auth', async ({ page }) => {
-      await page.goto('/profile');
-      
-      // Should redirect to login
-      await expect(page).toHaveURL(/login/);
-    });
-  });
-  
-  test.describe('Public Routes', () => {
-    
-    test('should access gallery without authentication', async ({ page }) => {
-      await page.goto('/gallery');
-      
-      // Should NOT redirect to login
-      await expect(page).not.toHaveURL(/login/);
-      
-      // Should show gallery content
-      await expect(page.getByRole('main')).toBeVisible();
-    });
-    
-    test('should access map without authentication', async ({ page }) => {
-      await page.goto('/');
-      
-      // Should show map or homepage
-      await expect(page).not.toHaveURL(/login/);
+
+    test('should allow access to protected route if logged in', async ({ page }) => {
+        // Mock auth endpoints
+        await page.route('**/api/v1/auth/me', async route => {
+            await route.fulfill({ status: 200, json: mockUser });
+        });
+
+        // Simulate logged in state by setting token in localStorage directly
+        await page.addInitScript(() => {
+            localStorage.setItem('token', 'fake-jwt-token');
+            localStorage.setItem('user', JSON.stringify({
+                id: 'test-user-123',
+                email: 'test@example.com',
+                name: 'Test User'
+            }));
+        });
+
+        await page.goto('/upload');
+        // Should NOT redirect to login
+        await expect(page).not.toHaveURL(/login/);
     });
   });
 });

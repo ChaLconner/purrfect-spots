@@ -236,7 +236,7 @@ class AuthService:
                 password_hash = user["password_hash"]
             else:
                 # Valid bcrypt hash for "dummy_password" to ensure checkpw takes time
-                password_hash = "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQOqhN/Md.osUgsgW8.c2e.da"
+                password_hash = "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQOqhN/Md.osUgsgW8.c2e.da"  # nosemgrep: generic.secrets.security.detected-bcrypt-hash.detected-bcrypt-hash
 
             # Always perform the slow hashing operation
             is_valid = self.verify_password(password, password_hash)

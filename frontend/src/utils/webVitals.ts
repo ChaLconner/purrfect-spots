@@ -56,7 +56,7 @@ function logMetric(metric: WebVitalMetric) {
 
   // eslint-disable-next-line no-console
   console.log(
-    `%c[Web Vitals] ${metric.name}: ${metric.value.toFixed(2)} (${metric.rating})`,
+    `%c[Web Vitals] ${metric.name}: ${metric.value.toFixed(2)} (${metric.rating})`, // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring
     colors[metric.rating]
   );
 }

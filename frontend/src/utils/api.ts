@@ -95,8 +95,15 @@ export const getApiBaseUrl = (): string => {
   } 
   
   // Production fallback
-  console.warn('VITE_API_BASE_URL not set in production. Defaulting to relative path');
-  return '';
+  if (!envUrl) {
+    console.warn('⚠️ [API Config] VITE_API_BASE_URL is missing!');
+    console.info('ℹ️ [API Config] Current Origin:', window.location.origin);
+    console.info('ℹ️ [API Config] Requests will be relative to frontend domain.');
+  } else {
+    console.info('✅ [API Config] Using API URL:', envUrl);
+  }
+  
+  return envUrl || '';
 };
 
 // Create API URL with endpoint
@@ -470,7 +477,7 @@ export const apiRequest = async <T = unknown>(
         const delay = calculateBackoffDelay(attempt, config);
         if (isDev()) {
           // eslint-disable-next-line no-console
-          console.log(`[API Retry] Attempt ${attempt + 1}/${config.maxRetries + 1} failed, retrying in ${delay}ms...`, endpoint);
+          console.log('[API Retry] Attempt', attempt + 1, '/', config.maxRetries + 1, 'failed, retrying in', delay, 'ms...', endpoint);
         }
         await sleep(delay);
         continue;

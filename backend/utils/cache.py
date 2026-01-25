@@ -63,7 +63,7 @@ def generate_cache_key(*args, **kwargs) -> str:
         sort_keys=True,
         default=str,
     )
-    return hashlib.md5(key_data.encode()).hexdigest()
+    return hashlib.sha256(key_data.encode()).hexdigest()
 
 
 def _redis_get(key: str) -> Any | None:

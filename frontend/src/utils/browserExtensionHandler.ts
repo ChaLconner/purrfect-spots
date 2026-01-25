@@ -78,7 +78,7 @@ export const isBrowserExtensionError = (error: any): boolean => {
 export const logBrowserExtensionError = (error: any, context: string = ''): void => {
   if (isDev()) {
     const message = error?.message || error || 'Unknown browser extension error';
-    console.warn(`⚠️ Browser extension error ${context ? `(${context})` : ''}:`, message);
+    console.warn('⚠️ Browser extension error', context ? `(${context})` : '', ':', message);
   }
 };
 

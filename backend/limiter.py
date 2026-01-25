@@ -111,10 +111,10 @@ def get_user_id_from_request(request: Request) -> str:
             token = auth_header.split(" ")[1]
             # Decode without verification just to get the user ID
             # Full verification happens in auth middleware
-            payload = jwt.decode(token, options={"verify_signature": False})
+            payload = jwt.decode(token, options={"verify_signature": False})  # nosemgrep: python.jwt.security.unverified-jwt-decode.unverified-jwt-decode
             user_id = payload.get("sub") or payload.get("user_id")
             if user_id:
-                return f"user:{user_id}"
+                return f"user:{user_id}"  # nosemgrep: python.flask.security.audit.directly-returned-format-string.directly-returned-format-string
         except Exception:
             pass
 

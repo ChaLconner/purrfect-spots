@@ -168,6 +168,7 @@ onUnmounted(() => {
             to="/map" 
             class="nav-link"
             :class="{ active: route.path === '/map' || route.path === '/' }"
+            aria-label="Map"
           >
             <MapIcon class="nav-icon" />
             <span>Map</span>
@@ -177,6 +178,7 @@ onUnmounted(() => {
             to="/upload" 
             class="nav-link"
             :class="{ active: route.path === '/upload' }"
+            aria-label="Upload"
           >
             <Upload class="nav-icon" />
             <span>Upload</span>
@@ -186,6 +188,7 @@ onUnmounted(() => {
             to="/gallery" 
             class="nav-link"
             :class="{ active: route.path === '/gallery' }"
+            aria-label="Gallery"
           >
             <Gallery class="nav-icon" />
             <span>Gallery</span>

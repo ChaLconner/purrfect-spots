@@ -16,7 +16,7 @@ const routes = [
     path: "/upload",
     name: "Upload",
     component: () => import("@/views/UploadView.vue"),
-    meta: { requiresAuth: false },
+    meta: { requiresAuth: true },
   },
   {
     path: "/gallery/:id?",

@@ -198,7 +198,7 @@ export function secureSetItem(key: string, value: unknown): boolean {
   } catch (error) {
     if (isDev()) {
       // eslint-disable-next-line no-console
-      console.warn(`Failed to set localStorage item: ${key}`, error);
+      console.warn('Failed to set localStorage item:', key, error);
     }
     return false;
   }
@@ -213,7 +213,7 @@ export function secureRemoveItem(key: string): void {
   } catch (error) {
     if (isDev()) {
       // eslint-disable-next-line no-console
-      console.warn(`Failed to remove localStorage item: ${key}`, error);
+      console.warn('Failed to remove localStorage item:', key, error);
     }
   }
 }

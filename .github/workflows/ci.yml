@@ -452,24 +452,10 @@ jobs:
       needs.changes.outputs.backend == 'true' ||
       needs.changes.outputs.ci == 'true'
     continue-on-error: true
-    services:
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    continue-on-error: true
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Setup Backend Environment
-        uses: ./.github/actions/setup-backend
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Setup Frontend Environment
         uses: ./.github/actions/setup-frontend
@@ -481,30 +467,12 @@ jobs:
           cd frontend
           npx playwright install --with-deps chromium
 
-      - name: Start Backend Server
-        env:
-          ENVIRONMENT: test
-          REDIS_URL: redis://localhost:6379
-          JWT_SECRET: ${{ secrets.TEST_JWT_SECRET || 'test-secret-key-for-ci-minimum-32-chars' }}
-          JWT_REFRESH_SECRET: ${{ secrets.TEST_JWT_REFRESH_SECRET || 'test-refresh-secret-for-ci-minimum-32' }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://test.supabase.co' }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY || 'dummy-anon-key-for-testing' }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'dummy-service-key-for-testing' }}
-        run: |
-          cd backend
-          nohup python -m uvicorn main:app --host 0.0.0.0 --port 8000 > ../backend.log 2>&1 &
-          echo "Backend started in background..."
-          
-          # Wait for backend to be ready
-          echo "Waiting for backend to start..."
-          timeout 30s bash -c 'until curl -s http://localhost:8000/health > /dev/null; do sleep 1; done' || echo "Backend did not start in time. Check logs."
-          cat ../backend.log || true
-
       - name: Run Playwright Tests
         run: |
           cd frontend
           npx playwright test --project=chromium
         env:
+          # Point to a dummy URL since we mock all requests
           VITE_API_BASE_URL: http://localhost:8000
           CI: true
 
@@ -580,7 +548,7 @@ jobs:
         uses: semgrep/semgrep-action@v1
         with:
           config: p/default p/security-audit p/owasp-top-ten
-          generateSarif: true
+          generateSarif: "1"
         env:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
       - name: Upload Semgrep SARIF
@@ -685,6 +653,7 @@ jobs:
       - frontend-e2e
       - security-scan
       - secret-scan
+      - sast-scan
     if: always()
     steps:
       - name: Create build summary
@@ -707,6 +676,7 @@ jobs:
           echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Security Scan | ${{ needs.security-scan.result == 'success' && 'PASSED' || needs.security-scan.result == 'skipped' && 'SKIPPED' || 'ISSUES FOUND' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| SAST Scan (Semgrep) | ${{ needs.sast-scan.result == 'success' && 'PASSED' || needs.sast-scan.result == 'skipped' && 'SKIPPED' || 'ISSUES FOUND' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Secret Detection | ${{ needs.secret-scan.result == 'success' && 'PASSED' || needs.secret-scan.result == 'skipped' && 'SKIPPED' || 'ISSUES FOUND' }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
