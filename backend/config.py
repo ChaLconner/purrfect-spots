@@ -120,7 +120,13 @@ class Config:
     GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 
     # JWT Config - Enforce separate secrets for security
-    JWT_SECRET = get_required_env("JWT_SECRET")
+    # BEST PRACTICE: Fail fast if secret is missing. Do not use hardcoded fallbacks in production.
+    try:
+        JWT_SECRET = get_required_env("JWT_SECRET")
+    except ConfigurationError:
+        raise ConfigurationError(
+            "JWT_SECRET is missing! Please add this environment variable in your Vercel Project Settings."
+        )
     JWT_REFRESH_SECRET = os.getenv("JWT_REFRESH_SECRET")
 
     # If refresh secret is not set, use JWT_SECRET but warn heavily
