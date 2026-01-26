@@ -188,7 +188,6 @@ class Config:
         required_vars = [
             ("SUPABASE_URL", Config.SUPABASE_URL),
             ("SUPABASE_KEY", Config.SUPABASE_KEY),
-            ("SUPABASE_SERVICE_ROLE_KEY", Config.SUPABASE_SERVICE_KEY),
         ]
 
         for name, value in required_vars:
