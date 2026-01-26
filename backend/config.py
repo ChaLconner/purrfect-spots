@@ -229,6 +229,11 @@ class Config:
         if frontend_url and frontend_url not in allowed:
             allowed.append(frontend_url)
 
+        # Force add production frontend URL (Hardcoded safety net)
+        prod_url = "https://purrfect-spots.vercel.app"
+        if prod_url not in allowed:
+            allowed.append(prod_url)
+
         return list(set(allowed))
 
     @staticmethod
