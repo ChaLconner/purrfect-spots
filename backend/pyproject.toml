@@ -50,6 +50,9 @@ dependencies = [
     "types-bleach>=6.0.0",
 ]
 
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
 [tool.mypy]
 python_version = "3.12"
 warn_return_any = false  # Too many false positives with Supabase client
