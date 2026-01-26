@@ -74,7 +74,7 @@ jobs:
       ci: ${{ steps.filter.outputs.ci }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Filter paths
         uses: dorny/paths-filter@v3
@@ -105,7 +105,7 @@ jobs:
       needs.changes.outputs.ci == 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Backend Environment
         uses: ./.github/actions/setup-backend
@@ -139,7 +139,7 @@ jobs:
     continue-on-error: true  # Non-blocking - gradual type adoption
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Backend Environment
         uses: ./.github/actions/setup-backend
@@ -178,7 +178,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Backend Environment
         uses: ./.github/actions/setup-backend
@@ -210,7 +210,7 @@ jobs:
             --tb=short
 
       - name: Upload coverage HTML report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: backend-coverage-report
@@ -218,7 +218,7 @@ jobs:
           retention-days: 14
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         if: always()
         with:
           file: backend/coverage.xml
@@ -237,7 +237,7 @@ jobs:
     continue-on-error: true  # Non-blocking - informational
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -278,7 +278,7 @@ jobs:
           python scripts/export_openapi.py --output ../docs/openapi-current.json || echo "::warning::Failed to export OpenAPI spec"
 
       - name: Upload OpenAPI specs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: openapi-specs
@@ -298,7 +298,7 @@ jobs:
       (needs.backend-test.result == 'success' || needs.backend-test.result == 'skipped')
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -326,7 +326,7 @@ jobs:
       needs.changes.outputs.ci == 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Frontend
         uses: ./.github/actions/setup-frontend
@@ -353,7 +353,7 @@ jobs:
       needs.changes.outputs.ci == 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Frontend
         uses: ./.github/actions/setup-frontend
@@ -366,7 +366,7 @@ jobs:
           npm run test:coverage
 
       - name: Upload coverage HTML report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: frontend-coverage-report
@@ -383,7 +383,7 @@ jobs:
       (needs.frontend-test.result == 'success' || needs.frontend-test.result == 'skipped')
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Frontend
         uses: ./.github/actions/setup-frontend
@@ -398,7 +398,7 @@ jobs:
           VITE_API_BASE_URL: https://api.purrfect-spots.com
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: frontend-build
           path: frontend/dist
@@ -419,10 +419,10 @@ jobs:
     if: needs.frontend-build.result == 'success'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: frontend-build
           path: frontend/dist
@@ -455,7 +455,7 @@ jobs:
     continue-on-error: true
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Frontend Environment
         uses: ./.github/actions/setup-frontend
@@ -477,7 +477,7 @@ jobs:
           CI: true
 
       - name: Upload Playwright Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: playwright-report
@@ -496,10 +496,10 @@ jobs:
     continue-on-error: false  # Enforced - block on security issues
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run Trivy vulnerability scanner (filesystem)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.33.1
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -522,12 +522,12 @@ jobs:
     continue-on-error: false  # Enforced - block on leaked secrets
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Run Trufflehog
-        uses: trufflesecurity/trufflehog@v3.88.29
+        uses: trufflesecurity/trufflehog@v3.92.5
         with:
           base: ""  # Scan entire repo
           head: HEAD
@@ -543,7 +543,7 @@ jobs:
     continue-on-error: true
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Run Semgrep
         uses: semgrep/semgrep-action@v1
         with:
@@ -552,7 +552,7 @@ jobs:
         env:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
       - name: Upload Semgrep SARIF
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: semgrep.sarif
@@ -567,7 +567,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Dependency Review
         uses: actions/dependency-review-action@v4
