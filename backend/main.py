@@ -329,7 +329,7 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
 # Vercel expects this to be available
-handler = app
+
 
 if __name__ == "__main__":
     import uvicorn
