@@ -33,10 +33,6 @@ updates:
           - "patch"
         patterns:
           - "*"
-        exclude-patterns:
-          - "fastapi"
-          - "pydantic"
-          - "sentry-sdk"
     # Security updates are always prioritized
     reviewers:
       - "purrfect-spots/backend-team"
@@ -66,10 +62,6 @@ updates:
           - "patch"
         patterns:
           - "*"
-        exclude-patterns:
-          - "vue"
-          - "vite"
-          - "typescript"
     # Ignore problematic updates
     ignore:
       - dependency-name: "@types/*"
@@ -93,6 +85,10 @@ updates:
       prefix: "chore(ci)"
     reviewers:
       - "purrfect-spots/devops"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
 
   # ==============================================================================
   # Docker Images

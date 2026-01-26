@@ -346,6 +346,18 @@ jobs:
           echo "🔗 Linking Backend to Vercel..."
           npx vercel link --yes --token=${{ secrets.VERCEL_TOKEN }} || { echo "::error::Vercel link failed for backend"; exit 1; }
           
+          # Inject Env Vars for Production
+          echo "🔧 Injecting environment variables..."
+          npx vercel env add SUPABASE_URL "${{ secrets.SUPABASE_URL }}" production --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
+          npx vercel env add SUPABASE_KEY "${{ secrets.SUPABASE_KEY }}" production --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
+          if [ -n "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" ]; then
+            npx vercel env add SUPABASE_SERVICE_ROLE_KEY "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" production --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
+          fi
+          # Also inject JWT_SECRET if available (Required by config.py)
+          if [ -n "${{ secrets.JWT_SECRET }}" ]; then
+            npx vercel env add JWT_SECRET "${{ secrets.JWT_SECRET }}" production --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
+          fi
+
           # Deploy to Production (server-side build)
           echo "🚀 Triggering Backend Deployment..."
           npx vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --yes
