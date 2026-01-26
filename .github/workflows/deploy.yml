@@ -127,7 +127,7 @@ jobs:
     if: needs.prepare.outputs.environment == 'staging'
     environment:
       name: staging
-      url: ${{ secrets.STAGING_FRONTEND_URL }}
+      url: ${{ vars.STAGING_FRONTEND_URL }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
