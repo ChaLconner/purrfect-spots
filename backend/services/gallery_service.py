@@ -395,8 +395,13 @@ class GalleryService:
         """
         try:
             # Approximate degrees per km (varies by latitude)
+            # Approximate degrees per km (varies by latitude)
+            import math
             km_per_degree_lat = 111.0
-            km_per_degree_lng = 111.0 * abs(latitude / 90.0) if latitude != 0 else 111.0
+            # Longitude length shrinks as we move to poles: 111 * cos(lat)
+            # Use max(0.1, ...) to avoid division by zero at poles
+            cos_lat = math.cos(math.radians(latitude))
+            km_per_degree_lng = 111.0 * max(0.001, abs(cos_lat))
 
             # Calculate bounding box
             lat_delta = radius_km / km_per_degree_lat
