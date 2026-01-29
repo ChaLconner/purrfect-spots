@@ -1,3 +1,6 @@
+# nosec python:S5443 - Hardcoded paths like /tmp in this file are intentional test fixtures
+# These are not security-sensitive in test context; they are mock paths only
+
 import io
 import os
 from unittest.mock import MagicMock, mock_open, patch

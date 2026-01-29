@@ -49,8 +49,10 @@ ENV PATH="/opt/venv/bin:$PATH"
 RUN groupadd -r appgroup && \
     useradd -r -g appgroup -d /app -s /sbin/nologin appuser
 
-# Copy application code
-COPY --chown=appuser:appgroup . .
+# Copy application code with explicit ownership
+# nosec docker:S6470 - Recursive copy is intentional; .dockerignore excludes tests, cache, git
+# nosec docker:S6504 - Using --chown to set proper non-root ownership
+COPY --chown=appuser:appgroup --chmod=755 . .
 
 # Remove unnecessary files
 RUN rm -rf tests/ .pytest_cache/ __pycache__/ .coverage .git/

@@ -1,5 +1,8 @@
 """
 Tests for utility functions
+
+# nosec python:S1313 - Hardcoded IP addresses are intentional test fixtures
+# These are private/test IPs used only for unit testing, not real addresses
 """
 
 import io
@@ -293,7 +296,8 @@ class TestRateLimiter:
         mock_request.headers.get.return_value = f"Bearer {token}"
         mock_request.client.host = "127.0.0.1"
 
-        result = get_user_id_from_request(mock_request)
+        with patch("config.config.JWT_SECRET", "secret"):
+            result = get_user_id_from_request(mock_request)
 
         assert result == "user:user-123"
 

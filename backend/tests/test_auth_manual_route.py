@@ -2,6 +2,9 @@
 Tests for auth_manual routes
 
 Tests for registration, login, logout, refresh token, and password reset endpoints.
+
+# nosec python:S2068 - Hardcoded passwords in this file are intentional test fixtures
+# These are not real credentials; they are used only for unit testing authentication flows
 """
 
 from unittest.mock import MagicMock, patch
@@ -77,9 +80,10 @@ class TestRegisterEndpoint:
         # Check status first, then details
         if response.status_code == 200:
             data = response.json()
-            assert "access_token" in data
-            assert data["token_type"] == "bearer"
-            assert data["user"]["email"] == "test@example.com"
+            assert data["access_token"] is None
+            assert data["requires_verification"] is True
+            assert "verification code" in data["message"]
+            assert data["email"] == "test@example.com"
 
     def test_register_password_too_short(self, client, mock_limiter):
         """Test registration fails with short password"""
@@ -106,9 +110,12 @@ class TestRegisterEndpoint:
             "picture": None,
             "bio": None,
             "created_at": "2024-01-01T00:00:00",
+            "verification_required": True,  # Set this for test
         }
         mock_auth_service.create_access_token.return_value = "test-access-token"
         mock_auth_service.create_refresh_token.return_value = "test-refresh-token"
+        # Authenticate returns None for verification flow
+        mock_auth_service.authenticate_user.return_value = None
 
         response = client.post(
             "/api/v1/auth/register",
@@ -139,7 +146,8 @@ class TestRegisterEndpoint:
 
     def test_register_duplicate_email(self, client, mock_auth_service, mock_limiter):
         """Test registration fails for existing email"""
-        mock_auth_service.get_user_by_email.return_value = {"id": "existing-user"}
+        # create_user_with_password should raise for duplicate
+        mock_auth_service.create_user_with_password.side_effect = Exception("Email already registered")
 
         response = client.post(
             "/api/v1/auth/register",
@@ -153,7 +161,7 @@ class TestRegisterEndpoint:
         # Should be 400 for duplicate, or 429 if rate limited
         assert response.status_code in [400, 429]
         if response.status_code == 400:
-            assert "already in use" in response.json()["detail"]
+            assert "already in use" in response.json()["detail"].lower() or "already registered" in response.json()["detail"].lower()
 
 
 class TestLoginEndpoint:
@@ -224,15 +232,18 @@ class TestRefreshTokenEndpoint:
             data = response.json()
             assert data["access_token"] == "new-access-token"
 
-    def test_refresh_token_missing(self, client):
-        """Test refresh fails when cookie is missing"""
+    def test_refresh_token_missing(self, client, mock_auth_service):
+        """Test refresh returns soft failure when cookie is missing (SPA friendly)"""
         response = client.post("/api/v1/auth/refresh-token")
 
-        assert response.status_code == 401
-        assert "missing" in response.json()["detail"].lower()
+        # Route returns 200 with null token for soft failure (SPA UX)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["access_token"] is None
+        assert "session" in data.get("message", "").lower()
 
     def test_refresh_token_invalid(self, client, mock_auth_service):
-        """Test refresh fails with invalid token"""
+        """Test refresh returns soft failure with invalid token (SPA friendly)"""
         from unittest.mock import AsyncMock
 
         mock_auth_service.verify_refresh_token = AsyncMock(return_value=None)
@@ -240,7 +251,11 @@ class TestRefreshTokenEndpoint:
         client.cookies.set("refresh_token", "invalid-token")
         response = client.post("/api/v1/auth/refresh-token")
 
-        assert response.status_code == 401
+        # Route returns 200 with null token for soft failure (SPA UX)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["access_token"] is None
+        assert "expired" in data.get("message", "").lower() or "session" in data.get("message", "").lower()
 
 
 class TestLogoutEndpoint:
@@ -290,7 +305,8 @@ class TestResetPasswordEndpoint:
 
     def test_reset_password_success(self, client, mock_auth_service, mock_limiter):
         """Test successful password reset"""
-        mock_auth_service.reset_password.return_value = True
+        from unittest.mock import AsyncMock
+        mock_auth_service.reset_password = AsyncMock(return_value=True)
 
         response = client.post(
             "/api/v1/auth/reset-password",
@@ -302,7 +318,8 @@ class TestResetPasswordEndpoint:
 
     def test_reset_password_invalid_token(self, client, mock_auth_service, mock_limiter):
         """Test reset fails with invalid token"""
-        mock_auth_service.reset_password.return_value = False
+        from unittest.mock import AsyncMock
+        mock_auth_service.reset_password = AsyncMock(return_value=False)
 
         response = client.post(
             "/api/v1/auth/reset-password",

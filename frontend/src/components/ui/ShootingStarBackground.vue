@@ -1,11 +1,6 @@
 <template>
   <div class="shooting-stars-container fixed inset-0 pointer-events-none overflow-hidden z-0">
-    <div
-      v-for="n in starCount"
-      :key="n"
-      class="shooting-star"
-      :style="getStarStyle(n)"
-    ></div>
+    <div v-for="n in starCount" :key="n" class="shooting-star" :style="getStarStyle(n)"></div>
   </div>
 </template>
 
@@ -13,17 +8,18 @@
 const starCount = 12; // Increased count for better distribution
 
 const getStarStyle = (_n: number) => {
-  // Randomize start position across the entire container
+  // nosec typescript:S2245 - Math.random() is safe here: used only for visual animation timing/positioning
+  // PRNG is intentional for UI effects; cryptographic randomness not required for decorative animations
   const top = Math.random() * 120 - 20; // Start from -20% to 100% height
   const left = Math.random() * 140 - 20; // Start from -20% to 120% width
   const delay = Math.random() * 10; // Slightly shorter max delay for more activity
   const duration = 1.5 + Math.random() * 2; // Faster: 1.5-3.5s
-  
+
   return {
     top: `${top}%`,
     left: `${left}%`,
     animationDelay: `${delay}s`,
-    animationDuration: `${duration}s`
+    animationDuration: `${duration}s`,
   };
 };
 </script>
@@ -33,8 +29,8 @@ const getStarStyle = (_n: number) => {
   position: absolute;
   width: 150px; /* Longer tail */
   height: 3px; /* Thicker */
-  background: linear-gradient(90deg, rgba(255,255,255,0), #ffffff); /* Solid white head */
-  filter: drop-shadow(0 0 6px rgba(255,255,255,0.8)); /* Stronger glow */
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0), #ffffff); /* Solid white head */
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.8)); /* Stronger glow */
   transform: rotate(45deg);
   opacity: 0;
   animation-name: shoot;

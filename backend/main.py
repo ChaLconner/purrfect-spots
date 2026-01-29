@@ -23,6 +23,7 @@ from sentry_sdk.integrations.starlette import StarletteIntegration
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from config import config
 
@@ -165,9 +166,14 @@ async def generic_exception_handler(request: Request, exc: Exception):
     cors_origin = _get_cors_origin_for_request(request)
 
     # Return generic message to client, detailed error stays in logs
+    # In development, show the error for easier debugging
+    detail = "Internal Server Error"
+    if ENVIRONMENT == "development":
+        detail = str(exc)
+
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal Server Error"},
+        content={"detail": detail},
         headers={
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": cors_origin,
@@ -302,6 +308,10 @@ app.include_router(health_router)
 # HTTPS redirect (must be added last to run first)
 app.add_middleware(HTTPSRedirectMiddleware)
 
+# Trust X-Forwarded-For headers from proxies (e.g. AWS LB, Vercel)
+# This prevents IP spoofing in rate limiting
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+
 # Security headers (CSP, HSTS, X-Frame-Options, etc.)
 app.add_middleware(SecurityHeadersMiddleware)
 
@@ -334,4 +344,4 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)  # nosec B104

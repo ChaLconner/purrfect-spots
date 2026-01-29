@@ -5,7 +5,7 @@
  * Supports search, filtering, pagination, and tag-based queries.
  */
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 
 // Re-export CatLocation from types/api.ts (single source of truth)
 export type { CatLocation } from '../types/api';
@@ -44,6 +44,33 @@ export const useCatsStore = defineStore('cats', () => {
     page: 1,
     total_pages: 0,
   });
+
+  // ========== Persistence ==========
+  try {
+    const saved = localStorage.getItem('cats_store_cache');
+    if (saved) {
+      const data = JSON.parse(saved);
+      if (Array.isArray(data.locations)) {
+        locations.value = data.locations;
+      }
+    }
+  } catch {
+    // console.warn('Failed to restore cats store:', error);
+  }
+
+  watch(
+    locations,
+    (newLocations) => {
+      try {
+        // Limit cache size to avoid quota exceeded
+        const cacheData = { locations: newLocations.slice(0, 100) }; 
+        localStorage.setItem('cats_store_cache', JSON.stringify(cacheData));
+      } catch {
+        // Ignore quota errors
+      }
+    },
+    { deep: true }
+  );
 
   // ========== Getters ==========
   
@@ -317,13 +344,18 @@ function getStore() {
 // Legacy reactive exports
 export const catStore = {
   get locations() { return getStore()?.locations ?? []; },
+  set locations(val) { if (getStore()) getStore().locations = val; },
   get isLoading() { return getStore()?.isLoading ?? false; },
+  set isLoading(val) { if (getStore()) getStore().isLoading = val; },
   get error() { return getStore()?.error ?? null; },
+  set error(val) { if (getStore()) getStore().error = val; },
   get searchQuery() { return getStore()?.searchQuery ?? ''; },
+  set searchQuery(val) { if (getStore()) getStore().searchQuery = val; },
   get popularTags() { return getStore()?.popularTags ?? []; },
 };
 
-// Legacy computed exports
+// Legacy computed exports (must remain computed for reactivity if they are used as such)
+// However, since they are used via getStore().property, they should be fine if called within a computed block elsewhere.
 export const catCount = computed(() => getStore()?.catCount ?? 0);
 export const filteredLocations = computed(() => getStore()?.filteredLocations ?? []);
 export const filteredCount = computed(() => getStore()?.filteredCount ?? 0);
@@ -350,3 +382,4 @@ export function setSearchQuery(query: string) {
 export function clearSearch() {
   getStore()?.clearSearch();
 }
+

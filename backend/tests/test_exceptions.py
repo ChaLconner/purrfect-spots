@@ -113,5 +113,5 @@ def test_cat_detection_error():
     exc = CatDetectionError("No cat", confidence=0.1)
     assert exc.status_code == 400
     assert exc.error_code == "CAT_DETECTION_FAILED"
-    assert exc.confidence == 0.1
-    assert exc.details["confidence"] == 0.1
+    assert exc.confidence == pytest.approx(0.1)
+    assert exc.details["confidence"] == pytest.approx(0.1)

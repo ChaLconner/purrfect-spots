@@ -51,8 +51,7 @@ export interface CatLocation {
   longitude: number;
   image_url: string;
   tags: string[];                 // always present, default []
-  uploaded_at?: string;
-  created_at?: string;
+  uploaded_at: string;
 }
 
 export interface GalleryImage extends CatLocation {
@@ -87,24 +86,55 @@ export interface UploadResponse {
 }
 
 // ========== Cat Detection Types ==========
+export interface CatDetected {
+  description: string;
+  breed_guess: string;
+  position: string;
+  size: string;
+}
+
 export interface CatDetectionResult {
   has_cats: boolean;
   cat_count: number;
   confidence: number;
-  labels?: string[];
-  cat_labels?: Array<{
-    description: string;
-    score: number;
-  }>;
-  cat_objects?: Array<{
-    name: string;
-    score: number;
-    bounding_box?: {
-      normalized_vertices: Array<{ x: number; y: number }>;
-    } | null;
-  }>;
+  cats_detected: CatDetected[];
   image_quality?: string;
+  suitable_for_cat_spot: boolean;
   reasoning?: string;
+  note?: string;
+  requires_server_verification?: boolean;
+  client_error?: boolean;
+}
+
+export interface SpotAnalysisResult {
+  suitability_score: number;
+  safety_factors: {
+    safe_from_traffic: boolean;
+    has_shelter: boolean;
+    food_source_nearby: boolean;
+    water_access: boolean;
+    escape_routes: boolean;
+  };
+  environment_type: string;
+  pros: string[];
+  cons: string[];
+  recommendations: string[];
+  best_times: string[];
+}
+
+export interface CombinedAnalysisResult {
+  cat_detection: CatDetectionResult;
+  spot_analysis: SpotAnalysisResult;
+  overall_recommendation: {
+    suitable_for_cat_spot: boolean;
+    confidence: number;
+    summary: string;
+  };
+  metadata: {
+    filename: string;
+    file_size: number;
+    analyzed_by: string;
+  };
 }
 
 // ========== Search Types ==========

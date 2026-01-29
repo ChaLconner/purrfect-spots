@@ -15,6 +15,7 @@ from fastapi import Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
+from config import config
 from logger import logger
 
 
@@ -25,14 +26,16 @@ def get_redis_url() -> str | None:
     Returns:
         Redis URL if available and valid, None otherwise
     """
-    redis_url = os.getenv("REDIS_URL")
+    redis_url = config.REDIS_URL
 
     if not redis_url:
-        logger.warning(
-            "REDIS_URL not configured - using in-memory rate limiting. "
-            "This is fine for development but not suitable for production "
-            "with multiple server instances."
-        )
+        if config.is_production():
+            logger.warning(
+                "REDIS_URL not configured - using in-memory rate limiting. "
+                "This is not suitable for production with multiple server instances."
+            )
+        else:
+            logger.info("REDIS_URL not configured - using in-memory rate limiting (dev mode).")
         return None
 
     # Validate Redis URL format
@@ -73,12 +76,6 @@ def test_redis_connection(redis_url: str) -> bool:
 def get_storage_uri() -> str | None:
     """
     Get storage URI for rate limiter.
-
-    Returns:
-        None (In-memory storage) as requested for internal optimization
-    """
-    """
-    Get storage URI for rate limiter.
     
     Returns:
         Redis URL if configured and working, else "memory://"
@@ -109,14 +106,28 @@ def get_user_id_from_request(request: Request) -> str:
     if auth_header.startswith("Bearer "):
         try:
             token = auth_header.split(" ")[1]
-            # Decode without verification just to get the user ID
-            # Full verification happens in auth middleware
-            payload = jwt.decode(token, options={"verify_signature": False})  # nosemgrep: python.jwt.security.unverified-jwt-decode.unverified-jwt-decode
+            
+            # Use secure verification if secret is available
+            # We catch errors gracefully to fall back to IP limiting for bad tokens
+            if config.JWT_SECRET:
+                payload = jwt.decode(
+                    token, 
+                    config.JWT_SECRET, 
+                    algorithms=[config.JWT_ALGORITHM]
+                )
+            else:
+                # Fallback only if secret is somehow missing (should likely fail earlier)
+                payload = jwt.decode(token, options={"verify_signature": False})
+                
             user_id = payload.get("sub") or payload.get("user_id")
             if user_id:
-                return f"user:{user_id}"  # nosemgrep: python.flask.security.audit.directly-returned-format-string.directly-returned-format-string
-        except Exception:
+                return f"user:{user_id}"
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            # Token is invalid or expired
+            # Treat as unauthenticated user (fall back to IP)
             pass
+        except Exception as e:
+            logger.warning(f"Failed to decode token for rate limiting user extraction: {e}")
 
     # Fall back to IP address for unauthenticated requests
     return get_remote_address(request)
@@ -146,7 +157,7 @@ _storage_uri = get_storage_uri()
 # Standard rate limiter for general API endpoints
 limiter = Limiter(
     key_func=get_user_id_from_request,
-    default_limits=["100/minute"],
+    default_limits=[config.RATE_LIMIT_API_DEFAULT],
     storage_uri=_storage_uri,
     strategy="fixed-window",
 )
@@ -162,7 +173,7 @@ strict_limiter = Limiter(
 # Upload rate limiter - moderate limits for file uploads
 upload_limiter = Limiter(
     key_func=get_user_id_from_request,
-    default_limits=["10/minute"],
+    default_limits=[config.UPLOAD_RATE_LIMIT],
     storage_uri=_storage_uri,
     strategy="fixed-window",
 )
@@ -170,7 +181,7 @@ upload_limiter = Limiter(
 # Auth rate limiter - very strict for login/register attempts (brute force protection)
 auth_limiter = Limiter(
     key_func=get_remote_address,  # Use IP for auth to prevent credential stuffing
-    default_limits=["10/minute", "50/hour"],
+    default_limits=[config.RATE_LIMIT_AUTH],
     storage_uri=_storage_uri,
     strategy="fixed-window",
 )
@@ -185,13 +196,12 @@ def get_rate_limit_info() -> dict:
         Dictionary with rate limiting configuration
     """
     return {
-        "storage_type": "memory",
-        "redis_configured": False,
-        "redis_connected": False,
+        "storage_type": "redis" if _storage_uri and _storage_uri != "memory://" else "memory",
+        "redis_configured": bool(config.REDIS_URL),
         "limits": {
-            "default": "100/minute",
+            "default": config.RATE_LIMIT_API_DEFAULT,
             "strict": "5/minute",
-            "upload": "10/minute",
-            "auth": "10/minute, 50/hour",
+            "upload": config.UPLOAD_RATE_LIMIT,
+            "auth": config.RATE_LIMIT_AUTH,
         },
     }

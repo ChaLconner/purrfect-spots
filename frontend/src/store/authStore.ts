@@ -9,7 +9,7 @@ import { ref, computed } from 'vue';
 import type { User, LoginResponse } from '../types/auth';
 import { ProfileService } from '../services/profileService';
 
-import { apiV1, setAccessToken } from '../utils/api';
+import { apiV1, setAccessToken, setAuthCallbacks } from '../utils/api';
 
 
 export const useAuthStore = defineStore('auth', () => {
@@ -58,9 +58,9 @@ export const useAuthStore = defineStore('auth', () => {
         if (isValidUser(parsedUser)) {
           user.value = parsedUser;
         }
-      } catch (_e) {
+      } catch {
         // eslint-disable-next-line no-console
-        console.error('Failed to parse stored user data:', _e);
+        // console.error('Failed to parse stored user data:', _e);
       }
     }
 
@@ -74,49 +74,44 @@ export const useAuthStore = defineStore('auth', () => {
   /**
    * Refresh access token using HttpOnly cookie
    */
+  // State
+  const lastLoginTime = ref(0);
+
+  // ...
+
   async function refreshToken(): Promise<boolean> {
-    // If a refresh is already in progress, return the existing promise
-    if (refreshPromise) {
-      return refreshPromise;
-    }
+    if (refreshPromise) return refreshPromise;
 
     refreshPromise = (async () => {
       try {
-        // Calls endpoint that reads HttpOnly cookie
-        const response = await apiV1.post<{ access_token: string, token_type: string, user?: User }>('/auth/refresh-token');
+        const response = await apiV1.post<{ access_token: string | null, token_type: string | null, user?: User }>('/auth/refresh-token');
         
         if (response.access_token) {
           token.value = response.access_token;
           isAuthenticated.value = true;
-          
-          // Update user if returned
           if (response.user) {
             user.value = response.user;
             localStorage.setItem('user_data', JSON.stringify(response.user));
           }
-          
-          
-          // Update axios default header
           updateApiHeader(response.access_token);
-
-          
           return true;
         }
         return false;
       } catch {
-        // Silent fail on init - just means not logged in
-        // eslint-disable-next-line no-console
-        console.debug('No active session found');
+        // console.debug('No active session found');
         
-        // Only clear if we thought we were authenticated
-        // This avoids clearing the UX-fallback user data for guests
-        if (isAuthenticated.value) {
+        // RACE CONDITION FIx:
+        // If we just logged in (within last 5 seconds), ignore this background check failure.
+        // This prevents initializeAuth() from wiping a session established by AuthCallback
+        // while the refresh check was in flight.
+        const justLoggedIn = Date.now() - lastLoginTime.value < 5000;
+        
+        if (isAuthenticated.value && !justLoggedIn) {
           clearAuth();
         }
         
         return false;
       } finally {
-        // Clear the promise so next call can trigger a new refresh if needed
         refreshPromise = null;
       }
     })();
@@ -157,6 +152,7 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = data.access_token;
     isAuthenticated.value = true;
     error.value = null;
+    lastLoginTime.value = Date.now();
 
     // Persist user data for UX
     localStorage.setItem('user_data', JSON.stringify(data.user));
@@ -231,6 +227,8 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   // Initialize on store creation
+  // Register callbacks to API utility to break circular dependency
+  setAuthCallbacks(refreshToken, logout);
   initializeAuth();
 
   return {

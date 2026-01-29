@@ -1,7 +1,6 @@
 <template>
   <div class="auth-container">
     <!-- Animated Background Clouds -->
-    <!-- Animated Background Clouds -->
     <GhibliBackground />
 
     <!-- Main Content -->
@@ -9,11 +8,7 @@
       <!-- Left Side - Illustration -->
       <div class="auth-illustration">
         <div class="illustration-content">
-          <img 
-            src="/cat-illustration.png" 
-            alt="Cute cat illustration" 
-            class="cat-image"
-          />
+          <img src="/cat-illustration.png" alt="Cute cat illustration" class="cat-image" />
           <div class="illustration-text">
             <h2 class="welcome-title">Purrfect Spots</h2>
             <p class="welcome-subtitle">Discover the cutest cat spots around you!</p>
@@ -26,16 +21,18 @@
         <div class="form-header">
           <h1 class="form-title">{{ isLogin ? 'Welcome Back!' : 'Join Us!' }}</h1>
           <p class="form-subtitle">
-            {{ isLogin ? 'Sign in to continue your adventure' : 'Create an account to start exploring' }}
+            {{
+              isLogin
+                ? 'Sign in to continue your adventure'
+                : 'Create an account to start exploring'
+            }}
           </p>
         </div>
 
         <form class="auth-form" novalidate @submit.prevent="handleSubmit">
           <!-- Email Field -->
           <div class="form-group">
-            <label for="email" class="form-label">
-              Email
-            </label>
+            <label for="email" class="form-label"> Email </label>
             <div class="input-wrapper">
               <input
                 id="email"
@@ -43,6 +40,7 @@
                 type="email"
                 required
                 placeholder="your@email.com"
+                autocomplete="username"
                 class="form-input"
               />
             </div>
@@ -50,9 +48,7 @@
 
           <!-- Password Field -->
           <div class="form-group">
-            <label for="password" class="form-label">
-              Password
-            </label>
+            <label for="password" class="form-label"> Password </label>
             <div class="input-wrapper">
               <input
                 id="password"
@@ -60,9 +56,10 @@
                 :type="showPassword ? 'text' : 'password'"
                 required
                 placeholder="••••••••"
+                autocomplete="current-password"
                 class="form-input password-input"
               />
-              <button 
+              <button
                 type="button"
                 class="password-toggle-btn"
                 :aria-label="showPassword ? 'Hide password' : 'Show password'"
@@ -78,8 +75,16 @@
                   stroke="currentColor"
                   class="eye-icon"
                 >
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
+                  />
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
                 </svg>
                 <!-- Eye Icon (Hide Password) -->
                 <svg
@@ -91,23 +96,21 @@
                   stroke="currentColor"
                   class="eye-icon"
                 >
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"
+                  />
                 </svg>
               </button>
             </div>
 
-            
             <!-- Password Strength Meter (Register only) -->
             <transition name="fade">
-              <PasswordStrengthMeter 
-                v-if="!isLogin"
-                :password="form.password"
-              />
+              <PasswordStrengthMeter v-if="!isLogin" :password="form.password" />
             </transition>
 
-            <p v-if="!isLogin" class="form-hint">
-              Must be at least 8 characters
-            </p>
+            <p v-if="!isLogin" class="form-hint">Must be at least 8 characters</p>
             <div v-if="isLogin" class="forgot-password-link">
               <router-link to="/forgot-password">Forgot Password?</router-link>
             </div>
@@ -115,9 +118,7 @@
 
           <!-- Full Name Field (Sign Up only) -->
           <div v-if="!isLogin" class="form-group">
-            <label for="name" class="form-label">
-              Full Name
-            </label>
+            <label for="name" class="form-label"> Full Name </label>
             <div class="input-wrapper">
               <input
                 id="name"
@@ -144,17 +145,24 @@
         </div>
 
         <!-- Google OAuth Button -->
-        <button
-          :disabled="isLoading"
-          type="button"
-          class="google-btn"
-          @click="handleGoogleLogin"
-        >
+        <button :disabled="isLoading" type="button" class="google-btn" @click="handleGoogleLogin">
           <svg class="google-icon" viewBox="0 0 24 24">
-            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+            <path
+              fill="#4285F4"
+              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+            />
+            <path
+              fill="#34A853"
+              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+            />
+            <path
+              fill="#FBBC05"
+              d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+            />
+            <path
+              fill="#EA4335"
+              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+            />
           </svg>
           Google
         </button>
@@ -164,10 +172,7 @@
           <span class="switch-text">
             {{ isLogin ? "Don't have an account?" : 'Already have an account?' }}
           </span>
-          <router-link 
-            :to="isLogin ? '/register' : '/login'" 
-            class="switch-link"
-          >
+          <router-link :to="isLogin ? '/register' : '/login'" class="switch-link">
             {{ isLogin ? 'Sign Up' : 'Sign In' }}
           </router-link>
         </div>
@@ -191,7 +196,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  initialMode: 'login'
+  initialMode: 'login',
 });
 
 const isLogin = ref(props.initialMode !== 'register');
@@ -200,9 +205,12 @@ const showPassword = ref(false);
 const router = useRouter();
 
 // Watch for changes in initialMode prop
-watch(() => props.initialMode, (newMode: 'login' | 'register' | undefined) => {
-  isLogin.value = newMode !== 'register';
-});
+watch(
+  () => props.initialMode,
+  (newMode: 'login' | 'register' | undefined) => {
+    isLogin.value = newMode !== 'register';
+  }
+);
 
 const form = reactive({
   email: '',
@@ -227,16 +235,16 @@ const handleSubmit = async () => {
     if (!form.email.trim()) {
       throw new Error('Please enter your email');
     }
-    
+
     if (!form.password.trim()) {
       throw new Error('Please enter your password');
     }
-    
+
     if (!isLogin.value) {
       if (!form.name.trim()) {
         throw new Error('Please enter your full name');
       }
-      
+
       if (form.password.length < 8) {
         throw new Error('Password must be at least 8 characters');
       }
@@ -249,15 +257,37 @@ const handleSubmit = async () => {
       data = await AuthService.signup(form.email, form.password, form.name);
     }
 
+    // Handle email verification case - redirect to OTP verification page
+    if (data.requires_verification && data.email) {
+      showSuccess('Please check your email for the verification code.', 'Registration Successful');
+      router.push({
+        name: 'VerifyEmail',
+        query: { email: data.email },
+      });
+      return;
+    }
+
+    // Handle legacy email verification case (fallback)
+    if (!data.access_token && data.message) {
+      showSuccess(data.message, 'Registration Successful');
+      isLogin.value = true; // Switch to login view
+      return;
+    }
+
     useAuthStore().setAuth(data);
-    
+
     showSuccess(`Welcome back, ${data.user.name || 'Traveler'}!`, 'Authentication Successful');
 
     const redirectPath = sessionStorage.getItem('redirectAfterAuth') || '/upload';
     sessionStorage.removeItem('redirectAfterAuth');
     router.push(redirectPath);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Something went wrong';
+    let message = err instanceof Error ? err.message : 'Something went wrong';
+
+    // Sanitize technical errors
+    if (message.includes('status code 401')) message = 'Invalid email or password';
+    if (message.includes('status code')) message = 'Service unavailable. Please try again later.';
+
     showError(message, 'Authentication Failed');
   } finally {
     isLoading.value = false;
@@ -269,18 +299,18 @@ const handleGoogleLogin = async () => {
 
   try {
     const googleClientId = getEnvVar('VITE_GOOGLE_CLIENT_ID');
-    
+
     if (!googleClientId) {
       throw new Error('Google OAuth is not configured. Please contact administrator.');
     }
-    
+
     const redirectUri = `${window.location.origin}/auth/callback`;
-    
+
     const codeVerifier = generateCodeVerifier();
     const codeChallenge = await generateCodeChallenge(codeVerifier);
-    
+
     sessionStorage.setItem('google_code_verifier', codeVerifier);
-    
+
     const oauthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     oauthUrl.searchParams.append('client_id', googleClientId);
     oauthUrl.searchParams.append('redirect_uri', redirectUri);
@@ -290,13 +320,14 @@ const handleGoogleLogin = async () => {
     oauthUrl.searchParams.append('code_challenge_method', 'S256');
     oauthUrl.searchParams.append('access_type', 'offline');
     oauthUrl.searchParams.append('prompt', 'consent');
-    
+
     window.location.href = oauthUrl.toString();
   } catch (err: unknown) {
     if (isDev()) {
       console.error('Google OAuth Error:', err);
     }
-    const message = err instanceof Error ? err.message : 'Google sign-in failed';
+    let message = err instanceof Error ? err.message : 'Google sign-in failed';
+    if (message.includes('status code')) message = 'Unable to connect to Google service.';
     showError(message, 'Google Login Error');
     isLoading.value = false;
   }
@@ -336,7 +367,7 @@ function base64URLEncode(array: Uint8Array): string {
   padding: 2rem;
   position: relative;
   overflow: hidden;
-  background-color: #EAF6F3; /* Solid mint color for seamless look */
+  background-color: #eaf6f3; /* Solid mint color for seamless look */
   /* background: linear-gradient(135deg, #EAF6F3 0%, #D4EFE6 50%, #C8E6DC 100%); Removed gradient */
 }
 
@@ -344,10 +375,6 @@ function base64URLEncode(array: Uint8Array): string {
  * ANIMATED CLOUDS BACKGROUND
  * ============================================ */
 
-
-/* ============================================
- * AUTH CARD - Main Container
- * ============================================ */
 /* ============================================
  * AUTH CARD - Main Container
  * ============================================ */
@@ -362,7 +389,7 @@ function base64URLEncode(array: Uint8Array): string {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-radius: 2rem;
-  box-shadow: 
+  box-shadow:
     0 25px 50px -12px rgba(0, 0, 0, 0.1),
     0 0 0 1px rgba(255, 255, 255, 0.4) inset,
     0 -2px 0 rgba(255, 255, 255, 0.1) inset;
@@ -376,7 +403,12 @@ function base64URLEncode(array: Uint8Array): string {
  * ============================================ */
 .auth-illustration {
   /* Semi-transparent gradient to let clouds show through slightly */
-  background: linear-gradient(135deg, rgba(127, 183, 164, 0.85) 0%, rgba(149, 196, 180, 0.85) 50%, rgba(168, 212, 197, 0.85) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(127, 183, 164, 0.85) 0%,
+    rgba(149, 196, 180, 0.85) 50%,
+    rgba(168, 212, 197, 0.85) 100%
+  );
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -397,7 +429,7 @@ function base64URLEncode(array: Uint8Array): string {
   object-fit: cover;
   border-radius: 50%;
   border: 6px solid rgba(255, 255, 255, 0.4);
-  box-shadow: 
+  box-shadow:
     0 20px 40px rgba(0, 0, 0, 0.15),
     0 0 0 12px rgba(255, 255, 255, 0.1);
   animation: float 6s ease-in-out infinite;
@@ -409,8 +441,13 @@ function base64URLEncode(array: Uint8Array): string {
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-15px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-15px);
+  }
 }
 
 .illustration-text {
@@ -464,12 +501,13 @@ function base64URLEncode(array: Uint8Array): string {
 }
 
 @keyframes floatPaw {
-  0%, 100% { 
-    transform: translateY(0) rotate(0deg); 
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
     opacity: 0.6;
   }
-  50% { 
-    transform: translateY(-10px) rotate(10deg); 
+  50% {
+    transform: translateY(-10px) rotate(10deg);
     opacity: 0.9;
   }
 }
@@ -493,14 +531,14 @@ function base64URLEncode(array: Uint8Array): string {
   font-family: 'Nunito', sans-serif;
   font-size: 2rem;
   font-weight: 800;
-  color: #5A4632;
+  color: #5a4632;
   margin-bottom: 0.5rem;
 }
 
 .form-subtitle {
   font-family: 'Inter', sans-serif;
   font-size: 0.95rem;
-  color: #7D7D7D;
+  color: #7d7d7d;
 }
 
 /* ============================================
@@ -526,13 +564,13 @@ function base64URLEncode(array: Uint8Array): string {
   font-size: 0.9rem;
   font-weight: 600;
   font-weight: 600;
-  color: #5A4632;
+  color: #5a4632;
 }
 
 .form-hint {
   font-family: 'Inter', sans-serif;
   font-size: 0.8rem;
-  color: #7D7D7D;
+  color: #7d7d7d;
   margin-top: 0.25rem;
   margin-left: 0.5rem;
 }
@@ -546,7 +584,7 @@ function base64URLEncode(array: Uint8Array): string {
   padding: 1rem 1.25rem;
   font-family: 'Inter', sans-serif;
   font-size: 1rem;
-  color: #5A4632;
+  color: #5a4632;
   background: rgba(255, 255, 255, 0.7);
   border: 2px solid rgba(127, 183, 164, 0.2);
   border-radius: 1rem;
@@ -555,12 +593,12 @@ function base64URLEncode(array: Uint8Array): string {
 }
 
 .form-input::placeholder {
-  color: #A0A0A0;
+  color: #a0a0a0;
 }
 
 .form-input:focus {
   background: rgba(255, 255, 255, 0.95);
-  border-color: #7FB7A4;
+  border-color: #7fb7a4;
   box-shadow: 0 0 0 4px rgba(127, 183, 164, 0.15);
 }
 
@@ -584,12 +622,12 @@ function base64URLEncode(array: Uint8Array): string {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #A0A0A0; /* Match placeholder color */
+  color: #a0a0a0; /* Match placeholder color */
   transition: color 0.3s ease;
 }
 
 .password-toggle-btn:hover {
-  color: #7FB7A4;
+  color: #7fb7a4;
 }
 
 .eye-icon {
@@ -598,20 +636,20 @@ function base64URLEncode(array: Uint8Array): string {
 }
 
 .forgot-password-link {
-    text-align: right;
-    margin-top: 0.25rem;
+  text-align: right;
+  margin-top: 0.25rem;
 }
 
 .forgot-password-link a {
-    font-family: 'Inter', sans-serif;
-    font-size: 0.85rem;
-    color: #7FB7A4;
-    text-decoration: none;
-    font-weight: 500;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  color: #7fb7a4;
+  text-decoration: none;
+  font-weight: 500;
 }
 
 .forgot-password-link a:hover {
-    text-decoration: underline;
+  text-decoration: underline;
 }
 
 /* ============================================
@@ -629,7 +667,7 @@ function base64URLEncode(array: Uint8Array): string {
   font-size: 1.1rem;
   font-weight: 700;
   color: white;
-  background: linear-gradient(135deg, #7FB7A4 0%, #6DA491 100%);
+  background: linear-gradient(135deg, #7fb7a4 0%, #6da491 100%);
   border: none;
   border-radius: 1rem;
   cursor: pointer;
@@ -651,8 +689,6 @@ function base64URLEncode(array: Uint8Array): string {
   cursor: not-allowed;
 }
 
-
-
 .loading-spinner {
   width: 20px;
   height: 20px;
@@ -663,7 +699,9 @@ function base64URLEncode(array: Uint8Array): string {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ============================================
@@ -685,7 +723,7 @@ function base64URLEncode(array: Uint8Array): string {
 .divider-text {
   font-family: 'Inter', sans-serif;
   font-size: 0.85rem;
-  color: #A0A0A0;
+  color: #a0a0a0;
   white-space: nowrap;
 }
 
@@ -695,7 +733,9 @@ function base64URLEncode(array: Uint8Array): string {
 /* Animations */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
 }
 
 .fade-enter-from,
@@ -714,7 +754,7 @@ function base64URLEncode(array: Uint8Array): string {
   font-family: 'Nunito', sans-serif;
   font-size: 1rem;
   font-weight: 600;
-  color: #5A4632;
+  color: #5a4632;
   background: rgba(255, 255, 255, 0.9);
   border: 2px solid rgba(127, 183, 164, 0.2);
   border-radius: 1rem;
@@ -749,11 +789,11 @@ function base64URLEncode(array: Uint8Array): string {
 }
 
 .switch-text {
-  color: #7D7D7D;
+  color: #7d7d7d;
 }
 
 .switch-link {
-  color: #7FB7A4;
+  color: #7fb7a4;
   font-weight: 600;
   text-decoration: none;
   margin-left: 0.25rem;
@@ -761,7 +801,7 @@ function base64URLEncode(array: Uint8Array): string {
 }
 
 .switch-link:hover {
-  color: #6DA491;
+  color: #6da491;
   text-decoration: underline;
 }
 

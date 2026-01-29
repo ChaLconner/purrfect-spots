@@ -59,8 +59,6 @@
   </div>
 </template>
 
-
-
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -82,48 +80,67 @@ const token = ref('');
 const { setMetaTags, resetMetaTags } = useSeo();
 
 onMounted(() => {
-    // Set SEO meta tags
-    setMetaTags({
-        title: 'Reset Password | Purrfect Spots',
-        description: 'Set a new password for your Purrfect Spots account.',
-        type: 'website'
-    });
-    
-    token.value = route.query.token as string;
-    if (!token.value) {
-        showError('Invalid reset link', 'Error');
-        router.push('/login');
-    }
+  // Set SEO meta tags
+  setMetaTags({
+    title: 'Reset Password | Purrfect Spots',
+    description: 'Set a new password for your Purrfect Spots account.',
+    type: 'website',
+  });
+
+  // Handle Supabase Implicit Flow (Hash Fragment)
+  const hash = window.location.hash;
+  const hashParams = new URLSearchParams(hash.substring(1)); // Remove leading '#'
+  const accessToken = hashParams.get('access_token');
+
+  // Handle specific Supabase "error" in hash
+  const errorDescription = hashParams.get('error_description');
+  if (errorDescription) {
+    showError(decodeURIComponent(errorDescription), 'Error');
+    router.push('/login');
+    return;
+  }
+
+  // Fallback to query param (if used differently)
+  const queryToken = route.query.token as string;
+
+  token.value = accessToken || queryToken;
+
+  if (!token.value) {
+    showError('Invalid or expired reset link', 'Error');
+    router.push('/login');
+  }
 });
 
 onUnmounted(() => {
-    resetMetaTags();
+  resetMetaTags();
 });
 
 const handleSubmit = async () => {
-    if (password.value !== confirmPassword.value) {
-        showError('Passwords do not match', 'Validation Error');
-        return;
-    }
-    
-    if (password.value.length < 8) {
-        showError('Password must be at least 8 characters', 'Validation Error');
-        return;
-    }
+  if (password.value !== confirmPassword.value) {
+    showError('Passwords do not match', 'Validation Error');
+    return;
+  }
 
-    isLoading.value = true;
-    try {
-        await apiV1.post('/auth/reset-password', { 
-            token: token.value,
-            new_password: password.value 
-        });
-        showSuccess('Password updated successfully. Please login.', 'Success');
-        router.push('/login');
-    } catch (err: unknown) {
-        showError((err as Error).message || 'Failed to reset password', 'Error');
-    } finally {
-        isLoading.value = false;
-    }
+  if (password.value.length < 8) {
+    showError('Password must be at least 8 characters', 'Validation Error');
+    return;
+  }
+
+  isLoading.value = true;
+  try {
+    await apiV1.post('/auth/reset-password', {
+      token: token.value,
+      new_password: password.value,
+    });
+    showSuccess('Password updated successfully. Please login.', 'Success');
+    router.push('/login');
+  } catch (err: unknown) {
+    let message = (err as Error).message || 'Failed to reset password';
+    if (message.includes('status code')) message = 'Invalid or expired token. Please try again.';
+    showError(message, 'Error');
+  } finally {
+    isLoading.value = false;
+  }
 };
 </script>
 
@@ -135,7 +152,7 @@ const handleSubmit = async () => {
   align-items: center;
   justify-content: center;
   padding: 2rem;
-  background-color: #EAF6F3;
+  background-color: #eaf6f3;
 }
 .auth-card {
   display: grid;
@@ -149,50 +166,113 @@ const handleSubmit = async () => {
   overflow: hidden;
 }
 .auth-illustration {
-    background: linear-gradient(135deg, rgba(127, 183, 164, 0.85) 0%, rgba(149, 196, 180, 0.85) 50%, rgba(168, 212, 197, 0.85) 100%);
-    padding: 3rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  background: linear-gradient(
+    135deg,
+    rgba(127, 183, 164, 0.85) 0%,
+    rgba(149, 196, 180, 0.85) 50%,
+    rgba(168, 212, 197, 0.85) 100%
+  );
+  padding: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.illustration-content { text-align: center; }
+.illustration-content {
+  text-align: center;
+}
 .cat-image {
-  width: 200px; height: 200px; border-radius: 50%;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
   border: 6px solid rgba(255, 255, 255, 0.4);
   object-fit: cover;
 }
 .welcome-title {
-  font-family: 'Nunito', sans-serif; font-size: 1.8rem; font-weight: 800; color: white; margin-top: 1rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: white;
+  margin-top: 1rem;
 }
 .welcome-subtitle {
-  font-family: 'Inter', sans-serif; color: rgba(255, 255, 255, 0.9); margin-top: 0.5rem;
+  font-family: 'Inter', sans-serif;
+  color: rgba(255, 255, 255, 0.9);
+  margin-top: 0.5rem;
 }
-.auth-form-section { padding: 3rem; display: flex; flex-direction: column; justify-content: center; }
-.form-header { text-align: center; margin-bottom: 2rem; }
-.form-title { font-family: 'Nunito', sans-serif; font-size: 2rem; font-weight: 800; color: #5A4632; }
-.form-subtitle { font-family: 'Inter', sans-serif; color: #7D7D7D; }
-.auth-form { display: flex; flex-direction: column; gap: 1.25rem; }
-.form-group { display: flex; flex-direction: column; gap: 0.5rem; }
-.form-label { font-family: 'Nunito', sans-serif; font-weight: 600; color: #5A4632; }
+.auth-form-section {
+  padding: 3rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.form-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+.form-title {
+  font-family: 'Nunito', sans-serif;
+  font-size: 2rem;
+  font-weight: 800;
+  color: #5a4632;
+}
+.form-subtitle {
+  font-family: 'Inter', sans-serif;
+  color: #7d7d7d;
+}
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.form-label {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  color: #5a4632;
+}
 .form-input {
-  width: 100%; padding: 1rem 1.25rem;
+  width: 100%;
+  padding: 1rem 1.25rem;
   border: 2px solid rgba(127, 183, 164, 0.2);
   border-radius: 1rem;
   background: rgba(255, 255, 255, 0.7);
   outline: none;
   font-family: 'Inter', sans-serif;
 }
-.form-input:focus { background: white; border-color: #7FB7A4; }
-.submit-btn {
-  width: 100%; padding: 1rem; font-family: 'Nunito', sans-serif; font-weight: 700;
-  color: white; background: linear-gradient(135deg, #7FB7A4 0%, #6DA491 100%);
-  border: none; border-radius: 1rem; cursor: pointer;
+.form-input:focus {
+  background: white;
+  border-color: #7fb7a4;
 }
-.submit-btn:hover:not(:disabled) { transform: translateY(-2px); }
-.submit-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+.submit-btn {
+  width: 100%;
+  padding: 1rem;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  color: white;
+  background: linear-gradient(135deg, #7fb7a4 0%, #6da491 100%);
+  border: none;
+  border-radius: 1rem;
+  cursor: pointer;
+}
+.submit-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+.submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
 
 @media (max-width: 768px) {
-    .auth-card { grid-template-columns: 1fr; max-width: 450px; }
-    .auth-illustration { display: none; }
+  .auth-card {
+    grid-template-columns: 1fr;
+    max-width: 450px;
+  }
+  .auth-illustration {
+    display: none;
+  }
 }
 </style>

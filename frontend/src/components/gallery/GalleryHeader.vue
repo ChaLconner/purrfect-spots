@@ -2,13 +2,15 @@
   <div class="text-center mb-8 relative z-10">
     <div class="mb-8">
       <h1 class="font-heading text-4xl font-bold text-text-primary mb-2">Cat Photo Gallery</h1>
-      <p class="font-body text-base text-text-secondary font-medium max-w-xl mx-auto">Discover adorable cats from around the world</p>
+      <p class="font-body text-base text-text-secondary font-medium max-w-xl mx-auto">
+        Discover adorable cats from around the world
+      </p>
     </div>
-    
+
     <!-- Search Bar with Debounce -->
     <div class="flex justify-center max-w-xl mx-auto mt-8">
       <div class="w-full">
-        <div 
+        <div
           class="flex items-center gap-3 bg-white/40 backdrop-blur-xl rounded-full px-6 py-4 shadow-[0_8px_32px_rgba(0,0,0,0.1)] transition-all duration-300 border border-white/40 hover:shadow-[0_8px_32px_rgba(0,0,0,0.15)] hover:bg-white/50 focus-within:bg-white/60 focus-within:ring-2 focus-within:ring-primary/30"
           role="search"
         >
@@ -28,18 +30,18 @@
             <circle cx="11" cy="11" r="8" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <input 
+          <input
             v-model="localSearchQuery"
             type="text"
-            placeholder="Search for cats..." 
-            class="w-full bg-transparent border-none outline-none font-body text-lg text-text-primary placeholder-gray-400" 
+            placeholder="Search for cats..."
+            class="w-full bg-transparent border-none outline-none font-body text-lg text-text-primary placeholder-gray-400"
             aria-label="Search for cat photos"
             autocomplete="off"
             @input="handleSearchInput"
           />
-          <button 
-            v-if="localSearchQuery" 
-            class="flex items-center justify-center p-1 rounded-full bg-secondary/20 text-text-secondary hover:bg-secondary/40 transition-colors" 
+          <button
+            v-if="localSearchQuery"
+            class="flex items-center justify-center p-1 rounded-full bg-secondary/20 text-text-secondary hover:bg-secondary/40 transition-colors"
             aria-label="Clear search"
             @click="clearSearch"
           >
@@ -67,26 +69,31 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue';
-import { catStore, setSearchQuery } from '@/store/cats';
+import { useCatsStore } from '@/store';
 import { ANIMATION_CONFIG } from '@/utils/constants';
 
+const catsStore = useCatsStore();
+
 // Local search state for debouncing
-const localSearchQuery = ref(catStore.searchQuery);
+const localSearchQuery = ref(catsStore.searchQuery);
 
 // Debounce timer
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Sync from store on mount
 onMounted(() => {
-  localSearchQuery.value = catStore.searchQuery;
+  localSearchQuery.value = catsStore.searchQuery;
 });
 
 // Watch store changes to sync local state
-watch(() => catStore.searchQuery, (newVal) => {
-  if (localSearchQuery.value !== newVal) {
-    localSearchQuery.value = newVal;
+watch(
+  () => catsStore.searchQuery,
+  (newVal) => {
+    if (localSearchQuery.value !== newVal) {
+      localSearchQuery.value = newVal;
+    }
   }
-});
+);
 
 // Debounced search handler
 function handleSearchInput() {
@@ -94,10 +101,10 @@ function handleSearchInput() {
   if (debounceTimer) {
     clearTimeout(debounceTimer);
   }
-  
+
   // Set new timer with debounce delay
   debounceTimer = setTimeout(() => {
-    setSearchQuery(localSearchQuery.value);
+    catsStore.setSearchQuery(localSearchQuery.value);
   }, ANIMATION_CONFIG.DEBOUNCE_DELAY_MS);
 }
 
@@ -107,7 +114,7 @@ function clearSearch() {
   if (debounceTimer) {
     clearTimeout(debounceTimer);
   }
-  setSearchQuery('');
+  catsStore.setSearchQuery('');
 }
 
 // Cleanup timer on unmount

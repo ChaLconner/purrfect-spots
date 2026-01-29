@@ -1,5 +1,8 @@
 """
 Tests for rate limiter functionality
+
+# nosec python:S1313 - Hardcoded IP addresses in this file are intentional test fixtures
+# These are private/test IPs used only for unit testing rate limiting, not real addresses
 """
 
 from unittest.mock import MagicMock, patch
@@ -32,7 +35,9 @@ class TestRateLimiterKeyFunctions:
 
         from limiter import get_user_id_from_request
 
-        result = get_user_id_from_request(mock_request)
+        # Patch config.JWT_SECRET to match the token's secret
+        with patch("config.config.JWT_SECRET", "secret"):
+            result = get_user_id_from_request(mock_request)
 
         assert result == "user:user-123"
 
@@ -45,7 +50,9 @@ class TestRateLimiterKeyFunctions:
 
         from limiter import get_user_id_from_request
 
-        result = get_user_id_from_request(mock_request)
+        # Patch config.JWT_SECRET to match the token's secret
+        with patch("config.config.JWT_SECRET", "secret"):
+            result = get_user_id_from_request(mock_request)
 
         assert result == "user:user-456"
 
@@ -96,46 +103,31 @@ class TestRedisConfiguration:
 
     def test_get_redis_url_not_configured(self):
         """Test behavior when REDIS_URL is not set"""
-        with patch.dict("os.environ", {}, clear=True), patch("os.getenv") as mock_getenv:
-            mock_getenv.return_value = None
-
+        # Ensure no REDIS_URL from real environment leaks in
+        with patch("config.config.REDIS_URL", None):
             from limiter import get_redis_url
-
             result = get_redis_url()
-
             assert result is None
 
     def test_get_redis_url_valid_format(self):
         """Test with valid Redis URL format"""
-        with patch("os.getenv") as mock_getenv:
-            mock_getenv.return_value = "redis://localhost:6379/0"
-
+        with patch("config.config.REDIS_URL", "redis://localhost:6379/0"):
             from limiter import get_redis_url
-
             result = get_redis_url()
-
             assert result == "redis://localhost:6379/0"
 
     def test_get_redis_url_invalid_format(self):
         """Test with invalid Redis URL format"""
-        with patch("os.getenv") as mock_getenv:
-            mock_getenv.return_value = "http://localhost:6379"
-
+        with patch("config.config.REDIS_URL", "http://localhost:6379"):
             from limiter import get_redis_url
-
             result = get_redis_url()
-
             assert result is None
 
     def test_get_redis_url_ssl_format(self):
         """Test with Redis SSL URL format"""
-        with patch("os.getenv") as mock_getenv:
-            mock_getenv.return_value = "rediss://user:pass@prod.redis.io:6380"
-
+        with patch("config.config.REDIS_URL", "rediss://user:pass@prod.redis.io:6380"):
             from limiter import get_redis_url
-
             result = get_redis_url()
-
             assert result == "rediss://user:pass@prod.redis.io:6380"
 
     def test_test_redis_connection_success(self):

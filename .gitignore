@@ -157,3 +157,7 @@ htmlcov/
 coverage.xml
 trivy-results.sarif
 coverage_html/
+
+# Local Review Reports
+PROJECT_REVIEW.md
+PROJECT_DETAILED_REVIEW.md

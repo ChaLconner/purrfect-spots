@@ -6,6 +6,7 @@ Uses fail-fast approach for required variables in production.
 """
 
 import os
+import warnings
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -78,7 +79,11 @@ def get_env_with_fallback(primary_key: str, *fallback_keys: str, default: str = 
         if value:
             # Log deprecation warning in development
             if os.getenv("ENVIRONMENT", "development").lower() == "development":
-                print(f"[CONFIG WARNING] Using deprecated env var '{key}'. Please use '{primary_key}' instead.")
+                warnings.warn(
+                    f"Using deprecated env var '{key}'. Please use '{primary_key}' instead.",
+                    DeprecationWarning,
+                    stacklevel=2
+                )
             return value
 
     return default
@@ -136,7 +141,11 @@ class Config:
                 "JWT_REFRESH_SECRET is required in production! Do not strictly rely on JWT_SECRET for both tokens."
             )
         else:
-            print("[CONFIG WARNING] JWT_REFRESH_SECRET not set. Using JWT_SECRET (NOT SAFE FOR PRODUCTION).")
+            warnings.warn(
+                "JWT_REFRESH_SECRET not set. Using JWT_SECRET (NOT SAFE FOR PRODUCTION).",
+                UserWarning,
+                stacklevel=2
+            )
             JWT_REFRESH_SECRET = JWT_SECRET
 
     JWT_REFRESH_EXPIRATION_DAYS = int(os.getenv("JWT_REFRESH_EXPIRATION_DAYS", "7"))
@@ -145,6 +154,9 @@ class Config:
 
     # Redis (optional)
     REDIS_URL = os.getenv("REDIS_URL")
+
+    # App URLs
+    FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
     # Sentry (optional)
     SENTRY_DSN = os.getenv("SENTRY_DSN")
@@ -274,4 +286,8 @@ if _missing:
             f"Missing required configuration: {', '.join(_missing)}. Please check your environment variables."
         )
     else:
-        print(f"[CONFIG WARNING] Missing recommended configuration: {', '.join(_missing)}")
+        warnings.warn(
+            f"Missing recommended configuration: {', '.join(_missing)}",
+            UserWarning,
+            stacklevel=2
+        )

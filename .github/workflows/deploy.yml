@@ -2,7 +2,7 @@
 # Purrfect Spots - Deployment Pipeline
 # ==============================================================================
 # Handles deployment to staging and production environments on Vercel
-# 
+#
 # Deployment Strategy:
 # - Staging: Auto-deploy on push to 'dev' branch (after CI passes)
 # - Production: Manual trigger or auto-deploy on push to 'main' branch
@@ -21,12 +21,12 @@ on:
     types:
       - completed
     branches: [main, dev]
-  
+
   # Manual deployment trigger
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Target environment'
+        description: "Target environment"
         required: true
         type: choice
         options:
@@ -34,14 +34,14 @@ on:
           - production
         default: staging
       skip_health_check:
-        description: 'Skip health check after deployment'
+        description: "Skip health check after deployment"
         required: false
         type: boolean
         default: false
 
 concurrency:
   group: deploy-${{ github.ref }}
-  cancel-in-progress: false  # Don't cancel in-progress deployments
+  cancel-in-progress: false # Don't cancel in-progress deployments
 
 env:
   DOCKER_REGISTRY: ghcr.io
@@ -54,7 +54,7 @@ permissions:
   contents: read
   packages: write
   deployments: write
-  id-token: write  # For OIDC authentication
+  id-token: write # For OIDC authentication
 
 jobs:
   # ============================================================================
@@ -73,7 +73,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
         with:
           fetch-depth: 0
 
@@ -104,7 +104,7 @@ jobs:
           # Generate version based on git info
           SHORT_SHA=$(git rev-parse --short HEAD)
           TIMESTAMP=$(date +%Y%m%d%H%M%S)
-          
+
           if [ "${{ steps.set-env.outputs.environment }}" == "production" ]; then
             # For production, try to use tag or generate semver-like version
             TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
@@ -113,7 +113,7 @@ jobs:
             # For staging, use timestamp-based version
             VERSION="staging-${TIMESTAMP}-${SHORT_SHA}"
           fi
-          
+
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Generated version: ${VERSION}"
 
@@ -130,28 +130,28 @@ jobs:
       url: ${{ vars.STAGING_FRONTEND_URL }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Deploy Frontend to Vercel (Staging)
         shell: bash
         run: |
           echo "🚀 Deploying Frontend to Vercel Staging..."
           cd frontend
-          
+
           # Link to Vercel project
           npx vercel link --yes --token=${{ secrets.VERCEL_TOKEN }}
-          
+
           # Inject Env Vars for Staging
           npx vercel env add VITE_API_BASE_URL "${{ secrets.STAGING_API_URL }}" preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
           if [ -n "${{ secrets.GOOGLE_MAPS_API_KEY }}" ]; then
             npx vercel env add VITE_GOOGLE_MAPS_API_KEY "${{ secrets.GOOGLE_MAPS_API_KEY }}" preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
           fi
-          
+
           # Deploy to Vercel (server-side build)
           npx vercel deploy --token=${{ secrets.VERCEL_TOKEN }} --yes
         env:
@@ -162,17 +162,17 @@ jobs:
         shell: bash
         run: |
           echo "🚀 Deploying Backend to Vercel Staging..."
-          
+
           if [ -z "${{ secrets.VERCEL_BACKEND_PROJECT_ID }}" ]; then
             echo "::warning::VERCEL_BACKEND_PROJECT_ID secret is missing! Skipping backend deployment."
             exit 0
           fi
 
           cd backend
-          
+
           # Link to Vercel project
           npx vercel link --yes --token=${{ secrets.VERCEL_TOKEN }}
-          
+
           # Inject Env Vars for Staging
           npx vercel env add SUPABASE_URL "${{ secrets.SUPABASE_URL }}" preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
           npx vercel env add SUPABASE_KEY "${{ secrets.SUPABASE_KEY }}" preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
@@ -190,15 +190,15 @@ jobs:
         if: ${{ inputs.skip_health_check != true }}
         run: |
           echo "🏥 Running health check..."
-          
+
           # Wait for deployment to propagate
           echo "Waiting 10 seconds for service startup..."
           sleep 10
-          
+
           # Health check with retries
           MAX_RETRIES=20
           RETRY_DELAY=10
-          
+
           for i in $(seq 1 $MAX_RETRIES); do
             echo "Health check attempt $i of $MAX_RETRIES..."
             
@@ -212,7 +212,7 @@ jobs:
               sleep $RETRY_DELAY
             fi
           done
-          
+
           if [ "$BACKEND_OK" != "true" ]; then
              # Don't fail the pipeline if backend secret was missing (optional deployment)
              if [ -z "${{ secrets.VERCEL_BACKEND_PROJECT_ID }}" ]; then
@@ -222,7 +222,7 @@ jobs:
                 exit 1
              fi
           fi
-          
+
           echo "✅ All health checks passed!"
 
       - name: Notify Deployment Success
@@ -254,17 +254,17 @@ jobs:
       url: https://purrfect-spots.vercel.app
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Pre-deployment backup
         run: |
           echo "💾 Creating pre-deployment backup..."
-          
+
           # Trigger database backup via Supabase API or custom backup service
           if [ -n "${{ secrets.BACKUP_WEBHOOK_URL }}" ]; then
             curl -X POST "${{ secrets.BACKUP_WEBHOOK_URL }}" \
@@ -281,7 +281,7 @@ jobs:
         shell: bash
         run: |
           echo "🚀 Deploying Frontend to Vercel Production..."
-          
+
           # Check Secrets presence
           if [ -z "${{ secrets.VERCEL_TOKEN }}" ]; then
             echo "::error::VERCEL_TOKEN is not set"
@@ -297,23 +297,23 @@ jobs:
           fi
 
           cd frontend
-          
+
           # Link to Vercel project (creates .vercel folder)
           echo "🔗 Linking to Vercel project..."
           npx vercel link --yes --token=${{ secrets.VERCEL_TOKEN }} || { echo "::error::Vercel link failed"; exit 1; }
-          
+
           # Inject Env Vars for Production
           echo "🔧 Injecting environment variables..."
           npx vercel env add VITE_API_BASE_URL "${{ secrets.PROD_API_URL }}" production --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
           if [ -n "${{ secrets.GOOGLE_MAPS_API_KEY }}" ]; then
             npx vercel env add VITE_GOOGLE_MAPS_API_KEY "${{ secrets.GOOGLE_MAPS_API_KEY }}" production --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
           fi
-          
+
           # Deploy to Vercel (server-side build) - no local build
           echo "🚀 Triggering Vercel User Deployment..."
           set -o pipefail
           deployment_url=$(npx vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --yes --no-wait 2>&1 | grep -E '^https://' | head -1)
-          
+
           if [ -z "$deployment_url" ]; then
             echo "::error::Deployment failed. No URL returned."
             exit 1
@@ -329,23 +329,23 @@ jobs:
         shell: bash
         run: |
           echo "🚀 Deploying Backend to Vercel Production..."
-          
+
           if [ -z "${{ secrets.VERCEL_BACKEND_PROJECT_ID }}" ]; then
             echo "::warning::VERCEL_BACKEND_PROJECT_ID secret is missing! Skipping backend deployment."
             exit 0
           fi
-          
+
           if [ -z "$VERCEL_ORG_ID" ]; then
              echo "::error::VERCEL_ORG_ID is not set (Backend)"
              exit 1
           fi
-          
+
           cd backend
-          
+
           # Link to Vercel project
           echo "🔗 Linking Backend to Vercel..."
           npx vercel link --yes --token=${{ secrets.VERCEL_TOKEN }} || { echo "::error::Vercel link failed for backend"; exit 1; }
-          
+
           # Inject Env Vars for Production
           echo "🔧 Injecting environment variables..."
           npx vercel env add SUPABASE_URL "${{ secrets.SUPABASE_URL }}" production --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
@@ -369,15 +369,15 @@ jobs:
         if: ${{ inputs.skip_health_check != true }}
         run: |
           echo "🏥 Running production health check..."
-          
+
           # Wait for deployment to propagate
           echo "Waiting 15 seconds for service startup..."
           sleep 15
-          
+
           # Health check with retries (more attempts for production)
           MAX_RETRIES=30
           RETRY_DELAY=10
-          
+
           for i in $(seq 1 $MAX_RETRIES); do
             echo "Health check attempt $i of $MAX_RETRIES..."
             
@@ -398,7 +398,7 @@ jobs:
             echo "Services not ready yet, retrying in ${RETRY_DELAY}s..."
             sleep $RETRY_DELAY
           done
-          
+
           if [ "$ALL_OK" != "true" ]; then
             if [ -z "${{ secrets.VERCEL_BACKEND_PROJECT_ID }}" ]; then
                echo "⚠️ VERCEL_BACKEND_PROJECT_ID missing, so backend might not have deployed. Skipping failure."
@@ -408,22 +408,22 @@ jobs:
                exit 1
             fi
           fi
-          
+
           echo "✅ All production health checks passed!"
 
       - name: Smoke Tests
         run: |
           echo "🧪 Running smoke tests..."
-          
+
           # Critical API endpoints smoke test
           echo "Testing critical endpoints..."
-          
+
           # Test health endpoint
           curl -sf "${{ secrets.PROD_API_URL }}/health" | jq . || echo "Health endpoint check"
-          
+
           # Test public endpoints (no auth required)
           curl -sf "${{ secrets.PROD_API_URL }}/api/v1/spots?limit=1" > /dev/null && echo "✅ Spots API OK" || echo "::warning::Spots API check failed"
-          
+
           echo "✅ Smoke tests completed!"
 
       - name: Create Release Tag
@@ -432,24 +432,24 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "🏷️ Creating release tag..."
-          
+
           VERSION="${{ needs.prepare.outputs.version }}"
           TAG_NAME="release-${VERSION}"
-          
+
           # Configure git
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
+
           # Create and push tag
           git tag -a "${TAG_NAME}" -m "Production release ${VERSION}"
           git push origin "${TAG_NAME}"
-          
+
           # Create GitHub Release
           gh release create "${TAG_NAME}" \
             --title "Release ${VERSION}" \
             --notes "Automated production release\n\n- Version: ${VERSION}\n- Deployed by: ${{ github.actor }}\n- Commit: ${{ github.sha }}" \
             --latest
-          
+
           echo "✅ Release tag ${TAG_NAME} created and pushed"
 
       - name: Notify Deployment Success
@@ -486,7 +486,7 @@ jobs:
           echo "| Trigger | ${{ github.event_name }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Actor | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ "${{ needs.prepare.outputs.environment }}" == "staging" ]; then
             echo "### Staging Deployment" >> $GITHUB_STEP_SUMMARY
             echo "| Status | ${{ needs.deploy-staging.result == 'success' && '✅ Success' || needs.deploy-staging.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY

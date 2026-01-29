@@ -158,5 +158,6 @@ def is_valid_image(image_content: bytes) -> bool:
         img = Image.open(io.BytesIO(image_content))
         img.verify()  # Verify image integrity
         return True
-    except Exception:
+    except Exception as e:
+        logger.debug(f"Image validation failed: {e}")
         return False

@@ -128,9 +128,13 @@ export function getColorSchemePreference(): 'light' | 'dark' | 'no-preference' {
 
 /**
  * Generate a unique ID for accessibility purposes
+ * Uses crypto.getRandomValues() for better randomness than Math.random()
  */
 export function generateA11yId(prefix: string = 'a11y'): string {
-  return `${prefix}-${Math.random().toString(36).substring(2, 9)}`;
+  // Use crypto for better uniqueness (addresses SonarCloud S2245)
+  const array = new Uint8Array(4);
+  crypto.getRandomValues(array);
+  return `${prefix}-${Array.from(array, b => b.toString(36)).join('')}`;
 }
 
 /**

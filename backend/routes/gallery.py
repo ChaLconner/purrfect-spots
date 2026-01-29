@@ -3,8 +3,8 @@ Gallery routes with API-side pagination support
 Enhanced with rate limiting and caching
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from starlette.concurrency import run_in_threadpool
 
 from dependencies import get_supabase_client
 from limiter import limiter
@@ -14,47 +14,14 @@ from services.gallery_service import GalleryService
 
 router = APIRouter(prefix="/gallery", tags=["Gallery"])
 
-# ========== Response Models ==========
-
-
-class PaginationMeta(BaseModel):
-    """Pagination metadata"""
-
-    total: int
-    limit: int
-    offset: int
-    has_more: bool
-    page: int
-    total_pages: int
-
-
-class PaginatedGalleryResponse(BaseModel):
-    """Paginated gallery response with metadata"""
-
-    images: list[CatLocation]
-    pagination: PaginationMeta
-
-
-class GalleryResponse(BaseModel):
-    """Legacy response for backward compatibility"""
-
-    images: list[CatLocation]
-
-
-class SearchResponse(BaseModel):
-    results: list[CatLocation]
-    total: int
-    query: str | None = None
-    tags: list[str] | None = None
-
-
-class TagInfo(BaseModel):
-    tag: str
-    count: int
-
-
-class PopularTagsResponse(BaseModel):
-    tags: list[TagInfo]
+from schemas.gallery import (
+    GalleryResponse,
+    PaginatedGalleryResponse,
+    PaginationMeta,
+    PopularTagsResponse,
+    SearchResponse,
+    TagInfo,
+)
 
 
 def get_gallery_service(supabase=Depends(get_supabase_client)) -> GalleryService:
@@ -87,7 +54,13 @@ async def get_gallery(
         if page is not None:
             actual_offset = (page - 1) * limit
 
-        result = gallery_service.get_all_photos(limit=limit, offset=actual_offset, include_total=True)
+        # Run synchronous service call in threadpool to avoid blocking event loop
+        result = await run_in_threadpool(
+            gallery_service.get_all_photos, 
+            limit=limit, 
+            offset=actual_offset, 
+            include_total=True
+        )
 
         if not result["data"]:
             return PaginatedGalleryResponse(
@@ -145,7 +118,7 @@ async def get_all_gallery(
     Consider using the paginated `/gallery` endpoint for better performance with large datasets.
     """
     try:
-        photos = gallery_service.get_all_photos_simple(limit=limit)
+        photos = await run_in_threadpool(gallery_service.get_all_photos_simple, limit=limit)
         if not photos:
             return GalleryResponse(images=[])
 
@@ -158,10 +131,16 @@ async def get_all_gallery(
 
 
 @router.get("/locations", response_model=list[CatLocation])
-async def get_locations(gallery_service: GalleryService = Depends(get_gallery_service)):
+async def get_locations(
+    response: Response,
+    gallery_service: GalleryService = Depends(get_gallery_service)
+):
     """Get all cat locations from Supabase (for map display)."""
+    # Cache for 5 minutes (300 seconds)
+    response.headers["Cache-Control"] = "public, max-age=300"
+    
     try:
-        photos = gallery_service.get_all_photos_simple()
+        photos = await run_in_threadpool(gallery_service.get_map_locations)
         if not photos:
             return []
 
@@ -207,10 +186,11 @@ async def get_locations_in_viewport(
         lng_diff = abs(east - west)
         radius_km = max(lat_diff, lng_diff) * 111 / 2  # ~111 km per degree
 
-        photos = gallery_service.get_nearby_photos(
+        photos = await run_in_threadpool(
+            gallery_service.get_nearby_photos,
             latitude=center_lat,
             longitude=center_lng,
-            radius_km=max(radius_km, 1.0),  # Minimum 1km radius
+            radius_km=max(radius_km, 1.0),
             limit=limit,
         )
 
@@ -247,7 +227,12 @@ async def search_locations(
         if tags:
             tag_list = [t.strip() for t in tags.split(",") if t.strip()]
 
-        photos = gallery_service.search_photos(query=q, tags=tag_list, limit=limit)
+        photos = await run_in_threadpool(
+            gallery_service.search_photos,
+            query=q,
+            tags=tag_list,
+            limit=limit
+        )
 
         results = [CatLocation(**photo) for photo in photos] if photos else []
 
@@ -262,19 +247,23 @@ async def search_locations(
 @limiter.limit("60/minute")  # Rate limit for tags
 async def get_popular_tags(
     request: Request,  # Required for rate limiting
+    response: Response,
     limit: int = Query(20, ge=1, le=100, description="Number of top tags to return"),
     gallery_service: GalleryService = Depends(get_gallery_service),
 ):
     """
     Get the most popular tags used across all cat photos.
-
+    
     Useful for:
     - Tag autocomplete in upload form
     - Tag cloud visualization
     - Quick filter buttons
     """
+    # Cache for 1 hour (3600 seconds) - tags change slowly
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    
     try:
-        tags_data = gallery_service.get_popular_tags(limit=limit)
+        tags_data = await run_in_threadpool(gallery_service.get_popular_tags, limit=limit)
         tags = [TagInfo(**t) for t in tags_data]
 
         return PopularTagsResponse(tags=tags)
@@ -296,7 +285,7 @@ async def get_photo(
     Useful for deep linking and sharing.
     """
     try:
-        photo = gallery_service.get_photo_by_id(photo_id)
+        photo = await run_in_threadpool(gallery_service.get_photo_by_id, photo_id)
         if not photo:
             raise HTTPException(status_code=404, detail="Photo not found")
 

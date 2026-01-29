@@ -21,8 +21,10 @@
             :alt="cat.location_name || 'Cat photo'"
             class="w-full h-full object-cover"
           />
-          <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-          
+          <div
+            class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"
+          ></div>
+
           <!-- Close button (Top right) -->
           <button
             class="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/40 transition-all cursor-pointer border border-white/20"
@@ -46,7 +48,9 @@
 
           <!-- Location badge (Clean text only) -->
           <div class="absolute bottom-4 left-4">
-            <span class="bg-white/95 backdrop-blur-md text-brown-dark text-sm font-bold px-4 py-1.5 rounded-full shadow-lg">
+            <span
+              class="bg-white/95 backdrop-blur-md text-brown-dark text-sm font-bold px-4 py-1.5 rounded-full shadow-lg"
+            >
               {{ cat.location_name }}
             </span>
           </div>
@@ -80,7 +84,7 @@
 
           <!-- Action buttons -->
           <div class="flex flex-col gap-3 mt-4">
-            <button 
+            <button
               class="w-full py-4 rounded-2xl bg-gradient-to-r from-[#C97B49] to-[#A85D2E] text-white font-extrabold tracking-wide hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 active:scale-95 shadow-lg shadow-orange-500/20 cursor-pointer"
               @click="$emit('get-directions', cat)"
             >
@@ -96,7 +100,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { CatLocation } from '@/types/api';
-import { extractTags, getCleanDescription } from '@/store/cats';
+import { extractTags, getCleanDescription } from '@/store/catsStore';
 
 const props = defineProps<{
   cat: CatLocation | null;

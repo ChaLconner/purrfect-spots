@@ -33,7 +33,7 @@ class TestGalleryService:
             from services.gallery_service import GalleryService
 
             service = GalleryService(mock_supabase)
-            service.supabase_admin = mock_supabase_admin
+            service._admin_client_lazy = mock_supabase_admin
             return service
 
     def test_get_all_photos_empty(self, gallery_service, mock_supabase):

@@ -2,10 +2,15 @@
 User profile management routes
 """
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
+from starlette.requests import Request
 
-from dependencies import get_supabase_client
+from config import config
+from dependencies import get_supabase_admin_client, get_supabase_client
+from limiter import auth_limiter
 from logger import logger
 from middleware.auth_middleware import get_current_user_from_credentials
 from services.storage_service import StorageService
@@ -87,7 +92,7 @@ async def update_profile(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        print(f"Error updating profile: {e!s}")  # Log the error
+        logger.error(f"Error updating profile: {e!s}")
         raise HTTPException(status_code=500, detail="Failed to update profile due to an internal error")
 
 
@@ -117,10 +122,14 @@ async def get_profile(
         raise HTTPException(status_code=500, detail=f"Failed to get profile: {e!s}")
 
 
+
+def get_admin_gallery_service(supabase=Depends(get_supabase_admin_client)):
+    return GalleryService(supabase)
+
 @router.get("/uploads")
 async def get_user_uploads(
     current_user: User = Depends(get_current_user_from_credentials),
-    gallery_service: GalleryService = Depends(get_gallery_service),
+    gallery_service: GalleryService = Depends(get_admin_gallery_service),
 ):
     """
     Get all uploads by current user - filtered by user_id
@@ -131,30 +140,38 @@ async def get_user_uploads(
         # Format data
         uploads = []
         for photo in photos:
-            upload_item = {
-                "id": photo["id"],
-                "image_url": photo["image_url"],
-                "description": photo.get("description", ""),
-                "location_name": photo.get("location_name", ""),
-                "uploaded_at": photo.get("uploaded_at", ""),
-                "latitude": photo.get("latitude"),
-                "longitude": photo.get("longitude"),
-            }
-
-            if photo.get("latitude") and photo.get("longitude"):
-                upload_item["location"] = {
-                    "lat": float(photo["latitude"]),
-                    "lng": float(photo["longitude"]),
+            try:
+                upload_item = {
+                    "id": photo["id"],
+                    "image_url": photo["image_url"],
+                    "description": photo.get("description", ""),
+                    "location_name": photo.get("location_name", ""),
+                    "uploaded_at": photo.get("uploaded_at", ""),
+                    "latitude": photo.get("latitude"),
+                    "longitude": photo.get("longitude"),
                 }
 
-            uploads.append(upload_item)
+                if photo.get("latitude") and photo.get("longitude"):
+                    try:
+                        upload_item["location"] = {
+                            "lat": float(photo["latitude"]),
+                            "lng": float(photo["longitude"]),
+                        }
+                    except (ValueError, TypeError):
+                        pass # Skip location if invalid
+
+                uploads.append(upload_item)
+            except Exception as item_error:
+                logger.warning(f"Error processing photo item {photo.get('id')}: {item_error}")
+                continue
 
         return {"uploads": uploads, "count": len(uploads)}
 
-    except HTTPException:
-        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get uploads: {e!s}")
+        logger.error(f"Failed to get uploads for user {current_user.id}: {e!s}", exc_info=True)
+        # In development, return the actual error
+        detail = f"Internal Server Error: {e!s}" if config.ENVIRONMENT == "development" else "Internal Server Error"
+        raise HTTPException(status_code=500, detail=detail)
 
 
 @router.post("/picture")
@@ -176,7 +193,7 @@ async def upload_profile_picture(
             max_dimension=500,  # Smaller dimension for avatars
         )
 
-        # Upload to S3 (or Supabase Storage)
+        # Upload to Storage
         image_url = await storage_service.upload_file(
             file_content=contents,
             content_type=content_type,
@@ -184,10 +201,10 @@ async def upload_profile_picture(
             folder="avatars",
         )
 
-        # Update user profile
-        auth_service.update_user_profile(current_user.id, {"picture": image_url})
-
-        return {"message": "Profile picture updated", "picture": image_url}
+        # NOTE: We no longer update the auth_service here. 
+        # The frontend will receive this URL and send it back in the final /profile PUT request.
+        
+        return {"message": "Photo uploaded successfully", "picture": image_url}
 
     except HTTPException:
         raise
@@ -197,7 +214,9 @@ async def upload_profile_picture(
 
 
 @router.put("/password")
+@auth_limiter.limit("5/minute")
 async def change_password(
+    request: Request,
     password_data: ChangePasswordRequest,
     current_user: User = Depends(get_current_user_from_credentials),
     auth_service: AuthService = Depends(get_auth_service),
@@ -205,23 +224,136 @@ async def change_password(
     """
     Change user password
     """
+    # Extract client info for audit log
+    ip = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("user-agent", "unknown")
+    
+    # Audit log: Attempt
+    logger.info(f"[AUDIT] Password change attempt for user {current_user.id} from IP {ip}")
+    
     try:
-        success = auth_service.change_password(
+        success = await auth_service.change_password(
             current_user.id, password_data.current_password, password_data.new_password
         )
 
         if success:
+            # Audit log: Success
+            logger.info(f"[AUDIT] Password change SUCCESS for user {current_user.id} from IP {ip}")
             return {"message": "Password changed successfully"}
         else:
+            # Audit log: Failure (Logic)
+            logger.warning(f"[AUDIT] Password change FAILED (logic) for user {current_user.id} from IP {ip}")
             raise HTTPException(
                 status_code=400,
                 detail="Failed to change password (check current password)",
             )
 
-    except HTTPException:
+    except HTTPException as e:
+        # Audit log: Failure (Validation/Auth)
+        logger.warning(f"[AUDIT] Password change FAILED ({e.detail}) for user {current_user.id} from IP {ip}")
         raise
     except ValueError as e:
+        # Audit log: Failure (Specific value error)
+        logger.warning(f"[AUDIT] Password change FAILED (ValueError: {e!s}) for user {current_user.id} from IP {ip}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Change password error: {e}")
+        # Audit log: Failure (System error)
+        logger.error(f"[AUDIT] Password change ERROR for user {current_user.id} from IP {ip}: {e}")
         raise HTTPException(status_code=500, detail="An error occurred")
+
+
+class UpdatePhotoRequest(BaseModel):
+    location_name: str | None = None
+    description: str | None = None
+
+
+@router.put("/uploads/{photo_id}")
+async def update_user_photo(
+    photo_id: str,
+    update_data: UpdatePhotoRequest,
+    current_user: User = Depends(get_current_user_from_credentials),
+    gallery_service: GalleryService = Depends(get_admin_gallery_service),
+):
+    """Update a user's upload photo details (description, etc)"""
+    try:
+        # 1. Check ownership
+        photo = gallery_service.get_photo_by_id(photo_id)
+        if not photo:
+            raise HTTPException(status_code=404, detail="Photo not found")
+        
+        if photo["user_id"] != current_user.id:
+            from utils.security import log_security_event
+            log_security_event("unauthorized_update_attempt", user_id=current_user.id, details={"photo_id": photo_id, "owner": photo["user_id"]}, severity="WARNING")
+            raise HTTPException(status_code=403, detail="Not authorized to update this photo")
+
+        # 2. Sanitize Data
+        from utils.security import sanitize_location_name, sanitize_text
+        
+        valid_updates = {}
+        if update_data.location_name is not None:
+             valid_updates["location_name"] = sanitize_location_name(update_data.location_name)
+        if update_data.description is not None:
+             valid_updates["description"] = sanitize_text(update_data.description, max_length=1000)
+
+        if not valid_updates:
+            raise HTTPException(status_code=400, detail="No valid data provided")
+
+        valid_updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+        # 3. Update
+        # Use admin service because we already verified ownership
+        gallery_service.supabase.table("cat_photos").update(valid_updates).eq("id", photo_id).execute()
+        
+        from utils.security import log_security_event
+        log_security_event("photo_updated", user_id=current_user.id, details={"photo_id": photo_id, "updates": list(valid_updates.keys())})
+
+        return {"message": "Photo updated successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update photo {photo_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update photo")
+
+
+@router.delete("/uploads/{photo_id}")
+async def delete_user_photo(
+    photo_id: str,
+    current_user: User = Depends(get_current_user_from_credentials),
+    gallery_service: GalleryService = Depends(get_admin_gallery_service),
+    storage_service: StorageService = Depends(get_storage_service),
+):
+    """Delete a user's uploaded photo"""
+    try:
+        # 1. Check ownership
+        photo = gallery_service.get_photo_by_id(photo_id)
+        if not photo:
+            raise HTTPException(status_code=404, detail="Photo not found")
+            
+        if photo["user_id"] != current_user.id:
+            from utils.security import log_security_event
+            log_security_event("unauthorized_delete_attempt", user_id=current_user.id, details={"photo_id": photo_id, "owner": photo["user_id"]}, severity="WARNING")
+            raise HTTPException(status_code=403, detail="Not authorized to delete this photo")
+
+        # 2. Delete from Storage (S3)
+        if photo.get("image_url"):
+            storage_service.delete_file(photo["image_url"])
+
+        # 3. Delete from Database
+        gallery_service.supabase.table("cat_photos").delete().eq("id", photo_id).execute()
+        
+        # 4. Invalidate Caches
+        from utils.cache import invalidate_gallery_cache, invalidate_tags_cache
+        invalidate_gallery_cache()
+        invalidate_tags_cache()
+
+        from utils.security import log_security_event
+        log_security_event("photo_deleted", user_id=current_user.id, details={"photo_id": photo_id})
+
+        return {"message": "Photo deleted successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete photo {photo_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete photo")

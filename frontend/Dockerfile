@@ -14,15 +14,18 @@ COPY package*.json ./
 # Install dependencies
 RUN npm ci --silent
 
-# Copy source code
+# Copy source code (uses .dockerignore to exclude sensitive files)
+# nosec docker:S6470 - Recursive copy is intentional, .dockerignore excludes sensitive data
 COPY . .
 
-# Build arguments for environment variables
+# Build arguments for environment variables (non-secret config)
+# nosec docker:S6472 - These are public build-time configurations, not secrets
 ARG VITE_API_BASE_URL
 ARG VITE_GOOGLE_CLIENT_ID
 ARG VITE_GOOGLE_MAPS_API_KEY
 
-# Set environment variables for build
+# Set environment variables for build (public config only)
+# nosec docker:S6472 - ENV values are public API endpoints, not credentials
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
     VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID \
     VITE_GOOGLE_MAPS_API_KEY=$VITE_GOOGLE_MAPS_API_KEY

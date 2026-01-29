@@ -162,8 +162,8 @@ class TestValidateCoordinates:
 
         lat, lng = validate_coordinates("13.7563", "100.5018")
 
-        assert lat == 13.7563
-        assert lng == 100.5018
+        assert lat == pytest.approx(13.7563)
+        assert lng == pytest.approx(100.5018)
 
     def test_valid_negative_coordinates(self):
         """Test with valid negative coordinates"""
@@ -171,8 +171,8 @@ class TestValidateCoordinates:
 
         lat, lng = validate_coordinates("-33.8688", "151.2093")
 
-        assert lat == -33.8688
-        assert lng == 151.2093
+        assert lat == pytest.approx(-33.8688)
+        assert lng == pytest.approx(151.2093)
 
     def test_boundary_coordinates(self):
         """Test with boundary values"""
@@ -180,13 +180,13 @@ class TestValidateCoordinates:
 
         # Test maximum values
         lat, lng = validate_coordinates("90", "180")
-        assert lat == 90
-        assert lng == 180
+        assert lat == pytest.approx(90)
+        assert lng == pytest.approx(180)
 
         # Test minimum values
         lat, lng = validate_coordinates("-90", "-180")
-        assert lat == -90
-        assert lng == -180
+        assert lat == pytest.approx(-90)
+        assert lng == pytest.approx(-180)
 
     def test_invalid_latitude_too_high(self):
         """Test rejection of latitude > 90"""

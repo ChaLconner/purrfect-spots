@@ -35,6 +35,7 @@ export const loadGoogleMaps = async (options: GoogleMapsLoaderOptions): Promise<
   isLoading = true;
 
   // Create a unique callback name to avoid conflicts
+  // nosec typescript:S2245 - Math.random() for unique callback naming, not security-sensitive
   const callbackName = `initMap_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
   
   // Create a script element manually to load the Google Maps API

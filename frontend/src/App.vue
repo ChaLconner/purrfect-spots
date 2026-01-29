@@ -6,8 +6,9 @@ import { isBrowserExtensionError, logBrowserExtensionError } from './utils/brows
 import { showError } from './store/toast';
 import { useAuthStore } from './store/authStore';
 import { ApiError, ApiErrorTypes } from './utils/api';
+import { useNetwork } from './composables/useNetwork';
 
-// Track error counts for potential recovery
+const { isOnline } = useNetwork();
 const errorCount = ref(0);
 const MAX_ERRORS_BEFORE_REFRESH = 5;
 
@@ -21,21 +22,21 @@ onErrorCaptured((err, instance, info) => {
   setTimeout(() => {
     errorCount.value = Math.max(0, errorCount.value - 1);
   }, 30000);
-  
+
   // Handle browser extension errors silently
   if (isBrowserExtensionError(err)) {
     logBrowserExtensionError(err, 'App component');
     return false; // Suppress the error
   }
-  
+
   errorCount.value++;
-  
+
   // If too many errors, suggest refresh
   if (errorCount.value >= MAX_ERRORS_BEFORE_REFRESH) {
     showError('Multiple errors detected. Please refresh the page.', 'Application Error');
     return false;
   }
-  
+
   // Handle API errors with user-friendly messages
   if (err instanceof ApiError) {
     switch (err.type) {
@@ -53,13 +54,29 @@ onErrorCaptured((err, instance, info) => {
     }
     return false;
   }
-  
+
   // Handle generic errors
   if (err instanceof Error) {
     // Don't show technical error messages to users
-    const userMessage = err.message.toLowerCase().includes('failed') 
-      ? 'Something went wrong. Please try again.'
-      : err.message;
+    let userMessage = err.message;
+
+    // Check for technical keywords
+    const technicalKeywords = [
+      'failed',
+      'undefined',
+      'null',
+      'read properties',
+      'status code',
+      'json',
+    ];
+    const isTechnical = technicalKeywords.some((keyword) =>
+      userMessage.toLowerCase().includes(keyword)
+    );
+
+    if (isTechnical) {
+      userMessage = 'Something went wrong. Please refresh and try again.';
+    }
+
     showError(userMessage, 'Error');
   } else {
     showError('An unexpected error occurred.', 'Application Error');
@@ -67,7 +84,12 @@ onErrorCaptured((err, instance, info) => {
 
   // Log for debugging
   console.error('[App Error Boundary]', { error: err, component: instance, info });
-  
+
+  // Allow propagation in test environment for better debugging
+  if (import.meta.env.MODE === 'test') {
+    return true;
+  }
+
   return false; // Prevent error propagation
 });
 </script>
@@ -76,10 +98,24 @@ onErrorCaptured((err, instance, info) => {
   <div class="flex flex-col min-h-screen relative">
     <div class="ghibli-texture-overlay"></div>
     <NavBar />
+
+    <!-- Offline Indicator -->
+    <div
+      v-if="!isOnline"
+      class="bg-amber-100 border-b border-amber-200 text-amber-800 px-4 py-2 text-center text-sm font-medium z-50 animate-fade-in"
+      role="alert"
+    >
+      <span class="mr-2">📡</span>
+      You are currently offline. Some features may be unavailable.
+    </div>
+
     <ToastContainer />
-    <main id="main-content" tabindex="-1" class="flex-1 overflow-auto flex flex-col focus:outline-none">
+    <main
+      id="main-content"
+      tabindex="-1"
+      class="flex-1 overflow-auto flex flex-col focus:outline-none"
+    >
       <router-view />
     </main>
   </div>
 </template>
-

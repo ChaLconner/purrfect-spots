@@ -1,31 +1,32 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from "vue";
-import { useRouter, useRoute } from "vue-router";
-import { useAuthStore } from "../store/authStore";
-import { catCount, setSearchQuery } from "../store/cats";
-import { AuthService } from "../services/authService";
-import { showSuccess } from "../store/toast";
-import { isDev } from "../utils/env";
+import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
+import { useAuthStore } from '../store/authStore';
+import { useCatsStore } from '../store';
+import { AuthService } from '../services/authService';
+import { showSuccess } from '../store/toast';
+import { isDev } from '../utils/env';
 
 // Icons
-import Logo from "./icons/logo.vue";
-import Paw from "./icons/paw.vue";
-import Search from "./icons/search.vue";
-import MapIcon from "./icons/map.vue";
-import Upload from "./icons/upload.vue";
-import Gallery from "./icons/gallery.vue";
+import Logo from './icons/logo.vue';
+import Paw from './icons/paw.vue';
+import Search from './icons/search.vue';
+import MapIcon from './icons/map.vue';
+import Upload from './icons/upload.vue';
+import Gallery from './icons/gallery.vue';
 
 const menuOpen = ref(false);
 const showUserMenu = ref(false);
-const searchQuery = ref("");
+const searchQuery = ref('');
 const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
+const catsStore = useCatsStore();
 
 // Close user menu when clicking outside
 const handleClickOutside = (event: Event) => {
   const target = event.target as HTMLElement;
-  if (showUserMenu.value && target && !target.closest(".user-menu-container")) {
+  if (showUserMenu.value && target && !target.closest('.user-menu-container')) {
     showUserMenu.value = false;
   }
 };
@@ -38,33 +39,36 @@ onMounted(() => {
 });
 
 // Watch for route changes to update search
-watch(() => route.query.search, (newSearch) => {
-  if (newSearch) {
-    searchQuery.value = newSearch as string;
+watch(
+  () => route.query.search,
+  (newSearch) => {
+    if (newSearch) {
+      searchQuery.value = newSearch as string;
+    }
   }
-});
+);
 
 function goHome() {
-  router.push("/");
+  router.push('/');
 }
 
 const handleSearch = () => {
-  setSearchQuery(searchQuery.value);
-  
+  catsStore.setSearchQuery(searchQuery.value);
+
   if (route.path !== '/map' && route.path !== '/') {
-    router.push({ path: "/map", query: { search: searchQuery.value } });
+    router.push({ path: '/map', query: { search: searchQuery.value } });
   }
 };
 
 watch(searchQuery, (newValue) => {
   if (!newValue.trim()) {
-    setSearchQuery('');
+    catsStore.setSearchQuery('');
   }
 });
 
 const clearSearch = () => {
-  searchQuery.value = "";
-  setSearchQuery("");
+  searchQuery.value = '';
+  catsStore.setSearchQuery('');
   if (route.path === '/map') {
     // Update URL without reloading if on map
     router.replace({ ...route, query: { ...route.query, search: undefined } });
@@ -83,23 +87,23 @@ const logout = async () => {
     await AuthService.logout();
   } catch (error) {
     if (isDev()) {
-      console.error("Logout error:", error);
+      console.error('Logout error:', error);
     }
     // Continue to clear auth even if backend fails
   } finally {
     authStore.clearAuth();
-    router.push("/");
+    router.push('/');
     showSuccess('Logged out successfully');
   }
 };
 
 onMounted(() => {
   // authStore initialized automatically
-  document.addEventListener("click", handleClickOutside);
+  document.addEventListener('click', handleClickOutside);
 });
 
 onUnmounted(() => {
-  document.removeEventListener("click", handleClickOutside);
+  document.removeEventListener('click', handleClickOutside);
 });
 </script>
 
@@ -118,7 +122,7 @@ onUnmounted(() => {
             <Paw class="paw-icon" />
           </div>
           <div class="cat-counter-text">
-            <span class="cat-count">{{ catCount }} cats</span>
+            <span class="cat-count">{{ catsStore.catCount }} cats</span>
             <span class="cat-subtitle">spotted nearby</span>
           </div>
         </div>
@@ -127,16 +131,16 @@ onUnmounted(() => {
       <!-- Center Section: Search Box -->
       <div class="center-section">
         <div class="search-box">
-          <input 
-            v-model="searchQuery" 
+          <input
+            v-model="searchQuery"
             type="text"
             placeholder="Find a spot..."
             class="search-input"
             @keyup.enter="handleSearch"
           />
-          <button 
-            v-if="searchQuery" 
-            class="search-btn clear-mode" 
+          <button
+            v-if="searchQuery"
+            class="search-btn clear-mode"
             aria-label="Clear search"
             @click="clearSearch"
           >
@@ -164,8 +168,8 @@ onUnmounted(() => {
       <!-- Right Section: Navigation + Login -->
       <div class="right-section">
         <div class="nav-links">
-          <router-link 
-            to="/map" 
+          <router-link
+            to="/map"
             class="nav-link"
             :class="{ active: route.path === '/map' || route.path === '/' }"
             aria-label="Map"
@@ -173,9 +177,9 @@ onUnmounted(() => {
             <MapIcon class="nav-icon" />
             <span>Map</span>
           </router-link>
-          
-          <router-link 
-            to="/upload" 
+
+          <router-link
+            to="/upload"
             class="nav-link"
             :class="{ active: route.path === '/upload' }"
             aria-label="Upload"
@@ -183,9 +187,9 @@ onUnmounted(() => {
             <Upload class="nav-icon" />
             <span>Upload</span>
           </router-link>
-          
-          <router-link 
-            to="/gallery" 
+
+          <router-link
+            to="/gallery"
             class="nav-link"
             :class="{ active: route.path === '/gallery' }"
             aria-label="Gallery"
@@ -197,12 +201,7 @@ onUnmounted(() => {
 
         <!-- Login Button (not authenticated) -->
         <div v-if="!authStore.isAuthenticated">
-          <router-link 
-            to="/login" 
-            class="login-btn"
-          >
-            Login
-          </router-link>
+          <router-link to="/login" class="login-btn"> Login </router-link>
         </div>
 
         <!-- User Menu (authenticated) -->
@@ -221,12 +220,17 @@ onUnmounted(() => {
             <span class="user-name">{{ authStore.user?.name }}</span>
             <svg
               class="chevron-icon"
-              :class="{ 'rotate': showUserMenu }"
+              :class="{ rotate: showUserMenu }"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M19 9l-7 7-7-7"
+              />
             </svg>
           </button>
 
@@ -237,14 +241,16 @@ onUnmounted(() => {
               <p class="dropdown-email">{{ authStore.user?.email }}</p>
             </div>
             <div class="dropdown-divider"></div>
-            <router-link
-              to="/profile"
-              class="dropdown-item"
-              @click="showUserMenu = false"
-            >
+            <router-link to="/profile" class="dropdown-item" @click="showUserMenu = false">
               Profile
             </router-link>
-            <button class="dropdown-item logout" @click="logout(); showUserMenu = false">
+            <button
+              class="dropdown-item logout"
+              @click="
+                logout();
+                showUserMenu = false;
+              "
+            >
               Logout
             </button>
           </div>
@@ -264,10 +270,7 @@ onUnmounted(() => {
             class="hamburger-line"
             :class="menuOpen ? 'rotate-45 translate-y-0' : '-translate-y-2'"
           ></span>
-          <span
-            class="hamburger-line"
-            :class="menuOpen ? 'opacity-0' : 'opacity-100'"
-          ></span>
+          <span class="hamburger-line" :class="menuOpen ? 'opacity-0' : 'opacity-100'"></span>
           <span
             class="hamburger-line"
             :class="menuOpen ? '-rotate-45 translate-y-0' : 'translate-y-2'"
@@ -287,16 +290,16 @@ onUnmounted(() => {
       <!-- Mobile Search -->
       <div class="mobile-search-section">
         <div class="search-box">
-          <input 
-            v-model="searchQuery" 
+          <input
+            v-model="searchQuery"
             type="text"
             placeholder="Find a spot..."
             class="search-input"
             @keyup.enter="handleSearch"
           />
-          <button 
-            v-if="searchQuery" 
-            class="search-btn clear-mode" 
+          <button
+            v-if="searchQuery"
+            class="search-btn clear-mode"
             aria-label="Clear search"
             @click="clearSearch"
           >
@@ -323,46 +326,37 @@ onUnmounted(() => {
 
       <!-- Mobile Navigation Links -->
       <div class="mobile-nav-links">
-        <router-link 
-          to="/map" 
-          class="mobile-nav-link"
-          @click="menuOpen = false"
-        >
+        <router-link to="/map" class="mobile-nav-link" @click="menuOpen = false">
           <MapIcon class="nav-icon" />
           <span>Map</span>
         </router-link>
-        
-        <router-link 
-          to="/upload" 
-          class="mobile-nav-link"
-          @click="menuOpen = false"
-        >
+
+        <router-link to="/upload" class="mobile-nav-link" @click="menuOpen = false">
           <Upload class="nav-icon" />
           <span>Upload</span>
         </router-link>
-        
-        <router-link 
-          to="/gallery" 
-          class="mobile-nav-link"
-          @click="menuOpen = false"
-        >
+
+        <router-link to="/gallery" class="mobile-nav-link" @click="menuOpen = false">
           <Gallery class="nav-icon" />
           <span>Gallery</span>
         </router-link>
 
-        <router-link 
+        <router-link
           v-if="!authStore.isAuthenticated"
-          to="/login" 
+          to="/login"
           class="mobile-nav-link login"
           @click="menuOpen = false"
         >
           <span>Login</span>
         </router-link>
 
-        <button 
+        <button
           v-else
           class="mobile-nav-link logout"
-          @click="logout(); menuOpen = false"
+          @click="
+            logout();
+            menuOpen = false;
+          "
         >
           <span>Logout</span>
         </button>
@@ -393,7 +387,7 @@ onUnmounted(() => {
   backdrop-filter: blur(12px);
   border-radius: 2rem;
   border: 1px solid rgba(139, 90, 43, 0.1);
-  box-shadow: 
+  box-shadow:
     0 4px 20px rgba(139, 90, 43, 0.08),
     0 2px 8px rgba(0, 0, 0, 0.04),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
@@ -503,7 +497,7 @@ onUnmounted(() => {
 .search-box:focus-within {
   border-color: #d4845a;
   background: #fff;
-  box-shadow: 
+  box-shadow:
     0 4px 12px rgba(212, 132, 90, 0.15),
     inset 0 1px 2px rgba(139, 90, 43, 0.05);
   transform: translateY(-1px);
@@ -565,7 +559,7 @@ onUnmounted(() => {
   width: 1rem;
   height: 1rem;
   color: white;
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1));
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
 }
 
 /* Right Section */
@@ -830,11 +824,7 @@ onUnmounted(() => {
   gap: 1rem;
   padding: 1.5rem;
   margin-top: 0.75rem;
-  background: linear-gradient(
-    135deg,
-    rgba(255, 253, 250, 0.98) 0%,
-    rgba(250, 245, 235, 0.98) 100%
-  );
+  background: linear-gradient(135deg, rgba(255, 253, 250, 0.98) 0%, rgba(250, 245, 235, 0.98) 100%);
   backdrop-filter: blur(12px);
   border-radius: 1.5rem;
   border: 1px solid rgba(139, 90, 43, 0.1);
@@ -907,28 +897,28 @@ onUnmounted(() => {
   .brand-name {
     display: none;
   }
-  
+
   .cat-counter-text {
     display: none;
   }
-  
+
   .cat-counter {
     padding: 0.375rem;
   }
-  
+
   .nav-link span {
     display: none;
   }
-  
+
   .nav-link {
     padding: 0.5rem;
   }
-  
+
   .nav-icon {
     width: 1.25rem;
     height: 1.25rem;
   }
-  
+
   .center-section {
     max-width: 200px;
     margin: 0 1rem;
@@ -939,19 +929,19 @@ onUnmounted(() => {
   .navbar-container {
     margin: 0.5rem 1rem;
   }
-  
+
   .navbar-content {
     padding: 0.5rem 1rem;
     display: flex;
     justify-content: space-between;
   }
-  
+
   .cat-counter,
   .center-section,
   .right-section {
     display: none;
   }
-  
+
   .hamburger-btn {
     display: flex;
   }

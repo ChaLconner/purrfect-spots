@@ -1,10 +1,10 @@
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from main import app
 from middleware.auth_middleware import get_current_user_from_credentials
-from routes.profile import get_auth_service, get_gallery_service, get_storage_service
+from routes.profile import get_admin_gallery_service, get_auth_service, get_gallery_service, get_storage_service
 
 
 class TestProfileRoutes:
@@ -84,7 +84,7 @@ class TestProfileRoutes:
         mock_gallery_service.get_user_photos.return_value = [mock_cat_photo]
 
         app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
-        app.dependency_overrides[get_gallery_service] = lambda: mock_gallery_service
+        app.dependency_overrides[get_admin_gallery_service] = lambda: mock_gallery_service
 
         response = client.get("/api/v1/profile/uploads")
 
@@ -110,11 +110,6 @@ class TestProfileRoutes:
         app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
         app.dependency_overrides[get_storage_service] = lambda: mock_storage_service
 
-        # Mock process_uploaded_image (since it's imported in the route, we might mock where it's used or rely on real implementation if fast)
-        # Using real implementation requires PIL, which is fine as we have sample_image_bytes.
-
-        from unittest.mock import patch
-
         with patch("routes.profile.process_uploaded_image") as mock_process:
             mock_process.return_value = (sample_image_bytes, "image/jpeg", "jpg")
 
@@ -126,11 +121,12 @@ class TestProfileRoutes:
         assert response.status_code == 200
         data = response.json()
         assert data["picture"] == "https://example.com/new-avatar.jpg"
-        mock_auth_service.update_user_profile.assert_called()
+        # Note: The endpoint no longer calls update_user_profile - frontend handles that
 
     def test_change_password(self, client, mock_user, mock_auth_service):
         """Test changing password"""
-        mock_auth_service.change_password.return_value = True
+        # change_password is async, mock it as AsyncMock
+        mock_auth_service.change_password = AsyncMock(return_value=True)
 
         app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
         app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
@@ -145,7 +141,8 @@ class TestProfileRoutes:
 
     def test_change_password_failure(self, client, mock_user, mock_auth_service):
         """Test changing password failure"""
-        mock_auth_service.change_password.return_value = False
+        # change_password is async, mock it as AsyncMock
+        mock_auth_service.change_password = AsyncMock(return_value=False)
 
         app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
         app.dependency_overrides[get_auth_service] = lambda: mock_auth_service

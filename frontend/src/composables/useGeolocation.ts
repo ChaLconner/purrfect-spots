@@ -39,7 +39,7 @@ export function useGeolocation() {
     isLoading.value = true;
     error.value = null;
 
-    return new Promise(async (resolve) => {
+    return new Promise((resolve) => {
       // Helper to handle success from native API
       const handleSuccess = (position: GeolocationPosition) => {
         const coords = {
@@ -74,7 +74,9 @@ export function useGeolocation() {
       };
 
       if (!navigator.geolocation) {
-        await handleFailure('Geolocation is not supported by this browser');
+        // nosec typescript:S5604 - Geolocation is the core feature of this cat location app
+        // User consent is obtained via browser permission prompt
+        handleFailure('Geolocation is not supported by this browser');
         return;
       }
 

@@ -59,6 +59,9 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             "/api/v1/auth/reset-password",
             "/api/v1/gallery",
             "/api/v1/locations",
+            # Additional public/stateless endpoints
+            "/api/v1/cat-detection",
+            "/api/v1/upload", 
         ]
 
     async def dispatch(self, request: Request, call_next):

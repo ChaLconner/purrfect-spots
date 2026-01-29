@@ -36,12 +36,12 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
   const markerIcon = Object.freeze({
     url: "/location_10753796.png",
     scaledSize: { width: 32, height: 32 }
-  });
+  } as unknown as google.maps.Icon);
 
   const hoverIcon = Object.freeze({
     url: "/location_10753796.png",
     scaledSize: { width: 38, height: 38 }
-  });
+  } as unknown as google.maps.Icon);
 
   // Helper to update all coordinate refs and create marker if needed
   const setCoordinates = (lat: number, lng: number) => {
@@ -130,6 +130,7 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
       
     } catch {
       if (mapInitializationAttempts < 3) {
+        // nosec typescript:S2245 - Math.pow() for exponential backoff timing, not security-sensitive
         const backoffDelay = 2000 * Math.pow(2, mapInitializationAttempts);
         mapInitializationAttempts++;
         setTimeout(initializeMap, backoffDelay);
@@ -140,6 +141,7 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
   // Helper to create draggable marker
   const createDraggableMarker = (position: Coordinates) => {
     if (mapMarker.value) return; // Already exists
+    if (!mapInstance.value) return; // Map must be initialized
     
     mapMarker.value = createMarkerWithHover(
       position,
@@ -165,12 +167,13 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
     if (mapUpdateDebounce) clearTimeout(mapUpdateDebounce);
     
     mapUpdateDebounce = setTimeout(() => {
-      if (!latitude.value || !longitude.value) return;
+      if (!latitude.value || !longitude.value || !mapInstance.value) return;
       
       const position = {
         lat: parseFloat(latitude.value),
         lng: parseFloat(longitude.value)
       };
+      
       mapInstance.value.setCenter(position);
       if (mapMarker.value) {
         mapMarker.value.setPosition(position);
@@ -200,6 +203,8 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
     gettingLocation.value = true;
 
     if (!navigator.geolocation) {
+      // nosec typescript:S5604 - Geolocation is the core feature of this cat location sharing app
+      // Privacy protected: user consent via browser prompt, IP fallback available
       if (!silent) showError("Geolocation is not supported by your browser.");
       // Fallback: try IP geolocation, then default
       await setApproximateLocationMarker(silent);

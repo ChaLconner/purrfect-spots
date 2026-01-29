@@ -5,28 +5,22 @@
     <div class="gallery-container max-w-7xl mx-auto py-2 px-1 sm:px-2 lg:px-4">
       <!-- Ghibli Style Header with Search -->
       <GalleryHeader />
-      
+
       <!-- Mint Green Theme Container -->
       <!-- Clean Container (Removed Mint Frame) -->
       <div class="gallery-mint-container p-0 min-h-[600px] w-full relative z-[5]">
         <!-- Gallery Stats Removed -->
 
-
-        
         <!-- Loading state -->
         <div v-if="loading" class="loading-container" role="status" aria-live="polite">
           <GhibliLoader text="Finding cute cats..." />
         </div>
-        
+
         <!-- Error state -->
-        <ErrorState 
-          v-else-if="error" 
-          :message="error" 
-          @retry="fetchImages"
-        />
-        
+        <ErrorState v-else-if="error" :message="error" @retry="fetchImages" />
+
         <!-- Empty state -->
-        <EmptyState 
+        <EmptyState
           v-else-if="visibleImages.length === 0"
           title="A Quiet Spot"
           message="No photos have been discovered here yet."
@@ -34,15 +28,10 @@
           action-text="Upload Photo"
           action-link="/upload"
         />
-        
+
         <!-- Virtual Scroller Gallery -->
         <div v-else class="gallery-content">
-          <DynamicScroller
-            :items="chunkedImages"
-            :min-item-size="200"
-            class="scroller"
-            page-mode
-          >
+          <DynamicScroller :items="chunkedImages" :min-item-size="200" class="scroller" page-mode>
             <template #default="{ item, index, active }">
               <DynamicScrollerItem
                 :item="item"
@@ -55,7 +44,10 @@
                     v-for="(image, subIndex) in item.images"
                     :key="image.id"
                     class="gallery-item"
-                    :class="[getBentoClass(item.index + subIndex), { 'item-loaded': loadedImages[image.id] }]"
+                    :class="[
+                      getBentoClass(item.index + subIndex),
+                      { 'item-loaded': loadedImages[image.id] },
+                    ]"
                     :style="{ 'animation-delay': `${(subIndex % 10) * 0.05}s` }"
                     role="gridcell"
                     tabindex="0"
@@ -67,16 +59,16 @@
                     <!-- Glass-framed Image Card -->
                     <div class="image-card">
                       <!-- Placeholder -->
-                      <div 
-                        v-if="!loadedImages[image.id]" 
-                        class="image-placeholder h-full w-full" 
+                      <div
+                        v-if="!loadedImages[image.id]"
+                        class="image-placeholder h-full w-full"
                         aria-hidden="true"
                       >
                         <div class="placeholder-content">
                           <div class="soot-dot"></div>
                         </div>
                       </div>
-                        
+
                       <!-- Actual Image with native lazy loading -->
                       <div class="image-wrapper">
                         <img
@@ -96,15 +88,25 @@
             </template>
           </DynamicScroller>
           <!-- Load More -->
-          <div v-if="hasMoreImages && !loadingMore" ref="loadMoreTrigger" class="load-more h-4 w-full" aria-hidden="true"></div>
-          <div v-if="loadingMore" class="py-4 flex justify-center w-full" role="status" aria-live="polite">
+          <div
+            v-if="hasMoreImages && !loadingMore"
+            ref="loadMoreTrigger"
+            class="load-more h-4 w-full"
+            aria-hidden="true"
+          ></div>
+          <div
+            v-if="loadingMore"
+            class="py-4 flex justify-center w-full"
+            role="status"
+            aria-live="polite"
+          >
             <GhibliLoader size="small" />
           </div>
         </div>
       </div>
-      
+
       <!-- Modal -->
-      <GalleryModal 
+      <GalleryModal
         :image="selectedImage"
         :images="modalImages"
         :current-index="modalCurrentIndex"
@@ -119,13 +121,12 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, watch, onErrorCaptured, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { apiV1, ApiError } from '@/utils/api';
-import { showError } from '@/store/toast';
+import { GalleryService } from '@/services/galleryService';
 import { isDev } from '@/utils/env';
 import { IMAGE_CONFIG, GALLERY_CONFIG } from '@/utils/constants';
 import GalleryHeader from '@/components/gallery/GalleryHeader.vue';
-
-import { catStore, type CatLocation } from '@/store/cats';
+import { useCatsStore } from '@/store';
+import type { CatLocation } from '@/types/api';
 
 import GalleryModal from '@/components/gallery/GalleryModal.vue';
 import GhibliLoader from '@/components/ui/GhibliLoader.vue';
@@ -133,7 +134,6 @@ import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import { useSeo } from '@/composables/useSeo';
-// @ts-ignore
 import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller';
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
 
@@ -144,17 +144,19 @@ const props = defineProps<{
   id?: string;
 }>();
 
-
 // Handle browser extension errors
 onErrorCaptured((err: unknown) => {
   if (
     err instanceof Error &&
     err.message &&
     (err.message.includes('message channel closed') ||
-     err.message.includes('asynchronous response by returning true, but the message channel closed') ||
-     err.message.includes('A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received') ||
-     err.message.includes('ResizeObserver loop') // Common with virtual scrollers
-    )
+      err.message.includes(
+        'asynchronous response by returning true, but the message channel closed'
+      ) ||
+      err.message.includes(
+        'A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received'
+      ) ||
+      err.message.includes('ResizeObserver loop')) // Common with virtual scrollers
   ) {
     if (isDev()) {
       console.warn('⚠️ Browser/Extension error caught in Gallery component:', err.message);
@@ -166,6 +168,8 @@ onErrorCaptured((err: unknown) => {
 
 const route = useRoute();
 const router = useRouter();
+const catsStore = useCatsStore();
+
 const loading = ref(true);
 const loadingMore = ref(false);
 const error = ref('');
@@ -187,7 +191,7 @@ const isDeepLinked = ref(false); // Track if current view is a deep link to a sp
 const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024);
 
 const updateWidth = () => {
-    windowWidth.value = window.innerWidth;
+  windowWidth.value = window.innerWidth;
 };
 
 // Determine chunk size based on convenient strict grid alignment (LCM of 2,3,4,5 = 60)
@@ -196,11 +200,11 @@ const CHUNK_SIZE = 60;
 const chunkedImages = computed(() => {
   const chunks = [];
   for (let i = 0; i < visibleImages.value.length; i += CHUNK_SIZE) {
-     chunks.push({
-        id: i, // Unique ID for the chunk (based on start index)
-        index: i, // Start index for Bento calculation
-        images: visibleImages.value.slice(i, i + CHUNK_SIZE)
-     });
+    chunks.push({
+      id: i, // Unique ID for the chunk (based on start index)
+      index: i, // Start index for Bento calculation
+      images: visibleImages.value.slice(i, i + CHUNK_SIZE),
+    });
   }
   return chunks;
 });
@@ -208,17 +212,18 @@ const chunkedImages = computed(() => {
 onMounted(() => {
   window.addEventListener('resize', updateWidth);
   fetchImages();
-  
+
   // Check for search query in URL on mount
   if (route.query.search) {
-     catStore.setSearchQuery(route.query.search as string);
+    catsStore.setSearchQuery(route.query.search as string);
   }
 
   // Set SEO meta tags
   setMetaTags({
     title: 'Gallery | Purrfect Spots',
-    description: 'Browse our collection of adorable cat photos from around the world. Find your favorite feline friends and discover cat-friendly locations.',
-    type: 'website'
+    description:
+      'Browse our collection of adorable cat photos from around the world. Find your favorite feline friends and discover cat-friendly locations.',
+    type: 'website',
   });
 });
 
@@ -229,27 +234,27 @@ onUnmounted(() => {
     loadMoreObserver.value.disconnect();
     loadMoreObserver.value = null;
   }
-  
+
   // Clear loaded images state completely
   loadedImages.value = {};
-  
+
   // Reset SEO meta tags
   resetMetaTags();
 });
 
 // Watch visibleImages to manage memory and initialization
-watch(visibleImages, () => {
-  // Initialize loadedImages for new visible images
-  visibleImages.value.forEach(image => {
-    if (!(image.id in loadedImages.value)) {
-      loadedImages.value[image.id] = false;
-    }
-  });
-  
-  // Memory cleanup handled less aggressively to avoid flickering during scroll
-  const visibleIds = new Set(visibleImages.value.map(i => String(i.id)));
-  cleanupLoadedImagesCache(visibleIds);
-}, { deep: false });
+watch(
+  visibleImages,
+  () => {
+    // Initialize loadedImages for new visible images
+    visibleImages.value.forEach((image) => {
+      if (!(image.id in loadedImages.value)) {
+        loadedImages.value[image.id] = false;
+      }
+    });
+  },
+  { deep: false }
+);
 
 // Watch for DOM updates to setup load more observer
 watch(
@@ -262,32 +267,41 @@ watch(
 );
 
 // Watch search query from store to update URL and fetch data
-watch(() => catStore.searchQuery, (newQuery) => {
-  // Sync URL query param
-  const query = { ...route.query };
-  if (newQuery) {
-    query.search = newQuery;
-  } else {
-    delete query.search;
+watch(
+  () => catsStore.searchQuery,
+  (newQuery) => {
+    // Sync URL query param
+    const query = { ...route.query };
+    if (newQuery) {
+      query.search = newQuery;
+    } else {
+      delete query.search;
+    }
+    // Replace to avoid cluttering history, preserve path params
+    router.replace({ params: route.params, query });
+
+    fetchGalleryData(true);
   }
-  // Replace to avoid cluttering history, preserve path params
-  router.replace({ params: route.params, query });
-  
-  fetchGalleryData(true);
-});
+);
 
 // Watch URL changes to sync modal state (using Path Params now)
-watch(() => props.id, () => {
-  syncStateFromUrl();
-});
+watch(
+  () => props.id,
+  () => {
+    syncStateFromUrl();
+  }
+);
 
 // Watch route query specifically for browser back/forward buttons affecting search
-watch(() => route.query.search, (newSearch) => {
-    const term = newSearch as string || '';
-    if (term !== catStore.searchQuery) {
-        catStore.setSearchQuery(term);
+watch(
+  () => route.query.search,
+  (newSearch) => {
+    const term = (newSearch as string) || '';
+    if (term !== catsStore.searchQuery) {
+      catsStore.setSearchQuery(term);
     }
-});
+  }
+);
 
 // Computed props for modal to handle both list and deep link scenarios
 const modalImages = computed(() => {
@@ -295,16 +309,16 @@ const modalImages = computed(() => {
 });
 
 const modalTotalImages = computed(() => {
-    return isDeepLinked.value ? 1 : totalImages.value;
+  return isDeepLinked.value ? 1 : totalImages.value;
 });
 
 const modalCurrentIndex = computed(() => {
-    return isDeepLinked.value ? 0 : currentImageIndex.value;
+  return isDeepLinked.value ? 0 : currentImageIndex.value;
 });
 
 async function syncStateFromUrl() {
   const imageId = props.id;
-  
+
   if (!imageId) {
     selectedImage.value = null;
     currentImageIndex.value = -1;
@@ -314,8 +328,8 @@ async function syncStateFromUrl() {
   }
 
   // Find the image in current loaded list
-  const index = visibleImages.value.findIndex(img => img.id.toString() === imageId);
-  
+  const index = visibleImages.value.findIndex((img) => img.id.toString() === imageId);
+
   if (index !== -1) {
     selectedImage.value = visibleImages.value[index];
     currentImageIndex.value = index;
@@ -323,14 +337,13 @@ async function syncStateFromUrl() {
   } else {
     // If not found in current loaded items, fetch it specifically
     try {
-        const response = await apiV1.get(`/gallery/${imageId}`);
-        selectedImage.value = response;
-        currentImageIndex.value = 0; // It's the only image in the modal list
-        isDeepLinked.value = true;
-    } catch (err) {
-        console.error('Failed to load deep linked image:', err);
-        // If failed, clear URL to avoid stuck state
-        closeModal();
+      selectedImage.value = await GalleryService.getPhotoById(imageId);
+      currentImageIndex.value = 0; // It's the only image in the modal list
+      isDeepLinked.value = true;
+    } catch (err: unknown) {
+      console.error('Failed to load deep linked image:', err);
+      // If failed, clear URL to avoid stuck state
+      closeModal();
     }
   }
 }
@@ -345,42 +358,37 @@ async function fetchGalleryData(reset = false) {
   } else {
     loadingMore.value = true;
   }
-  
+
   error.value = '';
-  
+
   try {
-    const query = catStore.searchQuery;
+    const query = catsStore.searchQuery;
     let newImages: CatLocation[] = [];
     let hasNext = false;
     let total = 0;
-    
+
     if (query) {
-       // Server-side Search
-       const response = await apiV1.get('/gallery/search', {
-          params: {
-            q: query,
-            limit: 100 // Current backend search limit
-          }
-       });
-       
-       newImages = response.results || [];
-       hasNext = false; // Search endpoint doesn't support pagination yet
-       total = response.total || newImages.length;
-       
+      // Server-side Search
+      const response = await GalleryService.search({
+        query,
+        limit: 100, // Current backend search limit
+      });
+
+      newImages = response.results || [];
+      hasNext = false; // Search endpoint doesn't support pagination yet
+      total = response.total || newImages.length;
     } else {
-       // Server-side Pagination
-       const response = await apiV1.get('/gallery', {
-          params: {
-            page: currentPage.value,
-            limit: imagesPerPage
-          }
-       });
-       
-       newImages = response.images || [];
-       if (response.pagination) {
-         hasNext = response.pagination.has_more;
-         total = response.pagination.total;
-       }
+      // Server-side Pagination
+      const response = await GalleryService.getImages({
+        page: currentPage.value,
+        limit: imagesPerPage,
+      });
+
+      newImages = response.images || [];
+      if (response.pagination) {
+        hasNext = response.pagination.has_more;
+        total = response.pagination.total;
+      }
     }
 
     if (reset) {
@@ -388,25 +396,18 @@ async function fetchGalleryData(reset = false) {
     } else {
       visibleImages.value.push(...newImages);
     }
-    
+
     hasMoreImages.value = hasNext;
     if (total > 0) totalImages.value = total;
     else totalImages.value = visibleImages.value.length;
-    
+
     // Initial sync with URL after data load (only on first load)
     if (reset && props.id) {
       nextTick(() => syncStateFromUrl());
     }
-    
   } catch (err: unknown) {
-    if (err instanceof ApiError) {
-       error.value = err.message || 'Failed to load images from server';
-    } else if (err instanceof Error) {
-       error.value = err.message || 'Failed to load images';
-    } else {
-       error.value = 'Failed to load images';
-    }
-    showError(error.value);
+    const message = (err as Error).message || 'Failed to load images from server';
+    error.value = message;
     if (reset) visibleImages.value = [];
   } finally {
     loading.value = false;
@@ -419,68 +420,41 @@ function fetchImages() {
   fetchGalleryData(true);
 }
 
-// updateVisibleImages removed as it's no longer needed with server-side pagination
-
-/**
- * Clean up loadedImages cache to prevent memory leaks
- * Keeps only recently visible images in memory
- */
-function cleanupLoadedImagesCache(visibleIds: Set<string>) {
-  const loadedKeys = Object.keys(loadedImages.value);
-  
-  // Only cleanup if cache exceeds max size
-  if (loadedKeys.length <= GALLERY_CONFIG.MAX_LOADED_IMAGES_CACHE) return;
-  
-  // Find keys to remove (keep visible ones, remove oldest)
-  const keysToRemove = loadedKeys
-    .filter(key => !visibleIds.has(key))
-    .slice(0, loadedKeys.length - GALLERY_CONFIG.MAX_LOADED_IMAGES_CACHE + 20); // Remove extra to prevent frequent cleanup
-  
-  keysToRemove.forEach(key => {
-    delete loadedImages.value[key];
-  });
-  
-  if (isDev() && keysToRemove.length > 0) {
-    // eslint-disable-next-line no-console
-    console.log(`🧹 Cleaned up ${keysToRemove.length} cached image states`);
-  }
-}
-
-
 function handleImageLoad(id: number | string) {
-    loadedImages.value[id] = true;
+  loadedImages.value[id] = true;
 }
 
 // Removed old setupLazyLoading and simplified loadMoreObserver
-
-
 
 function setupLoadMoreObserver() {
   // Clean up previous observer
   if (loadMoreObserver.value) {
     loadMoreObserver.value.disconnect();
   }
-  
+
   if (!loadMoreTrigger.value || !hasMoreImages.value) return;
-  
+
   // Create new observer for load more trigger
-  loadMoreObserver.value = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting && hasMoreImages.value && !loadingMore.value) {
-        loadMoreImages();
-      }
-    });
-  }, {
-    rootMargin: GALLERY_CONFIG.LOAD_MORE_ROOT_MARGIN,
-    threshold: GALLERY_CONFIG.LAZY_LOAD_THRESHOLD
-  });
-  
+  loadMoreObserver.value = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting && hasMoreImages.value && !loadingMore.value) {
+          loadMoreImages();
+        }
+      });
+    },
+    {
+      rootMargin: GALLERY_CONFIG.LOAD_MORE_ROOT_MARGIN,
+      threshold: GALLERY_CONFIG.LAZY_LOAD_THRESHOLD,
+    }
+  );
+
   loadMoreObserver.value.observe(loadMoreTrigger.value);
 }
 
 function loadMoreImages() {
   if (loadingMore.value || !hasMoreImages.value) return;
-  
+
   // Increment page and fetch
   currentPage.value++;
   fetchGalleryData(false);
@@ -488,46 +462,46 @@ function loadMoreImages() {
 
 function openModal(image: CatLocation, index: number) {
   // Update URL using Path Parameter
-  router.push({ 
-    name: 'Gallery', 
+  router.push({
+    name: 'Gallery',
     params: { id: image.id },
-    query: route.query // Preserve search query
+    query: route.query, // Preserve search query
   });
 }
 
 function closeModal() {
   // Remove ID from Path
-  router.push({ 
-    name: 'Gallery', 
+  router.push({
+    name: 'Gallery',
     params: { id: '' }, // Empty ID to go back to list
-    query: route.query 
+    query: route.query,
   });
 }
 
 function handleModalNavigate(direction: 'prev' | 'next') {
   if (isDeepLinked.value) return; // Disable navigation for single deep linked image
   if (currentImageIndex.value < 0) return;
-  
+
   // currentImageIndex is now the global index in visibleImages
   let newIndex = currentImageIndex.value;
-  
+
   if (direction === 'prev' && newIndex > 0) {
     newIndex = newIndex - 1;
   } else if (direction === 'next' && newIndex < visibleImages.value.length - 1) {
     newIndex = newIndex + 1;
   }
-  
+
   if (newIndex !== currentImageIndex.value) {
     const nextImage = visibleImages.value[newIndex];
     if (nextImage) {
       // With infinite scroll, we don't need to jump pages, just ensure it's loaded
       // Since we only navigate within visibleImages, it is by definition loaded
-      
+
       // Use replace for navigation to allow back button to close modal
-      router.replace({ 
-        name: 'Gallery', 
+      router.replace({
+        name: 'Gallery',
         params: { id: nextImage.id },
-        query: route.query
+        query: route.query,
       });
     }
   }
@@ -538,16 +512,15 @@ function handleImageError(event: Event) {
   target.src = IMAGE_CONFIG.PLACEHOLDER_URL;
 }
 
-
 function getBentoClass(index: number): string {
   // Bento Pattern (Repeats every 12 items)
   // 0: Large (2x2)
-  // 7: Wide (2x1) 
+  // 7: Wide (2x1)
   const remainder = index % 10;
-  
+
   if (remainder === 0) return 'col-span-2 row-span-2';
   if (remainder === 6) return 'col-span-2 row-span-1';
-  
+
   return 'col-span-1 row-span-1';
 }
 </script>
@@ -565,20 +538,22 @@ function getBentoClass(index: number): string {
 }
 
 @media (min-width: 640px) {
-  .gallery-grid { grid-template-columns: repeat(3, 1fr); }
+  .gallery-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 @media (min-width: 1024px) {
-  .gallery-grid { 
-    grid-template-columns: repeat(4, 1fr); 
+  .gallery-grid {
+    grid-template-columns: repeat(4, 1fr);
     grid-auto-rows: 240px;
-    gap: 0.375rem; 
+    gap: 0.375rem;
   }
 }
 
 @media (min-width: 1280px) {
-  .gallery-grid { 
-    grid-template-columns: repeat(5, 1fr); 
+  .gallery-grid {
+    grid-template-columns: repeat(5, 1fr);
     grid-auto-rows: 260px;
   }
 }
@@ -586,7 +561,7 @@ function getBentoClass(index: number): string {
 /* Gallery Item */
 .gallery-item {
   /* margin-bottom is handled by grid gap */
-  margin-bottom: 0; 
+  margin-bottom: 0;
   width: 100%;
   height: 100%;
   animation: galleryFadeIn 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
@@ -597,7 +572,7 @@ function getBentoClass(index: number): string {
 }
 
 .gallery-item:focus-visible .image-card {
-  outline: 3px solid #7FB7A4;
+  outline: 3px solid #7fb7a4;
   outline-offset: 4px;
 }
 
@@ -613,9 +588,15 @@ function getBentoClass(index: number): string {
 }
 
 /* Bento Spans */
-.col-span-2 { grid-column: span 2; }
-.row-span-2 { grid-row: span 2; }
-.row-span-1 { grid-row: span 1; }
+.col-span-2 {
+  grid-column: span 2;
+}
+.row-span-2 {
+  grid-row: span 2;
+}
+.row-span-1 {
+  grid-row: span 1;
+}
 
 .image-card {
   background-color: transparent;
@@ -646,7 +627,9 @@ function getBentoClass(index: number): string {
   display: block;
   border-radius: 0.25rem;
   transform: scale(1);
-  transition: transform 0.5s ease, opacity 0.5s ease;
+  transition:
+    transform 0.5s ease,
+    opacity 0.5s ease;
   opacity: 0;
 }
 
@@ -674,12 +657,7 @@ function getBentoClass(index: number): string {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.6),
-    transparent
-  );
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
   animation: shimmer 1.5s infinite;
   transform: translateX(-100%);
 }
@@ -701,12 +679,21 @@ function getBentoClass(index: number): string {
 }
 
 @keyframes shimmer {
-  100% { transform: translateX(100%); }
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 @keyframes pulseDot {
-  0%, 100% { transform: scale(0.8); opacity: 0.5; }
-  50% { transform: scale(1.2); opacity: 0.8; }
+  0%,
+  100% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.8;
+  }
 }
 
 /* ========================================

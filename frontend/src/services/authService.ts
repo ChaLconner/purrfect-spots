@@ -1,95 +1,37 @@
 import type { User, LoginResponse } from '../types/auth';
-import { apiV1, ApiError, ApiErrorTypes } from '../utils/api';
+import { apiV1, ApiError } from '../utils/api';
 import { isDev } from '../utils/env';
-import { isBrowserExtensionError, handleBrowserExtensionError } from '../utils/browserExtensionHandler';
+
 
 export class AuthService {
   // Get current user information
   static async getCurrentUser(): Promise<User> {
-    try {
-      return await apiV1.get<User>('/auth/me');
-    } catch (error) {
-      if (error instanceof ApiError) {
-        throw error;
-      }
-      throw new ApiError(
-        ApiErrorTypes.UNKNOWN_ERROR,
-        'Failed to get user information'
-      );
-    }
+    return await apiV1.get<User>('/auth/me');
   }
 
   // Login user
   static async login(email: string, password: string): Promise<LoginResponse> {
-    try {
-      return await apiV1.post('/auth/login', { email, password });
-    } catch (error) {
-      if (error instanceof ApiError) {
-        throw error;
-      }
-      
-      // Handle browser extension errors
-      if (isBrowserExtensionError(error)) {
-        try {
-          return await handleBrowserExtensionError(
-            error,
-            () => apiV1.post('/auth/login', { email, password })
-          );
-        } catch (retryError: unknown) {
-          const message = retryError instanceof Error ? retryError.message : 'Login failed';
-          throw new ApiError(
-            ApiErrorTypes.UNKNOWN_ERROR,
-            message
-          );
-        }
-      }
-      
-      throw error;
-    }
+    return await apiV1.post('/auth/login', { email, password });
   }
 
   // Signup user
   static async signup(email: string, password: string, name: string): Promise<LoginResponse> {
-    try {
-      return await apiV1.post('/auth/register', { email, password, name });
-    } catch (error) {
-      if (error instanceof ApiError) {
-        throw error;
-      }
-      
-      // Handle browser extension errors
-      if (isBrowserExtensionError(error)) {
-        try {
-          return await handleBrowserExtensionError(
-            error,
-            () => apiV1.post('/auth/register', { email, password, name })
-          );
-        } catch (retryError: unknown) {
-          const message = retryError instanceof Error ? retryError.message : 'Registration failed';
-          throw new ApiError(
-            ApiErrorTypes.UNKNOWN_ERROR,
-            message
-          );
-        }
-      }
-      
-      throw error;
-    }
+    return await apiV1.post('/auth/register', { email, password, name });
+  }
+
+  // Verify OTP code
+  static async verifyOtp(email: string, otp: string): Promise<LoginResponse> {
+    return await apiV1.post('/auth/verify-otp', { email, otp });
+  }
+
+  // Resend OTP code
+  static async resendOtp(email: string): Promise<{ message: string; expires_at: string }> {
+    return await apiV1.post('/auth/resend-otp', { email });
   }
 
   // Logout user
   static async logout(): Promise<void> {
-    try {
-      await apiV1.post('/auth/logout');
-    } catch (error) {
-      if (error instanceof ApiError) {
-        throw error;
-      }
-      throw new ApiError(
-        ApiErrorTypes.UNKNOWN_ERROR,
-        'Logout failed'
-      );
-    }
+    await apiV1.post('/auth/logout');
   }
 
   // Verify if user is authenticated by checking token validity
@@ -142,43 +84,13 @@ export class AuthService {
         throw error;
       }
       
-      // Handle browser extension errors
-      if (isBrowserExtensionError(error)) {
-        try {
-          const redirectUri = `${window.location.origin}/auth/callback`;
-          return await handleBrowserExtensionError(
-            error,
-            () => apiV1.post('/auth/google/exchange', {
-              code,
-              code_verifier: codeVerifier,
-              redirect_uri: redirectUri
-            })
-          );
-        } catch (retryError: unknown) {
-          const message = retryError instanceof Error ? retryError.message : 'Google OAuth failed';
-          throw new ApiError(
-            ApiErrorTypes.UNKNOWN_ERROR,
-            message
-          );
-        }
-      }
-      
+      // Browser extension errors are handled by API interceptor
       throw error;
     }
   }
 
   // Sync user data with backend (for Supabase Auth integration)
   static async syncUser(): Promise<User> {
-    try {
-      return await apiV1.post('/auth/sync-user');
-    } catch (error) {
-      if (error instanceof ApiError) {
-        throw error;
-      }
-      throw new ApiError(
-        ApiErrorTypes.UNKNOWN_ERROR,
-        'User sync failed'
-      );
-    }
+    return await apiV1.post('/auth/sync-user');
   }
 }

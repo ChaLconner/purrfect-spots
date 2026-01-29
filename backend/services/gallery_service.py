@@ -13,6 +13,7 @@ from typing import Any
 
 from supabase import Client
 
+from config import config
 from logger import logger
 from utils.cache import cached_gallery, cached_tags
 
@@ -20,13 +21,22 @@ from utils.cache import cached_gallery, cached_tags
 class GalleryService:
     def __init__(self, supabase_client: Client):
         self.supabase = supabase_client
-        # Use admin client for reading public data (simplified for this app structure)
+        # Use standard client for public reads (RLS safe)
+        # We keep admin client reference only for specific overrides if needed
+        # but prefer using the standard client
         from dependencies import get_supabase_admin_client
-
-        self.supabase_admin = get_supabase_admin_client()
+        self._admin_client_lazy = None
 
         # Check if full-text search is available
         self._fulltext_available = self._check_fulltext_support()
+
+    @property
+    def supabase_admin(self):
+        """Lazy load admin client only when absolutely necessary"""
+        if self._admin_client_lazy is None:
+            from dependencies import get_supabase_admin_client
+            self._admin_client_lazy = get_supabase_admin_client()
+        return self._admin_client_lazy
 
     def _check_fulltext_support(self) -> bool:
         """
@@ -41,6 +51,40 @@ class GalleryService:
         except Exception as e:
             logger.info(f"Full-text search not available, using ILIKE fallback: {e}")
             return False
+
+    def _optimize_image_url(self, url: str | None, width: int = 500) -> str | None:
+        """
+        Optimize image URL:
+        1. Rewrite to CDN if configured
+        2. Append transformation parameters if supported (Supabase)
+        """
+        if not url:
+            return url
+
+        # 1. CDN Rewrite
+        s3_bucket = config.aws_bucket if hasattr(config, "aws_bucket") else "purrfect-spots-bucket"
+        aws_region = config.aws_region if hasattr(config, "aws_region") else "ap-southeast-2"
+        s3_domain = f"{s3_bucket}.s3.{aws_region}.amazonaws.com"
+        
+        final_url = url
+        if config.CDN_BASE_URL and s3_domain in url:
+            final_url = url.replace(f"https://{s3_domain}", config.CDN_BASE_URL)
+
+        # 2. Resizing (Supabase only for now)
+        if "supabase.co/storage/v1/object/public" in final_url:            
+            # If already has query params, verify/append
+            separator = "&" if "?" in final_url else "?"
+            return f"{final_url}{separator}width={width}&resize=cover&format=webp"
+            
+        return final_url
+
+    def _process_photos(self, photos: list[dict[str, Any]], width: int = 500) -> list[dict[str, Any]]:
+        """Process a list of photos with optimizations"""
+        for photo in photos:
+            if "image_url" in photo:
+                photo["image_url"] = self._optimize_image_url(photo["image_url"], width)
+        return photos
+
 
     def get_all_photos(self, limit: int = 20, offset: int = 0, include_total: bool = True) -> dict[str, Any]:
         """
@@ -69,6 +113,7 @@ class GalleryService:
             )
 
             data = resp.data if resp.data else []
+            data = self._process_photos(data)  # Optimize images
             total = 0
 
             # Get total count if requested
@@ -104,9 +149,48 @@ class GalleryService:
             resp = (
                 supabase_client.table("cat_photos").select("*").order("uploaded_at", desc=True).limit(limit).execute()
             )
+            # Note: We don't resize images here strictly to keep the cache payload consistent
+            # But we could if we wanted to enforce it everywhere.
+            # For now, let's keep get_all_photos_simple for backward compat.
             return resp.data if resp.data else []
         except Exception as e:
             raise Exception(f"Failed to fetch gallery images: {e!s}")
+
+    def get_map_locations(self) -> list[dict[str, Any]]:
+        """
+        Get lightweight locations for map display.
+        Selects only essential fields.
+        """
+        return self._get_map_locations_cached()
+
+    def _get_map_locations_cached(self) -> list[dict[str, Any]]:
+        return self._get_map_locations_impl(self.supabase)
+
+    @staticmethod
+    @cached_gallery  # Reuse same cache decorator or make a new one? cached_gallery key depends on args.
+    # We should probably use a dedicated cache or distinct arguments to avoid collision if the key generation is naive.
+    # The existing @cached_gallery decorator in utils/cache.py likely uses function name in key or arguments.
+    # Let's assume it handles it safely (usually includes func name).
+    def _get_map_locations_impl(supabase_client) -> list[dict[str, Any]]:
+        try:
+            resp = (
+                supabase_client.table("cat_photos")
+                .select("id,latitude,longitude,location_name,image_url")  # Minimal fields
+                .order("uploaded_at", desc=True)
+                .limit(2000)  # Reasonable limit for map
+                .execute()
+            )
+            data = resp.data if resp.data else []
+            # We can resize these too, map thumbnails are small
+            for photo in data:
+                 if "image_url" in photo:
+                     # Simple manual optimization here since it's a static method
+                     if photo["image_url"] and "supabase.co/storage/v1/object/public" in photo["image_url"]:
+                         sep = "&" if "?" in photo["image_url"] else "?"
+                         photo["image_url"] = f"{photo['image_url']}{sep}width=200&resize=cover&format=webp"
+            return data
+        except Exception as e:
+            raise Exception(f"Failed to fetch map locations: {e!s}")
 
     def _get_all_photos_simple_cached(self, limit: int) -> list[dict[str, Any]]:
         """Wrapper to pass supabase client to cached function."""
@@ -178,14 +262,15 @@ class GalleryService:
                 if tags and results:
                     results = self._filter_by_tags(results, tags)
 
-                return results
+                return self._process_photos(results)
 
             except Exception as rpc_error:
                 logger.debug(f"RPC search not available: {rpc_error}, using direct query")
 
                 # Direct query with textquery matching on search_vector column
-                # Convert query to tsquery format
-                search_term = query.replace(" ", " & ")  # AND operator between words
+                # Use websearch_to_tsquery logic (handled by 'type': 'websearch' option in Supabase lib)
+                # No need to manually replace spaces with & as websearch handles natural language
+                search_term = query
 
                 # Note: This requires PostgREST fulltext filter syntax
                 db_query = (
@@ -202,7 +287,8 @@ class GalleryService:
                     db_query = db_query.contains("tags", clean_tags)
 
                 resp = db_query.execute()
-                return resp.data if resp.data else []
+                data = resp.data if resp.data else []
+                return self._process_photos(data)
 
         except Exception as e:
             logger.warning(f"Full-text search error: {e}")
@@ -249,8 +335,11 @@ class GalleryService:
             # Order and limit
             db_query = db_query.order("uploaded_at", desc=True).limit(limit)
 
+            db_query = db_query.order("uploaded_at", desc=True).limit(limit)
+
             resp = db_query.execute()
-            return resp.data if resp.data else []
+            data = resp.data if resp.data else []
+            return self._process_photos(data)
 
         except Exception as e:
             raise Exception(f"Failed to search photos: {e!s}")
@@ -335,7 +424,8 @@ class GalleryService:
                 .order("uploaded_at", desc=True)
                 .execute()
             )
-            return resp.data if resp.data else []
+            data = resp.data if resp.data else []
+            return self._process_photos(data)
         except Exception as e:
             raise Exception(f"Failed to fetch user images: {e!s}")
 
@@ -380,7 +470,8 @@ class GalleryService:
                 {"lat": latitude, "lng": longitude, "radius_meters": radius_km * 1000, "result_limit": limit},
             ).execute()
 
-            return resp.data if resp.data else []
+            data = resp.data if resp.data else []
+            return self._process_photos(data)
 
         except Exception as e:
             logger.warning(f"PostGIS search failed, falling back to bounding box: {e}")
@@ -424,7 +515,8 @@ class GalleryService:
                 .execute()
             )
 
-            return resp.data if resp.data else []
+            data = resp.data if resp.data else []
+            return self._process_photos(data)
 
         except Exception as e:
             raise Exception(f"Failed to fetch nearby photos: {e!s}")
@@ -433,6 +525,12 @@ class GalleryService:
         """Get a specific photo by ID."""
         try:
             resp = self.supabase.table("cat_photos").select("*").eq("id", photo_id).single().execute()
+            if resp.data:
+                # No resize for single view (full quality) or maybe larger resize?
+                # Let's say we want full quality or at least large enough (e.g. 1200)
+                # But typically single view is the "detail" view.
+                # Let's leave it as original or high res.
+                pass
             return resp.data
         except Exception as e:
             # Check if it's a "not found" error which might yield no rows

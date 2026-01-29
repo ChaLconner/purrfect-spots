@@ -1,13 +1,15 @@
 <script setup lang="ts">
 /**
  * EditProfileModal Component
- * 
+ *
  * Modal for editing user profile with avatar upload and password change.
  */
-import { ref, reactive, watch } from 'vue';
+import { ref, reactive, watch, computed } from 'vue';
 import { ProfileService } from '@/services/profileService';
 import { showError, showSuccess } from '@/store/toast';
 import { useFocusTrap, announce } from '@/composables/useAccessibility';
+import { useAuthStore } from '@/store/authStore';
+import PasswordStrengthMeter from '@/components/ui/PasswordStrengthMeter.vue';
 
 interface Props {
   isOpen: boolean;
@@ -28,38 +30,66 @@ const fileInput = ref<HTMLInputElement | null>(null);
 const isUploading = ref(false);
 const isUpdatingPassword = ref(false);
 const showPasswordSection = ref(false);
+const showPasswords = ref(false); // Toggle for password visibility
+
+const passwordRequirements = computed(() => {
+  const p = passwordForm.new;
+  return [
+    { label: 'Min 8 characters', met: p.length >= 8 },
+    { label: 'Contains a number', met: /\d/.test(p) },
+    { label: 'Special character', met: /[^a-zA-Z0-9]/.test(p) },
+  ];
+});
 
 const editForm = reactive({
   name: props.initialName,
   bio: props.initialBio,
-  picture: props.initialPicture
+  picture: props.initialPicture,
 });
 
 const passwordForm = reactive({
   current: '',
   new: '',
-  confirm: ''
+  confirm: '',
+});
+
+const authStore = useAuthStore();
+const isSocialUser = computed(() => {
+  // Logic to determine if user is from social provider
+  // Usually social users have avatars from google/facebook domains
+  const avatarUrl = props.initialPicture || '';
+  return (
+    avatarUrl.includes('googleusercontent.com') ||
+    avatarUrl.includes('facebook.com') ||
+    (authStore.user?.picture && authStore.user.picture.includes('googleusercontent.com'))
+  );
 });
 
 // Sync form when props change
-watch(() => props.isOpen, (newVal) => {
-  if (newVal) {
-    editForm.name = props.initialName;
-    editForm.bio = props.initialBio;
-    editForm.picture = props.initialPicture;
-    announce('Edit profile dialog opened');
+watch(
+  () => props.isOpen,
+  (newVal) => {
+    if (newVal) {
+      editForm.name = props.initialName;
+      editForm.bio = props.initialBio;
+      editForm.picture = props.initialPicture;
+      announce('Edit profile dialog opened');
+    }
   }
-});
+);
 
 const { activate, deactivate } = useFocusTrap(modalRef);
 
-watch(() => props.isOpen, (isOpen) => {
-  if (isOpen) {
-    setTimeout(() => activate(), 100);
-  } else {
-    deactivate();
+watch(
+  () => props.isOpen,
+  (isOpen) => {
+    if (isOpen) {
+      setTimeout(() => activate(), 100);
+    } else {
+      deactivate();
+    }
   }
-});
+);
 
 const triggerFileInput = () => {
   fileInput.value?.click();
@@ -69,7 +99,7 @@ const handleFileSelect = async (event: Event) => {
   const target = event.target as HTMLInputElement;
   if (target.files && target.files[0]) {
     const file = target.files[0];
-    
+
     if (!file.type.startsWith('image/')) {
       showError('Please upload an image file');
       return;
@@ -79,7 +109,7 @@ const handleFileSelect = async (event: Event) => {
     try {
       const imageUrl = await ProfileService.uploadProfilePicture(file);
       editForm.picture = imageUrl;
-      showSuccess('Photo uploaded!');
+      // showSuccess('Photo uploaded!'); // Removed: Visual update in form is sufficient
       announce('Profile photo uploaded successfully');
     } catch {
       showError('Failed to upload photo');
@@ -94,7 +124,7 @@ const updatePassword = async () => {
     showError('New passwords do not match');
     return;
   }
-  
+
   if (passwordForm.new.length < 8) {
     showError('Password must be at least 8 characters');
     return;
@@ -104,18 +134,19 @@ const updatePassword = async () => {
   try {
     await ProfileService.changePassword({
       current_password: passwordForm.current,
-      new_password: passwordForm.new
+      new_password: passwordForm.new,
     });
     showSuccess('Password updated successfully');
     announce('Password updated successfully');
-    
+
     // Reset password form
     passwordForm.current = '';
     passwordForm.new = '';
     passwordForm.confirm = '';
     showPasswordSection.value = false;
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Failed to update password';
+    let message = err instanceof Error ? err.message : 'Failed to update password';
+    if (message.includes('status code')) message = 'Unable to update password. Please try again.';
     showError(message);
   } finally {
     isUpdatingPassword.value = false;
@@ -126,7 +157,7 @@ const handleSave = () => {
   emit('save', {
     name: editForm.name,
     bio: editForm.bio,
-    picture: editForm.picture
+    picture: editForm.picture,
   });
 };
 
@@ -157,8 +188,8 @@ const handleKeydown = (event: KeyboardEvent) => {
       leave-from-class="opacity-100"
       leave-to-class="opacity-0"
     >
-      <div 
-        v-if="isOpen" 
+      <div
+        v-if="isOpen"
         class="fixed inset-0 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
         role="dialog"
         aria-modal="true"
@@ -166,42 +197,58 @@ const handleKeydown = (event: KeyboardEvent) => {
         @click="handleBackdropClick"
         @keydown="handleKeydown"
       >
-        <div 
+        <div
           ref="modalRef"
           class="bg-white/90 backdrop-blur-xl rounded-[2rem] shadow-2xl p-8 w-full max-w-lg border border-white/50 transform transition-all relative overflow-hidden flex flex-col max-h-[90vh]"
           tabindex="-1"
         >
           <!-- Decorative background elements -->
-          <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-sage to-terracotta"></div>
-          <div class="absolute -top-10 -right-10 w-32 h-32 bg-terracotta/10 rounded-full blur-2xl"></div>
-          <div class="absolute -bottom-10 -left-10 w-32 h-32 bg-sage/10 rounded-full blur-2xl"></div>
+          <div
+            class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-sage to-terracotta"
+          ></div>
+          <div
+            class="absolute -top-10 -right-10 w-32 h-32 bg-terracotta/10 rounded-full blur-2xl"
+          ></div>
+          <div
+            class="absolute -bottom-10 -left-10 w-32 h-32 bg-sage/10 rounded-full blur-2xl"
+          ></div>
 
           <div class="overflow-y-auto pr-2 custom-scrollbar relative z-10">
-            <h2 id="edit-profile-title" class="text-3xl font-heading font-bold mb-8 text-brown text-center">
+            <h2
+              id="edit-profile-title"
+              class="text-3xl font-heading font-bold mb-8 text-brown text-center"
+            >
               Edit Profile
             </h2>
-            
+
             <form class="space-y-6" @submit.prevent="handleSave">
               <!-- Profile Picture Upload -->
               <div class="flex flex-col items-center mb-6">
                 <div class="relative group cursor-pointer" @click="triggerFileInput">
-                  <img 
-                    :src="editForm.picture || '/default-avatar.svg'" 
+                  <img
+                    :src="editForm.picture || '/default-avatar.svg'"
                     class="w-32 h-32 rounded-full object-cover border-4 border-white shadow-md transition-transform group-hover:scale-105"
                     alt="Profile picture"
                   />
-                  <div class="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div
+                    class="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
                     <span class="text-white text-sm font-bold">Change Photo</span>
                   </div>
-                  <div v-if="isUploading" class="absolute inset-0 bg-white/60 rounded-full flex items-center justify-center">
-                    <div class="w-8 h-8 border-2 border-terracotta border-t-transparent rounded-full animate-spin"></div>
+                  <div
+                    v-if="isUploading"
+                    class="absolute inset-0 bg-white/60 rounded-full flex items-center justify-center"
+                  >
+                    <div
+                      class="w-8 h-8 border-2 border-terracotta border-t-transparent rounded-full animate-spin"
+                    ></div>
                   </div>
                 </div>
-                <input 
+                <input
                   ref="fileInput"
-                  type="file" 
-                  accept="image/*" 
-                  class="hidden" 
+                  type="file"
+                  accept="image/*"
+                  class="hidden"
                   aria-label="Upload profile picture"
                   @change="handleFileSelect"
                 />
@@ -209,10 +256,13 @@ const handleKeydown = (event: KeyboardEvent) => {
               </div>
 
               <div>
-                <label for="profile-name" class="block text-xs font-bold text-brown-light mb-2 uppercase tracking-widest pl-1">
+                <label
+                  for="profile-name"
+                  class="block text-xs font-bold text-brown-light mb-2 uppercase tracking-widest pl-1"
+                >
                   Name
                 </label>
-                <input 
+                <input
                   id="profile-name"
                   v-model="editForm.name"
                   type="text"
@@ -221,12 +271,15 @@ const handleKeydown = (event: KeyboardEvent) => {
                   required
                 />
               </div>
-              
+
               <div>
-                <label for="profile-bio" class="block text-xs font-bold text-brown-light mb-2 uppercase tracking-widest pl-1">
+                <label
+                  for="profile-bio"
+                  class="block text-xs font-bold text-brown-light mb-2 uppercase tracking-widest pl-1"
+                >
                   Bio
                 </label>
-                <textarea 
+                <textarea
                   id="profile-bio"
                   v-model="editForm.bio"
                   class="w-full px-5 py-3.5 bg-white/60 border-2 border-stone-200 rounded-2xl focus:outline-none focus:border-terracotta focus:bg-white focus:ring-4 focus:ring-terracotta/10 transition-all duration-300 text-brown font-medium resize-none placeholder-stone-400"
@@ -234,11 +287,11 @@ const handleKeydown = (event: KeyboardEvent) => {
                   placeholder="Tell us a bit about yourself..."
                 ></textarea>
               </div>
-              
+
               <!-- Change Password Section -->
               <div class="border-t border-stone-200 pt-6 mt-6">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   class="flex items-center text-terracotta font-bold text-sm uppercase tracking-wider hover:text-terracotta-dark transition-colors"
                   :aria-expanded="showPasswordSection"
                   @click="showPasswordSection = !showPasswordSection"
@@ -246,67 +299,130 @@ const handleKeydown = (event: KeyboardEvent) => {
                   <span class="mr-2">{{ showPasswordSection ? '−' : '+' }}</span>
                   Change Password
                 </button>
-                
-                <div v-if="showPasswordSection" class="mt-4 space-y-4 bg-white/40 p-4 rounded-xl border border-white/60">
-                  <div>
-                    <label for="current-password" class="block text-xs font-bold text-brown-light mb-1 uppercase tracking-wider">
-                      Current Password
-                    </label>
-                    <input 
-                      id="current-password"
-                      v-model="passwordForm.current"
-                      type="password"
-                      autocomplete="current-password"
-                      class="w-full px-4 py-2 bg-white/60 border-2 border-stone-200 rounded-xl focus:border-terracotta focus:ring-2 focus:ring-terracotta/10 outline-none text-brown"
-                    />
+
+                <div
+                  v-if="showPasswordSection"
+                  class="mt-4 space-y-4 bg-white/40 p-4 rounded-xl border border-white/60"
+                >
+                  <div
+                    v-if="isSocialUser"
+                    class="bg-amber-50 border border-amber-200 p-3 rounded-lg flex gap-3 text-amber-800 text-sm"
+                  >
+                    <span class="text-xl">ℹ️</span>
+                    <p>
+                      This account is linked with a social provider (Google/Facebook). Please manage
+                      your password through your social account settings.
+                    </p>
                   </div>
-                  <div>
-                    <label for="new-password" class="block text-xs font-bold text-brown-light mb-1 uppercase tracking-wider">
-                      New Password
-                    </label>
-                    <input 
-                      id="new-password"
-                      v-model="passwordForm.new"
-                      type="password"
-                      autocomplete="new-password"
-                      class="w-full px-4 py-2 bg-white/60 border-2 border-stone-200 rounded-xl focus:border-terracotta focus:ring-2 focus:ring-terracotta/10 outline-none text-brown"
-                    />
-                  </div>
-                  <div>
-                    <label for="confirm-password" class="block text-xs font-bold text-brown-light mb-1 uppercase tracking-wider">
-                      Confirm New Password
-                    </label>
-                    <input 
-                      id="confirm-password"
-                      v-model="passwordForm.confirm"
-                      type="password"
-                      autocomplete="new-password"
-                      class="w-full px-4 py-2 bg-white/60 border-2 border-stone-200 rounded-xl focus:border-terracotta focus:ring-2 focus:ring-terracotta/10 outline-none text-brown"
-                    />
-                  </div>
-                  <!-- Password Save Button -->
-                  <div class="flex justify-end mt-2">
-                    <button 
-                      type="button"
-                      :disabled="isUpdatingPassword || !passwordForm.current || !passwordForm.new"
-                      class="px-5 py-2.5 bg-[#C07040] text-white rounded-lg text-sm font-bold hover:bg-[#A05030] shadow-md transition-all disabled:opacity-50 disabled:shadow-none"
-                      @click="updatePassword"
-                    >
-                      {{ isUpdatingPassword ? 'Updating...' : 'Update Password' }}
-                    </button>
-                  </div>
+
+                  <template v-else>
+                    <div>
+                      <label
+                        for="current-password"
+                        class="block text-xs font-bold text-brown-light mb-1 uppercase tracking-wider"
+                      >
+                        Current Password
+                      </label>
+                      <div class="relative">
+                        <input
+                          id="current-password"
+                          v-model="passwordForm.current"
+                          :type="showPasswords ? 'text' : 'password'"
+                          autocomplete="current-password"
+                          required
+                          class="w-full px-4 py-2 bg-white/60 border-2 border-stone-200 rounded-xl focus:border-terracotta focus:ring-2 focus:ring-terracotta/10 outline-none text-brown pr-10"
+                        />
+                        <button
+                          type="button"
+                          class="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-brown transition-colors"
+                          @click="showPasswords = !showPasswords"
+                        >
+                          {{ showPasswords ? '👁️' : '👁️‍🗨️' }}
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label
+                        for="new-password"
+                        class="block text-xs font-bold text-brown-light mb-1 uppercase tracking-wider"
+                      >
+                        New Password
+                      </label>
+                      <div class="relative">
+                        <input
+                          id="new-password"
+                          v-model="passwordForm.new"
+                          :type="showPasswords ? 'text' : 'password'"
+                          autocomplete="new-password"
+                          required
+                          class="w-full px-4 py-2 bg-white/60 border-2 border-stone-200 rounded-xl focus:border-terracotta focus:ring-2 focus:ring-terracotta/10 outline-none text-brown pr-10"
+                        />
+                      </div>
+                      <div class="mt-3 flex flex-wrap gap-2">
+                        <span
+                          v-for="req in passwordRequirements"
+                          :key="req.label"
+                          class="text-[10px] px-2 py-1 rounded-full border transition-all duration-300"
+                          :class="
+                            req.met
+                              ? 'bg-sage/20 border-sage text-sage-dark'
+                              : 'bg-stone-50 border-stone-200 text-stone-400'
+                          "
+                        >
+                          {{ req.met ? '✓' : '○' }} {{ req.label }}
+                        </span>
+                      </div>
+                      <div class="mt-2">
+                        <PasswordStrengthMeter :password="passwordForm.new" />
+                      </div>
+                    </div>
+                    <div>
+                      <label
+                        for="confirm-password"
+                        class="block text-xs font-bold text-brown-light mb-1 uppercase tracking-wider"
+                      >
+                        Confirm New Password
+                      </label>
+                      <input
+                        id="confirm-password"
+                        v-model="passwordForm.confirm"
+                        :type="showPasswords ? 'text' : 'password'"
+                        autocomplete="new-password"
+                        required
+                        class="w-full px-4 py-2 bg-white/60 border-2 border-stone-200 rounded-xl focus:border-terracotta focus:ring-2 focus:ring-terracotta/10 outline-none text-brown"
+                      />
+                    </div>
+                    <!-- Password Save Button -->
+                    <div class="flex justify-end mt-2">
+                      <button
+                        type="button"
+                        :disabled="
+                          isUpdatingPassword ||
+                            !passwordForm.current ||
+                            !passwordForm.new ||
+                            !passwordForm.confirm
+                        "
+                        class="px-5 py-2.5 bg-[#C07040] text-white rounded-lg text-sm font-bold hover:bg-[#A05030] shadow-md transition-all disabled:opacity-50 disabled:shadow-none"
+                        @click="updatePassword"
+                      >
+                        {{ isUpdatingPassword ? 'Updating...' : 'Update Password' }}
+                      </button>
+                    </div>
+                  </template>
                 </div>
               </div>
-              
-              <div class="flex justify-end items-center gap-4 mt-8 pt-4 border-t border-stone-200/50 sticky bottom-0 p-2">
-                <button 
-                  type="button" 
+
+              <div
+                class="flex justify-end items-center gap-4 mt-8 pt-4 border-t border-stone-200/50 sticky bottom-0 p-2"
+              >
+                <button
+                  type="button"
                   class="px-6 py-3 text-brown-dark hover:text-black font-heading font-bold transition-colors cursor-pointer"
                   @click="handleClose"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   type="submit"
                   class="px-8 py-3 bg-[#C07040] hover:bg-[#A05030] text-white rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-300 cursor-pointer font-heading font-extrabold tracking-wide"
                 >

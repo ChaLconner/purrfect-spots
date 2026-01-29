@@ -3,7 +3,7 @@
 # ==============================================================================
 # Comprehensive CI/CD workflow for the Purrfect Spots application
 # Includes linting, testing, security scanning, and build verification
-# 
+#
 # Best Practices Implemented:
 # - Pinned action versions for reproducibility
 # - Proper job dependencies and conditional execution
@@ -18,21 +18,21 @@ on:
   push:
     branches: [main, develop, dev]
     paths-ignore:
-      - 'docs/**'
-      - '**.md'
-      - '.vscode/**'
-      - '.agent/**'
+      - "docs/**"
+      - "**.md"
+      - ".vscode/**"
+      - ".agent/**"
   pull_request:
     branches: [main, develop, dev]
     paths-ignore:
-      - 'docs/**'
-      - '**.md'
-      - '.vscode/**'
-      - '.agent/**'
+      - "docs/**"
+      - "**.md"
+      - ".vscode/**"
+      - ".agent/**"
   workflow_dispatch:
     inputs:
       force_full_run:
-        description: 'Force full pipeline run (ignore change detection)'
+        description: "Force full pipeline run (ignore change detection)"
         required: false
         default: false
         type: boolean
@@ -42,8 +42,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PYTHON_VERSION: '3.12'
-  NODE_VERSION: '20'
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "20"
   # Cache keys for dependency caching
   CACHE_VERSION: v1
 
@@ -74,10 +74,10 @@ jobs:
       ci: ${{ steps.filter.outputs.ci }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
 
       - name: Filter paths
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3
         id: filter
         with:
           filters: |
@@ -105,13 +105,13 @@ jobs:
       needs.changes.outputs.ci == 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
 
       - name: Setup Backend Environment
         uses: ./.github/actions/setup-backend
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          install-deps: 'false'
+          install-deps: "false"
 
       - name: Install linting tools
         run: |
@@ -136,10 +136,10 @@ jobs:
       inputs.force_full_run == true ||
       needs.changes.outputs.backend == 'true' || 
       needs.changes.outputs.ci == 'true'
-    continue-on-error: true  # Non-blocking - gradual type adoption
+    continue-on-error: true # Non-blocking - gradual type adoption
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
 
       - name: Setup Backend Environment
         uses: ./.github/actions/setup-backend
@@ -178,7 +178,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
 
       - name: Setup Backend Environment
         uses: ./.github/actions/setup-backend
@@ -193,11 +193,11 @@ jobs:
         env:
           ENVIRONMENT: test
           REDIS_URL: redis://localhost:6379
-          JWT_SECRET: ${{ secrets.TEST_JWT_SECRET || 'test-secret-key-for-ci-minimum-32-chars' }}
-          JWT_REFRESH_SECRET: ${{ secrets.TEST_JWT_REFRESH_SECRET || 'test-refresh-secret-for-ci-minimum-32' }}
+          JWT_SECRET: ${{ secrets.TEST_JWT_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.TEST_JWT_REFRESH_SECRET }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://test.supabase.co' }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY || 'dummy-anon-key-for-testing' }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'dummy-service-key-for-testing' }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           cd backend
           pytest \
@@ -210,15 +210,23 @@ jobs:
             --tb=short
 
       - name: Upload coverage HTML report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@8e61266858e727699173f8b5f90382ae3e232b50 # v4
         if: always()
         with:
           name: backend-coverage-report
           path: backend/coverage_html
           retention-days: 14
 
+      - name: Upload raw coverage data (for Sonar)
+        uses: actions/upload-artifact@8e61266858e727699173f8b5f90382ae3e232b50 # v4
+        if: always()
+        with:
+          name: backend-coverage-xml
+          path: backend/coverage.xml
+          retention-days: 1
+
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4
         if: always()
         with:
           file: backend/coverage.xml
@@ -234,10 +242,10 @@ jobs:
       inputs.force_full_run == true ||
       needs.changes.outputs.backend == 'true' || 
       needs.changes.outputs.ci == 'true'
-    continue-on-error: true  # Non-blocking - informational
+    continue-on-error: true # Non-blocking - informational
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
         with:
           fetch-depth: 0
 
@@ -251,11 +259,11 @@ jobs:
           ENVIRONMENT: test
           # Ensure fallback to memory if Redis is missing, but provide URL just in case app expects it
           # No REDIS_URL means memory fallback in limiter.py, which is safer here.
-          JWT_SECRET: ${{ secrets.TEST_JWT_SECRET || 'test-secret-key-for-ci-minimum-32-chars' }}
-          JWT_REFRESH_SECRET: ${{ secrets.TEST_JWT_REFRESH_SECRET || 'test-refresh-secret-for-ci-minimum-32' }}
+          JWT_SECRET: ${{ secrets.TEST_JWT_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.TEST_JWT_REFRESH_SECRET }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://test.supabase.co' }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY || 'dummy-anon-key-for-testing' }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'dummy-service-key-for-testing' }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           cd backend
           if [ -f "../docs/openapi-baseline.json" ]; then
@@ -268,17 +276,17 @@ jobs:
         if: always()
         env:
           ENVIRONMENT: test
-          JWT_SECRET: ${{ secrets.TEST_JWT_SECRET || 'test-secret-key-for-ci-minimum-32-chars' }}
-          JWT_REFRESH_SECRET: ${{ secrets.TEST_JWT_REFRESH_SECRET || 'test-refresh-secret-for-ci-minimum-32' }}
+          JWT_SECRET: ${{ secrets.TEST_JWT_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.TEST_JWT_REFRESH_SECRET }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://test.supabase.co' }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY || 'dummy-anon-key-for-testing' }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'dummy-service-key-for-testing' }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           cd backend
           python scripts/export_openapi.py --output ../docs/openapi-current.json || echo "::warning::Failed to export OpenAPI spec"
 
       - name: Upload OpenAPI specs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@8e61266858e727699173f8b5f90382ae3e232b50 # v4
         if: always()
         with:
           name: openapi-specs
@@ -298,13 +306,13 @@ jobs:
       (needs.backend-test.result == 'success' || needs.backend-test.result == 'skipped')
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Build Backend Docker Image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@517d6b38c03562bb06ba2697d020d7ce2f461e72 # v6
         with:
           context: ./backend
           file: ./backend/Dockerfile
@@ -326,7 +334,7 @@ jobs:
       needs.changes.outputs.ci == 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
 
       - name: Setup Frontend
         uses: ./.github/actions/setup-frontend
@@ -353,7 +361,7 @@ jobs:
       needs.changes.outputs.ci == 'true'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
 
       - name: Setup Frontend
         uses: ./.github/actions/setup-frontend
@@ -366,7 +374,7 @@ jobs:
           npm run test:coverage
 
       - name: Upload coverage HTML report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@8e61266858e727699173f8b5f90382ae3e232b50 # v4
         if: always()
         with:
           name: frontend-coverage-report
@@ -383,7 +391,7 @@ jobs:
       (needs.frontend-test.result == 'success' || needs.frontend-test.result == 'skipped')
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
 
       - name: Setup Frontend
         uses: ./.github/actions/setup-frontend
@@ -398,7 +406,7 @@ jobs:
           VITE_API_BASE_URL: https://api.purrfect-spots.com
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@8e61266858e727699173f8b5f90382ae3e232b50 # v4
         with:
           name: frontend-build
           path: frontend/dist
@@ -419,19 +427,19 @@ jobs:
     if: needs.frontend-build.result == 'success'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4
         with:
           name: frontend-build
           path: frontend/dist
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Build Frontend Docker Image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@517d6b38c03562bb06ba2697d020d7ce2f461e72 # v6
         with:
           context: ./frontend
           file: ./frontend/Dockerfile
@@ -439,7 +447,6 @@ jobs:
           tags: purrfect-spots-frontend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
 
   # ============================================================================
   frontend-e2e:
@@ -452,10 +459,9 @@ jobs:
       needs.changes.outputs.backend == 'true' ||
       needs.changes.outputs.ci == 'true'
     continue-on-error: true
-    continue-on-error: true
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
 
       - name: Setup Frontend Environment
         uses: ./.github/actions/setup-frontend
@@ -477,7 +483,7 @@ jobs:
           CI: true
 
       - name: Upload Playwright Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@8e61266858e727699173f8b5f90382ae3e232b50 # v4
         if: always()
         with:
           name: playwright-report
@@ -493,43 +499,43 @@ jobs:
     permissions:
       security-events: write
       contents: read
-    continue-on-error: false  # Enforced - block on security issues
+    continue-on-error: false # Enforced - block on security issues
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
 
       - name: Run Trivy vulnerability scanner (filesystem)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@f678453 # v0.28.0
         with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '1'  # Fail the build on critical/high vulnerabilities
+          scan-type: "fs"
+          scan-ref: "."
+          severity: "CRITICAL,HIGH"
+          exit-code: "1" # Fail the build on critical/high vulnerabilities
           ignore-unfixed: true
-          format: 'sarif'
-          output: 'trivy-results.sarif'
+          format: "sarif"
+          output: "trivy-results.sarif"
 
       - name: Upload Trivy scan results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@48ab28a6f5dbc2a99bf1e0131198dd8f1df78169 # v3
         if: always()
         with:
-          sarif_file: 'trivy-results.sarif'
-        continue-on-error: true  # Upload should not block even if main scan fails
+          sarif_file: "trivy-results.sarif"
+        continue-on-error: true # Upload should not block even if main scan fails
 
   secret-scan:
     name: Secret Detection
     runs-on: ubuntu-latest
-    continue-on-error: false  # Enforced - block on leaked secrets
+    continue-on-error: false # Enforced - block on leaked secrets
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
         with:
           fetch-depth: 0
 
       - name: Run Trufflehog
         uses: trufflesecurity/trufflehog@v3.88.29
         with:
-          base: ""  # Scan entire repo
+          base: "" # Scan entire repo
           head: HEAD
           extra_args: --only-verified
         # Note: --fail is automatically added by the action, don't add it again
@@ -543,20 +549,66 @@ jobs:
     continue-on-error: true
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
       - name: Run Semgrep
-        uses: semgrep/semgrep-action@v1
+        uses: semgrep/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d # v1
         with:
           config: p/default p/security-audit p/owasp-top-ten
           generateSarif: "1"
         env:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
       - name: Upload Semgrep SARIF
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@48ab28a6f5dbc2a99bf1e0131198dd8f1df78169 # v3
         if: always()
         with:
           sarif_file: semgrep.sarif
         continue-on-error: true
+
+  # ============================================================================
+  # SONARCLOUD ANALYSIS
+  # ============================================================================
+  sonarcloud:
+    name: SonarCloud Analysis
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test]
+    if: |
+      github.event_name == 'push' || 
+      github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
+        with:
+          fetch-depth: 0
+
+      - name: Download Backend Coverage
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4
+        with:
+          name: backend-coverage-xml
+          path: backend
+
+      - name: Download Frontend Coverage
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4
+        with:
+          name: frontend-coverage-report
+          path: frontend/coverage
+
+      - name: Setup Frontend (for tsconfig resolution)
+        uses: ./.github/actions/setup-frontend
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          install-deps: "true"
+
+      - name: SonarCloud Scan
+        uses: sonarsource/sonarcloud-github-action@v3.1.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.python.version=3.12
+            -Dsonar.typescript.tsconfigPath=frontend/tsconfig.json
+            -Dsonar.python.coverage.reportPaths=backend/coverage.xml
+            -Dsonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info
 
   dependency-review:
     name: Dependency Review
@@ -567,12 +619,12 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
 
       - name: Dependency Review
-        uses: actions/dependency-review-action@v4
+        uses: actions/dependency-review-action@72eb03d02c7872a7714d8068d3d4f5973e3d9846 # v4
         with:
-          fail-on-severity: critical  # Only fail on critical
+          fail-on-severity: critical # Only fail on critical
           allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, Python-2.0, Unlicense, 0BSD
 
   # ============================================================================
@@ -594,7 +646,7 @@ jobs:
         run: |
           echo "Checking quality gate status..."
           echo ""
-          
+
           # Define check function
           # Note: "skipped" is treated as success because change detection may skip unchanged components
           check_job() {
@@ -621,9 +673,9 @@ jobs:
               return 0
             fi
           }
-          
+
           failed=0
-          
+
           # Required checks - skipped is acceptable (means no changes detected)
           check_job "Backend Lint" "${{ needs.backend-lint.result }}" "true" || failed=1
           check_job "Backend Tests" "${{ needs.backend-test.result }}" "true" || failed=1
@@ -631,7 +683,7 @@ jobs:
           check_job "Frontend Tests" "${{ needs.frontend-test.result }}" "true" || failed=1
           check_job "Frontend Build" "${{ needs.frontend-build.result }}" "true" || failed=1
           check_job "Frontend E2E" "${{ needs.frontend-e2e.result }}" "true" || failed=1
-          
+
           echo ""
           if [ $failed -eq 1 ]; then
             echo "[FAILED] Quality gate FAILED - required checks did not pass"
@@ -646,7 +698,7 @@ jobs:
   build-summary:
     name: Build Summary
     runs-on: ubuntu-latest
-    needs: 
+    needs:
       - quality-gate
       - backend-build
       - frontend-docker

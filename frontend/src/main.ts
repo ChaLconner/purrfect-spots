@@ -1,51 +1,51 @@
-import { createApp } from 'vue'
-import './styles/main.css'
-import App from './App.vue'
-import router from './router'
-import { pinia } from './store'
-import { useAuthStore } from './store/authStore'
-import { isDev } from './utils/env'
+import { createApp } from 'vue';
+import './styles/main.css';
+import App from './App.vue';
+import router from './router';
+import { pinia } from './store';
+import { useAuthStore } from './store/authStore';
+import { isDev } from './utils/env';
 import {
   handleUnhandledRejection,
   handleError,
-  handleVueError
-} from './utils/browserExtensionHandler'
+  handleVueError,
+} from './utils/browserExtensionHandler';
 
 // ========== Sentry Initialization ==========
 // Only initialize in production or if explicitly enabled
-const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN
-const ENVIRONMENT = import.meta.env.MODE
+const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
+const ENVIRONMENT = import.meta.env.MODE;
 
-import type { App } from 'vue'
+import type { App } from 'vue';
 
 async function initSentry(app: App) {
   if (!SENTRY_DSN) {
     if (isDev()) {
       // eslint-disable-next-line no-console
-      console.log('[Sentry] DSN not configured - error monitoring disabled')
+      console.log('[Sentry] DSN not configured - error monitoring disabled');
     }
-    return
+    return;
   }
 
   try {
     // Dynamic import to reduce bundle size when Sentry is not used
-    const Sentry = await import('@sentry/vue')
-    
+    const Sentry = await import('@sentry/vue');
+
     Sentry.init({
       app,
       dsn: SENTRY_DSN,
       environment: ENVIRONMENT,
-      
+
       // Performance monitoring
       tracesSampleRate: ENVIRONMENT === 'production' ? 0.1 : 1.0,
-      
+
       // Session replay (optional)
       replaysSessionSampleRate: 0.1,
       replaysOnErrorSampleRate: 1.0,
-      
+
       // Don't send PII
       sendDefaultPii: false,
-      
+
       // Filter out common non-actionable errors
       beforeSend(event) {
         // Ignore browser extension errors
@@ -54,80 +54,88 @@ async function initSentry(app: App) {
           event.message?.includes('message channel closed') ||
           event.message?.includes('ResizeObserver loop')
         ) {
-          return null
+          return null;
         }
-        return event
+        return event;
       },
-      
+
       // Add release version if available
       release: import.meta.env.VITE_APP_VERSION || '3.0.0',
-    })
-    
+    });
+
     // Make Sentry available globally for ErrorBoundary
     const win = window as Window & { Sentry?: typeof Sentry };
     win.Sentry = Sentry;
-    
+
     if (isDev()) {
       // eslint-disable-next-line no-console
-      console.log(`[Sentry] Initialized for ${ENVIRONMENT} environment`)
+      console.log(`[Sentry] Initialized for ${ENVIRONMENT} environment`);
     }
   } catch (error) {
     if (isDev()) {
       // eslint-disable-next-line no-console
-      console.warn('[Sentry] Failed to initialize:', error)
+      console.warn('[Sentry] Failed to initialize:', error);
     }
   }
 }
 
-const app = createApp(App)
+const app = createApp(App);
 
-// Initialize Sentry with app instance (non-blocking)
-initSentry(app)
+// Initialize Sentry with app instance (non-blocking but awaited for mounting)
+initSentry(app).then(async () => {
+  // Install Pinia BEFORE using any stores
+  app.use(pinia);
 
-// Install Pinia BEFORE using any stores
-app.use(pinia)
+  // Initialize auth state (now using Pinia store internally)
+  // Initialize auth by creating the store instance
+  const authStore = useAuthStore();
+  await authStore.initializeAuth();
 
-// Initialize auth state (now using Pinia store internally)
-// Initialize auth by creating the store instance
-useAuthStore()
+  // Handle browser extension conflicts globally
+  window.addEventListener('unhandledrejection', handleUnhandledRejection);
+  window.addEventListener('error', handleError);
 
+  // Global error handler for browser extension conflicts
+  app.config.errorHandler = (err, instance, info) => {
+    const result = handleVueError(err, info);
 
-// Handle browser extension conflicts globally
-window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    // If handleVueError returned false, it means the error was handled
+    if (result === false) {
+      return;
+    }
 
-window.addEventListener('error', handleError);
+    // Report to Sentry if available
+    const win = window as Window & {
+      Sentry?: {
+        captureException: (
+          err: unknown,
+          context: { extra: { info: string }; tags: { handler: string } }
+        ) => void;
+      };
+    };
+    if (win.Sentry) {
+      win.Sentry.captureException(err, {
+        extra: { info },
+        tags: { handler: 'global' },
+      });
+    }
 
-// Global error handler for browser extension conflicts
-app.config.errorHandler = (err, instance, info) => {
-  const result = handleVueError(err, info);
-  
-  // If handleVueError returned false, it means the error was handled
-  if (result === false) {
-    return;
-  }
-  
-  // Report to Sentry if available
-  const win = window as Window & { Sentry?: { captureException: (err: unknown, context: { extra: { info: string }; tags: { handler: string } }) => void } };
-  if (win.Sentry) {
-    win.Sentry.captureException(err, {
-      extra: { info },
-      tags: { handler: 'global' }
+    // Log other errors normally
+    if (isDev()) {
+      // eslint-disable-next-line no-console
+      console.error('Vue error:', err, info);
+    }
+  };
+
+  app.use(router);
+  app.mount('#app');
+
+  // Initialize Web Vitals tracking after app mount
+  import('./utils/webVitals')
+    .then(({ initWebVitals }) => {
+      initWebVitals();
     })
-  }
-  
-  // Log other errors normally
-  if (isDev()) {
-    // eslint-disable-next-line no-console
-    console.error('Vue error:', err, info);
-  }
-};
-
-app.use(router)
-app.mount('#app')
-
-// Initialize Web Vitals tracking after app mount
-import('./utils/webVitals').then(({ initWebVitals }) => {
-  initWebVitals();
-}).catch(() => {
-  // Web Vitals tracking is optional, don't break the app
+    .catch(() => {
+      // Web Vitals tracking is optional, don't break the app
+    });
 });

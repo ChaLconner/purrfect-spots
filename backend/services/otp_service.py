@@ -1,0 +1,230 @@
+"""
+OTP Service for email verification
+Generates, stores, and verifies 6-digit OTP codes
+"""
+
+import hashlib
+import secrets
+from datetime import timedelta
+
+from dependencies import get_supabase_admin_client
+from logger import logger
+from utils.datetime_utils import utc_now
+
+
+class OTPService:
+    """Service for managing OTP verification codes"""
+
+    OTP_EXPIRY_MINUTES = 10  # OTP valid for 10 minutes (NIST/OWASP recommendation)
+    MAX_ATTEMPTS = 5  # Maximum verification attempts per OTP
+    RESEND_COOLDOWN_SECONDS = 60  # Minimum time between resends
+
+    def __init__(self):
+        self.supabase = get_supabase_admin_client()
+
+    def _generate_otp(self) -> str:
+        """Generate cryptographically secure 6-digit OTP"""
+        # Use secrets module for cryptographic randomness
+        return str(secrets.randbelow(900000) + 100000)  # Ensures 6 digits (100000-999999)
+
+    def _hash_otp(self, otp: str) -> str:
+        """Hash OTP using SHA-256 for secure storage"""
+        return hashlib.sha256(otp.encode()).hexdigest()
+
+    def _constant_time_compare(self, val1: str, val2: str) -> bool:
+        """Constant-time comparison to prevent timing attacks"""
+        return secrets.compare_digest(val1, val2)
+
+    async def create_otp(self, email: str) -> tuple[str, str]:
+        """
+        Create and store OTP for email verification
+
+        Args:
+            email: User's email address
+
+        Returns:
+            Tuple of (otp_code, expires_at_iso)
+        """
+        try:
+            # Invalidate any existing OTPs for this email
+            await self.invalidate_existing_otps(email)
+
+            # Generate new OTP
+            otp = self._generate_otp()
+            otp_hash = self._hash_otp(otp)
+            expires_at = utc_now() + timedelta(minutes=self.OTP_EXPIRY_MINUTES)
+
+            # Store in database
+            result = self.supabase.table("email_verifications").insert({
+                "email": email.lower(),
+                "otp_hash": otp_hash,
+                "attempts": 0,
+                "max_attempts": self.MAX_ATTEMPTS,
+                "expires_at": expires_at.isoformat(),
+            }).execute()
+
+            if not result.data:
+                raise Exception("Failed to store OTP")
+
+            logger.info(f"OTP created for {email}, expires at {expires_at.isoformat()}")
+            return otp, expires_at.isoformat()
+
+        except Exception as e:
+            logger.error(f"Failed to create OTP for {email}: {e}")
+            raise Exception("Failed to generate verification code")
+
+    async def verify_otp(self, email: str, otp: str) -> dict:
+        """
+        Verify OTP code
+
+        Args:
+            email: User's email address
+            otp: 6-digit OTP code
+
+        Returns:
+            Dict with verification result:
+            - success: bool
+            - error: str (if failed)
+            - attempts_remaining: int (if failed)
+        """
+        try:
+            email_lower = email.lower()
+
+            # Get the latest OTP record for this email
+            result = self.supabase.table("email_verifications") \
+                .select("*") \
+                .eq("email", email_lower) \
+                .is_("verified_at", "null") \
+                .order("created_at", desc=True) \
+                .limit(1) \
+                .execute()
+
+            if not result.data:
+                logger.warning(f"No pending OTP found for {email}")
+                return {
+                    "success": False,
+                    "error": "No pending verification found. Please request a new code.",
+                    "attempts_remaining": 0
+                }
+
+            record = result.data[0]
+            record_id = record["id"]
+            stored_hash = record["otp_hash"]
+            attempts = record["attempts"]
+            max_attempts = record["max_attempts"]
+            expires_at = record["expires_at"]
+
+            # Check if expired
+            from datetime import datetime, timezone
+            expiry_time = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+            if utc_now() > expiry_time:
+                logger.warning(f"OTP expired for {email}")
+                return {
+                    "success": False,
+                    "error": "Verification code has expired. Please request a new one.",
+                    "attempts_remaining": 0
+                }
+
+            # Check if max attempts exceeded
+            if attempts >= max_attempts:
+                logger.warning(f"Max OTP attempts exceeded for {email}")
+                return {
+                    "success": False,
+                    "error": "Too many failed attempts. Please request a new code.",
+                    "attempts_remaining": 0
+                }
+
+            # Verify OTP using constant-time comparison
+            input_hash = self._hash_otp(otp)
+            if self._constant_time_compare(input_hash, stored_hash):
+                # Success - mark as verified
+                self.supabase.table("email_verifications") \
+                    .update({"verified_at": utc_now().isoformat()}) \
+                    .eq("id", record_id) \
+                    .execute()
+
+                logger.info(f"OTP verified successfully for {email}")
+                return {"success": True}
+            else:
+                # Failed - increment attempts
+                new_attempts = attempts + 1
+                self.supabase.table("email_verifications") \
+                    .update({"attempts": new_attempts}) \
+                    .eq("id", record_id) \
+                    .execute()
+
+                remaining = max_attempts - new_attempts
+                logger.warning(f"Invalid OTP for {email}, {remaining} attempts remaining")
+                return {
+                    "success": False,
+                    "error": f"Invalid verification code. {remaining} attempts remaining.",
+                    "attempts_remaining": remaining
+                }
+
+        except Exception as e:
+            logger.error(f"OTP verification error for {email}: {e}")
+            return {
+                "success": False,
+                "error": "Verification failed. Please try again.",
+                "attempts_remaining": 0
+            }
+
+    async def invalidate_existing_otps(self, email: str) -> None:
+        """Invalidate all existing OTPs for an email"""
+        try:
+            self.supabase.table("email_verifications") \
+                .delete() \
+                .eq("email", email.lower()) \
+                .is_("verified_at", "null") \
+                .execute()
+        except Exception as e:
+            logger.warning(f"Failed to invalidate existing OTPs for {email}: {e}")
+
+    async def can_resend_otp(self, email: str) -> tuple[bool, int]:
+        """
+        Check if user can request a new OTP (cooldown check)
+
+        Returns:
+            Tuple of (can_resend, seconds_remaining)
+        """
+        try:
+            email_lower = email.lower()
+
+            # Get the latest OTP record for this email
+            result = self.supabase.table("email_verifications") \
+                .select("created_at") \
+                .eq("email", email_lower) \
+                .order("created_at", desc=True) \
+                .limit(1) \
+                .execute()
+
+            if not result.data:
+                return True, 0
+
+            from datetime import datetime
+            created_at = datetime.fromisoformat(
+                result.data[0]["created_at"].replace("Z", "+00:00")
+            )
+            elapsed = (utc_now() - created_at).total_seconds()
+
+            if elapsed < self.RESEND_COOLDOWN_SECONDS:
+                remaining = int(self.RESEND_COOLDOWN_SECONDS - elapsed)
+                return False, remaining
+
+            return True, 0
+
+        except Exception as e:
+            logger.warning(f"Resend check error for {email}: {e}")
+            return True, 0  # Allow resend on error
+
+
+# Singleton instance
+_otp_service: OTPService | None = None
+
+
+def get_otp_service() -> OTPService:
+    """Get OTP service singleton"""
+    global _otp_service
+    if _otp_service is None:
+        _otp_service = OTPService()
+    return _otp_service

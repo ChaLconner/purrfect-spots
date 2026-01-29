@@ -33,29 +33,7 @@ def get_auth_service():
     return AuthService(get_supabase_client())
 
 
-def get_client_info(request: Request) -> tuple[str, str]:
-    """Helper to get IP and User-Agent safely"""
-    ip = request.client.host if request.client else "unknown"
-    user_agent = request.headers.get("user-agent", "")
-
-    # Check X-Forwarded-For if behind proxy
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        ip = forwarded.split(",")[0].strip()
-
-    return ip, user_agent
-
-
-def set_refresh_cookie(response: Response, refresh_token: str):
-    """Helper to set secure refresh token cookie"""
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        secure=config.is_production(),
-        samesite="lax",
-        max_age=config.JWT_REFRESH_EXPIRATION_DAYS * 24 * 60 * 60,
-    )
+from utils.auth_utils import get_client_info, set_refresh_cookie
 
 
 @router.get("/google/login")
@@ -122,7 +100,7 @@ async def google_login(
 
         return LoginResponse(
             access_token=access_token,
-            token_type="bearer",
+            token_type="bearer",  # nosec B106
             user=UserResponse(
                 id=user.id,
                 email=user.email,

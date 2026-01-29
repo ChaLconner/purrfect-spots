@@ -65,7 +65,7 @@ onMounted(() => {
   setMetaTags({
     title: 'Forgot Password | Purrfect Spots',
     description: 'Reset your Purrfect Spots password to regain access to your account.',
-    type: 'website'
+    type: 'website',
   });
 });
 
@@ -74,16 +74,18 @@ onUnmounted(() => {
 });
 
 const handleSubmit = async () => {
-    isLoading.value = true;
-    try {
-        await apiV1.post('/auth/forgot-password', { email: email.value });
-        showSuccess('If an account exists, you will receive an email shortly.', 'Check your inbox');
-        // We don't clear email or redirect immediately so user can see message
-    } catch (err: unknown) {
-        showError((err as Error).message || 'Something went wrong', 'Error');
-    } finally {
-        isLoading.value = false;
-    }
+  isLoading.value = true;
+  try {
+    await apiV1.post('/auth/forgot-password', { email: email.value });
+    showSuccess('If an account exists, you will receive an email shortly.', 'Check your inbox');
+    // We don't clear email or redirect immediately so user can see message
+  } catch (err: unknown) {
+    let message = (err as Error).message || 'Something went wrong';
+    if (message.includes('status code')) message = 'Unable to process request. Please try again.';
+    showError(message, 'Error');
+  } finally {
+    isLoading.value = false;
+  }
 };
 </script>
 
@@ -97,10 +99,8 @@ const handleSubmit = async () => {
   padding: 2rem;
   position: relative;
   overflow: hidden;
-  background-color: #EAF6F3;
+  background-color: #eaf6f3;
 }
-
-
 
 .auth-card {
   display: grid;
@@ -118,7 +118,12 @@ const handleSubmit = async () => {
 }
 
 .auth-illustration {
-  background: linear-gradient(135deg, rgba(127, 183, 164, 0.85) 0%, rgba(149, 196, 180, 0.85) 50%, rgba(168, 212, 197, 0.85) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(127, 183, 164, 0.85) 0%,
+    rgba(149, 196, 180, 0.85) 50%,
+    rgba(168, 212, 197, 0.85) 100%
+  );
   display: flex;
   align-items: center;
   justify-content: center;
@@ -126,7 +131,7 @@ const handleSubmit = async () => {
 }
 
 .illustration-content {
-    text-align: center;
+  text-align: center;
 }
 
 .cat-image {
@@ -169,12 +174,12 @@ const handleSubmit = async () => {
   font-family: 'Nunito', sans-serif;
   font-size: 2rem;
   font-weight: 800;
-  color: #5A4632;
+  color: #5a4632;
 }
 
 .form-subtitle {
   font-family: 'Inter', sans-serif;
-  color: #7D7D7D;
+  color: #7d7d7d;
 }
 
 .auth-form {
@@ -184,15 +189,15 @@ const handleSubmit = async () => {
 }
 
 .form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .form-label {
-    font-family: 'Nunito', sans-serif;
-    font-weight: 600;
-    color: #5A4632;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  color: #5a4632;
 }
 
 .form-input {
@@ -207,8 +212,8 @@ const handleSubmit = async () => {
 }
 
 .form-input:focus {
-    background: white;
-    border-color: #7FB7A4;
+  background: white;
+  border-color: #7fb7a4;
 }
 
 .submit-btn {
@@ -218,7 +223,7 @@ const handleSubmit = async () => {
   font-family: 'Nunito', sans-serif;
   font-weight: 700;
   color: white;
-  background: linear-gradient(135deg, #7FB7A4 0%, #6DA491 100%);
+  background: linear-gradient(135deg, #7fb7a4 0%, #6da491 100%);
   border: none;
   border-radius: 1rem;
   cursor: pointer;
@@ -226,34 +231,32 @@ const handleSubmit = async () => {
 }
 
 .submit-btn:hover:not(:disabled) {
-    transform: translateY(-2px);
+  transform: translateY(-2px);
 }
 
 .submit-btn:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .switch-mode {
-    margin-top: 1.5rem;
-    text-align: center;
+  margin-top: 1.5rem;
+  text-align: center;
 }
 
 .switch-link {
-    color: #7FB7A4;
-    font-weight: 600;
-    text-decoration: none;
+  color: #7fb7a4;
+  font-weight: 600;
+  text-decoration: none;
 }
 
-
-
 @media (max-width: 768px) {
-    .auth-card {
-        grid-template-columns: 1fr;
-        max-width: 450px;
-    }
-    .auth-illustration {
-        display: none;
-    }
+  .auth-card {
+    grid-template-columns: 1fr;
+    max-width: 450px;
+  }
+  .auth-illustration {
+    display: none;
+  }
 }
 </style>

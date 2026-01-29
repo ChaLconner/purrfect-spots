@@ -9,21 +9,25 @@ Frontend of the cat photo sharing app - Beautiful and easy to use!
 - 🖼️ **Beautiful Gallery** - View photos in modal format
 - 📍 **Location Detection** - GPS support
 - 🌏 **Multi-language** - Full language support
+- 🤖 **AI Integration** - Display cat detection results
 
 ## 🛠️ Technologies
 
 - **Vue.js 3** - JavaScript framework
+- **TypeScript** - Type-safe JavaScript
 - **Vite** - Very fast build tool
+- **Pinia** - State management
 - **Vue Router** - Navigation
 - **Tailwind CSS** - Beautiful styling
-- **Leaflet** - Interactive maps
+- **Google Maps** - Interactive maps
 
-## 🧩 Components
+## 🧩 Structure
 
-- **NavBar** - Main menu bar
-- **Gallery** - Display photos in grid format
-- **Map** - Map showing cat locations
-- **Upload** - Photo upload form
+- **src/components/** - Reusable components (NavBar, Gallery, Map, etc.)
+- **src/views/** - Page views (Home, Upload, Profile, etc.)
+- **src/services/** - API communication
+- **src/store/** - State management (Pinia)
+- **src/composables/** - Reusable logic (Hooks)
 
 ## 🚀 Development
 
@@ -40,11 +44,11 @@ npm run build
 
 ## 🔗 API Integration
 
-Connect to Flask backend at `http://localhost:5000`:
-- Get photo lists
-- Upload new photos
-- Get location data
-- Manage metadata
+Connects to FastAPI backend at `http://localhost:8000`:
+- **Auth**: Google OAuth & JWT
+- **Photos**: Upload and gallery listing
+- **Locations**: Geolocation data
+- **AI**: Cat detection results
 
 ---
 

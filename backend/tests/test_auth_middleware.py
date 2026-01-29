@@ -1,3 +1,6 @@
+# nosec python:S2068, python:S5332 - Hardcoded secrets/URLs in this file are intentional test fixtures
+# These are not real credentials/URLs; they are used only for unit testing authentication
+
 import os
 import sys
 import time

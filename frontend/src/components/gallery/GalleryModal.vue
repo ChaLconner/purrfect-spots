@@ -1,9 +1,9 @@
 <template>
   <Teleport to="body">
     <Transition name="modal-fade">
-      <div 
-        v-if="image" 
-        class="modal-backdrop" 
+      <div
+        v-if="image"
+        class="modal-backdrop"
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
@@ -32,7 +32,7 @@
               <div class="image-overlay"></div>
 
               <!-- Navigation Arrows (Floating) -->
-              <button 
+              <button
                 v-if="hasPrevious"
                 class="nav-btn prev-btn"
                 aria-label="Previous image"
@@ -49,8 +49,8 @@
                   <path d="M15 18L9 12L15 6" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
               </button>
-              
-              <button 
+
+              <button
                 v-if="hasNext"
                 class="nav-btn next-btn"
                 aria-label="Next image"
@@ -94,9 +94,9 @@
                     <span v-if="dateFormatted" class="date-text">{{ dateFormatted }}</span>
                   </div>
                 </div>
-                
-                <button 
-                  ref="closeButtonRef" 
+
+                <button
+                  ref="closeButtonRef"
                   class="close-btn"
                   aria-label="Close"
                   @click="$emit('close')"
@@ -171,7 +171,9 @@
 import { ref, watch, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import SkeletonLoader from '@/components/ui/SkeletonLoader.vue';
-import { extractTags, getCleanDescription, setSearchQuery, type CatLocation } from '@/store/cats';
+import { useCatsStore } from '@/store';
+import { extractTags, getCleanDescription } from '@/store/catsStore';
+import type { CatLocation } from '@/types/api';
 import { IMAGE_CONFIG } from '@/utils/constants';
 
 const props = defineProps<{
@@ -187,6 +189,7 @@ const emit = defineEmits<{
 }>();
 
 const router = useRouter();
+const catsStore = useCatsStore();
 const closeButtonRef = ref<HTMLButtonElement | null>(null);
 const imageStageRef = ref<HTMLDivElement | null>(null);
 const isLoaded = ref(false);
@@ -204,12 +207,12 @@ const hasPrevious = computed(() => {
 
 const hasNext = computed(() => {
   if (props.currentIndex === undefined) return false;
-  
+
   // Use totalImages if provided (more accurate for full navigation)
   if (props.totalImages !== undefined) {
     return props.currentIndex < props.totalImages - 1;
   }
-  
+
   // Fallback to images array length
   return props.images && props.currentIndex < props.images.length - 1;
 });
@@ -231,7 +234,9 @@ const dateFormatted = computed(() => {
   if (!props.image?.uploaded_at) return '';
   try {
     return new Date(props.image.uploaded_at).toLocaleDateString('en-US', {
-      month: 'short', day: 'numeric', year: 'numeric'
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
     });
   } catch {
     return '';
@@ -253,7 +258,7 @@ function navigateNext() {
 
 // Search by tag
 function searchByTag(tag: string) {
-  setSearchQuery(`#${tag}`);
+  catsStore.setSearchQuery(`#${tag}`);
   emit('close');
   router.push({ path: '/map', query: { search: `#${tag}` } });
 }
@@ -270,7 +275,7 @@ function openDirections() {
 // Keyboard navigation
 function handleKeydown(e: KeyboardEvent) {
   if (!props.image) return;
-  
+
   switch (e.key) {
     case 'Escape':
       emit('close');
@@ -294,11 +299,11 @@ function handleTouchStart(e: TouchEvent) {
 
 function handleTouchMove(e: TouchEvent) {
   if (!isSwiping.value) return;
-  
+
   const touch = e.touches[0];
   const deltaX = touch.clientX - touchStartX.value;
   const deltaY = Math.abs(touch.clientY - touchStartY.value);
-  
+
   // Only allow horizontal swipe if moving more horizontally than vertically
   if (Math.abs(deltaX) > deltaY) {
     e.preventDefault();
@@ -308,11 +313,11 @@ function handleTouchMove(e: TouchEvent) {
 function handleTouchEnd(e: TouchEvent) {
   if (!isSwiping.value) return;
   isSwiping.value = false;
-  
+
   const touch = e.changedTouches[0];
   const deltaX = touch.clientX - touchStartX.value;
   const deltaY = Math.abs(touch.clientY - touchStartY.value);
-  
+
   // Only trigger swipe if horizontal movement is significant and more than vertical
   if (Math.abs(deltaX) > SWIPE_THRESHOLD && Math.abs(deltaX) > deltaY) {
     if (deltaX > 0 && hasPrevious.value) {
@@ -326,68 +331,74 @@ function handleTouchEnd(e: TouchEvent) {
 // Preload adjacent images for smooth navigation
 function preloadAdjacentImages() {
   if (!props.images || props.currentIndex === undefined) return;
-  
+
   const preloadImage = (url: string) => {
     const img = new Image();
     img.src = url;
   };
-  
+
   // Preload next image
   if (props.currentIndex < props.images.length - 1) {
     preloadImage(props.images[props.currentIndex + 1].image_url);
   }
-  
+
   // Preload previous image
   if (props.currentIndex > 0) {
     preloadImage(props.images[props.currentIndex - 1].image_url);
   }
 }
 
-watch(() => props.image, (newVal, oldVal) => {
-  if (newVal) {
-    // Only reset loading state on initial open or if we want to show loading state
-    // For navigation, we keep the previous image visible until the new one loads (no flicker)
-    if (!oldVal) {
-      isLoaded.value = false;
-    }
-    document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', handleKeydown);
-    
-    // Setup touch events for swipe
-    if (imageStageRef.value) {
-      imageStageRef.value.addEventListener('touchstart', handleTouchStart, { passive: true });
-      imageStageRef.value.addEventListener('touchmove', handleTouchMove, { passive: false });
-      imageStageRef.value.addEventListener('touchend', handleTouchEnd, { passive: true });
-    }
-    
-    setTimeout(() => {
-      closeButtonRef.value?.focus();
-    }, 100);
-    
-    // Preload adjacent images
-    preloadAdjacentImages();
-  } else {
-    document.body.style.overflow = '';
-    window.removeEventListener('keydown', handleKeydown);
-    
-    // Cleanup touch events
-    if (imageStageRef.value) {
-      imageStageRef.value.removeEventListener('touchstart', handleTouchStart);
-      imageStageRef.value.removeEventListener('touchmove', handleTouchMove);
-      imageStageRef.value.removeEventListener('touchend', handleTouchEnd);
+watch(
+  () => props.image,
+  (newVal, oldVal) => {
+    if (newVal) {
+      // Only reset loading state on initial open or if we want to show loading state
+      // For navigation, we keep the previous image visible until the new one loads (no flicker)
+      if (!oldVal) {
+        isLoaded.value = false;
+      }
+      document.body.style.overflow = 'hidden';
+      window.addEventListener('keydown', handleKeydown);
+
+      // Setup touch events for swipe
+      if (imageStageRef.value) {
+        imageStageRef.value.addEventListener('touchstart', handleTouchStart, { passive: true });
+        imageStageRef.value.addEventListener('touchmove', handleTouchMove, { passive: false });
+        imageStageRef.value.addEventListener('touchend', handleTouchEnd, { passive: true });
+      }
+
+      setTimeout(() => {
+        closeButtonRef.value?.focus();
+      }, 100);
+
+      // Preload adjacent images
+      preloadAdjacentImages();
+    } else {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeydown);
+
+      // Cleanup touch events
+      if (imageStageRef.value) {
+        imageStageRef.value.removeEventListener('touchstart', handleTouchStart);
+        imageStageRef.value.removeEventListener('touchmove', handleTouchMove);
+        imageStageRef.value.removeEventListener('touchend', handleTouchEnd);
+      }
     }
   }
-});
+);
 
 // Watch for navigation to preload adjacent images
-watch(() => props.currentIndex, () => {
-  preloadAdjacentImages();
-});
+watch(
+  () => props.currentIndex,
+  () => {
+    preloadAdjacentImages();
+  }
+);
 
 onUnmounted(() => {
   document.body.style.overflow = '';
   window.removeEventListener('keydown', handleKeydown);
-  
+
   // Cleanup touch events
   if (imageStageRef.value) {
     imageStageRef.value.removeEventListener('touchstart', handleTouchStart);
@@ -408,8 +419,6 @@ function handleError(event: Event) {
 </script>
 
 <style scoped>
-
-
 /* Modal Backdrop */
 .modal-backdrop {
   position: fixed;
@@ -435,10 +444,10 @@ function handleError(event: Event) {
 .modal-card {
   display: flex;
   flex-direction: column;
-  background: #FFFFFF;
+  background: #ffffff;
   border-radius: 2rem;
   overflow: hidden;
-  box-shadow: 
+  box-shadow:
     0 25px 50px -12px rgba(0, 0, 0, 0.5),
     0 0 0 1px rgba(255, 255, 255, 0.1);
   transform-style: preserve-3d;
@@ -483,7 +492,9 @@ function handleError(event: Event) {
   object-fit: cover;
   opacity: 0;
   transform: scale(1.05);
-  transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.2, 0, 0.2, 1);
+  transition:
+    opacity 0.6s ease,
+    transform 0.6s cubic-bezier(0.2, 0, 0.2, 1);
 }
 
 .main-image.is-visible {
@@ -497,7 +508,7 @@ function handleError(event: Event) {
   left: 0;
   width: 100%;
   height: 120px;
-  background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.6), transparent);
   pointer-events: none;
 }
 
@@ -528,25 +539,31 @@ function handleError(event: Event) {
 
 /* On mobile always show */
 @media (max-width: 768px) {
-  .nav-btn { opacity: 1; width: 40px; height: 40px; }
+  .nav-btn {
+    opacity: 1;
+    width: 40px;
+    height: 40px;
+  }
 }
 
 .nav-btn:hover {
   background: white;
   color: #1a1a1a;
   transform: translateY(-50%) scale(1.1);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.prev-btn { left: 1.5rem; }
-.next-btn { right: 1.5rem; }
-
-
+.prev-btn {
+  left: 1.5rem;
+}
+.next-btn {
+  right: 1.5rem;
+}
 
 /* Content Side */
 .modal-content {
   flex: 1;
-  background: #FFFBF6; /* Very subtle cream */
+  background: #fffbf6; /* Very subtle cream */
   display: flex;
   flex-direction: column;
   padding: 2.5rem;
@@ -565,7 +582,7 @@ function handleError(event: Event) {
   font-family: 'Nunito', sans-serif;
   font-size: 2.5rem;
   font-weight: 800;
-  color: #2D2420;
+  color: #2d2420;
   line-height: 1;
   margin-bottom: 0.75rem;
   letter-spacing: -0.02em;
@@ -581,14 +598,14 @@ function handleError(event: Event) {
 .location-badge {
   display: inline-flex;
   align-items: center;
-  color: #A65D37;
+  color: #a65d37;
   font-weight: 700;
   font-size: 0.95rem;
   font-family: 'Inter', sans-serif;
 }
 
 .date-text {
-  color: #8D8D8D;
+  color: #8d8d8d;
   font-size: 0.9rem;
   font-weight: 500;
   position: relative;
@@ -599,7 +616,7 @@ function handleError(event: Event) {
   content: '•';
   position: absolute;
   left: 0;
-  color: #CCC;
+  color: #ccc;
 }
 
 /* Close Button */
@@ -607,8 +624,8 @@ function handleError(event: Event) {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: #F0EBE5;
-  color: #5A4632;
+  background: #f0ebe5;
+  color: #5a4632;
   border: none;
   display: flex;
   align-items: center;
@@ -619,9 +636,9 @@ function handleError(event: Event) {
 }
 
 .close-btn:hover {
-  background: #E8DCCF;
+  background: #e8dccf;
   transform: rotate(90deg);
-  color: #A65D37;
+  color: #a65d37;
 }
 
 /* Body */
@@ -642,7 +659,7 @@ function handleError(event: Event) {
   background: transparent;
 }
 .content-body::-webkit-scrollbar-thumb {
-  background: #E0D6CC;
+  background: #e0d6cc;
   border-radius: 3px;
 }
 
@@ -650,7 +667,7 @@ function handleError(event: Event) {
   font-family: 'Inter', sans-serif;
   font-size: 1.05rem;
   line-height: 1.7;
-  color: #5A4E47;
+  color: #5a4e47;
 }
 
 .description-placeholder {
@@ -664,7 +681,7 @@ function handleError(event: Event) {
   text-transform: uppercase;
   font-size: 0.75rem;
   letter-spacing: 0.1em;
-  color: #A65D37;
+  color: #a65d37;
   margin-bottom: 0.75rem;
 }
 
@@ -676,8 +693,8 @@ function handleError(event: Event) {
 
 .tag-chip {
   padding: 0.4rem 1rem;
-  background: #EAF0EE;
-  color: #537C6D;
+  background: #eaf0ee;
+  color: #537c6d;
   border: 1px solid rgba(83, 124, 109, 0.1);
   border-radius: 100px;
   font-size: 0.85rem;
@@ -688,8 +705,8 @@ function handleError(event: Event) {
 }
 
 .tag-chip:hover {
-  background: #DCE8E3;
-  color: #3D5E51;
+  background: #dce8e3;
+  color: #3d5e51;
   transform: translateY(-1px);
 }
 
@@ -697,7 +714,7 @@ function handleError(event: Event) {
 .content-footer {
   margin-top: 2rem;
   padding-top: 1.5rem;
-  border-top: 1px solid rgba(0,0,0,0.05);
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .action-btn {
@@ -716,14 +733,14 @@ function handleError(event: Event) {
 }
 
 .action-btn.primary {
-  background: #A65D37;
+  background: #a65d37;
   color: white;
   border: none;
   box-shadow: 0 8px 20px rgba(166, 93, 55, 0.25);
 }
 
 .action-btn.primary:hover {
-  background: #9A5029;
+  background: #9a5029;
   transform: translateY(-2px);
   box-shadow: 0 12px 24px rgba(166, 93, 55, 0.3);
 }
@@ -752,12 +769,24 @@ function handleError(event: Event) {
 }
 
 @keyframes modal-slide-up {
-  from { transform: translateY(40px) scale(0.95); opacity: 0; }
-  to { transform: translateY(0) scale(1); opacity: 1; }
+  from {
+    transform: translateY(40px) scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
 }
 
 @keyframes modal-slide-down {
-  from { transform: translateY(0) scale(1); opacity: 1; }
-  to { transform: translateY(20px) scale(0.95); opacity: 0; }
+  from {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(20px) scale(0.95);
+    opacity: 0;
+  }
 }
 </style>

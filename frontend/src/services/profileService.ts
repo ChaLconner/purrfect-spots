@@ -11,7 +11,7 @@
  */
 import type { User } from '../types/auth';
 import type { CatLocation } from '../types/api';
-import { apiV1, ApiError } from '../utils/api';
+import { apiV1 } from '../utils/api';
 
 /**
  * Data structure for profile updates
@@ -69,110 +69,46 @@ export class ProfileService {
    * ```
    */
   static async getProfile(): Promise<User> {
-    try {
-      return await apiV1.get<User>('/profile');
-    } catch (error) {
-      if (error instanceof ApiError && error.statusCode === 401) {
-        // Clear expired tokens
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('user_data');
-        localStorage.removeItem('user');
-        
-        // Update auth store
-        const { useAuthStore } = await import('../store/authStore');
-        const auth = useAuthStore();
-        auth.clearAuth();
-        
-        throw new Error('Authentication expired. Please log in again.');
-      }
-      throw error;
-    }
+    return await apiV1.get<User>('/profile');
   }
 
   // Update user profile
   static async updateProfile(data: ProfileUpdateData): Promise<User> {
-    try {
-      const result = await apiV1.put<{user: User}>('/profile', data);
-      return result.user;
-    } catch (error) {
-      if (error instanceof ApiError && error.statusCode === 401) {
-        // Clear expired tokens
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('user_data');
-        localStorage.removeItem('user');
-        
-        // Update auth store
-        const { useAuthStore } = await import('../store/authStore');
-        const auth = useAuthStore();
-        auth.clearAuth();
-        
-        throw new Error('Authentication expired. Please log in again.');
-      }
-      throw error;
-    }
+    const result = await apiV1.put<{user: User}>('/profile', data);
+    return result.user;
   }
 
   // Get user uploads
   static async getUserUploads(): Promise<CatLocation[]> {
-    try {
-      const result = await apiV1.get<{uploads: CatLocation[]}>('/profile/uploads');
-      return result.uploads || [];
-    } catch (error) {
-      if (error instanceof ApiError && error.statusCode === 401) {
-        // Clear expired tokens
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('user_data');
-        localStorage.removeItem('user');
-        
-        // Update auth store
-        const { useAuthStore } = await import('../store/authStore');
-        const auth = useAuthStore();
-        auth.clearAuth();
-        
-        throw new Error('Authentication expired. Please log in again.');
-      }
-      throw error;
-  // Join uploads
-    }
+    const result = await apiV1.get<{uploads: CatLocation[]}>('/profile/uploads');
+    return result.uploads || [];
   }
 
   // Upload profile picture
   static async uploadProfilePicture(file: File): Promise<string> {
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      const result = await apiV1.post<{picture: string}>('/profile/picture', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      return result.picture;
-    } catch (error) {
-      if (error instanceof ApiError && error.statusCode === 401) {
-         // Token handling...
-         throw new Error('Authentication expired');
-      }
-      throw error;
-    }
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const result = await apiV1.post<{picture: string}>('/profile/picture', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return result.picture;
   }
 
   // Change password
   static async changePassword(data: ChangePasswordData): Promise<void> {
-    try {
-      await apiV1.put('/profile/password', data);
-    } catch (error) {
-      if (error instanceof ApiError) {
-        if (error.statusCode === 401) {
-          throw new Error('Authentication expired');
-        }
-        // Pass through backend validation errors (e.g. incorrect password)
-        throw new Error(error.message || 'Failed to change password');
-      }
-      throw error;
-    }
+    await apiV1.put('/profile/password', data);
+  }
+
+  // Update photo details
+  static async updatePhoto(photoId: string, data: { location_name?: string; description?: string }): Promise<void> {
+    await apiV1.put(`/profile/uploads/${photoId}`, data);
+  }
+
+  // Delete uploaded photo
+  static async deletePhoto(photoId: string): Promise<void> {
+    await apiV1.delete(`/profile/uploads/${photoId}`);
   }
 }

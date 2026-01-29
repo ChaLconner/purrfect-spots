@@ -312,20 +312,43 @@ class TestUploadValidation:
 class TestUploadWithPredetectedCats:
     """Test upload with pre-detected cat data"""
 
-    def test_upload_with_cat_detection_data(self, client, sample_image_bytes, mock_user, mock_supabase):
-        """Test upload with pre-provided cat detection data"""
+    def test_upload_ignores_client_detection_data(
+        self,
+        client,
+        sample_image_bytes,
+        mock_user,
+        mock_supabase,
+    ):
+        """
+        Test that upload IGNORES client-provided cat detection data and uses server result.
+        Security Fix Verification.
+        """
         from dependencies import get_supabase_client
         from main import app
         from middleware.auth_middleware import get_current_user
-        from routes.upload import get_storage_service
+        from routes.upload import get_cat_detection_service, get_storage_service
 
         mock_storage = MagicMock()
         mock_storage.upload_file = AsyncMock(return_value="https://s3.example.com/cat.jpg")
+
+        # Mock DETECTION service to return a specific "Server Truth"
+        mock_cat_detection_service = MagicMock()
+        # Server says: 1 cat, confidence 0.95
+        mock_cat_detection_service.detect_cats = AsyncMock(
+            return_value={
+                "has_cats": True,
+                "cat_count": 1,
+                "confidence": 0.95,
+                "suitable_for_cat_spot": True,
+                "cats_detected": [{"name": "cat", "score": 0.95}],
+            }
+        )
 
         # Override dependencies
         app.dependency_overrides[get_current_user] = lambda: mock_user
         app.dependency_overrides[get_storage_service] = lambda: mock_storage
         app.dependency_overrides[get_supabase_client] = lambda: mock_supabase
+        app.dependency_overrides[get_cat_detection_service] = lambda: mock_cat_detection_service
 
         mock_admin = MagicMock()
         mock_admin.table.return_value.insert.return_value.execute.return_value = MagicMock(
@@ -345,10 +368,11 @@ class TestUploadWithPredetectedCats:
             with patch("routes.upload.process_uploaded_image") as mock_process:
                 mock_process.return_value = (sample_image_bytes, "image/jpeg", "jpg")
 
+                # Client sends "Fake" data: 2 cats, 0.98 confidence
                 cat_detection_data = json.dumps(
                     {
                         "has_cats": True,
-                        "cat_count": 2,
+                        "cat_count": 99,  # Exaggerated to prove it's ignored
                         "confidence": 0.98,
                         "suitable_for_cat_spot": True,
                     }
@@ -362,11 +386,14 @@ class TestUploadWithPredetectedCats:
                     "cat_detection_data": cat_detection_data,
                 }
 
-            response = client.post("/api/v1/upload/cat", files=files, data=data)
+                response = client.post("/api/v1/upload/cat", files=files, data=data)
 
         # Clean up overrides
         app.dependency_overrides = {}
 
         assert response.status_code == 201
         result = response.json()
-        assert result["cat_detection"]["cat_count"] == 2
+        
+        # ASSERTION: Result should match SERVER mock (cat_count=1), NOT client data (cat_count=99)
+        assert result["cat_detection"]["cat_count"] == 1
+        assert result["cat_detection"]["confidence"] == 0.95

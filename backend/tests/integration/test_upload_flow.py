@@ -7,6 +7,9 @@ These tests verify the end-to-end upload process:
 3. Cat detection
 4. Database storage
 5. Gallery retrieval
+
+# nosec python:S2068 - Hardcoded passwords in this file are intentional test fixtures
+# These are not real credentials; they are used only for integration testing
 """
 
 import io
@@ -237,16 +240,26 @@ class TestAuthFlowIntegration:
 
     def test_register_creates_user(self, client):
         """Test: Registration creates a new user"""
-        with patch("routes.auth_manual.AuthService") as mock_auth:
-            mock_service = MagicMock()
-            mock_service.create_user_with_password.return_value = {
-                "id": "new-user-123",
-                "email": "new@example.com",
-            }
-            mock_service.create_access_token.return_value = "access-token"
-            mock_service.create_refresh_token.return_value = "refresh-token"
-            mock_auth.return_value = mock_service
+        mock_service = MagicMock()
+        mock_service.create_user_with_password.return_value = {
+            "id": "new-user-123",
+            "email": "new@example.com",
+            "name": "New User",
+            "picture": None,
+            "bio": None,
+            "created_at": "2024-01-01T00:00:00",
+            "verification_required": True,  # Set to True to go through verification flow
+        }
+        mock_service.authenticate_user.return_value = None  # No auto-login for verification flow
+        mock_service.create_access_token.return_value = "access-token"
+        mock_service.create_refresh_token.return_value = "refresh-token"
 
+        from main import app
+        from routes.auth_manual import get_auth_service
+
+        app.dependency_overrides[get_auth_service] = lambda: mock_service
+
+        try:
             response = client.post(
                 "/api/v1/auth/register",
                 json={
@@ -255,6 +268,8 @@ class TestAuthFlowIntegration:
                     "name": "New User",
                 },
             )
+        finally:
+            app.dependency_overrides = {}
 
         # Should succeed or fail with validation
         assert response.status_code in [200, 201, 400, 409, 422]

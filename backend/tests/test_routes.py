@@ -4,6 +4,8 @@ Tests for API routes (integration tests)
 
 from unittest.mock import MagicMock
 
+import pytest
+
 from main import app
 from routes.gallery import get_gallery_service
 
@@ -153,7 +155,7 @@ class TestGalleryRoutes:
     def test_get_locations(self, client, mock_cat_photo):
         """Test locations endpoint for map display"""
         mock_service = MagicMock()
-        mock_service.get_all_photos_simple.return_value = [mock_cat_photo]
+        mock_service.get_map_locations.return_value = [mock_cat_photo]
 
         app.dependency_overrides[get_gallery_service] = lambda: mock_service
 
@@ -162,8 +164,8 @@ class TestGalleryRoutes:
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 1
-        assert data[0]["latitude"] == 13.7563
-        assert data[0]["longitude"] == 100.5018
+        assert data[0]["latitude"] == pytest.approx(13.7563)
+        assert data[0]["longitude"] == pytest.approx(100.5018)
 
         app.dependency_overrides = {}
 

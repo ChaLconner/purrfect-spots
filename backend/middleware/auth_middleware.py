@@ -4,7 +4,7 @@ Authentication middleware for protecting routes with Supabase Auth
 
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 import httpx
 import jwt
@@ -14,6 +14,7 @@ from supabase import Client
 
 from config import config
 from dependencies import get_supabase_admin_client, get_supabase_client
+from logger import logger
 from services.token_service import get_token_service
 from user_models.user import User
 
@@ -50,8 +51,8 @@ async def get_jwks():
                 _jwks_cache = response.json()
                 _jwks_last_update = int(current_time)
                 return _jwks_cache
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Failed to refresh JWKS cache: {e}")
 
     return _jwks_cache
 
@@ -102,9 +103,10 @@ async def _is_token_revoked(jti: str) -> bool:
     try:
         token_service = await get_token_service()
         return await token_service.is_blacklisted(jti=jti)
-    except Exception:
+    except Exception as e:
         # Fallback to allow if service fails, but log it
         # Ideally we should fail open for reliability unless security is paramount
+        logger.debug(f"Token revocation check failed (allowing): {e}")
         return False
 
 
@@ -128,9 +130,9 @@ def _get_user_from_payload(payload: dict, source: str) -> User:
                 bio=data.get("bio"),
                 created_at=data.get("created_at", ""),
             )
-    except Exception:
+    except Exception as e:
         # Fallback to payload data if DB lookup fails
-        pass
+        logger.warning(f"Failed to fetch user from DB in middleware: {e}")
 
     # Construct User from payload
     if source == "supabase":
@@ -160,29 +162,78 @@ def _get_user_from_payload(payload: dict, source: str) -> User:
         )
 
 
-async def _verify_and_decode_token(token: str) -> tuple[dict, str]:
+async def _verify_and_decode_token(token: str, supabase: Client | None = None) -> tuple[dict, str]:
     """Helper to verify and decode token, trying Supabase first then custom"""
+    payload = None
+    source = "unknown"
+
     try:
         # Try Supabase token first
         payload = await decode_supabase_token(token)
-        return payload, "supabase"
-    except (HTTPException, ValueError):
+        source = "supabase"
+    except (HTTPException, ValueError) as supabase_error:
         # Try custom token as fallback
         try:
             payload = decode_custom_token(token)
-
-            # Check revocation for custom tokens
-            jti = payload.get("jti")
-            if jti and await _is_token_revoked(jti):
-                raise HTTPException(status_code=401, detail="Token revoked")
-
-            return payload, "custom"
-        except HTTPException:
+            source = "custom"
+        except HTTPException as http_exc:
+            logger.warning(f"Custom token decode failed (HTTP {http_exc.status_code}): {http_exc.detail}")
             raise
-        except Exception:
-            raise HTTPException(status_code=401, detail="Authentication failed")
-    except Exception:
+        except Exception as custom_error:
+            logger.debug(f"Custom token decode failed: {custom_error!s}")
+            
+            # FINAL FALLBACK: Try Supabase API directly if we have a client
+            if supabase:
+                try:
+                    logger.debug("Attempting direct Supabase Auth verification...")
+                    user_res = supabase.auth.get_user(token)
+                    if user_res and user_res.user:
+                        supabase_user = user_res.user
+                        payload = {
+                            "sub": supabase_user.id,
+                            "user_id": supabase_user.id,
+                            "email": supabase_user.email,
+                            "user_metadata": supabase_user.user_metadata,
+                            "app_metadata": supabase_user.app_metadata,
+                            "iat": int(datetime.now(timezone.utc).timestamp()),
+                        }
+                        source = "supabase"
+                        logger.info(f"Token verified via direct Supabase Auth API for user {supabase_user.id}")
+                        return payload, source
+                except Exception as api_err:
+                    logger.debug(f"Direct Supabase verification failed: {api_err}")
+
+            logger.warning(f"All auth verification methods failed for token. Supabase error: {supabase_error!s}")
+            raise HTTPException(status_code=401, detail="Authentication failed: Invalid or expired token")
+    except Exception as e:
+        logger.error(f"Unexpected token verification error: {e!s}")
         raise HTTPException(status_code=401, detail="Authentication failed")
+
+    # Common Security Checks (Revocation & Invalidation)
+    if payload:
+        # 1. Check JTI Revocation (Blocklist)
+        jti = payload.get("jti")
+        if jti and await _is_token_revoked(jti):
+            raise HTTPException(status_code=401, detail="Token revoked")
+
+        # 2. Check Global User Invalidation (e.g. Password Reset)
+        user_id = payload.get("sub") or payload.get("user_id")
+        iat = payload.get("iat")
+        if user_id and iat:
+            try:
+                token_service = await get_token_service()
+                # Ensure iat is datetime
+                issued_at = datetime.fromtimestamp(iat, timezone.utc)
+                if await token_service.is_user_invalidated(user_id, issued_at):
+                    raise HTTPException(status_code=401, detail="Session invalidated (Password changed)")
+            except HTTPException:
+                raise
+            except Exception as e:
+                # Log but verify open? checking service might fail
+                # Ideally fail closed for high security
+                logger.error(f"Failed to check user invalidation status: {e}")
+
+    return payload, source
 
 
 async def get_current_user_from_credentials(
@@ -191,7 +242,7 @@ async def get_current_user_from_credentials(
 ):
     """Get current authenticated user using Supabase Auth"""
     token = credentials.credentials
-    payload, source = await _verify_and_decode_token(token)
+    payload, source = await _verify_and_decode_token(token, supabase)
     return _get_user_from_payload(payload, source)
 
 
@@ -226,5 +277,5 @@ async def get_current_user_from_header(request: Request):
         raise HTTPException(status_code=401, detail="Missing or invalid token")
 
     token = auth_header.split(" ")[1]
-    payload, _ = await _verify_and_decode_token(token)
+    payload, _ = await _verify_and_decode_token(token, get_supabase_client())
     return payload

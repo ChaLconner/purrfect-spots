@@ -55,7 +55,7 @@ class TestGalleryServiceExtended:
 
         with patch("dependencies.get_supabase_admin_client", return_value=mock_supabase_admin):
             service = GalleryService(mock_supabase)
-            service.supabase_admin = mock_supabase_admin
+            service._admin_client_lazy = mock_supabase_admin
             # Force enable fulltext for tests unless specified
             service._fulltext_available = True
             return service

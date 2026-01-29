@@ -18,11 +18,9 @@ from middleware.auth_middleware import get_current_user
 from services.cat_detection_service import CatDetectionService
 from services.storage_service import StorageService
 from utils.cache import invalidate_gallery_cache, invalidate_tags_cache
-from utils.file_processing import process_uploaded_image, validate_coordinates
+from utils.file_processing import process_uploaded_image, validate_coordinates, validate_location_data
 from utils.security import (
     log_security_event,
-    sanitize_description,
-    sanitize_location_name,
     sanitize_tags,
 )
 
@@ -70,9 +68,14 @@ def format_tags_for_description(tags: list, description: str) -> str:
     return hashtag_string
 
 
+from pydantic import ValidationError
+
+from schemas.cat_detection import CatDetectionResult
+
+
 def validate_cat_detection_data(cat_data: dict) -> bool:
     """
-    Validate cat detection data structure and values.
+    Validate cat detection data structure and values using Pydantic model.
 
     Returns:
         True if valid, False otherwise
@@ -80,25 +83,16 @@ def validate_cat_detection_data(cat_data: dict) -> bool:
     if not cat_data or not isinstance(cat_data, dict):
         return False
 
-    # Required fields
-    required_fields = ["has_cats", "cat_count", "confidence"]
-    for field in required_fields:
-        if field not in cat_data:
-            return False
-
-    # Validate values
-    if not isinstance(cat_data.get("has_cats"), bool):
+    try:
+        # Use simple validation against the schema
+        # We need to handle potential missing optional fields loosely if client sends partial data,
+        # but here we want to ensure the structure is correct.
+        CatDetectionResult(**cat_data)
+        return True
+    except ValidationError:
         return False
-
-    cat_count = cat_data.get("cat_count", 0)
-    if not isinstance(cat_count, (int, float)) or cat_count < 0:
+    except Exception:
         return False
-
-    confidence = cat_data.get("confidence", 0)
-    if not isinstance(confidence, (int, float)) or not (0 <= confidence <= 100):
-        return False
-
-    return True
 
 
 @router.post("/cat")
@@ -150,81 +144,68 @@ async def upload_cat_photo(
             user_id=user_id,
         )
 
-        # Parse and validate cat detection data if provided
-        cat_data = None
+        # Parse client-side cat detection data (logging/debugging only)
+        client_cat_data = None
         if cat_detection_data:
             try:
-                cat_data = json.loads(cat_detection_data)
-
-                # Validate the structure and values
-                if not validate_cat_detection_data(cat_data):
-                    log_security_event(
-                        "invalid_cat_detection_data",
-                        user_id=user_id,
-                        details={"data": str(cat_data)[:200]},
-                        severity="WARNING",
-                    )
-                    cat_data = None  # Force server-side detection
-
+                client_cat_data = json.loads(cat_detection_data)
+                logger.debug(f"Client-side detection data received: {client_cat_data}")
             except json.JSONDecodeError:
-                log_security_event(
-                    "cat_detection_json_parse_error",
-                    user_id=user_id,
-                    severity="WARNING",
-                )
-                cat_data = None
+                logger.warning(f"Failed to parse client detection data: {cat_detection_data}")
 
-        # If no valid cat detection data provided, detect cats on server
-        if not cat_data:
-            await file.seek(0)
-            detection_result = await detection_service.detect_cats(file)
+        # CRITICAL SECURITY FIX: Always perform server-side detection
+        # Never trust client-side validation results for content security
+        await file.seek(0)
+        detection_result = await detection_service.detect_cats(file)
 
-            # Reject if no cats found
-            if not detection_result.get("has_cats", False):
-                log_security_event(
-                    "upload_rejected_no_cats",
-                    user_id=user_id,
-                    details={"detection_result": str(detection_result)[:200]},
-                    severity="INFO",
-                )
-                raise HTTPException(
-                    status_code=400,
-                    detail="No cats detected in the image. Please upload a photo containing cats.",
-                )
+        # Log discrepancy if client said "has_cats" but server says "no"
+        if client_cat_data and client_cat_data.get("has_cats") and not detection_result.get("has_cats"):
+            log_security_event(
+                "detection_mismatch",
+                user_id=user_id,
+                details={
+                    "client_result": client_cat_data,
+                    "server_result": str(detection_result)[:200],
+                },
+                severity="WARNING",
+            )
 
-            cat_data = {
-                "has_cats": detection_result.get("has_cats"),
-                "cat_count": detection_result.get("cat_count", 0),
-                "confidence": detection_result.get("confidence", 0),
-                "suitable_for_cat_spot": detection_result.get("suitable_for_cat_spot", False),
-                "cats_detected": detection_result.get("cats_detected", []),
-                "detection_timestamp": datetime.now().isoformat(),
-                "detection_source": "server",
-            }
+        # Reject if no cats found by server
+        if not detection_result.get("has_cats", False):
+            log_security_event(
+                "upload_rejected_no_cats",
+                user_id=user_id,
+                details={"detection_result": str(detection_result)[:200]},
+                severity="INFO",
+            )
+            raise HTTPException(
+                status_code=400,
+                detail="No cats detected in the image. Please upload a photo containing cats.",
+            )
 
-        # Validate that cats were detected (be lenient if client marked for server verification)
-        requires_verification = cat_data.get("requires_server_verification", False)
+        # Use server determination for the record
+        cat_data = {
+            "has_cats": detection_result.get("has_cats"),
+            "cat_count": detection_result.get("cat_count", 0),
+            "confidence": detection_result.get("confidence", 0),
+            "suitable_for_cat_spot": detection_result.get("suitable_for_cat_spot", False),
+            "cats_detected": detection_result.get("cats_detected", []),
+            "detection_timestamp": datetime.now().isoformat(),
+            "detection_source": "server",
+        }
+
+        # Validate that cats were detected (Redundant but safe check)
         has_cats = cat_data.get("has_cats", False)
-        cat_count = cat_data.get("cat_count", 0)
-
-        # Allow upload if: (has_cats AND cat_count > 0) OR (requires_verification AND has_cats)
-        if not has_cats or (cat_count == 0 and not requires_verification):
-            log_security_event("upload_rejected_invalid_detection", user_id=user_id, severity="INFO")
+        
+        if not has_cats:
+            # Should be caught above, but double check
             raise HTTPException(status_code=400, detail="Cannot upload: No cats detected in the image")
 
-        # Use shared validation utilities for coordinates
+        # Use shared validation utilities for coordinates and location text
         latitude, longitude = validate_coordinates(lat, lng)
-
-        # Sanitize text inputs
-        cleaned_location_name = sanitize_location_name(location_name)
-        cleaned_description = sanitize_description(description) if description else ""
-
-        # Validate location name after sanitization
-        if not cleaned_location_name or len(cleaned_location_name) < 3:
-            raise HTTPException(status_code=400, detail="Location name must be at least 3 characters")
-
-        if len(cleaned_location_name) > 100:
-            raise HTTPException(status_code=400, detail="Location name must be under 100 characters")
+        
+        # Consolidate text validation
+        cleaned_location_name, cleaned_description = validate_location_data(location_name, description)
 
         # Process and sanitize tags
         parsed_tags = parse_and_sanitize_tags(tags)
@@ -264,11 +245,24 @@ async def upload_cat_photo(
         # Use admin client to bypass RLS
         from dependencies import get_supabase_admin_client
 
-        supabase_admin = get_supabase_admin_client()
+        try:
+            supabase_admin = get_supabase_admin_client()
+            result = supabase_admin.table("cat_photos").insert(photo_data).execute()
 
-        result = supabase_admin.table("cat_photos").insert(photo_data).execute()
-
-        if not result.data:
+            if not result.data:
+                raise Exception("Database insert returned no data")
+        
+        except Exception as db_error:
+            # Rollback: Delete file from S3 if DB insert fails
+            logger.error(f"Database insert failed: {db_error!s}. Rolling back S3 upload.")
+            storage_service.delete_file(image_url)
+            
+            log_security_event(
+                "upload_transaction_rollback",
+                user_id=user_id,
+                details={"error": str(db_error)[:200], "image_url": image_url},
+                severity="ERROR",
+            )
             raise HTTPException(status_code=500, detail="Failed to save cat photo")
 
         created_photo = result.data[0]

@@ -255,7 +255,7 @@ def get_token_service_sync() -> TokenService:
                 import redis.asyncio as aioredis
 
                 redis_client = aioredis.from_url(redis_url, encoding="utf-8", decode_responses=False)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Could not connect to Redis (sync): {e}")
         _token_service = TokenService(redis_client)
     return _token_service

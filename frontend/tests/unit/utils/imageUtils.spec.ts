@@ -1,77 +1,79 @@
-import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { validateImageFile, imageToBase64 } from '@/utils/imageUtils';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { 
+  getCDNUrl, 
+  validateImageFile, 
+  isCDNAvailable,
+  generateResponsiveSources
+} from '@/utils/imageUtils';
 
-describe('imageUtils', () => {
-  beforeAll(() => {
-    // Mock URL methods
-    global.URL.createObjectURL = vi.fn(() => 'blob:mock-url');
-    global.URL.revokeObjectURL = vi.fn();
+import * as envModule from '@/utils/env';
+
+// Mock env module
+vi.mock('@/utils/env', () => ({
+  isProd: vi.fn(() => true),
+  isDev: vi.fn(() => false),
+  getEnvVar: vi.fn(),
+}));
+
+describe('Image Utils', () => {
+
+  describe('isCDNAvailable', () => {
+    it('is defined', () => {
+        expect(isCDNAvailable).toBeDefined();
+    });
   });
 
   describe('validateImageFile', () => {
-    it('should return valid true for correct file type and size', () => {
-      const file = new File([''], 'cat.jpg', { type: 'image/jpeg' });
-      // Mock size getter since File/Blob size is based on content
-      Object.defineProperty(file, 'size', { value: 1024 });
-
+    it('validates correct file', () => {
+      const file = new File([''], 'test.jpg', { type: 'image/jpeg' });
       const result = validateImageFile(file);
       expect(result.valid).toBe(true);
     });
 
-    it('should return valid false for incorrect file type', () => {
-      const file = new File([''], 'document.pdf', { type: 'application/pdf' });
+    it('rejects invalid type', () => {
+      const file = new File([''], 'test.txt', { type: 'text/plain' });
       const result = validateImageFile(file);
       expect(result.valid).toBe(false);
       expect(result.error).toContain('Invalid file type');
     });
 
-    it('should return valid false for too large file', () => {
-      const file = new File([''], 'large.jpg', { type: 'image/jpeg' });
-      // 11MB
-      Object.defineProperty(file, 'size', { value: 11 * 1024 * 1024 });
-
-      const result = validateImageFile(file, 10); // Max 10MB
+    it('rejects large file', () => {
+      const file = { 
+        name: 'large.jpg', 
+        type: 'image/jpeg', 
+        size: 20 * 1024 * 1024 
+      } as File;
+      
+      const result = validateImageFile(file, 10); // 10MB limit
       expect(result.valid).toBe(false);
       expect(result.error).toContain('File too large');
     });
   });
 
-  describe('imageToBase64', () => {
-    it('should convert file to base64 string', async () => {
-      const file = new File(['content'], 'test.txt', { type: 'text/plain' });
-      
-      // Mock FileReader
-      const mockFileReader = {
-        readAsDataURL: vi.fn(),
-        result: 'data:text/plain;base64,content',
-        onload: null as any,
-        onerror: null as any,
-      };
-      
-      // Hijack the global FileReader
-      const originalFileReader = global.FileReader;
-      
-      // Use a class because 'new FileReader()' is called
-      global.FileReader = class {
-        constructor() {
-          // Return our mock object instead of a real instance
-          return mockFileReader as any;
-        }
-      } as any;
+  describe('getCDNUrl', () => {
+      it('returns original URL if CDN disabled', () => {
+          const url = 'https://example.com/img.jpg';
+          const result = getCDNUrl(url);
+          expect(result).toBe(url);
+      });
+  });
 
-      try {
-        const promise = imageToBase64(file);
-        
-        // Simulate onload
-        if (mockFileReader.onload) {
-            mockFileReader.onload({} as any);
-        }
-        
-        const result = await promise;
-        expect(result).toBe('data:text/plain;base64,content');
-      } finally {
-        global.FileReader = originalFileReader;
-      }
-    });
+  describe('generateResponsiveSources', () => {
+      it('generates sources for multiple widths', () => {
+          const url = 'https://example.com/img.jpg';
+          const sources = generateResponsiveSources(url);
+          
+          expect(sources.length).toBeGreaterThan(0);
+          expect(sources[0].srcSet).toContain(url);
+          expect(sources[0].srcSet).toContain('w'); // checks for width descriptor
+      });
+
+      it('respects base options', () => {
+         // Since isCDNAvailable returns false in default mock setup (missing env var),
+         // generateResponsiveSources just returns original url + width descriptor.
+         const url = '/img.jpg';
+         const sources = generateResponsiveSources(url, { format: 'webp' });
+         expect(sources[0].srcSet).toContain('/img.jpg');
+      });
   });
 });

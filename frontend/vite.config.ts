@@ -103,6 +103,7 @@ export default defineConfig({
         quality: 85,
       },
     }),
+
   ],
   base: "/",
   resolve: {

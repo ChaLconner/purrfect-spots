@@ -59,7 +59,7 @@ async def check_database() -> dict[str, Any]:
         return {
             "status": "unhealthy",
             "latency_ms": round(latency_ms, 2),
-            "error": str(e)[:100],  # Truncate error message
+            "error": "Connection failed",
         }
 
 
@@ -100,7 +100,7 @@ async def check_redis() -> dict[str, Any]:
         return {"status": "not_available", "error": "Redis package not installed"}
     except Exception as e:
         logger.error(f"Redis health check failed: {e}")
-        return {"status": "unhealthy", "error": str(e)[:100]}
+        return {"status": "unhealthy", "error": "Connection failed"}
 
 
 async def check_s3() -> dict[str, Any]:
@@ -138,7 +138,7 @@ async def check_s3() -> dict[str, Any]:
         return {"status": "not_available", "error": "boto3 package not installed"}
     except Exception as e:
         logger.error(f"S3 health check failed: {e}")
-        return {"status": "unhealthy", "error": str(e)[:100]}
+        return {"status": "unhealthy", "error": "Connection failed"}
 
 
 async def check_google_vision() -> dict[str, Any]:
@@ -179,7 +179,7 @@ async def check_google_vision() -> dict[str, Any]:
             }
     except Exception as e:
         logger.error(f"Google Vision health check failed: {e}")
-        return {"status": "unknown", "error": str(e)[:100]}
+        return {"status": "unknown", "error": "Check failed"}
 
 
 async def check_sentry() -> dict[str, Any]:

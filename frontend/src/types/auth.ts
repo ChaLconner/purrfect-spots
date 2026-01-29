@@ -5,13 +5,17 @@ export interface User {
   picture?: string;
   bio?: string;
   created_at: string;
+  google_id?: string;
 }
 
 export interface LoginResponse {
-  access_token: string;
-  token_type: string;
+  access_token?: string;
+  token_type?: string;
   user: User;
   refresh_token?: string; // Optional refresh token from backend
+  message?: string;
+  requires_verification?: boolean;
+  email?: string;
 }
 
 export interface AuthState {

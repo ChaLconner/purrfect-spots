@@ -16,7 +16,7 @@ const routes = [
     path: "/upload",
     name: "Upload",
     component: () => import("@/views/UploadView.vue"),
-    meta: { requiresAuth: true },
+
   },
   {
     path: "/gallery/:id?",
@@ -52,6 +52,12 @@ const routes = [
     name: "ResetPassword",
     component: () => import("@/views/ResetPasswordView.vue"),
   },
+  {
+    path: "/verify-email",
+    name: "VerifyEmail",
+    component: () => import("@/views/VerifyEmailView.vue"),
+    meta: { requiresGuest: true },
+  },
 
   {
     path: "/auth/callback",
@@ -71,6 +77,14 @@ const router = createRouter({
 
 // Global navigation guard
 router.beforeEach((to, _from, next) => {
+  // 1. Handle Supabase Auth Redirects (e.g. Email Verification links landing on root)
+  // If we see a hash with access_token, redirect to AuthCallback to process it
+  if (to.hash && to.hash.includes('access_token=') && to.name !== 'AuthCallback') {
+    next({ name: 'AuthCallback', query: to.query, hash: to.hash });
+    return;
+  }
+
+  // 2. Auth Protection Guard
   if (to.meta.requiresAuth) {
     const auth = useAuthStore();
     if (!auth.isUserReady) {

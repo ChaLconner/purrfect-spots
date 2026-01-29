@@ -6,20 +6,59 @@
  * - Legacy endpoints (without prefix) are maintained for backward compatibility
  */
 
-
 import axios from 'axios';
 import type { AxiosInstance, AxiosRequestConfig, AxiosError, AxiosProgressEvent } from 'axios';
 import { isBrowserExtensionError, handleBrowserExtensionError } from './browserExtensionHandler';
 import { isDev, getEnvVar } from './env';
-import { useAuthStore } from '../store/authStore';
 
+// ========== API Error Types & Classes (Defined Early) ==========
+export const ApiErrorTypes = {
+  NETWORK_ERROR: 'NETWORK_ERROR',
+  AUTHENTICATION_ERROR: 'AUTHENTICATION_ERROR',
+  AUTHORIZATION_ERROR: 'AUTHORIZATION_ERROR',
+  VALIDATION_ERROR: 'VALIDATION_ERROR',
+  SERVER_ERROR: 'SERVER_ERROR',
+  UNKNOWN_ERROR: 'UNKNOWN_ERROR'
+} as const;
+
+export type ApiErrorType = typeof ApiErrorTypes[keyof typeof ApiErrorTypes];
+
+export class ApiError extends Error {
+  type: ApiErrorType;
+  statusCode?: number;
+  originalError?: unknown;
+
+  constructor(
+    type: ApiErrorType,
+    message: string,
+    statusCode?: number,
+    originalError?: unknown
+  ) {
+    super(message);
+    this.name = 'ApiError';
+    this.type = type;
+    this.statusCode = statusCode;
+    this.originalError = originalError;
+  }
+}
+
+// ========== State & Callbacks (Break Circular Dependencies) ==========
 // In-memory access token (not exposed to window/global)
 let currentAccessToken: string | null = null;
+let refreshTokenCallback: (() => Promise<boolean>) | null = null;
+let logoutCallback: (() => void) | null = null;
 
 export const setAccessToken = (token: string | null) => {
   currentAccessToken = token;
 };
 
+export const setAuthCallbacks = (
+  refreshFn: () => Promise<boolean>,
+  logoutFn: () => void
+) => {
+  refreshTokenCallback = refreshFn;
+  logoutCallback = logoutFn;
+};
 
 // ========== API Configuration ==========
 export const API_VERSION = 'v1';
@@ -46,39 +85,7 @@ export interface PaginatedResponse<T> {
   pagination: PaginationMeta;
 }
 
-// API Error Types
-export const ApiErrorTypes = {
-  NETWORK_ERROR: 'NETWORK_ERROR',
-  AUTHENTICATION_ERROR: 'AUTHENTICATION_ERROR',
-  AUTHORIZATION_ERROR: 'AUTHORIZATION_ERROR',
-  VALIDATION_ERROR: 'VALIDATION_ERROR',
-  SERVER_ERROR: 'SERVER_ERROR',
-  UNKNOWN_ERROR: 'UNKNOWN_ERROR'
-} as const;
-
-export type ApiErrorType = typeof ApiErrorTypes[keyof typeof ApiErrorTypes];
-
-// API Error Class
-export class ApiError extends Error {
-  type: ApiErrorType;
-  statusCode?: number;
-  originalError?: unknown;
-
-  constructor(
-    type: ApiErrorType,
-    message: string,
-    statusCode?: number,
-    originalError?: unknown
-  ) {
-    super(message);
-    this.name = 'ApiError';
-    this.type = type;
-    this.statusCode = statusCode;
-    this.originalError = originalError;
-  }
-}
-
-// Get API base URL from environment variable
+// ========== Helpers ==========
 export const getApiBaseUrl = (): string => {
   const envUrl = getEnvVar('VITE_API_BASE_URL');
   
@@ -86,35 +93,33 @@ export const getApiBaseUrl = (): string => {
     return envUrl;
   }
   
-  // Auto-detect environment
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   
   if (isLocalhost) {
-    // Local development - use localhost backend
     return 'http://localhost:8000';
   } 
   
-  // Production fallback
   if (!envUrl) {
+    // eslint-disable-next-line no-console
     console.warn('⚠️ [API Config] VITE_API_BASE_URL is missing!');
+    // eslint-disable-next-line no-console
     console.info('ℹ️ [API Config] Current Origin:', window.location.origin);
+    // eslint-disable-next-line no-console
     console.info('ℹ️ [API Config] Requests will be relative to frontend domain.');
   } else {
+    // eslint-disable-next-line no-console
     console.info('✅ [API Config] Using API URL:', envUrl);
   }
   
   return envUrl || '';
 };
 
-// Create API URL with endpoint
 export const getApiUrl = (endpoint: string): string => {
   const baseUrl = getApiBaseUrl();
-  // Remove leading slash from endpoint if present
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
   return `${baseUrl}/${cleanEndpoint}`;
 };
 
-// Default headers for API requests
 export const getDefaultHeaders = (): Record<string, string> => {
   return {
     'Content-Type': 'application/json',
@@ -122,96 +127,69 @@ export const getDefaultHeaders = (): Record<string, string> => {
   };
 };
 
-// Get headers with authentication
 export const getAuthHeaders = (): Record<string, string> => {
   const headers = getDefaultHeaders();
-  
   if (currentAccessToken) {
     headers['Authorization'] = `Bearer ${currentAccessToken}`;
   }
-  
   return headers;
 };
 
-
-// Create axios instance with default configuration
+// ========== Axios Instance Creation ==========
 const createApiInstance = (): AxiosInstance => {
   const instance = axios.create({
     baseURL: getApiBaseUrl(),
-    timeout: 30000, // 30 seconds timeout
+    timeout: 30000,
     headers: getDefaultHeaders(),
-    withCredentials: true, // Enable cookies for cross-site requests
+    withCredentials: true,
   });
 
   // Request interceptor to add auth token
   instance.interceptors.request.use(
     (config) => {
-      // Add auth token if available (from memory)
       if (currentAccessToken) {
         config.headers.Authorization = `Bearer ${currentAccessToken}`;
       }
-
-      
       return config;
     },
-    (error) => {
-      return Promise.reject(error);
-    }
+    (error) => Promise.reject(error)
   );
 
-  // Response interceptor for centralized error handling
+  // Response interceptor
   instance.interceptors.response.use(
     (response) => {
-      // Check if response is actually JSON
       const contentType = response.headers['content-type'];
       if (contentType && !contentType.includes('application/json')) {
-        // Handle non-JSON responses
         if (isDev()) {
-          // eslint-disable-next-line no-console
           console.warn('Received non-JSON response:', contentType, response.data);
         }
-        
-        // Try to parse as JSON anyway in case Content-Type header is wrong
         if (typeof response.data === 'string') {
           try {
             response.data = JSON.parse(response.data);
           } catch {
-            // If it's not JSON, create a proper error response
-            throw new ApiError(
-              ApiErrorTypes.UNKNOWN_ERROR,
-              `Invalid response format from server. Expected JSON but received ${contentType}`,
-              response.status,
-              new Error(`Non-JSON response: ${response.data}`)
-            );
+             // ignore
           }
         }
-        
-        // If response data is not an object (likely HTML), throw an error
         if (typeof response.data !== 'object' || response.data === null) {
-          throw new ApiError(
-            ApiErrorTypes.SERVER_ERROR,
-            'Server returned invalid response format. Please try again.',
-            response.status,
-            new Error(`Invalid response data type: ${typeof response.data}`)
-          );
+             // Only throw if we strictly expect object and got something else that isn't parseable
+             // But for now, let's allow it unless it causes issues, or throw specific error?
+             // Original code threw error here.
+             throw new ApiError(
+                ApiErrorTypes.SERVER_ERROR,
+                'Server returned invalid response format.',
+                response.status,
+                new Error(`Invalid response data type: ${typeof response.data}`)
+              );
         }
       }
-      
       return response;
     },
     async (error: AxiosError) => {
-      // Handle browser extension errors first
       if (isBrowserExtensionError(error)) {
-        // Retry the request once for browser extension errors
-        return handleBrowserExtensionError(
-          error,
-          () => apiInstance.request(error.config!)
-        );
+        return handleBrowserExtensionError(error, () => instance.request(error.config!));
       }
 
-      // Handle different types of errors
       if (!error.response) {
-        // Network error
         throw new ApiError(
           ApiErrorTypes.NETWORK_ERROR,
           'Cannot connect to server. Please check your internet connection',
@@ -222,156 +200,74 @@ const createApiInstance = (): AxiosInstance => {
 
       const { status, data } = error.response;
       
-      // Handle specific HTTP status codes
       switch (status) {
-          // Authentication error - 401
           case 401: {
-          const originalRequest = error.config;
-          const isRefreshRequest = originalRequest?.url?.includes('/auth/refresh-token');
-          
-          // If it's a refresh token request that failed, we are properly logged out
-          if (isRefreshRequest) {
-             const auth = useAuthStore();
-             auth.clearAuth();
-             throw new ApiError(
-              ApiErrorTypes.AUTHENTICATION_ERROR,
-              'Session expired',
-              status,
-              error
-            );
-          }
+            const originalRequest = error.config;
+            const isRefreshRequest = originalRequest?.url?.includes('/auth/refresh-token');
+            
+            if (isRefreshRequest) {
+               if (logoutCallback) logoutCallback();
+               throw new ApiError(ApiErrorTypes.AUTHENTICATION_ERROR, 'Session expired', status, error);
+            }
 
-          // If it's a normal request, try to refresh the token
-          if (status === 401 && originalRequest && !(originalRequest as AxiosRequestConfig & { _retry?: boolean })._retry) {
-            (originalRequest as AxiosRequestConfig & { _retry?: boolean })._retry = true;
-            
-            try {
-              const auth = useAuthStore();
-              const refreshed = await auth.refreshToken();
+            if (status === 401 && originalRequest && !(originalRequest as AxiosRequestConfig & { _retry?: boolean })._retry) {
+              (originalRequest as AxiosRequestConfig & { _retry?: boolean })._retry = true;
               
-              if (refreshed && auth.token) {
-                // Update authorization header with new token
-                originalRequest.headers['Authorization'] = `Bearer ${auth.token}`;
-                // Retry original request
-                return apiInstance(originalRequest);
+              try {
+                if (refreshTokenCallback) {
+                  const refreshed = await refreshTokenCallback();
+                  if (refreshed && currentAccessToken) {
+                    originalRequest.headers['Authorization'] = `Bearer ${currentAccessToken}`;
+                    return instance(originalRequest);
+                  }
+                }
+              } catch (refreshError) {
+                if (isDev()) console.warn('Silent refresh failed:', refreshError);
               }
-            } catch (refreshError) {
-              // Refresh failed - proceed to logout
-              if (isDev()) {
-                console.warn('Silent refresh failed:', refreshError);
-              }
+              
+              if (logoutCallback) logoutCallback();
+              throw new ApiError(ApiErrorTypes.AUTHENTICATION_ERROR, 'Login session expired. Please log in again', status, error);
+            }
+             
+            if (!isRefreshRequest) {
+              if (logoutCallback) logoutCallback();
+              throw new ApiError(ApiErrorTypes.AUTHENTICATION_ERROR, 'Login session expired. Please log in again', status, error);
             }
             
-            // If we get here, refresh failed or return false
-            const auth = useAuthStore();
-            auth.clearAuth();
-            throw new ApiError(
-              ApiErrorTypes.AUTHENTICATION_ERROR,
-              'Login session expired. Please log in again',
-              status,
-              error
-            );
-          }
-           
-          // Fallback if retry logic was bypassed (shouldn't happen often)
-          if (!isRefreshRequest) {
-            const auth = useAuthStore();
-            auth.clearAuth();
-            throw new ApiError(
-              ApiErrorTypes.AUTHENTICATION_ERROR,
-              'Login session expired. Please log in again',
-              status,
-              error
-            );
-          }
-          
-          // For refresh-token requests (redundant fallback but keeps types safe)
-          throw new ApiError(
-            ApiErrorTypes.AUTHENTICATION_ERROR,
-            'No active session',
-            status,
-            error
-          );
-        }
-          
-        case 403:
-          // Authorization error
-          throw new ApiError(
-            ApiErrorTypes.AUTHORIZATION_ERROR,
-            'You do not have permission to access this information',
-            status,
-            error
-          );
-          
-        case 422:
-          // Validation error
-          const validationMessage = (data as { detail?: string })?.detail || 'Invalid data';
-          throw new ApiError(
-            ApiErrorTypes.VALIDATION_ERROR,
-            validationMessage,
-            status,
-            error
-          );
-          
-        case 500:
-        case 502:
-        case 503:
-        case 504:
-          // Server error
-          throw new ApiError(
-            ApiErrorTypes.SERVER_ERROR,
-            'Server error. Please try again later',
-            status,
-            error
-          );
-          
-        default:
-          // Unknown error - check if response is HTML (common error page)
-          const contentType = error.response.headers['content-type'];
-          if (contentType && contentType.includes('text/html')) {
-          if (isDev()) {
-            console.error('Server returned HTML instead of JSON:', {
-              status,
-              contentType,
-              url: error.config?.url,
-              data: error.response.data
-            });
+            throw new ApiError(ApiErrorTypes.AUTHENTICATION_ERROR, 'No active session', status, error);
           }
             
+          case 403:
             throw new ApiError(
-              ApiErrorTypes.SERVER_ERROR,
-              'Server returned HTML error page instead of JSON. Please try again.',
+              ApiErrorTypes.AUTHORIZATION_ERROR,
+              'You do not have permission to access this information',
               status,
               error
             );
+            
+          case 422:
+            const validationMessage = (data as { detail?: string })?.detail || 'Invalid data';
+            throw new ApiError(ApiErrorTypes.VALIDATION_ERROR, validationMessage, status, error);
+            
+          case 500:
+          case 502:
+          case 503:
+          case 504: {
+            const serverDetail = (data as { detail?: string })?.detail;
+            const message = serverDetail || 'Server error. Please try again later';
+            throw new ApiError(ApiErrorTypes.SERVER_ERROR, message, status, error);
           }
-          
-          // Also check for non-object responses that might indicate HTML
-          if (typeof error.response.data === 'string' && error.response.data.includes('<html')) {
-            if (isDev()) {
-              console.error('Server returned HTML content:', {
-                status,
-                contentType,
-                url: error.config?.url,
-                dataPreview: error.response.data.substring(0, 200)
-              });
+            
+          default:
+            const contentType = error.response.headers['content-type'];
+            if (contentType && contentType.includes('text/html')) {
+              throw new ApiError(ApiErrorTypes.SERVER_ERROR, 'Server returned HTML error page instead of JSON.', status, error);
             }
-            
-            throw new ApiError(
-              ApiErrorTypes.SERVER_ERROR,
-              'Server returned HTML content instead of JSON. Please try again.',
-              status,
-              error
-            );
-          }
-          
-          const errorMessage = (data as { detail?: string })?.detail || (data as { message?: string })?.message || (error as Error).message || 'An unknown error occurred';
-          throw new ApiError(
-            ApiErrorTypes.UNKNOWN_ERROR,
-            errorMessage,
-            status,
-            error
-          );
+            if (typeof error.response.data === 'string' && error.response.data.includes('<html')) {
+              throw new ApiError(ApiErrorTypes.SERVER_ERROR, 'Server returned HTML content instead of JSON.', status, error);
+            }
+            const errorMessage = (data as { detail?: string })?.detail || (data as { message?: string })?.message || (error as Error).message || 'An unknown error occurred';
+            throw new ApiError(ApiErrorTypes.UNKNOWN_ERROR, errorMessage, status, error);
       }
     }
   );
@@ -379,7 +275,6 @@ const createApiInstance = (): AxiosInstance => {
   return instance;
 };
 
-// Create and export the API instance
 export const apiInstance = createApiInstance();
 
 // ========== Retry Configuration ==========
@@ -394,53 +289,29 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
   maxRetries: 3,
   baseDelayMs: 1000,
   maxDelayMs: 10000,
-  retryableStatuses: [408, 429, 502, 503, 504], // Request Timeout, Too Many Requests, Bad Gateway, Service Unavailable, Gateway Timeout
+  retryableStatuses: [408, 429, 502, 503, 504],
 };
 
-/**
- * Calculate delay with exponential backoff and jitter
- */
 function calculateBackoffDelay(attempt: number, config: RetryConfig): number {
   const exponentialDelay = config.baseDelayMs * Math.pow(2, attempt);
-  const jitter = Math.random() * 0.3 * exponentialDelay; // Add up to 30% jitter
+  // nosec typescript:S2245 - Math.random() is intentional for retry jitter timing
+  // PRNG is acceptable for network retry delays; cryptographic randomness not required
+  const jitter = Math.random() * 0.3 * exponentialDelay; 
   return Math.min(exponentialDelay + jitter, config.maxDelayMs);
 }
 
-/**
- * Check if an error is retryable
- */
 function isRetryableError(error: unknown, config: RetryConfig): boolean {
-  // Network errors are always retryable
-  if (error instanceof ApiError && error.type === ApiErrorTypes.NETWORK_ERROR) {
-    return true;
-  }
-  
-  // Check for retryable HTTP status codes
-  if (error instanceof ApiError && error.statusCode) {
-    return config.retryableStatuses.includes(error.statusCode);
-  }
-  
-  // Check for axios errors with response status
-  if (error.response?.status) {
-    return config.retryableStatuses.includes(error.response.status);
-  }
-  
-  // Network errors from axios (no response)
-  if (error.request && !error.response) {
-    return true;
-  }
-  
+  if (error instanceof ApiError && error.type === ApiErrorTypes.NETWORK_ERROR) return true;
+  if (error instanceof ApiError && error.statusCode) return config.retryableStatuses.includes(error.statusCode);
+  if ((error as AxiosError).response?.status) return config.retryableStatuses.includes((error as AxiosError).response!.status);
+  if ((error as AxiosError).request && !(error as AxiosError).response) return true;
   return false;
 }
 
-/**
- * Sleep for specified milliseconds
- */
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Enhanced API request functions using axios with retry logic
 export const apiRequest = async <T = unknown>(
   endpoint: string,
   options: AxiosRequestConfig = {},
@@ -455,12 +326,10 @@ export const apiRequest = async <T = unknown>(
         url: endpoint,
         ...options,
       });
-      
       return response.data;
     } catch (error) {
       lastError = error;
       
-      // Don't retry auth errors or validation errors
       if (error instanceof ApiError) {
         if (error.type === ApiErrorTypes.AUTHENTICATION_ERROR ||
             error.type === ApiErrorTypes.AUTHORIZATION_ERROR ||
@@ -469,25 +338,20 @@ export const apiRequest = async <T = unknown>(
         }
       }
       
-      // Check if we should retry
       const isLastAttempt = attempt === config.maxRetries;
       const shouldRetry = !isLastAttempt && isRetryableError(error, config);
       
       if (shouldRetry) {
         const delay = calculateBackoffDelay(attempt, config);
         if (isDev()) {
-          // eslint-disable-next-line no-console
-          console.log('[API Retry] Attempt', attempt + 1, '/', config.maxRetries + 1, 'failed, retrying in', delay, 'ms...', endpoint);
+           // eslint-disable-next-line no-console
+           console.log('[API Retry] Attempt', attempt + 1, '/', config.maxRetries + 1, 'failed, retrying in', delay, 'ms...', endpoint);
         }
         await sleep(delay);
         continue;
       }
       
-      // Re-throw ApiError as is, or wrap other errors
-      if (error instanceof ApiError) {
-        throw error;
-      }
-      
+      if (error instanceof ApiError) throw error;
       throw new ApiError(
         ApiErrorTypes.UNKNOWN_ERROR,
         (error as Error).message || 'An unknown error occurred',
@@ -496,13 +360,9 @@ export const apiRequest = async <T = unknown>(
       );
     }
   }
-  
-  // This should not be reached, but just in case
   throw lastError;
 };
 
-
-// Authenticated API request
 export const authenticatedApiRequest = async <T = unknown>(
   endpoint: string,
   options: AxiosRequestConfig = {}
@@ -510,7 +370,6 @@ export const authenticatedApiRequest = async <T = unknown>(
   return apiRequest<T>(endpoint, options);
 };
 
-// Convenience methods for common HTTP operations
 export const api = {
   get: <T = unknown>(endpoint: string, config?: AxiosRequestConfig) => 
     apiRequest<T>(endpoint, { method: 'GET', ...config }),
@@ -528,7 +387,6 @@ export const api = {
     apiRequest<T>(endpoint, { method: 'DELETE', ...config }),
 };
 
-// File upload helper
 export const uploadFile = async <T = unknown>(
   endpoint: string,
   file: File,
@@ -558,11 +416,6 @@ export const uploadFile = async <T = unknown>(
   });
 };
 
-// ========== Versioned API (v1) ==========
-/**
- * Versioned API object with /api/v1 prefix
- * Use this for all new code
- */
 export const apiV1 = {
   get: <T = unknown>(endpoint: string, config?: AxiosRequestConfig) => 
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'GET', ...config }),
@@ -580,35 +433,21 @@ export const apiV1 = {
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'DELETE', ...config }),
 };
 
-// ========== Pagination Utilities ==========
-/**
- * Build pagination query string
- */
 export function buildPaginationQuery(params: PaginationParams): string {
   const queryParams = new URLSearchParams();
-  
-  if (params.limit !== undefined) {
-    queryParams.set('limit', params.limit.toString());
-  }
-  
+  if (params.limit !== undefined) queryParams.set('limit', params.limit.toString());
   if (params.page !== undefined) {
     queryParams.set('page', params.page.toString());
   } else if (params.offset !== undefined) {
     queryParams.set('offset', params.offset.toString());
   }
-  
   const query = queryParams.toString();
   return query ? `?${query}` : '';
 }
 
-/**
- * Fetch paginated gallery data
- */
 export async function fetchPaginatedGallery<T>(
   params: PaginationParams = {}
 ): Promise<PaginatedResponse<T>> {
   const query = buildPaginationQuery(params);
   return apiV1.get<PaginatedResponse<T>>(`/gallery${query}`);
 }
-
-// Legacy functions are already exported individually above

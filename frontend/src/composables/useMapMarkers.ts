@@ -1,6 +1,8 @@
-import { shallowRef } from 'vue';
+/// <reference types="google.maps" />
+import { shallowRef, watch, type Ref, onUnmounted } from 'vue';
 import type { CatLocation } from '../types/api';
 import { EXTERNAL_URLS } from '../utils/constants';
+import { MarkerClusterer } from "@googlemaps/markerclusterer";
 
 // Type for google maps objects (since we load them dynamically)
 type GoogleMap = google.maps.Map;
@@ -10,23 +12,46 @@ export function useMapMarkers(map: Ref<GoogleMap | null>) {
   // Use shallowRef for markers array to avoid deep reactivity overhead with Google Maps objects
   const markers = shallowRef<Map<string, GoogleMarker>>(new Map());
   const userMarker = shallowRef<GoogleMarker | null>(null);
+  const clusterer = shallowRef<MarkerClusterer | null>(null);
   
   // Keep track of event listeners to clean them up
   const markerListeners = new Map<string, google.maps.MapsEventListener>();
+
+  // Watch for map changes to initialize/destroy clusterer
+  watch(map, (newMap) => {
+     if (newMap) {
+         if (!clusterer.value) {
+             clusterer.value = new MarkerClusterer({ map: newMap });
+         }
+     } else {
+         if (clusterer.value) {
+             clusterer.value.clearMarkers();
+             (clusterer.value as any).setMap(null); // eslint-disable-line @typescript-eslint/no-explicit-any
+             clusterer.value = null;
+         }
+     }
+  });
 
   /**
    * Update markers based on current locations list (Diffing logic)
    */
   const updateMarkers = (locations: CatLocation[], onMarkerClick?: (cat: CatLocation) => void) => {
     if (!map.value) return;
+    
+    // Ensure clusterer exists if map exists
+    if (!clusterer.value) {
+        clusterer.value = new MarkerClusterer({ map: map.value });
+    }
 
     const currentIds = new Set(locations.map(l => l.id));
     const markersMap = markers.value;
+    const markersToRemove: GoogleMarker[] = [];
+    const markersToAdd: GoogleMarker[] = [];
 
     // 1. Remove markers that are no longer in the list
     for (const [id, marker] of markersMap.entries()) {
       if (!currentIds.has(id)) {
-        marker.setMap(null);
+        markersToRemove.push(marker);
         
         // Remove listener
         if (markerListeners.has(id)) {
@@ -50,14 +75,16 @@ export function useMapMarkers(map: Ref<GoogleMap | null>) {
              Math.abs(currentPos.lng() - location.longitude) > 0.0001
            )) {
           existingMarker.setPosition({ lat: location.latitude, lng: location.longitude });
+          // Note: Clusterer might need notification or re-add if position changes significantly.
+          // For simplicity/performance in this specific use case (cats usually static?), we assume minor drift updates don't break clusters immediately
+          // or we could remove and add back if needed.
         }
       } else {
         // Create new marker
+        // Important: Do not set 'map' property, let clusterer handle it
         const marker = new google.maps.Marker({
           position: { lat: location.latitude, lng: location.longitude },
-          map: map.value,
           title: location.location_name || 'Cat Location',
-          animation: google.maps.Animation.DROP,
           icon: {
             url: EXTERNAL_URLS.CAT_MARKER_ICON,
             scaledSize: new google.maps.Size(40, 40)
@@ -72,9 +99,24 @@ export function useMapMarkers(map: Ref<GoogleMap | null>) {
           markerListeners.set(location.id, listener);
         }
 
+        markersToAdd.push(marker);
         markersMap.set(location.id, marker);
       }
     });
+
+    // Apply batch updates to clusterer
+    if (markersToRemove.length > 0) {
+        clusterer.value.removeMarkers(markersToRemove, true); // true = noDraw (defer redraw)
+    }
+    
+    if (markersToAdd.length > 0) {
+        clusterer.value.addMarkers(markersToAdd, true); // true = noDraw
+    }
+    
+    // Perform redraw once if changes occured
+    if (markersToRemove.length > 0 || markersToAdd.length > 0) {
+        clusterer.value.render();
+    }
     
     // Trigger shallow update if needed (though Map mutation is internal)
     markers.value = markersMap;
@@ -99,7 +141,7 @@ export function useMapMarkers(map: Ref<GoogleMap | null>) {
     } else {
       userMarker.value = new google.maps.Marker({
         position: position,
-        map: map.value,
+        map: map.value, // User marker is NOT clustered, add to map directly
         title: 'Your Location',
         icon: {
           path: google.maps.SymbolPath.CIRCLE,
@@ -128,7 +170,10 @@ export function useMapMarkers(map: Ref<GoogleMap | null>) {
    * Clear all markers
    */
   const clearMarkers = () => {
-    markers.value.forEach(marker => marker.setMap(null));
+    if (clusterer.value) {
+        clusterer.value.clearMarkers();
+    }
+    
     markers.value.clear();
     
     // Clear listeners
@@ -140,6 +185,14 @@ export function useMapMarkers(map: Ref<GoogleMap | null>) {
       userMarker.value = null;
     }
   };
+  
+  onUnmounted(() => {
+      clearMarkers();
+      if (clusterer.value) {
+          (clusterer.value as any).setMap(null); // eslint-disable-line @typescript-eslint/no-explicit-any
+          clusterer.value = null;
+      }
+  });
 
   return {
     markers,
@@ -149,6 +202,3 @@ export function useMapMarkers(map: Ref<GoogleMap | null>) {
     clearMarkers
   };
 }
-
-// Helper type for Ref
-type Ref<T> = import('vue').Ref<T>;
