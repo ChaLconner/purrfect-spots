@@ -117,7 +117,7 @@ def get_user_id_from_request(request: Request) -> str:
                 payload = jwt.decode(token, config.JWT_SECRET, algorithms=[config.JWT_ALGORITHM])
                 user_id = payload.get("sub") or payload.get("user_id")
                 if user_id:
-                    # nosemgrep: python.flask.security.audit.directly-returned-format-string
+                    # nosemgrep: python.flask.security.audit.directly-returned-format-string.directly-returned-format-string
                     return f"user:{user_id}"
         except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
             # Token is invalid or expired

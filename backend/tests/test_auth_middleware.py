@@ -145,11 +145,12 @@ def test_decode_custom_token_no_secret():
 def test_decode_custom_token_expired(mock_env):
     from jwt import ExpiredSignatureError
 
-    with patch("jwt.decode", side_effect=ExpiredSignatureError):
-        with pytest.raises(HTTPException) as exc:
-            decode_custom_token("token")
-        assert exc.value.status_code == 401
-        assert "Token expired" in exc.value.detail
+    with patch("middleware.auth_middleware.config.JWT_SECRET", "supersecretkey"):
+        with patch("jwt.decode", side_effect=ExpiredSignatureError):
+            with pytest.raises(HTTPException) as exc:
+                decode_custom_token("token")
+            assert exc.value.status_code == 401
+            assert "Token expired" in exc.value.detail
 
 
 # --- Tests for _get_user_from_payload ---
