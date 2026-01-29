@@ -557,7 +557,14 @@ jobs:
         uses: semgrep/semgrep-action@v1
         with:
           config: p/default p/security-audit p/owasp-top-ten
-          generateSarif: "1"
+          # generateSarif is not a valid input for v1, removed.
+          # Default behavior or manual check implies we might want args if defaults don't work,
+          # but usually v1 action automatically detects execution context.
+          # However, to be explicit and match the upload requirement:
+          # Note: semgrep-action usually sends to platform if token is present, or prints to stdout.
+          # To get a file, we usually need flags. But 'semgrep-action' encapsulates this.
+          # Let's try fixing the input error first by removing it.
+
         env:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
 

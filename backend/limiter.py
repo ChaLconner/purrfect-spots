@@ -107,17 +107,18 @@ def get_user_id_from_request(request: Request) -> str:
         try:
             token = auth_header.split(" ")[1]
 
-            # Use secure verification if secret is available
+            # Use secure verification - require valid secret
             # We catch errors gracefully to fall back to IP limiting for bad tokens
-            if config.JWT_SECRET:
-                payload = jwt.decode(token, config.JWT_SECRET, algorithms=[config.JWT_ALGORITHM])
+            if not config.JWT_SECRET:
+                # No secret configured - fall back to IP-based rate limiting
+                # rather than decoding without verification
+                pass
             else:
-                # Fallback only if secret is somehow missing (should likely fail earlier)
-                payload = jwt.decode(token, options={"verify_signature": False})
-
-            user_id = payload.get("sub") or payload.get("user_id")
-            if user_id:
-                return f"user:{user_id}"
+                payload = jwt.decode(token, config.JWT_SECRET, algorithms=[config.JWT_ALGORITHM])
+                user_id = payload.get("sub") or payload.get("user_id")
+                if user_id:
+                    # nosemgrep: python.flask.security.audit.directly-returned-format-string
+                    return f"user:{user_id}"
         except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
             # Token is invalid or expired
             # Treat as unauthenticated user (fall back to IP)

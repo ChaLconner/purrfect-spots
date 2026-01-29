@@ -48,6 +48,8 @@ class PasswordService:
         Uses k-Anonymity to preserve privacy (only sends first 5 chars of SHA-1 hash).
         """
         try:
+            # SHA1 is required by HIBP API - not used for password storage
+            # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1
             sha1_password = hashlib.sha1(password.encode("utf-8")).hexdigest().upper()  # nosec B324
             prefix = sha1_password[:5]
             suffix = sha1_password[5:]

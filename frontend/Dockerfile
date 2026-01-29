@@ -4,7 +4,7 @@
 # Multi-stage build for optimized image size
 
 # Stage 1: Builder
-FROM node:20-alpine as builder
+FROM node:20-alpine AS builder
 
 WORKDIR /build
 
@@ -34,7 +34,7 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
 RUN npm run build
 
 # Stage 2: Production with nginx
-FROM nginx:1.25-alpine as production
+FROM nginx:1.25-alpine AS production
 
 LABEL maintainer="Purrfect Spots Team <support@purrfectspots.com>"
 LABEL description="Purrfect Spots Frontend - Vue.js application"

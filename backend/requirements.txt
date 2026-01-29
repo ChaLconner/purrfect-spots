@@ -89,7 +89,7 @@ propcache==0.4.1
 proto-plus==1.27.0
 protobuf==5.29.5
 psutil==7.2.1
-pyasn1==0.6.1
+pyasn1==0.6.2
 pyasn1_modules==0.4.2
 pycparser==2.23
 pydantic==2.12.5
@@ -104,8 +104,8 @@ pytest-cov==5.0.0
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.1
 python-magic==0.4.27
-python-magic-bin==0.4.14
-python-multipart==0.0.21
+python-magic-bin==0.4.14 ; sys_platform == "win32"
+python-multipart==0.0.22
 PyYAML==6.0.3
 realtime==1.0.6
 redis==5.3.1
