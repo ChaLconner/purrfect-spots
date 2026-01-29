@@ -53,10 +53,7 @@ class PasswordService:
             suffix = sha1_password[5:]
 
             async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"https://api.pwnedpasswords.com/range/{prefix}",
-                    timeout=2.0
-                )
+                response = await client.get(f"https://api.pwnedpasswords.com/range/{prefix}", timeout=2.0)
                 if response.status_code == 200:
                     lines = response.text.splitlines()
                     for line in lines:
@@ -69,7 +66,7 @@ class PasswordService:
     async def validate_new_password(self, password: str, check_breach: bool = True) -> tuple[bool, str | None]:
         """
         Validate a new password for all security requirements.
-        
+
         Returns:
             Tuple of (is_valid, error_message)
         """

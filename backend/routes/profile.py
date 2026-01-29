@@ -122,9 +122,9 @@ async def get_profile(
         raise HTTPException(status_code=500, detail=f"Failed to get profile: {e!s}")
 
 
-
 def get_admin_gallery_service(supabase=Depends(get_supabase_admin_client)):
     return GalleryService(supabase)
+
 
 @router.get("/uploads")
 async def get_user_uploads(
@@ -158,7 +158,7 @@ async def get_user_uploads(
                             "lng": float(photo["longitude"]),
                         }
                     except (ValueError, TypeError):
-                        pass # Skip location if invalid
+                        pass  # Skip location if invalid
 
                 uploads.append(upload_item)
             except Exception as item_error:
@@ -201,9 +201,9 @@ async def upload_profile_picture(
             folder="avatars",
         )
 
-        # NOTE: We no longer update the auth_service here. 
+        # NOTE: We no longer update the auth_service here.
         # The frontend will receive this URL and send it back in the final /profile PUT request.
-        
+
         return {"message": "Photo uploaded successfully", "picture": image_url}
 
     except HTTPException:
@@ -227,10 +227,10 @@ async def change_password(
     # Extract client info for audit log
     ip = request.client.host if request.client else "unknown"
     user_agent = request.headers.get("user-agent", "unknown")
-    
+
     # Audit log: Attempt
     logger.info(f"[AUDIT] Password change attempt for user {current_user.id} from IP {ip}")
-    
+
     try:
         success = await auth_service.change_password(
             current_user.id, password_data.current_password, password_data.new_password
@@ -280,20 +280,26 @@ async def update_user_photo(
         photo = gallery_service.get_photo_by_id(photo_id)
         if not photo:
             raise HTTPException(status_code=404, detail="Photo not found")
-        
+
         if photo["user_id"] != current_user.id:
             from utils.security import log_security_event
-            log_security_event("unauthorized_update_attempt", user_id=current_user.id, details={"photo_id": photo_id, "owner": photo["user_id"]}, severity="WARNING")
+
+            log_security_event(
+                "unauthorized_update_attempt",
+                user_id=current_user.id,
+                details={"photo_id": photo_id, "owner": photo["user_id"]},
+                severity="WARNING",
+            )
             raise HTTPException(status_code=403, detail="Not authorized to update this photo")
 
         # 2. Sanitize Data
         from utils.security import sanitize_location_name, sanitize_text
-        
+
         valid_updates = {}
         if update_data.location_name is not None:
-             valid_updates["location_name"] = sanitize_location_name(update_data.location_name)
+            valid_updates["location_name"] = sanitize_location_name(update_data.location_name)
         if update_data.description is not None:
-             valid_updates["description"] = sanitize_text(update_data.description, max_length=1000)
+            valid_updates["description"] = sanitize_text(update_data.description, max_length=1000)
 
         if not valid_updates:
             raise HTTPException(status_code=400, detail="No valid data provided")
@@ -303,9 +309,14 @@ async def update_user_photo(
         # 3. Update
         # Use admin service because we already verified ownership
         gallery_service.supabase.table("cat_photos").update(valid_updates).eq("id", photo_id).execute()
-        
+
         from utils.security import log_security_event
-        log_security_event("photo_updated", user_id=current_user.id, details={"photo_id": photo_id, "updates": list(valid_updates.keys())})
+
+        log_security_event(
+            "photo_updated",
+            user_id=current_user.id,
+            details={"photo_id": photo_id, "updates": list(valid_updates.keys())},
+        )
 
         return {"message": "Photo updated successfully"}
 
@@ -329,10 +340,16 @@ async def delete_user_photo(
         photo = gallery_service.get_photo_by_id(photo_id)
         if not photo:
             raise HTTPException(status_code=404, detail="Photo not found")
-            
+
         if photo["user_id"] != current_user.id:
             from utils.security import log_security_event
-            log_security_event("unauthorized_delete_attempt", user_id=current_user.id, details={"photo_id": photo_id, "owner": photo["user_id"]}, severity="WARNING")
+
+            log_security_event(
+                "unauthorized_delete_attempt",
+                user_id=current_user.id,
+                details={"photo_id": photo_id, "owner": photo["user_id"]},
+                severity="WARNING",
+            )
             raise HTTPException(status_code=403, detail="Not authorized to delete this photo")
 
         # 2. Delete from Storage (S3)
@@ -341,13 +358,15 @@ async def delete_user_photo(
 
         # 3. Delete from Database
         gallery_service.supabase.table("cat_photos").delete().eq("id", photo_id).execute()
-        
+
         # 4. Invalidate Caches
         from utils.cache import invalidate_gallery_cache, invalidate_tags_cache
+
         invalidate_gallery_cache()
         invalidate_tags_cache()
 
         from utils.security import log_security_event
+
         log_security_event("photo_deleted", user_id=current_user.id, details={"photo_id": photo_id})
 
         return {"message": "Photo deleted successfully"}

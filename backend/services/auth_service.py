@@ -38,8 +38,6 @@ class AuthService:
         if not self.google_client_secret:
             logger.warning("[OAuth] GOOGLE_CLIENT_SECRET is not set!")
 
-
-
     def _generate_fingerprint(self, ip: str, user_agent: str) -> str:
         """Generate SHA256 fingerprint from IP (subnet) and User-Agent"""
         if not user_agent:
@@ -83,8 +81,6 @@ class AuthService:
         except Exception as e:
             logger.error(f"Failed to revoke token: {e!s}")
             return False
-
-
 
     def verify_google_token(self, token: str) -> dict:
         """Verify Google OAuth token and return user info"""
@@ -221,21 +217,20 @@ class AuthService:
         try:
             # Create user via Supabase Admin API with email_confirm=False
             # This creates the user but does not verify their email
-            res = self.supabase_admin.auth.admin.create_user({
-                "email": email,
-                "password": password,
-                "email_confirm": False,  # Don't auto-confirm - we'll use OTP
-                "user_metadata": {
-                    "name": name,
-                    "full_name": name
+            res = self.supabase_admin.auth.admin.create_user(
+                {
+                    "email": email,
+                    "password": password,
+                    "email_confirm": False,  # Don't auto-confirm - we'll use OTP
+                    "user_metadata": {"name": name, "full_name": name},
                 }
-            })
-            
+            )
+
             if not res or not res.user:
                 raise Exception("Failed to create user")
 
             user = res.user
-            
+
             return {
                 "id": user.id,
                 "email": user.email,
@@ -243,7 +238,7 @@ class AuthService:
                 "created_at": user.created_at,
                 "picture": "",
                 "bio": None,
-                "verification_required": True
+                "verification_required": True,
             }
 
         except Exception as e:
@@ -272,20 +267,17 @@ class AuthService:
                 if user.email and user.email.lower() == email.lower():
                     target_user = user
                     break
-            
+
             if not target_user:
                 logger.error(f"User not found for email confirmation: {email}")
                 return False
-            
+
             # Update user to confirm email
-            self.supabase_admin.auth.admin.update_user_by_id(
-                target_user.id,
-                {"email_confirm": True}
-            )
-            
+            self.supabase_admin.auth.admin.update_user_by_id(target_user.id, {"email_confirm": True})
+
             logger.info(f"Email confirmed for user: {email}")
             return True
-            
+
         except Exception as e:
             logger.error(f"Failed to confirm email for {email}: {e}")
             return False
@@ -302,7 +294,7 @@ class AuthService:
                         "name": user.user_metadata.get("name", "") if user.user_metadata else "",
                         "picture": user.user_metadata.get("avatar_url", "") if user.user_metadata else "",
                         "created_at": user.created_at,
-                        "email_confirmed_at": user.email_confirmed_at
+                        "email_confirmed_at": user.email_confirmed_at,
                     }
             return None
         except Exception as e:
@@ -312,10 +304,7 @@ class AuthService:
     def authenticate_user(self, email: str, password: str) -> dict | None:
         """Authenticate user using Supabase Auth"""
         try:
-            res = self.supabase.auth.sign_in_with_password({
-                "email": email,
-                "password": password
-            })
+            res = self.supabase.auth.sign_in_with_password({"email": email, "password": password})
 
             if res.user and res.session:
                 # Return dict with user and tokens
@@ -472,7 +461,7 @@ class AuthService:
             if jti and await self.is_token_revoked(jti):
                 logger.warning(f"Attempt to use revoked refresh token: {jti}")
                 return None
-            
+
             # Check for global user invalidation (e.g. password reset)
             if user_id and iat and await self._check_user_invalidated(user_id, iat):
                 logger.warning(f"Refresh token rejected due to user invalidation: {user_id}")
@@ -503,19 +492,17 @@ class AuthService:
             params = {
                 "type": "recovery",
                 "email": email,
-                "options": {
-                    "redirect_to": f"{config.FRONTEND_URL}/reset-password"
-                }
+                "options": {"redirect_to": f"{config.FRONTEND_URL}/reset-password"},
             }
-            
+
             res = self.supabase_admin.auth.admin.generate_link(params)
-            
+
             if not res or not hasattr(res, "properties"):
-                 logger.error(f"Failed to generate recovery link for {email}")
-                 return False
+                logger.error(f"Failed to generate recovery link for {email}")
+                return False
 
             action_link = getattr(res.properties, "action_link", None)
-            
+
             if not action_link:
                 logger.error(f"No action_link returned for {email}")
                 return False
@@ -529,8 +516,6 @@ class AuthService:
             # We return True to prevent email enumeration, but log the actual error
             return True
 
-
-
     async def reset_password(self, access_token: str, new_password: str) -> bool:
         """
         Reset password using Supabase Auth session.
@@ -541,35 +526,35 @@ class AuthService:
             # Use validate_new_password which checks both complexity and breaches
             is_valid, error = await password_service.validate_new_password(new_password)
             if not is_valid:
-                 logger.warning(f"Password validation failed during reset: {error}")
-                 raise ValueError(error) # e.g. "Password must be at least 8 characters" or "Data breach found"
+                logger.warning(f"Password validation failed during reset: {error}")
+                raise ValueError(error)  # e.g. "Password must be at least 8 characters" or "Data breach found"
 
             # 1. Initialize a temporary client using the recovery access_token
             # This validates the token and sets the user context
             from supabase import create_client
+
             temp_client = create_client(config.SUPABASE_URL, config.SUPABASE_KEY)
             temp_client.postgrest.auth(access_token)
-            
+
             # 2. Get user info to verify token validity
             user_res = temp_client.auth.get_user(access_token)
             if not user_res or not user_res.user:
-                 logger.warning("Invalid or expired reset token used")
-                 return False
-            
+                logger.warning("Invalid or expired reset token used")
+                return False
+
             user_id = user_res.user.id
-            
+
             # 3. Update Auth Password using the user's own context
             # This is safer than Admin API as it validates the session ownership
             temp_client.auth.update_user({"password": new_password})
-            
+
             # 4. Sync new password hash to our database (for local verification if needed)
             # though usually we rely on Supabase Auth for login.
             # Changing password_hash here is for consistency.
-            self.supabase_admin.table("users").update({
-                "password_hash": password_service.hash_password(new_password),
-                "updated_at": utc_now_iso()
-            }).eq("id", user_id).execute()
-            
+            self.supabase_admin.table("users").update(
+                {"password_hash": password_service.hash_password(new_password), "updated_at": utc_now_iso()}
+            ).eq("id", user_id).execute()
+
             # 5. Global Invalidation (Invalidate all sessions for this user)
             try:
                 # Add current time to invalidation list to reject all older tokens
@@ -586,12 +571,14 @@ class AuthService:
                 logger.warning(f"Failed to send password reset notification email: {e}")
 
             from utils.security import log_security_event
+
             log_security_event("password_reset_success", user_id=user_id, severity="INFO")
 
             return True
         except Exception as e:
             logger.error(f"Reset password failed: {e}")
             from utils.security import log_security_event
+
             log_security_event("password_reset_failed", details={"error": str(e)}, severity="ERROR")
             return False
 
@@ -605,7 +592,7 @@ class AuthService:
             user = self.get_user_by_id(user_id)
             if not user:
                 return False
-            
+
             # 2. Check if user is a Google User
             # Google users have google_id set and usually no password_hash
             if user.google_id:
@@ -618,7 +605,7 @@ class AuthService:
 
             # 3. Verify current password
             password_verified = False
-            
+
             if user.password_hash:
                 # If we have a hash in our DB, verify it manually first (fast)
                 try:
@@ -626,16 +613,15 @@ class AuthService:
                 except Exception as e:
                     logger.debug(f"Password verification exception: {e}")
                     password_verified = False
-            
+
             if not password_verified:
                 # Fallback or alternate: Verify via Supabase Auth Login attempt
                 # This is the most reliable way as it's the source of truth
                 try:
                     # We use self.supabase (Client) which should be configured with the correct URL/Key
-                    auth_res = self.supabase.auth.sign_in_with_password({
-                        "email": user.email,
-                        "password": current_password
-                    })
+                    auth_res = self.supabase.auth.sign_in_with_password(
+                        {"email": user.email, "password": current_password}
+                    )
                     if auth_res and auth_res.user:
                         password_verified = True
                 except Exception as e:
@@ -651,10 +637,9 @@ class AuthService:
 
             # 5. Update local database profile with new hash
             # This ensures next time manual verification works
-            self.supabase_admin.table("users").update({
-                "password_hash": password_service.hash_password(new_password), 
-                "updated_at": utc_now_iso()
-            }).eq("id", user_id).execute()
+            self.supabase_admin.table("users").update(
+                {"password_hash": password_service.hash_password(new_password), "updated_at": utc_now_iso()}
+            ).eq("id", user_id).execute()
 
             # 5. Global Session Invalidation
             try:
@@ -671,15 +656,20 @@ class AuthService:
                 logger.warning(f"Failed to send password change notification email: {e}")
 
             from utils.security import log_security_event
+
             log_security_event("password_change_success", user_id=user_id, severity="INFO")
 
             return True
         except ValueError as e:
             from utils.security import log_security_event
-            log_security_event("password_change_failed_validation", user_id=user_id, details={"error": str(e)}, severity="WARNING")
+
+            log_security_event(
+                "password_change_failed_validation", user_id=user_id, details={"error": str(e)}, severity="WARNING"
+            )
             raise e
         except Exception as e:
             logger.error(f"Change password failed for {user_id}: {e}")
             from utils.security import log_security_event
+
             log_security_event("password_change_error", user_id=user_id, details={"error": str(e)}, severity="ERROR")
             raise Exception("Failed to change password")

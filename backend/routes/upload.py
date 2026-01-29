@@ -196,14 +196,14 @@ async def upload_cat_photo(
 
         # Validate that cats were detected (Redundant but safe check)
         has_cats = cat_data.get("has_cats", False)
-        
+
         if not has_cats:
             # Should be caught above, but double check
             raise HTTPException(status_code=400, detail="Cannot upload: No cats detected in the image")
 
         # Use shared validation utilities for coordinates and location text
         latitude, longitude = validate_coordinates(lat, lng)
-        
+
         # Consolidate text validation
         cleaned_location_name, cleaned_description = validate_location_data(location_name, description)
 
@@ -251,12 +251,12 @@ async def upload_cat_photo(
 
             if not result.data:
                 raise Exception("Database insert returned no data")
-        
+
         except Exception as db_error:
             # Rollback: Delete file from S3 if DB insert fails
             logger.error(f"Database insert failed: {db_error!s}. Rolling back S3 upload.")
             storage_service.delete_file(image_url)
-            
+
             log_security_event(
                 "upload_transaction_rollback",
                 user_id=user_id,

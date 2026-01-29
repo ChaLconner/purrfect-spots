@@ -161,7 +161,10 @@ class TestRegisterEndpoint:
         # Should be 400 for duplicate, or 429 if rate limited
         assert response.status_code in [400, 429]
         if response.status_code == 400:
-            assert "already in use" in response.json()["detail"].lower() or "already registered" in response.json()["detail"].lower()
+            assert (
+                "already in use" in response.json()["detail"].lower()
+                or "already registered" in response.json()["detail"].lower()
+            )
 
 
 class TestLoginEndpoint:
@@ -306,6 +309,7 @@ class TestResetPasswordEndpoint:
     def test_reset_password_success(self, client, mock_auth_service, mock_limiter):
         """Test successful password reset"""
         from unittest.mock import AsyncMock
+
         mock_auth_service.reset_password = AsyncMock(return_value=True)
 
         response = client.post(
@@ -319,6 +323,7 @@ class TestResetPasswordEndpoint:
     def test_reset_password_invalid_token(self, client, mock_auth_service, mock_limiter):
         """Test reset fails with invalid token"""
         from unittest.mock import AsyncMock
+
         mock_auth_service.reset_password = AsyncMock(return_value=False)
 
         response = client.post(

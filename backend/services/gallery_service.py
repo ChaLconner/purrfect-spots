@@ -25,6 +25,7 @@ class GalleryService:
         # We keep admin client reference only for specific overrides if needed
         # but prefer using the standard client
         from dependencies import get_supabase_admin_client
+
         self._admin_client_lazy = None
 
         # Check if full-text search is available
@@ -35,6 +36,7 @@ class GalleryService:
         """Lazy load admin client only when absolutely necessary"""
         if self._admin_client_lazy is None:
             from dependencies import get_supabase_admin_client
+
             self._admin_client_lazy = get_supabase_admin_client()
         return self._admin_client_lazy
 
@@ -65,17 +67,17 @@ class GalleryService:
         s3_bucket = config.aws_bucket if hasattr(config, "aws_bucket") else "purrfect-spots-bucket"
         aws_region = config.aws_region if hasattr(config, "aws_region") else "ap-southeast-2"
         s3_domain = f"{s3_bucket}.s3.{aws_region}.amazonaws.com"
-        
+
         final_url = url
         if config.CDN_BASE_URL and s3_domain in url:
             final_url = url.replace(f"https://{s3_domain}", config.CDN_BASE_URL)
 
         # 2. Resizing (Supabase only for now)
-        if "supabase.co/storage/v1/object/public" in final_url:            
+        if "supabase.co/storage/v1/object/public" in final_url:
             # If already has query params, verify/append
             separator = "&" if "?" in final_url else "?"
             return f"{final_url}{separator}width={width}&resize=cover&format=webp"
-            
+
         return final_url
 
     def _process_photos(self, photos: list[dict[str, Any]], width: int = 500) -> list[dict[str, Any]]:
@@ -84,7 +86,6 @@ class GalleryService:
             if "image_url" in photo:
                 photo["image_url"] = self._optimize_image_url(photo["image_url"], width)
         return photos
-
 
     def get_all_photos(self, limit: int = 20, offset: int = 0, include_total: bool = True) -> dict[str, Any]:
         """
@@ -183,11 +184,11 @@ class GalleryService:
             data = resp.data if resp.data else []
             # We can resize these too, map thumbnails are small
             for photo in data:
-                 if "image_url" in photo:
-                     # Simple manual optimization here since it's a static method
-                     if photo["image_url"] and "supabase.co/storage/v1/object/public" in photo["image_url"]:
-                         sep = "&" if "?" in photo["image_url"] else "?"
-                         photo["image_url"] = f"{photo['image_url']}{sep}width=200&resize=cover&format=webp"
+                if "image_url" in photo:
+                    # Simple manual optimization here since it's a static method
+                    if photo["image_url"] and "supabase.co/storage/v1/object/public" in photo["image_url"]:
+                        sep = "&" if "?" in photo["image_url"] else "?"
+                        photo["image_url"] = f"{photo['image_url']}{sep}width=200&resize=cover&format=webp"
             return data
         except Exception as e:
             raise Exception(f"Failed to fetch map locations: {e!s}")
@@ -488,6 +489,7 @@ class GalleryService:
             # Approximate degrees per km (varies by latitude)
             # Approximate degrees per km (varies by latitude)
             import math
+
             km_per_degree_lat = 111.0
             # Longitude length shrinks as we move to poles: 111 * cos(lat)
             # Use max(0.1, ...) to avoid division by zero at poles

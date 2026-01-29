@@ -65,6 +65,7 @@ class TestAuthService:
 
         # Hash current password for fixture
         from services.password_service import password_service
+
         hashed_current = password_service.hash_password(current_password)
 
         mock_user = User(
@@ -92,7 +93,7 @@ class TestAuthService:
                     mock_token_service = MagicMock()
                     mock_token_service.blacklist_all_user_tokens = AsyncMock(return_value=None)
                     mock_ts.return_value = mock_token_service
-                    
+
                     with patch("services.auth_service.email_service"):
                         result = await auth_service.change_password(user_id, current_password, new_password)
                         assert result is True
@@ -104,8 +105,9 @@ class TestAuthService:
         real_password = "real_password"
 
         from services.password_service import password_service
+
         hashed = password_service.hash_password(real_password)
-        
+
         mock_user = User(
             id=user_id,
             password_hash=hashed,
@@ -115,13 +117,13 @@ class TestAuthService:
         )
 
         with patch.object(auth_service, "get_user_by_id", return_value=mock_user):
-             with patch("services.auth_service.password_service") as mock_pw_service:
+            with patch("services.auth_service.password_service") as mock_pw_service:
                 mock_pw_service.validate_new_password = AsyncMock(return_value=(True, None))
                 mock_pw_service.verify_password.return_value = False
-                
+
                 # Also mock the Supabase Auth login fallback to fail
                 auth_service.supabase.auth.sign_in_with_password.side_effect = Exception("Invalid credentials")
-                
+
                 with pytest.raises(ValueError, match="Incorrect current password"):
                     await auth_service.change_password(user_id, "wrong_password", "new_password")
 

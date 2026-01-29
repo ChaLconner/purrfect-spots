@@ -30,9 +30,6 @@ def get_auth_service():
     return AuthService(get_supabase_client())
 
 
-
-
-
 @router.post("/register", response_model=LoginResponse)
 @limiter.limit("5/minute")
 async def register(
@@ -59,14 +56,15 @@ async def register(
         # Generate and send OTP
         otp_service = get_otp_service()
         otp_code, expires_at = await otp_service.create_otp(data.email)
-        
+
         # Send OTP via email
         email_sent = email_service.send_otp_email(data.email, otp_code)
-        
+
         if not email_sent:
             logger.warning(f"Failed to send OTP email to {data.email}")
-        
+
         from utils.security import log_security_event
+
         log_security_event("register_otp_sent", details={"email": data.email}, severity="INFO")
 
         return {
@@ -75,7 +73,7 @@ async def register(
             "user": None,
             "message": "Registration successful. Please check your email for the verification code.",
             "requires_verification": True,
-            "email": data.email
+            "email": data.email,
         }
 
     except HTTPException:
@@ -83,6 +81,7 @@ async def register(
     except Exception as e:
         logger.error(f"Registration failed: {e}")
         from utils.security import log_security_event
+
         log_security_event("register_failed", details={"error": str(e)}, severity="ERROR")
         raise HTTPException(status_code=500, detail="Registration failed. Please try again")
 
@@ -99,43 +98,47 @@ async def verify_otp(
     try:
         otp_service = get_otp_service()
         result = await otp_service.verify_otp(req.email, req.otp)
-        
+
         if not result["success"]:
             from utils.security import log_security_event
-            log_security_event("otp_verification_failed", details={
-                "email": req.email, 
-                "error": result.get("error"),
-                "attempts_remaining": result.get("attempts_remaining", 0)
-            }, severity="WARNING")
+
+            log_security_event(
+                "otp_verification_failed",
+                details={
+                    "email": req.email,
+                    "error": result.get("error"),
+                    "attempts_remaining": result.get("attempts_remaining", 0),
+                },
+                severity="WARNING",
+            )
             raise HTTPException(status_code=400, detail=result["error"])
-        
+
         # OTP verified - confirm user email in Supabase
         email_confirmed = auth_service.confirm_user_email(req.email)
         if not email_confirmed:
             logger.error(f"Failed to confirm email after OTP verification: {req.email}")
             raise HTTPException(status_code=500, detail="Email verification failed. Please try again.")
-        
+
         # Get user data and create session
         user_data = auth_service.get_user_by_email_unverified(req.email)
         if not user_data:
             raise HTTPException(status_code=404, detail="User not found")
-        
+
         user_id = user_data["id"]
         ip, ua = get_client_info(request)
-        
+
         # Create tokens
-        access_token = auth_service.create_access_token(user_id, {
-            "email": user_data["email"],
-            "name": user_data["name"],
-            "picture": user_data.get("picture", "")
-        })
+        access_token = auth_service.create_access_token(
+            user_id, {"email": user_data["email"], "name": user_data["name"], "picture": user_data.get("picture", "")}
+        )
         refresh_token = auth_service.create_refresh_token(user_id, ip, ua)
-        
+
         set_refresh_cookie(response, refresh_token)
-        
+
         from utils.security import log_security_event
+
         log_security_event("otp_verification_success", user_id=user_id, details={"ip": ip}, severity="INFO")
-        
+
         return {
             "access_token": access_token,
             "token_type": "bearer",
@@ -147,9 +150,9 @@ async def verify_otp(
                 bio=None,
                 created_at=user_data["created_at"],
             ),
-            "message": "Email verified successfully!"
+            "message": "Email verified successfully!",
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -166,32 +169,29 @@ async def resend_otp(
     """Resend verification OTP code"""
     try:
         otp_service = get_otp_service()
-        
+
         # Check cooldown
         can_resend, seconds_remaining = await otp_service.can_resend_otp(req.email)
         if not can_resend:
             raise HTTPException(
-                status_code=429, 
-                detail=f"Please wait {seconds_remaining} seconds before requesting a new code."
+                status_code=429, detail=f"Please wait {seconds_remaining} seconds before requesting a new code."
             )
-        
+
         # Generate new OTP
         otp_code, expires_at = await otp_service.create_otp(req.email)
-        
+
         # Send OTP via email
         email_sent = email_service.send_otp_email(req.email, otp_code)
-        
+
         if not email_sent:
             logger.warning(f"Failed to resend OTP email to {req.email}")
-        
+
         from utils.security import log_security_event
+
         log_security_event("otp_resend", details={"email": req.email}, severity="INFO")
-        
-        return {
-            "message": "Verification code sent. Please check your email.",
-            "expires_at": expires_at
-        }
-        
+
+        return {"message": "Verification code sent. Please check your email.", "expires_at": expires_at}
+
     except HTTPException:
         raise
     except Exception as e:
@@ -212,16 +212,17 @@ def login(
         user_data = auth_service.authenticate_user(req.email, req.password)
         if not user_data:
             from utils.security import log_security_event
+
             log_security_event("login_failed_invalid_credentials", details={"email": req.email}, severity="WARNING")
             raise HTTPException(status_code=401, detail="Invalid email or password.")
-        
+
         # user_data now contains data from Supabase, but we want our own tokens
         user_id = user_data["id"]
         ip, ua = get_client_info(request)
-        
+
         access_token = auth_service.create_access_token(user_id, user_data)
         refresh_token = auth_service.create_refresh_token(user_id, ip, ua)
-        
+
         set_refresh_cookie(response, refresh_token)
 
         user_response = UserResponse(
@@ -232,8 +233,9 @@ def login(
             bio=user_data.get("bio"),
             created_at=user_data["created_at"],
         )
-        
+
         from utils.security import log_security_event
+
         log_security_event("login_success", user_id=user_id, details={"ip": ip, "ua": ua}, severity="INFO")
 
         return {
@@ -247,6 +249,7 @@ def login(
     except Exception as e:
         logger.error(f"Login error: {e}")
         from utils.security import log_security_event
+
         log_security_event("login_error", details={"email": req.email, "error": str(e)}, severity="ERROR")
         raise HTTPException(status_code=500, detail="Login failed")
 
@@ -366,7 +369,7 @@ async def exchange_session(
 
         user_id = user.user.id
         email = user.user.email
-        
+
         # 2. Get User Profile (to ensure we have name/picture)
         db_user = auth_service.get_user_by_id(user_id)
         if not db_user:

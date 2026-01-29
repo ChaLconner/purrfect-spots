@@ -56,10 +56,7 @@ async def get_gallery(
 
         # Run synchronous service call in threadpool to avoid blocking event loop
         result = await run_in_threadpool(
-            gallery_service.get_all_photos, 
-            limit=limit, 
-            offset=actual_offset, 
-            include_total=True
+            gallery_service.get_all_photos, limit=limit, offset=actual_offset, include_total=True
         )
 
         if not result["data"]:
@@ -131,14 +128,11 @@ async def get_all_gallery(
 
 
 @router.get("/locations", response_model=list[CatLocation])
-async def get_locations(
-    response: Response,
-    gallery_service: GalleryService = Depends(get_gallery_service)
-):
+async def get_locations(response: Response, gallery_service: GalleryService = Depends(get_gallery_service)):
     """Get all cat locations from Supabase (for map display)."""
     # Cache for 5 minutes (300 seconds)
     response.headers["Cache-Control"] = "public, max-age=300"
-    
+
     try:
         photos = await run_in_threadpool(gallery_service.get_map_locations)
         if not photos:
@@ -227,12 +221,7 @@ async def search_locations(
         if tags:
             tag_list = [t.strip() for t in tags.split(",") if t.strip()]
 
-        photos = await run_in_threadpool(
-            gallery_service.search_photos,
-            query=q,
-            tags=tag_list,
-            limit=limit
-        )
+        photos = await run_in_threadpool(gallery_service.search_photos, query=q, tags=tag_list, limit=limit)
 
         results = [CatLocation(**photo) for photo in photos] if photos else []
 
@@ -253,7 +242,7 @@ async def get_popular_tags(
 ):
     """
     Get the most popular tags used across all cat photos.
-    
+
     Useful for:
     - Tag autocomplete in upload form
     - Tag cloud visualization
@@ -261,7 +250,7 @@ async def get_popular_tags(
     """
     # Cache for 1 hour (3600 seconds) - tags change slowly
     response.headers["Cache-Control"] = "public, max-age=3600"
-    
+
     try:
         tags_data = await run_in_threadpool(gallery_service.get_popular_tags, limit=limit)
         tags = [TagInfo(**t) for t in tags_data]

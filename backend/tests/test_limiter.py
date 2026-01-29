@@ -106,6 +106,7 @@ class TestRedisConfiguration:
         # Ensure no REDIS_URL from real environment leaks in
         with patch("config.config.REDIS_URL", None):
             from limiter import get_redis_url
+
             result = get_redis_url()
             assert result is None
 
@@ -113,6 +114,7 @@ class TestRedisConfiguration:
         """Test with valid Redis URL format"""
         with patch("config.config.REDIS_URL", "redis://localhost:6379/0"):
             from limiter import get_redis_url
+
             result = get_redis_url()
             assert result == "redis://localhost:6379/0"
 
@@ -120,6 +122,7 @@ class TestRedisConfiguration:
         """Test with invalid Redis URL format"""
         with patch("config.config.REDIS_URL", "http://localhost:6379"):
             from limiter import get_redis_url
+
             result = get_redis_url()
             assert result is None
 
@@ -127,6 +130,7 @@ class TestRedisConfiguration:
         """Test with Redis SSL URL format"""
         with patch("config.config.REDIS_URL", "rediss://user:pass@prod.redis.io:6380"):
             from limiter import get_redis_url
+
             result = get_redis_url()
             assert result == "rediss://user:pass@prod.redis.io:6380"
 

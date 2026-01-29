@@ -72,7 +72,7 @@ class StorageService:
     def delete_file(self, file_url: str):
         """
         Deletes a file from S3 (optional, for cleanup)
-        
+
         Args:
             file_url: Full public URL of the file
         """
@@ -80,18 +80,15 @@ class StorageService:
             # Extract key from URL
             # Expected format: https://bucket.s3.region.amazonaws.com/folder/filename
             # or CDN URL
-            
+
             # Simple heuristic: Split by / and take the last two parts (folder/filename)
             # This is fragile if URL structure changes, but works for current implementation
             parts = file_url.split("/")
             if len(parts) >= 2:
                 key = f"{parts[-2]}/{parts[-1]}"
-                
-                self.s3_client.delete_object(
-                    Bucket=self.aws_bucket,
-                    Key=key
-                )
-                
+
+                self.s3_client.delete_object(Bucket=self.aws_bucket, Key=key)
+
         except Exception as e:
             # Log error but don't crash - this is a cleanup operation
             logger.warning(f"Failed to delete file {file_url}: {e}")

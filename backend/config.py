@@ -82,7 +82,7 @@ def get_env_with_fallback(primary_key: str, *fallback_keys: str, default: str = 
                 warnings.warn(
                     f"Using deprecated env var '{key}'. Please use '{primary_key}' instead.",
                     DeprecationWarning,
-                    stacklevel=2
+                    stacklevel=2,
                 )
             return value
 
@@ -142,9 +142,7 @@ class Config:
             )
         else:
             warnings.warn(
-                "JWT_REFRESH_SECRET not set. Using JWT_SECRET (NOT SAFE FOR PRODUCTION).",
-                UserWarning,
-                stacklevel=2
+                "JWT_REFRESH_SECRET not set. Using JWT_SECRET (NOT SAFE FOR PRODUCTION).", UserWarning, stacklevel=2
             )
             JWT_REFRESH_SECRET = JWT_SECRET
 
@@ -286,8 +284,4 @@ if _missing:
             f"Missing required configuration: {', '.join(_missing)}. Please check your environment variables."
         )
     else:
-        warnings.warn(
-            f"Missing recommended configuration: {', '.join(_missing)}",
-            UserWarning,
-            stacklevel=2
-        )
+        warnings.warn(f"Missing recommended configuration: {', '.join(_missing)}", UserWarning, stacklevel=2)

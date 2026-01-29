@@ -1,6 +1,7 @@
 """
 Tests for Password Service
 """
+
 import pytest
 
 from services.password_service import password_service

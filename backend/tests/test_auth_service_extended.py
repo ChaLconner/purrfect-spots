@@ -109,15 +109,15 @@ class TestAuthServiceExtended:
         mock_user.email = "u@example.com"
         mock_user.user_metadata = {"name": "U", "avatar_url": ""}
         mock_user.created_at = "2024-01-01"
-        
+
         mock_session = MagicMock()
         mock_session.access_token = "access"
         mock_session.refresh_token = "refresh"
-        
+
         mock_res = MagicMock()
         mock_res.user = mock_user
         mock_res.session = mock_session
-        
+
         auth_service.supabase.auth.sign_in_with_password.return_value = mock_res
 
         user = auth_service.authenticate_user("u@example.com", "pass123")
@@ -137,10 +137,10 @@ class TestAuthServiceExtended:
         mock_user.id = "new1"
         mock_user.email = "n@n.com"
         mock_user.created_at = "2024-01-01"
-        
+
         mock_res = MagicMock()
         mock_res.user = mock_user
-        
+
         mock_supabase.auth.admin.create_user.return_value = mock_res
 
         with patch("services.auth_service.email_service"):
@@ -153,10 +153,10 @@ class TestAuthServiceExtended:
         # create_password_reset_token is async and uses admin.generate_link
         mock_properties = MagicMock()
         mock_properties.action_link = "https://example.com/reset"
-        
+
         mock_res = MagicMock()
         mock_res.properties = mock_properties
-        
+
         mock_supabase.auth.admin.generate_link.return_value = mock_res
 
         with patch("services.auth_service.email_service") as mock_email:
@@ -171,22 +171,22 @@ class TestAuthServiceExtended:
         mock_user = MagicMock()
         mock_user.id = "u1"
         mock_user.email = "test@test.com"
-        
+
         mock_user_res = MagicMock()
         mock_user_res.user = mock_user
-        
+
         with patch("supabase.create_client") as mock_create_client:
             mock_temp_client = MagicMock()
             mock_temp_client.auth.get_user.return_value = mock_user_res
             mock_temp_client.auth.update_user.return_value = MagicMock()
             mock_create_client.return_value = mock_temp_client
-            
+
             # Mock token service with AsyncMock
             with patch("services.auth_service.get_token_service", new_callable=AsyncMock) as mock_ts:
                 mock_token_service = AsyncMock()
                 mock_token_service.blacklist_all_user_tokens = AsyncMock(return_value=None)
                 mock_ts.return_value = mock_token_service
-                
+
                 with patch("services.auth_service.email_service"):
                     # Use a non-breached password for test
                     success = await auth_service.reset_password("valid_token", "T3st!ComplexP@ssw0rd")

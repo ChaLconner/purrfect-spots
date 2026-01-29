@@ -55,13 +55,19 @@ class OTPService:
             expires_at = utc_now() + timedelta(minutes=self.OTP_EXPIRY_MINUTES)
 
             # Store in database
-            result = self.supabase.table("email_verifications").insert({
-                "email": email.lower(),
-                "otp_hash": otp_hash,
-                "attempts": 0,
-                "max_attempts": self.MAX_ATTEMPTS,
-                "expires_at": expires_at.isoformat(),
-            }).execute()
+            result = (
+                self.supabase.table("email_verifications")
+                .insert(
+                    {
+                        "email": email.lower(),
+                        "otp_hash": otp_hash,
+                        "attempts": 0,
+                        "max_attempts": self.MAX_ATTEMPTS,
+                        "expires_at": expires_at.isoformat(),
+                    }
+                )
+                .execute()
+            )
 
             if not result.data:
                 raise Exception("Failed to store OTP")
@@ -91,20 +97,22 @@ class OTPService:
             email_lower = email.lower()
 
             # Get the latest OTP record for this email
-            result = self.supabase.table("email_verifications") \
-                .select("*") \
-                .eq("email", email_lower) \
-                .is_("verified_at", "null") \
-                .order("created_at", desc=True) \
-                .limit(1) \
+            result = (
+                self.supabase.table("email_verifications")
+                .select("*")
+                .eq("email", email_lower)
+                .is_("verified_at", "null")
+                .order("created_at", desc=True)
+                .limit(1)
                 .execute()
+            )
 
             if not result.data:
                 logger.warning(f"No pending OTP found for {email}")
                 return {
                     "success": False,
                     "error": "No pending verification found. Please request a new code.",
-                    "attempts_remaining": 0
+                    "attempts_remaining": 0,
                 }
 
             record = result.data[0]
@@ -116,13 +124,14 @@ class OTPService:
 
             # Check if expired
             from datetime import datetime, timezone
+
             expiry_time = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
             if utc_now() > expiry_time:
                 logger.warning(f"OTP expired for {email}")
                 return {
                     "success": False,
                     "error": "Verification code has expired. Please request a new one.",
-                    "attempts_remaining": 0
+                    "attempts_remaining": 0,
                 }
 
             # Check if max attempts exceeded
@@ -131,52 +140,44 @@ class OTPService:
                 return {
                     "success": False,
                     "error": "Too many failed attempts. Please request a new code.",
-                    "attempts_remaining": 0
+                    "attempts_remaining": 0,
                 }
 
             # Verify OTP using constant-time comparison
             input_hash = self._hash_otp(otp)
             if self._constant_time_compare(input_hash, stored_hash):
                 # Success - mark as verified
-                self.supabase.table("email_verifications") \
-                    .update({"verified_at": utc_now().isoformat()}) \
-                    .eq("id", record_id) \
-                    .execute()
+                self.supabase.table("email_verifications").update({"verified_at": utc_now().isoformat()}).eq(
+                    "id", record_id
+                ).execute()
 
                 logger.info(f"OTP verified successfully for {email}")
                 return {"success": True}
             else:
                 # Failed - increment attempts
                 new_attempts = attempts + 1
-                self.supabase.table("email_verifications") \
-                    .update({"attempts": new_attempts}) \
-                    .eq("id", record_id) \
-                    .execute()
+                self.supabase.table("email_verifications").update({"attempts": new_attempts}).eq(
+                    "id", record_id
+                ).execute()
 
                 remaining = max_attempts - new_attempts
                 logger.warning(f"Invalid OTP for {email}, {remaining} attempts remaining")
                 return {
                     "success": False,
                     "error": f"Invalid verification code. {remaining} attempts remaining.",
-                    "attempts_remaining": remaining
+                    "attempts_remaining": remaining,
                 }
 
         except Exception as e:
             logger.error(f"OTP verification error for {email}: {e}")
-            return {
-                "success": False,
-                "error": "Verification failed. Please try again.",
-                "attempts_remaining": 0
-            }
+            return {"success": False, "error": "Verification failed. Please try again.", "attempts_remaining": 0}
 
     async def invalidate_existing_otps(self, email: str) -> None:
         """Invalidate all existing OTPs for an email"""
         try:
-            self.supabase.table("email_verifications") \
-                .delete() \
-                .eq("email", email.lower()) \
-                .is_("verified_at", "null") \
-                .execute()
+            self.supabase.table("email_verifications").delete().eq("email", email.lower()).is_(
+                "verified_at", "null"
+            ).execute()
         except Exception as e:
             logger.warning(f"Failed to invalidate existing OTPs for {email}: {e}")
 
@@ -191,20 +192,21 @@ class OTPService:
             email_lower = email.lower()
 
             # Get the latest OTP record for this email
-            result = self.supabase.table("email_verifications") \
-                .select("created_at") \
-                .eq("email", email_lower) \
-                .order("created_at", desc=True) \
-                .limit(1) \
+            result = (
+                self.supabase.table("email_verifications")
+                .select("created_at")
+                .eq("email", email_lower)
+                .order("created_at", desc=True)
+                .limit(1)
                 .execute()
+            )
 
             if not result.data:
                 return True, 0
 
             from datetime import datetime
-            created_at = datetime.fromisoformat(
-                result.data[0]["created_at"].replace("Z", "+00:00")
-            )
+
+            created_at = datetime.fromisoformat(result.data[0]["created_at"].replace("Z", "+00:00"))
             elapsed = (utc_now() - created_at).total_seconds()
 
             if elapsed < self.RESEND_COOLDOWN_SECONDS:

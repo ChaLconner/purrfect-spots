@@ -210,7 +210,7 @@ jobs:
             --tb=short
 
       - name: Upload coverage HTML report
-        uses: actions/upload-artifact@8e61266858e727699173f8b5f90382ae3e232b50 # v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: backend-coverage-report
@@ -218,7 +218,7 @@ jobs:
           retention-days: 14
 
       - name: Upload raw coverage data (for Sonar)
-        uses: actions/upload-artifact@8e61266858e727699173f8b5f90382ae3e232b50 # v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: backend-coverage-xml
@@ -286,7 +286,7 @@ jobs:
           python scripts/export_openapi.py --output ../docs/openapi-current.json || echo "::warning::Failed to export OpenAPI spec"
 
       - name: Upload OpenAPI specs
-        uses: actions/upload-artifact@8e61266858e727699173f8b5f90382ae3e232b50 # v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: openapi-specs
@@ -374,7 +374,7 @@ jobs:
           npm run test:coverage
 
       - name: Upload coverage HTML report
-        uses: actions/upload-artifact@8e61266858e727699173f8b5f90382ae3e232b50 # v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: frontend-coverage-report
@@ -406,7 +406,7 @@ jobs:
           VITE_API_BASE_URL: https://api.purrfect-spots.com
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@8e61266858e727699173f8b5f90382ae3e232b50 # v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: frontend-build
           path: frontend/dist
@@ -483,7 +483,7 @@ jobs:
           CI: true
 
       - name: Upload Playwright Report
-        uses: actions/upload-artifact@8e61266858e727699173f8b5f90382ae3e232b50 # v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: playwright-report
@@ -505,7 +505,7 @@ jobs:
         uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
 
       - name: Run Trivy vulnerability scanner (filesystem)
-        uses: aquasecurity/trivy-action@f678453 # v0.28.0
+        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
         with:
           scan-type: "fs"
           scan-ref: "."
@@ -554,7 +554,6 @@ jobs:
         uses: semgrep/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d # v1
         with:
           config: p/default p/security-audit p/owasp-top-ten
-          generateSarif: "1"
         env:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
       - name: Upload Semgrep SARIF

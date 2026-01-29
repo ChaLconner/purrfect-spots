@@ -88,12 +88,7 @@ class OAuthService:
             raise ValueError(f"Invalid token: {e!s}")
 
     async def exchange_google_code(
-        self, 
-        code: str, 
-        code_verifier: str, 
-        redirect_uri: str, 
-        ip: str | None = None, 
-        user_agent: str | None = None
+        self, code: str, code_verifier: str, redirect_uri: str, ip: str | None = None, user_agent: str | None = None
     ) -> LoginResponse:
         """Exchange Google authorization code for access token using PKCE flow"""
         try:

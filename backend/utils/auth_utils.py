@@ -1,6 +1,7 @@
 """
 Authentication utility functions for common tasks across multiple auth routes.
 """
+
 from fastapi import Request, Response
 
 from config import config

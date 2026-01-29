@@ -181,7 +181,7 @@ async def _verify_and_decode_token(token: str, supabase: Client | None = None) -
             raise
         except Exception as custom_error:
             logger.debug(f"Custom token decode failed: {custom_error!s}")
-            
+
             # FINAL FALLBACK: Try Supabase API directly if we have a client
             if supabase:
                 try:

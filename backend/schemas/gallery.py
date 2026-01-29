@@ -5,6 +5,7 @@ from schemas.location import CatLocation
 
 class PaginationMeta(BaseModel):
     """Pagination metadata"""
+
     total: int
     limit: int
     offset: int
@@ -15,12 +16,14 @@ class PaginationMeta(BaseModel):
 
 class PaginatedGalleryResponse(BaseModel):
     """Paginated gallery response with metadata"""
+
     images: list[CatLocation]
     pagination: PaginationMeta
 
 
 class GalleryResponse(BaseModel):
     """Legacy response for backward compatibility"""
+
     images: list[CatLocation]
 
 

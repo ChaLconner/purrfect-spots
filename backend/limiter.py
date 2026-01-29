@@ -76,7 +76,7 @@ def test_redis_connection(redis_url: str) -> bool:
 def get_storage_uri() -> str | None:
     """
     Get storage URI for rate limiter.
-    
+
     Returns:
         Redis URL if configured and working, else "memory://"
     """
@@ -106,19 +106,15 @@ def get_user_id_from_request(request: Request) -> str:
     if auth_header.startswith("Bearer "):
         try:
             token = auth_header.split(" ")[1]
-            
+
             # Use secure verification if secret is available
             # We catch errors gracefully to fall back to IP limiting for bad tokens
             if config.JWT_SECRET:
-                payload = jwt.decode(
-                    token, 
-                    config.JWT_SECRET, 
-                    algorithms=[config.JWT_ALGORITHM]
-                )
+                payload = jwt.decode(token, config.JWT_SECRET, algorithms=[config.JWT_ALGORITHM])
             else:
                 # Fallback only if secret is somehow missing (should likely fail earlier)
                 payload = jwt.decode(token, options={"verify_signature": False})
-                
+
             user_id = payload.get("sub") or payload.get("user_id")
             if user_id:
                 return f"user:{user_id}"

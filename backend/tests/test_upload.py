@@ -393,7 +393,7 @@ class TestUploadWithPredetectedCats:
 
         assert response.status_code == 201
         result = response.json()
-        
+
         # ASSERTION: Result should match SERVER mock (cat_count=1), NOT client data (cat_count=99)
         assert result["cat_detection"]["cat_count"] == 1
         assert result["cat_detection"]["confidence"] == 0.95

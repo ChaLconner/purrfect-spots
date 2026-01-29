@@ -54,43 +54,40 @@ class UserService:
             # 1. Generate Signup Link (Creates user if not exists)
             # We use generate_link to get the URL without sending via Supabase SMTP which is failing
             frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").split(",")[0]
-            
+
             params = {
                 "type": "signup",
                 "email": email,
                 "password": password,
                 "options": {
-                    "data": {
-                        "name": name,
-                        "full_name": name
-                    },
-                }
+                    "data": {"name": name, "full_name": name},
+                },
             }
-            
+
             # This returns a UserResponse object from gotrue-py
             # Structure: res.user (User), res.properties.action_link (str)
             res = self.supabase_admin.auth.admin.generate_link(params)
-            
+
             if not res or not res.user:
-                 raise Exception("Failed to create user")
+                raise Exception("Failed to create user")
 
             user = res.user
             # Extract action_link safely
             action_link = getattr(res.properties, "action_link", None) if hasattr(res, "properties") else None
-            
+
             if not action_link:
-                # Fallback or error? 
+                # Fallback or error?
                 # If no link, we can't verify.
                 logger.error("No action_link returned from generate_link")
                 raise Exception("Failed to generate confirmation link")
 
             # 2. Send Email via our custom EmailService
             sent = email_service.send_confirmation_email(email, action_link)
-            
+
             if not sent:
                 logger.error("Failed to send custom confirmation email")
                 # Proceeding anyway, but user might be stuck.
-            
+
             return {
                 "id": user.id,
                 "email": user.email,
@@ -98,7 +95,7 @@ class UserService:
                 "created_at": user.created_at,
                 "picture": "",
                 "bio": None,
-                "verification_required": True
+                "verification_required": True,
             }
 
         except Exception as e:
@@ -152,10 +149,7 @@ class UserService:
     def authenticate_user(self, email: str, password: str) -> dict | None:
         """Authenticate user using Supabase Auth"""
         try:
-            res = self.supabase.auth.sign_in_with_password({
-                "email": email,
-                "password": password
-            })
+            res = self.supabase.auth.sign_in_with_password({"email": email, "password": password})
 
             if res.user and res.session:
                 # Return dict with user and tokens
@@ -186,10 +180,9 @@ class UserService:
     def update_password_hash(self, user_id: str, new_password: str) -> bool:
         """Update user's password hash in database"""
         try:
-            self.supabase_admin.table("users").update({
-                "password_hash": password_service.hash_password(new_password),
-                "updated_at": utc_now_iso()
-            }).eq("id", user_id).execute()
+            self.supabase_admin.table("users").update(
+                {"password_hash": password_service.hash_password(new_password), "updated_at": utc_now_iso()}
+            ).eq("id", user_id).execute()
             return True
         except Exception as e:
             logger.error(f"Failed to update password hash: {e}")
