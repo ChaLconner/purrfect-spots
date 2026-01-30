@@ -32,7 +32,7 @@ export function useImageLoader(options: UseImageLoaderOptions): UseImageLoaderRe
 
   const handleError = (event: Event) => {
     hasError.value = true;
-    console.error(`Image failed to load: ${src}`, event);
+    console.error('Image failed to load:', src, event);
   };
 
   const retry = () => {
