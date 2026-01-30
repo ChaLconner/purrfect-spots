@@ -15,7 +15,6 @@ from supabase import Client
 
 from config import config
 from logger import logger
-from logger import logger
 from utils.cache import cached_gallery, cached_tags
 from utils.db_security import escape_like_pattern, sanitize_search_input
 
@@ -355,8 +354,6 @@ class GalleryService:
             # Order and limit
             db_query = db_query.order("uploaded_at", desc=True).limit(limit)
 
-            db_query = db_query.order("uploaded_at", desc=True).limit(limit)
-
             resp = db_query.execute()
             data = resp.data if resp.data else []
             return self._process_photos(data)
@@ -507,7 +504,6 @@ class GalleryService:
         Less accurate but works without PostGIS.
         """
         try:
-            # Approximate degrees per km (varies by latitude)
             # Approximate degrees per km (varies by latitude)
             import math
 

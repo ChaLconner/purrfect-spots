@@ -87,10 +87,12 @@ export default defineConfig({
   
   // Run dev server before tests
   webServer: {
-    command: process.env.CI ? 'npm run preview -- --port 4173' : 'npm run dev -- --host',
+    command: process.env.CI ? 'npm run preview -- --port 4173 --host' : 'npm run dev -- --host',
     url: process.env.CI ? 'http://127.0.0.1:4173' : 'http://127.0.0.1:5173',
     reuseExistingServer: !process.env.CI,
-    timeout: 120000,
+    timeout: 180 * 1000, // 3 minutes
+    stdout: 'pipe',
+    stderr: 'pipe',
   },
   
   // Output folder for test artifacts
