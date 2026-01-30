@@ -15,7 +15,9 @@ from supabase import Client
 
 from config import config
 from logger import logger
+from logger import logger
 from utils.cache import cached_gallery, cached_tags
+from utils.db_security import escape_like_pattern, sanitize_search_input
 
 
 class GalleryService:
@@ -233,8 +235,9 @@ class GalleryService:
             if query and use_fulltext and self._fulltext_available:
                 return self._fulltext_search(query, tags, limit)
 
-            # Fallback to ILIKE search
-            return self._ilike_search(query, tags, limit)
+            # Fallback to ILIKE search with strict sanitization
+            sanitized_query = sanitize_search_input(query) if query else None
+            return self._ilike_search(sanitized_query, tags, limit)
 
         except Exception as e:
             logger.error(f"Search failed: {e}")
@@ -242,7 +245,8 @@ class GalleryService:
             if use_fulltext and self._fulltext_available:
                 logger.info("Falling back to ILIKE search")
                 try:
-                    return self._ilike_search(query, tags, limit)
+                    sanitized_query = sanitize_search_input(query) if query else None
+                    return self._ilike_search(sanitized_query, tags, limit)
                 except Exception as e2:
                     raise Exception(f"Failed to search photos: {e2!s}")
             raise Exception(f"Failed to search photos: {e!s}")
@@ -330,9 +334,14 @@ class GalleryService:
 
             # Apply text search if provided
             if query:
+                # Sanitize just in case passed directly
+                clean_query = sanitize_search_input(query)
+                # Escape LIKE wildcards to prevent pattern injection
+                safe_query = escape_like_pattern(clean_query)
+                
                 # Supabase uses ilike for case-insensitive search
                 # Search in both location_name and description
-                db_query = db_query.or_(f"location_name.ilike.%{query}%,description.ilike.%{query}%")
+                db_query = db_query.or_(f"location_name.ilike.%{safe_query}%,description.ilike.%{safe_query}%")
 
             # Apply tag filters if provided using the tags array column
             if tags:

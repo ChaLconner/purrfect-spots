@@ -9,7 +9,7 @@
 import axios from 'axios';
 import type { AxiosInstance, AxiosRequestConfig, AxiosError, AxiosProgressEvent } from 'axios';
 import { isBrowserExtensionError, handleBrowserExtensionError } from './browserExtensionHandler';
-import { isDev, getEnvVar } from './env';
+import { getEnvVar } from './env';
 
 // ========== API Error Types & Classes (Defined Early) ==========
 export const ApiErrorTypes = {
@@ -101,14 +101,7 @@ export const getApiBaseUrl = (): string => {
   
   if (!envUrl) {
      
-    console.warn('⚠️ [API Config] VITE_API_BASE_URL is missing!');
-    // eslint-disable-next-line no-console
-    console.info('ℹ️ [API Config] Current Origin:', window.location.origin);
-    // eslint-disable-next-line no-console
-    console.info('ℹ️ [API Config] Requests will be relative to frontend domain.');
-  } else {
-    // eslint-disable-next-line no-console
-    console.info('✅ [API Config] Using API URL:', envUrl);
+// Info logs removed for production safety
   }
   
   return envUrl || '';
@@ -160,9 +153,7 @@ const createApiInstance = (): AxiosInstance => {
     (response) => {
       const contentType = response.headers['content-type'];
       if (contentType && !contentType.includes('application/json')) {
-        if (isDev()) {
-          console.warn('Received non-JSON response:', contentType, response.data);
-        }
+// Warn removed
         if (typeof response.data === 'string') {
           try {
             response.data = JSON.parse(response.data);
@@ -222,7 +213,7 @@ const createApiInstance = (): AxiosInstance => {
                   }
                 }
               } catch (refreshError) {
-                if (isDev()) console.warn('Silent refresh failed:', refreshError);
+        // Warn removed
               }
               
               if (logoutCallback) logoutCallback();
@@ -343,10 +334,7 @@ export const apiRequest = async <T = unknown>(
       
       if (shouldRetry) {
         const delay = calculateBackoffDelay(attempt, config);
-        if (isDev()) {
-           // eslint-disable-next-line no-console
-           console.log('[API Retry] Attempt', attempt + 1, '/', config.maxRetries + 1, 'failed, retrying in', delay, 'ms...', endpoint);
-        }
+// Log removed
         await sleep(delay);
         continue;
       }

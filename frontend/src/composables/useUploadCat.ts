@@ -34,10 +34,7 @@ export function useUploadCat() {
 
       // Get image dimensions
       const dimensions = await getImageDimensions(file);
-      if (isDev()) {
-        // eslint-disable-next-line no-console
-        console.log('Original image dimensions:', dimensions);
-      }
+// Log removed for production safety
 
       // Optimize image before upload
       const optimizedFile = await optimizeImage(file, {
@@ -47,10 +44,7 @@ export function useUploadCat() {
         format: 'jpeg',
       });
 
-      if (isDev()) {
-        // eslint-disable-next-line no-console
-        console.log('Optimized file size:', (optimizedFile.size / 1024 / 1024).toFixed(2), 'MB');
-      }
+// Log removed for production safety
 
       // Prepare additional data
       const additionalData = {
@@ -72,9 +66,7 @@ export function useUploadCat() {
 
       return result;
     } catch (err) {
-      if (isDev()) {
-        console.error('Upload error:', err);
-      }
+// Error logged to state, console log suppressed
       
       // Handle API errors specifically
       if (err instanceof ApiError) {

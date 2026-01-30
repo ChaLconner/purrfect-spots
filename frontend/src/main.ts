@@ -16,14 +16,11 @@ import {
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
 const ENVIRONMENT = import.meta.env.MODE;
 
-import type { App } from 'vue';
+import type { App as VueApp } from 'vue';
 
-async function initSentry(app: App) {
+async function initSentry(app: VueApp) {
   if (!SENTRY_DSN) {
-    if (isDev()) {
-      // eslint-disable-next-line no-console
-      console.log('[Sentry] DSN not configured - error monitoring disabled');
-    }
+// Log removed
     return;
   }
 
@@ -67,15 +64,9 @@ async function initSentry(app: App) {
     const win = window as Window & { Sentry?: typeof Sentry };
     win.Sentry = Sentry;
 
-    if (isDev()) {
-      // eslint-disable-next-line no-console
-      console.log(`[Sentry] Initialized for ${ENVIRONMENT} environment`);
-    }
+// Log removed
   } catch (error) {
-    if (isDev()) {
-       
-      console.warn('[Sentry] Failed to initialize:', error);
-    }
+// Warn removed
   }
 }
 

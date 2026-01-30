@@ -310,7 +310,10 @@ app.add_middleware(HTTPSRedirectMiddleware)
 
 # Trust X-Forwarded-For headers from proxies (e.g. AWS LB, Vercel)
 # This prevents IP spoofing in rate limiting
-app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+app.add_middleware(
+    ProxyHeadersMiddleware,
+    trusted_hosts=os.getenv("TRUSTED_HOSTS", "*").split(","),
+)
 
 # Security headers (CSP, HSTS, X-Frame-Options, etc.)
 app.add_middleware(SecurityHeadersMiddleware)

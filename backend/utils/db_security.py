@@ -143,8 +143,8 @@ def sanitize_search_input(value: str, max_length: int = 100) -> str:
     # Truncate to max length
     sanitized = value[:max_length]
 
-    # Remove potentially dangerous characters
-    sanitized = re.sub(r"[;\-\-\'\"\\]", "", sanitized)
+    # Remove potentially dangerous characters and PostgREST delimiters
+    sanitized = re.sub(r"[;\-\-\'\"\\,()]", "", sanitized)
 
     # Remove multiple spaces
     sanitized = re.sub(r"\s+", " ", sanitized).strip()
