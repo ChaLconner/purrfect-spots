@@ -337,7 +337,7 @@ class GalleryService:
                 clean_query = sanitize_search_input(query)
                 # Escape LIKE wildcards to prevent pattern injection
                 safe_query = escape_like_pattern(clean_query)
-                
+
                 # Supabase uses ilike for case-insensitive search
                 # Search in both location_name and description
                 db_query = db_query.or_(f"location_name.ilike.%{safe_query}%,description.ilike.%{safe_query}%")

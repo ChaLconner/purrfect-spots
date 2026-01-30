@@ -71,10 +71,10 @@ async def update_profile(
 
         # Sanitize inputs
         from utils.security import sanitize_text
-        
+
         if "name" in update_data:
             update_data["name"] = sanitize_text(update_data["name"], max_length=100)
-            
+
         if "bio" in update_data and update_data["bio"]:
             update_data["bio"] = sanitize_text(update_data["bio"], max_length=500)
 

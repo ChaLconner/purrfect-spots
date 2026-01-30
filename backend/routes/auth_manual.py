@@ -42,8 +42,9 @@ async def register(
     try:
         if not data.name.strip():
             raise HTTPException(status_code=400, detail="Please enter first and last name")
-            
+
         from utils.security import sanitize_text
+
         sanitized_name = sanitize_text(data.name.strip(), max_length=100)
 
         # Create user via Supabase Auth (without email confirmation)

@@ -1,7 +1,7 @@
 import { ref } from 'vue';
 import { uploadFile, ApiError, ApiErrorTypes } from '../utils/api';
 import { optimizeImage, validateImageFile, getImageDimensions } from '../utils/imageUtils';
-import { isDev, getEnvVar } from '../utils/env';
+import { getEnvVar } from '../utils/env';
 
 export function useUploadCat() {
   const isUploading = ref(false);
@@ -28,7 +28,7 @@ export function useUploadCat() {
       // Validate image file
       const validation = validateImageFile(file);
       if (!validation.valid) {
-        error.value = validation.error;
+        error.value = validation.error || null;
         return null;
       }
 
@@ -59,7 +59,7 @@ export function useUploadCat() {
 
       // Upload file with progress tracking
       const result = await uploadFile('/api/v1/upload/cat', optimizedFile, additionalData, (progressEvent) => {
-        if (progressEvent.lengthComputable) {
+        if (progressEvent.lengthComputable && progressEvent.total) {
           uploadProgress.value = Math.round((progressEvent.loaded * 100) / progressEvent.total);
         }
       });
@@ -91,7 +91,7 @@ export function useUploadCat() {
         
         error.value = errorMessage;
       } else {
-        error.value = err.message || 'An error occurred during image upload';
+        error.value = (err as Error).message || 'An error occurred during image upload';
       }
       
       return null;

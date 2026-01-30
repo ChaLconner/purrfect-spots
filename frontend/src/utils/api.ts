@@ -212,7 +212,7 @@ const createApiInstance = (): AxiosInstance => {
                     return instance(originalRequest);
                   }
                 }
-              } catch (refreshError) {
+              } catch {
         // Warn removed
               }
               
