@@ -326,7 +326,13 @@ onUnmounted(() => {
 
       <!-- Mobile Navigation Links -->
       <div class="mobile-nav-links">
-        <router-link to="/map" class="mobile-nav-link" @click="menuOpen = false">
+        <router-link
+          to="/map"
+          class="mobile-nav-link"
+          @click="menuOpen = false"
+          role="link"
+          aria-label="Map"
+        >
           <MapIcon class="nav-icon" />
           <span>Map</span>
         </router-link>

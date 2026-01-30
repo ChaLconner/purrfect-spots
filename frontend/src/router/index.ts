@@ -1,68 +1,68 @@
-import { createRouter, createWebHistory } from "vue-router";
-import { useAuthStore } from "@/store/authStore";
+import { createRouter, createWebHistory } from 'vue-router';
+import { useAuthStore } from '@/store/authStore';
 
 const routes = [
   {
-    path: "/",
-    name: "Home",
-    component: () => import("@/views/MapView.vue"),
+    path: '/',
+    name: 'Home',
+    component: () => import('@/views/MapView.vue'),
   },
   {
-    path: "/map",
-    name: "Map",
-    component: () => import("@/views/MapView.vue"),
+    path: '/map',
+    name: 'Map',
+    component: () => import('@/views/MapView.vue'),
   },
   {
-    path: "/upload",
-    name: "Upload",
-    component: () => import("@/views/UploadView.vue"),
-
-  },
-  {
-    path: "/gallery/:id?",
-    name: "Gallery",
-    component: () => import("@/views/GalleryView.vue"),
-    props: true,
-  },
-  {
-    path: "/profile",
-    name: "Profile",
-    component: () => import("@/views/ProfileView.vue"),
+    path: '/upload',
+    name: 'Upload',
+    component: () => import('@/views/UploadView.vue'),
     meta: { requiresAuth: true },
   },
   {
-    path: "/login",
-    name: "Login",
-    component: () => import("@/views/AuthView.vue"),
-    props: { mode: "login" },
+    path: '/gallery/:id?',
+    name: 'Gallery',
+    component: () => import('@/views/GalleryView.vue'),
+    props: true,
   },
   {
-    path: "/register",
-    name: "Register",
-    component: () => import("@/views/AuthView.vue"),
-    props: { mode: "register" },
+    path: '/profile',
+    name: 'Profile',
+    component: () => import('@/views/ProfileView.vue'),
+    meta: { requiresAuth: true },
   },
   {
-    path: "/forgot-password",
-    name: "ForgotPassword",
-    component: () => import("@/views/ForgotPasswordView.vue"),
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/views/AuthView.vue'),
+    props: { mode: 'login' },
   },
   {
-    path: "/reset-password",
-    name: "ResetPassword",
-    component: () => import("@/views/ResetPasswordView.vue"),
+    path: '/register',
+    name: 'Register',
+    component: () => import('@/views/AuthView.vue'),
+    props: { mode: 'register' },
   },
   {
-    path: "/verify-email",
-    name: "VerifyEmail",
-    component: () => import("@/views/VerifyEmailView.vue"),
+    path: '/forgot-password',
+    name: 'ForgotPassword',
+    component: () => import('@/views/ForgotPasswordView.vue'),
+  },
+  {
+    path: '/reset-password',
+    name: 'ResetPassword',
+    component: () => import('@/views/ResetPasswordView.vue'),
+  },
+  {
+    path: '/verify-email',
+    name: 'VerifyEmail',
+    component: () => import('@/views/VerifyEmailView.vue'),
     meta: { requiresGuest: true },
   },
 
   {
-    path: "/auth/callback",
-    name: "AuthCallback",
-    component: () => import("@/components/AuthCallback.vue"),
+    path: '/auth/callback',
+    name: 'AuthCallback',
+    component: () => import('@/components/AuthCallback.vue'),
     meta: { isAuthCallback: true },
   },
 ];
@@ -89,17 +89,17 @@ router.beforeEach((to, _from, next) => {
     const auth = useAuthStore();
     if (!auth.isUserReady) {
       // Store the intended destination
-      sessionStorage.setItem("redirectAfterAuth", to.fullPath);
-      next({ name: "Login" });
+      sessionStorage.setItem('redirectAfterAuth', to.fullPath);
+      next({ name: 'Login' });
     } else {
       next();
     }
   } else if (
-    (to.name === "Login" || to.name === "Register" || to.name === "Auth") &&
+    (to.name === 'Login' || to.name === 'Register' || to.name === 'Auth') &&
     useAuthStore().isUserReady
   ) {
     // If user is already logged in and has complete profile, redirect to upload
-    next({ name: "Upload" });
+    next({ name: 'Upload' });
   } else {
     next();
   }

@@ -43,7 +43,7 @@ class TestDateTimeUtils:
         """Test converting naive datetime to UTC"""
         naive_dt = datetime(2024, 1, 15, 12, 30, 45)
         utc_dt = to_utc(naive_dt)
-        
+
         assert utc_dt.tzinfo == UTC
         assert utc_dt.year == 2024
         assert utc_dt.month == 1
@@ -56,7 +56,7 @@ class TestDateTimeUtils:
         """Test converting already UTC datetime"""
         utc_dt_in = datetime(2024, 1, 15, 12, 30, 45, tzinfo=UTC)
         utc_dt_out = to_utc(utc_dt_in)
-        
+
         assert utc_dt_out.tzinfo == UTC
         assert utc_dt_out == utc_dt_in
 
@@ -64,11 +64,12 @@ class TestDateTimeUtils:
         """Test converting datetime from another timezone to UTC"""
         # Create a datetime in EST (UTC-5)
         from datetime import timedelta
+
         est = timezone(timedelta(hours=-5))
         est_dt = datetime(2024, 1, 15, 12, 30, 45, tzinfo=est)
-        
+
         utc_dt = to_utc(est_dt)
-        
+
         assert utc_dt.tzinfo == UTC
         # 12:30 EST = 17:30 UTC
         assert utc_dt.hour == 17
@@ -78,7 +79,7 @@ class TestDateTimeUtils:
         """Test parsing ISO string with +00:00 timezone"""
         iso_string = "2024-01-15T12:30:45+00:00"
         dt = from_iso(iso_string)
-        
+
         assert dt.tzinfo == UTC
         assert dt.year == 2024
         assert dt.month == 1
@@ -91,7 +92,7 @@ class TestDateTimeUtils:
         """Test parsing ISO string with Z (Zulu) timezone"""
         iso_string = "2024-01-15T12:30:45Z"
         dt = from_iso(iso_string)
-        
+
         assert dt.tzinfo == UTC
         assert dt.year == 2024
         assert dt.month == 1
@@ -102,7 +103,7 @@ class TestDateTimeUtils:
         """Test parsing ISO string with timezone offset"""
         iso_string = "2024-01-15T12:30:45+05:30"
         dt = from_iso(iso_string)
-        
+
         # Should be converted to UTC
         assert dt.tzinfo == UTC
         # 12:30 +05:30 = 07:00 UTC
@@ -113,7 +114,7 @@ class TestDateTimeUtils:
         """Test that from_iso can parse utc_now_iso output"""
         iso_string = utc_now_iso()
         dt = from_iso(iso_string)
-        
+
         assert dt.tzinfo == UTC
         # Should be within 1 second of now
         now = utc_now()
@@ -124,5 +125,5 @@ class TestDateTimeUtils:
         """Test that to_utc preserves microseconds"""
         naive_dt = datetime(2024, 1, 15, 12, 30, 45, 123456)
         utc_dt = to_utc(naive_dt)
-        
+
         assert utc_dt.microsecond == 123456

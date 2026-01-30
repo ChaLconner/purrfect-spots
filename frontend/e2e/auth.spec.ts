@@ -21,6 +21,19 @@ test.describe('Authentication Flow', () => {
     bio: 'Test bio',
     created_at: '2023-01-01T00:00:00Z'
   };
+
+  test.beforeEach(async ({ page }) => {
+    // Mock refresh token to fail immediately (401) so app initializes quickly
+    // This calls Main.ts -> AuthStore.initializeAuth -> refreshToken
+    // Without this, the app waits for the real backend (which isn't running) and times out
+    await page.route('**/api/v1/auth/refresh-token', async route => {
+      await route.fulfill({ 
+        status: 401, 
+        contentType: 'application/json',
+        json: { detail: "Not authenticated" } 
+      });
+    });
+  });
   
   test.describe('Login Page', () => {
 
@@ -175,10 +188,24 @@ test.describe('Authentication Flow', () => {
             await route.fulfill({ status: 200, json: mockUser });
         });
 
+        // Mock refresh token endpoint to succeed
+        await page.route('**/api/v1/auth/refresh-token', async route => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                json: {
+                    access_token: 'fake-jwt-token',
+                    token_type: 'bearer',
+                    user: mockUser
+                }
+            });
+        });
+
         // Simulate logged in state by setting token in localStorage directly
         await page.addInitScript(() => {
             localStorage.setItem('token', 'fake-jwt-token');
-            localStorage.setItem('user', JSON.stringify({
+            // The auth store reads 'user_data', not 'user' for restoration
+            localStorage.setItem('user_data', JSON.stringify({
                 id: 'test-user-123',
                 email: 'test@example.com',
                 name: 'Test User'

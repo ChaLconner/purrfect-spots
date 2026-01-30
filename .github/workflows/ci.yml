@@ -454,7 +454,7 @@ jobs:
   frontend-e2e:
     name: Frontend E2E Tests
     runs-on: ubuntu-latest
-    needs: [backend-test, frontend-lint]
+    needs: [frontend-build]
     if: |
       inputs.force_full_run == true ||
       needs.changes.outputs.frontend == 'true' || 
@@ -469,6 +469,12 @@ jobs:
         uses: ./.github/actions/setup-frontend
         with:
           node-version: ${{ env.NODE_VERSION }}
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4
+        with:
+          name: frontend-build
+          path: frontend/dist
 
       - name: Install Playwright Browsers
         run: |
@@ -616,6 +622,8 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
+            -Dsonar.projectKey=ChaLconner_purrfect-spots
+            -Dsonar.organization=chalconner
             -Dsonar.python.version=3.12
             -Dsonar.typescript.tsconfigPath=frontend/tsconfig.json
             -Dsonar.python.coverage.reportPaths=backend/coverage.xml

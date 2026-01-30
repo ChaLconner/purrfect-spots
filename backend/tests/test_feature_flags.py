@@ -77,7 +77,7 @@ class TestFeatureFlagService:
             for key in list(os.environ.keys()):
                 if key.startswith("FEATURE_"):
                     del os.environ[key]
-            
+
             flags = FeatureFlagService.get_all_flags()
             assert isinstance(flags, dict)
             assert "ENABLE_NEW_UI" in flags

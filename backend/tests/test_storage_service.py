@@ -76,25 +76,23 @@ class TestStorageService:
         """Test successful file upload"""
         file_content = b"test image content"
         content_type = "image/jpeg"
-        
+
         with patch("config.config") as mock_config:
             mock_config.CDN_BASE_URL = None
-            
-            url = await storage_service.upload_file(
-                file_content, content_type, "jpg", "uploads"
-            )
-            
+
+            url = await storage_service.upload_file(file_content, content_type, "jpg", "uploads")
+
             # Verify S3 client was called
             storage_service.s3_client.put_object.assert_called_once()
             call_kwargs = storage_service.s3_client.put_object.call_args[1]
-            
+
             assert call_kwargs["Bucket"] == "test-bucket"
             assert call_kwargs["Body"] == file_content
             assert call_kwargs["ContentType"] == content_type
             assert "uploads/" in call_kwargs["Key"]
             assert call_kwargs["CacheControl"] == "public, max-age=31536000"
             assert call_kwargs["ContentDisposition"] == "inline"
-            
+
             # Verify URL format
             assert "https://test-bucket.s3.us-east-1.amazonaws.com/uploads/" in url
             assert url.endswith(".jpg")
@@ -103,12 +101,12 @@ class TestStorageService:
     async def test_upload_file_with_cdn(self, storage_service):
         """Test file upload with CDN URL"""
         file_content = b"test content"
-        
+
         with patch("config.config") as mock_config:
             mock_config.CDN_BASE_URL = "https://cdn.example.com"
-            
+
             url = await storage_service.upload_file(file_content, "image/png", "png")
-            
+
             assert url.startswith("https://cdn.example.com/upload/")
             assert url.endswith(".png")
 
@@ -116,14 +114,12 @@ class TestStorageService:
     async def test_upload_file_custom_folder(self, storage_service):
         """Test file upload to custom folder"""
         file_content = b"test"
-        
+
         with patch("config.config") as mock_config:
             mock_config.CDN_BASE_URL = None
-            
-            url = await storage_service.upload_file(
-                file_content, "image/webp", "webp", "avatars"
-            )
-            
+
+            url = await storage_service.upload_file(file_content, "image/webp", "webp", "avatars")
+
             call_kwargs = storage_service.s3_client.put_object.call_args[1]
             assert "avatars/" in call_kwargs["Key"]
             assert "avatars/" in url
@@ -132,40 +128,36 @@ class TestStorageService:
     async def test_upload_file_s3_error(self, storage_service):
         """Test upload file when S3 raises an error"""
         storage_service.s3_client.put_object.side_effect = Exception("S3 error")
-        
+
         with pytest.raises(HTTPException) as exc:
             await storage_service.upload_file(b"test", "image/jpeg")
-        
+
         assert exc.value.status_code == 500
         assert "Failed to upload image to S3" in exc.value.detail
 
     def test_delete_file_success(self, storage_service):
         """Test successful file deletion"""
         file_url = "https://test-bucket.s3.us-east-1.amazonaws.com/upload/test.jpg"
-        
+
         storage_service.delete_file(file_url)
-        
-        storage_service.s3_client.delete_object.assert_called_once_with(
-            Bucket="test-bucket", Key="upload/test.jpg"
-        )
+
+        storage_service.s3_client.delete_object.assert_called_once_with(Bucket="test-bucket", Key="upload/test.jpg")
 
     def test_delete_file_cdn_url(self, storage_service):
         """Test file deletion with CDN URL"""
         file_url = "https://cdn.example.com/avatars/image.png"
-        
+
         storage_service.delete_file(file_url)
-        
-        storage_service.s3_client.delete_object.assert_called_once_with(
-            Bucket="test-bucket", Key="avatars/image.png"
-        )
+
+        storage_service.s3_client.delete_object.assert_called_once_with(Bucket="test-bucket", Key="avatars/image.png")
 
     def test_delete_file_s3_error(self, storage_service):
         """Test delete file handles S3 errors gracefully"""
         storage_service.s3_client.delete_object.side_effect = Exception("Delete error")
-        
+
         # Should not raise exception, just log warning
         storage_service.delete_file("https://example.com/upload/test.jpg")
-        
+
         # Verify it tried to delete
         storage_service.s3_client.delete_object.assert_called_once()
 
@@ -173,6 +165,6 @@ class TestStorageService:
         """Test delete file with invalid URL (too short)"""
         # URL with less than 2 parts after split - should handle gracefully
         storage_service.delete_file("invalid")
-        
+
         # Should not crash, may or may not call s3_client depending on implementation
         # Just verify it doesn't raise an exception

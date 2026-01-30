@@ -168,7 +168,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onUnmounted, computed } from 'vue';
+import { ref, watch, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import SkeletonLoader from '@/components/ui/SkeletonLoader.vue';
 import { useCatsStore } from '@/store';
@@ -348,6 +348,26 @@ function preloadAdjacentImages() {
   }
 }
 
+onMounted(() => {
+  if (props.image) {
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', handleKeydown);
+
+    // Setup touch events for swipe
+    if (imageStageRef.value) {
+      imageStageRef.value.addEventListener('touchstart', handleTouchStart, { passive: true });
+      imageStageRef.value.addEventListener('touchmove', handleTouchMove, { passive: false });
+      imageStageRef.value.addEventListener('touchend', handleTouchEnd, { passive: true });
+    }
+
+    setTimeout(() => {
+      closeButtonRef.value?.focus();
+    }, 100);
+
+    preloadAdjacentImages();
+  }
+});
+
 watch(
   () => props.image,
   (newVal, oldVal) => {
@@ -358,7 +378,7 @@ watch(
         isLoaded.value = false;
       }
       document.body.style.overflow = 'hidden';
-      window.addEventListener('keydown', handleKeydown);
+      document.addEventListener('keydown', handleKeydown);
 
       // Setup touch events for swipe
       if (imageStageRef.value) {
@@ -375,7 +395,7 @@ watch(
       preloadAdjacentImages();
     } else {
       document.body.style.overflow = '';
-      window.removeEventListener('keydown', handleKeydown);
+      document.removeEventListener('keydown', handleKeydown);
 
       // Cleanup touch events
       if (imageStageRef.value) {
@@ -397,7 +417,7 @@ watch(
 
 onUnmounted(() => {
   document.body.style.overflow = '';
-  window.removeEventListener('keydown', handleKeydown);
+  document.removeEventListener('keydown', handleKeydown);
 
   // Cleanup touch events
   if (imageStageRef.value) {

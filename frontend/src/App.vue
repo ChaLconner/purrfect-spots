@@ -112,8 +112,9 @@ onErrorCaptured((err, instance, info) => {
     <ToastContainer />
     <main
       id="main-content"
+      role="main"
       tabindex="-1"
-      class="flex-1 overflow-auto flex flex-col focus:outline-none"
+      class="flex-1 overflow-auto flex flex-col focus:outline-none w-full"
     >
       <router-view />
     </main>
