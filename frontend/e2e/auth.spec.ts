@@ -109,7 +109,7 @@ test.describe('Authentication Flow', () => {
         await page.getByRole('button', { name: /login|sign in/i }).click();
 
         // Should redirect to home or dashboard
-        await expect(page).toHaveURL(/$|dashboard/);
+        await expect(page).toHaveURL('/upload');
     });
     
     test('should have link to registration', async ({ page }) => {
@@ -168,7 +168,7 @@ test.describe('Authentication Flow', () => {
       await page.getByRole('button', { name: /register|sign up|create/i }).click();
       
       // Should redirect after success
-      await expect(page).toHaveURL(/$|dashboard/);
+      await expect(page).toHaveURL('/upload');
     });
   });
   

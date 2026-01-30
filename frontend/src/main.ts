@@ -73,7 +73,7 @@ async function initSentry(app: App) {
     }
   } catch (error) {
     if (isDev()) {
-      // eslint-disable-next-line no-console
+       
       console.warn('[Sentry] Failed to initialize:', error);
     }
   }
@@ -122,7 +122,7 @@ initSentry(app).then(async () => {
 
     // Log other errors normally
     if (isDev()) {
-      // eslint-disable-next-line no-console
+       
       console.error('Vue error:', err, info);
     }
   };

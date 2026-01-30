@@ -100,7 +100,7 @@ export const getApiBaseUrl = (): string => {
   } 
   
   if (!envUrl) {
-    // eslint-disable-next-line no-console
+     
     console.warn('⚠️ [API Config] VITE_API_BASE_URL is missing!');
     // eslint-disable-next-line no-console
     console.info('ℹ️ [API Config] Current Origin:', window.location.origin);

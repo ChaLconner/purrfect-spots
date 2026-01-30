@@ -60,7 +60,7 @@ export const useAuthStore = defineStore('auth', () => {
           user.value = parsedUser;
         }
       } catch {
-        // eslint-disable-next-line no-console
+         
         // console.error('Failed to parse stored user data:', _e);
       }
     }

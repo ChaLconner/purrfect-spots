@@ -23,12 +23,8 @@ test.describe('Gallery Page', () => {
       });
     });
 
-    // Use flexible matching for query params
-    await page.route(/.*\/api\/v1\/gallery.*/, async (route) => {
-      // Optional: You can check params here if needed
-      // const url = new URL(route.request().url());
-      // if (url.searchParams.get('limit') === '20') { ... }
-
+    // Use specific matching for the list endpoint (allow optional query params)
+    await page.route(/\/api\/v1\/gallery(?:\?.*)?$/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -83,6 +79,15 @@ test.describe('Gallery Page', () => {
           uploaded_at: '2023-01-01T12:00:00Z',
           tags: ['orange', 'sleeping', 'details'],
         },
+      });
+    });
+
+    // Mock viewport locations which also use the gallery prefix
+    await page.route('**/api/v1/gallery/viewport*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        json: [],
       });
     });
 

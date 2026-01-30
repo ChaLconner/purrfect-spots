@@ -144,7 +144,7 @@ jobs:
           cd frontend
 
           # Link to Vercel project
-          npx vercel link --yes --token=${{ secrets.VERCEL_TOKEN }}
+          npx vercel link --yes --token=${{ secrets.VERCEL_TOKEN }} --project "$VERCEL_PROJECT_ID" || { echo "::error::Vercel link failed"; exit 1; }
 
           # Inject Env Vars for Staging
           npx vercel env add VITE_API_BASE_URL "${{ secrets.STAGING_API_URL }}" preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
@@ -171,7 +171,7 @@ jobs:
           cd backend
 
           # Link to Vercel project
-          npx vercel link --yes --token=${{ secrets.VERCEL_TOKEN }}
+          npx vercel link --yes --token=${{ secrets.VERCEL_TOKEN }} --project "$VERCEL_PROJECT_ID" || { echo "::error::Vercel link failed for backend"; exit 1; }
 
           # Inject Env Vars for Staging
           npx vercel env add SUPABASE_URL "${{ secrets.SUPABASE_URL }}" preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
@@ -300,7 +300,7 @@ jobs:
 
           # Link to Vercel project (creates .vercel folder)
           echo "🔗 Linking to Vercel project..."
-          npx vercel link --yes --token=${{ secrets.VERCEL_TOKEN }} || { echo "::error::Vercel link failed"; exit 1; }
+          npx vercel link --yes --token=${{ secrets.VERCEL_TOKEN }} --project "$VERCEL_PROJECT_ID" || { echo "::error::Vercel link failed"; exit 1; }
 
           # Inject Env Vars for Production
           echo "🔧 Injecting environment variables..."
@@ -309,14 +309,31 @@ jobs:
             npx vercel env add VITE_GOOGLE_MAPS_API_KEY "${{ secrets.GOOGLE_MAPS_API_KEY }}" production --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
           fi
 
-          # Deploy to Vercel (server-side build) - no local build
+          # Deploy to Vercel (server-side build)
           echo "🚀 Triggering Vercel User Deployment..."
-          set -o pipefail
-          deployment_url=$(npx vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --yes --no-wait 2>&1 | grep -E '^https://' | head -1)
 
-          if [ -z "$deployment_url" ]; then
-            echo "::error::Deployment failed. No URL returned."
+          # Capture deployment URL using jq for reliability
+          # We use --json to get structured output and avoid fragile regex parsing
+          npx vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --yes --no-wait --json > deploy_res.json
+          DEPLOY_EXIT_CODE=$?
+
+          if [ $DEPLOY_EXIT_CODE -ne 0 ]; then
+            echo "::error::Vercel deployment failed with exit code $DEPLOY_EXIT_CODE"
+            if [ -f deploy_res.json ]; then cat deploy_res.json; fi
+            exit $DEPLOY_EXIT_CODE
+          fi
+
+          deployment_url=$(jq -r '.url' deploy_res.json 2>/dev/null || grep -oE 'https://[a-zA-Z0-9.-]+\.vercel\.app' deploy_res.json | head -1)
+
+          if [ -z "$deployment_url" ] || [ "$deployment_url" == "null" ]; then
+            echo "::error::Deployment failed. No URL returned in JSON output."
+            cat deploy_res.json
             exit 1
+          fi
+
+          # Ensure URL has https:// prefix
+          if [[ ! $deployment_url =~ ^https:// ]]; then
+            deployment_url="https://$deployment_url"
           fi
 
           echo "deployment_url=$deployment_url" >> $GITHUB_OUTPUT
@@ -344,7 +361,7 @@ jobs:
 
           # Link to Vercel project
           echo "🔗 Linking Backend to Vercel..."
-          npx vercel link --yes --token=${{ secrets.VERCEL_TOKEN }} || { echo "::error::Vercel link failed for backend"; exit 1; }
+          npx vercel link --yes --token=${{ secrets.VERCEL_TOKEN }} --project "$VERCEL_PROJECT_ID" || { echo "::error::Vercel link failed for backend"; exit 1; }
 
           # Inject Env Vars for Production
           echo "🔧 Injecting environment variables..."

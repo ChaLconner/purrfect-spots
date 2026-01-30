@@ -37,7 +37,7 @@ export function sanitizeInput(input: string, maxLength = 1000): string {
   let sanitized = input.slice(0, maxLength);
 
   // Remove script tags (simplified non-backtracking pattern)
-  // eslint-disable-next-line security/detect-unsafe-regex
+   
   sanitized = sanitized.replace(/<script[^>]*>.*?<\/script>/gis, '');
   sanitized = sanitized.replace(/on\w+\s*=/gi, '');
   sanitized = sanitized.replace(/javascript:/gi, '');
@@ -58,7 +58,7 @@ export function sanitizeUrl(url: string): string {
   for (const protocol of dangerousProtocols) {
     if (trimmed.startsWith(protocol)) {
       if (isDev()) {
-        // eslint-disable-next-line no-console
+         
         console.warn(`Blocked dangerous URL: ${url.slice(0, 50)}...`);
       }
       return '';
@@ -169,7 +169,7 @@ export function secureGetItem<T>(key: string, defaultValue: T): T {
     return JSON.parse(item) as T;
   } catch {
     if (isDev()) {
-      // eslint-disable-next-line no-console
+       
       console.warn(`Failed to parse localStorage item: ${key}`);
     }
     return defaultValue;
@@ -187,7 +187,7 @@ export function secureSetItem(key: string, value: unknown): boolean {
     // Check size (5MB typical limit, we limit to 1MB per item)
     if (serialized.length > 1_000_000) {
       if (isDev()) {
-        // eslint-disable-next-line no-console
+         
         console.warn(`Item too large for localStorage: ${key}`);
       }
       return false;
@@ -197,7 +197,7 @@ export function secureSetItem(key: string, value: unknown): boolean {
     return true;
   } catch (error) {
     if (isDev()) {
-      // eslint-disable-next-line no-console
+       
       console.warn('Failed to set localStorage item:', key, error);
     }
     return false;
@@ -212,7 +212,7 @@ export function secureRemoveItem(key: string): void {
     localStorage.removeItem(key);
   } catch (error) {
     if (isDev()) {
-      // eslint-disable-next-line no-console
+       
       console.warn('Failed to remove localStorage item:', key, error);
     }
   }
