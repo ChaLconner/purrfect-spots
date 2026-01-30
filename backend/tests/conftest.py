@@ -87,6 +87,15 @@ def mock_supabase():
     mock.limit.return_value = mock
     mock.or_.return_value = mock
     mock.contains.return_value = mock
+    # Add missing methods used in gallery service
+    mock.is_.return_value = mock
+    mock.gte.return_value = mock
+    mock.lte.return_value = mock
+    mock.text_search.return_value = mock
+    mock.rpc.return_value = mock
+    # not_ is often a property returning a modifier object, but simple mocking:
+    mock.not_.is_.return_value = mock  # Handling .not_.is_ chain
+
     mock.execute.return_value = MagicMock(data=[], count=0)
     return mock
 
@@ -107,6 +116,14 @@ def mock_supabase_admin():
     mock.limit.return_value = mock
     mock.or_.return_value = mock
     mock.contains.return_value = mock
+    # Add missing methods
+    mock.is_.return_value = mock
+    mock.gte.return_value = mock
+    mock.lte.return_value = mock
+    mock.text_search.return_value = mock
+    mock.rpc.return_value = mock
+    mock.not_.is_.return_value = mock
+
     mock.execute.return_value = MagicMock(data=[], count=0)
     return mock
 

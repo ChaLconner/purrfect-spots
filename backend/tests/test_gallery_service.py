@@ -22,6 +22,12 @@ class TestGalleryService:
         mock.eq.return_value = mock
         mock.or_.return_value = mock
         mock.contains.return_value = mock
+        mock.is_.return_value = mock
+        mock.gte.return_value = mock
+        mock.lte.return_value = mock
+        mock.text_search.return_value = mock
+        mock.rpc.return_value = mock
+        mock.not_.is_.return_value = mock
         mock.execute.return_value = MagicMock(data=[], count=0)
         return mock
 

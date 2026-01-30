@@ -38,9 +38,28 @@
 
           <!-- Profile Info -->
           <div class="flex-1 text-center md:text-left">
-            <h1 class="text-4xl font-heading font-bold text-brown mb-3">
+            <h1 class="text-4xl font-heading font-bold text-brown mb-1">
               {{ authStore.user?.name || 'Unknown User' }}
             </h1>
+            <p
+              class="text-terracotta font-medium mb-4 flex items-center justify-center md:justify-start gap-2"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                />
+              </svg>
+              {{ authStore.user?.email }}
+            </p>
 
             <p class="text-brown-light text-lg mb-4 max-w-xl font-body leading-relaxed">
               {{ authStore.user?.bio || 'Just a cat wandering through the world...' }}
@@ -90,38 +109,17 @@
         </div>
       </div>
 
-      <!-- Content Tabs -->
-      <div class="flex justify-center mb-8">
-        <div
-          class="bg-white/40 p-1.5 rounded-full inline-flex backdrop-blur-sm border border-white/40 shadow-sm"
+      <!-- Gallery Section -->
+      <div class="mb-6">
+        <h2
+          class="text-2xl font-heading font-bold text-brown text-center md:text-left pl-2 mb-4 border-l-4 border-terracotta"
         >
-          <button
-            :class="[
-              'px-6 py-2 rounded-full font-heading font-semibold transition-all duration-300 transform cursor-pointer',
-              activeTab === 'uploads'
-                ? 'bg-white text-terracotta shadow-md scale-105'
-                : 'text-brown-light hover:text-brown hover:bg-white/30',
-            ]"
-            @click="activeTab = 'uploads'"
-          >
-            My Collection
-          </button>
-          <button
-            :class="[
-              'px-6 py-2 rounded-full font-heading font-semibold transition-all duration-300 transform cursor-pointer',
-              activeTab === 'about'
-                ? 'bg-white text-terracotta shadow-md scale-105'
-                : 'text-brown-light hover:text-brown hover:bg-white/30',
-            ]"
-            @click="activeTab = 'about'"
-          >
-            About Me
-          </button>
-        </div>
+          My Collection
+        </h2>
       </div>
 
       <!-- Tab Content: Uploads -->
-      <div v-if="activeTab === 'uploads'" class="min-h-[300px]">
+      <div class="min-h-[300px]">
         <!-- Loading State -->
         <!-- Loading State -->
         <div v-if="uploadsLoading" class="flex flex-col justify-center items-center py-20">
@@ -172,67 +170,6 @@
               >
                 {{ new Date(upload.uploaded_at).toLocaleDateString() }}
               </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tab Content: About -->
-      <div
-        v-if="activeTab === 'about'"
-        class="bg-white/60 p-8 rounded-3xl shadow-sm border border-white/50 backdrop-blur-md max-w-2xl mx-auto"
-      >
-        <h3 class="text-2xl font-heading font-bold text-brown mb-6 flex items-center">
-          <span class="text-4xl mr-3">🍃</span> About Me
-        </h3>
-        <div class="space-y-6">
-          <div class="bg-white/50 p-6 rounded-2xl border border-white/60">
-            <p class="text-brown leading-relaxed font-body text-lg">
-              {{ authStore.user?.bio || "This user hasn't written a bio yet." }}
-            </p>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="flex items-center p-4 bg-sage/10 rounded-xl border border-sage/20">
-              <div class="bg-sage/20 p-2 rounded-full mr-3 text-sage-dark">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                  />
-                </svg>
-              </div>
-              <div class="min-w-0">
-                <p class="text-xs text-sage-dark uppercase font-bold tracking-wider">Email</p>
-                <p class="text-brown text-sm font-medium truncate" :title="authStore.user?.email">
-                  {{ authStore.user?.email }}
-                </p>
-              </div>
-            </div>
-
-            <div
-              class="flex items-center p-4 bg-terracotta/10 rounded-xl border border-terracotta/20"
-            >
-              <div class="bg-terracotta/20 p-2 rounded-full mr-3 text-terracotta-dark">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-              </div>
-              <div>
-                <p class="text-xs text-terracotta-dark uppercase font-bold tracking-wider">
-                  Joined
-                </p>
-                <p class="text-brown text-sm font-medium">
-                  {{ formatJoinDate(authStore.user?.created_at) }}
-                </p>
-              </div>
             </div>
           </div>
         </div>
@@ -320,7 +257,7 @@
             <div class="border-t border-stone-200 pt-6 mt-6">
               <button
                 type="button"
-                class="flex items-center text-terracotta font-bold text-sm uppercase tracking-wider hover:text-terracotta-dark transition-colors"
+                class="flex items-center text-terracotta font-bold text-sm uppercase tracking-wider hover:text-terracotta-dark transition-colors cursor-pointer"
                 @click="showPasswordSection = !showPasswordSection"
               >
                 <span class="mr-2">{{ showPasswordSection ? '−' : '+' }}</span>
@@ -334,10 +271,9 @@
                 <!-- Social User Warning -->
                 <div
                   v-if="isSocialUser"
-                  class="bg-amber-50 border border-amber-200 p-3 rounded-lg flex gap-3 text-amber-800 text-sm"
+                  class="bg-amber-50/80 border-l-4 border-amber-400 p-4 rounded-r-xl shadow-sm"
                 >
-                  <span class="text-xl">ℹ️</span>
-                  <p>
+                  <p class="text-amber-900 text-sm font-medium leading-relaxed">
                     This account is linked with a social provider (Google/Facebook). Please manage
                     your password through your social account settings.
                   </p>
@@ -441,7 +377,7 @@
                           !passwordForm.confirm ||
                           passwordRequirements.some((r) => !r.met)
                       "
-                      class="px-5 py-2.5 bg-[#C07040] text-white rounded-lg text-sm font-bold hover:bg-[#A05030] shadow-md transition-all disabled:opacity-50 disabled:shadow-none"
+                      class="px-5 py-2.5 bg-[#C07040] text-white rounded-lg text-sm font-bold hover:bg-[#A05030] shadow-md transition-all disabled:opacity-50 disabled:shadow-none cursor-pointer"
                       @click="updatePassword"
                     >
                       {{ isUpdatingPassword ? 'Updating...' : 'Update Password' }}
@@ -494,7 +430,7 @@
         >
           <!-- Close Button (Minimalist) -->
           <button
-            class="absolute top-6 right-6 z-20 text-stone-400 hover:text-brown bg-transparent transition-colors p-1"
+            class="absolute top-6 right-6 z-20 text-stone-400 hover:text-brown bg-transparent transition-colors p-1 cursor-pointer"
             @click="closeImageModal"
           >
             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -590,7 +526,7 @@
                 <!-- Action Buttons -->
                 <div class="flex items-center gap-3">
                   <button
-                    class="p-2 text-stone-400 hover:text-brown transition-colors rounded-full hover:bg-stone-50"
+                    class="p-2 text-stone-400 hover:text-brown transition-colors rounded-full hover:bg-stone-50 cursor-pointer"
                     title="Edit Details"
                     @click="openEditPhotoModal(selectedImage)"
                   >
@@ -610,7 +546,7 @@
                     </svg>
                   </button>
                   <button
-                    class="p-2 text-stone-400 hover:text-red-500 transition-colors rounded-full hover:bg-red-50"
+                    class="p-2 text-stone-400 hover:text-red-500 transition-colors rounded-full hover:bg-red-50 cursor-pointer"
                     title="Delete Photo"
                     @click="confirmDeletePhoto(selectedImage)"
                   >
@@ -667,7 +603,7 @@
           <div class="flex justify-end gap-3">
             <button
               type="button"
-              class="px-4 py-2 text-stone-500 hover:text-brown font-medium transition-colors"
+              class="px-4 py-2 text-stone-500 hover:text-brown font-medium transition-colors cursor-pointer"
               @click="showEditPhotoModal = false"
             >
               Cancel
@@ -675,7 +611,7 @@
             <button
               type="submit"
               :disabled="isSavingPhoto"
-              class="px-6 py-2 bg-terracotta hover:bg-terracotta-dark text-white rounded-xl shadow-md font-bold transition-all disabled:opacity-50"
+              class="px-6 py-2 bg-terracotta hover:bg-terracotta-dark text-white rounded-xl shadow-md font-bold transition-all disabled:opacity-50 cursor-pointer"
             >
               {{ isSavingPhoto ? 'Saving...' : 'Save Changes' }}
             </button>
@@ -713,14 +649,14 @@
 
         <div class="flex justify-center gap-3">
           <button
-            class="px-5 py-2 text-stone-500 hover:bg-stone-50 rounded-lg font-medium transition-colors"
+            class="px-5 py-2 text-stone-500 hover:bg-stone-50 rounded-lg font-medium transition-colors cursor-pointer"
             @click="showDeleteConfirm = false"
           >
             Keep it
           </button>
           <button
             :disabled="isDeletingPhoto"
-            class="px-5 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg shadow-md font-bold transition-all disabled:opacity-50"
+            class="px-5 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg shadow-md font-bold transition-all disabled:opacity-50 cursor-pointer"
             @click="executeDeletePhoto"
           >
             {{ isDeletingPhoto ? 'Deleting...' : 'Yes, Delete' }}
@@ -761,7 +697,6 @@ interface Upload {
   uploaded_at: string;
 }
 
-const activeTab = ref('uploads');
 const uploads = ref<Upload[]>([]);
 const uploadsLoading = ref(false);
 const uploadsError = ref<string | null>(null);

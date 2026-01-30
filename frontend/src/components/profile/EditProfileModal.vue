@@ -306,10 +306,9 @@ const handleKeydown = (event: KeyboardEvent) => {
                 >
                   <div
                     v-if="isSocialUser"
-                    class="bg-amber-50 border border-amber-200 p-3 rounded-lg flex gap-3 text-amber-800 text-sm"
+                    class="bg-amber-50/80 border-l-4 border-amber-400 p-4 rounded-r-xl shadow-sm"
                   >
-                    <span class="text-xl">ℹ️</span>
-                    <p>
+                    <p class="text-amber-900 text-sm font-medium leading-relaxed">
                       This account is linked with a social provider (Google/Facebook). Please manage
                       your password through your social account settings.
                     </p>

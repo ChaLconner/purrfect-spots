@@ -75,19 +75,19 @@ import { ANIMATION_CONFIG } from '@/utils/constants';
 const catsStore = useCatsStore();
 
 // Local search state for debouncing
-const localSearchQuery = ref(catsStore.searchQuery);
+const localSearchQuery = ref(catsStore.gallerySearchQuery);
 
 // Debounce timer
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Sync from store on mount
 onMounted(() => {
-  localSearchQuery.value = catsStore.searchQuery;
+  localSearchQuery.value = catsStore.gallerySearchQuery;
 });
 
 // Watch store changes to sync local state
 watch(
-  () => catsStore.searchQuery,
+  () => catsStore.gallerySearchQuery,
   (newVal) => {
     if (localSearchQuery.value !== newVal) {
       localSearchQuery.value = newVal;
@@ -104,7 +104,7 @@ function handleSearchInput() {
 
   // Set new timer with debounce delay
   debounceTimer = setTimeout(() => {
-    catsStore.setSearchQuery(localSearchQuery.value);
+    catsStore.setGallerySearchQuery(localSearchQuery.value);
   }, ANIMATION_CONFIG.DEBOUNCE_DELAY_MS);
 }
 
@@ -114,7 +114,7 @@ function clearSearch() {
   if (debounceTimer) {
     clearTimeout(debounceTimer);
   }
-  catsStore.setSearchQuery('');
+  catsStore.setGallerySearchQuery('');
 }
 
 // Cleanup timer on unmount

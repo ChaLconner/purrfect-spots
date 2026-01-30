@@ -32,6 +32,7 @@ export const useCatsStore = defineStore('cats', () => {
   const isLoading = ref(false);
   const error = ref<string | null>(null);
   const searchQuery = ref('');
+  const gallerySearchQuery = ref('');
   const popularTags = ref<TagInfo[]>([]);
   const selectedTags = ref<string[]>([]);
   
@@ -177,10 +178,17 @@ export const useCatsStore = defineStore('cats', () => {
   }
 
   /**
-   * Set search query
+   * Set search query (Global/Map)
    */
   function setSearchQuery(query: string) {
     searchQuery.value = query;
+  }
+
+  /**
+   * Set gallery search query
+   */
+  function setGallerySearchQuery(query: string) {
+    gallerySearchQuery.value = query;
   }
 
   /**
@@ -189,6 +197,13 @@ export const useCatsStore = defineStore('cats', () => {
   function clearSearch() {
     searchQuery.value = '';
     selectedTags.value = [];
+  }
+
+  /**
+   * Clear gallery search
+   */
+  function clearGallerySearch() {
+    gallerySearchQuery.value = '';
   }
 
   /**
@@ -265,7 +280,9 @@ export const useCatsStore = defineStore('cats', () => {
     isLoading,
     error,
     searchQuery,
+    gallerySearchQuery,
     popularTags,
+
     selectedTags,
     pagination,
 
@@ -286,7 +303,9 @@ export const useCatsStore = defineStore('cats', () => {
     setLoading,
     setError,
     setSearchQuery,
+    setGallerySearchQuery,
     clearSearch,
+    clearGallerySearch,
     setPopularTags,
     toggleTag,
     clearFilters,

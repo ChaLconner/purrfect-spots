@@ -15,6 +15,11 @@ class TestGalleryServiceSecurity:
         mock.order.return_value = mock
         mock.range.return_value = mock
         mock.limit.return_value = mock
+        mock.is_.return_value = mock
+        mock.gte.return_value = mock
+        mock.lte.return_value = mock
+        mock.text_search.return_value = mock
+        mock.rpc.return_value = mock
         mock.execute.return_value = MagicMock(data=[], count=0)
         return mock
 
@@ -23,6 +28,11 @@ class TestGalleryServiceSecurity:
         """Admin/Service role client mock"""
         mock = MagicMock()
         mock.table.return_value = mock
+        mock.is_.return_value = mock
+        mock.gte.return_value = mock
+        mock.lte.return_value = mock
+        mock.text_search.return_value = mock
+        mock.rpc.return_value = mock
         return mock
 
     @pytest.fixture

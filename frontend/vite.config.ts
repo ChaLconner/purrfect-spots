@@ -6,6 +6,7 @@ import { fileURLToPath, URL } from "node:url";
 
 import viteCompression from "vite-plugin-compression";
 import { ViteImageOptimizer } from "vite-plugin-image-optimizer";
+import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
   test: {
@@ -38,6 +39,34 @@ export default defineConfig({
   plugins: [
     vue(), 
     tailwindcss(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['cat-icon.png', 'default-avatar.svg'],
+      manifest: {
+        name: 'Purrfect Spots',
+        short_name: 'PurrfectSpots',
+        description: 'Discover and share cat-friendly locations with AI-powered cat detection',
+        theme_color: '#6b8e7d',
+        background_color: '#ffffff',
+        display: 'standalone',
+        orientation: 'portrait',
+        icons: [
+          {
+            src: 'cat-icon.png',
+            sizes: '192x192',
+            type: 'image/png'
+          },
+          {
+            src: 'cat-icon.png',
+            sizes: '512x512',
+            type: 'image/png'
+          }
+        ]
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}']
+      }
+    }),
     viteCompression({
       verbose: true,
       disable: false,

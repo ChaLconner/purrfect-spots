@@ -74,6 +74,8 @@
                         <img
                           loading="lazy"
                           :src="image.image_url"
+                          :srcset="generateSrcSet(image.image_url)"
+                          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                           :alt="image.location_name || 'Cat photo'"
                           class="gallery-image shadow-md"
                           :class="{ 'image-visible': loadedImages[image.id] }"
@@ -195,7 +197,8 @@ const updateWidth = () => {
 };
 
 // Determine chunk size based on convenient strict grid alignment (LCM of 2,3,4,5 = 60)
-const CHUNK_SIZE = 60;
+// Reduced to 20 for better performance (still divisible by 2, 4, 5 for common grids)
+const CHUNK_SIZE = 20;
 
 const chunkedImages = computed(() => {
   const chunks = [];
@@ -214,8 +217,8 @@ onMounted(() => {
   fetchImages();
 
   // Check for search query in URL on mount
-  if (route.query.search) {
-    catsStore.setSearchQuery(route.query.search as string);
+  if (route.query.q) {
+    catsStore.setGallerySearchQuery(route.query.q as string);
   }
 
   // Set SEO meta tags
@@ -268,14 +271,14 @@ watch(
 
 // Watch search query from store to update URL and fetch data
 watch(
-  () => catsStore.searchQuery,
+  () => catsStore.gallerySearchQuery,
   (newQuery) => {
     // Sync URL query param
     const query = { ...route.query };
     if (newQuery) {
-      query.search = newQuery;
+      query.q = newQuery;
     } else {
-      delete query.search;
+      delete query.q;
     }
     // Replace to avoid cluttering history, preserve path params
     router.replace({ params: route.params, query });
@@ -294,11 +297,11 @@ watch(
 
 // Watch route query specifically for browser back/forward buttons affecting search
 watch(
-  () => route.query.search,
+  () => route.query.q,
   (newSearch) => {
     const term = (newSearch as string) || '';
-    if (term !== catsStore.searchQuery) {
-      catsStore.setSearchQuery(term);
+    if (term !== catsStore.gallerySearchQuery) {
+      catsStore.setGallerySearchQuery(term);
     }
   }
 );
@@ -362,7 +365,7 @@ async function fetchGalleryData(reset = false) {
   error.value = '';
 
   try {
-    const query = catsStore.searchQuery;
+    const query = catsStore.gallerySearchQuery;
     let newImages: CatLocation[] = [];
     let hasNext = false;
     let total = 0;
@@ -522,6 +525,29 @@ function getBentoClass(index: number): string {
   if (remainder === 6) return 'col-span-2 row-span-1';
 
   return 'col-span-1 row-span-1';
+}
+
+function generateSrcSet(url: string): string {
+  if (!url || !url.includes('supabase.co')) return '';
+
+  // Base URL without existing query params if possible, or just append replacing width
+  // Our backend adds ?width=500&...
+  // We want to generate: url?width=300 300w, url?width=500 500w, url?width=800 800w
+
+  const widths = [300, 500, 800];
+  const srcSetParts = widths.map((width) => {
+    // Replace existing width param or append new one
+    let newUrl = url;
+    if (url.includes('width=')) {
+      newUrl = url.replace(/width=\d+/, `width=${width}`);
+    } else {
+      const sep = url.includes('?') ? '&' : '?';
+      newUrl = `${url}${sep}width=${width}`;
+    }
+    return `${newUrl} ${width}w`;
+  });
+
+  return srcSetParts.join(', ');
 }
 </script>
 

@@ -18,7 +18,10 @@ class TestAuthServiceExtended:
 
     @pytest.fixture
     def auth_service(self, mock_supabase):
-        with patch("dependencies.get_supabase_admin_client", return_value=mock_supabase):
+        with (
+            patch("services.auth_service.get_supabase_admin_client", return_value=mock_supabase),
+            patch("services.user_service.get_supabase_admin_client", return_value=mock_supabase),
+        ):
             with patch.dict(
                 "os.environ",
                 {"GOOGLE_CLIENT_ID": "test_id", "GOOGLE_CLIENT_SECRET": "test_secret", "JWT_SECRET": "test_jwt_secret"},
@@ -252,5 +255,5 @@ class TestAuthServiceExtended:
         with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = mock_response
 
-            with pytest.raises(ValueError, match="Token exchange failed"):
+            with pytest.raises(ValueError, match="Code exchange failed"):
                 await auth_service.exchange_google_code("code", "ver", "redir")

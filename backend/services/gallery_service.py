@@ -108,6 +108,7 @@ class GalleryService:
             resp = (
                 self.supabase.table("cat_photos")
                 .select("*")
+                .is_("deleted_at", "null")  # Soft delete filter
                 .order("uploaded_at", desc=True)
                 .range(offset, offset + limit - 1)
                 .execute()
@@ -119,7 +120,9 @@ class GalleryService:
 
             # Get total count if requested
             if include_total:
-                count_resp = self.supabase.table("cat_photos").select("id", count="exact").execute()
+                count_resp = (
+                    self.supabase.table("cat_photos").select("id", count="exact").is_("deleted_at", "null").execute()
+                )
                 total = count_resp.count if count_resp.count else len(data)
 
             return {
@@ -148,7 +151,12 @@ class GalleryService:
         """Internal cached implementation."""
         try:
             resp = (
-                supabase_client.table("cat_photos").select("*").order("uploaded_at", desc=True).limit(limit).execute()
+                supabase_client.table("cat_photos")
+                .select("*")
+                .is_("deleted_at", "null")
+                .order("uploaded_at", desc=True)
+                .limit(limit)
+                .execute()
             )
             # Note: We don't resize images here strictly to keep the cache payload consistent
             # But we could if we wanted to enforce it everywhere.
@@ -177,6 +185,7 @@ class GalleryService:
             resp = (
                 supabase_client.table("cat_photos")
                 .select("id,latitude,longitude,location_name,image_url")  # Minimal fields
+                .is_("deleted_at", "null")
                 .order("uploaded_at", desc=True)
                 .limit(2000)  # Reasonable limit for map
                 .execute()
@@ -277,6 +286,7 @@ class GalleryService:
                 db_query = (
                     self.supabase.table("cat_photos")
                     .select("*")
+                    .is_("deleted_at", "null")
                     .text_search("search_vector", search_term, options={"type": "websearch"})  # type: ignore
                     .order("uploaded_at", desc=True)
                     .limit(limit)
@@ -316,7 +326,7 @@ class GalleryService:
         """
         try:
             # Start with base query using standard client
-            db_query = self.supabase.table("cat_photos").select("*")
+            db_query = self.supabase.table("cat_photos").select("*").is_("deleted_at", "null")
 
             # Apply text search if provided
             if query:
@@ -387,6 +397,7 @@ class GalleryService:
                 supabase_client.table("cat_photos")
                 .select("tags")
                 .not_.is_("tags", "null")
+                .is_("deleted_at", "null")
                 .limit(1000)  # Sample from most recent 1000 photos
                 .execute()
             )
@@ -422,6 +433,7 @@ class GalleryService:
                 self.supabase.table("cat_photos")
                 .select("*")
                 .eq("user_id", user_id)
+                .is_("deleted_at", "null")
                 .order("uploaded_at", desc=True)
                 .execute()
             )
@@ -526,7 +538,14 @@ class GalleryService:
     def get_photo_by_id(self, photo_id: str) -> dict[str, Any] | None:
         """Get a specific photo by ID."""
         try:
-            resp = self.supabase.table("cat_photos").select("*").eq("id", photo_id).single().execute()
+            resp = (
+                self.supabase.table("cat_photos")
+                .select("*")
+                .eq("id", photo_id)
+                .is_("deleted_at", "null")
+                .single()
+                .execute()
+            )
             if resp.data:
                 # No resize for single view (full quality) or maybe larger resize?
                 # Let's say we want full quality or at least large enough (e.g. 1200)
@@ -536,7 +555,6 @@ class GalleryService:
             return resp.data
         except Exception as e:
             # Check if it's a "not found" error which might yield no rows
-            # converting to string to be safe
             msg = str(e)
             if "JSON object requested" in msg or "no rows returned" in msg:
                 return None

@@ -109,6 +109,47 @@ class UserService:
         """Alias for create_user_with_password"""
         return self.create_user_with_password(email, password, name)
 
+    def create_unverified_user(self, email: str, password: str, name: str) -> dict:
+        """
+        Create a new user without sending a confirmation email automatically.
+        Used for the OTP flow where verification is handled separately.
+        """
+        try:
+            # Create user via Supabase Admin API with email_confirm=False
+            res = self.supabase_admin.auth.admin.create_user(
+                {
+                    "email": email,
+                    "password": password,
+                    "email_confirm": False,
+                    "user_metadata": {"name": name, "full_name": name},
+                }
+            )
+
+            if not res or not res.user:
+                raise Exception("Failed to create user")
+
+            user = res.user
+
+            return {
+                "id": user.id,
+                "email": user.email,
+                "name": name,
+                "created_at": user.created_at,
+                "picture": "",
+                "bio": None,
+                "verification_required": True,
+            }
+
+        except Exception as e:
+            # Clean up error message
+            msg = str(e)
+            if "already registered" in msg.lower() or "already been registered" in msg.lower():
+                raise Exception("Email already registered")
+            if "unique constraint" in msg.lower():
+                raise Exception("Email already registered")
+            logger.error(f"Failed to create unverified user: {msg}")
+            raise Exception("Failed to create user")
+
     def create_or_get_user(self, user_data: dict) -> User:
         """Create new user or get existing user from database (for OAuth)"""
         try:

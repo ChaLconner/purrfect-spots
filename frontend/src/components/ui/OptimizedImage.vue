@@ -1,15 +1,16 @@
 <script setup lang="ts">
 /**
  * OptimizedImage Component
- * 
+ *
  * Handles responsive images with:
- * - Lazy loading
+ * - Lazy loading (via useImageLoader)
  * - srcset/sizes for responsive images
  * - Blur placeholder on load
  * - Error handling with fallback
  * - WebP support detection
  */
-import { ref, computed, onMounted } from 'vue';
+import { computed } from 'vue';
+import { useImageLoader } from '@/composables/useImageLoader';
 
 interface Props {
   src: string;
@@ -28,7 +29,7 @@ const props = withDefaults(defineProps<Props>(), {
   lazy: true,
   objectFit: 'cover',
   sizes: '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw',
-  fallbackSrc: '/placeholder-cat.svg'
+  fallbackSrc: '/placeholder-cat.svg',
 });
 
 const emit = defineEmits<{
@@ -36,31 +37,45 @@ const emit = defineEmits<{
   (e: 'error', error: Event): void;
 }>();
 
-const imageRef = ref<HTMLImageElement | null>(null);
-const isLoaded = ref(false);
-const hasError = ref(false);
-const isIntersecting = ref(!props.lazy);
+// Use the composable for loading logic
+const {
+  isLoaded,
+  hasError,
+  isIntersecting,
+  handleLoad: onInternalLoad,
+  handleError: onInternalError,
+  retry,
+  imageRef,
+} = useImageLoader({
+  src: props.src,
+  lazy: props.lazy,
+});
+
+// Event handlers
+function handleLoad() {
+  onInternalLoad();
+  emit('load');
+}
+
+function handleError(event: Event) {
+  onInternalError(event);
+  emit('error', event);
+}
 
 // Generate srcset for responsive images
-// Assumes backend can serve different sizes via query params or has pre-generated sizes
 const srcset = computed(() => {
   if (!props.src) return '';
-  
+
   // Check if it's an external URL (CDN, S3, etc.)
   const isExternalUrl = props.src.startsWith('http');
-  
+
   if (isExternalUrl) {
-    // For S3/CDN images, we can use Cloudinary-style or similar transforms
-    // Or just return original if no transform service is available
-    // Many CDNs support width parameter
     const baseUrl = props.src.split('?')[0];
     const sizes = [320, 640, 960, 1280, 1920];
-    
-    return sizes
-      .map(size => `${baseUrl}?w=${size} ${size}w`)
-      .join(', ');
+
+    return sizes.map((size) => `${baseUrl}?w=${size} ${size}w`).join(', ');
   }
-  
+
   return props.src;
 });
 
@@ -74,69 +89,15 @@ const aspectRatioStyle = computed(() => {
   }
   return {};
 });
-
-// Setup intersection observer for lazy loading
-onMounted(() => {
-  if (!props.lazy || !imageRef.value) {
-    isIntersecting.value = true;
-    return;
-  }
-
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          isIntersecting.value = true;
-          observer.disconnect();
-        }
-      });
-    },
-    {
-      rootMargin: '200px', // Start loading before it's in view
-      threshold: 0.01
-    }
-  );
-
-  observer.observe(imageRef.value);
-});
-
-function handleLoad() {
-  isLoaded.value = true;
-  emit('load');
-}
-
-function handleError(event: Event) {
-  hasError.value = true;
-  emit('error', event);
-}
-
-// Retry loading
-function retry() {
-  hasError.value = false;
-  isLoaded.value = false;
-  // Force re-render by toggling intersection
-  isIntersecting.value = false;
-  setTimeout(() => {
-    isIntersecting.value = true;
-  }, 100);
-}
 </script>
 
 <template>
-  <div 
-    ref="imageRef"
-    class="optimized-image-container"
-    :style="aspectRatioStyle"
-  >
+  <div ref="imageRef" class="optimized-image-container" :style="aspectRatioStyle">
     <!-- Placeholder/Skeleton -->
-    <div 
-      v-if="!isLoaded && !hasError"
-      class="image-placeholder"
-      :class="{ 'fade-out': isLoaded }"
-    >
-      <img 
-        v-if="placeholder" 
-        :src="placeholder" 
+    <div v-if="!isLoaded && !hasError" class="image-placeholder" :class="{ 'fade-out': isLoaded }">
+      <img
+        v-if="placeholder"
+        :src="placeholder"
         class="placeholder-image"
         alt=""
         aria-hidden="true"
@@ -156,9 +117,9 @@ function retry() {
       :loading="lazy ? 'lazy' : 'eager'"
       :decoding="lazy ? 'async' : 'auto'"
       class="optimized-image"
-      :class="{ 
+      :class="{
         'is-loaded': isLoaded,
-        [`object-${objectFit}`]: true
+        [`object-${objectFit}`]: true,
       }"
       @load="handleLoad"
       @error="handleError"
@@ -166,18 +127,15 @@ function retry() {
 
     <!-- Error State -->
     <div v-if="hasError" class="image-error">
-      <img 
-        :src="fallbackSrc" 
-        :alt="`Failed to load: ${alt}`"
-        class="fallback-image"
-      />
-      <button 
-        class="retry-button"
-        aria-label="Retry loading image"
-        @click="retry"
-      >
+      <img :src="fallbackSrc" :alt="`Failed to load: ${alt}`" class="fallback-image" />
+      <button class="retry-button" aria-label="Retry loading image" @click="retry">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+          />
         </svg>
       </button>
     </div>
@@ -222,8 +180,12 @@ function retry() {
 }
 
 @keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 .optimized-image {
@@ -237,10 +199,18 @@ function retry() {
   opacity: 1;
 }
 
-.object-cover { object-fit: cover; }
-.object-contain { object-fit: contain; }
-.object-fill { object-fit: fill; }
-.object-none { object-fit: none; }
+.object-cover {
+  object-fit: cover;
+}
+.object-contain {
+  object-fit: contain;
+}
+.object-fill {
+  object-fit: fill;
+}
+.object-none {
+  object-fit: none;
+}
 
 .image-error {
   position: absolute;

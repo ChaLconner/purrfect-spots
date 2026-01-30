@@ -11,21 +11,28 @@ import pytest
 
 from services.auth_service import AuthService
 from user_models.user import User
+from utils.datetime_utils import utc_now
 
 
 class TestAuthService:
     """Test suite for AuthService"""
 
     @pytest.fixture
-    def auth_service(self, mock_supabase):
-        """Create AuthService instance with mocked supabase"""
-        # Patch dependencies.get_supabase_admin_client to return the mock
-        with patch("dependencies.get_supabase_admin_client", return_value=mock_supabase):
-            service = AuthService(mock_supabase)
-            service.supabase_admin = mock_supabase
-            return service
+    def mock_user_service(self):
+        """Mock UserService"""
+        with patch("services.auth_service.UserService") as mock_class:
+            mock_instance = mock_class.return_value
+            yield mock_instance
 
-    def test_create_or_get_user_new(self, auth_service):
+    @pytest.fixture
+    def auth_service(self, mock_supabase, mock_user_service):
+        """Create AuthService instance with mocked supabase and user service"""
+        service = AuthService(mock_supabase)
+        # Verify UserService was initialized with supabase client
+        # mock_user_service_class.assert_called_with(mock_supabase) # Can't easily check this here due to fixture yield
+        return service
+
+    def test_create_or_get_user_new(self, auth_service, mock_user_service):
         """Test creating a new user via OAuth data"""
         user_data = {
             "id": "new-user-123",
@@ -35,140 +42,114 @@ class TestAuthService:
             "google_id": "google-123",
         }
 
-        # Mock upsert response
-        mock_response = MagicMock()
-        mock_response.data = [
-            {
-                "id": "new-user-123",
-                "email": "new@example.com",
-                "name": "New User",
-                "picture": "http://example.com/pic.jpg",
-                "bio": None,
-                "created_at": "2024-01-01T00:00:00Z",
-            }
-        ]
-        # Service uses supabase_admin which is our mock_supabase
-        auth_service.supabase_admin.table.return_value.upsert.return_value.execute.return_value = mock_response
+        # Mock user service return
+        expected_user = User(
+            id="new-user-123",
+            email="new@example.com",
+            name="New User",
+            picture="http://example.com/pic.jpg",
+            created_at=utc_now(),
+        )
+        mock_user_service.create_or_get_user.return_value = expected_user
 
         user = auth_service.create_or_get_user(user_data)
 
         assert user.id == "new-user-123"
         assert user.email == "new@example.com"
-        auth_service.supabase_admin.table.assert_called_with("users")
+        mock_user_service.create_or_get_user.assert_called_once_with(user_data)
 
     @pytest.mark.asyncio
-    async def test_change_password_success(self, auth_service):
+    async def test_change_password_success(self, auth_service, mock_user_service):
         """Test changing password successfully"""
         user_id = "user-123"
         current_password = "old_password"
         new_password = "new_password"
 
-        # Hash current password for fixture
-        from services.password_service import password_service
-
-        hashed_current = password_service.hash_password(current_password)
-
+        # Mock user retrieval
         mock_user = User(
             id=user_id,
-            password_hash=hashed_current,
             email="test@test.com",
             name="Test",
-            created_at="2024-01-01T00:00:00Z",
+            created_at=utc_now(),
+            password_hash="hashed_old",
         )
+        mock_user_service.get_user_by_id.return_value = mock_user
 
-        with patch.object(auth_service, "get_user_by_id", return_value=mock_user):
-            # Mock update
-            mock_update_response = MagicMock()
-            auth_service.supabase_admin.table.return_value.update.return_value.eq.return_value.execute.return_value = (
-                mock_update_response
-            )
-            # Mock password validation and token service
-            with patch("services.auth_service.password_service") as mock_pw_service:
-                mock_pw_service.validate_new_password = AsyncMock(return_value=(True, None))
-                # Restore hash_password for the service call (though validation is mocked)
-                mock_pw_service.hash_password.return_value = "new_hash"
-                mock_pw_service.verify_password.return_value = True
+        # Mock password validation
+        with patch("services.auth_service.password_service") as mock_pw_service:
+            mock_pw_service.validate_new_password = AsyncMock(return_value=(True, None))
+            mock_pw_service.verify_password.return_value = True
+            mock_pw_service.hash_password.return_value = "new_hash"
 
-                with patch("services.auth_service.get_token_service") as mock_ts:
-                    mock_token_service = MagicMock()
-                    mock_token_service.blacklist_all_user_tokens = AsyncMock(return_value=None)
-                    mock_ts.return_value = mock_token_service
+            with patch("services.auth_service.get_token_service") as mock_ts:
+                mock_token_service = MagicMock()
+                mock_token_service.blacklist_all_user_tokens = AsyncMock(return_value=None)
+                mock_ts.return_value = mock_token_service
 
-                    with patch("services.auth_service.email_service"):
-                        result = await auth_service.change_password(user_id, current_password, new_password)
-                        assert result is True
+                # Mock email service
+                with patch("services.auth_service.email_service"):
+                    # Mock Supabase Admin Update (AuthService does this directly currently for password change in step 4/5)
+                    # Wait, looking at AuthService.change_password:
+                    # It calls self.supabase_admin.auth.admin.update_user_by_id
+                    # AND self.user_service.update_password_hash
+
+                    # Mock admin client
+                    auth_service.supabase_admin.auth.admin.update_user_by_id = MagicMock()
+
+                    result = await auth_service.change_password(user_id, current_password, new_password)
+
+                    assert result is True
+                    mock_user_service.update_password_hash.assert_called_once_with(user_id, new_password)
 
     @pytest.mark.asyncio
-    async def test_change_password_incorrect(self, auth_service):
+    async def test_change_password_incorrect(self, auth_service, mock_user_service):
         """Test changing password with incorrect current password"""
         user_id = "user-123"
-        real_password = "real_password"
-
-        from services.password_service import password_service
-
-        hashed = password_service.hash_password(real_password)
 
         mock_user = User(
             id=user_id,
-            password_hash=hashed,
             email="test@test.com",
             name="Test",
-            created_at="2024-01-01T00:00:00Z",
+            created_at=utc_now(),
+            password_hash="hashed_real",
         )
+        mock_user_service.get_user_by_id.return_value = mock_user
 
-        with patch.object(auth_service, "get_user_by_id", return_value=mock_user):
-            with patch("services.auth_service.password_service") as mock_pw_service:
-                mock_pw_service.validate_new_password = AsyncMock(return_value=(True, None))
-                mock_pw_service.verify_password.return_value = False
+        with patch("services.auth_service.password_service") as mock_pw_service:
+            mock_pw_service.validate_new_password = AsyncMock(return_value=(True, None))
+            mock_pw_service.verify_password.return_value = False
 
-                # Also mock the Supabase Auth login fallback to fail
-                auth_service.supabase.auth.sign_in_with_password.side_effect = Exception("Invalid credentials")
+            # Also mock the Supabase Auth login fallback to fail
+            # AuthService calls user_service.authenticate_user for fallback
+            mock_user_service.authenticate_user.return_value = None
 
-                with pytest.raises(ValueError, match="Incorrect current password"):
-                    await auth_service.change_password(user_id, "wrong_password", "new_password")
+            with pytest.raises(ValueError, match="Incorrect current password"):
+                await auth_service.change_password(user_id, "wrong_password", "new_password")
 
-    def test_update_user_profile(self, auth_service):
+    def test_update_user_profile(self, auth_service, mock_user_service):
         """Test updating user profile"""
         user_id = "user-123"
         update_data = {"name": "Updated Name"}
 
-        mock_response = MagicMock()
-        mock_response.data = [{"id": user_id, "name": "Updated Name"}]
-        auth_service.supabase_admin.table.return_value.update.return_value.eq.return_value.execute.return_value = (
-            mock_response
-        )
+        mock_user_service.update_user_profile.return_value = {"id": user_id, "name": "Updated Name"}
 
         result = auth_service.update_user_profile(user_id, update_data)
 
         assert result["name"] == "Updated Name"
+        mock_user_service.update_user_profile.assert_called_once_with(user_id, update_data)
 
-    def test_get_user_by_id_found(self, auth_service, mock_user):
+    def test_get_user_by_id_found(self, auth_service, mock_user_service):
         """Test getting user by ID when user exists"""
-        mock_result = MagicMock()
-        mock_result.data = [
-            {
-                "id": mock_user.id,
-                "email": mock_user.email,
-                "name": mock_user.name,
-                "created_at": "2024-01-01",
-            }
-        ]
+        mock_user = User(id="user-123", email="test@test.com", name="Test", created_at=utc_now())
+        mock_user_service.get_user_by_id.return_value = mock_user
 
-        auth_service.supabase_admin.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-            mock_result
-        )
-
-        result = auth_service.get_user_by_id(mock_user.id)
+        result = auth_service.get_user_by_id("user-123")
         assert result is not None
-        assert result.id == mock_user.id
+        assert result.id == "user-123"
 
-    def test_get_user_by_id_not_found(self, auth_service):
+    def test_get_user_by_id_not_found(self, auth_service, mock_user_service):
         """Test getting user by ID when user doesn't exist"""
-        mock_result = MagicMock()
-        mock_result.data = []
-        auth_service.supabase_admin.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-            mock_result
-        )
+        mock_user_service.get_user_by_id.return_value = None
 
         result = auth_service.get_user_by_id("nonexistent")
         assert result is None

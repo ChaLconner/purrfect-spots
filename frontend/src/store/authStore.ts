@@ -18,6 +18,7 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null);
   const token = ref<string | null>(null); // Memory only, no localStorage!
   const isAuthenticated = ref(false);
+  const isInitialized = ref(false);
 
   const isLoading = ref(false);
   const error = ref<string | null>(null);
@@ -68,7 +69,8 @@ export const useAuthStore = defineStore('auth', () => {
     // Always try to refresh token on init to check valid session
     // This effectively restores the session using the HttpOnly cookie
     await refreshToken();
-
+    
+    isInitialized.value = true;
   }
 
   /**
@@ -229,13 +231,13 @@ export const useAuthStore = defineStore('auth', () => {
   // Initialize on store creation
   // Register callbacks to API utility to break circular dependency
   setAuthCallbacks(refreshToken, logout);
-  initializeAuth();
 
   return {
     // State
     user,
     token,
     isAuthenticated,
+    isInitialized,
     isLoading,
     error,
     

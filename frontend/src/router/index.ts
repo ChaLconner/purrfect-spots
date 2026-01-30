@@ -76,33 +76,36 @@ const router = createRouter({
 // Initialize auth state is handled by Pinia store automatically on first use
 
 // Global navigation guard
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to) => {
   // 1. Handle Supabase Auth Redirects (e.g. Email Verification links landing on root)
   // If we see a hash with access_token, redirect to AuthCallback to process it
   if (to.hash && to.hash.includes('access_token=') && to.name !== 'AuthCallback') {
-    next({ name: 'AuthCallback', query: to.query, hash: to.hash });
-    return;
+    return { name: 'AuthCallback', query: to.query, hash: to.hash };
   }
 
   // 2. Auth Protection Guard
   if (to.meta.requiresAuth) {
     const auth = useAuthStore();
+    
+    // Wait for auth initialization if needed
+    if (!auth.isInitialized) {
+      await auth.initializeAuth();
+    }
+
     if (!auth.isUserReady) {
       // Store the intended destination
       sessionStorage.setItem('redirectAfterAuth', to.fullPath);
-      next({ name: 'Login' });
-    } else {
-      next();
+      return { name: 'Login' };
     }
   } else if (
     (to.name === 'Login' || to.name === 'Register' || to.name === 'Auth') &&
     useAuthStore().isUserReady
   ) {
     // If user is already logged in and has complete profile, redirect to upload
-    next({ name: 'Upload' });
-  } else {
-    next();
+    return { name: 'Upload' };
   }
+  
+  return true;
 });
 
 export default router;

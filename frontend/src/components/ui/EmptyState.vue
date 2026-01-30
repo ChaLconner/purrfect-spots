@@ -9,7 +9,7 @@
         style="animation-duration: 4s"
       ></div>
       <h3
-        class="relative text-4xl md:text-6xl font-bold text-white drop-shadow-sm font-serif tracking-wide mb-3"
+        class="relative text-4xl md:text-6xl font-bold text-terracotta drop-shadow-sm font-serif tracking-wide mb-3"
       >
         <span class="whitespace-pre-line">{{ title }}</span>
       </h3>

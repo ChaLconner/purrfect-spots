@@ -329,9 +329,9 @@ onUnmounted(() => {
         <router-link
           to="/map"
           class="mobile-nav-link"
-          @click="menuOpen = false"
           role="link"
           aria-label="Map"
+          @click="menuOpen = false"
         >
           <MapIcon class="nav-icon" />
           <span>Map</span>
