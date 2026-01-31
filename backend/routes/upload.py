@@ -278,7 +278,7 @@ async def upload_cat_photo(
             },
         )
 
-        logger.info("Cat photo uploaded successfully: %s by %s", created_photo['id'], current_user.email)
+        logger.info("Cat photo uploaded successfully: %s by %s", created_photo["id"], current_user.email)
 
         return JSONResponse(
             status_code=201,

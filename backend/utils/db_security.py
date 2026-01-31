@@ -117,9 +117,9 @@ def detect_sql_injection(value: str) -> bool:
 
     if SQL_INJECTION_REGEX.search(value):
         if len(value) > 50:
-             logger.warning("Potential SQL injection detected: %s...", value[:50])
+            logger.warning("Potential SQL injection detected: %s...", value[:50])
         else:
-             logger.warning("Potential SQL injection detected: %s", value)
+            logger.warning("Potential SQL injection detected: %s", value)
         return True
 
     return False

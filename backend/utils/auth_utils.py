@@ -46,38 +46,34 @@ from user_models.user import UserResponse
 
 
 async def create_login_response(
-    auth_service: AuthService,
-    user,
-    request: Request,
-    response: Response,
-    include_refresh_cookie: bool = True
+    auth_service: AuthService, user, request: Request, response: Response, include_refresh_cookie: bool = True
 ) -> LoginResponse:
     """
     Unified helper to create tokens, set cookies, and return LoginResponse.
-    
+
     Args:
         auth_service: AuthService instance
         user: User object (must have id, email, name, picture, bio, created_at)
         request: FastAPI Request
         response: FastAPI Response
         include_refresh_cookie: Whether to set the refresh token cookie
-        
+
     Returns:
         LoginResponse model
     """
     ip, ua = get_client_info(request)
-    
+
     # Create tokens
     # Note: user might be a dict or object depending on source, but AuthService expects ID for tokens
     user_id = getattr(user, "id", user.get("id") if isinstance(user, dict) else str(user))
-    
+
     # Prepare token extra claims if needed (usually just standard claims)
     access_token = auth_service.create_access_token(user_id)
     refresh_token = auth_service.create_refresh_token(user_id, ip, ua)
-    
+
     if include_refresh_cookie:
         set_refresh_cookie(response, refresh_token)
-        
+
     # Standardize user object for response
     # Handle both dict and object (Pydantic model)
     def get_attr(obj, name, default=None):
@@ -87,7 +83,7 @@ async def create_login_response(
 
     return LoginResponse(
         access_token=access_token,
-        token_type="bearer",
+        token_type="bearer",  # nosec B106
         user=UserResponse(
             id=user_id,
             email=get_attr(user, "email"),

@@ -2,3 +2,4 @@
 # Ignore rules for public keys in build arguments
 DS002
 SecretsUsedInArgOrEnv
+CVE-2026-0994

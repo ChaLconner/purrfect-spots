@@ -116,14 +116,13 @@ class GoogleVisionService:
                 content = b"".join(chunks)
                 # Reset file pointer for potential reuse
                 image_input.file.seek(0)
-            
+
             # If client is not initialized, use fallback detection
             if not self.is_initialized or not self.client:
                 logger.debug("Using fallback cat detection (Google Vision not available)")
                 return self._fallback_cat_detection(image_input, content=content)
 
             logger.debug(f"Image size: {len(content)} bytes")
-
 
             image = vision.Image(content=content)
 
@@ -315,7 +314,7 @@ class GoogleVisionService:
             filename = ""
             if not isinstance(image_input, bytes):
                 filename = getattr(image_input, "filename", "").lower()
-            
+
             cat_keywords = list(set(self.CAT_LABEL_KEYWORDS + ["kitty"]))
 
             filename_has_cat = any(keyword in filename for keyword in cat_keywords)

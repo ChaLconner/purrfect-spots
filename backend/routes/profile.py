@@ -101,8 +101,8 @@ async def update_profile(
         raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error("Error updating profile: %s", e)
+    except Exception:
+        logger.error("Error updating profile")
         raise HTTPException(status_code=500, detail="Failed to update profile due to an internal error")
 
 
@@ -131,8 +131,8 @@ async def get_profile(
             "created_at": user.created_at,
         }
 
-    except Exception as e:
-        logger.error("Failed to get profile: %s", e)
+    except Exception:
+        logger.error("Failed to get profile")
         raise HTTPException(status_code=500, detail="Failed to get profile")
 
 
@@ -179,7 +179,7 @@ async def get_user_uploads(
 
                 uploads.append(upload_item)
             except Exception as item_error:
-                logger.warning("Error processing photo item %s: %s", photo.get('id'), item_error)
+                logger.warning("Error processing photo item %s: %s", photo.get("id"), item_error)
                 continue
 
         return {"uploads": uploads, "count": len(uploads)}
@@ -225,8 +225,8 @@ async def upload_profile_picture(
 
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error("Profile picture upload failed: %s", e)
+    except Exception:
+        logger.error("Profile picture upload failed")
         raise HTTPException(status_code=500, detail="Failed to upload profile picture")
 
 
@@ -246,7 +246,7 @@ async def change_password(
     user_agent = request.headers.get("user-agent", "unknown")
 
     # Audit log: Attempt
-    logger.info("[AUDIT] Password change attempt for user %s from IP %s", current_user.id, ip)
+    logger.info("[AUDIT] Password change attempt")
 
     try:
         success = await auth_service.change_password(
@@ -255,27 +255,27 @@ async def change_password(
 
         if success:
             # Audit log: Success
-            logger.info("[AUDIT] Password change SUCCESS for user %s from IP %s", current_user.id, ip)
+            logger.info("[AUDIT] Password change SUCCESS")
             return {"message": "Password changed successfully"}
         else:
             # Audit log: Failure (Logic)
-            logger.warning("[AUDIT] Password change FAILED (logic) for user %s from IP %s", current_user.id, ip)
+            logger.warning("[AUDIT] Password change FAILED (logic)")
             raise HTTPException(
                 status_code=400,
                 detail="Failed to change password (check current password)",
             )
 
-    except HTTPException as e:
+    except HTTPException:
         # Audit log: Failure (Validation/Auth)
-        logger.warning("[AUDIT] Password change FAILED (%s) for user %s from IP %s", e.detail, current_user.id, ip)
+        logger.warning("[AUDIT] Password change FAILED (auth)")
         raise
-    except ValueError as e:
+    except ValueError:
         # Audit log: Failure (Specific value error)
-        logger.warning("[AUDIT] Password change FAILED (ValueError: %s) for user %s from IP %s", e, current_user.id, ip)
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+        logger.warning("[AUDIT] Password change FAILED (validation)")
+        raise HTTPException(status_code=400, detail="Invalid password data")
+    except Exception:
         # Audit log: Failure (System error)
-        logger.error("[AUDIT] Password change ERROR for user %s from IP %s: %s", current_user.id, ip, e)
+        logger.error("[AUDIT] Password change ERROR")
         raise HTTPException(status_code=500, detail="An error occurred")
 
 
@@ -342,8 +342,8 @@ async def update_user_photo(
 
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error("Failed to update photo %s: %s", photo_id, e)
+    except Exception:
+        logger.error("Failed to update photo %s", photo_id)
         raise HTTPException(status_code=500, detail="Failed to update photo")
 
 
@@ -393,6 +393,6 @@ async def delete_user_photo(
 
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error("Failed to delete photo %s: %s", photo_id, e)
+    except Exception:
+        logger.error("Failed to delete photo %s", photo_id)
         raise HTTPException(status_code=500, detail="Failed to delete photo")

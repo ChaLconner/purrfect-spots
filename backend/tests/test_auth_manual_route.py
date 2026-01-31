@@ -226,18 +226,18 @@ class TestRefreshTokenEndpoint:
 
         mock_auth_service.verify_refresh_token = AsyncMock(return_value={"user_id": "test-user-id"})
         mock_auth_service.create_access_token.return_value = "new-access-token"
-        
+
         # Mock user retrieval to satisfy LoginResponse Pydantic validation
         from datetime import datetime
         from types import SimpleNamespace
-        
+
         user_obj = SimpleNamespace(
             id="test-user-id",
             email="test@example.com",
             name="Test User",
             created_at=datetime(2024, 1, 1),
             picture=None,
-            bio=None
+            bio=None,
         )
         mock_auth_service.get_user_by_id.return_value = user_obj
 

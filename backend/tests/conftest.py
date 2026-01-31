@@ -59,16 +59,16 @@ def disable_rate_limit():
     from limiter import auth_limiter, limiter, strict_limiter, upload_limiter
 
     limiters = [limiter, auth_limiter, strict_limiter, upload_limiter]
-    
+
     # Store initial states
     initial_states = [limiter_instance.enabled for limiter_instance in limiters]
-    
+
     # Disable all
     for limiter_instance in limiters:
         limiter_instance.enabled = False
-        
+
     yield
-    
+
     # Restore states
     for i, limiter_instance in enumerate(limiters):
         limiter_instance.enabled = initial_states[i]
@@ -146,7 +146,7 @@ class MockUser:
     """Mock user class for testing"""
 
     def __init__(self):
-        self.id = "test-user-123"
+        self.id = "00000000-0000-4000-a000-000000000123"
         self.email = "test@example.com"
         self.name = "Test User"
         self.picture = "https://example.com/avatar.jpg"
@@ -165,7 +165,7 @@ def mock_cat_photo():
     """Create a mock cat photo record"""
     return {
         "id": "test-photo-123",
-        "user_id": "test-user-123",
+        "user_id": "00000000-0000-4000-a000-000000000123",
         "location_name": "Test Cat Spot",
         "description": "A cute cat #orange #friendly",
         "tags": ["orange", "friendly"],

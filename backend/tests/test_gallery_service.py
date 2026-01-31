@@ -161,10 +161,11 @@ class TestGalleryService:
         """Test getting photos for a specific user"""
         mock_supabase.execute.return_value = MagicMock(data=[mock_cat_photo])
 
-        result = gallery_service.get_user_photos("test-user-123")
+        user_id = mock_cat_photo["user_id"]
+        result = gallery_service.get_user_photos(user_id)
 
         assert len(result) == 1
-        assert result[0]["user_id"] == "test-user-123"
+        assert result[0]["user_id"] == user_id
 
     def test_get_user_photos_empty(self, gallery_service, mock_supabase):
         """Test getting photos for user with no uploads"""

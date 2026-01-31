@@ -103,10 +103,10 @@ async def _is_token_revoked(jti: str) -> bool:
     try:
         token_service = await get_token_service()
         return await token_service.is_blacklisted(jti=jti)
-    except Exception as e:
+    except Exception:
         # Fallback to allow if service fails, but log it
         # Ideally we should fail open for reliability unless security is paramount
-        logger.debug("Token revocation check failed (allowing): %s", e)
+        logger.debug("Token revocation check failed (allowing due to service error)")
         return False
 
 
@@ -130,9 +130,9 @@ def _get_user_from_payload(payload: dict, source: str) -> User:
                 bio=data.get("bio"),
                 created_at=data.get("created_at", ""),
             )
-    except Exception as e:
+    except Exception:
         # Fallback to payload data if DB lookup fails
-        logger.warning("Failed to fetch user from DB in middleware: %s", e)
+        logger.warning("Failed to fetch user from DB in middleware")
 
     # Common extraction for both sources
     iat = payload.get("iat")
@@ -175,10 +175,10 @@ async def _verify_and_decode_token(token: str, supabase: Client | None = None) -
             payload = decode_custom_token(token)
             source = "custom"
         except HTTPException as http_exc:
-            logger.warning("Custom token decode failed (HTTP %s): %s", http_exc.status_code, http_exc.detail)
+            logger.warning("Custom token decode failed with status %s", http_exc.status_code)
             raise
-        except Exception as custom_error:
-            logger.debug("Custom token decode failed: %s", custom_error)
+        except Exception:
+            logger.debug("Custom token decode failed")
 
             # FINAL FALLBACK: Try Supabase API directly if we have a client
             if supabase:
@@ -196,15 +196,15 @@ async def _verify_and_decode_token(token: str, supabase: Client | None = None) -
                             "iat": int(datetime.now(timezone.utc).timestamp()),
                         }
                         source = "supabase"
-                        logger.info("Token verified via direct Supabase Auth API for user %s", supabase_user.id)
+                        logger.info("Token verified via direct Supabase Auth API")
                         return payload, source
                 except Exception as api_err:
                     logger.debug("Direct Supabase verification failed: %s", api_err)
 
-            logger.warning("All auth verification methods failed for token. Supabase error: %s", supabase_error)
+            logger.warning("All auth verification methods failed for token")
             raise HTTPException(status_code=401, detail="Authentication failed: Invalid or expired token")
-    except Exception as e:
-        logger.error("Unexpected token verification error: %s", e)
+    except Exception:
+        logger.error("Unexpected token verification error")
         raise HTTPException(status_code=401, detail="Authentication failed")
 
     # Common Security Checks (Revocation & Invalidation)
@@ -226,10 +226,10 @@ async def _verify_and_decode_token(token: str, supabase: Client | None = None) -
                     raise HTTPException(status_code=401, detail="Session invalidated (Password changed)")
             except HTTPException:
                 raise
-            except Exception as e:
+            except Exception:
                 # Log but verify open? checking service might fail
                 # Ideally fail closed for high security
-                logger.error("Failed to check user invalidation status: %s", e)
+                logger.error("Failed to check user invalidation status")
 
     return payload, source
 

@@ -85,6 +85,7 @@ class TestUploadRoute:
             data=[
                 {
                     "id": "new-photo-123",
+                    "user_id": mock_user.id,
                     "location_name": "Test Cat Spot",
                     "latitude": 13.7563,
                     "longitude": 100.5018,
@@ -94,7 +95,7 @@ class TestUploadRoute:
             ]
         )
 
-        with patch("dependencies.get_supabase_admin_client", return_value=mock_admin):
+        with patch("routes.upload.get_supabase_admin_client", return_value=mock_admin):
             with patch("routes.upload.process_uploaded_image") as mock_process:
                 mock_process.return_value = (sample_image_bytes, "image/jpeg", "jpg")
 
@@ -355,6 +356,7 @@ class TestUploadWithPredetectedCats:
             data=[
                 {
                     "id": "new-photo-123",
+                    "user_id": mock_user.id,
                     "location_name": "Test Cat Spot",
                     "latitude": 13.7563,
                     "longitude": 100.5018,
@@ -364,7 +366,7 @@ class TestUploadWithPredetectedCats:
             ]
         )
 
-        with patch("dependencies.get_supabase_admin_client", return_value=mock_admin):
+        with patch("routes.upload.get_supabase_admin_client", return_value=mock_admin):
             with patch("routes.upload.process_uploaded_image") as mock_process:
                 mock_process.return_value = (sample_image_bytes, "image/jpeg", "jpg")
 

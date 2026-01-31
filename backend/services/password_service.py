@@ -29,8 +29,8 @@ class PasswordService:
         """Verify password against hash"""
         try:
             return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
-        except Exception as e:
-            logger.debug("Password verification failed: %s", e)
+        except Exception:
+            logger.debug("Password verification failed")
             return False
 
     def validate_complexity(self, password: str) -> bool:
@@ -62,8 +62,8 @@ class PasswordService:
                     for line in lines:
                         if line.startswith(suffix):
                             return True
-        except Exception as e:
-            logger.warning("HIBP check failed (skipping): %s", e)
+        except Exception:
+            logger.warning("HIBP check failed (skipping)")
         return False
 
     async def validate_new_password(self, password: str, check_breach: bool = True) -> tuple[bool, str | None]:

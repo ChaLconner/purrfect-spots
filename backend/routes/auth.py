@@ -30,6 +30,7 @@ from services.email_service import email_service
 from services.otp_service import get_otp_service
 from user_models.user import UserResponse
 from utils.auth_utils import create_login_response, get_client_info, set_refresh_cookie
+from utils.security import log_security_event, sanitize_text
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -68,15 +69,13 @@ async def register(
         if not data.name.strip():
             raise HTTPException(status_code=400, detail="Please enter first and last name")
 
-        from utils.security import sanitize_text
-
         sanitized_name = sanitize_text(data.name.strip(), max_length=100)
 
         # Create user via Supabase Auth (without email confirmation)
         try:
             user_data = auth_service.create_user_with_password(data.email, data.password, sanitized_name)
         except Exception as e:
-            logger.error("Registration error detail: %s", e)
+            logger.error("Registration processing error")
             error_msg = str(e)
             if "already registered" in error_msg.lower() or "unique constraint" in error_msg.lower():
                 raise HTTPException(status_code=400, detail="Email already in use")
@@ -108,9 +107,7 @@ async def register(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Registration failed: %s", e)
-        from utils.security import log_security_event
-
+        logger.error("Registration failed")
         log_security_event("register_failed", details={"error": str(e)}, severity="ERROR")
         raise HTTPException(status_code=500, detail="Registration failed. Please try again")
 
@@ -129,8 +126,6 @@ async def verify_otp(
         result = await otp_service.verify_otp(req.email, req.otp)
 
         if not result["success"]:
-            from utils.security import log_security_event
-
             log_security_event(
                 "otp_verification_failed",
                 details={
@@ -158,8 +153,8 @@ async def verify_otp(
 
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error("OTP verification error: %s", e)
+    except Exception:
+        logger.error("OTP verification error")
         raise HTTPException(status_code=500, detail="Verification failed. Please try again.")
 
 
@@ -189,16 +184,14 @@ async def resend_otp(
         if not email_sent:
             logger.warning("Failed to resend OTP email to %s", req.email)
 
-        from utils.security import log_security_event
-
         log_security_event("otp_resend", details={"email": req.email}, severity="INFO")
 
         return {"message": "Verification code sent. Please check your email.", "expires_at": expires_at}
 
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error("Resend OTP error: %s", e)
+    except Exception:
+        logger.error("Resend OTP error")
         raise HTTPException(status_code=500, detail="Failed to send verification code. Please try again.")
 
 
@@ -214,8 +207,6 @@ async def login(
     try:
         user_data = auth_service.authenticate_user(req.email, req.password)
         if not user_data:
-            from utils.security import log_security_event
-
             log_security_event("login_failed_invalid_credentials", details={"email": req.email}, severity="WARNING")
             raise HTTPException(status_code=401, detail="Invalid email or password.")
 
@@ -225,9 +216,7 @@ async def login(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Login error: %s", e)
-        from utils.security import log_security_event
-
+        logger.error("Login error")
         log_security_event("login_error", details={"email": req.email, "error": str(e)}, severity="ERROR")
         raise HTTPException(status_code=500, detail="Login failed")
 
@@ -297,8 +286,8 @@ async def logout(response: Response, request: Request, auth_service: AuthService
                 exp = payload.get("exp")
                 if jti and user_id and exp:
                     await auth_service.revoke_token(jti, user_id, datetime.fromtimestamp(exp, timezone.utc))
-        except Exception as e:
-            logger.warning("Logout cleanup failed (ignore): %s", e)
+        except Exception:
+            logger.warning("Logout cleanup failed (ignore)")
 
     response.delete_cookie("refresh_token")
     return {"message": "Logged out successfully"}
@@ -316,8 +305,8 @@ async def forgot_password(
         # Supabase sends the email automatically
         await auth_service.create_password_reset_token(req.email)
         return {"message": "If this email is registered, you will receive password reset instructions."}
-    except Exception as e:
-        logger.error("Forgot password error: %s", e)
+    except Exception:
+        logger.error("Forgot password processing failed")
         return {"message": "If this email is registered, you will receive password reset instructions."}
 
 
@@ -362,7 +351,7 @@ async def exchange_session(
 
         # 2. Get User Profile (to ensure we have name/picture)
         db_user = auth_service.get_user_by_id(user_id)
-        
+
         name = db_user.name if db_user else user.user.user_metadata.get("name", "")
         picture = db_user.picture if db_user else user.user.user_metadata.get("avatar_url", "")
 
@@ -378,8 +367,8 @@ async def exchange_session(
         }
 
         return await create_login_response(auth_service, user_data, request, response)
-    except Exception as e:
-        logger.error("Session exchange failed: %s", e)
+    except Exception:
+        logger.error("Session exchange failed")
         raise HTTPException(status_code=401, detail="Session verification failed")
 
 
@@ -522,11 +511,7 @@ async def google_exchange_code(
         # Pass IP and User-Agent for fingerprinting
         ip, ua = get_client_info(request)
         login_response = await auth_service.exchange_google_code(
-            exchange_data.code,
-            exchange_data.code_verifier,
-            exchange_data.redirect_uri,
-            ip,
-            ua
+            exchange_data.code, exchange_data.code_verifier, exchange_data.redirect_uri, ip, ua
         )
 
         # Set refresh token in HttpOnly cookie

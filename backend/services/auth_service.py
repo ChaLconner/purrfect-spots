@@ -2,11 +2,12 @@
 Authentication service for Google OAuth and traditional email/password auth
 """
 
+import hashlib
 import uuid
 from datetime import datetime, timedelta, timezone
 
 import jwt
-from supabase import Client
+from supabase import Client, create_client
 
 from config import config
 from dependencies import get_supabase_admin_client
@@ -19,6 +20,7 @@ from services.token_service import get_token_service, get_token_service_sync
 from services.user_service import UserService
 from user_models.user import User, UserResponse
 from utils.datetime_utils import utc_now
+from utils.security import log_security_event
 
 
 class AuthService:
@@ -32,8 +34,6 @@ class AuthService:
 
     def _generate_fingerprint(self, ip: str, user_agent: str) -> str:
         """Generate SHA256 fingerprint from IP (subnet) and User-Agent"""
-        import hashlib
-
         if not user_agent:
             user_agent = "unknown"
 
@@ -156,8 +156,8 @@ class AuthService:
             user_id = user_data["id"]
             self.supabase_admin.auth.admin.update_user_by_id(user_id, {"email_confirm": True})
             return True
-        except Exception as e:
-            logger.error("Failed to confirm email for %s: %s", email, e)
+        except Exception:
+            logger.error("Failed to confirm email")
             return False
 
     def get_user_by_email_unverified(self, email: str) -> dict | None:
@@ -216,7 +216,8 @@ class AuthService:
                 res = self.supabase_admin.table("users").select("id").eq("google_id", google_id).execute()
                 if res.data:
                     existing_user = res.data[0]
-            except Exception:
+            except Exception as e:
+                logger.debug(f"User check failed: {e}")
                 pass
 
             user_id = existing_user["id"] if existing_user else str(uuid.uuid4())
@@ -237,7 +238,7 @@ class AuthService:
 
             return LoginResponse(
                 access_token=jwt_token,
-                token_type="bearer",
+                token_type="bearer",  # nosec B106
                 user=UserResponse(
                     id=user.id,
                     email=user.email,
@@ -249,8 +250,8 @@ class AuthService:
                 refresh_token=refresh_token,
             )
 
-        except Exception as e:
-            logger.error("[OAuth] Exchange exception: %s", e)
+        except Exception:
+            logger.error("[OAuth] Exchange exception")
             raise ValueError("Code exchange failed")
 
     def create_refresh_token(self, user_id: str, ip: str | None = None, user_agent: str | None = None) -> str:
@@ -288,12 +289,12 @@ class AuthService:
             iat = payload.get("iat")
 
             if jti and await self.is_token_revoked(jti):
-                logger.warning("Attempt to use revoked refresh token: %s", jti)
+                logger.warning("Attempt to use revoked refresh token")
                 return None
 
             # Check for global user invalidation
             if user_id and iat and await self._check_user_invalidated(user_id, iat):
-                logger.warning("Refresh token rejected due to user invalidation: %s", user_id)
+                logger.warning("Refresh token rejected due to user invalidation")
                 return None
 
             token_fingerprint = payload.get("fingerprint")
@@ -306,8 +307,8 @@ class AuthService:
             return payload
         except jwt.PyJWTError:
             return None
-        except Exception as e:
-            logger.error("Verify refresh token error: %s", e)
+        except Exception:
+            logger.error("Verify refresh token error")
             return None
 
     async def create_password_reset_token(self, email: str) -> bool:
@@ -335,8 +336,8 @@ class AuthService:
             sent = email_service.send_reset_email(email, action_link)
             return sent
 
-        except Exception as e:
-            logger.error("Failed to process password reset for %s: %s", email, e)
+        except Exception:
+            logger.error("Failed to process password reset")
             return True
 
     async def reset_password(self, access_token: str, new_password: str) -> bool:
@@ -346,8 +347,6 @@ class AuthService:
             if not is_valid:
                 logger.warning("Password validation failed during reset")
                 raise ValueError(error)
-
-            from supabase import create_client
 
             temp_client = create_client(config.SUPABASE_URL, config.SUPABASE_KEY)
             temp_client.postgrest.auth(access_token)
@@ -366,24 +365,25 @@ class AuthService:
             try:
                 ts = await get_token_service()
                 await ts.blacklist_all_user_tokens(user_id, reason="password_reset")
-            except Exception:
+            except Exception as e:
+                logger.warning(f"Background cleanup failed (blacklist): {e}")
                 pass
 
             try:
                 email_service.send_password_changed_email(user_res.user.email)
-            except Exception:
+            except Exception as e:
+                logger.warning(f"Background cleanup failed (email): {e}")
                 pass
-
-            from utils.security import log_security_event
 
             log_security_event("password_reset_success", user_id=user_id, severity="INFO")
 
             return True
         except Exception as e:
             logger.error("Reset password failed")
-            from utils.security import log_security_event
             # Sanitize error in security event as well
-            log_security_event("password_reset_failed", details={"error": "An internal error occurred"}, severity="ERROR")
+            log_security_event(
+                "password_reset_failed", details={"error": "An internal error occurred"}, severity="ERROR"
+            )
             return False
 
     async def change_password(self, user_id: str, current_password: str, new_password: str) -> bool:
@@ -428,29 +428,30 @@ class AuthService:
             try:
                 ts = await get_token_service()
                 await ts.blacklist_all_user_tokens(user_id, reason="password_change")
-            except Exception as e:
-                logger.warning("Failed to blacklist tokens: %s", e)
+            except Exception:
+                logger.warning("Failed to blacklist tokens")
 
             # Send email
             try:
                 email_service.send_password_changed_email(user.email)
-            except Exception:
+            except Exception as e:
+                logger.warning(f"Background cleanup failed (email): {e}")
                 pass
-
-            from utils.security import log_security_event
 
             log_security_event("password_change_success", user_id=user_id, severity="INFO")
 
             return True
         except ValueError as e:
-            from utils.security import log_security_event
-
             log_security_event(
                 "password_change_failed_validation", user_id=user_id, details={"error": str(e)}, severity="WARNING"
             )
             raise e
         except Exception as e:
             logger.error("Change password failed")
-            from utils.security import log_security_event
-            log_security_event("password_change_error", user_id=user_id, details={"error": "An internal error occurred"}, severity="ERROR")
+            log_security_event(
+                "password_change_error",
+                user_id=user_id,
+                details={"error": "An internal error occurred"},
+                severity="ERROR",
+            )
             raise Exception("Failed to change password")
