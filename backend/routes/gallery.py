@@ -32,6 +32,7 @@ def get_gallery_service(supabase=Depends(get_supabase_client)) -> GalleryService
 @limiter.limit("120/minute")  # Rate limit for paginated endpoint
 async def get_gallery(
     request: Request,  # Required for rate limiting
+    response: Response,
     limit: int = Query(20, ge=1, le=100, description="Number of items per page"),
     offset: int = Query(0, ge=0, description="Number of items to skip"),
     page: int | None = Query(None, ge=1, description="Page number (alternative to offset)"),
@@ -48,6 +49,9 @@ async def get_gallery(
     - `/gallery?limit=20&offset=0` - First 20 images
     - `/gallery?limit=20&page=2` - Second page of 20 images
     """
+    # Prevent caching of paginated results to ensure new uploads appear immediately
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+
     try:
         # Calculate offset from page if provided
         actual_offset = offset

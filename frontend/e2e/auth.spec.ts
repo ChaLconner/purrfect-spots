@@ -174,12 +174,14 @@ test.describe('Authentication Flow', () => {
   
   test.describe('Protected Routes', () => {
     
-    test('should redirect to login when accessing upload without auth', async ({ page }) => {
+    test('should allow access to upload page without auth (view only)', async ({ page }) => {
        // Ensure we are not logged in (clear storage/cookies if needed, but new context should be clean)
       await page.goto('/upload');
       
-      // Should redirect to login
-      await expect(page).toHaveURL(/login/);
+      // Should stay on upload page
+      await expect(page).toHaveURL(/\/upload/);
+      // Optional: Check for page content to confirm
+      await expect(page.getByText('Share a Spot')).toBeVisible();
     });
 
     test('should allow access to protected route if logged in', async ({ page }) => {

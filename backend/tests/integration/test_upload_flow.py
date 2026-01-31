@@ -143,7 +143,7 @@ class TestUploadFlowIntegration:
         app.dependency_overrides[get_current_user] = lambda: MagicMock(id="user-123", email="test@example.com")
 
         with (
-            patch("dependencies.get_supabase_admin_client") as mock_get_admin,
+            patch("routes.upload.get_supabase_admin_client") as mock_get_admin,
             patch("routes.upload.process_uploaded_image") as mock_process_image,
             patch("routes.upload.invalidate_gallery_cache"),
             patch("routes.upload.invalidate_tags_cache"),
@@ -255,7 +255,7 @@ class TestAuthFlowIntegration:
         mock_service.create_refresh_token.return_value = "refresh-token"
 
         from main import app
-        from routes.auth_manual import get_auth_service
+        from routes.auth import get_auth_service
 
         app.dependency_overrides[get_auth_service] = lambda: mock_service
 
@@ -288,7 +288,7 @@ class TestAuthFlowIntegration:
         mock_service.create_refresh_token.return_value = "refresh-token"
 
         from main import app
-        from routes.auth_manual import get_auth_service
+        from routes.auth import get_auth_service
 
         app.dependency_overrides[get_auth_service] = lambda: mock_service
 

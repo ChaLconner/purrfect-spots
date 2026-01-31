@@ -37,12 +37,12 @@ class CatDetectionService:
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid image: {e!s}")
 
-    async def detect_cats(self, file: UploadFile) -> dict[str, Any]:
+    async def detect_cats(self, file: UploadFile | bytes) -> dict[str, Any]:
         """
         Detect cats in image using Google Cloud Vision API
 
         Args:
-            file: UploadFile object containing the image
+            file: UploadFile object or raw bytes
 
         Returns:
             Dict containing detection results
@@ -90,12 +90,12 @@ class CatDetectionService:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Cat detection failed: {e!s}")
 
-    async def analyze_cat_spot_suitability(self, file: UploadFile) -> dict[str, Any]:
+    async def analyze_cat_spot_suitability(self, file: UploadFile | bytes) -> dict[str, Any]:
         """
         Analyze spot suitability for cats using Google Cloud Vision
 
         Args:
-            file: UploadFile object containing the image
+            file: UploadFile object or raw bytes
 
         Returns:
             Dict containing suitability analysis
@@ -107,3 +107,7 @@ class CatDetectionService:
 
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Spot analysis failed: {e!s}")
+
+
+# Singleton instance
+cat_detection_service = CatDetectionService()

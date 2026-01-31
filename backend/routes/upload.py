@@ -11,12 +11,12 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.responses import JSONResponse
 
 from config import config
-from dependencies import get_supabase_client
+from dependencies import get_supabase_admin_client, get_supabase_client
 from limiter import limiter
 from logger import logger
 from middleware.auth_middleware import get_current_user
-from services.cat_detection_service import CatDetectionService
-from services.storage_service import StorageService
+from services.cat_detection_service import CatDetectionService, cat_detection_service
+from services.storage_service import StorageService, storage_service
 from utils.cache import invalidate_gallery_cache, invalidate_tags_cache
 from utils.file_processing import process_uploaded_image, validate_coordinates, validate_location_data
 from utils.security import (
@@ -34,11 +34,11 @@ def parse_tags(tags_json):
 
 
 def get_storage_service() -> StorageService:
-    return StorageService()
+    return storage_service
 
 
 def get_cat_detection_service() -> CatDetectionService:
-    return CatDetectionService()
+    return cat_detection_service
 
 
 def parse_and_sanitize_tags(tags_json: str | None) -> list:
@@ -52,7 +52,7 @@ def parse_and_sanitize_tags(tags_json: str | None) -> list:
             # Use security utility for sanitization
             return sanitize_tags(tag_list)
     except Exception as e:
-        logger.warning(f"Failed to parse tags: {e}")
+        logger.warning("Failed to parse tags: %s", e)
 
     return []
 
@@ -149,9 +149,9 @@ async def upload_cat_photo(
         if cat_detection_data:
             try:
                 client_cat_data = json.loads(cat_detection_data)
-                logger.debug(f"Client-side detection data received: {client_cat_data}")
+                logger.debug("Client-side detection data received: %s", client_cat_data)
             except json.JSONDecodeError:
-                logger.warning(f"Failed to parse client detection data: {cat_detection_data}")
+                logger.warning("Failed to parse client detection data: %s", cat_detection_data)
 
         # CRITICAL SECURITY FIX: Always perform server-side detection
         # Never trust client-side validation results for content security
@@ -220,7 +220,7 @@ async def upload_cat_photo(
                 file_extension=file_extension,
             )
         except Exception as s3_error:
-            logger.error(f"S3 upload failed: {s3_error!s}")
+            logger.error("S3 upload failed: %s", s3_error)
             log_security_event(
                 "s3_upload_failed",
                 user_id=user_id,
@@ -243,8 +243,6 @@ async def upload_cat_photo(
         }
 
         # Use admin client to bypass RLS
-        from dependencies import get_supabase_admin_client
-
         try:
             supabase_admin = get_supabase_admin_client()
             result = supabase_admin.table("cat_photos").insert(photo_data).execute()
@@ -254,7 +252,7 @@ async def upload_cat_photo(
 
         except Exception as db_error:
             # Rollback: Delete file from S3 if DB insert fails
-            logger.error(f"Database insert failed: {db_error!s}. Rolling back S3 upload.")
+            logger.error("Database insert failed: %s. Rolling back S3 upload.", db_error)
             storage_service.delete_file(image_url)
 
             log_security_event(
@@ -280,7 +278,7 @@ async def upload_cat_photo(
             },
         )
 
-        logger.info(f"Cat photo uploaded successfully: {created_photo['id']} by {current_user.email}")
+        logger.info("Cat photo uploaded successfully: %s by %s", created_photo['id'], current_user.email)
 
         return JSONResponse(
             status_code=201,
@@ -306,11 +304,11 @@ async def upload_cat_photo(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Upload error: {e!s}", exc_info=True)
+        logger.error("Upload error: %s", e, exc_info=True)
         log_security_event(
             "upload_error",
             user_id=user_id,
-            details={"error": str(e)[:200]},
+            details={"error": "An internal upload error occurred"},
             severity="ERROR",
         )
         raise HTTPException(status_code=500, detail="Upload failed due to an internal error")

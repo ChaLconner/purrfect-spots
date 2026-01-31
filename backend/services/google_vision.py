@@ -71,44 +71,59 @@ class GoogleVisionService:
             logger.error(f"Failed to initialize Google Vision client: {e!s}")
             logger.info("Using fallback mode for cat detection")
 
-    def detect_cats(self, image_file: UploadFile) -> dict:
+    def detect_cats(self, image_input: UploadFile | bytes) -> dict:
         """
         Detect cats in image using Google Vision API
 
         Args:
-            image_file: UploadFile object
+            image_input: UploadFile object or raw bytes
 
         Returns:
             Dict containing detection results
         """
         try:
-            filename = getattr(image_file, "filename", "unknown")
-            logger.debug(f"Cat detection started for: {filename}, initialized={self.is_initialized}")
+            filename = "unknown"
+            content = b""
 
+            if isinstance(image_input, bytes):
+                content = image_input
+                filename = "raw_bytes"
+                logger.debug(f"Cat detection started for raw bytes, size={len(content)}")
+            else:
+                filename = getattr(image_input, "filename", "unknown")
+                logger.debug(f"Cat detection started for: {filename}, initialized={self.is_initialized}")
+
+                # Read image content with memory-efficient chunked reading for large files
+                MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB threshold
+                chunks = []
+                bytes_read = 0
+
+                # Ensure we are at start of file
+                image_input.file.seek(0)
+
+                while True:
+                    chunk = image_input.file.read(8192)  # 8KB chunks
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+                    bytes_read += len(chunk)
+
+                    # Safety check for very large files
+                    if bytes_read > MAX_MEMORY_SIZE:
+                        logger.warning(f"Image exceeds {MAX_MEMORY_SIZE} bytes, may impact memory")
+                        break
+
+                content = b"".join(chunks)
+                # Reset file pointer for potential reuse
+                image_input.file.seek(0)
+            
             # If client is not initialized, use fallback detection
             if not self.is_initialized or not self.client:
                 logger.debug("Using fallback cat detection (Google Vision not available)")
-                return self._fallback_cat_detection(image_file)
+                return self._fallback_cat_detection(image_input, content=content)
 
-            # Read image content with memory-efficient chunked reading for large files
-            MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB threshold
-            chunks = []
-            bytes_read = 0
-
-            while True:
-                chunk = image_file.file.read(8192)  # 8KB chunks
-                if not chunk:
-                    break
-                chunks.append(chunk)
-                bytes_read += len(chunk)
-
-                # Safety check for very large files
-                if bytes_read > MAX_MEMORY_SIZE:
-                    logger.warning(f"Image exceeds {MAX_MEMORY_SIZE} bytes, may impact memory")
-                    break
-
-            content = b"".join(chunks)
             logger.debug(f"Image size: {len(content)} bytes")
+
 
             image = vision.Image(content=content)
 
@@ -128,10 +143,10 @@ class GoogleVisionService:
                     label_response, object_response = future.result(timeout=VISION_API_TIMEOUT)
             except concurrent.futures.TimeoutError:
                 logger.warning(f"Google Vision API timed out after {VISION_API_TIMEOUT}s, using fallback")
-                return self._fallback_cat_detection(image_file, error="Vision API timeout")
+                return self._fallback_cat_detection(image_input, error="Vision API timeout")
             except Exception as api_error:
                 logger.warning(f"Google Vision API call failed: {api_error}, using fallback")
-                return self._fallback_cat_detection(image_file, error=str(api_error))
+                return self._fallback_cat_detection(image_input, error=str(api_error))
 
             logger.debug("Received response from Google Vision API")
 
@@ -258,12 +273,13 @@ class GoogleVisionService:
 
         except Exception as e:
             logger.error(f"Google Vision detection failed: {type(e).__name__}: {e!s}")
-            return self._fallback_cat_detection(image_file, error=str(e))
+            return self._fallback_cat_detection(image_input, error=str(e))
         finally:
             # Reset file pointer for potential reuse
-            image_file.file.seek(0)
+            if not isinstance(image_input, bytes):
+                image_input.file.seek(0)
 
-    def _fallback_cat_detection(self, image_file, error=None) -> dict:
+    def _fallback_cat_detection(self, image_input, error=None, content=None) -> dict:
         """
         Fallback cat detection when Google Vision is not available.
         This is more permissive to allow uploads when Vision API is unavailable,
@@ -272,9 +288,13 @@ class GoogleVisionService:
         try:
             logger.debug(f"Starting fallback cat detection (error: {error})")
 
-            # Read image content
-            content = image_file.file.read()
-            image_file.file.seek(0)
+            # Read image content if not provided
+            if content is None:
+                if isinstance(image_input, bytes):
+                    content = image_input
+                else:
+                    content = image_input.file.read()
+                    image_input.file.seek(0)
 
             logger.debug(f"Fallback processing image: {len(content)} bytes")
 
@@ -292,7 +312,10 @@ class GoogleVisionService:
             logger.debug(f"Image dimensions: {width}x{height}, format: {format_name}")
 
             # Simple heuristic: check filename for cat keywords
-            filename = getattr(image_file, "filename", "").lower()
+            filename = ""
+            if not isinstance(image_input, bytes):
+                filename = getattr(image_input, "filename", "").lower()
+            
             cat_keywords = list(set(self.CAT_LABEL_KEYWORDS + ["kitty"]))
 
             filename_has_cat = any(keyword in filename for keyword in cat_keywords)
@@ -349,13 +372,13 @@ class GoogleVisionService:
                 "emergency_fallback": True,
             }
 
-    def analyze_cat_spot_suitability(self, image_file: UploadFile) -> dict:
+    def analyze_cat_spot_suitability(self, image_input: UploadFile | bytes) -> dict:
         """
         Analyze if location is suitable for cats using Vision API labels
         """
         try:
             # Use Google Vision API to detect objects and labels
-            vision_result = self.detect_cats(image_file)
+            vision_result = self.detect_cats(image_input)
 
             # Analyze the environment based on detected labels
             labels = vision_result.get("labels", [])

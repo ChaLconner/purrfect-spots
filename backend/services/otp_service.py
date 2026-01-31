@@ -72,11 +72,11 @@ class OTPService:
             if not result.data:
                 raise Exception("Failed to store OTP")
 
-            logger.info(f"OTP created for {email}, expires at {expires_at.isoformat()}")
+            logger.info("OTP created for %s, expires at %s", email, expires_at.isoformat())
             return otp, expires_at.isoformat()
 
         except Exception as e:
-            logger.error(f"Failed to create OTP for {email}: {e}")
+            logger.error("Failed to create OTP for %s: %s", email, e)
             raise Exception("Failed to generate verification code")
 
     async def verify_otp(self, email: str, otp: str) -> dict:
@@ -108,7 +108,7 @@ class OTPService:
             )
 
             if not result.data:
-                logger.warning(f"No pending OTP found for {email}")
+                logger.warning("No pending OTP found for %s", email)
                 return {
                     "success": False,
                     "error": "No pending verification found. Please request a new code.",
@@ -127,7 +127,7 @@ class OTPService:
 
             expiry_time = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
             if utc_now() > expiry_time:
-                logger.warning(f"OTP expired for {email}")
+                logger.warning("OTP expired for %s", email)
                 return {
                     "success": False,
                     "error": "Verification code has expired. Please request a new one.",
@@ -136,7 +136,7 @@ class OTPService:
 
             # Check if max attempts exceeded
             if attempts >= max_attempts:
-                logger.warning(f"Max OTP attempts exceeded for {email}")
+                logger.warning("Max OTP attempts exceeded for %s", email)
                 return {
                     "success": False,
                     "error": "Too many failed attempts. Please request a new code.",
@@ -151,7 +151,7 @@ class OTPService:
                     "id", record_id
                 ).execute()
 
-                logger.info(f"OTP verified successfully for {email}")
+                logger.info("OTP verified successfully for %s", email)
                 return {"success": True}
             else:
                 # Failed - increment attempts
@@ -161,7 +161,7 @@ class OTPService:
                 ).execute()
 
                 remaining = max_attempts - new_attempts
-                logger.warning(f"Invalid OTP for {email}, {remaining} attempts remaining")
+                logger.warning("Invalid OTP for %s, %s attempts remaining", email, remaining)
                 return {
                     "success": False,
                     "error": f"Invalid verification code. {remaining} attempts remaining.",
@@ -169,7 +169,7 @@ class OTPService:
                 }
 
         except Exception as e:
-            logger.error(f"OTP verification error for {email}: {e}")
+            logger.error("OTP verification error for %s: %s", email, e)
             return {"success": False, "error": "Verification failed. Please try again.", "attempts_remaining": 0}
 
     async def invalidate_existing_otps(self, email: str) -> None:
@@ -179,7 +179,7 @@ class OTPService:
                 "verified_at", "null"
             ).execute()
         except Exception as e:
-            logger.warning(f"Failed to invalidate existing OTPs for {email}: {e}")
+            logger.warning("Failed to invalidate existing OTPs for %s: %s", email, e)
 
     async def can_resend_otp(self, email: str) -> tuple[bool, int]:
         """
@@ -216,7 +216,7 @@ class OTPService:
             return True, 0
 
         except Exception as e:
-            logger.warning(f"Resend check error for {email}: {e}")
+            logger.warning("Resend check error for %s: %s", email, e)
             return True, 0  # Allow resend on error
 
 

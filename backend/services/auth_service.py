@@ -11,12 +11,13 @@ from supabase import Client
 from config import config
 from dependencies import get_supabase_admin_client
 from logger import logger
+from schemas.auth import LoginResponse
 from services.email_service import email_service
 from services.google_auth_service import google_auth_service
 from services.password_service import password_service
 from services.token_service import get_token_service, get_token_service_sync
 from services.user_service import UserService
-from user_models.user import LoginResponse, User, UserResponse
+from user_models.user import User, UserResponse
 from utils.datetime_utils import utc_now
 
 
@@ -149,14 +150,14 @@ class AuthService:
             # Need to find user first
             user_data = self.user_service.get_user_by_email(email)
             if not user_data:
-                logger.error(f"User not found for email confirmation: {email}")
+                logger.error("User not found for email confirmation: %s", email)
                 return False
 
             user_id = user_data["id"]
             self.supabase_admin.auth.admin.update_user_by_id(user_id, {"email_confirm": True})
             return True
         except Exception as e:
-            logger.error(f"Failed to confirm email for {email}: {e}")
+            logger.error("Failed to confirm email for %s: %s", email, e)
             return False
 
     def get_user_by_email_unverified(self, email: str) -> dict | None:
@@ -249,7 +250,7 @@ class AuthService:
             )
 
         except Exception as e:
-            logger.error(f"[OAuth] Exchange exception: {e}")
+            logger.error("[OAuth] Exchange exception: %s", e)
             raise ValueError("Code exchange failed")
 
     def create_refresh_token(self, user_id: str, ip: str | None = None, user_agent: str | None = None) -> str:
@@ -287,12 +288,12 @@ class AuthService:
             iat = payload.get("iat")
 
             if jti and await self.is_token_revoked(jti):
-                logger.warning(f"Attempt to use revoked refresh token: {jti}")
+                logger.warning("Attempt to use revoked refresh token: %s", jti)
                 return None
 
             # Check for global user invalidation
             if user_id and iat and await self._check_user_invalidated(user_id, iat):
-                logger.warning(f"Refresh token rejected due to user invalidation: {user_id}")
+                logger.warning("Refresh token rejected due to user invalidation: %s", user_id)
                 return None
 
             token_fingerprint = payload.get("fingerprint")
@@ -306,7 +307,7 @@ class AuthService:
         except jwt.PyJWTError:
             return None
         except Exception as e:
-            logger.error(f"Verify refresh token error: {e}")
+            logger.error("Verify refresh token error: %s", e)
             return None
 
     async def create_password_reset_token(self, email: str) -> bool:
@@ -321,13 +322,13 @@ class AuthService:
             res = self.supabase_admin.auth.admin.generate_link(params)
 
             if not res or not hasattr(res, "properties"):
-                logger.error(f"Failed to generate recovery link for {email}")
+                logger.error("Failed to generate recovery link for %s", email)
                 return False
 
             action_link = getattr(res.properties, "action_link", None)
 
             if not action_link:
-                logger.error(f"No action_link returned for {email}")
+                logger.error("No action_link returned for %s", email)
                 return False
 
             # Send Email via EmailService
@@ -335,7 +336,7 @@ class AuthService:
             return sent
 
         except Exception as e:
-            logger.error(f"Failed to process password reset for {email}: {e}")
+            logger.error("Failed to process password reset for %s: %s", email, e)
             return True
 
     async def reset_password(self, access_token: str, new_password: str) -> bool:
@@ -343,7 +344,7 @@ class AuthService:
         try:
             is_valid, error = await password_service.validate_new_password(new_password)
             if not is_valid:
-                logger.warning(f"Password validation failed during reset: {error}")
+                logger.warning("Password validation failed during reset")
                 raise ValueError(error)
 
             from supabase import create_client
@@ -379,10 +380,10 @@ class AuthService:
 
             return True
         except Exception as e:
-            logger.error(f"Reset password failed: {e}")
+            logger.error("Reset password failed")
             from utils.security import log_security_event
-
-            log_security_event("password_reset_failed", details={"error": str(e)}, severity="ERROR")
+            # Sanitize error in security event as well
+            log_security_event("password_reset_failed", details={"error": "An internal error occurred"}, severity="ERROR")
             return False
 
     async def change_password(self, user_id: str, current_password: str, new_password: str) -> bool:
@@ -428,7 +429,7 @@ class AuthService:
                 ts = await get_token_service()
                 await ts.blacklist_all_user_tokens(user_id, reason="password_change")
             except Exception as e:
-                logger.warning(f"Failed to blacklist tokens: {e}")
+                logger.warning("Failed to blacklist tokens: %s", e)
 
             # Send email
             try:
@@ -449,8 +450,7 @@ class AuthService:
             )
             raise e
         except Exception as e:
-            logger.error(f"Change password failed: {e}")
+            logger.error("Change password failed")
             from utils.security import log_security_event
-
-            log_security_event("password_change_error", user_id=user_id, details={"error": str(e)}, severity="ERROR")
+            log_security_event("password_change_error", user_id=user_id, details={"error": "An internal error occurred"}, severity="ERROR")
             raise Exception("Failed to change password")

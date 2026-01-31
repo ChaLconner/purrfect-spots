@@ -4,7 +4,7 @@ User profile management routes
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from pydantic import BaseModel
 from starlette.requests import Request
 
@@ -15,6 +15,7 @@ from logger import logger
 from middleware.auth_middleware import get_current_user_from_credentials
 from services.storage_service import StorageService
 from user_models.user import User
+from utils.cache import invalidate_gallery_cache
 from utils.file_processing import process_uploaded_image
 
 router = APIRouter(prefix="/profile", tags=["Profile"])
@@ -101,18 +102,21 @@ async def update_profile(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Error updating profile: {e!s}")
+        logger.error("Error updating profile: %s", e)
         raise HTTPException(status_code=500, detail="Failed to update profile due to an internal error")
 
 
 @router.get("/")
 async def get_profile(
+    response: Response,
     current_user: User = Depends(get_current_user_from_credentials),
     auth_service: AuthService = Depends(get_auth_service),
 ):
     """
     Get current user profile
     """
+    # Prevent caching of profile data
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     try:
         user = auth_service.get_user_by_id(current_user.id)
         if not user:
@@ -128,7 +132,8 @@ async def get_profile(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get profile: {e!s}")
+        logger.error("Failed to get profile: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to get profile")
 
 
 def get_admin_gallery_service(supabase=Depends(get_supabase_admin_client)):
@@ -137,12 +142,15 @@ def get_admin_gallery_service(supabase=Depends(get_supabase_admin_client)):
 
 @router.get("/uploads")
 async def get_user_uploads(
+    response: Response,
     current_user: User = Depends(get_current_user_from_credentials),
     gallery_service: GalleryService = Depends(get_admin_gallery_service),
 ):
     """
     Get all uploads by current user - filtered by user_id
     """
+    # Prevent caching of user uploads
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     try:
         photos = gallery_service.get_user_photos(current_user.id)
 
@@ -171,13 +179,13 @@ async def get_user_uploads(
 
                 uploads.append(upload_item)
             except Exception as item_error:
-                logger.warning(f"Error processing photo item {photo.get('id')}: {item_error}")
+                logger.warning("Error processing photo item %s: %s", photo.get('id'), item_error)
                 continue
 
         return {"uploads": uploads, "count": len(uploads)}
 
     except Exception as e:
-        logger.error(f"Failed to get uploads for user {current_user.id}: {e!s}", exc_info=True)
+        logger.error("Failed to get uploads for user %s: %s", current_user.id, e, exc_info=True)
         # In development, return the actual error
         detail = f"Internal Server Error: {e!s}" if config.ENVIRONMENT == "development" else "Internal Server Error"
         raise HTTPException(status_code=500, detail=detail)
@@ -218,7 +226,7 @@ async def upload_profile_picture(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Profile picture upload failed: {e}")
+        logger.error("Profile picture upload failed: %s", e)
         raise HTTPException(status_code=500, detail="Failed to upload profile picture")
 
 
@@ -238,7 +246,7 @@ async def change_password(
     user_agent = request.headers.get("user-agent", "unknown")
 
     # Audit log: Attempt
-    logger.info(f"[AUDIT] Password change attempt for user {current_user.id} from IP {ip}")
+    logger.info("[AUDIT] Password change attempt for user %s from IP %s", current_user.id, ip)
 
     try:
         success = await auth_service.change_password(
@@ -247,11 +255,11 @@ async def change_password(
 
         if success:
             # Audit log: Success
-            logger.info(f"[AUDIT] Password change SUCCESS for user {current_user.id} from IP {ip}")
+            logger.info("[AUDIT] Password change SUCCESS for user %s from IP %s", current_user.id, ip)
             return {"message": "Password changed successfully"}
         else:
             # Audit log: Failure (Logic)
-            logger.warning(f"[AUDIT] Password change FAILED (logic) for user {current_user.id} from IP {ip}")
+            logger.warning("[AUDIT] Password change FAILED (logic) for user %s from IP %s", current_user.id, ip)
             raise HTTPException(
                 status_code=400,
                 detail="Failed to change password (check current password)",
@@ -259,15 +267,15 @@ async def change_password(
 
     except HTTPException as e:
         # Audit log: Failure (Validation/Auth)
-        logger.warning(f"[AUDIT] Password change FAILED ({e.detail}) for user {current_user.id} from IP {ip}")
+        logger.warning("[AUDIT] Password change FAILED (%s) for user %s from IP %s", e.detail, current_user.id, ip)
         raise
     except ValueError as e:
         # Audit log: Failure (Specific value error)
-        logger.warning(f"[AUDIT] Password change FAILED (ValueError: {e!s}) for user {current_user.id} from IP {ip}")
+        logger.warning("[AUDIT] Password change FAILED (ValueError: %s) for user %s from IP %s", e, current_user.id, ip)
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         # Audit log: Failure (System error)
-        logger.error(f"[AUDIT] Password change ERROR for user {current_user.id} from IP {ip}: {e}")
+        logger.error("[AUDIT] Password change ERROR for user %s from IP %s: %s", current_user.id, ip, e)
         raise HTTPException(status_code=500, detail="An error occurred")
 
 
@@ -319,6 +327,9 @@ async def update_user_photo(
         # Use admin service because we already verified ownership
         gallery_service.supabase.table("cat_photos").update(valid_updates).eq("id", photo_id).execute()
 
+        # Invalidate cache to ensure updates are reflected immediately
+        invalidate_gallery_cache()
+
         from utils.security import log_security_event
 
         log_security_event(
@@ -332,7 +343,7 @@ async def update_user_photo(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to update photo {photo_id}: {e}")
+        logger.error("Failed to update photo %s: %s", photo_id, e)
         raise HTTPException(status_code=500, detail="Failed to update photo")
 
 
@@ -369,7 +380,7 @@ async def delete_user_photo(
         gallery_service.supabase.table("cat_photos").delete().eq("id", photo_id).execute()
 
         # 4. Invalidate Caches
-        from utils.cache import invalidate_gallery_cache, invalidate_tags_cache
+        from utils.cache import invalidate_tags_cache
 
         invalidate_gallery_cache()
         invalidate_tags_cache()
@@ -383,5 +394,5 @@ async def delete_user_photo(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to delete photo {photo_id}: {e}")
+        logger.error("Failed to delete photo %s: %s", photo_id, e)
         raise HTTPException(status_code=500, detail="Failed to delete photo")

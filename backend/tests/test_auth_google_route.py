@@ -9,7 +9,7 @@ import pytest
 from main import app
 
 # We don't import get_auth_service for override, we patch the service class
-# from routes.auth_google import get_auth_service
+# from routes.auth import get_auth_service
 from middleware.auth_middleware import get_current_user_from_header
 
 
@@ -38,11 +38,14 @@ class TestGoogleAuthRoutes:
         resp.token_type = "bearer"
         # The service returns a Pydantic model or object with 'user' attribute
         resp.user = mock_user_response
+        resp.message = None
+        resp.requires_verification = False
+        resp.email = None
         return resp
 
     def test_google_login_redirect(self, client):
         """Test redirect to Google login"""
-        with patch("routes.auth_google.config") as mock_config:
+        with patch("routes.auth.config") as mock_config:
             mock_config.get_allowed_origins.return_value = ["http://localhost:5173"]
 
             with patch("os.getenv", return_value="google_id"):
@@ -52,7 +55,7 @@ class TestGoogleAuthRoutes:
 
     def test_google_login(self, client, mock_user_response):
         """Test Google login with token"""
-        with patch("routes.auth_google.AuthService") as MockServiceClass:
+        with patch("routes.auth.AuthService") as MockServiceClass:
             # Configure instance
             mock_service = MockServiceClass.return_value
             mock_service.verify_google_token.return_value = {"email": "test@example.com"}
@@ -61,7 +64,7 @@ class TestGoogleAuthRoutes:
             mock_service.create_refresh_token.return_value = "mock_refresh_token"
 
             # Need to patch config for cookie setting
-            with patch("routes.auth_google.config") as mock_config:
+            with patch("routes.auth.config") as mock_config:
                 mock_config.JWT_REFRESH_EXPIRATION_DAYS = 7
                 mock_config.is_production.return_value = False
 
@@ -73,11 +76,11 @@ class TestGoogleAuthRoutes:
 
     def test_google_exchange_code(self, client, mock_login_response_obj):
         """Test exchange code for tokens"""
-        with patch("routes.auth_google.AuthService") as MockServiceClass:
+        with patch("routes.auth.AuthService") as MockServiceClass:
             mock_service = MockServiceClass.return_value
             mock_service.exchange_google_code = AsyncMock(return_value=mock_login_response_obj)
 
-            with patch("routes.auth_google.config") as mock_config:
+            with patch("routes.auth.config") as mock_config:
                 mock_config.get_allowed_origins.return_value = ["http://localhost:5173"]
                 mock_config.JWT_REFRESH_EXPIRATION_DAYS = 7
                 mock_config.is_production.return_value = False
@@ -106,7 +109,7 @@ class TestGoogleAuthRoutes:
         mock_res.data = [{"id": "user123"}]
         mock_supabase_admin.table().upsert().execute.return_value = mock_res
 
-        with patch("dependencies.get_supabase_admin_client", return_value=mock_supabase_admin):
+        with patch("routes.auth.get_supabase_admin_client", return_value=mock_supabase_admin):
             app.dependency_overrides[get_current_user_from_header] = lambda: mock_jwt_payload
 
             response = client.post("/api/v1/auth/sync-user")

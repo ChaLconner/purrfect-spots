@@ -58,10 +58,18 @@ const isSocialUser = computed(() => {
   // Logic to determine if user is from social provider
   // Usually social users have avatars from google/facebook domains
   const avatarUrl = props.initialPicture || '';
+
+  const isSocialDomain = (url: string) => {
+    try {
+      const hostname = new URL(url).hostname;
+      return hostname.endsWith('googleusercontent.com') || hostname.endsWith('facebook.com');
+    } catch {
+      return false;
+    }
+  };
+
   return (
-    avatarUrl.includes('googleusercontent.com') ||
-    avatarUrl.includes('facebook.com') ||
-    (authStore.user?.picture && authStore.user.picture.includes('googleusercontent.com'))
+    isSocialDomain(avatarUrl) || (authStore.user?.picture && isSocialDomain(authStore.user.picture))
   );
 });
 

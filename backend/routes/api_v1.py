@@ -8,15 +8,14 @@ New versions can be created by adding new router files (api_v2.py, etc.)
 from fastapi import APIRouter
 
 # Import all route modules
-from routes import auth_google, auth_manual, cat_detection, feature_flags, gallery, profile, upload
+from routes import auth, cat_detection, feature_flags, gallery, profile, upload
 
 # Create versioned router
 router = APIRouter(prefix="/api/v1")
 
 # Include all routes with their respective prefixes
 # Authentication routes
-router.include_router(auth_manual.router)
-router.include_router(auth_google.router)
+router.include_router(auth.router)
 
 # User management
 router.include_router(profile.router)

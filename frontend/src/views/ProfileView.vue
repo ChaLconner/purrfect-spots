@@ -177,238 +177,14 @@
     </div>
 
     <!-- Edit Profile Modal -->
-    <div
-      v-if="showEditModal"
-      class="fixed inset-0 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all duration-300"
-    >
-      <div
-        class="bg-white/90 backdrop-blur-xl rounded-[2rem] shadow-2xl p-8 w-full max-w-lg border border-white/50 transform transition-all scale-100 relative overflow-hidden flex flex-col max-h-[90vh]"
-      >
-        <!-- Decorative background elements -->
-        <div
-          class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-sage to-terracotta"
-        ></div>
-        <div
-          class="absolute -top-10 -right-10 w-32 h-32 bg-terracotta/10 rounded-full blur-2xl"
-        ></div>
-        <div class="absolute -bottom-10 -left-10 w-32 h-32 bg-sage/10 rounded-full blur-2xl"></div>
-
-        <div class="overflow-y-auto pr-2 custom-scrollbar relative z-10">
-          <h2 class="text-3xl font-heading font-bold mb-8 text-brown text-center">Edit Profile</h2>
-
-          <form class="space-y-6" @submit.prevent="saveProfile">
-            <!-- Profile Picture Upload -->
-            <div class="flex flex-col items-center mb-6">
-              <div class="relative group cursor-pointer" @click="triggerFileInput">
-                <img
-                  :src="editForm.picture || '/default-avatar.svg'"
-                  class="w-32 h-32 rounded-full object-cover border-4 border-white shadow-md transition-transform group-hover:scale-105"
-                />
-                <div
-                  class="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <span class="text-white text-sm font-bold">Change Photo</span>
-                </div>
-                <div
-                  v-if="isUploading"
-                  class="absolute inset-0 bg-white/60 rounded-full flex items-center justify-center"
-                >
-                  <div
-                    class="w-8 h-8 border-2 border-terracotta border-t-transparent rounded-full animate-spin"
-                  ></div>
-                </div>
-              </div>
-              <input
-                ref="fileInput"
-                type="file"
-                accept="image/*"
-                class="hidden"
-                @change="handleFileSelect"
-              />
-              <p class="text-xs text-brown-light mt-2">Click to upload new picture</p>
-            </div>
-
-            <div>
-              <label
-                class="block text-xs font-bold text-brown-light mb-2 uppercase tracking-widest pl-1"
-              >Name</label>
-              <input
-                v-model="editForm.name"
-                type="text"
-                class="w-full px-5 py-3.5 bg-white/60 border-2 border-stone-200 rounded-2xl focus:outline-none focus:border-terracotta focus:bg-white focus:ring-4 focus:ring-terracotta/10 transition-all duration-300 text-brown font-medium placeholder-stone-400"
-                placeholder="Your name"
-                required
-              />
-            </div>
-
-            <div>
-              <label
-                class="block text-xs font-bold text-brown-light mb-2 uppercase tracking-widest pl-1"
-              >Bio</label>
-              <textarea
-                v-model="editForm.bio"
-                class="w-full px-5 py-3.5 bg-white/60 border-2 border-stone-200 rounded-2xl focus:outline-none focus:border-terracotta focus:bg-white focus:ring-4 focus:ring-terracotta/10 transition-all duration-300 text-brown font-medium resize-none placeholder-stone-400"
-                rows="4"
-                placeholder="Tell us a bit about yourself..."
-              ></textarea>
-            </div>
-
-            <!-- Change Password Section -->
-            <div class="border-t border-stone-200 pt-6 mt-6">
-              <button
-                type="button"
-                class="flex items-center text-terracotta font-bold text-sm uppercase tracking-wider hover:text-terracotta-dark transition-colors cursor-pointer"
-                @click="showPasswordSection = !showPasswordSection"
-              >
-                <span class="mr-2">{{ showPasswordSection ? '−' : '+' }}</span>
-                Change Password
-              </button>
-
-              <div
-                v-if="showPasswordSection"
-                class="mt-4 space-y-4 bg-white/40 p-4 rounded-xl border border-white/60"
-              >
-                <!-- Social User Warning -->
-                <div
-                  v-if="isSocialUser"
-                  class="bg-amber-50/80 border-l-4 border-amber-400 p-4 rounded-r-xl shadow-sm"
-                >
-                  <p class="text-amber-900 text-sm font-medium leading-relaxed">
-                    This account is linked with a social provider (Google/Facebook). Please manage
-                    your password through your social account settings.
-                  </p>
-                </div>
-
-                <template v-else>
-                  <div>
-                    <label
-                      class="block text-xs font-bold text-brown-light mb-1 uppercase tracking-wider"
-                    >Current Password</label>
-                    <div class="relative">
-                      <input
-                        v-model="passwordForm.current"
-                        :type="showPasswords ? 'text' : 'password'"
-                        class="w-full px-4 py-2 bg-white/60 border-2 border-stone-200 rounded-xl focus:border-terracotta focus:ring-2 focus:ring-terracotta/10 outline-none text-brown pr-10"
-                      />
-                      <button
-                        type="button"
-                        class="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-brown transition-colors cursor-pointer"
-                        @click="showPasswords = !showPasswords"
-                      >
-                        <!-- Eye Off Icon (Show Password) -->
-                        <svg
-                          v-if="!showPasswords"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke-width="1.5"
-                          stroke="currentColor"
-                          class="w-5 h-5"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
-                          />
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                          />
-                        </svg>
-                        <!-- Eye Icon (Hide Password) -->
-                        <svg
-                          v-else
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke-width="1.5"
-                          stroke="currentColor"
-                          class="w-5 h-5"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <label
-                      class="block text-xs font-bold text-brown-light mb-1 uppercase tracking-wider"
-                    >New Password</label>
-                    <div class="relative">
-                      <input
-                        v-model="passwordForm.new"
-                        :type="showPasswords ? 'text' : 'password'"
-                        class="w-full px-4 py-2 bg-white/60 border-2 border-stone-200 rounded-xl focus:border-terracotta focus:ring-2 focus:ring-terracotta/10 outline-none text-brown pr-10"
-                      />
-                    </div>
-
-                    <!-- Simple Signup Hint -->
-                    <p class="text-[11px] text-brown-light mt-1.5 ml-1">
-                      Must be at least 8 characters
-                    </p>
-
-                    <div class="mt-2">
-                      <PasswordStrengthMeter :password="passwordForm.new" />
-                    </div>
-                  </div>
-                  <div>
-                    <label
-                      class="block text-xs font-bold text-brown-light mb-1 uppercase tracking-wider"
-                    >Confirm New Password</label>
-                    <input
-                      v-model="passwordForm.confirm"
-                      :type="showPasswords ? 'text' : 'password'"
-                      class="w-full px-4 py-2 bg-white/60 border-2 border-stone-200 rounded-xl focus:border-terracotta focus:ring-2 focus:ring-terracotta/10 outline-none text-brown"
-                    />
-                  </div>
-                  <!-- Password Save Button -->
-                  <div class="flex justify-end mt-2">
-                    <button
-                      type="button"
-                      :disabled="
-                        isUpdatingPassword ||
-                          !passwordForm.current ||
-                          !passwordForm.new ||
-                          !passwordForm.confirm ||
-                          passwordRequirements.some((r) => !r.met)
-                      "
-                      class="px-5 py-2.5 bg-[#C07040] text-white rounded-lg text-sm font-bold hover:bg-[#A05030] shadow-md transition-all disabled:opacity-50 disabled:shadow-none cursor-pointer"
-                      @click="updatePassword"
-                    >
-                      {{ isUpdatingPassword ? 'Updating...' : 'Update Password' }}
-                    </button>
-                  </div>
-                </template>
-              </div>
-            </div>
-
-            <div
-              class="flex justify-end items-center gap-4 mt-8 pt-4 border-t border-stone-200/50 sticky bottom-0 bg-white/0 backdrop-blur-none p-2"
-            >
-              <button
-                type="button"
-                class="px-6 py-3 text-brown-dark hover:text-black font-heading font-bold transition-colors cursor-pointer"
-                @click="showEditModal = false"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                :disabled="isUploading"
-                class="px-8 py-3 bg-[#C07040] hover:bg-[#A05030] text-white rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-300 cursor-pointer font-heading font-extrabold tracking-wide disabled:opacity-50 disabled:cursor-wait"
-              >
-                {{ isUploading ? 'Uploading...' : 'Save Profile' }}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
+    <EditProfileModal
+      :is-open="showEditModal"
+      :initial-name="authStore.user?.name || ''"
+      :initial-bio="authStore.user?.bio || ''"
+      :initial-picture="authStore.user?.picture || ''"
+      @close="showEditModal = false"
+      @save="handleSaveProfile"
+    />
 
     <!-- Image Modal -->
     <Transition
@@ -668,7 +444,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, reactive, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../store/authStore';
 const authStore = useAuthStore();
@@ -679,9 +455,8 @@ import ErrorState from '@/components/ui/ErrorState.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import GhibliLoader from '@/components/ui/GhibliLoader.vue';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
-import PasswordStrengthMeter from '@/components/ui/PasswordStrengthMeter.vue';
 import { useSeo } from '@/composables/useSeo';
-import { computed } from 'vue';
+import EditProfileModal from '@/components/profile/EditProfileModal.vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -703,33 +478,6 @@ const uploadsError = ref<string | null>(null);
 
 const showEditModal = ref(false);
 const selectedImage = ref<Upload | null>(null);
-const fileInput = ref<HTMLInputElement | null>(null);
-const isUploading = ref(false);
-const showPasswordSection = ref(false); // Controls opening the collapsible section
-const isUpdatingPassword = ref(false);
-const showPasswords = ref(false); // Toggle Password Visibility
-
-const isSocialUser = computed(() => {
-  // Check if user has google_id or avatar from a social provider domain
-  const picture = authStore.user?.picture || '';
-  return (
-    !!authStore.user?.google_id ||
-    picture.includes('googleusercontent.com') ||
-    picture.includes('facebook.com')
-  );
-});
-
-const editForm = reactive({
-  name: '',
-  bio: '',
-  picture: '',
-});
-
-const passwordForm = reactive({
-  current: '',
-  new: '',
-  confirm: '',
-});
 
 // Photo Edit State
 const showEditPhotoModal = ref(false);
@@ -737,8 +485,7 @@ const showDeleteConfirm = ref(false);
 const isSavingPhoto = ref(false);
 const isDeletingPhoto = ref(false);
 const photoToEdit = ref<Upload | null>(null);
-
-const photoEditForm = reactive({
+const photoEditForm = ref({
   location_name: '',
   description: '',
 });
@@ -746,8 +493,10 @@ const photoEditForm = reactive({
 const openEditPhotoModal = (photo: Upload | null) => {
   if (!photo) return;
   photoToEdit.value = photo;
-  photoEditForm.location_name = photo.location_name || '';
-  photoEditForm.description = photo.description || '';
+  photoEditForm.value = {
+    location_name: photo.location_name || '',
+    description: photo.description || '',
+  };
   showEditPhotoModal.value = true;
 };
 
@@ -756,8 +505,8 @@ const savePhotoChanges = async () => {
   isSavingPhoto.value = true;
   try {
     await ProfileService.updatePhoto(photoToEdit.value.id, {
-      location_name: photoEditForm.location_name,
-      description: photoEditForm.description,
+      location_name: photoEditForm.value.location_name,
+      description: photoEditForm.value.description,
     });
     showSuccess('Photo updated successfully');
 
@@ -766,8 +515,8 @@ const savePhotoChanges = async () => {
     if (index !== -1 && photoToEdit.value) {
       uploads.value[index] = {
         ...uploads.value[index],
-        location_name: photoEditForm.location_name,
-        description: photoEditForm.description,
+        location_name: photoEditForm.value.location_name,
+        description: photoEditForm.value.description,
       };
       // Update selected image view if open
       if (selectedImage.value && selectedImage.value.id === photoToEdit.value.id) {
@@ -807,96 +556,10 @@ const executeDeletePhoto = async () => {
   }
 };
 
-// Real-time Requirements Logic
-const passwordRequirements = computed(() => {
-  const p = passwordForm.new;
-  return [{ label: 'Min 8 characters', met: p.length >= 8 }];
-});
-
-const triggerFileInput = () => {
-  fileInput.value?.click();
-};
-
-const handleFileSelect = async (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  if (target.files && target.files[0]) {
-    const file = target.files[0];
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      showError('Please upload an image file');
-      return;
-    }
-
-    // 1. Show local preview immediately for instant feedback
-    const localUrl = URL.createObjectURL(file);
-    editForm.picture = localUrl;
-
-    isUploading.value = true;
-    try {
-      const imageUrl = await ProfileService.uploadProfilePicture(file);
-      // 2. Update with the real server URL once finished
-      editForm.picture = imageUrl;
-      // showSuccess('Photo ready to be saved!'); // Removed: Preview is sufficient feedback
-    } catch {
-      // Revert to original if failed
-      editForm.picture = authStore.user?.picture || '';
-      showError('Failed to upload photo to server');
-    } finally {
-      isUploading.value = false;
-      // Cleanup local URL memory
-      URL.revokeObjectURL(localUrl);
-    }
-  }
-};
-
-const updatePassword = async () => {
-  if (passwordForm.new !== passwordForm.confirm) {
-    showError('New passwords do not match');
-    return;
-  }
-
-  if (passwordForm.new.length < 8) {
-    showError('Password must be at least 8 characters');
-    return;
-  }
-
-  isUpdatingPassword.value = true;
-  try {
-    await ProfileService.changePassword({
-      current_password: passwordForm.current,
-      new_password: passwordForm.new,
-    });
-    showSuccess('Password updated successfully');
-    // Reset password form
-    passwordForm.current = '';
-    passwordForm.new = '';
-    passwordForm.confirm = '';
-    showPasswordSection.value = false;
-  } catch (error: unknown) {
-    // Sanitize error message
-    const msg = (error as Error).message;
-    // specific check for known safe messages could go here, otherwise generic
-    if (msg && !msg.includes('status code')) {
-      showError(msg);
-    } else {
-      showError('Unable to update password. Please check your credentials and try again.');
-    }
-  } finally {
-    isUpdatingPassword.value = false;
-  }
-};
-
-const formatJoinDate = (dateString: string | undefined) => {
-  if (!dateString) return 'Unknown';
-
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
-};
-
 const handleImageError = (event: Event) => {
   const target = event.target as HTMLImageElement;
-  if (!target.src.includes('default-avatar.svg')) {
+  // Prevent infinite loop if default-avatar also fails
+  if (!target.src.endsWith('/default-avatar.svg')) {
     target.src = '/default-avatar.svg';
   }
 };
@@ -927,7 +590,6 @@ const loadUploads = async () => {
       uploadsError.value = 'Failed to load uploads. Please try again later.';
     }
     showError(uploadsError.value);
-
     uploads.value = [];
   } finally {
     uploadsLoading.value = false;
@@ -966,12 +628,19 @@ const closeImageModal = () => {
   router.push({ query });
 };
 
-const saveProfile = async () => {
+const formatJoinDate = (dateString: string | undefined) => {
+  if (!dateString) return 'Unknown';
+
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+};
+
+const handleSaveProfile = async (data: { name: string; bio: string; picture: string }) => {
   try {
     const updateData: ProfileUpdateData = {
-      name: editForm.name,
-      bio: editForm.bio,
-      picture: editForm.picture,
+      name: data.name,
+      bio: data.bio,
+      picture: data.picture,
     };
 
     const updatedUser = await ProfileService.updateProfile(updateData);
@@ -999,26 +668,12 @@ const saveProfile = async () => {
       setTimeout(() => {
         router.push('/auth');
       }, 2000);
-    } else if (error instanceof Error && error.message.includes('No authentication token')) {
-      // Redirect to login after a short delay
-      setTimeout(() => {
-        router.push('/auth');
-      }, 2000);
     }
 
     const msg = error instanceof Error ? error.message : 'Failed to update profile';
     showError(msg);
   }
 };
-
-// Fix: Reset form data when modal opens
-watch(showEditModal, (newValue) => {
-  if (newValue && authStore.user) {
-    editForm.name = authStore.user.name || '';
-    editForm.bio = authStore.user.bio || '';
-    editForm.picture = authStore.user.picture || '';
-  }
-});
 
 onMounted(async () => {
   // Set SEO meta tags
@@ -1033,13 +688,6 @@ onMounted(async () => {
 
   // Sync state from URL after data is loaded
   syncStateFromUrl();
-
-  // Initialize edit form with current user data
-  if (authStore.user) {
-    editForm.name = authStore.user.name || '';
-    editForm.bio = authStore.user.bio || '';
-    editForm.picture = authStore.user.picture || '';
-  }
 });
 
 // Cleanup on unmount

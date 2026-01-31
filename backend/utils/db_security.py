@@ -23,15 +23,15 @@ from logger import logger
 # Common SQL injection patterns
 SQL_INJECTION_PATTERNS = [
     r"--",  # SQL comment
-    r";.*(?:drop|delete|truncate|alter|update|insert)",  # Multi-statement attacks
-    r"'.*or.*'.*=",  # OR injection
-    r"union.*select",  # UNION injection
+    r";.*?(?:drop|delete|truncate|alter|update|insert)",  # Multi-statement attacks (non-greedy)
+    r"'.*?or.*?'",  # OR injection (simplified, non-greedy)
+    r"union.*?select",  # UNION injection (non-greedy)
     r"exec(?:ute)?",  # EXEC commands
     r"xp_",  # Extended stored procedures (SQL Server)
     r"0x[0-9a-fA-F]+",  # Hex-encoded strings
     r"char\s*\(",  # CHAR() function abuse
     r"concat\s*\(",  # CONCAT() for string building
-    r"/\*.*\*/",  # Block comments
+    r"/\*.*?\*/",  # Block comments (non-greedy)
     r"@@",  # System variables
     r"information_schema",  # Schema enumeration
     r"pg_",  # PostgreSQL system tables
@@ -91,7 +91,7 @@ def sanitize_order_by(column: str, allowed_columns: list[str], default: str | No
 
     # Validate against whitelist
     if clean_column not in allowed_columns:
-        logger.warning(f"Invalid ORDER BY column rejected: {column}")
+        logger.warning("Invalid ORDER BY column rejected: %s", column)
         return default
 
     return f"{clean_column} DESC" if descending else clean_column
@@ -116,11 +116,10 @@ def detect_sql_injection(value: str) -> bool:
         return False
 
     if SQL_INJECTION_REGEX.search(value):
-        logger.warning(
-            f"Potential SQL injection detected: {value[:50]}..."
-            if len(value) > 50
-            else f"Potential SQL injection detected: {value}"
-        )
+        if len(value) > 50:
+             logger.warning("Potential SQL injection detected: %s...", value[:50])
+        else:
+             logger.warning("Potential SQL injection detected: %s", value)
         return True
 
     return False
@@ -144,7 +143,7 @@ def sanitize_search_input(value: str, max_length: int = 100) -> str:
     sanitized = value[:max_length]
 
     # Remove potentially dangerous characters and PostgREST delimiters
-    sanitized = re.sub(r"[;\-\-\'\"\\,()]", "", sanitized)
+    sanitized = re.sub(r"[;\-\'\"\\,()]", "", sanitized)
 
     # Remove multiple spaces
     sanitized = re.sub(r"\s+", " ", sanitized).strip()
@@ -235,7 +234,7 @@ def sanitize_uuid(value: str) -> str | None:
     """
     if validate_uuid(value):
         return value.lower()
-    logger.warning(f"Invalid UUID rejected: {value[:50] if value else 'None'}...")
+    logger.warning("Invalid UUID rejected: %s...", value[:50] if value else "None")
     return None
 
 

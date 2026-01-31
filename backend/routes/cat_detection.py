@@ -18,11 +18,11 @@ from schemas.cat_detection import (
     CombinedAnalysisResult,
     SpotAnalysisResult,
 )
-from services.cat_detection_service import CatDetectionService
+from services.cat_detection_service import CatDetectionService, cat_detection_service
 
 
 def get_cat_detection_service() -> CatDetectionService:
-    return CatDetectionService()
+    return cat_detection_service
 
 
 @router.post("/cats", response_model=CatDetectionResult)
@@ -42,8 +42,8 @@ async def detect_cats_in_image(
     file_size = len(contents)
 
     try:
-        # Detect cats
-        result = await detection_service.detect_cats(file)
+        # Detect cats using pre-read contents
+        result = await detection_service.detect_cats(contents)
 
         # Add metadata
         result.update(
@@ -77,11 +77,11 @@ async def analyze_cat_spot(
     Rate Limit: 5 requests per minute per user.
     """
     # Validate and read file using shared utility
-    await read_file_for_detection(file, max_size_mb=10)
+    contents = await read_file_for_detection(file, max_size_mb=10)
 
     try:
-        # Analyze spot
-        result = await detection_service.analyze_cat_spot_suitability(file)
+        # Analyze spot using pre-read contents
+        result = await detection_service.analyze_cat_spot_suitability(contents)
 
         # Add metadata
         result.update({"filename": file.filename, "analyzed_by": current_user.email})
@@ -113,12 +113,11 @@ async def combined_cat_and_spot_analysis(
     file_size = len(contents)
 
     try:
-        # Run cat detection
-        cat_detection = await detection_service.detect_cats(file)
+        # Run cat detection using pre-read contents
+        cat_detection = await detection_service.detect_cats(contents)
 
-        # Reset file pointer for second analysis
-        await file.seek(0)
-        spot_analysis = await detection_service.analyze_cat_spot_suitability(file)
+        # Run spot analysis using same contents (no file seek needed)
+        spot_analysis = await detection_service.analyze_cat_spot_suitability(contents)
 
         # Combine results
         result = {
@@ -163,7 +162,7 @@ async def test_detect_cats(
     file_size = len(contents)
 
     try:
-        result = await detection_service.detect_cats(file)
+        result = await detection_service.detect_cats(contents)
 
         result.update(
             {
@@ -193,10 +192,10 @@ async def test_analyze_spot(
     Rate Limit: 10 requests per minute per user.
     """
     # Validate and read file using shared utility
-    await read_file_for_detection(file, max_size_mb=10)
+    contents = await read_file_for_detection(file, max_size_mb=10)
 
     try:
-        result = await detection_service.analyze_cat_spot_suitability(file)
+        result = await detection_service.analyze_cat_spot_suitability(contents)
         result.update({"filename": file.filename, "analyzed_by": current_user.email})
 
         return result

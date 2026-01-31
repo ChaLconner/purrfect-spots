@@ -1,12 +1,20 @@
-from datetime import datetime, timezone
+"""
+Authentication routes for both Manual (Email/Password) and Google OAuth
+"""
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+import os
+from datetime import datetime, timezone
+from urllib.parse import urlencode
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
 
 from config import config
-from dependencies import get_supabase_client
+from dependencies import get_supabase_admin_client, get_supabase_client
 from limiter import auth_limiter as limiter
 from logger import logger
-from middleware.auth_middleware import get_current_user
+from middleware.auth_middleware import get_current_user, get_current_user_from_header
 from schemas.auth import (
     ForgotPasswordRequest,
     LoginRequest,
@@ -21,13 +29,30 @@ from services.auth_service import AuthService
 from services.email_service import email_service
 from services.otp_service import get_otp_service
 from user_models.user import UserResponse
-from utils.auth_utils import get_client_info, set_refresh_cookie
+from utils.auth_utils import create_login_response, get_client_info, set_refresh_cookie
 
-router = APIRouter(prefix="/auth", tags=["Manual Authentication"])
+router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
+# --- Models specific to Google Auth ---
+class GoogleTokenRequest(BaseModel):
+    token: str
+
+
+class GoogleCodeExchangeRequest(BaseModel):
+    code: str
+    code_verifier: str
+    redirect_uri: str
+
+
+# --- Dependency ---
 def get_auth_service():
     return AuthService(get_supabase_client())
+
+
+# ==========================================
+# Manual Authentication Routes
+# ==========================================
 
 
 @router.post("/register", response_model=LoginResponse)
@@ -51,7 +76,7 @@ async def register(
         try:
             user_data = auth_service.create_user_with_password(data.email, data.password, sanitized_name)
         except Exception as e:
-            logger.error(f"Registration error detail: {e}")
+            logger.error("Registration error detail: %s", e)
             error_msg = str(e)
             if "already registered" in error_msg.lower() or "unique constraint" in error_msg.lower():
                 raise HTTPException(status_code=400, detail="Email already in use")
@@ -65,7 +90,7 @@ async def register(
         email_sent = email_service.send_otp_email(data.email, otp_code)
 
         if not email_sent:
-            logger.warning(f"Failed to send OTP email to {data.email}")
+            logger.warning("Failed to send OTP email to %s", data.email)
 
         from utils.security import log_security_event
 
@@ -83,7 +108,7 @@ async def register(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Registration failed: {e}")
+        logger.error("Registration failed: %s", e)
         from utils.security import log_security_event
 
         log_security_event("register_failed", details={"error": str(e)}, severity="ERROR")
@@ -120,7 +145,7 @@ async def verify_otp(
         # OTP verified - confirm user email in Supabase
         email_confirmed = auth_service.confirm_user_email(req.email)
         if not email_confirmed:
-            logger.error(f"Failed to confirm email after OTP verification: {req.email}")
+            logger.error("Failed to confirm email after OTP verification: %s", req.email)
             raise HTTPException(status_code=500, detail="Email verification failed. Please try again.")
 
         # Get user data and create session
@@ -128,39 +153,13 @@ async def verify_otp(
         if not user_data:
             raise HTTPException(status_code=404, detail="User not found")
 
-        user_id = user_data["id"]
-        ip, ua = get_client_info(request)
-
-        # Create tokens
-        access_token = auth_service.create_access_token(
-            user_id, {"email": user_data["email"], "name": user_data["name"], "picture": user_data.get("picture", "")}
-        )
-        refresh_token = auth_service.create_refresh_token(user_id, ip, ua)
-
-        set_refresh_cookie(response, refresh_token)
-
-        from utils.security import log_security_event
-
-        log_security_event("otp_verification_success", user_id=user_id, details={"ip": ip}, severity="INFO")
-
-        return {
-            "access_token": access_token,
-            "token_type": "bearer",
-            "user": UserResponse(
-                id=user_data["id"],
-                email=user_data["email"],
-                name=user_data["name"],
-                picture=user_data.get("picture", ""),
-                bio=None,
-                created_at=user_data["created_at"],
-            ),
-            "message": "Email verified successfully!",
-        }
+        # user_id = user_data["id"] # Not used but good for reference
+        return await create_login_response(auth_service, user_data.copy(), request, response)
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"OTP verification error: {e}")
+        logger.error("OTP verification error: %s", e)
         raise HTTPException(status_code=500, detail="Verification failed. Please try again.")
 
 
@@ -188,7 +187,7 @@ async def resend_otp(
         email_sent = email_service.send_otp_email(req.email, otp_code)
 
         if not email_sent:
-            logger.warning(f"Failed to resend OTP email to {req.email}")
+            logger.warning("Failed to resend OTP email to %s", req.email)
 
         from utils.security import log_security_event
 
@@ -199,13 +198,13 @@ async def resend_otp(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Resend OTP error: {e}")
+        logger.error("Resend OTP error: %s", e)
         raise HTTPException(status_code=500, detail="Failed to send verification code. Please try again.")
 
 
 @router.post("/login", response_model=LoginResponse)
 @limiter.limit("5/minute")
-def login(
+async def login(
     response: Response,
     request: Request,
     req: LoginRequest,
@@ -221,37 +220,12 @@ def login(
             raise HTTPException(status_code=401, detail="Invalid email or password.")
 
         # user_data now contains data from Supabase, but we want our own tokens
-        user_id = user_data["id"]
-        ip, ua = get_client_info(request)
-
-        access_token = auth_service.create_access_token(user_id, user_data)
-        refresh_token = auth_service.create_refresh_token(user_id, ip, ua)
-
-        set_refresh_cookie(response, refresh_token)
-
-        user_response = UserResponse(
-            id=user_id,
-            email=user_data["email"],
-            name=user_data["name"],
-            picture=user_data.get("picture"),
-            bio=user_data.get("bio"),
-            created_at=user_data["created_at"],
-        )
-
-        from utils.security import log_security_event
-
-        log_security_event("login_success", user_id=user_id, details={"ip": ip, "ua": ua}, severity="INFO")
-
-        return {
-            "access_token": access_token,
-            "token_type": "bearer",
-            "user": user_response,
-        }
+        return await create_login_response(auth_service, user_data, request, response)
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Login error: {e}")
+        logger.error("Login error: %s", e)
         from utils.security import log_security_event
 
         log_security_event("login_error", details={"email": req.email, "error": str(e)}, severity="ERROR")
@@ -269,8 +243,6 @@ async def refresh_token(
 
     if not refresh_token:
         # Return 200 with null token to avoid console errors only if it's a silent refresh
-        # But we don't know if it's silent or not.
-        # Best practice for SPA: Return 200 OK with authenticated=False or no token
         return {"access_token": None, "token_type": None, "message": "No active session"}
 
     ip, ua = get_client_info(request)
@@ -278,7 +250,6 @@ async def refresh_token(
 
     if not payload:
         response.delete_cookie("refresh_token")
-        # Same here - soft fail
         return {"access_token": None, "token_type": None, "message": "Session expired"}
 
     user_id = payload["user_id"]
@@ -294,7 +265,22 @@ async def refresh_token(
 
     set_refresh_cookie(response, new_refresh_token)
 
-    return {"access_token": new_access_token, "token_type": "bearer"}
+    # Fetch latest user data to return
+    user_obj = auth_service.get_user_by_id(user_id)
+
+    # Convert to safe response format (exclude password_hash)
+    user_response = None
+    if user_obj:
+        user_response = UserResponse(
+            id=user_obj.id,
+            email=user_obj.email,
+            name=user_obj.name,
+            picture=user_obj.picture,
+            bio=user_obj.bio,
+            created_at=user_obj.created_at,
+        )
+
+    return {"access_token": new_access_token, "token_type": "bearer", "user": user_response}
 
 
 @router.post("/logout")
@@ -312,7 +298,7 @@ async def logout(response: Response, request: Request, auth_service: AuthService
                 if jti and user_id and exp:
                     await auth_service.revoke_token(jti, user_id, datetime.fromtimestamp(exp, timezone.utc))
         except Exception as e:
-            logger.warning(f"Logout cleanup failed (ignore): {e}")
+            logger.warning("Logout cleanup failed (ignore): %s", e)
 
     response.delete_cookie("refresh_token")
     return {"message": "Logged out successfully"}
@@ -331,7 +317,7 @@ async def forgot_password(
         await auth_service.create_password_reset_token(req.email)
         return {"message": "If this email is registered, you will receive password reset instructions."}
     except Exception as e:
-        logger.error(f"Forgot password error: {e}")
+        logger.error("Forgot password error: %s", e)
         return {"message": "If this email is registered, you will receive password reset instructions."}
 
 
@@ -376,41 +362,223 @@ async def exchange_session(
 
         # 2. Get User Profile (to ensure we have name/picture)
         db_user = auth_service.get_user_by_id(user_id)
-        if not db_user:
-            # Sync might be needed if handle_new_user trigger hasn't fired yet?
-            # It should have fired on insert.
-            # If not found, maybe just use auth data?
-            pass
-
+        
         name = db_user.name if db_user else user.user.user_metadata.get("name", "")
         picture = db_user.picture if db_user else user.user.user_metadata.get("avatar_url", "")
 
         # 3. Create Custom Tokens
-        ip, ua = get_client_info(request)
-        new_access_token = auth_service.create_access_token(user_id, {"email": email, "name": name, "picture": picture})
-        new_refresh_token = auth_service.create_refresh_token(user_id, ip, ua)
-
-        # 4. Set Cookie
-        set_refresh_cookie(response, new_refresh_token)
-
-        return {
-            "access_token": new_access_token,
-            "token_type": "bearer",
-            "user": UserResponse(
-                id=user_id,
-                email=email,
-                name=name,
-                picture=picture,
-                bio=db_user.bio if db_user else None,
-                created_at=db_user.created_at if db_user else datetime.now(timezone.utc),
-            ),
+        # Prepare a user dict from the pieces we have
+        user_data = {
+            "id": user_id,
+            "email": email,
+            "name": name,
+            "picture": picture,
+            "bio": db_user.bio if db_user else None,
+            "created_at": db_user.created_at if db_user else datetime.now(timezone.utc),
         }
+
+        return await create_login_response(auth_service, user_data, request, response)
     except Exception as e:
-        logger.error(f"Session exchange failed: {e}")
+        logger.error("Session exchange failed: %s", e)
         raise HTTPException(status_code=401, detail="Session verification failed")
 
 
-@router.get("/me")
-async def get_user(current_user=Depends(get_current_user)):
-    """Get current user information"""
-    return current_user
+@router.get("/me", response_model=UserResponse)
+async def get_current_user_info(current_user=Depends(get_current_user)):
+    """Get current user information (unified from bot manual and google auth)"""
+    return UserResponse(
+        id=current_user.id,
+        email=current_user.email,
+        name=current_user.name,
+        picture=current_user.picture,
+        bio=current_user.bio,
+        created_at=current_user.created_at,
+    )
+
+
+# ==========================================
+# Google Authentication Routes
+# ==========================================
+
+
+@router.get("/google/login")
+async def google_login_redirect():
+    """Redirect to Google OAuth login page with PKCE support"""
+    try:
+        google_client_id = os.getenv("GOOGLE_CLIENT_ID")
+        if not google_client_id:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Google Client ID not configured",
+            )
+
+        allowed_origins = config.get_allowed_origins()
+
+        # Priority: localhost:5173 -> First allowed origin -> fallback
+        origin = "http://localhost:5173"
+        if allowed_origins:
+            origin = allowed_origins[0]
+            for cors_origin in allowed_origins:
+                if "localhost:5173" in cors_origin:
+                    origin = cors_origin
+                    break
+
+        redirect_uri = f"{origin}/auth/callback"
+
+        oauth_params = {
+            "client_id": google_client_id,
+            "redirect_uri": redirect_uri,
+            "response_type": "code",
+            "scope": "openid email profile",
+            "access_type": "offline",
+            "prompt": "consent",
+        }
+
+        auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(oauth_params)}"
+        return RedirectResponse(url=auth_url, status_code=302)
+
+    except Exception as e:
+        logger.error(f"Failed to redirect to Google login: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to redirect to Google login: {e!s}",
+        )
+
+
+@router.post("/google", response_model=LoginResponse)
+async def google_login(
+    response: Response,
+    request: Request,
+    token_data: GoogleTokenRequest,
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    """Login with Google OAuth token"""
+    try:
+        user_data = auth_service.verify_google_token(token_data.token)
+        user = auth_service.create_or_get_user(user_data)
+
+        return await create_login_response(auth_service, user, request, response)
+
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.error(f"Google Login failed: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Login failed")
+
+
+@router.post("/google/exchange", response_model=LoginResponse)
+async def google_exchange_code(
+    response: Response,
+    request: Request,
+    exchange_data: GoogleCodeExchangeRequest,
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    """Exchange Google authorization code for tokens (PKCE OAuth 2.0 flow)"""
+    try:
+        if not exchange_data.code:
+            raise ValueError("Authorization code is required")
+        if not exchange_data.code_verifier:
+            raise ValueError("Code verifier is required")
+        if not exchange_data.redirect_uri:
+            raise ValueError("Redirect URI is required")
+
+        # Validate redirect URI against allowed origins
+        allowed_origins = config.get_allowed_origins()
+        redirect_origin = None
+
+        logger.debug(f"Auth Exchange Debug: Received redirect_uri={exchange_data.redirect_uri}")
+
+        # Check if the redirect URI matches any allowed origin + /auth/callback
+        expected_redirects = []
+        for origin in allowed_origins:
+            expected = f"{origin.rstrip('/')}/auth/callback"
+            expected_redirects.append(expected)
+            if exchange_data.redirect_uri == expected:
+                redirect_origin = origin
+                break
+
+        # Fallback for production domains not in CORS
+        if not redirect_origin and exchange_data.redirect_uri.endswith("/auth/callback"):
+            uri_parts = exchange_data.redirect_uri.split("/")
+            if len(uri_parts) >= 3:
+                origin = "/".join(uri_parts[:3])
+                allowed_production_domains = [
+                    "http://localhost:5173",
+                    "https://localhost:5173",
+                    "https://purrfect-spots.vercel.app",
+                ]
+                if origin in allowed_production_domains:
+                    redirect_origin = origin
+                    logger.debug(f"Auth Exchange Debug: Matched production domain={origin}")
+
+        if not redirect_origin:
+            logger.warning(f"Invalid redirect URI: {exchange_data.redirect_uri}. Expected: {expected_redirects}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid redirect URI",
+            )
+
+        # Exchange code for tokens
+        # Pass IP and User-Agent for fingerprinting
+        ip, ua = get_client_info(request)
+        login_response = await auth_service.exchange_google_code(
+            exchange_data.code,
+            exchange_data.code_verifier,
+            exchange_data.redirect_uri,
+            ip,
+            ua
+        )
+
+        # Set refresh token in HttpOnly cookie
+        if login_response.refresh_token:
+            set_refresh_cookie(response, login_response.refresh_token)
+
+        return login_response
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.error(f"Google Exchange failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Code exchange failed",
+        )
+
+
+@router.post("/sync-user")
+async def sync_user_data(user=Depends(get_current_user_from_header), supabase=Depends(get_supabase_client)):
+    """Insert/Upsert user into Supabase Table from JWT payload (Supabase Auth compatible)"""
+    try:
+        user_id = user["sub"]
+        email = user.get("email")
+        user_metadata = user.get("user_metadata", {})
+        app_metadata = user.get("app_metadata", {})
+
+        name = user_metadata.get("name") or user_metadata.get("full_name") or user.get("name", "")
+        picture = user_metadata.get("avatar_url") or user_metadata.get("picture") or user.get("picture", "")
+
+        google_id = None
+        provider = app_metadata.get("provider", "")
+        if provider == "google":
+            google_id = user_metadata.get("provider_id")
+        elif user.get("google_id"):
+            google_id = user.get("google_id")
+
+        data = {
+            "id": user_id,
+            "email": email,
+            "name": name,
+            "picture": picture,
+            "google_id": google_id,
+        }
+
+        # Use admin client to ensure we can update users table
+        supabase_admin = get_supabase_admin_client()
+        res = supabase_admin.table("users").upsert(data, on_conflict="id").execute()
+        return {"message": "User synced", "data": res.data if hasattr(res, "data") else data}
+
+    except Exception as e:
+        logger.error(f"Sync failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Sync failed: {e!s}")

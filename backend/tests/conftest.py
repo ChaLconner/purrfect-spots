@@ -1,5 +1,8 @@
 """
 Pytest configuration and fixtures for backend tests
+
+# nosec python:S2068 - Hardcoded tokens and credentials in this file are intentional test fixtures
+# These are not real credentials; they are used only for unit testing
 """
 
 import os
@@ -53,11 +56,22 @@ except ImportError:
 @pytest.fixture(autouse=True)
 def disable_rate_limit():
     """Disable rate limiting for all tests"""
-    from limiter import limiter
+    from limiter import auth_limiter, limiter, strict_limiter, upload_limiter
 
-    limiter.enabled = False
+    limiters = [limiter, auth_limiter, strict_limiter, upload_limiter]
+    
+    # Store initial states
+    initial_states = [limiter_instance.enabled for limiter_instance in limiters]
+    
+    # Disable all
+    for limiter_instance in limiters:
+        limiter_instance.enabled = False
+        
     yield
-    limiter.enabled = True
+    
+    # Restore states
+    for i, limiter_instance in enumerate(limiters):
+        limiter_instance.enabled = initial_states[i]
 
 
 from fastapi.testclient import TestClient

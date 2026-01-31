@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 # Import routes
-from routes.auth_manual import LoginRequest, RegisterInput, get_auth_service, router
+from routes.auth import LoginRequest, RegisterInput, get_auth_service, router
 
 
 @pytest.fixture
@@ -44,7 +44,7 @@ def mock_auth_service(app):
 @pytest.fixture
 def mock_limiter():
     """Mock rate limiter to avoid rate limit issues in tests"""
-    with patch("routes.auth_manual.limiter") as mock:
+    with patch("routes.auth.limiter") as mock:
         mock.limit = lambda x: lambda f: f  # No-op decorator
         yield mock
 
@@ -192,7 +192,8 @@ class TestLoginEndpoint:
             data = response.json()
             assert data["access_token"] == "test-access-token"
             assert data["token_type"] == "bearer"
-            assert "refresh_token" not in data  # Should be in HttpOnly cookie
+            # Refresh token is returned in body AND cookie now
+            assert "refresh_token" in data
 
     def test_login_invalid_credentials(self, client, mock_auth_service, mock_limiter):
         """Test login fails with invalid credentials"""
@@ -225,6 +226,20 @@ class TestRefreshTokenEndpoint:
 
         mock_auth_service.verify_refresh_token = AsyncMock(return_value={"user_id": "test-user-id"})
         mock_auth_service.create_access_token.return_value = "new-access-token"
+        
+        # Mock user retrieval to satisfy LoginResponse Pydantic validation
+        from datetime import datetime
+        from types import SimpleNamespace
+        
+        user_obj = SimpleNamespace(
+            id="test-user-id",
+            email="test@example.com",
+            name="Test User",
+            created_at=datetime(2024, 1, 1),
+            picture=None,
+            bio=None
+        )
+        mock_auth_service.get_user_by_id.return_value = user_obj
 
         # Set refresh token cookie
         client.cookies.set("refresh_token", "valid-refresh-token")
@@ -286,7 +301,7 @@ class TestForgotPasswordEndpoint:
         """Test forgot password for existing email"""
         mock_auth_service.create_password_reset_token.return_value = "reset-token"
 
-        with patch("routes.auth_manual.email_service") as mock_email:
+        with patch("routes.auth.email_service") as mock_email:
             response = client.post("/api/v1/auth/forgot-password", json={"email": "existing@example.com"})
 
         if response.status_code == 200:
@@ -341,7 +356,7 @@ class TestAuthMeEndpoint:
 
     def test_get_current_user(self, client):
         """Test getting current user info"""
-        with patch("routes.auth_manual.get_current_user") as mock_user:
+        with patch("routes.auth.get_current_user") as mock_user:
             mock_user.return_value = MagicMock(id="test-id", email="test@example.com", name="Test User")
 
             # This test would need proper auth header setup

@@ -17,7 +17,6 @@ else:
     load_dotenv()
 
 # Supabase client initialization
-# Supabase client initialization
 supabase_url = os.getenv("SUPABASE_URL")
 # Prefer specific keys over generic ones to avoid confusion
 supabase_key = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_KEY")

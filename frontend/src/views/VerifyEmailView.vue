@@ -219,8 +219,15 @@ const handleVerify = async () => {
       authStore.setAuth(response);
       showSuccess('Email verified successfully!', 'Welcome');
 
-      const redirectPath = sessionStorage.getItem('redirectAfterAuth') || '/upload';
+      let redirectPath = sessionStorage.getItem('redirectAfterAuth') || '/upload';
       sessionStorage.removeItem('redirectAfterAuth');
+
+      // Security: Prevent Open Redirects
+      // Ensure path starts with / and is not a protocol-relative URL (//)
+      if (!redirectPath.startsWith('/') || redirectPath.startsWith('//')) {
+        redirectPath = '/upload';
+      }
+
       router.push(redirectPath);
     }
   } catch (err: unknown) {

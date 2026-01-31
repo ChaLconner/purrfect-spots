@@ -38,7 +38,7 @@ class TestAuthService:
             "id": "new-user-123",
             "email": "new@example.com",
             "name": "New User",
-            "picture": "http://example.com/pic.jpg",
+            "picture": "https://example.com/pic.jpg",
             "google_id": "google-123",
         }
 
@@ -47,7 +47,7 @@ class TestAuthService:
             id="new-user-123",
             email="new@example.com",
             name="New User",
-            picture="http://example.com/pic.jpg",
+            picture="https://example.com/pic.jpg",
             created_at=utc_now(),
         )
         mock_user_service.create_or_get_user.return_value = expected_user

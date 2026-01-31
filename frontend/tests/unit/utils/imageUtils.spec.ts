@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { 
   getCDNUrl, 
   validateImageFile, 
@@ -6,7 +6,7 @@ import {
   generateResponsiveSources
 } from '@/utils/imageUtils';
 
-import * as envModule from '@/utils/env';
+
 
 // Mock env module
 vi.mock('@/utils/env', () => ({

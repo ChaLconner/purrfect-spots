@@ -15,7 +15,8 @@ from google.oauth2 import id_token
 
 from config import config
 from logger import logger
-from user_models.user import LoginResponse, UserResponse
+from schemas.auth import LoginResponse
+from user_models.user import UserResponse
 
 
 class GoogleAuthService:

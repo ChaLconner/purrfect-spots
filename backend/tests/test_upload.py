@@ -301,7 +301,7 @@ class TestUploadValidation:
 
                 mock_validate.side_effect = HTTPException(status_code=400, detail="Invalid coordinate format")
 
-            response = client.post("/api/v1/upload/cat", files=files, data=data)
+                response = client.post("/api/v1/upload/cat", files=files, data=data)
 
         # Clean up overrides
         app.dependency_overrides = {}

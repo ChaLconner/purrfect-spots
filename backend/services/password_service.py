@@ -30,7 +30,7 @@ class PasswordService:
         try:
             return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
         except Exception as e:
-            logger.debug(f"Password verification failed: {e}")
+            logger.debug("Password verification failed: %s", e)
             return False
 
     def validate_complexity(self, password: str) -> bool:
@@ -48,7 +48,8 @@ class PasswordService:
         Uses k-Anonymity to preserve privacy (only sends first 5 chars of SHA-1 hash).
         """
         try:
-            # SHA1 is required by HIBP API - not used for password storage
+            # SHA1 is required by HIBP API - not used for password storage or sensitive tokens
+            # codeql [py/weak-cryptographic-algorithm]
             # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1
             sha1_password = hashlib.sha1(password.encode("utf-8")).hexdigest().upper()  # nosec B324
             prefix = sha1_password[:5]
@@ -62,7 +63,7 @@ class PasswordService:
                         if line.startswith(suffix):
                             return True
         except Exception as e:
-            logger.warning(f"HIBP check failed (skipping): {e}")
+            logger.warning("HIBP check failed (skipping): %s", e)
         return False
 
     async def validate_new_password(self, password: str, check_breach: bool = True) -> tuple[bool, str | None]:

@@ -312,28 +312,21 @@ jobs:
           # Deploy to Vercel (server-side build)
           echo "🚀 Triggering Vercel User Deployment..."
 
-          # Capture deployment URL using jq for reliability
-          # We use --json to get structured output and avoid fragile regex parsing
-          npx vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --yes --no-wait --json > deploy_res.json
+          DEPLOY_OUTPUT=$(npx vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --yes)
           DEPLOY_EXIT_CODE=$?
 
           if [ $DEPLOY_EXIT_CODE -ne 0 ]; then
-            echo "::error::Vercel deployment failed with exit code $DEPLOY_EXIT_CODE"
-            if [ -f deploy_res.json ]; then cat deploy_res.json; fi
+            echo "::error::Vercel deployment failed"
+            echo "$DEPLOY_OUTPUT"
             exit $DEPLOY_EXIT_CODE
           fi
 
-          deployment_url=$(jq -r '.url' deploy_res.json 2>/dev/null || grep -oE 'https://[a-zA-Z0-9.-]+\.vercel\.app' deploy_res.json | head -1)
+          deployment_url=$(echo "$DEPLOY_OUTPUT" | grep -oE 'https://[a-zA-Z0-9.-]+\.vercel\.app' | head -1)
 
-          if [ -z "$deployment_url" ] || [ "$deployment_url" == "null" ]; then
-            echo "::error::Deployment failed. No URL returned in JSON output."
-            cat deploy_res.json
+          if [ -z "$deployment_url" ]; then
+            echo "::error::Deployment succeeded but no URL found"
+            echo "$DEPLOY_OUTPUT"
             exit 1
-          fi
-
-          # Ensure URL has https:// prefix
-          if [[ ! $deployment_url =~ ^https:// ]]; then
-            deployment_url="https://$deployment_url"
           fi
 
           echo "deployment_url=$deployment_url" >> $GITHUB_OUTPUT
