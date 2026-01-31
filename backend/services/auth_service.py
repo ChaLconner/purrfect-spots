@@ -60,7 +60,7 @@ class AuthService:
             token_service = await get_token_service()
             return await token_service.is_blacklisted(jti=jti)
         except Exception as e:
-            logger.error(f"Failed to check token revocation: {e!s}")
+            logger.error("Failed to check revocation status: %s", e)
             return False
 
     async def revoke_token(self, jti: str, user_id: str, expires_at: datetime) -> bool:
@@ -71,7 +71,7 @@ class AuthService:
                 token=None, jti=jti, user_id=user_id, expires_at=expires_at, reason="logout"
             )
         except Exception as e:
-            logger.error(f"Failed to revoke token: {e!s}")
+            logger.error("Failed to revoke session: %s", e)
             return False
 
     def verify_google_token(self, token: str) -> dict:
@@ -118,7 +118,7 @@ class AuthService:
             token_issued_at = datetime.fromtimestamp(iat, timezone.utc)
             return await token_service.is_user_invalidated(user_id, token_issued_at)
         except Exception as e:
-            logger.warning(f"User invalidation check failed: {e}")
+            logger.warning("Session invalidation check failed: %s", e)
             return False
 
     def verify_access_token(self, token: str) -> str | None:
@@ -217,7 +217,7 @@ class AuthService:
                 if res.data:
                     existing_user = res.data[0]
             except Exception as e:
-                logger.debug(f"User check failed: {e}")
+                logger.debug("Identity check unsuccessful: %s", e)
                 pass
 
             user_id = existing_user["id"] if existing_user else str(uuid.uuid4())
@@ -308,7 +308,7 @@ class AuthService:
         except jwt.PyJWTError:
             return None
         except Exception:
-            logger.error("Verify refresh token error")
+            logger.error("Session verification unsuccessful")
             return None
 
     async def create_password_reset_token(self, email: str) -> bool:
@@ -366,13 +366,13 @@ class AuthService:
                 ts = await get_token_service()
                 await ts.blacklist_all_user_tokens(user_id, reason="password_reset")
             except Exception as e:
-                logger.warning(f"Background cleanup failed (blacklist): {e}")
+                logger.warning("Background cleanup unsuccessful (Status: %s)", e)
                 pass
 
             try:
                 email_service.send_password_changed_email(user_res.user.email)
             except Exception as e:
-                logger.warning(f"Background cleanup failed (email): {e}")
+                logger.warning("Notification cleanup unsuccessful: %s", e)
                 pass
 
             log_security_event("password_reset_success", user_id=user_id, severity="INFO")
@@ -435,7 +435,7 @@ class AuthService:
             try:
                 email_service.send_password_changed_email(user.email)
             except Exception as e:
-                logger.warning(f"Background cleanup failed (email): {e}")
+                logger.warning("Notification cleanup unsuccessful (Retry): %s", e)
                 pass
 
             log_security_event("password_change_success", user_id=user_id, severity="INFO")

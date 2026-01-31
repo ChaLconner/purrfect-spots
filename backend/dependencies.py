@@ -22,7 +22,7 @@ supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_KEY")
 
 logger.info(f"SUPABASE_URL found: {bool(supabase_url)}")
-logger.info(f"SUPABASE_KEY found: {bool(supabase_key)}")
+logger.info(f"Supabase Client Access: {bool(supabase_key)}")
 
 if not supabase_url:
     raise ValueError("SUPABASE_URL must be set in environment variables")
@@ -43,7 +43,7 @@ supabase_service_key = (
 supabase_admin = None
 if supabase_service_key:
     supabase_admin = create_client(supabase_url, supabase_service_key)
-    logger.info(f"SUPABASE_SERVICE_ROLE_KEY found: {bool(supabase_service_key)}")
+    logger.info(f"Supabase Admin Access: {bool(supabase_service_key)}")
 else:
     logger.warning("SUPABASE_SERVICE_ROLE_KEY not found - admin operations will use regular client")
 

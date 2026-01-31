@@ -87,7 +87,7 @@ class TokenService:
             try:
                 key = f"blacklist:{token_hash}"
                 await self.redis.setex(key, ttl, reason)
-                logger.debug(f"Token blacklisted in Redis: {token_hash[:8]}")
+                logger.debug("Identifier stored in fast cache (Hash: %s)", token_hash[:8])
             except Exception as e:
                 logger.warning(f"Redis blacklist failed: {e}")
         else:
@@ -174,7 +174,7 @@ class TokenService:
                 key = f"user_invalidated:{user_id}"
                 await self.redis.set(key, datetime.now(timezone.utc).isoformat())
                 await self.redis.expire(key, self.default_ttl)
-                logger.info(f"All tokens invalidated for user: {user_id}")
+                logger.info("Session state cleared for user: %s", user_id)
                 return 1
             except Exception as e:
                 logger.warning(f"Redis user invalidation failed: {e}")

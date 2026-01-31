@@ -178,7 +178,7 @@ class TestAuthServiceExtended:
         mock_user_res = MagicMock()
         mock_user_res.user = mock_user
 
-        with patch("supabase.create_client") as mock_create_client:
+        with patch("services.auth_service.create_client") as mock_create_client:
             mock_temp_client = MagicMock()
             mock_temp_client.auth.get_user.return_value = mock_user_res
             mock_temp_client.auth.update_user.return_value = MagicMock()

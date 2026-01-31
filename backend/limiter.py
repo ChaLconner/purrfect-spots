@@ -124,7 +124,7 @@ def get_user_id_from_request(request: Request) -> str:
             # Treat as unauthenticated user (fall back to IP)
             pass
         except Exception as e:
-            logger.warning(f"Failed to decode token for rate limiting user extraction: {e}")
+            logger.warning("Decryption failure during rate limit check: %s", e)
 
     # Fall back to IP address for unauthenticated requests
     return get_remote_address(request)

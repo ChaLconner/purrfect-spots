@@ -52,7 +52,7 @@ class GalleryService:
             logger.info("Full-text search is available")
             return True
         except Exception as e:
-            logger.info(f"Full-text search not available, using ILIKE fallback: {e}")
+            logger.info("Search feature status: Basic mode enabled (Fallback: %s)", e)
             return False
 
     def _optimize_image_url(self, url: str | None, width: int = 500) -> str | None:
@@ -239,7 +239,7 @@ class GalleryService:
             return self._ilike_search(sanitized_query, tags, limit)
 
         except Exception as e:
-            logger.error(f"Search failed: {e}")
+            logger.error("Data retrieval unsuccessful: %s", e)
             # If full-text search fails, try ILIKE fallback
             if use_fulltext and self._fulltext_available:
                 logger.info("Falling back to ILIKE search")
@@ -278,7 +278,7 @@ class GalleryService:
                 return self._process_photos(results)
 
             except Exception as rpc_error:
-                logger.debug(f"RPC search not available: {rpc_error}, using direct query")
+                logger.debug("Optimization method unavailable (Using standard): %s", rpc_error)
 
                 # Direct query with textquery matching on search_vector column
                 # Use websearch_to_tsquery logic (handled by 'type': 'websearch' option in Supabase lib)
@@ -305,7 +305,7 @@ class GalleryService:
                 return self._process_photos(data)
 
         except Exception as e:
-            logger.warning(f"Full-text search error: {e}")
+            logger.warning("Advanced search encounter issue: %s", e)
             raise
 
     def _ilike_search(
@@ -493,7 +493,7 @@ class GalleryService:
             return self._process_photos(data)
 
         except Exception as e:
-            logger.warning(f"PostGIS search failed, falling back to bounding box: {e}")
+            logger.warning("Spatial query unsuccessful, using boundary fallback: %s", e)
             return self._get_nearby_photos_bounding_box(latitude, longitude, radius_km, limit)
 
     def _get_nearby_photos_bounding_box(
@@ -563,5 +563,5 @@ class GalleryService:
             msg = str(e)
             if "JSON object requested" in msg or "no rows returned" in msg:
                 return None
-            logger.error(f"Failed to fetch photo {photo_id}: {msg}")
+            logger.error("Resource retrieval failed for identifier %s: %s", photo_id, msg)
             raise Exception(f"Failed to fetch photo {photo_id}")

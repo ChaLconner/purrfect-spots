@@ -75,7 +75,7 @@ def _redis_get(key: str) -> Any | None:
         if data:
             return json.loads(data)
     except Exception as e:
-        logger.error(f"Redis get error for {key}: {e}")
+        logger.error("Cache retrieval failed for identifier: %s (Error: %s)", key, e)
     return None
 
 
@@ -87,7 +87,7 @@ def _redis_set(key: str, value: Any, ttl: int) -> None:
         serialized = json.dumps(value, default=str)
         redis_client.setex(key, ttl, serialized)
     except Exception as e:
-        logger.error(f"Redis set error for {key}: {e}")
+        logger.error("Cache storage failed for identifier: %s (Error: %s)", key, e)
 
 
 # ========== Cache Decorators ==========

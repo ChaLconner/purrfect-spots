@@ -110,7 +110,7 @@ class GoogleVisionService:
 
                     # Safety check for very large files
                     if bytes_read > MAX_MEMORY_SIZE:
-                        logger.warning(f"Image exceeds {MAX_MEMORY_SIZE} bytes, may impact memory")
+                        logger.warning("Large image (%d bytes) - memory usage warning", bytes_read)
                         break
 
                 content = b"".join(chunks)

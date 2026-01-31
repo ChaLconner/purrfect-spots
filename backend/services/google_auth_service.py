@@ -79,7 +79,7 @@ class GoogleAuthService:
                 response = await client.post(token_url, data=data, headers=headers)
 
                 if response.status_code != 200:
-                    logger.warning(f"[OAuth] Google exchange error: {response.text}")
+                    logger.warning("[OAuth] External exchange unsuccessful")
                     raise ValueError("Token exchange failed")
 
                 token_data = response.json()
@@ -112,7 +112,7 @@ class GoogleAuthService:
         except ValueError as e:
             raise e
         except Exception as e:
-            logger.error(f"[OAuth] Exchange exception: {e}")
+            logger.error("[OAuth] Exchange execution error: %s", e)
             raise ValueError("Code exchange failed")
 
 

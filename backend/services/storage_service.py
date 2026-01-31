@@ -91,7 +91,7 @@ class StorageService:
 
         except Exception as e:
             # Log error but don't crash - this is a cleanup operation
-            logger.warning(f"Failed to delete file {file_url}: {e}")
+            logger.warning("Cleanup operation unsuccessful for resource: %s (Error: %s)", file_url, e)
 
 
 # Singleton instance

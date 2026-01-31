@@ -183,7 +183,7 @@ class EmailService:
             server.send_message(msg)
             server.quit()
 
-            logger.info(f"OTP email sent to {to_email}")
+            logger.info("One-time authentication code sent to %s", to_email)
             return True
 
         except Exception as e:

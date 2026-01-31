@@ -36,7 +36,7 @@ class UserService:
                 return User(**result.data[0])
             return None
         except Exception as e:
-            logger.debug(f"Failed to get user by ID {user_id}: {e}")
+            logger.debug("Failed to retrieve profile by ID: %s", e)
             return None
 
     def get_user_by_email(self, email: str) -> dict | None:
@@ -45,7 +45,7 @@ class UserService:
             result = self.supabase_admin.table("users").select("*").eq("email", email).single().execute()
             return result.data if result.data else None
         except Exception as e:
-            logger.debug(f"Failed to get user by email {email}: {e}")
+            logger.debug("Failed to retrieve profile by email: %s", e)
             return None
 
     def create_user_with_password(self, email: str, password: str, name: str) -> dict:
@@ -147,7 +147,7 @@ class UserService:
                 raise Exception("Email already registered")
             if "unique constraint" in msg.lower():
                 raise Exception("Email already registered")
-            logger.error(f"Failed to create unverified user: {msg}")
+            logger.error("Failed to create unverified account: %s", msg)
             raise Exception("Failed to create user")
 
     def create_or_get_user(self, user_data: dict) -> User:
@@ -205,7 +205,7 @@ class UserService:
                 }
             return None
         except Exception as e:
-            logger.warning(f"Login failed: {e}")
+            logger.warning("Authentication failure: %s", e)
             return None
 
     def update_user_profile(self, user_id: str, update_data: dict) -> dict:
@@ -226,5 +226,5 @@ class UserService:
             ).eq("id", user_id).execute()
             return True
         except Exception as e:
-            logger.error(f"Failed to update password hash: {e}")
+            logger.error("Failed to update credential hash: %s", e)
             return False

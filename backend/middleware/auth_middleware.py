@@ -106,7 +106,7 @@ async def _is_token_revoked(jti: str) -> bool:
     except Exception:
         # Fallback to allow if service fails, but log it
         # Ideally we should fail open for reliability unless security is paramount
-        logger.debug("Token revocation check failed (allowing due to service error)")
+        logger.debug("Revocation check failed (allowing due to service error)")
         return False
 
 
@@ -175,10 +175,10 @@ async def _verify_and_decode_token(token: str, supabase: Client | None = None) -
             payload = decode_custom_token(token)
             source = "custom"
         except HTTPException as http_exc:
-            logger.warning("Custom token decode failed with status %s", http_exc.status_code)
+            logger.warning("Custom authentication check unsuccessful (Status Code: %d)", http_exc.status_code)
             raise
         except Exception:
-            logger.debug("Custom token decode failed")
+            logger.debug("Custom authentication check unsuccessful")
 
             # FINAL FALLBACK: Try Supabase API directly if we have a client
             if supabase:
@@ -196,15 +196,15 @@ async def _verify_and_decode_token(token: str, supabase: Client | None = None) -
                             "iat": int(datetime.now(timezone.utc).timestamp()),
                         }
                         source = "supabase"
-                        logger.info("Token verified via direct Supabase Auth API")
+                        logger.info("Authentication verified via direct Supabase Auth API")
                         return payload, source
                 except Exception as api_err:
                     logger.debug("Direct Supabase verification failed: %s", api_err)
 
-            logger.warning("All auth verification methods failed for token")
+            logger.warning("All authentication verification methods failed")
             raise HTTPException(status_code=401, detail="Authentication failed: Invalid or expired token")
     except Exception:
-        logger.error("Unexpected token verification error")
+        logger.error("Unexpected authentication verification error")
         raise HTTPException(status_code=401, detail="Authentication failed")
 
     # Common Security Checks (Revocation & Invalidation)
