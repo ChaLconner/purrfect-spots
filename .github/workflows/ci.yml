@@ -91,6 +91,9 @@ jobs:
               - 'docker-compose.yml'
             ci:
               - '.github/workflows/**'
+              - '.github/actions/**'
+            api_spec:
+              - 'docs/openapi-baseline.json'
 
   # ============================================================================
   # BACKEND JOBS
@@ -102,7 +105,8 @@ jobs:
     if: |
       inputs.force_full_run == true ||
       needs.changes.outputs.backend == 'true' || 
-      needs.changes.outputs.ci == 'true'
+      needs.changes.outputs.ci == 'true' ||
+      needs.changes.outputs.api_spec == 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
@@ -111,12 +115,8 @@ jobs:
         uses: ./.github/actions/setup-backend
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          install-deps: "false"
-
-      - name: Install linting tools
-        run: |
-          pip install --upgrade pip
-          pip install ruff==0.8.0  # Pinned to match pre-commit
+          install-deps: "true"
+          install-dev-tools: "true"
 
       - name: Run Ruff (Linting)
         run: |
@@ -135,7 +135,8 @@ jobs:
     if: |
       inputs.force_full_run == true ||
       needs.changes.outputs.backend == 'true' || 
-      needs.changes.outputs.ci == 'true'
+      needs.changes.outputs.ci == 'true' ||
+      needs.changes.outputs.api_spec == 'true'
     continue-on-error: true # Non-blocking - gradual type adoption
     steps:
       - name: Checkout code
@@ -145,11 +146,7 @@ jobs:
         uses: ./.github/actions/setup-backend
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install Type Check Tools
-        run: |
-          pip install mypy==1.13.0
-          pip install types-requests types-redis types-Pillow types-bleach
+          install-dev-tools: "true"
 
       - name: Run MyPy (Type Check)
         run: |
@@ -164,7 +161,8 @@ jobs:
     if: |
       inputs.force_full_run == true ||
       needs.changes.outputs.backend == 'true' || 
-      needs.changes.outputs.ci == 'true'
+      needs.changes.outputs.ci == 'true' ||
+      needs.changes.outputs.api_spec == 'true'
     services:
       redis:
         image: redis:7-alpine
@@ -184,10 +182,7 @@ jobs:
         uses: ./.github/actions/setup-backend
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install Test Dependencies
-        run: |
-          pip install pytest-cov pytest-xdist
+          install-dev-tools: "true"
 
       - name: Run tests with coverage
         env:
@@ -234,7 +229,8 @@ jobs:
     if: |
       inputs.force_full_run == true ||
       needs.changes.outputs.backend == 'true' || 
-      needs.changes.outputs.ci == 'true'
+      needs.changes.outputs.ci == 'true' ||
+      needs.changes.outputs.api_spec == 'true'
     continue-on-error: true # Non-blocking - informational
     steps:
       - name: Checkout code
@@ -246,6 +242,7 @@ jobs:
         uses: ./.github/actions/setup-backend
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+          install-dev-tools: "true"
 
       - name: Check for API breaking changes
         env:
@@ -506,13 +503,6 @@ jobs:
         uses: semgrep/semgrep-action@v1
         with:
           config: p/default p/security-audit p/owasp-top-ten
-          # generateSarif is not a valid input for v1, removed.
-          # Default behavior or manual check implies we might want args if defaults don't work,
-          # but usually v1 action automatically detects execution context.
-          # However, to be explicit and match the upload requirement:
-          # Note: semgrep-action usually sends to platform if token is present, or prints to stdout.
-          # To get a file, we usually need flags. But 'semgrep-action' encapsulates this.
-          # Let's try fixing the input error first by removing it.
 
         env:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}

@@ -1,15 +1,19 @@
-name: 'Setup Backend'
-description: 'Sets up Python environment, installs system dependencies, and installs Python packages'
+name: "Setup Backend"
+description: "Sets up Python environment, installs system dependencies, and installs Python packages"
 
 inputs:
   python-version:
-    description: 'Python version to use'
+    description: "Python version to use"
     required: false
-    default: '3.12'
+    default: "3.12"
   install-deps:
-    description: 'Whether to install dependencies'
+    description: "Whether to install dependencies"
     required: false
-    default: 'true'
+    default: "true"
+  install-dev-tools:
+    description: "Whether to install development tools (ruff, mypy, pytest)"
+    required: false
+    default: "false"
 
 runs:
   using: "composite"
@@ -18,7 +22,7 @@ runs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ inputs.python-version }}
-        cache: 'pip'
+        cache: "pip"
         cache-dependency-path: backend/requirements.txt
 
     - name: Install system dependencies
@@ -35,7 +39,10 @@ runs:
         cd backend
         pip install --upgrade pip
         pip install -r requirements.txt
-        # Install dev/link dependencies if needed, but requirements.txt usually has them or we might need extra text
-        # In ci.yml, some jobs install pytest-cov, some handled differently.
-        # Let's keep it simple: requirements.txt only. 
-        # Jobs needing extra deps can install them after this action.
+
+    - name: Install Development Tools
+      shell: bash
+      if: inputs.install-dev-tools == 'true'
+      run: |
+        pip install ruff==0.8.0 mypy==1.13.0 pytest pytest-cov pytest-xdist pytest-asyncio
+        pip install types-requests types-redis types-Pillow types-bleach

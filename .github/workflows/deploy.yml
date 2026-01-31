@@ -132,6 +132,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
 
+      - name: Validate API Client Generation
+        run: |
+          echo "🧪 Validating API Client Generation..."
+          cd api-client
+          npm install
+          npm run validate
+
       - name: Setup Node.js
         uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
         with:
@@ -203,8 +210,8 @@ jobs:
             echo "Health check attempt $i of $MAX_RETRIES..."
             
             # Check backend health
-            if curl -sf --max-time 10 "${{ secrets.STAGING_API_URL }}/health" > /dev/null 2>&1; then
-              echo "✅ Backend health check passed!"
+            if curl -sf --max-time 10 "${{ secrets.STAGING_API_URL }}/health/ready" > /dev/null 2>&1; then
+              echo "✅ Backend readiness check passed!"
               BACKEND_OK=true
               break
             else
@@ -392,8 +399,8 @@ jobs:
             echo "Health check attempt $i of $MAX_RETRIES..."
             
             # Check backend health
-            if curl -sf --max-time 15 "${{ secrets.PROD_API_URL }}/health" > /dev/null 2>&1; then
-              echo "✅ Backend health check passed!"
+            if curl -sf --max-time 15 "${{ secrets.PROD_API_URL }}/health/ready" > /dev/null 2>&1; then
+              echo "✅ Backend readiness check passed!"
               
               # Check frontend
               # Use captured URL from deployment step
@@ -429,7 +436,7 @@ jobs:
           echo "Testing critical endpoints..."
 
           # Test health endpoint
-          curl -sf "${{ secrets.PROD_API_URL }}/health" | jq . || echo "Health endpoint check"
+          curl -sf "${{ secrets.PROD_API_URL }}/health/dependencies" | jq . || echo "Dependency health check"
 
           # Test public endpoints (no auth required)
           curl -sf "${{ secrets.PROD_API_URL }}/api/v1/spots?limit=1" > /dev/null && echo "✅ Spots API OK" || echo "::warning::Spots API check failed"
