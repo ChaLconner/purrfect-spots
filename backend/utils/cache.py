@@ -109,6 +109,8 @@ def cached_gallery(func: Callable) -> Callable:
             if cached is not None:
                 if is_dev():
                     logger.debug(f"Redis Cache HIT: {func.__name__}")
+                else:
+                    logger.info(f"Redis Cache HIT: {func.__name__} (key: {cache_key[:20]}...)")
                 return cached
 
         # 2. Try Memory (Fallback)
@@ -116,20 +118,26 @@ def cached_gallery(func: Callable) -> Callable:
             with _cache_lock:
                 if is_dev():
                     logger.debug(f"Memory Cache HIT: {func.__name__}")
+                else:
+                    logger.info(f"Memory Cache HIT: {func.__name__} (key: {cache_key[:20]}...)")
                 return _gallery_cache[cache_key]
 
         # 3. Execute Function
+        if is_dev():
+            logger.debug(f"Cache MISS: {func.__name__}")
+        else:
+            logger.info(f"Cache MISS: {func.__name__} - Executing function (key: {cache_key[:20]}...)")
         result = func(*args, **kwargs)
 
         # 4. Save to Cache
         if redis_client:
             _redis_set(cache_key, result, 300)
+            logger.info(f"Saved to Redis cache: {func.__name__} (TTL: 300s)")
         else:
             with _cache_lock:
                 _gallery_cache[cache_key] = result
+            logger.info(f"Saved to Memory cache: {func.__name__} (TTL: 300s)")
 
-        if is_dev():
-            logger.debug(f"Cache MISS: {func.__name__}")
         return result
 
     return wrapper

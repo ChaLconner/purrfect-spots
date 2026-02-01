@@ -19,11 +19,16 @@ class StorageService:
             # Alternatively, check connection on specific methods
             pass
 
+        # SECURITY: Use S3 client with additional security configurations
         self.s3_client = boto3.client(
             "s3",
             region_name=self.aws_region,
             aws_access_key_id=self.aws_access_key,
             aws_secret_access_key=self.aws_secret_key,
+            config=boto3.session.Config(
+                signature_version='s3v4',  # Use v4 signatures for better security
+                s3={'addressing_style': 'path'},  # Use path-style addressing
+            )
         )
 
     async def upload_file(
@@ -46,12 +51,17 @@ class StorageService:
                 Key=key,
                 Body=file_content,
                 ContentType=content_type,
-                # Security and caching headers
+                # SECURITY: Enhanced security headers for S3 uploads
                 CacheControl="public, max-age=31536000",  # 1 year cache
                 ContentDisposition="inline",  # Prevent download prompts
+                # SECURITY: Additional security headers
+                Server="Purrfect-Spots-API",  # Server header
+                # SECURITY: Prevent MIME sniffing
                 Metadata={
                     "x-content-type-options": "nosniff",
+                    "x-xss-protection": "1; mode=block",
                     "uploaded-via": "purrfect-spots-api",
+                    "content-security-policy": "default-src 'self'",
                 },
             )
 

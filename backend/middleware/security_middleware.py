@@ -88,6 +88,14 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             )
 
         response.headers["Content-Security-Policy"] = csp_policy
+        
+        # SECURITY: Add CSP reporting endpoint for monitoring CSP violations
+        # This helps detect and respond to XSS attacks in real-time
+        if self.is_production:
+            # Report CSP violations to Sentry (or your monitoring service)
+            # Using report-uri directive
+            csp_report_policy = csp_policy + " report-uri https://sentry.io/api/security/csp-report"
+            response.headers["Content-Security-Policy-Report-Only"] = csp_report_policy
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"

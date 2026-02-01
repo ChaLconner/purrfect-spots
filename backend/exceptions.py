@@ -5,9 +5,20 @@ Provides standardized exception handling with:
 - Consistent error response format
 - Error codes for client-side handling
 - Proper HTTP status codes
+- SECURITY: Generic error messages in production to prevent information disclosure
 """
 
+import os
 from typing import Any
+
+# SECURITY: Use generic error messages in production
+# Detailed error messages can reveal sensitive information about:
+# - Database structure (table names, column names)
+# - Internal implementation details
+# - Third-party service dependencies
+# - Configuration details
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+USE_GENERIC_ERRORS = ENVIRONMENT == "production"
 
 
 class PurrfectSpotsException(Exception):
@@ -36,14 +47,50 @@ class PurrfectSpotsException(Exception):
 
     def to_dict(self) -> dict[str, Any]:
         """Convert exception to dictionary for JSON response."""
-        response = {
-            "error": True,
-            "error_code": self.error_code,
-            "message": self.message,
-        }
-        if self.details:
-            response["details"] = self.details
-        return response
+        # SECURITY: Use generic error messages in production
+        # This prevents information disclosure about internal implementation
+        if USE_GENERIC_ERRORS:
+            # Map specific error codes to generic messages
+            generic_messages = {
+                "INTERNAL_ERROR": "An internal server error occurred. Please try again later.",
+                "VALIDATION_ERROR": "Invalid input. Please check your request and try again.",
+                "AUTHENTICATION_ERROR": "Authentication failed. Please log in and try again.",
+                "AUTHORIZATION_ERROR": "You don't have permission to perform this action.",
+                "RATE_LIMIT_EXCEEDED": "Too many requests. Please try again later.",
+                "NOT_FOUND": "The requested resource was not found.",
+                "CONFLICT": "The request conflicts with existing data.",
+                "EXTERNAL_SERVICE_ERROR": "A service error occurred. Please try again later.",
+                "FILE_PROCESSING_ERROR": "File processing failed. Please try again.",
+                "CAT_DETECTION_FAILED": "Image analysis failed. Please try again.",
+            }
+            message = generic_messages.get(self.error_code, "An error occurred. Please try again later.")
+            response = {
+                "error": True,
+                "error_code": self.error_code,
+                "message": message,
+            }
+            # SECURITY: Don't expose details in production
+            # Only include non-sensitive details
+            if self.details:
+                # Only include safe details that don't leak information
+                safe_details = {}
+                for key, value in self.details.items():
+                    # Include only non-sensitive fields
+                    if key in ["retry_after", "confidence"]:
+                        safe_details[key] = value
+                if safe_details:
+                    response["details"] = safe_details
+            return response
+        else:
+            # Development: Show full error details for debugging
+            response = {
+                "error": True,
+                "error_code": self.error_code,
+                "message": self.message,
+            }
+            if self.details:
+                response["details"] = self.details
+            return response
 
 
 class ValidationError(PurrfectSpotsException):

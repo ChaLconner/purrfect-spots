@@ -103,11 +103,13 @@ async def _is_token_revoked(jti: str) -> bool:
     try:
         token_service = await get_token_service()
         return await token_service.is_blacklisted(jti=jti)
-    except Exception:
-        # Fallback to allow if service fails, but log it
-        # Ideally we should fail open for reliability unless security is paramount
-        logger.debug("Revocation check failed (allowing due to service error)")
-        return False
+    except Exception as e:
+        # SECURITY: Fail closed for token revocation check
+        # If we can't verify the token isn't revoked, we must reject it
+        # This is a security-critical operation - better to block legitimate requests
+        # than to allow revoked tokens to be used
+        logger.error("Token revocation check failed: %s. Rejecting token for security.", e)
+        return True
 
 
 def _get_user_from_payload(payload: dict, source: str) -> User:

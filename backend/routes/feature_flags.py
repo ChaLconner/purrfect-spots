@@ -17,6 +17,7 @@ class FeatureFlagsResponse(BaseModel):
     flags: dict[str, bool]
 
 
+@router.get("", response_model=FeatureFlagsResponse)
 @router.get("/", response_model=FeatureFlagsResponse)
 async def get_feature_flags():
     """

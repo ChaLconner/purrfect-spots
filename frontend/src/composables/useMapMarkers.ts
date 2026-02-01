@@ -68,16 +68,14 @@ export function useMapMarkers(map: Ref<GoogleMap | null>) {
       const existingMarker = markersMap.get(location.id);
 
       if (existingMarker) {
-        // Update position if changed (rare but possible)
+        // OPTIMIZATION: Skip position check if no significant change
+        // Only update if position changed significantly (more than 0.001 degrees)
         const currentPos = existingMarker.getPosition();
         if (currentPos && (
-             Math.abs(currentPos.lat() - location.latitude) > 0.0001 || 
-             Math.abs(currentPos.lng() - location.longitude) > 0.0001
+             Math.abs(currentPos.lat() - location.latitude) > 0.001 ||
+             Math.abs(currentPos.lng() - location.longitude) > 0.001
            )) {
           existingMarker.setPosition({ lat: location.latitude, lng: location.longitude });
-          // Note: Clusterer might need notification or re-add if position changes significantly.
-          // For simplicity/performance in this specific use case (cats usually static?), we assume minor drift updates don't break clusters immediately
-          // or we could remove and add back if needed.
         }
       } else {
         // Create new marker

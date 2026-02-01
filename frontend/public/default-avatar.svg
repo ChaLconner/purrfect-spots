@@ -1,6 +1,1 @@
-<!-- Default avatar SVG -->
-<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="64" cy="64" r="64" fill="#F3F4F6"/>
-  <circle cx="64" cy="52" r="20" fill="#9CA3AF"/>
-  <path d="M64 76c-17.67 0-32 14.33-32 32v20h64v-20c0-17.67-14.33-32-32-32z" fill="#9CA3AF"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" fill="none" viewBox="0 0 128 128"><circle cx="64" cy="64" r="64" fill="#f3f4f6"/><circle cx="64" cy="52" r="20" fill="#9ca3af"/><path fill="#9ca3af" d="M64 76c-17.67 0-32 14.33-32 32v20h64v-20c0-17.67-14.33-32-32-32"/></svg>

@@ -121,6 +121,37 @@ initSentry(app).then(async () => {
   app.use(router);
   app.mount('#app');
 
+  // Initialize Service Worker for offline support
+  if ('serviceWorker' in navigator && ENVIRONMENT === 'production') {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker
+        .register('/sw.js')
+        .then((registration) => {
+          // Check for updates
+
+          registration.addEventListener('updatefound', () => {
+            const newWorker = registration.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  // New version available
+                  // New version available
+                  // You can show a notification to user here
+                }
+
+              });
+            }
+          });
+        })
+        .catch((error) => {
+          console.error('[SW] Service Worker registration failed:', error);
+        });
+    });
+  } else {
+    // Service Worker not supported or not in production mode
+  }
+
+
   // Initialize Web Vitals tracking after app mount
   import('./utils/webVitals')
     .then(({ initWebVitals }) => {

@@ -132,17 +132,23 @@ class Config:
         raise ConfigurationError(
             "JWT_SECRET is missing! Please add this environment variable in your Vercel Project Settings."
         )
+    
+    # JWT_REFRESH_SECRET is REQUIRED in production for security
+    # Using the same secret for both access and refresh tokens is a security vulnerability
     JWT_REFRESH_SECRET = os.getenv("JWT_REFRESH_SECRET")
-
-    # If refresh secret is not set, use JWT_SECRET but warn heavily
+    
     if not JWT_REFRESH_SECRET:
         if ENVIRONMENT.lower() == "production":
             raise ConfigurationError(
-                "JWT_REFRESH_SECRET is required in production! Do not strictly rely on JWT_SECRET for both tokens."
+                "JWT_REFRESH_SECRET is required in production! Using the same secret for both access and refresh tokens is a security vulnerability. "
+                "Please set JWT_REFRESH_SECRET environment variable."
             )
         else:
             warnings.warn(
-                "JWT_REFRESH_SECRET not set. Using JWT_SECRET (NOT SAFE FOR PRODUCTION).", UserWarning, stacklevel=2
+                "JWT_REFRESH_SECRET not set. Using JWT_SECRET (NOT SAFE FOR PRODUCTION). "
+                "For development, this is acceptable but you should set a separate JWT_REFRESH_SECRET.",
+                UserWarning,
+                stacklevel=2
             )
             JWT_REFRESH_SECRET = JWT_SECRET
 
@@ -191,6 +197,21 @@ class Config:
         os.getenv("SESSION_COOKIE_SECURE", "").lower() in ("true", "1", "yes") or ENVIRONMENT == "production"
     )
     SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "lax")
+
+    # ==========================================
+    # Session Timeout Configuration
+    # ==========================================
+    # SECURITY: Define clear session timeout and idle timeout
+    # Session timeout: Maximum time a session can be active (absolute)
+    # Idle timeout: Maximum time of inactivity before session expires
+    SESSION_TIMEOUT_MINUTES = int(os.getenv("SESSION_TIMEOUT_MINUTES", "1440"))  # 24 hours default
+    SESSION_IDLE_TIMEOUT_MINUTES = int(os.getenv("SESSION_IDLE_TIMEOUT_MINUTES", "30"))  # 30 minutes default
+    # Note: JWT_ACCESS_EXPIRATION_HOURS (1 hour) is the actual token expiration
+    # SESSION_TIMEOUT_MINUTES and SESSION_IDLE_TIMEOUT_MINUTES are used for:
+    # 1. Server-side session tracking (if implemented)
+    # 2. Concurrent session management
+    # 3. Security event logging
+    # 4. User experience (auto-logout on idle)
 
     @staticmethod
     def validate_required_config() -> list[str]:

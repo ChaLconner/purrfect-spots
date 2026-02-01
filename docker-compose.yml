@@ -27,8 +27,8 @@ services:
     environment:
       - ENVIRONMENT=development
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-change-in-production}
-      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-dev-refresh-secret}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_KEY=${SUPABASE_KEY}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}

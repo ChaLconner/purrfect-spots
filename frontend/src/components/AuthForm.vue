@@ -65,7 +65,7 @@
                 :aria-label="showPassword ? 'Hide password' : 'Show password'"
                 @click="showPassword = !showPassword"
               >
-                <!-- Eye Off Icon (Show Password) -->
+                <!-- Eye Icon (Hide Password) -->
                 <svg
                   v-if="!showPassword"
                   xmlns="http://www.w3.org/2000/svg"
@@ -86,7 +86,7 @@
                     d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
                   />
                 </svg>
-                <!-- Eye Icon (Hide Password) -->
+                <!-- Eye Off Icon (Show Password) -->
                 <svg
                   v-else
                   xmlns="http://www.w3.org/2000/svg"
@@ -615,9 +615,9 @@ function base64URLEncode(array: Uint8Array): string {
   right: 1rem;
   top: 50%;
   transform: translateY(-50%);
-  background: none;
   border: none;
   cursor: pointer;
+  pointer-events: auto;
   padding: 0;
   display: flex;
   align-items: center;

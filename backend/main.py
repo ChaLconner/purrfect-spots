@@ -40,6 +40,7 @@ from middleware.security_middleware import (
 # Import versioned API router
 from routes.api_v1 import router as api_v1_router
 from routes.health import router as health_router
+from utils.security import log_security_event
 
 SENTRY_DSN = os.getenv("SENTRY_DSN")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
@@ -100,35 +101,68 @@ tags_metadata = [
 from utils.telemetry import setup_telemetry
 
 # ========== FastAPI Application ==========
-app = FastAPI(
-    title="PurrFect Spots API",
-    description="""
-    PurrFect Spots API helps you share and discover cat locations. 
-    
-    ## API Versioning
-    All endpoints are available under `/api/v1/` prefix.
-    Legacy routes (without prefix) are maintained for backward compatibility.
-    
-    ## Features
-    * 📍 **Share Locations**: Upload photos of cats and their locations.
-    * 🤖 **AI Detection**: Automatically detect cats in uploaded photos.
-    * 🔐 **Authentication**: Secure login via Email/Password or Google OAuth.
-    * 📊 **Pagination**: API-side pagination for efficient data loading.
-    """,
-    version="3.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
-    default_response_class=ORJSONResponse,
-    contact={
-        "name": "Purrfect Spots Team",
-        "email": "support@purrfectspots.com",
-    },
-    license_info={
-        "name": "MIT",
-    },
-    openapi_tags=tags_metadata,
-)
+# SECURITY: In production, disable OpenAPI docs to prevent information disclosure
+if ENVIRONMENT == "production":
+    app = FastAPI(
+        title="PurrFect Spots API",
+        description="""
+        PurrFect Spots API helps you share and discover cat locations.
+        
+        ## API Versioning
+        All endpoints are available under `/api/v1/` prefix.
+        Legacy routes (without prefix) are maintained for backward compatibility.
+        
+        ## Features
+        * 📍 **Share Locations**: Upload photos of cats and their locations.
+        * 🤖 **AI Detection**: Automatically detect cats in uploaded photos.
+        * 🔐 **Authentication**: Secure login via Email/Password or Google OAuth.
+        * 📊 **Pagination**: API-side pagination for efficient data loading.
+        """,
+        version="3.0.0",
+        docs_url=None,  # SECURITY: Disabled in production
+        redoc_url=None,  # SECURITY: Disabled in production
+        openapi_url=None,  # SECURITY: Disabled in production
+        default_response_class=ORJSONResponse,
+        contact={
+            "name": "Purrfect Spots Team",
+            "email": "support@purrfectspots.com",
+        },
+        license_info={
+            "name": "MIT",
+        },
+        openapi_tags=tags_metadata,
+    )
+    logger.warning("OpenAPI docs disabled in production environment")
+else:
+    app = FastAPI(
+        title="PurrFect Spots API",
+        description="""
+        PurrFect Spots API helps you share and discover cat locations.
+        
+        ## API Versioning
+        All endpoints are available under `/api/v1/` prefix.
+        Legacy routes (without prefix) are maintained for backward compatibility.
+        
+        ## Features
+        * 📍 **Share Locations**: Upload photos of cats and their locations.
+        * 🤖 **AI Detection**: Automatically detect cats in uploaded photos.
+        * 🔐 **Authentication**: Secure login via Email/Password or Google OAuth.
+        * 📊 **Pagination**: API-side pagination for efficient data loading.
+        """,
+        version="3.0.0",
+        docs_url="/docs",
+        redoc_url="/redoc",
+        openapi_url="/openapi.json",
+        default_response_class=ORJSONResponse,
+        contact={
+            "name": "Purrfect Spots Team",
+            "email": "support@purrfectspots.com",
+        },
+        license_info={
+            "name": "MIT",
+        },
+        openapi_tags=tags_metadata,
+    )
 
 # Initialize Telemetry (OpenTelemetry)
 setup_telemetry(app)
@@ -143,8 +177,8 @@ _allowed_origins = config.get_allowed_origins()
 
 def _get_cors_origin_for_request(request: Request) -> str:
     """
-    Get appropriate CORS origin header for the request.
-    Returns the request origin if it's in allowed list, otherwise empty.
+    Get appropriate CORS origin header for request.
+    Returns request origin if it's in allowed list, otherwise empty.
     This prevents CORS wildcard security issues.
     """
     origin = request.headers.get("origin", "")
@@ -162,6 +196,26 @@ async def generic_exception_handler(request: Request, exc: Exception):
         sentry_sdk.capture_exception(exc)
 
     logger.error(f"Unhandled Exception: {exc}", exc_info=True)
+
+    # SECURITY: Log security event for audit trail
+    # This helps track potential attacks and system issues
+    ip_address = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+    user_id = getattr(request.state, "user_id", None)  # Get user_id from request state if available
+
+    log_security_event(
+        event_type="unhandled_exception",
+        user_id=user_id,
+        details={
+            "exception_type": type(exc).__name__,
+            "exception_message": str(exc)[:200],  # Limit length to prevent log injection
+            "path": request.url.path,
+            "method": request.method,
+        },
+        severity="ERROR",
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
 
     cors_origin = _get_cors_origin_for_request(request)
 
@@ -186,6 +240,28 @@ async def generic_exception_handler(request: Request, exc: Exception):
 
 @app.exception_handler(StarletteHTTPException)
 async def custom_http_exception_handler(request: Request, exc: StarletteHTTPException):
+    # SECURITY: Log security event for HTTP exceptions
+    # This helps track potential attacks and system issues
+    ip_address = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+    user_id = getattr(request.state, "user_id", None)  # Get user_id from request state if available
+
+    # Log security event for HTTP exceptions (4xx, 5xx)
+    if exc.status_code >= 400:
+        log_security_event(
+            event_type="http_exception",
+            user_id=user_id,
+            details={
+                "status_code": exc.status_code,
+                "exception_detail": str(exc.detail)[:200],  # Limit length to prevent log injection
+                "path": request.url.path,
+                "method": request.method,
+            },
+            severity="WARNING" if exc.status_code < 500 else "ERROR",
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
+
     logger.warning(f"HTTP Exception: {exc.status_code} - {exc.detail}")
 
     cors_origin = _get_cors_origin_for_request(request)
@@ -205,6 +281,25 @@ async def custom_http_exception_handler(request: Request, exc: StarletteHTTPExce
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    # SECURITY: Log security event for validation errors
+    # This helps track potential attacks and system issues
+    ip_address = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+    user_id = getattr(request.state, "user_id", None)  # Get user_id from request state if available
+
+    log_security_event(
+        event_type="validation_error",
+        user_id=user_id,
+        details={
+            "validation_errors": str(exc.errors())[:500],  # Limit length to prevent log injection
+            "path": request.url.path,
+            "method": request.method,
+        },
+        severity="WARNING",
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+
     logger.warning(f"Validation Error: {exc}")
 
     cors_origin = _get_cors_origin_for_request(request)
@@ -226,10 +321,21 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 allowed_origins = config.get_allowed_origins()
 logger.info(f"CORS allowed origins: {allowed_origins}")
 
+# SECURITY REVIEW: CORS Configuration
+# allow_credentials=True is necessary for authentication cookies to work
+# However, this can be a CSRF vulnerability if not properly configured
+# Mitigations:
+# 1. CSRF protection middleware is already enabled (see CSRFMiddleware)
+# 2. SameSite cookies are used (see set_refresh_cookie in auth_utils.py)
+# 3. Security headers (X-Frame-Options: DENY) prevent clickjacking
+# 4. Content-Security-Policy prevents XSS attacks
+# 
+# SECURITY: Only allow credentials from trusted origins
+# Never use allow_origins=["*"] with allow_credentials=True
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_credentials=True,
+    allow_credentials=True,  # Required for cookie-based auth
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
     allow_headers=[
         "Accept",
@@ -243,6 +349,7 @@ app.add_middleware(
         "Access-Control-Request-Headers",
         "Cache-Control",
         "Pragma",
+        "X-CSRF-Token",  # Required for CSRF protection
     ],
     expose_headers=["*"],
     max_age=86400,  # 24 hours
@@ -348,3 +455,4 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)  # nosec B104
+

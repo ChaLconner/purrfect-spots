@@ -107,14 +107,24 @@ def get_user_id_from_request(request: Request) -> str:
         try:
             token = auth_header.split(" ")[1]
 
-            # Use secure verification - require valid secret
-            # We catch errors gracefully to fall back to IP limiting for bad tokens
+            # SECURITY: Always verify JWT signature before using user_id
+            # This prevents attackers from spoofing user_id in rate limiting
             if not config.JWT_SECRET:
                 # No secret configured - fall back to IP-based rate limiting
                 # rather than decoding without verification
                 pass
             else:
-                payload = jwt.decode(token, config.JWT_SECRET, algorithms=[config.JWT_ALGORITHM])
+                # Verify JWT signature with proper error handling
+                payload = jwt.decode(
+                    token,
+                    config.JWT_SECRET,
+                    algorithms=[config.JWT_ALGORITHM],
+                    options={
+                        "verify_signature": True,  # Always verify signature
+                        "verify_exp": True,       # Verify expiration
+                        "verify_iat": True,       # Verify issued at
+                    }
+                )
                 user_id = payload.get("sub") or payload.get("user_id")
                 if user_id:
                     # nosemgrep: python.flask.security.audit.directly-returned-format-string.directly-returned-format-string
@@ -124,7 +134,8 @@ def get_user_id_from_request(request: Request) -> str:
             # Treat as unauthenticated user (fall back to IP)
             pass
         except Exception as e:
-            logger.warning("Decryption failure during rate limit check: %s", e)
+            # SECURITY: Log all JWT verification failures for monitoring
+            logger.warning("JWT verification failed during rate limit check: %s", e)
 
     # Fall back to IP address for unauthenticated requests
     return get_remote_address(request)

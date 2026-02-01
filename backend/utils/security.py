@@ -247,6 +247,8 @@ def log_security_event(
     user_id: str | None = None,
     details: dict | None = None,
     severity: str = "INFO",
+    ip_address: str | None = None,
+    user_agent: str | None = None,
 ):
     """
     Log security-related events for audit trail.
@@ -256,11 +258,23 @@ def log_security_event(
         user_id: Optional user ID associated with the event
         details: Optional dictionary with additional details
         severity: Log severity level ("INFO", "WARNING", "ERROR")
+        ip_address: Optional IP address of the request
+        user_agent: Optional User-Agent string of the request
     """
     log_message = f"SECURITY_EVENT: {event_type}"
 
     if user_id:
         log_message += f" | user_id={user_id}"
+    
+    # SECURITY: Log IP address and user agent for security audit
+    # This helps identify and track potential attackers
+    if ip_address:
+        log_message += f" | ip={ip_address}"
+    
+    if user_agent:
+        # Sanitize user agent to prevent log injection and limit length
+        safe_user_agent = str(user_agent)[:200].replace("\n", " ").replace("\r", " ")
+        log_message += f" | user_agent={safe_user_agent}"
 
     if details:
         # Sanitize details to prevent log injection
@@ -273,6 +287,207 @@ def log_security_event(
         logger.warning(log_message)
     else:
         logger.info(log_message)
+
+
+# ========== Audit Logging ==========
+# SECURITY: Audit logging for sensitive operations
+# This provides a comprehensive audit trail for compliance and security monitoring
+# Sensitive operations that require audit logging:
+# - User authentication (login, logout, token refresh)
+# - User registration and account changes
+# - Password changes and resets
+# - Profile updates
+# - File uploads and deletions
+# - Data access (especially sensitive data)
+# - Permission changes
+# - Admin operations
+
+def log_audit_event(
+    action: str,
+    user_id: str | None = None,
+    resource_type: str | None = None,
+    resource_id: str | None = None,
+    details: dict | None = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+    success: bool = True,
+):
+    """
+    Log audit events for sensitive operations.
+
+    Args:
+        action: Action performed (e.g., "user_login", "password_change", "photo_upload")
+        user_id: Optional user ID who performed the action
+        resource_type: Type of resource affected (e.g., "user", "photo", "profile")
+        resource_id: Optional ID of the affected resource
+        details: Optional dictionary with additional details
+        ip_address: Optional IP address of the request
+        user_agent: Optional User-Agent string of the request
+        success: Whether the action was successful
+    """
+    import json
+    from datetime import datetime, timezone
+
+    # Build audit log entry
+    audit_entry = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "action": action,
+        "success": success,
+    }
+
+    if user_id:
+        audit_entry["user_id"] = user_id
+    
+    if resource_type:
+        audit_entry["resource_type"] = resource_type
+    
+    if resource_id:
+        audit_entry["resource_id"] = resource_id
+    
+    if ip_address:
+        audit_entry["ip_address"] = ip_address
+    
+    if user_agent:
+        # Sanitize user agent to prevent log injection and limit length
+        safe_user_agent = str(user_agent)[:200].replace("\n", " ").replace("\r", " ")
+        audit_entry["user_agent"] = safe_user_agent
+    
+    if details:
+        # Sanitize details to prevent log injection
+        safe_details = {k: str(v)[:200] for k, v in details.items()}
+        audit_entry["details"] = safe_details
+
+    # Log as structured JSON for easy parsing
+    log_message = f"AUDIT_EVENT: {json.dumps(audit_entry, separators=(',', ':'))}"
+    
+    if success:
+        logger.info(log_message)
+    else:
+        logger.warning(log_message)
+
+
+def log_authentication_event(
+    action: str,
+    user_id: str | None = None,
+    email: str | None = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+    success: bool = True,
+    failure_reason: str | None = None,
+):
+    """
+    Log authentication events for security monitoring.
+
+    Args:
+        action: Authentication action (e.g., "login", "logout", "token_refresh", "password_reset")
+        user_id: Optional user ID (available after successful login)
+        email: Optional email address (sanitized)
+        ip_address: Optional IP address of the request
+        user_agent: Optional User-Agent string of the request
+        success: Whether the authentication was successful
+        failure_reason: Optional reason for failure (e.g., "invalid_credentials", "account_locked")
+    """
+    details = {}
+    if email:
+        # Sanitize email - only show first 3 characters for privacy
+        safe_email = email[:3] + "***@" + email.split("@")[1] if "@" in email else "***"
+        details["email"] = safe_email
+    
+    if failure_reason:
+        details["failure_reason"] = failure_reason
+    
+    log_audit_event(
+        action=f"auth_{action}",
+        user_id=user_id,
+        resource_type="user_session",
+        details=details,
+        ip_address=ip_address,
+        user_agent=user_agent,
+        success=success,
+    )
+
+
+def log_data_access_event(
+    action: str,
+    user_id: str,
+    resource_type: str,
+    resource_id: str | None = None,
+    access_type: str = "read",
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+):
+    """
+    Log data access events for compliance monitoring.
+
+    Args:
+        action: Action performed (e.g., "view_profile", "download_photo")
+        user_id: User ID who accessed the data
+        resource_type: Type of resource accessed
+        resource_id: Optional ID of the accessed resource
+        access_type: Type of access (read, write, delete)
+        ip_address: Optional IP address of the request
+        user_agent: Optional User-Agent string of the request
+    """
+    log_audit_event(
+        action=f"data_{action}",
+        user_id=user_id,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        details={"access_type": access_type},
+        ip_address=ip_address,
+        user_agent=user_agent,
+        success=True,
+    )
+
+
+def log_file_operation_event(
+    action: str,
+    user_id: str,
+    filename: str | None = None,
+    file_size: int | None = None,
+    file_type: str | None = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+    success: bool = True,
+    error_message: str | None = None,
+):
+    """
+    Log file operation events for security monitoring.
+
+    Args:
+        action: File operation (e.g., "upload", "delete", "download")
+        user_id: User ID who performed the operation
+        filename: Optional filename (sanitized)
+        file_size: Optional file size in bytes
+        file_type: Optional file type (MIME type)
+        ip_address: Optional IP address of the request
+        user_agent: Optional User-Agent string of the request
+        success: Whether the operation was successful
+        error_message: Optional error message if operation failed
+    """
+    details = {}
+    if filename:
+        # Sanitize filename - only show first 50 characters
+        details["filename"] = filename[:50]
+    
+    if file_size is not None:
+        details["file_size"] = file_size
+    
+    if file_type:
+        details["file_type"] = file_type
+    
+    if error_message:
+        details["error"] = error_message[:200]
+    
+    log_audit_event(
+        action=f"file_{action}",
+        user_id=user_id,
+        resource_type="file",
+        details=details,
+        ip_address=ip_address,
+        user_agent=user_agent,
+        success=success,
+    )
 
 
 # ========== Input Validation Helpers ==========

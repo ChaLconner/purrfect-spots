@@ -18,10 +18,11 @@ import sys
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from config import config
+from limiter import limiter
 from logger import logger
 
 router = APIRouter(prefix="/health", tags=["Health"])
@@ -207,7 +208,8 @@ async def check_sentry() -> dict[str, Any]:
 
 
 @router.get("/live")
-async def liveness_check():
+@limiter.limit("100/minute")  # SECURITY: Rate limit health checks to prevent abuse
+async def liveness_check(request: Request):
     """
     Liveness probe - checks if the application is running.
 
@@ -230,7 +232,8 @@ async def liveness_check():
 
 
 @router.get("/ready")
-async def readiness_check():
+@limiter.limit("50/minute")  # SECURITY: Rate limit readiness checks to prevent abuse
+async def readiness_check(request: Request):
     """
     Readiness probe - checks if the application can handle requests.
 
@@ -290,7 +293,8 @@ async def readiness_check():
 
 
 @router.get("/dependencies")
-async def dependency_check():
+@limiter.limit("20/minute")  # SECURITY: Rate limit dependency checks to prevent abuse
+async def dependency_check(request: Request):
     """
     Detailed dependency health check.
 
@@ -345,7 +349,8 @@ async def dependency_check():
 
 
 @router.get("/metrics")
-async def metrics():
+@limiter.limit("20/minute")  # SECURITY: Rate limit metrics endpoint to prevent abuse
+async def metrics(request: Request):
     """
     Basic metrics endpoint for monitoring.
 

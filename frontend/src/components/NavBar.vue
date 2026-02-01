@@ -14,6 +14,7 @@ import Search from './icons/search.vue';
 import MapIcon from './icons/map.vue';
 import Upload from './icons/upload.vue';
 import Gallery from './icons/gallery.vue';
+import ProfileIcon from './icons/profile.vue';
 
 const menuOpen = ref(false);
 const showUserMenu = ref(false);
@@ -23,13 +24,32 @@ const route = useRoute();
 const authStore = useAuthStore();
 const catsStore = useCatsStore();
 
-// Close user menu when clicking outside
+// Close menus when clicking outside
 const handleClickOutside = (event: Event) => {
   const target = event.target as HTMLElement;
+  const navContainer = document.querySelector('.navbar-container');
+
+  // Close user menu
   if (showUserMenu.value && target && !target.closest('.user-menu-container')) {
     showUserMenu.value = false;
   }
+
+  // Close mobile hamburger menu
+  if (menuOpen.value && navContainer && !navContainer.contains(target)) {
+    menuOpen.value = false;
+  }
 };
+
+const mobileSearchInput = ref<HTMLInputElement | null>(null);
+
+// Focus search input when menu opens
+watch(menuOpen, (isOpen) => {
+  if (isOpen) {
+    setTimeout(() => {
+      mobileSearchInput.value?.focus();
+    }, 300);
+  }
+});
 
 // Initialize search from route query
 onMounted(() => {
@@ -289,17 +309,18 @@ onUnmounted(() => {
     >
       <!-- Mobile Search -->
       <div class="mobile-search-section">
-        <div class="search-box">
+        <div class="mobile-search-box">
           <input
+            ref="mobileSearchInput"
             v-model="searchQuery"
             type="text"
-            placeholder="Find a spot..."
-            class="search-input"
+            placeholder="Search for purrfect spots..."
+            class="mobile-search-input"
             @keyup.enter="handleSearch"
           />
           <button
             v-if="searchQuery"
-            class="search-btn clear-mode"
+            class="mobile-clear-btn"
             aria-label="Clear search"
             @click="clearSearch"
           >
@@ -345,6 +366,16 @@ onUnmounted(() => {
         <router-link to="/gallery" class="mobile-nav-link" @click="menuOpen = false">
           <Gallery class="nav-icon" />
           <span>Gallery</span>
+        </router-link>
+
+        <router-link
+          v-if="authStore.isAuthenticated"
+          to="/profile"
+          class="mobile-nav-link"
+          @click="menuOpen = false"
+        >
+          <ProfileIcon class="nav-icon" />
+          <span>Profile</span>
         </router-link>
 
         <router-link
@@ -829,12 +860,17 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 1rem;
   padding: 1.5rem;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
   margin-top: 0.75rem;
   background: linear-gradient(135deg, rgba(255, 253, 250, 0.98) 0%, rgba(250, 245, 235, 0.98) 100%);
   backdrop-filter: blur(12px);
   border-radius: 1.5rem;
   border: 1px solid rgba(139, 90, 43, 0.1);
-  box-shadow: 0 4px 20px rgba(139, 90, 43, 0.1);
+  box-shadow: 0 10px 30px rgba(139, 90, 43, 0.15);
+  z-index: 100;
 }
 
 .mobile-menu-open {
@@ -842,11 +878,67 @@ onUnmounted(() => {
 }
 
 .mobile-search-section {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
-.mobile-search-section .search-box {
+.mobile-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
   width: 100%;
+  background: white;
+  border: 2px solid rgba(139, 90, 43, 0.1);
+  border-radius: 1.25rem;
+  padding: 0.25rem;
+  transition: all 0.3s ease;
+}
+
+.mobile-search-box:focus-within {
+  border-color: #d4845a;
+  box-shadow: 0 0 0 4px rgba(212, 132, 90, 0.1);
+  transform: translateY(-1px);
+}
+
+.mobile-search-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0.75rem 0.75rem 0.75rem 1rem;
+  font-family: 'Zen Maru Gothic', sans-serif;
+  font-size: 0.95rem;
+  color: #5a4a3a;
+  outline: none;
+}
+
+.mobile-search-input::placeholder {
+  color: #a69c91;
+}
+
+.mobile-search-icon {
+  position: absolute;
+  left: 1rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  color: #d4845a;
+  pointer-events: none;
+}
+
+.mobile-clear-btn {
+  position: absolute;
+  right: 0.75rem;
+  padding: 0.4rem;
+  color: #a69c91;
+  background: #f5f0e8;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.mobile-clear-btn:active {
+  transform: scale(0.9);
+  background: #ede3d5;
 }
 
 .mobile-nav-links {

@@ -228,6 +228,11 @@ onMounted(() => {
       'Browse our collection of adorable cat photos from around the world. Find your favorite feline friends and discover cat-friendly locations.',
     type: 'website',
   });
+
+  // Preload first few images for better performance
+  nextTick(() => {
+    preloadFirstImages();
+  });
 });
 
 onUnmounted(() => {
@@ -405,11 +410,13 @@ async function fetchGalleryData(reset = false) {
     else totalImages.value = visibleImages.value.length;
 
     // Initial sync with URL after data load (only on first load)
+
     if (reset && props.id) {
       nextTick(() => syncStateFromUrl());
     }
   } catch (err: unknown) {
     const message = (err as Error).message || 'Failed to load images from server';
+    console.error(`[Gallery] Error fetching data:`, err);
     error.value = message;
     if (reset) visibleImages.value = [];
   } finally {
@@ -512,6 +519,7 @@ function handleModalNavigate(direction: 'prev' | 'next') {
 
 function handleImageError(event: Event) {
   const target = event.target as HTMLImageElement;
+  console.error(`[Gallery] Image failed to load: ${target.src}`);
   target.src = IMAGE_CONFIG.PLACEHOLDER_URL;
 }
 
@@ -528,10 +536,12 @@ function getBentoClass(index: number): string {
 }
 
 function generateSrcSet(url: string): string {
-  if (!url || !url.includes('supabase.co')) return '';
+  if (!url || !url.includes('supabase.co')) {
+    return '';
+  }
 
   // Base URL without existing query params if possible, or just append replacing width
-  // Our backend adds ?width=500&...
+  // Our backend adds ?width=300&...
   // We want to generate: url?width=300 300w, url?width=500 500w, url?width=800 800w
 
   const widths = [300, 500, 800];
@@ -547,7 +557,29 @@ function generateSrcSet(url: string): string {
     return `${newUrl} ${width}w`;
   });
 
-  return srcSetParts.join(', ');
+  const srcSet = srcSetParts.join(', ');
+  return srcSet;
+}
+
+// Preload first few images for better performance
+
+function preloadFirstImages() {
+  const imagesToPreload = visibleImages.value.slice(0, 6); // Preload first 6 images
+
+  imagesToPreload.forEach((image, index) => {
+    if (image.image_url) {
+      const link = document.createElement('link');
+      link.rel = 'preload';
+      link.as = 'image';
+      // Use smaller size for preloading (300px)
+      const preloadUrl = image.image_url.includes('width=')
+        ? image.image_url.replace(/width=\d+/, 'width=300')
+        : `${image.image_url}${image.image_url.includes('?') ? '&' : '?'}width=300`;
+      link.href = preloadUrl;
+      link.setAttribute('fetchpriority', index === 0 ? 'high' : 'low');
+      document.head.appendChild(link);
+    }
+  });
 }
 </script>
 

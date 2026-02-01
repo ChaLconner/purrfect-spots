@@ -55,11 +55,15 @@ class GalleryService:
             logger.info("Search feature status: Basic mode enabled (Fallback: %s)", e)
             return False
 
-    def _optimize_image_url(self, url: str | None, width: int = 500) -> str | None:
+    def _optimize_image_url(self, url: str | None, width: int = 300) -> str | None:
         """
         Optimize image URL:
         1. Rewrite to CDN if configured
         2. Append transformation parameters if supported (Supabase)
+        
+        Args:
+            url: Original image URL
+            width: Target width in pixels (default: 300 for thumbnails)
         """
         if not url:
             return url
@@ -72,13 +76,20 @@ class GalleryService:
         final_url = url
         if config.CDN_BASE_URL and s3_domain in url:
             final_url = url.replace(f"https://{s3_domain}", config.CDN_BASE_URL)
+            logger.debug(f"CDN rewrite: {s3_domain} -> {config.CDN_BASE_URL}")
+        else:
+            logger.debug(f"No CDN rewrite: CDN_BASE_URL={config.CDN_BASE_URL}, s3_domain in url={s3_domain in url}")
 
-        # 2. Resizing (Supabase only for now)
+        # 2. Resizing and Compression (Supabase only for now)
         if "supabase.co/storage/v1/object/public" in final_url:
             # If already has query params, verify/append
             separator = "&" if "?" in final_url else "?"
-            return f"{final_url}{separator}width={width}&resize=cover&format=webp"
+            # Optimized parameters: width=300px, quality=80, format=webp
+            optimized_url = f"{final_url}{separator}width={width}&quality=80&resize=cover&format=webp"
+            logger.debug(f"Image optimization: width={width}px, quality=80, format=webp")
+            return optimized_url
 
+        logger.debug(f"No image optimization applied: {final_url}")
         return final_url
 
     def _process_photos(self, photos: list[dict[str, Any]], width: int = 500) -> list[dict[str, Any]]:
@@ -105,6 +116,8 @@ class GalleryService:
             limit = min(max(1, limit), 100)
             offset = max(0, offset)
 
+            logger.info(f"Fetching gallery photos: limit={limit}, offset={offset}, include_total={include_total}")
+
             # Get paginated data
             resp = (
                 self.supabase.table("cat_photos")
@@ -116,6 +129,13 @@ class GalleryService:
             )
 
             data = resp.data if resp.data else []
+            logger.info(f"Fetched {len(data)} photos from database")
+
+            # Log image URLs for debugging
+            if data and len(data) > 0:
+                sample_urls = [photo.get("image_url", "")[:80] + "..." if len(photo.get("image_url", "")) > 80 else photo.get("image_url", "") for photo in data[:3]]
+                logger.debug(f"Sample image URLs: {sample_urls}")
+
             data = self._process_photos(data)  # Optimize images
             total = 0
 
@@ -125,6 +145,7 @@ class GalleryService:
                     self.supabase.table("cat_photos").select("id", count="exact").is_("deleted_at", "null").execute()
                 )
                 total = count_resp.count if count_resp.count else len(data)
+                logger.info(f"Total photos in database: {total}")
 
             return {
                 "data": data,
@@ -134,6 +155,7 @@ class GalleryService:
                 "has_more": offset + len(data) < total if include_total else len(data) == limit,
             }
         except Exception as e:
+            logger.error(f"Failed to fetch gallery images: {e!s}", exc_info=True)
             raise Exception(f"Failed to fetch gallery images: {e!s}")
 
     def get_all_photos_simple(self, limit: int = 1000) -> list[dict[str, Any]]:

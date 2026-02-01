@@ -20,14 +20,15 @@ from logger import logger
 # SQL Injection Detection Patterns
 # ==============================================================================
 
-# Common SQL injection patterns
+# Common SQL injection patterns (expanded for better coverage)
 SQL_INJECTION_PATTERNS = [
     r"--",  # SQL comment
-    r";.*?(?:drop|delete|truncate|alter|update|insert)",  # Multi-statement attacks (non-greedy)
+    r";.*?(?:drop|delete|truncate|alter|update|insert|create|grant|revoke)",  # Multi-statement attacks (non-greedy)
     r"'.*?or.*?'",  # OR injection (simplified, non-greedy)
     r"union.*?select",  # UNION injection (non-greedy)
     r"exec(?:ute)?",  # EXEC commands
     r"xp_",  # Extended stored procedures (SQL Server)
+    r"sp_",  # Stored procedures (SQL Server)
     r"0x[0-9a-fA-F]+",  # Hex-encoded strings
     r"char\s*\(",  # CHAR() function abuse
     r"concat\s*\(",  # CONCAT() for string building
@@ -36,6 +37,23 @@ SQL_INJECTION_PATTERNS = [
     r"information_schema",  # Schema enumeration
     r"pg_",  # PostgreSQL system tables
     r"sys\.",  # System tables
+    r"benchmark\s*\(",  # MySQL benchmark
+    r"sleep\s*\(",  # Time-based attacks
+    r"waitfor\s*delay",  # Time-based attacks (SQL Server)
+    r"having\s*\d",  # HAVING clause injection
+    r"group\s*by.*?having",  # GROUP BY with HAVING injection
+    r"order\s*by.*?--",  # ORDER BY with comment
+    r"where\s*.*?--",  # WHERE clause with comment
+    r"and\s*.*?=",  # AND clause injection
+    r"or\s*.*?=",  # OR clause injection
+    r"\|\|",  # Pipe operator
+    r"<|>",  # Comparison operators
+    r"into\s+outfile",  # File write attacks
+    r"load_file\s*\(",  # File read attacks (MySQL)
+    r"select\s*.*?from\s*.*?into",  # File write attacks
+    r"insert\s*into.*?values\s*\(",  # INSERT injection
+    r"update\s*.*?set\s*.*?where",  # UPDATE injection
+    r"delete\s*from\s*.*?where",  # DELETE injection
 ]
 
 SQL_INJECTION_REGEX = re.compile("|".join(SQL_INJECTION_PATTERNS), re.IGNORECASE)

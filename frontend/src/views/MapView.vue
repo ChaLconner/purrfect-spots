@@ -2,16 +2,39 @@
   <div class="relative h-full flex flex-col bg-[#EAF6F3]">
     <!-- Map Container - Full width, no padding -->
     <div class="relative flex-1 overflow-hidden rounded-card shadow-card group">
-      <div
-        v-if="isLoading"
-        class="absolute inset-0 flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm z-20"
+      <!-- Initial Loading State (Progressive) -->
+      <transition
+        enter-active-class="transition-opacity duration-300"
+        leave-active-class="transition-opacity duration-200"
+        enter-from-class="opacity-100"
+        leave-to-class="opacity-0"
       >
-        <GhibliLoader text="Finding cute cats..." />
-      </div>
+        <div
+          v-if="isInitialLoading"
+          class="absolute inset-0 flex flex-col items-center justify-center bg-[#EAF6F3] z-10"
+        >
+          <GhibliLoader text="Loading map..." />
+        </div>
+      </transition>
+
+      <!-- Data Loading State -->
+      <transition
+        enter-active-class="transition-opacity duration-300"
+        leave-active-class="transition-opacity duration-200"
+        enter-from-class="opacity-0"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="isLoading && !isInitialLoading"
+          class="absolute inset-0 flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm z-20"
+        >
+          <GhibliLoader text="Finding cute cats..." />
+        </div>
+      </transition>
 
       <!-- Error State -->
       <div
-        v-if="error && !isLoading"
+        v-if="error && !isLoading && !isInitialLoading"
         class="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md z-20 p-6"
       >
         <ErrorState :message="error" @retry="loadCatLocations" />
@@ -99,6 +122,7 @@ const catsStore = useCatsStore();
 
 // State
 const isLoading = ref(false);
+const isInitialLoading = ref(true); // Progressive loading state
 const error = ref<string | null>(null);
 const selectedCat = ref<CatLocation | null>(null);
 
@@ -152,8 +176,10 @@ const closeModal = () => {
 
 const initializeMap = async () => {
   await nextTick();
-  // Ensure we don't have artificial delays that hurt LCP
-
+  
+  // Progressive loading: Start map initialization in background
+  // Don't block the UI - show skeleton immediately
+  
   if (!isGoogleMapsLoaded()) {
     try {
       const apiKey = getEnvVar('VITE_GOOGLE_MAPS_API_KEY');
@@ -161,6 +187,7 @@ const initializeMap = async () => {
         throw new Error('Google Maps API key is missing.');
       }
 
+      // Load Google Maps without blocking
       await loadGoogleMaps({
         apiKey,
         libraries: 'places',
@@ -169,6 +196,7 @@ const initializeMap = async () => {
     } catch (err: unknown) {
       error.value = (err as Error).message;
       showError(error.value);
+      isInitialLoading.value = false;
       return;
     }
   }
@@ -178,7 +206,6 @@ const initializeMap = async () => {
 
     // Ensure map container exists
     if (!mapElement) {
-      // Just one check, if it's not there, something is wrong with the template
       mapElement = document.getElementById('map');
     }
 
@@ -206,21 +233,28 @@ const initializeMap = async () => {
       styles: ghibliMapStyle,
     });
 
-    // Listeners
+    // Listeners with requestAnimationFrame for smooth performance
     map.value.addListener('idle', () => {
-      debouncedViewportFetch();
+      requestAnimationFrame(() => {
+        debouncedViewportFetch();
+      });
     });
 
-    // Initial Render
-    if (userLocation.value) {
-      updateUserMarker(userLocation.value);
-    }
+    // Initial Render - use RAF for smooth transition
+    requestAnimationFrame(() => {
+      if (userLocation.value) {
+        updateUserMarker(userLocation.value);
+      }
 
-    updateMarkers(displayedLocations.value, selectCat);
+      updateMarkers(displayedLocations.value, selectCat);
+      
+      // Hide initial loading state
+      isInitialLoading.value = false;
+    });
   } catch (err: unknown) {
     const message = (err as Error).message;
     error.value = `Failed to initialize map: ${message}`;
-    // showError(error.value); // Removed: ErrorState component handles this
+    isInitialLoading.value = false;
   }
 };
 

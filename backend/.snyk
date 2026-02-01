@@ -1,0 +1,57 @@
+# Snyk configuration for automated dependency security scanning
+# This file configures Snyk to scan for security vulnerabilities in dependencies
+
+# Severity threshold for reporting vulnerabilities
+severity-threshold=high
+
+# Ignore specific vulnerabilities (use sparingly and document reasons)
+# Format: vulnerability-id:reason
+# Example: SNYK-PYTHON-DJANGO-123456:Not applicable to our use case
+
+# Exclude certain dependencies from scanning
+# Format: package-name:reason
+# Example: local-package:Internal package, not public
+
+# Monitor for vulnerabilities in development dependencies
+monitor-dev-deps=true
+
+# Monitor for vulnerabilities in peer dependencies
+monitor-peer-deps=true
+
+# Test for vulnerabilities in development dependencies
+test-dev-deps=true
+
+# Test for vulnerabilities in peer dependencies
+test-peer-deps=true
+
+# Enable Snyk Code (SAST) scanning
+# Uncomment to enable
+# snyk-code=true
+
+# Enable Snyk Container scanning
+# Uncomment to enable
+# snyk-container=true
+
+# Set the project name in Snyk
+# project-name=purrfect-spots-backend
+
+# Set the organization in Snyk
+# organization=purrfect-spots
+
+# Enable automatic patching of vulnerabilities
+# Uncomment to enable
+# patch=true
+
+# Enable automatic upgrade of dependencies
+# Uncomment to enable
+# upgrade=true
+
+# Set the maximum number of vulnerabilities to report
+max-vulnerabilities=100
+
+# Enable reporting of license issues
+# Uncomment to enable
+# license-report=true
+
+# Set the license policy
+# license-policy=mit,apache-2.0,bsd-3-clause

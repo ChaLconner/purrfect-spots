@@ -28,6 +28,7 @@ def get_gallery_service(supabase=Depends(get_supabase_client)) -> GalleryService
     return GalleryService(supabase)
 
 
+@router.get("", response_model=PaginatedGalleryResponse)
 @router.get("/", response_model=PaginatedGalleryResponse)
 @limiter.limit("120/minute")  # Rate limit for paginated endpoint
 async def get_gallery(
@@ -49,8 +50,10 @@ async def get_gallery(
     - `/gallery?limit=20&offset=0` - First 20 images
     - `/gallery?limit=20&page=2` - Second page of 20 images
     """
-    # Prevent caching of paginated results to ensure new uploads appear immediately
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    # Enable caching for paginated results to improve performance
+    # Cache for 1 minute (60 seconds) - gallery doesn't change frequently
+    response.headers["Cache-Control"] = "public, max-age=60"
+    logger.info(f"HTTP Cache-Control set to: {response.headers['Cache-Control']} - Browser caching enabled for 60 seconds")
 
     try:
         # Calculate offset from page if provided
@@ -58,12 +61,15 @@ async def get_gallery(
         if page is not None:
             actual_offset = (page - 1) * limit
 
+        logger.info(f"Gallery request: limit={limit}, offset={actual_offset}, page={page}")
+
         # Run synchronous service call in threadpool to avoid blocking event loop
         result = await run_in_threadpool(
             gallery_service.get_all_photos, limit=limit, offset=actual_offset, include_total=True
         )
 
         if not result["data"]:
+            logger.info("No photos found in gallery")
             return PaginatedGalleryResponse(
                 images=[],
                 pagination=PaginationMeta(
@@ -82,6 +88,8 @@ async def get_gallery(
         current_page = (actual_offset // limit) + 1 if limit > 0 else 1
 
         cat_locations = [CatLocation(**photo) for photo in result["data"]]
+
+        logger.info(f"Returning {len(cat_locations)} photos, total={total}, page={current_page}/{total_pages}")
 
         return PaginatedGalleryResponse(
             images=cat_locations,

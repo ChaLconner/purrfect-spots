@@ -20,6 +20,8 @@
             :src="cat.image_url"
             :alt="cat.location_name || 'Cat photo'"
             class="w-full h-full object-cover"
+            loading="lazy"
+            decoding="async"
           />
           <div
             class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"
@@ -123,3 +125,4 @@ const tags = computed(() => {
   return extractTags(props.cat.description);
 });
 </script>
+

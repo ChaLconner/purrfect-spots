@@ -34,11 +34,7 @@ const showPasswords = ref(false); // Toggle for password visibility
 
 const passwordRequirements = computed(() => {
   const p = passwordForm.new;
-  return [
-    { label: 'Min 8 characters', met: p.length >= 8 },
-    { label: 'Contains a number', met: /\d/.test(p) },
-    { label: 'Special character', met: /[^a-zA-Z0-9]/.test(p) },
-  ];
+  return [{ label: 'Min 8 characters', met: p.length >= 8 }];
 });
 
 const editForm = reactive({
@@ -300,7 +296,7 @@ const handleKeydown = (event: KeyboardEvent) => {
               <div class="border-t border-stone-200 pt-6 mt-6">
                 <button
                   type="button"
-                  class="flex items-center text-terracotta font-bold text-sm uppercase tracking-wider hover:text-terracotta-dark transition-colors"
+                  class="flex items-center text-terracotta font-bold text-sm uppercase tracking-wider hover:text-terracotta-dark transition-colors cursor-pointer"
                   :aria-expanded="showPasswordSection"
                   @click="showPasswordSection = !showPasswordSection"
                 >
@@ -341,10 +337,45 @@ const handleKeydown = (event: KeyboardEvent) => {
                         />
                         <button
                           type="button"
-                          class="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-brown transition-colors"
+                          class="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-terracotta transition-colors cursor-pointer"
+                          :aria-label="showPasswords ? 'Hide password' : 'Show password'"
                           @click="showPasswords = !showPasswords"
                         >
-                          {{ showPasswords ? '👁️' : '👁️‍🗨️' }}
+                          <svg
+                            v-if="!showPasswords"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke-width="1.5"
+                            stroke="currentColor"
+                            class="w-5 h-5"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
+                            />
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                            />
+                          </svg>
+                          <svg
+                            v-else
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke-width="1.5"
+                            stroke="currentColor"
+                            class="w-5 h-5"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"
+                            />
+                          </svg>
                         </button>
                       </div>
                     </div>
@@ -409,7 +440,7 @@ const handleKeydown = (event: KeyboardEvent) => {
                             !passwordForm.new ||
                             !passwordForm.confirm
                         "
-                        class="px-5 py-2.5 bg-[#C07040] text-white rounded-lg text-sm font-bold hover:bg-[#A05030] shadow-md transition-all disabled:opacity-50 disabled:shadow-none"
+                        class="px-5 py-2.5 bg-[#C07040] text-white rounded-lg text-sm font-bold hover:bg-[#A05030] shadow-md transition-all disabled:opacity-50 disabled:shadow-none cursor-pointer disabled:cursor-not-allowed"
                         @click="updatePassword"
                       >
                         {{ isUpdatingPassword ? 'Updating...' : 'Update Password' }}

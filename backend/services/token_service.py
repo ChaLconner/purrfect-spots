@@ -126,19 +126,14 @@ class TokenService:
 
         Priority:
         1. Check Redis/Memory (Fastest)
-        2. Check Database (Source of Truth for persistence) - Optional optimization: skip if cache miss?
-           Actually, for security, if cache misses, we MIGHT want to check DB if we suspect cache is cold.
-           But for performance, usually we rely on cache.
+        2. Check Database (Source of Truth for persistence) - SECURITY: Check DB if cache miss for critical operations
+           SECURITY: For security-critical operations, we MUST check the database as source of truth
+           even if it's slower. This prevents attackers from bypassing blacklisting
+           by exploiting cache failures or inconsistencies.
 
-           DECISION: For high performance, we check cache first.
-           If cache is empty/down, should we check DB?
-           - Checking DB on every request is the bottleneck we are fixing.
-           - So we should ONLY check Redis/Memory. The DB is just for hydration on restart or audit.
-           - HOWEVER, to sync across instances without Redis, DB check is needed?
-           - The prompt asked to fix performance. So we MUST avoid DB check on every request.
-
-           Compromise: We check ONLY cache (Redis/Memory).
-           The DB write in `blacklist_token` is for audit and potential cold-start hydration tools (not implemented yet).
+           Performance vs Security Trade-off:
+           - Production: Check DB for security-critical operations (logout, password reset)
+           - Development: Cache-only for performance
         """
         token_hash = self._hash_token(token) if token else jti
         if not token_hash:
@@ -160,8 +155,26 @@ class TokenService:
             else:
                 del self._memory_blacklist[token_hash]
 
-        # 3. (Optional) DB Check - DISABLED for performance
-        # We assume if it's not in cache, it's valid.
+        # 3. SECURITY: Check Database as source of truth for security-critical operations
+        # This prevents attackers from bypassing blacklisting by exploiting cache failures
+        # Only skip DB check in development for performance
+        is_production = os.getenv("ENVIRONMENT", "development").lower() == "production"
+        if is_production:
+            try:
+                result = self.supabase_admin.table("token_blacklist").select("*").eq("token_jti", jti if jti else token_hash).execute()  # type: ignore[attr-defined]
+                if result.data and len(result.data) > 0:  # type: ignore[attr-defined]
+                    # Check if token is still valid (not expired)
+                    for entry in result.data:  # type: ignore[attr-defined]
+                        expires_at = datetime.fromisoformat(entry["expires_at"].replace("Z", "+00:00"))
+                        if datetime.now(timezone.utc) < expires_at:
+                            return True
+            except Exception as e:
+                logger.warning(f"Database check failed: {e}")
+                # SECURITY: On DB check failure, we should fail closed for production
+                # but fail open for development to avoid blocking legitimate requests
+                if is_production:
+                    logger.error("Database check failed - blocking token for security")
+                    return True
 
         return False
 

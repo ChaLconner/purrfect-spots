@@ -1,15 +1,9 @@
-# ==============================================================================
-# Dependabot Configuration
-# ==============================================================================
-# Automatically creates pull requests to update dependencies
-# https://docs.github.com/en/code-security/dependabot
+# Dependabot configuration for automated dependency updates
+# This file configures Dependabot to automatically update dependencies
 
 version: 2
-
 updates:
-  # ==============================================================================
-  # Python Dependencies (Backend)
-  # ==============================================================================
+  # Update Python dependencies in backend
   - package-ecosystem: "pip"
     directory: "/backend"
     schedule:
@@ -17,29 +11,31 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "Asia/Bangkok"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 10
+    reviewers:
+      - "security-team"
     labels:
       - "dependencies"
-      - "python"
+      - "security"
       - "backend"
     commit-message:
-      prefix: "chore(deps)"
+      prefix: "deps"
+      prefix-development: "deps-dev"
       include: "scope"
-    # Group minor and patch updates to reduce PR noise
-    groups:
-      python-minor:
-        update-types:
-          - "minor"
-          - "patch"
-        patterns:
-          - "*"
-    # Security updates are always prioritized
-    reviewers:
-      - "purrfect-spots/backend-team"
+    # Allow updates to production dependencies only
+    allow:
+      - dependency-type: "production"
+    # Ignore specific versions or version ranges
+    ignore:
+      - dependency-name: "fastapi"
+        versions: ["0.x"]
+      - dependency-name: "sqlalchemy"
+        versions: ["1.4.x"]
+    # Security updates only
+    # Uncomment to enable security-only updates
+    # security-only: true
 
-  # ==============================================================================
-  # NPM Dependencies (Frontend)
-  # ==============================================================================
+  # Update npm dependencies in frontend
   - package-ecosystem: "npm"
     directory: "/frontend"
     schedule:
@@ -47,70 +43,67 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "Asia/Bangkok"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 10
+    reviewers:
+      - "security-team"
     labels:
       - "dependencies"
-      - "javascript"
+      - "security"
       - "frontend"
     commit-message:
-      prefix: "chore(deps)"
+      prefix: "deps"
+      prefix-development: "deps-dev"
       include: "scope"
-    groups:
-      npm-minor:
-        update-types:
-          - "minor"
-          - "patch"
-        patterns:
-          - "*"
-    # Ignore problematic updates
+    # Allow updates to production dependencies only
+    allow:
+      - dependency-type: "production"
+    # Ignore specific versions or version ranges
     ignore:
-      - dependency-name: "@types/*"
-        update-types: ["version-update:semver-patch"]
-    reviewers:
-      - "purrfect-spots/frontend-team"
+      - dependency-name: "vue"
+        versions: ["2.x"]
+      - dependency-name: "vite"
+        versions: ["2.x"]
+    # Security updates only
+    # Uncomment to enable security-only updates
+    # security-only: true
 
-  # ==============================================================================
-  # GitHub Actions
-  # ==============================================================================
+  # Update Docker dependencies
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Bangkok"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "security-team"
+    labels:
+      - "dependencies"
+      - "security"
+      - "docker"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    # Allow updates to production dependencies only
+    allow:
+      - dependency-type: "production"
+
+  # Update GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
       day: "monday"
-    labels:
-      - "dependencies"
-      - "ci"
-      - "github-actions"
-    commit-message:
-      prefix: "chore(ci)"
+      time: "09:00"
+      timezone: "Asia/Bangkok"
+    open-pull-requests-limit: 5
     reviewers:
-      - "purrfect-spots/devops"
-    groups:
-      github-actions:
-        patterns:
-          - "*"
-
-  # ==============================================================================
-  # Docker Images
-  # ==============================================================================
-  - package-ecosystem: "docker"
-    directory: "/backend"
-    schedule:
-      interval: "weekly"
+      - "security-team"
     labels:
       - "dependencies"
-      - "docker"
-      - "backend"
+      - "security"
+      - "ci"
     commit-message:
-      prefix: "chore(docker)"
-
-  - package-ecosystem: "docker"
-    directory: "/frontend"
-    schedule:
-      interval: "weekly"
-    labels:
-      - "dependencies"
-      - "docker"
-      - "frontend"
-    commit-message:
-      prefix: "chore(docker)"
+      prefix: "ci"
+      include: "scope"

@@ -48,6 +48,7 @@ def get_storage_service() -> StorageService:
     return StorageService()
 
 
+@router.put("")
 @router.put("/")
 async def update_profile(
     profile_data: ProfileUpdateRequest,
@@ -106,6 +107,7 @@ async def update_profile(
         raise HTTPException(status_code=500, detail="Failed to update profile due to an internal error")
 
 
+@router.get("")
 @router.get("/")
 async def get_profile(
     response: Response,

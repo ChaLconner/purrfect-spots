@@ -44,6 +44,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         self.is_production = os.getenv("ENVIRONMENT", "development").lower() == "production"
         # Default exempt paths - APIs that don't need CSRF
         # (they use other auth mechanisms like OAuth tokens)
+        # SECURITY REVIEW: Only exempt endpoints that are truly stateless or use other auth mechanisms
         self.exempt_paths = exempt_paths or [
             "/health",
             "/docs",
@@ -57,11 +58,11 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             "/api/v1/auth/logout",
             "/api/v1/auth/forgot-password",
             "/api/v1/auth/reset-password",
+            # Public read-only endpoints (GET requests are already exempt by SAFE_METHODS)
             "/api/v1/gallery",
             "/api/v1/locations",
-            # Additional public/stateless endpoints
+            # Cat detection endpoint - uses API key authentication, not session-based
             "/api/v1/cat-detection",
-            "/api/v1/upload",
         ]
 
     async def dispatch(self, request: Request, call_next):
