@@ -225,6 +225,6 @@ class UserService:
                 {"password_hash": password_service.hash_password(new_password), "updated_at": utc_now_iso()}
             ).eq("id", user_id).execute()
             return True
-        except Exception as e:
-            logger.error("Failed to update credential hash: %s", e)
+        except Exception:
+            logger.error("Failed to update security data for user: %s", user_id)
             return False
