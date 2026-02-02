@@ -7,6 +7,7 @@ Tests for rate limiter functionality
 
 from unittest.mock import MagicMock, patch
 
+import jwt
 import pytest
 from fastapi import Request
 
@@ -28,30 +29,26 @@ class TestRateLimiterKeyFunctions:
     def test_get_user_id_from_request_with_valid_token(self, mock_request):
         """Test extracting user ID from valid JWT token"""
         # Create a test JWT (not signed, just for ID extraction)
-        import jwt
-
-        test_token = jwt.encode({"sub": "user-123"}, "secret", algorithm="HS256")
-        mock_request.headers = {"Authorization": f"Bearer {test_token}"}
-
-        from limiter import get_user_id_from_request
-
         # Patch config.JWT_SECRET to match the token's secret
-        with patch("config.config.JWT_SECRET", "secret"):
+        with patch("config.config.JWT_SECRET", "secret_key_at_least_32_chars_long_for_security"):
+            test_token = jwt.encode({"sub": "user-123", "iss": "purrfect-spots"}, "secret_key_at_least_32_chars_long_for_security", algorithm="HS256")
+            mock_request.headers = {"Authorization": f"Bearer {test_token}"}
+
+            from limiter import get_user_id_from_request
+
             result = get_user_id_from_request(mock_request)
 
         assert result == "user:user-123"
 
     def test_get_user_id_from_request_with_user_id_claim(self, mock_request):
         """Test extracting user ID from token with user_id claim"""
-        import jwt
-
-        test_token = jwt.encode({"user_id": "user-456"}, "secret", algorithm="HS256")
-        mock_request.headers = {"Authorization": f"Bearer {test_token}"}
-
-        from limiter import get_user_id_from_request
-
         # Patch config.JWT_SECRET to match the token's secret
-        with patch("config.config.JWT_SECRET", "secret"):
+        with patch("config.config.JWT_SECRET", "secret_key_at_least_32_chars_long_for_security"):
+            test_token = jwt.encode({"user_id": "user-456", "iss": "purrfect-spots"}, "secret_key_at_least_32_chars_long_for_security", algorithm="HS256")
+            mock_request.headers = {"Authorization": f"Bearer {test_token}"}
+
+            from limiter import get_user_id_from_request
+
             result = get_user_id_from_request(mock_request)
 
         assert result == "user:user-456"

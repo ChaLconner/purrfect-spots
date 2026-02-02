@@ -290,13 +290,13 @@ class TestRateLimiter:
         from limiter import get_user_id_from_request
 
         # Create a valid JWT token for testing
-        token = jwt.encode({"sub": "user-123"}, "secret", algorithm="HS256")
+        with patch("config.config.JWT_SECRET", "secret_key_at_least_32_chars_long_for_security"):
+            token = jwt.encode({"sub": "user-123", "iss": "purrfect-spots"}, "secret_key_at_least_32_chars_long_for_security", algorithm="HS256")
 
-        mock_request = MagicMock()
-        mock_request.headers.get.return_value = f"Bearer {token}"
-        mock_request.client.host = "127.0.0.1"
+            mock_request = MagicMock()
+            mock_request.headers.get.return_value = f"Bearer {token}"
+            mock_request.client.host = "127.0.0.1"
 
-        with patch("config.config.JWT_SECRET", "secret"):
             result = get_user_id_from_request(mock_request)
 
         assert result == "user:user-123"

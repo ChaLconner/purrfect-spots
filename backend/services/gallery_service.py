@@ -60,7 +60,7 @@ class GalleryService:
         Optimize image URL:
         1. Rewrite to CDN if configured
         2. Append transformation parameters if supported (Supabase)
-        
+
         Args:
             url: Original image URL
             width: Target width in pixels (default: 300 for thumbnails)
@@ -133,7 +133,12 @@ class GalleryService:
 
             # Log image URLs for debugging
             if data and len(data) > 0:
-                sample_urls = [photo.get("image_url", "")[:80] + "..." if len(photo.get("image_url", "")) > 80 else photo.get("image_url", "") for photo in data[:3]]
+                sample_urls = [
+                    photo.get("image_url", "")[:80] + "..."
+                    if len(photo.get("image_url", "")) > 80
+                    else photo.get("image_url", "")
+                    for photo in data[:3]
+                ]
                 logger.debug(f"Sample image URLs: {sample_urls}")
 
             data = self._process_photos(data)  # Optimize images

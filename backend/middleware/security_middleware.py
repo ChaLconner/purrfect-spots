@@ -88,7 +88,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             )
 
         response.headers["Content-Security-Policy"] = csp_policy
-        
+
         # SECURITY: Add CSP reporting endpoint for monitoring CSP violations
         # This helps detect and respond to XSS attacks in real-time
         if self.is_production:

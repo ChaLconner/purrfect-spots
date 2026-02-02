@@ -121,9 +121,9 @@ def get_user_id_from_request(request: Request) -> str:
                     algorithms=[config.JWT_ALGORITHM],
                     options={
                         "verify_signature": True,  # Always verify signature
-                        "verify_exp": True,       # Verify expiration
-                        "verify_iat": True,       # Verify issued at
-                    }
+                        "verify_exp": True,  # Verify expiration
+                        "verify_iat": True,  # Verify issued at
+                    },
                 )
                 user_id = payload.get("sub") or payload.get("user_id")
                 if user_id:

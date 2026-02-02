@@ -44,10 +44,12 @@ class OTPService:
         try:
             # Try Redis first for performance
             import os
+
             redis_url = os.getenv("REDIS_URL")
             if redis_url:
                 try:
                     import redis.asyncio as aioredis
+
                     redis_client = aioredis.from_url(redis_url, encoding="utf-8", decode_responses=False)
                     lockout_key = f"otp_lockout:{email}"
                     exists = await redis_client.exists(lockout_key)
@@ -69,6 +71,7 @@ class OTPService:
 
             if result.data and result.data[0].get("locked_until"):
                 from datetime import datetime
+
                 locked_until = datetime.fromisoformat(result.data[0]["locked_until"].replace("Z", "+00:00"))
                 return utc_now() < locked_until
 
@@ -87,10 +90,12 @@ class OTPService:
 
             # Try Redis first for performance
             import os
+
             redis_url = os.getenv("REDIS_URL")
             if redis_url:
                 try:
                     import redis.asyncio as aioredis
+
                     redis_client = aioredis.from_url(redis_url, encoding="utf-8", decode_responses=False)
                     lockout_key = f"otp_lockout:{email}"
                     await redis_client.setex(lockout_key, self.LOCKOUT_DURATION_MINUTES * 60, locked_until.isoformat())
@@ -112,9 +117,9 @@ class OTPService:
             )
 
             if result.data:
-                self.supabase.table("email_verifications").update({
-                    "locked_until": locked_until.isoformat()
-                }).eq("id", result.data[0]["id"]).execute()
+                self.supabase.table("email_verifications").update({"locked_until": locked_until.isoformat()}).eq(
+                    "id", result.data[0]["id"]
+                ).execute()
                 logger.info("Email locked out in database: %s until %s", email, locked_until.isoformat())
         except Exception as e:
             logger.error("Failed to lock out email: %s", e)
@@ -127,10 +132,12 @@ class OTPService:
         try:
             # Try Redis first for performance
             import os
+
             redis_url = os.getenv("REDIS_URL")
             if redis_url:
                 try:
                     import redis.asyncio as aioredis
+
                     redis_client = aioredis.from_url(redis_url, encoding="utf-8", decode_responses=False)
                     lockout_key = f"otp_lockout:{email}"
                     await redis_client.delete(lockout_key)
@@ -151,9 +158,9 @@ class OTPService:
             )
 
             if result.data:
-                self.supabase.table("email_verifications").update({
-                    "locked_until": None
-                }).eq("id", result.data[0]["id"]).execute()
+                self.supabase.table("email_verifications").update({"locked_until": None}).eq(
+                    "id", result.data[0]["id"]
+                ).execute()
         except Exception as e:
             logger.error("Failed to clear email lockout: %s", e)
 

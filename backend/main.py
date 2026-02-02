@@ -329,7 +329,7 @@ logger.info(f"CORS allowed origins: {allowed_origins}")
 # 2. SameSite cookies are used (see set_refresh_cookie in auth_utils.py)
 # 3. Security headers (X-Frame-Options: DENY) prevent clickjacking
 # 4. Content-Security-Policy prevents XSS attacks
-# 
+#
 # SECURITY: Only allow credentials from trusted origins
 # Never use allow_origins=["*"] with allow_credentials=True
 app.add_middleware(
@@ -455,4 +455,3 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)  # nosec B104
-

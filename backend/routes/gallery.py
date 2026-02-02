@@ -53,7 +53,9 @@ async def get_gallery(
     # Enable caching for paginated results to improve performance
     # Cache for 1 minute (60 seconds) - gallery doesn't change frequently
     response.headers["Cache-Control"] = "public, max-age=60"
-    logger.info(f"HTTP Cache-Control set to: {response.headers['Cache-Control']} - Browser caching enabled for 60 seconds")
+    logger.info(
+        f"HTTP Cache-Control set to: {response.headers['Cache-Control']} - Browser caching enabled for 60 seconds"
+    )
 
     try:
         # Calculate offset from page if provided

@@ -26,9 +26,9 @@ class StorageService:
             aws_access_key_id=self.aws_access_key,
             aws_secret_access_key=self.aws_secret_key,
             config=boto3.session.Config(
-                signature_version='s3v4',  # Use v4 signatures for better security
-                s3={'addressing_style': 'path'},  # Use path-style addressing
-            )
+                signature_version="s3v4",  # Use v4 signatures for better security
+                s3={"addressing_style": "path"},  # Use path-style addressing
+            ),
         )
 
     async def upload_file(

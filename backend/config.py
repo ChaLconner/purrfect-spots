@@ -132,11 +132,11 @@ class Config:
         raise ConfigurationError(
             "JWT_SECRET is missing! Please add this environment variable in your Vercel Project Settings."
         )
-    
+
     # JWT_REFRESH_SECRET is REQUIRED in production for security
     # Using the same secret for both access and refresh tokens is a security vulnerability
     JWT_REFRESH_SECRET = os.getenv("JWT_REFRESH_SECRET")
-    
+
     if not JWT_REFRESH_SECRET:
         if ENVIRONMENT.lower() == "production":
             raise ConfigurationError(
@@ -148,7 +148,7 @@ class Config:
                 "JWT_REFRESH_SECRET not set. Using JWT_SECRET (NOT SAFE FOR PRODUCTION). "
                 "For development, this is acceptable but you should set a separate JWT_REFRESH_SECRET.",
                 UserWarning,
-                stacklevel=2
+                stacklevel=2,
             )
             JWT_REFRESH_SECRET = JWT_SECRET
 

@@ -265,12 +265,12 @@ def log_security_event(
 
     if user_id:
         log_message += f" | user_id={user_id}"
-    
+
     # SECURITY: Log IP address and user agent for security audit
     # This helps identify and track potential attackers
     if ip_address:
         log_message += f" | ip={ip_address}"
-    
+
     if user_agent:
         # Sanitize user agent to prevent log injection and limit length
         safe_user_agent = str(user_agent)[:200].replace("\n", " ").replace("\r", " ")
@@ -301,6 +301,7 @@ def log_security_event(
 # - Data access (especially sensitive data)
 # - Permission changes
 # - Admin operations
+
 
 def log_audit_event(
     action: str,
@@ -337,21 +338,21 @@ def log_audit_event(
 
     if user_id:
         audit_entry["user_id"] = user_id
-    
+
     if resource_type:
         audit_entry["resource_type"] = resource_type
-    
+
     if resource_id:
         audit_entry["resource_id"] = resource_id
-    
+
     if ip_address:
         audit_entry["ip_address"] = ip_address
-    
+
     if user_agent:
         # Sanitize user agent to prevent log injection and limit length
         safe_user_agent = str(user_agent)[:200].replace("\n", " ").replace("\r", " ")
         audit_entry["user_agent"] = safe_user_agent
-    
+
     if details:
         # Sanitize details to prevent log injection
         safe_details = {k: str(v)[:200] for k, v in details.items()}
@@ -359,7 +360,7 @@ def log_audit_event(
 
     # Log as structured JSON for easy parsing
     log_message = f"AUDIT_EVENT: {json.dumps(audit_entry, separators=(',', ':'))}"
-    
+
     if success:
         logger.info(log_message)
     else:
@@ -392,10 +393,10 @@ def log_authentication_event(
         # Sanitize email - only show first 3 characters for privacy
         safe_email = email[:3] + "***@" + email.split("@")[1] if "@" in email else "***"
         details["email"] = safe_email
-    
+
     if failure_reason:
         details["failure_reason"] = failure_reason
-    
+
     log_audit_event(
         action=f"auth_{action}",
         user_id=user_id,
@@ -469,16 +470,16 @@ def log_file_operation_event(
     if filename:
         # Sanitize filename - only show first 50 characters
         details["filename"] = filename[:50]
-    
+
     if file_size is not None:
         details["file_size"] = file_size
-    
+
     if file_type:
         details["file_type"] = file_type
-    
+
     if error_message:
         details["error"] = error_message[:200]
-    
+
     log_audit_event(
         action=f"file_{action}",
         user_id=user_id,

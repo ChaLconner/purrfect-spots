@@ -120,40 +120,37 @@ class AuthService:
         """
         try:
             import os
+
             redis_url = os.getenv("REDIS_URL")
-            
+
             # Try Redis first for performance
             if redis_url:
                 try:
                     import redis.asyncio as aioredis
+
                     redis_client = aioredis.from_url(redis_url, encoding="utf-8", decode_responses=False)
                     session_count_key = f"user_sessions:{user_id}"
                     session_count = await redis_client.incr(session_count_key)
                     await redis_client.expire(session_count_key, self.jwt_expiration_hours * 3600)  # Expire with token
-                    
+
                     # Set to 1 if this is a new session (first increment)
                     if session_count == 1:
                         await redis_client.expire(session_count_key, self.jwt_expiration_hours * 3600)
-                    
+
                     await redis_client.close()
-                    
+
                     if session_count > self.MAX_CONCURRENT_SESSIONS:
                         logger.warning("User %s exceeded max concurrent sessions: %d", user_id, session_count)
                         return False
-                    
+
                     return True
                 except Exception:
                     pass
-            
+
             # Fallback to database check
             # Count active sessions from token_blacklist (non-expired entries)
-            result = (
-                self.supabase_admin.table("token_blacklist")
-                .select("*")
-                .eq("user_id", user_id)
-                .execute()
-            )
-            
+            result = self.supabase_admin.table("token_blacklist").select("*").eq("user_id", user_id).execute()
+
             if result.data:
                 active_sessions = 0
                 now = utc_now()
@@ -161,11 +158,11 @@ class AuthService:
                     expires_at = datetime.fromisoformat(entry["expires_at"].replace("Z", "+00:00"))
                     if now < expires_at:
                         active_sessions += 1
-                
+
                 if active_sessions >= self.MAX_CONCURRENT_SESSIONS:
                     logger.warning("User %s exceeded max concurrent sessions: %d", user_id, active_sessions)
                     return False
-            
+
             return True
         except Exception as e:
             logger.error("Failed to check concurrent sessions: %s", e)

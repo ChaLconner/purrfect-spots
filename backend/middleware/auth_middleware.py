@@ -108,7 +108,7 @@ async def _is_token_revoked(jti: str) -> bool:
         # If we can't verify the token isn't revoked, we must reject it
         # This is a security-critical operation - better to block legitimate requests
         # than to allow revoked tokens to be used
-        logger.error("Token revocation check failed: %s. Rejecting token for security.", e)
+        logger.error("Revocation status check failed. Denying request for security.")
         return True
 
 

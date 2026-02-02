@@ -161,7 +161,12 @@ class TokenService:
         is_production = os.getenv("ENVIRONMENT", "development").lower() == "production"
         if is_production:
             try:
-                result = self.supabase_admin.table("token_blacklist").select("*").eq("token_jti", jti if jti else token_hash).execute()  # type: ignore[attr-defined]
+                result = (
+                    self.supabase_admin.table("token_blacklist")
+                    .select("*")
+                    .eq("token_jti", jti if jti else token_hash)
+                    .execute()
+                )  # type: ignore[attr-defined]
                 if result.data and len(result.data) > 0:  # type: ignore[attr-defined]
                     # Check if token is still valid (not expired)
                     for entry in result.data:  # type: ignore[attr-defined]
