@@ -24,7 +24,11 @@ class TestAuthServiceExtended:
         ):
             with patch.dict(
                 "os.environ",
-                {"GOOGLE_CLIENT_ID": "test_id", "GOOGLE_CLIENT_SECRET": "test_secret", "JWT_SECRET": "test_jwt_secret_must_be_at_least_32_characters_long"},
+                {
+                    "GOOGLE_CLIENT_ID": "test_id",
+                    "GOOGLE_CLIENT_SECRET": "test_secret",
+                    "JWT_SECRET": "test_jwt_secret_must_be_at_least_32_characters_long",
+                },
             ):
                 service = AuthService(mock_supabase)
                 service.google_client_id = "test_id"

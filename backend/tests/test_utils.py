@@ -291,7 +291,11 @@ class TestRateLimiter:
 
         # Create a valid JWT token for testing
         with patch("config.config.JWT_SECRET", "secret_key_at_least_32_chars_long_for_security"):
-            token = jwt.encode({"sub": "user-123", "iss": "purrfect-spots"}, "secret_key_at_least_32_chars_long_for_security", algorithm="HS256")
+            token = jwt.encode(
+                {"sub": "user-123", "iss": "purrfect-spots"},
+                "secret_key_at_least_32_chars_long_for_security",
+                algorithm="HS256",
+            )
 
             mock_request = MagicMock()
             mock_request.headers.get.return_value = f"Bearer {token}"
