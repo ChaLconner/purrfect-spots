@@ -28,9 +28,9 @@ updates:
     # Ignore specific versions or version ranges
     ignore:
       - dependency-name: "fastapi"
-        versions: ["0.x"]
+        versions: ["< 1.0.0"]
       - dependency-name: "sqlalchemy"
-        versions: ["1.4.x"]
+        versions: ["< 1.5.0", ">= 1.4.0"]
     # Security updates only
     # Uncomment to enable security-only updates
     # security-only: true
@@ -60,9 +60,9 @@ updates:
     # Ignore specific versions or version ranges
     ignore:
       - dependency-name: "vue"
-        versions: ["2.x"]
+        versions: ["< 3.0.0"]
       - dependency-name: "vite"
-        versions: ["2.x"]
+        versions: ["< 3.0.0"]
     # Security updates only
     # Uncomment to enable security-only updates
     # security-only: true
