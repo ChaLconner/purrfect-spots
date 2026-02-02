@@ -1,4 +1,4 @@
-﻿aiohappyeyeballs==2.6.1
+aiohappyeyeballs==2.6.1
 aiohttp==3.13.3
 aiosignal==1.4.0
 alembic==1.18.3
@@ -87,7 +87,7 @@ pluggy==1.6.0
 postgrest==0.16.11
 propcache==0.4.1
 proto-plus==1.27.0
-protobuf==5.29.5
+protobuf==6.33.5
 psutil==7.2.1
 pyasn1==0.6.2
 pyasn1_modules==0.4.2
