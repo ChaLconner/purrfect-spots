@@ -26,7 +26,7 @@
   "dependencies": {
     "@googlemaps/js-api-loader": "^2.0.1",
     "@googlemaps/markerclusterer": "^2.6.2",
-    "@sentry/vue": "^8.0.0",
+    "@sentry/vue": "^10.38.0",
     "@tailwindcss/vite": "^4.1.11",
     "axios": "^1.7.7",
     "pinia": "^3.0.4",
