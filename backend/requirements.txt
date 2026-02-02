@@ -1,4 +1,4 @@
-﻿aiohappyeyeballs==2.6.1
+aiohappyeyeballs==2.6.1
 aiohttp==3.13.3
 aiosignal==1.4.0
 alembic==1.18.1
@@ -84,7 +84,7 @@ passlib==1.7.4
 pg8000==1.31.5
 pillow==11.3.0
 pluggy==1.6.0
-postgrest==0.16.11
+postgrest==2.27.2
 propcache==0.4.1
 proto-plus==1.27.0
 protobuf==5.29.5
