@@ -3,7 +3,7 @@
  *
  * State management for cat locations and gallery data.
  * Supports search, filtering, pagination, and tag-based queries.
- * 
+ *
  * Performance optimizations included:
  * 1. Debounced localStorage writes (2s) to avoid blocking main thread
  * 2. Shallow watch for better performance
@@ -61,7 +61,7 @@ export const useCatsStore = defineStore('cats', () => {
       }
     }
   } catch {
-    // console.warn('Failed to restore cats store:', error);
+    // Ignore restoration errors
   }
 
   // OPTIMIZATION: Debounced localStorage write to avoid blocking main thread
@@ -136,7 +136,7 @@ export const useCatsStore = defineStore('cats', () => {
       extractTags(location.description).forEach((tag) => tagSet.add(tag));
       location.tags?.forEach((tag) => tagSet.add(tag.toLowerCase()));
     });
-    return Array.from(tagSet).sort();
+    return Array.from(tagSet).sort((a, b) => a.localeCompare(b));
   });
 
   /**

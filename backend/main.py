@@ -44,6 +44,7 @@ from utils.security import log_security_event
 
 SENTRY_DSN = os.getenv("SENTRY_DSN")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+CONTENT_TYPE_JSON = "application/json"
 
 if SENTRY_DSN:
     sentry_sdk.init(
@@ -229,12 +230,12 @@ async def generic_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={"detail": detail},
         headers={
-            "Content-Type": "application/json",
+            "Content-Type": CONTENT_TYPE_JSON,
             "Access-Control-Allow-Origin": cors_origin,
             "Access-Control-Allow-Credentials": "true",
         }
         if cors_origin
-        else {"Content-Type": "application/json"},
+        else {"Content-Type": CONTENT_TYPE_JSON},
     )
 
 
@@ -270,12 +271,12 @@ async def custom_http_exception_handler(request: Request, exc: StarletteHTTPExce
         status_code=exc.status_code,
         content={"detail": exc.detail},
         headers={
-            "Content-Type": "application/json",
+            "Content-Type": CONTENT_TYPE_JSON,
             "Access-Control-Allow-Origin": cors_origin,
             "Access-Control-Allow-Credentials": "true",
         }
         if cors_origin
-        else {"Content-Type": "application/json"},
+        else {"Content-Type": CONTENT_TYPE_JSON},
     )
 
 
@@ -308,12 +309,12 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         status_code=422,
         content={"detail": "Request validation failed", "errors": exc.errors()},
         headers={
-            "Content-Type": "application/json",
+            "Content-Type": CONTENT_TYPE_JSON,
             "Access-Control-Allow-Origin": cors_origin,
             "Access-Control-Allow-Credentials": "true",
         }
         if cors_origin
-        else {"Content-Type": "application/json"},
+        else {"Content-Type": CONTENT_TYPE_JSON},
     )
 
 
@@ -367,7 +368,7 @@ async def root():
             "version": "3.0.0",
             "api_versions": ["v1"],
         },
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": CONTENT_TYPE_JSON},
     )
 
 
@@ -380,7 +381,7 @@ async def health_check():
             "message": "PurrFect Spots API is running",
             "sentry_enabled": bool(SENTRY_DSN),
         },
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": CONTENT_TYPE_JSON},
     )
 
 
@@ -397,7 +398,7 @@ async def test_json_response():
                 "content_type": "application/json",
             },
         },
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": CONTENT_TYPE_JSON},
     )
 
 

@@ -83,7 +83,7 @@ def is_safe_identifier(identifier: str) -> bool:
         return False
     if len(identifier) > 128:  # Reasonable max length
         return False
-    return bool(re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", identifier))
+    return bool(re.match(r"^[a-zA-Z_]\w*$", identifier))
 
 
 def sanitize_order_by(column: str, allowed_columns: list[str], default: str | None = None) -> str | None:

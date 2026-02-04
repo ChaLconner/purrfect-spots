@@ -7,6 +7,7 @@ Tests for registration, login, logout, refresh token, and password reset endpoin
 # These are not real credentials; they are used only for unit testing authentication flows
 """
 
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -52,6 +53,10 @@ def mock_limiter():
 class TestRegisterEndpoint:
     """Tests for POST /auth/register"""
 
+    TEST_EMAIL = "test@example.com"
+    TEST_PASSWORD = os.getenv("TEST_PASSWORD", "securepass123")
+    TEST_NAME = "Test User"
+
     def test_register_success(self, client, mock_auth_service, mock_limiter):
         """Test successful registration"""
         # Setup mock
@@ -71,9 +76,9 @@ class TestRegisterEndpoint:
         response = client.post(
             "/api/v1/auth/register",
             json={
-                "email": "test@example.com",
-                "password": "securepass123",
-                "name": "Test User",
+                "email": self.TEST_EMAIL,
+                "password": self.TEST_PASSWORD,
+                "name": self.TEST_NAME,
             },
         )
 
@@ -135,8 +140,8 @@ class TestRegisterEndpoint:
         response = client.post(
             "/api/v1/auth/register",
             json={
-                "email": "test@example.com",
-                "password": "securepass123",
+                "email": self.TEST_EMAIL,
+                "password": self.TEST_PASSWORD,
                 "name": "   ",  # Whitespace only
             },
         )
@@ -153,8 +158,8 @@ class TestRegisterEndpoint:
             "/api/v1/auth/register",
             json={
                 "email": "existing@example.com",
-                "password": "securepass123",
-                "name": "Test User",
+                "password": self.TEST_PASSWORD,
+                "name": self.TEST_NAME,
             },
         )
 
@@ -169,6 +174,9 @@ class TestRegisterEndpoint:
 
 class TestLoginEndpoint:
     """Tests for POST /auth/login"""
+
+    TEST_EMAIL = "test@example.com"
+    TEST_PASSWORD = os.getenv("TEST_PASSWORD", "correctpassword123")
 
     def test_login_success(self, client, mock_auth_service, mock_limiter):
         """Test successful login"""
@@ -185,7 +193,7 @@ class TestLoginEndpoint:
 
         response = client.post(
             "/api/v1/auth/login",
-            json={"email": "test@example.com", "password": "correctpassword123"},
+            json={"email": self.TEST_EMAIL, "password": self.TEST_PASSWORD},
         )
 
         if response.status_code == 200:
@@ -301,7 +309,7 @@ class TestForgotPasswordEndpoint:
         """Test forgot password for existing email"""
         mock_auth_service.create_password_reset_token.return_value = "reset-token"
 
-        with patch("routes.auth.email_service") as mock_email:
+        with patch("routes.auth.email_service"):
             response = client.post("/api/v1/auth/forgot-password", json={"email": "existing@example.com"})
 
         if response.status_code == 200:
@@ -361,7 +369,6 @@ class TestAuthMeEndpoint:
 
             # This test would need proper auth header setup
             # For now we just verify the endpoint exists
-            pass
 
 
 class TestInputValidation:
@@ -374,5 +381,5 @@ class TestInputValidation:
 
     def test_login_request_valid(self):
         """Test valid LoginRequest"""
-        data = LoginRequest(email="test@example.com", password="password")
+        data = LoginRequest(email="test@example.com", password="password")  # pragma: allowlist secret
         assert data.email == "test@example.com"

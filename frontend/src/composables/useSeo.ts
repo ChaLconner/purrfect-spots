@@ -1,6 +1,6 @@
 /**
  * SEO Meta Tags Composable
- * 
+ *
  * Provides utilities for managing document meta tags for SEO.
  * Useful for dynamic pages like Gallery where content changes.
  */
@@ -15,7 +15,8 @@ interface MetaTagOptions {
 
 const SITE_NAME = 'Purrfect Spots';
 const DEFAULT_TITLE = `Home | ${SITE_NAME}`;
-const DEFAULT_DESCRIPTION = 'Discover and share adorable cat photos from around the world. Find cat-friendly spots near you.';
+const DEFAULT_DESCRIPTION =
+  'Discover and share adorable cat photos from around the world. Find cat-friendly spots near you.';
 const DEFAULT_IMAGE = '/og-image.png';
 
 /**
@@ -26,8 +27,8 @@ export function setMetaTags(options: MetaTagOptions) {
     title = DEFAULT_TITLE,
     description = DEFAULT_DESCRIPTION,
     image = DEFAULT_IMAGE,
-    url = window.location.href,
-    type = 'website'
+    url = globalThis.location.href,
+    type = 'website',
   } = options;
 
   // Set document title
@@ -37,13 +38,13 @@ export function setMetaTags(options: MetaTagOptions) {
   const setMeta = (name: string, content: string, property = false) => {
     const attr = property ? 'property' : 'name';
     let meta = document.querySelector(`meta[${attr}="${name}"]`) as HTMLMetaElement;
-    
+
     if (!meta) {
       meta = document.createElement('meta');
       meta.setAttribute(attr, name);
       document.head.appendChild(meta);
     }
-    
+
     meta.content = content;
   };
 
@@ -72,7 +73,7 @@ export function resetMetaTags() {
     title: DEFAULT_TITLE,
     description: DEFAULT_DESCRIPTION,
     image: DEFAULT_IMAGE,
-    type: 'website'
+    type: 'website',
   });
 }
 
@@ -85,6 +86,6 @@ export function useSeo() {
     resetMetaTags,
     SITE_NAME,
     DEFAULT_TITLE,
-    DEFAULT_DESCRIPTION
+    DEFAULT_DESCRIPTION,
   };
 }

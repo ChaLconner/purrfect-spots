@@ -34,11 +34,10 @@ const closeMenu = () => {
 </script>
 
 <template>
-  <div
+  <nav
     id="mobile-menu"
     class="mobile-menu"
     :class="{ 'mobile-menu-open': menuOpen }"
-    role="navigation"
     aria-label="Mobile navigation"
   >
     <!-- Mobile Search -->
@@ -76,7 +75,7 @@ const closeMenu = () => {
         <span>Logout</span>
       </button>
     </div>
-  </div>
+  </nav>
 </template>
 
 <style scoped>
@@ -124,7 +123,7 @@ const closeMenu = () => {
   font-family: 'Zen Maru Gothic', sans-serif;
   font-size: 0.95rem;
   font-weight: 600;
-  color: #5a4a3a;
+  color: #44403c;
   text-decoration: none;
   transition: all 0.3s ease;
   background: transparent;
@@ -135,8 +134,8 @@ const closeMenu = () => {
 }
 
 .mobile-nav-link:hover {
-  background: rgba(212, 132, 90, 0.1);
-  color: #c97b49;
+  background: rgba(212, 132, 90, 0.15);
+  color: #6b5c4b;
 }
 
 .mobile-nav-link.login {

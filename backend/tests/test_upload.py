@@ -29,7 +29,7 @@ class TestUploadRoute:
     def mock_cat_detection_service(self):
         """Create mock cat detection service"""
         service = MagicMock()
-        service.detect_cats = AsyncMock(
+        service.detect_cats = MagicMock(
             return_value={
                 "has_cats": True,
                 "cat_count": 1,
@@ -240,7 +240,7 @@ class TestUploadValidation:
 
         # Create cat detection that returns no cats
         mock_detection = MagicMock()
-        mock_detection.detect_cats = AsyncMock(
+        mock_detection.detect_cats = MagicMock(
             return_value={
                 "has_cats": False,
                 "cat_count": 0,
@@ -335,7 +335,7 @@ class TestUploadWithPredetectedCats:
         # Mock DETECTION service to return a specific "Server Truth"
         mock_cat_detection_service = MagicMock()
         # Server says: 1 cat, confidence 0.95
-        mock_cat_detection_service.detect_cats = AsyncMock(
+        mock_cat_detection_service.detect_cats = MagicMock(
             return_value={
                 "has_cats": True,
                 "cat_count": 1,
@@ -398,4 +398,4 @@ class TestUploadWithPredetectedCats:
 
         # ASSERTION: Result should match SERVER mock (cat_count=1), NOT client data (cat_count=99)
         assert result["cat_detection"]["cat_count"] == 1
-        assert result["cat_detection"]["confidence"] == 0.95
+        assert result["cat_detection"]["confidence"] == pytest.approx(0.95)

@@ -88,7 +88,7 @@ onMounted(() => {
   });
 
   // Handle Supabase Implicit Flow (Hash Fragment)
-  const hash = window.location.hash;
+  const hash = globalThis.location.hash;
   const hashParams = new URLSearchParams(hash.substring(1)); // Remove leading '#'
   const accessToken = hashParams.get('access_token');
 
@@ -217,7 +217,7 @@ const handleSubmit = async () => {
 }
 .form-subtitle {
   font-family: 'Inter', sans-serif;
-  color: #7d7d7d;
+  color: #5a4632;
 }
 .auth-form {
   display: flex;

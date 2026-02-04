@@ -1,6 +1,6 @@
 /**
  * API Types
- * 
+ *
  * Centralized type definitions for API-related interfaces.
  */
 
@@ -32,10 +32,10 @@ export const ApiErrorTypes = {
   AUTHORIZATION_ERROR: 'AUTHORIZATION_ERROR',
   VALIDATION_ERROR: 'VALIDATION_ERROR',
   SERVER_ERROR: 'SERVER_ERROR',
-  UNKNOWN_ERROR: 'UNKNOWN_ERROR'
+  UNKNOWN_ERROR: 'UNKNOWN_ERROR',
 } as const;
 
-export type ApiErrorType = typeof ApiErrorTypes[keyof typeof ApiErrorTypes];
+export type ApiErrorType = (typeof ApiErrorTypes)[keyof typeof ApiErrorTypes];
 
 // ========== Cat/Gallery Types ==========
 /**
@@ -45,12 +45,12 @@ export type ApiErrorType = typeof ApiErrorTypes[keyof typeof ApiErrorTypes];
 export interface CatLocation {
   id: string;
   user_id?: string;
-  location_name: string | null;  // nullable in backend
-  description: string | null;     // nullable in backend
+  location_name: string | null; // nullable in backend
+  description: string | null; // nullable in backend
   latitude: number;
   longitude: number;
   image_url: string;
-  tags: string[];                 // always present, default []
+  tags: string[]; // always present, default []
   uploaded_at: string;
 }
 

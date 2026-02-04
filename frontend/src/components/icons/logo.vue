@@ -58,5 +58,5 @@
 </template>
 
 <script lang="ts" setup>
-const transform = "rotate(45)";
+const transform = 'rotate(45)';
 </script>

@@ -142,10 +142,10 @@
         <!-- Uploads Grid (Pinterest Masonry Style) -->
         <!-- Uploads Grid (Organized Grid Style) -->
         <div v-else class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 p-4">
-          <div
+          <button
             v-for="upload in uploads"
             :key="upload.id"
-            class="group relative aspect-square rounded-2xl overflow-hidden cursor-pointer shadow-sm hover:shadow-xl transition-all duration-500 bg-stone-100"
+            class="group relative aspect-square rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500 bg-stone-100 text-left"
             @click="openImageModal(upload)"
           >
             <!-- Image with Hover Zoom -->
@@ -171,7 +171,7 @@
                 {{ new Date(upload.uploaded_at).toLocaleDateString() }}
               </p>
             </div>
-          </div>
+          </button>
         </div>
       </div>
     </div>
@@ -239,6 +239,7 @@
                 <img
                   :src="authStore.user?.picture || '/default-avatar.svg'"
                   class="w-14 h-14 rounded-full object-cover border-2 border-stone-100 shadow-sm"
+                  :alt="authStore.user?.name || 'User'"
                 />
                 <div>
                   <h4 class="text-brown font-heading font-bold text-xl leading-none mb-1">
@@ -358,8 +359,12 @@
         <h3 class="text-2xl font-heading font-bold text-brown mb-6">Edit Photo Details</h3>
         <form @submit.prevent="savePhotoChanges">
           <div class="mb-4">
-            <label class="block text-xs font-bold text-brown-light mb-2 uppercase tracking-wide">Location Name</label>
+            <label
+              for="edit-location-name"
+              class="block text-xs font-bold text-brown-light mb-2 uppercase tracking-wide"
+            >Location Name</label>
             <input
+              id="edit-location-name"
               v-model="photoEditForm.location_name"
               type="text"
               class="w-full px-4 py-2 border border-stone-200 rounded-xl focus:ring-2 focus:ring-terracotta/20 focus:border-terracotta outline-none transition-all"
@@ -368,8 +373,12 @@
             />
           </div>
           <div class="mb-6">
-            <label class="block text-xs font-bold text-brown-light mb-2 uppercase tracking-wide">Description</label>
+            <label
+              for="edit-description"
+              class="block text-xs font-bold text-brown-light mb-2 uppercase tracking-wide"
+            >Description</label>
             <textarea
+              id="edit-description"
               v-model="photoEditForm.description"
               rows="4"
               class="w-full px-4 py-2 border border-stone-200 rounded-xl focus:ring-2 focus:ring-terracotta/20 focus:border-terracotta outline-none transition-all resize-none"

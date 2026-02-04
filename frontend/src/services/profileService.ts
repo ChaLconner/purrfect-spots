@@ -1,12 +1,12 @@
 /**
  * Profile Service
- * 
+ *
  * Handles all profile-related API operations including:
  * - Fetching user profile data
  * - Updating profile information
  * - Managing profile pictures
  * - Password management
- * 
+ *
  * @module ProfileService
  */
 import type { User } from '../types/auth';
@@ -38,15 +38,15 @@ export interface ChangePasswordData {
 /**
  * Service class for managing user profile operations.
  * All methods are static and handle authentication errors automatically.
- * 
+ *
  * @example
  * ```typescript
  * // Get current user profile
  * const user = await ProfileService.getProfile();
- * 
+ *
  * // Update profile
  * const updated = await ProfileService.updateProfile({ name: 'New Name' });
- * 
+ *
  * // Upload profile picture
  * const pictureUrl = await ProfileService.uploadProfilePicture(file);
  * ```
@@ -54,10 +54,10 @@ export interface ChangePasswordData {
 export class ProfileService {
   /**
    * Fetches the current authenticated user's profile.
-   * 
+   *
    * @returns Promise resolving to the User object
    * @throws Error when authentication is expired or invalid
-   * 
+   *
    * @example
    * ```typescript
    * try {
@@ -74,13 +74,13 @@ export class ProfileService {
 
   // Update user profile
   static async updateProfile(data: ProfileUpdateData): Promise<User> {
-    const result = await apiV1.put<{user: User}>('/profile', data);
+    const result = await apiV1.put<{ user: User }>('/profile', data);
     return result.user;
   }
 
   // Get user uploads
   static async getUserUploads(): Promise<CatLocation[]> {
-    const result = await apiV1.get<{uploads: CatLocation[]}>('/profile/uploads');
+    const result = await apiV1.get<{ uploads: CatLocation[] }>('/profile/uploads');
     return result.uploads || [];
   }
 
@@ -88,8 +88,8 @@ export class ProfileService {
   static async uploadProfilePicture(file: File): Promise<string> {
     const formData = new FormData();
     formData.append('file', file);
-    
-    const result = await apiV1.post<{picture: string}>('/profile/picture', formData, {
+
+    const result = await apiV1.post<{ picture: string }>('/profile/picture', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -103,7 +103,10 @@ export class ProfileService {
   }
 
   // Update photo details
-  static async updatePhoto(photoId: string, data: { location_name?: string; description?: string }): Promise<void> {
+  static async updatePhoto(
+    photoId: string,
+    data: { location_name?: string; description?: string }
+  ): Promise<void> {
     await apiV1.put(`/profile/uploads/${photoId}`, data);
   }
 

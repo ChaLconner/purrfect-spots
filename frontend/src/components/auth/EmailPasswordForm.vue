@@ -10,7 +10,7 @@ interface Props {
 const props = defineProps<Props>();
 
 const emit = defineEmits<{
-  (e: 'submit', form: { email: string; password: string; name: string }): void;
+  submit: (form: { email: string; password: string; name: string }) => void;
 }>();
 
 const showPassword = ref(false);
@@ -183,7 +183,7 @@ const handleSubmit = () => {
 }
 
 .form-input::placeholder {
-  color: #a0a0a0;
+  color: #6b6b6b;
 }
 
 .form-input:focus {

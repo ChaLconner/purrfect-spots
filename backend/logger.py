@@ -151,6 +151,20 @@ def log_performance(operation_name: str | None = None):
     """
 
     def decorator(func: F) -> F:
+        def get_log_record(level: int, msg: str, duration_ms: float) -> logging.LogRecord:
+            record = logging.LogRecord(
+                name="purrfect_spots",
+                level=level,
+                pathname="",
+                lineno=0,
+                msg=msg,
+                args=(),
+                exc_info=None,
+            )
+            record.duration_ms = duration_ms
+            record.funcName = func.__name__
+            return record
+
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
             name = operation_name or f"{func.__module__}.{func.__name__}"
@@ -159,37 +173,11 @@ def log_performance(operation_name: str | None = None):
             try:
                 result = await func(*args, **kwargs)
                 duration_ms = (time.perf_counter() - start_time) * 1000
-
-                # Log with extra duration field
-                log_record = logging.LogRecord(
-                    name="purrfect_spots",
-                    level=logging.INFO,
-                    pathname="",
-                    lineno=0,
-                    msg=f"✓ {name} completed",
-                    args=(),
-                    exc_info=None,
-                )
-                log_record.duration_ms = duration_ms
-                log_record.funcName = func.__name__
-                logger.handle(log_record)
-
+                logger.handle(get_log_record(logging.INFO, f"✓ {name} completed", duration_ms))
                 return result
-
             except Exception as e:
                 duration_ms = (time.perf_counter() - start_time) * 1000
-                log_record = logging.LogRecord(
-                    name="purrfect_spots",
-                    level=logging.ERROR,
-                    pathname="",
-                    lineno=0,
-                    msg=f"✗ {name} failed: {e!s}",
-                    args=(),
-                    exc_info=None,
-                )
-                log_record.duration_ms = duration_ms
-                log_record.funcName = func.__name__
-                logger.handle(log_record)
+                logger.handle(get_log_record(logging.ERROR, f"✗ {name} failed: {e!s}", duration_ms))
                 raise
 
         @wraps(func)
@@ -200,36 +188,11 @@ def log_performance(operation_name: str | None = None):
             try:
                 result = func(*args, **kwargs)
                 duration_ms = (time.perf_counter() - start_time) * 1000
-
-                log_record = logging.LogRecord(
-                    name="purrfect_spots",
-                    level=logging.INFO,
-                    pathname="",
-                    lineno=0,
-                    msg=f"✓ {name} completed",
-                    args=(),
-                    exc_info=None,
-                )
-                log_record.duration_ms = duration_ms
-                log_record.funcName = func.__name__
-                logger.handle(log_record)
-
+                logger.handle(get_log_record(logging.INFO, f"✓ {name} completed", duration_ms))
                 return result
-
             except Exception as e:
                 duration_ms = (time.perf_counter() - start_time) * 1000
-                log_record = logging.LogRecord(
-                    name="purrfect_spots",
-                    level=logging.ERROR,
-                    pathname="",
-                    lineno=0,
-                    msg=f"✗ {name} failed: {e!s}",
-                    args=(),
-                    exc_info=None,
-                )
-                log_record.duration_ms = duration_ms
-                log_record.funcName = func.__name__
-                logger.handle(log_record)
+                logger.handle(get_log_record(logging.ERROR, f"✗ {name} failed: {e!s}", duration_ms))
                 raise
 
         # Return appropriate wrapper based on function type
@@ -289,6 +252,15 @@ def log_request(request_id: str, method: str, path: str, user_id: str | None = N
     logger.handle(log_record)
 
 
+def _get_status_metadata(status_code: int) -> tuple[int, str]:
+    """Get log level and emoji based on status code."""
+    if status_code < 400:
+        return logging.INFO, "✓"
+    if status_code < 500:
+        return logging.WARNING, "⚠️"
+    return logging.ERROR, "✗"
+
+
 def log_response(request_id: str, status_code: int, duration_ms: float):
     """
     Log outgoing response with timing.
@@ -298,8 +270,7 @@ def log_response(request_id: str, status_code: int, duration_ms: float):
         status_code: HTTP status code
         duration_ms: Request processing duration in milliseconds
     """
-    level = logging.INFO if status_code < 400 else logging.WARNING if status_code < 500 else logging.ERROR
-    status_emoji = "✓" if status_code < 400 else "⚠️" if status_code < 500 else "✗"
+    level, status_emoji = _get_status_metadata(status_code)
 
     log_record = logging.LogRecord(
         name="purrfect_spots",

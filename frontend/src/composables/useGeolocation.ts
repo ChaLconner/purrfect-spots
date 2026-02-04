@@ -20,13 +20,12 @@ export function useGeolocation() {
       const response = await fetch('https://ipapi.co/json/');
       const data = await response.json();
       if (data.latitude && data.longitude) {
-        return { 
-          lat: parseFloat(data.latitude), 
-          lng: parseFloat(data.longitude) 
+        return {
+          lat: Number.parseFloat(data.latitude),
+          lng: Number.parseFloat(data.longitude),
         };
       }
     } catch (e) {
-       
       console.warn('IP Geolocation failed:', e);
     }
     return null;
@@ -44,7 +43,7 @@ export function useGeolocation() {
       const handleSuccess = (position: GeolocationPosition) => {
         const coords = {
           lat: position.coords.latitude,
-          lng: position.coords.longitude
+          lng: position.coords.longitude,
         };
         userLocation.value = coords;
         permissionDenied.value = false;
@@ -55,10 +54,10 @@ export function useGeolocation() {
       // Helper to handle failure/fallback
       const handleFailure = async (msg: string) => {
         // If user denied, mark it so we don't try to watch
-        if (msg.includes("denied") || msg.includes("permission")) {
-            permissionDenied.value = true;
+        if (msg.includes('denied') || msg.includes('permission')) {
+          permissionDenied.value = true;
         }
-        
+
         // eslint-disable-next-line no-console
         console.debug('Geolocation error/denied:', msg);
         // Try fallback
@@ -80,16 +79,12 @@ export function useGeolocation() {
         return;
       }
 
-      navigator.geolocation.getCurrentPosition(
-        handleSuccess,
-        (err) => handleFailure(err.message),
-        {
-          enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 0,
-          ...options
-        }
-      );
+      navigator.geolocation.getCurrentPosition(handleSuccess, (err) => handleFailure(err.message), {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 0,
+        ...options,
+      });
     });
   };
 
@@ -98,26 +93,26 @@ export function useGeolocation() {
    */
   const startWatchingPosition = async (options?: PositionOptions) => {
     if (!navigator.geolocation || watchId.value !== null) return;
-    
+
     // Don't start watching if we already know permission is denied
     if (permissionDenied.value) {
-        // eslint-disable-next-line no-console
-        console.debug('Skipping watchPosition: Permission previously denied');
-        return;
+      // eslint-disable-next-line no-console
+      console.debug('Skipping watchPosition: Permission previously denied');
+      return;
     }
 
     // Initial check to set start location (handling fallback if needed)
     if (!userLocation.value) {
       await getCurrentPosition(options);
       // Re-check permission after get attempt
-      if (permissionDenied.value) return; 
+      if (permissionDenied.value) return;
     }
 
     watchId.value = navigator.geolocation.watchPosition(
       (position) => {
         const newCoords = {
           lat: position.coords.latitude,
-          lng: position.coords.longitude
+          lng: position.coords.longitude,
         };
         userLocation.value = newCoords;
         error.value = null; // Clear error on success
@@ -125,16 +120,16 @@ export function useGeolocation() {
       (err) => {
         // eslint-disable-next-line no-console
         console.debug('Watch position error:', err.message);
-        if (err.message.includes("denied")) {
-             permissionDenied.value = true;
-             stopWatchingPosition();
+        if (err.message.includes('denied')) {
+          permissionDenied.value = true;
+          stopWatchingPosition();
         }
       },
       {
         enableHighAccuracy: true,
         timeout: 20000,
         maximumAge: 5000,
-        ...options
+        ...options,
       }
     );
   };
@@ -161,6 +156,6 @@ export function useGeolocation() {
     permissionDenied,
     getCurrentPosition,
     startWatchingPosition,
-    stopWatchingPosition
+    stopWatchingPosition,
   };
 }

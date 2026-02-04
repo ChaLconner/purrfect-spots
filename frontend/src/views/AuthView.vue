@@ -14,20 +14,23 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  mode: 'login'
+  mode: 'login',
 });
 
 // SEO Setup
 const { setMetaTags, resetMetaTags } = useSeo();
-const pageTitle = computed(() => props.mode === 'register' ? 'Register | Purrfect Spots' : 'Login | Purrfect Spots');
+const pageTitle = computed(() =>
+  props.mode === 'register' ? 'Register | Purrfect Spots' : 'Login | Purrfect Spots'
+);
 
 onMounted(() => {
   setMetaTags({
     title: pageTitle.value,
-    description: props.mode === 'register' 
-      ? 'Create your Purrfect Spots account to share cat photos and discover cat-friendly locations.'
-      : 'Sign in to your Purrfect Spots account to share cat photos and discover cat-friendly locations.',
-    type: 'website'
+    description:
+      props.mode === 'register'
+        ? 'Create your Purrfect Spots account to share cat photos and discover cat-friendly locations.'
+        : 'Sign in to your Purrfect Spots account to share cat photos and discover cat-friendly locations.',
+    type: 'website',
   });
 });
 

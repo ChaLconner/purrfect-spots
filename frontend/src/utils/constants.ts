@@ -1,6 +1,6 @@
 /**
  * Application Constants
- * 
+ *
  * Centralized configuration values used across the frontend.
  * Avoids hardcoded values scattered throughout components.
  */

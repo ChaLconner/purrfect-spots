@@ -67,8 +67,6 @@ Thumbs.db
 .vercel
 *.log
 
-# Keys
+# Keys & Secrets
 keys/
 google_vision.json
-*.json
-!vercel.json

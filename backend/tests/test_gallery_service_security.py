@@ -7,61 +7,30 @@ class TestGalleryServiceSecurity:
     """Security tests for GalleryService to ensure RLS compliance"""
 
     @pytest.fixture
-    def mock_supabase_client(self):
-        """Standard public client mock"""
-        mock = MagicMock()
-        mock.table.return_value = mock
-        mock.select.return_value = mock
-        mock.order.return_value = mock
-        mock.range.return_value = mock
-        mock.limit.return_value = mock
-        mock.is_.return_value = mock
-        mock.gte.return_value = mock
-        mock.lte.return_value = mock
-        mock.text_search.return_value = mock
-        mock.rpc.return_value = mock
-        mock.execute.return_value = MagicMock(data=[], count=0)
-        return mock
-
-    @pytest.fixture
-    def mock_supabase_admin_client(self):
-        """Admin/Service role client mock"""
-        mock = MagicMock()
-        mock.table.return_value = mock
-        mock.is_.return_value = mock
-        mock.gte.return_value = mock
-        mock.lte.return_value = mock
-        mock.text_search.return_value = mock
-        mock.rpc.return_value = mock
-        return mock
-
-    @pytest.fixture
-    def gallery_service(self, mock_supabase_client, mock_supabase_admin_client):
+    def gallery_service(self, mock_supabase, mock_supabase_admin):
         """Create GalleryService instance with mocked dependencies"""
         # We patch BOTH dependencies to ensure we catch where they are used
         with (
-            patch("dependencies.get_supabase_client", return_value=mock_supabase_client),
-            patch("dependencies.get_supabase_admin_client", return_value=mock_supabase_admin_client),
+            patch("dependencies.get_supabase_client", return_value=mock_supabase),
+            patch("dependencies.get_supabase_admin_client", return_value=mock_supabase_admin),
         ):
             from services.gallery_service import GalleryService
 
-            # Note: The service constructor calls get_supabase_admin_client internally for other purposes
-            # but we want to check what it uses for read operations
-            service = GalleryService(mock_supabase_client)
+            service = GalleryService(mock_supabase)
             return service
 
-    def test_get_all_photos_uses_public_client(self, gallery_service, mock_supabase_client, mock_supabase_admin_client):
+    def test_get_all_photos_uses_public_client(self, gallery_service, mock_supabase, mock_supabase_admin):
         """Verify get_all_photos uses standard client (enforcing RLS)"""
 
         # Setup return data
-        mock_supabase_client.execute.return_value = MagicMock(data=[], count=0)
+        mock_supabase.execute.return_value = MagicMock(data=[], count=0)
 
         # Act
         gallery_service.get_all_photos()
 
         # Assert
         # The public client SHOULD be called
-        mock_supabase_client.table.assert_called_with("cat_photos")
+        mock_supabase.table.assert_called_with("cat_photos")
 
         # The admin client SHOULD NOT be called for the query
         # (It might be called in __init__ for checks like fulltext support, but not for the main query)
@@ -72,7 +41,7 @@ class TestGalleryServiceSecurity:
         # Note: If _check_fulltext_support uses admin/public, that runs in __init__.
         # We reset mocks before action if needed, but let's check basic calls.
 
-        for call in mock_supabase_admin_client.table.mock_calls:
+        for call in mock_supabase_admin.table.mock_calls:
             # We allow admin use for specific checks if necessary but not for main data fetch
             # But in our refactor we moved _check_fulltext_support to public client too (or kept it safe)
             # Actually I moved _check_fulltext_support to use public client too.
@@ -84,18 +53,16 @@ class TestGalleryServiceSecurity:
             if args and args[0] == "cat_photos":
                 pytest.fail("GalleryService used Admin client to access cat_photos table!")
 
-    def test_get_photo_by_id_uses_public_client(
-        self, gallery_service, mock_supabase_client, mock_supabase_admin_client
-    ):
+    def test_get_photo_by_id_uses_public_client(self, gallery_service, mock_supabase, mock_supabase_admin):
         """Verify get_photo_by_id uses standard client"""
-        mock_supabase_client.execute.return_value = MagicMock(data={"id": "123"})
+        mock_supabase.execute.return_value = MagicMock(data={"id": "123"})
 
         gallery_service.get_photo_by_id("123")
 
-        mock_supabase_client.table.assert_called_with("cat_photos")
+        mock_supabase.table.assert_called_with("cat_photos")
 
         # Ensure admin client was not used for this query
-        for call in mock_supabase_admin_client.table.mock_calls:
+        for call in mock_supabase_admin.table.mock_calls:
             args, _ = call
             if args and args[0] == "cat_photos":
                 # We need to distinguish between init calls and method calls

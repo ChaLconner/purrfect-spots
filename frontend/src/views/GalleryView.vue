@@ -6,11 +6,7 @@
       <!-- Ghibli Style Header with Search -->
       <GalleryHeader />
 
-      <!-- Mint Green Theme Container -->
-      <!-- Clean Container (Removed Mint Frame) -->
       <div class="gallery-mint-container p-0 min-h-[600px] w-full relative z-[5]">
-        <!-- Gallery Stats Removed -->
-
         <!-- Loading state -->
         <div v-if="loading" class="loading-container" role="status" aria-live="polite">
           <GhibliLoader text="Finding cute cats..." />
@@ -76,7 +72,7 @@
                           :src="image.image_url"
                           :srcset="generateSrcSet(image.image_url)"
                           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                          :alt="image.location_name || 'Cat photo'"
+                          :alt="image.location_name || 'Spotted cat'"
                           class="gallery-image shadow-md"
                           :class="{ 'image-visible': loadedImages[image.id] }"
                           @load="handleImageLoad(image.id)"
@@ -178,7 +174,7 @@ const error = ref('');
 const selectedImage = ref<CatLocation | null>(null);
 const currentImageIndex = ref(-1);
 const loadedImages = ref<Record<string, boolean>>({});
-// removed imageElements ref and galleryContainer ref as they are no longer needed
+
 const loadMoreTrigger = ref<HTMLElement | null>(null);
 const loadMoreObserver = ref<IntersectionObserver | null>(null);
 
@@ -193,7 +189,7 @@ const isDeepLinked = ref(false); // Track if current view is a deep link to a sp
 const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024);
 
 const updateWidth = () => {
-  windowWidth.value = window.innerWidth;
+  windowWidth.value = globalThis.innerWidth;
 };
 
 // Determine chunk size based on convenient strict grid alignment (LCM of 2,3,4,5 = 60)

@@ -103,7 +103,7 @@ async def _is_token_revoked(jti: str) -> bool:
     try:
         token_service = await get_token_service()
         return await token_service.is_blacklisted(jti=jti)
-    except Exception as e:
+    except Exception:
         # SECURITY: Fail closed for token revocation check
         # If we can't verify the token isn't revoked, we must reject it
         # This is a security-critical operation - better to block legitimate requests
@@ -162,78 +162,92 @@ def _get_user_from_payload(payload: dict, source: str) -> User:
         )
 
 
-async def _verify_and_decode_token(token: str, supabase: Client | None = None) -> tuple[dict, str]:
-    """Helper to verify and decode token, trying Supabase first then custom"""
-    payload = None
-    source = "unknown"
-
+def _verify_via_supabase_api(token: str, supabase: Client) -> dict | None:
+    """Attempt direct verification via Supabase Auth API"""
     try:
-        # Try Supabase token first
-        payload = await decode_supabase_token(token)
-        source = "supabase"
-    except (HTTPException, ValueError) as supabase_error:
-        # Try custom token as fallback
+        logger.debug("Attempting direct Supabase Auth verification...")
+        # Note: This is a blocking call in some Supabase clients, but usually fast enough
+        # If strictly async is needed, this would need a wrapper
+        user_res = supabase.auth.get_user(token)
+        if user_res and user_res.user:
+            supabase_user = user_res.user
+            logger.info("Authentication verified via direct Supabase Auth API")
+            return {
+                "sub": supabase_user.id,
+                "user_id": supabase_user.id,
+                "email": supabase_user.email,
+                "user_metadata": supabase_user.user_metadata,
+                "app_metadata": supabase_user.app_metadata,
+                "iat": int(datetime.now(timezone.utc).timestamp()),
+            }
+    except Exception as api_err:
+        logger.debug("Direct Supabase verification failed: %s", api_err)
+    return None
+
+
+async def _attempt_token_decoding(token: str, supabase: Client | None) -> tuple[dict, str]:
+    """Try multiple strategies to key decode the token"""
+    # 1. Try Supabase JWT (Standard)
+    try:
+        return await decode_supabase_token(token), "supabase"
+    except (HTTPException, ValueError):
+        pass
+
+    # 2. Try Custom JWT (Fallback)
+    try:
+        return decode_custom_token(token), "custom"
+    except HTTPException as http_exc:
+        logger.warning("Custom authentication check unsuccessful (Status Code: %d)", http_exc.status_code)
+    except Exception:
+        logger.debug("Custom authentication check unsuccessful")
+
+    # 3. Try Direct API (Final Fallback)
+    if supabase:
+        payload = _verify_via_supabase_api(token, supabase)
+        if payload:
+            return payload, "supabase"
+
+    logger.warning("All authentication verification methods failed")
+    raise HTTPException(status_code=401, detail="Authentication failed: Invalid or expired token")
+
+
+async def _validate_token_security(payload: dict) -> None:
+    """Run security checks on decoded token payload"""
+    # 1. Check JTI Revocation (Blocklist)
+    jti = payload.get("jti")
+    if jti and await _is_token_revoked(jti):
+        raise HTTPException(status_code=401, detail="Token revoked")
+
+    # 2. Check Global User Invalidation
+    user_id = payload.get("sub") or payload.get("user_id")
+    iat = payload.get("iat")
+
+    if user_id and iat:
         try:
-            payload = decode_custom_token(token)
-            source = "custom"
-        except HTTPException as http_exc:
-            logger.warning("Custom authentication check unsuccessful (Status Code: %d)", http_exc.status_code)
+            token_service = await get_token_service()
+            issued_at = datetime.fromtimestamp(iat, timezone.utc)
+            if await token_service.is_user_invalidated(user_id, issued_at):
+                raise HTTPException(status_code=401, detail="Session invalidated (Password changed)")
+        except HTTPException:
             raise
         except Exception:
-            logger.debug("Custom authentication check unsuccessful")
+            logger.error("Failed to check user invalidation status")
 
-            # FINAL FALLBACK: Try Supabase API directly if we have a client
-            if supabase:
-                try:
-                    logger.debug("Attempting direct Supabase Auth verification...")
-                    user_res = supabase.auth.get_user(token)
-                    if user_res and user_res.user:
-                        supabase_user = user_res.user
-                        payload = {
-                            "sub": supabase_user.id,
-                            "user_id": supabase_user.id,
-                            "email": supabase_user.email,
-                            "user_metadata": supabase_user.user_metadata,
-                            "app_metadata": supabase_user.app_metadata,
-                            "iat": int(datetime.now(timezone.utc).timestamp()),
-                        }
-                        source = "supabase"
-                        logger.info("Authentication verified via direct Supabase Auth API")
-                        return payload, source
-                except Exception as api_err:
-                    logger.debug("Direct Supabase verification failed: %s", api_err)
 
-            logger.warning("All authentication verification methods failed")
-            raise HTTPException(status_code=401, detail="Authentication failed: Invalid or expired token")
+async def _verify_and_decode_token(token: str, supabase: Client | None = None) -> tuple[dict, str]:
+    """Helper to verify and decode token, trying Supabase first then custom"""
+    try:
+        payload, source = await _attempt_token_decoding(token, supabase)
+
+        if payload:
+            await _validate_token_security(payload)
+
+        return payload, source
+    except HTTPException:
+        raise
     except Exception:
         logger.error("Unexpected authentication verification error")
         raise HTTPException(status_code=401, detail="Authentication failed")
-
-    # Common Security Checks (Revocation & Invalidation)
-    if payload:
-        # 1. Check JTI Revocation (Blocklist)
-        jti = payload.get("jti")
-        if jti and await _is_token_revoked(jti):
-            raise HTTPException(status_code=401, detail="Token revoked")
-
-        # 2. Check Global User Invalidation (e.g. Password Reset)
-        user_id = payload.get("sub") or payload.get("user_id")
-        iat = payload.get("iat")
-        if user_id and iat:
-            try:
-                token_service = await get_token_service()
-                # Ensure iat is datetime
-                issued_at = datetime.fromtimestamp(iat, timezone.utc)
-                if await token_service.is_user_invalidated(user_id, issued_at):
-                    raise HTTPException(status_code=401, detail="Session invalidated (Password changed)")
-            except HTTPException:
-                raise
-            except Exception:
-                # Log but verify open? checking service might fail
-                # Ideally fail closed for high security
-                logger.error("Failed to check user invalidation status")
-
-    return payload, source
 
 
 async def get_current_user_from_credentials(

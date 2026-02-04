@@ -55,7 +55,7 @@
           <div class="flex flex-col sm:flex-row gap-4 justify-center w-full max-w-md">
             <button
               class="px-8 py-3 bg-white border-2 border-terracotta text-terracotta font-heading font-bold rounded-xl hover:bg-terracotta hover:text-white transition-all duration-300 transform hover:-translate-y-1"
-              @click="window.location.reload()"
+              @click="globalThis.location.reload()"
             >
               Upload Another
             </button>
@@ -107,9 +107,11 @@
               ]"
               @dragover.prevent
               @drop.prevent="handleDrop"
-              @click="!previewUrl && triggerFileInput()"
+              @click="handleFrameClick"
             >
+              <label for="file-upload" class="sr-only">Upload Photo</label>
               <input
+                id="file-upload"
                 ref="fileInput"
                 type="file"
                 accept="image/*"
@@ -127,6 +129,14 @@
                   class="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-sage-dark text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-lg flex items-center animate-fade-in-up"
                 >
                   Verified Cat Photo
+                </div>
+
+                <!-- Click to change hint -->
+                <div
+                  v-if="catDetectionResult?.has_cats && !isDetectingCats"
+                  class="absolute top-4 right-4 bg-white/80 text-stone-500 px-3 py-1.5 rounded-lg text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                >
+                  Click to change
                 </div>
               </div>
 
@@ -195,9 +205,11 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div class="space-y-2">
                 <label
+                  for="place-name"
                   class="block text-xs font-bold text-brown-light uppercase tracking-wider pl-1"
                 >Name of Place</label>
                 <input
+                  id="place-name"
                   v-model="locationName"
                   type="text"
                   placeholder="e.g. Sunny Window Bench"
@@ -209,9 +221,11 @@
 
               <div class="space-y-2">
                 <label
+                  for="place-description"
                   class="block text-xs font-bold text-brown-light uppercase tracking-wider pl-1"
                 >Description</label>
                 <textarea
+                  id="place-description"
                   v-model="description"
                   rows="1"
                   placeholder="What makes this spot special?"
@@ -222,9 +236,11 @@
 
               <div class="space-y-2 md:col-span-2">
                 <label
+                  for="tags-input"
                   class="block text-xs font-bold text-brown-light uppercase tracking-wider pl-1"
                 >Tags (Optional)</label>
                 <TagsInput
+                  id="tags-input"
                   v-model="tags"
                   placeholder="Add tag (press Enter)"
                   :max-tags="20"
@@ -350,7 +366,7 @@ import { useUploadCat } from '../composables/useUploadCat';
 import { useLocationPicker } from '../composables/useLocationPicker';
 import { useAuthStore } from '../store/authStore';
 const authStore = useAuthStore();
-import { showError, showSuccess, addToast } from '../store/toast';
+import { showError } from '../store/toast';
 import { catDetectionService } from '../services/catDetectionService';
 import { isDev, getEnvVar } from '../utils/env';
 import { DEFAULT_COORDINATES } from '../utils/constants';
@@ -463,13 +479,32 @@ function triggerFileInput() {
   fileInput.value?.click();
 }
 
+function handleFrameClick() {
+  if (isDetectingCats.value) return; // Don't allow click while detecting
+
+  // Allow click to change photo if verified cat, or if no preview yet
+  if (!previewUrl.value || catDetectionResult.value?.has_cats) {
+    triggerFileInput();
+  }
+}
+
+const resetImageSelection = () => {
+  if (previewUrl.value) {
+    URL.revokeObjectURL(previewUrl.value);
+  }
+  file.value = null;
+  previewUrl.value = null;
+  catDetectionResult.value = null;
+  if (fileInput.value) {
+    fileInput.value.value = '';
+  }
+};
+
 const processFile = (imageFile: File) => {
   if (!imageFile || !imageFile.type.startsWith('image/')) return;
 
   // Revoke old URL to prevent memory leak
-  if (previewUrl.value) {
-    URL.revokeObjectURL(previewUrl.value);
-  }
+  resetImageSelection();
 
   file.value = imageFile;
   previewUrl.value = URL.createObjectURL(imageFile);
@@ -498,7 +533,7 @@ async function detectCatsInImage(imageFile: File) {
   try {
     const result = await catDetectionService.detectCats(imageFile);
 
-    if (!result || typeof result.has_cats === 'undefined') {
+    if (!result || result.has_cats === undefined) {
       throw new Error('Invalid response from cat detection service');
     }
 
@@ -508,23 +543,8 @@ async function detectCatsInImage(imageFile: File) {
     const CONFIDENCE_THRESHOLD = 60;
 
     if (!result.has_cats || result.cat_count === 0) {
-      addToast(
-        'No cats detected automatically. Please verify this is a cat photo.',
-        'warning',
-        8000,
-        'Detection Warning',
-        {
-          label: 'Analyze Anyway',
-          onClick: async () => {
-            try {
-              await catDetectionService.analyzeSpot(imageFile);
-              showSuccess('Analysis complete! You can now proceed.');
-            } catch {
-              showError('Analysis failed. Please try again or use a different photo.');
-            }
-          },
-        }
-      );
+      showError('No cats detected. Please upload a real cat photo.', 'Invalid Image');
+      resetImageSelection();
     } else if (result.confidence < CONFIDENCE_THRESHOLD) {
       showError('Cat detection weak. Ensure the cat is visible.', 'Low Confidence');
     } else {
@@ -532,20 +552,12 @@ async function detectCatsInImage(imageFile: File) {
     }
   } catch (error) {
     if (isDev()) console.error('Cat detection error:', error);
-    // SECURITY FIX: Do NOT auto-approve on error - this was a bypass vulnerability
-    // Instead, mark as requiring server-side verification
+    // SECURITY FIX: Reset selection on error - do NOT auto-approve
     showError(
-      'Unable to verify image. The server will verify during upload.',
-      'Verification Notice'
+      'Unable to verify image. Please try again with a different photo.',
+      'Verification Failed'
     );
-    catDetectionResult.value = {
-      has_cats: true,
-      cat_count: 1, // Must be >= 1 when has_cats is true to pass backend validation
-      confidence: 0,
-      suitable_for_cat_spot: false,
-      requires_server_verification: true,
-      client_error: true,
-    };
+    resetImageSelection();
   } finally {
     isDetectingCats.value = false;
   }
@@ -610,7 +622,6 @@ async function handleSubmit() {
     const data = await uploadCatPhoto(file.value, locationData, catDetectionData);
     if (data) {
       uploadSuccess.value = true;
-      // showSuccess("Upload Successful!"); // Removed redundant toast: UI state change is enough
     }
   } catch (err: unknown) {
     if (isDev()) console.error('Upload failed:', err);

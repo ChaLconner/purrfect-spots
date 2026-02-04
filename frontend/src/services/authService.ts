@@ -2,7 +2,6 @@ import type { User, LoginResponse } from '../types/auth';
 import { apiV1, ApiError } from '../utils/api';
 import { isDev } from '../utils/env';
 
-
 export class AuthService {
   // Get current user information
   static async getCurrentUser(): Promise<User> {
@@ -47,24 +46,23 @@ export class AuthService {
   // Google OAuth code exchange
   static async googleCodeExchange(code: string, codeVerifier: string): Promise<LoginResponse> {
     try {
-      const redirectUri = `${window.location.origin}/auth/callback`;
-      
+      const redirectUri = `${globalThis.location.origin}/auth/callback`;
+
       // Log request for debugging
       if (isDev()) {
         // eslint-disable-next-line no-console
         console.log('Google OAuth exchange request:', {
           code: code ? 'present' : 'missing',
           code_verifier: codeVerifier ? 'present' : 'missing',
-          redirect_uri: redirectUri
+          redirect_uri: redirectUri,
         });
       }
-      
+
       return await apiV1.post('/auth/google/exchange', {
         code,
         code_verifier: codeVerifier,
-        redirect_uri: redirectUri
+        redirect_uri: redirectUri,
       });
-      
     } catch (error) {
       if (error instanceof ApiError) {
         // Provide more detailed error messages for specific cases
@@ -83,7 +81,7 @@ export class AuthService {
         }
         throw error;
       }
-      
+
       // Browser extension errors are handled by API interceptor
       throw error;
     }

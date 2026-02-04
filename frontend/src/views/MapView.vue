@@ -106,7 +106,6 @@ import ErrorState from '@/components/ui/ErrorState.vue';
 import CatDetailModal from '@/components/map/CatDetailModal.vue';
 import { loadGoogleMaps, isGoogleMapsLoaded } from '../utils/googleMapsLoader';
 import { getEnvVar } from '../utils/env';
-import { ghibliMapStyle } from '../theme/mapStyles';
 import { FALLBACK_LOCATION, MAP_CONFIG, EXTERNAL_URLS } from '../utils/constants';
 import { useCatsStore } from '../store';
 import type { CatLocation } from '../types/api';
@@ -176,10 +175,10 @@ const closeModal = () => {
 
 const initializeMap = async () => {
   await nextTick();
-  
+
   // Progressive loading: Start map initialization in background
   // Don't block the UI - show skeleton immediately
-  
+
   if (!isGoogleMapsLoaded()) {
     try {
       const apiKey = getEnvVar('VITE_GOOGLE_MAPS_API_KEY');
@@ -190,7 +189,7 @@ const initializeMap = async () => {
       // Load Google Maps without blocking
       await loadGoogleMaps({
         apiKey,
-        libraries: 'places',
+        libraries: 'places,marker',
         version: 'weekly',
       });
     } catch (err: unknown) {
@@ -222,15 +221,18 @@ const initializeMap = async () => {
     const defaultCenter = userLocation.value || FALLBACK_LOCATION;
 
     // Create map
+    // Note: When using mapId, styles must be configured in Google Cloud Console
+    // The 'styles' property is ignored when mapId is present
     map.value = new google.maps.Map(mapElement, {
       zoom: MAP_CONFIG.DEFAULT_ZOOM,
       center: defaultCenter,
+      mapId: '2e9b14b966a476a5ec49973f',
       disableDefaultUI: true,
       mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: false,
       zoomControl: false,
-      styles: ghibliMapStyle,
+      // styles: ghibliMapStyle, // Disabled: styles are controlled via Cloud Console when mapId is set
     });
 
     // Listeners with requestAnimationFrame for smooth performance
@@ -247,7 +249,7 @@ const initializeMap = async () => {
       }
 
       updateMarkers(displayedLocations.value, selectCat);
-      
+
       // Hide initial loading state
       isInitialLoading.value = false;
     });
@@ -354,7 +356,7 @@ watch(
       }
     }
   },
-  { deep: false }
+  { deep: false, immediate: true }
 ); // Shallow watch is fine since we replace the array
 
 // Watch user location
@@ -366,6 +368,13 @@ watch(userLocation, (pos, oldPos) => {
   if (pos && !oldPos && map.value && !searchQuery.value && !route.query.image) {
     map.value.panTo(pos);
     map.value.setZoom(15);
+  }
+});
+
+// Watch Map Instance - Fix for race condition where data loads before map
+watch(map, (newMap) => {
+  if (newMap && displayedLocations.value.length > 0) {
+    updateMarkers(displayedLocations.value, selectCat);
   }
 });
 

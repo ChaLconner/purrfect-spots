@@ -1,6 +1,6 @@
 /**
  * Web Vitals Tracking Utility
- * 
+ *
  * Tracks Core Web Vitals metrics for performance monitoring:
  * - LCP (Largest Contentful Paint)
  * - FID (First Input Delay)
@@ -38,7 +38,7 @@ const thresholds = {
 function getRating(name: string, value: number): 'good' | 'needs-improvement' | 'poor' {
   const threshold = thresholds[name as keyof typeof thresholds];
   if (!threshold) return 'good';
-  
+
   if (value <= threshold.good) return 'good';
   if (value <= threshold.poor) return 'needs-improvement';
   return 'poor';
@@ -71,10 +71,12 @@ function sendToAnalytics(metric: WebVitalMetric) {
   }
 
   // Report to Sentry if available
-  const win = window as Window & { Sentry?: {
-    addBreadcrumb: (data: Record<string, unknown>) => void;
-    captureMessage: (msg: string, data: Record<string, unknown>) => void;
-  }};
+  const win = globalThis as unknown as Window & {
+    Sentry?: {
+      addBreadcrumb: (data: Record<string, unknown>) => void;
+      captureMessage: (msg: string, data: Record<string, unknown>) => void;
+    };
+  };
   const Sentry = win.Sentry;
   if (Sentry) {
     Sentry.addBreadcrumb({
@@ -113,7 +115,7 @@ function sendToAnalytics(metric: WebVitalMetric) {
       rating: metric.rating,
       delta: metric.delta,
       id: metric.id,
-      page: window.location.pathname,
+      page: globalThis.location.pathname,
       timestamp: Date.now(),
     });
 
@@ -181,9 +183,15 @@ function observeFID() {
   try {
     const observer = new PerformanceObserver((list) => {
       const entries = list.getEntries();
-      const firstEntry = entries[0] as PerformanceEntry & { processingStart: number; startTime: number };
+      const firstEntry = entries[0] as PerformanceEntry & {
+        processingStart: number;
+        startTime: number;
+      };
       if (firstEntry) {
-        createReporter('FID')({ ...firstEntry, value: firstEntry.processingStart - firstEntry.startTime });
+        createReporter('FID')({
+          ...firstEntry,
+          value: firstEntry.processingStart - firstEntry.startTime,
+        });
       }
     });
     observer.observe({ type: 'first-input', buffered: true });
@@ -199,7 +207,10 @@ function observeCLS() {
   try {
     let clsValue = 0;
     const observer = new PerformanceObserver((list) => {
-      for (const entry of list.getEntries() as (PerformanceEntry & { hadRecentInput: boolean; value: number })[]) {
+      for (const entry of list.getEntries() as (PerformanceEntry & {
+        hadRecentInput: boolean;
+        value: number;
+      })[]) {
         if (!entry.hadRecentInput) {
           clsValue += entry.value;
         }
@@ -210,7 +221,9 @@ function observeCLS() {
     // Report on page hide
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') {
-        createReporter('CLS')({ duration: 0, value: clsValue } as PerformanceEntry & { value: number });
+        createReporter('CLS')({ duration: 0, value: clsValue } as PerformanceEntry & {
+          value: number;
+        });
       }
     });
   } catch {
@@ -227,7 +240,9 @@ function observeFCP() {
       const entries = list.getEntries();
       const fcpEntry = entries.find((entry) => entry.name === 'first-contentful-paint');
       if (fcpEntry) {
-        createReporter('FCP')({ ...fcpEntry, value: fcpEntry.startTime } as PerformanceEntry & { value: number });
+        createReporter('FCP')({ ...fcpEntry, value: fcpEntry.startTime } as PerformanceEntry & {
+          value: number;
+        });
       }
     });
     observer.observe({ type: 'paint', buffered: true });
@@ -241,9 +256,14 @@ function observeFCP() {
  */
 function observeTTFB() {
   try {
-    const navigationEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+    const navigationEntry = performance.getEntriesByType(
+      'navigation'
+    )[0] as PerformanceNavigationTiming;
     if (navigationEntry) {
-      createReporter('TTFB')({ ...navigationEntry, value: navigationEntry.responseStart } as PerformanceEntry & { value: number });
+      createReporter('TTFB')({
+        ...navigationEntry,
+        value: navigationEntry.responseStart,
+      } as PerformanceEntry & { value: number });
     }
   } catch {
     // Browser doesn't support TTFB
@@ -268,7 +288,9 @@ function observeINP() {
     // Report on page hide
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden' && maxINP > 0) {
-        createReporter('INP')({ duration: maxINP, value: maxINP } as PerformanceEntry & { value: number });
+        createReporter('INP')({ duration: maxINP, value: maxINP } as PerformanceEntry & {
+          value: number;
+        });
       }
     });
   } catch {
@@ -281,11 +303,11 @@ function observeINP() {
  * Call this in your main.ts after the app mounts
  */
 export function initWebVitals() {
-  if (typeof window === 'undefined') return;
+  if (typeof globalThis === 'undefined' || !globalThis.performance) return;
 
   // Wait for idle to not block main thread
-  if ('requestIdleCallback' in window) {
-    requestIdleCallback(() => {
+  if ('requestIdleCallback' in globalThis) {
+    (globalThis as unknown as { requestIdleCallback: (cb: () => void) => void }).requestIdleCallback(() => {
       observeLCP();
       observeFID();
       observeCLS();

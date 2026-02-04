@@ -23,15 +23,15 @@ export class GalleryService {
   /**
    * Get locations within a geographic viewport
    */
-  static async getViewportLocations(bounds: { 
-    north: number; 
-    south: number; 
-    east: number; 
-    west: number; 
-    limit?: number 
+  static async getViewportLocations(bounds: {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+    limit?: number;
   }): Promise<CatLocation[]> {
-    const data = await apiV1.get<CatLocation[] | { images: CatLocation[] }>('/gallery/viewport', { 
-      params: bounds 
+    const data = await apiV1.get<CatLocation[] | { images: CatLocation[] }>('/gallery/viewport', {
+      params: bounds,
     });
     if (Array.isArray(data)) {
       return data;
@@ -46,10 +46,10 @@ export class GalleryService {
     const apiParams = {
       q: params.query,
       tags: params.tags?.join(','),
-      limit: params.limit
+      limit: params.limit,
     };
-    return await apiV1.get<{ results: CatLocation[]; total: number }>('/gallery/search', { 
-      params: apiParams 
+    return await apiV1.get<{ results: CatLocation[]; total: number }>('/gallery/search', {
+      params: apiParams,
     });
   }
 
@@ -64,8 +64,8 @@ export class GalleryService {
    * Get popular tags
    */
   static async getPopularTags(limit = 20): Promise<{ tags: { tag: string; count: number }[] }> {
-    return await apiV1.get<{ tags: { tag: string; count: number }[] }>('/gallery/popular-tags', { 
-      params: { limit } 
+    return await apiV1.get<{ tags: { tag: string; count: number }[] }>('/gallery/popular-tags', {
+      params: { limit },
     });
   }
 }

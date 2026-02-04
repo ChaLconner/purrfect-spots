@@ -94,11 +94,7 @@ module = "tests.*"
 disallow_untyped_defs = false
 check_untyped_defs = false
 
-[[tool.mypy.overrides]]
-module = ["utils.*", "services.*", "routes.*", "middleware.*"]
-warn_return_any = false
-check_untyped_defs = false
-disable_error_code = ["import-untyped", "union-attr", "assignment", "arg-type", "return-value"]
+
 
 [tool.bandit]
 exclude_dirs = ["tests", ".venv", "__pycache__"]

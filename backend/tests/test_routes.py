@@ -127,7 +127,6 @@ class TestGalleryRoutes:
         response = client.get("/api/v1/gallery/?page=2&limit=10")
 
         assert response.status_code == 200
-        data = response.json()
         # Page 2 with limit 10 should have offset 10
         mock_service.get_all_photos.assert_called_with(
             limit=10,

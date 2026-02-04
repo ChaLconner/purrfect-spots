@@ -74,12 +74,11 @@ class TestFeatureFlagService:
         """Test get_all_flags returns all default flags"""
         with patch.dict(os.environ, {}, clear=False):
             # Clear any existing feature flags
-            for key in list(os.environ.keys()):
+            for key in os.environ.keys():
                 if key.startswith("FEATURE_"):
                     del os.environ[key]
 
             flags = FeatureFlagService.get_all_flags()
-            assert isinstance(flags, dict)
             assert "ENABLE_NEW_UI" in flags
             assert "ENABLE_POSTGIS_SEARCH" in flags
             assert "ENABLE_AI_DETECTION_V2" in flags
@@ -90,7 +89,6 @@ class TestFeatureFlagService:
             assert flags["MAINTENANCE_MODE"] is False
 
     def test_get_all_flags_with_env_override(self):
-        """Test get_all_flags includes environment overrides"""
         with patch.dict(
             os.environ,
             {

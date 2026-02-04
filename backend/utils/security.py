@@ -28,6 +28,8 @@ DANGEROUS_PATTERNS = [
     r"data:text/html",  # Data URLs with HTML
 ]
 
+from typing import Any
+
 
 # ========== Text Sanitization ==========
 def sanitize_text(text: str, max_length: int | None = None) -> str:
@@ -466,7 +468,7 @@ def log_file_operation_event(
         success: Whether the operation was successful
         error_message: Optional error message if operation failed
     """
-    details = {}
+    details: dict[str, Any] = {}
     if filename:
         # Sanitize filename - only show first 50 characters
         details["filename"] = filename[:50]

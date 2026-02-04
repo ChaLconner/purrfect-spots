@@ -14,13 +14,13 @@ export function useNetwork() {
   }
 
   onMounted(() => {
-    window.addEventListener('online', updateOnlineStatus);
-    window.addEventListener('offline', updateOnlineStatus);
+    globalThis.addEventListener('online', updateOnlineStatus);
+    globalThis.addEventListener('offline', updateOnlineStatus);
   });
 
   onUnmounted(() => {
-    window.removeEventListener('online', updateOnlineStatus);
-    window.removeEventListener('offline', updateOnlineStatus);
+    globalThis.removeEventListener('online', updateOnlineStatus);
+    globalThis.removeEventListener('offline', updateOnlineStatus);
   });
 
   return {

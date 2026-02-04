@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 /**
  * E2E Tests for Gallery Page
  *
@@ -24,6 +26,7 @@ test.describe('Gallery Page', () => {
     });
 
     // Use specific matching for the list endpoint (allow optional query params)
+    // eslint-disable-next-line security/detect-unsafe-regex
     await page.route(/\/api\/v1\/gallery(?:\?.*)?$/, async (route) => {
       await route.fulfill({
         status: 200,

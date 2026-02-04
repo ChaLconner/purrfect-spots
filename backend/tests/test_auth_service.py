@@ -17,6 +17,12 @@ from utils.datetime_utils import utc_now
 class TestAuthService:
     """Test suite for AuthService"""
 
+    TEST_USER_ID = "user-123"
+    TEST_EMAIL = "test@test.com"
+    TEST_NAME = "Test User"
+    OLD_PASSWORD = "old_password"
+    NEW_PASSWORD = "new_password"
+
     @pytest.fixture
     def mock_user_service(self):
         """Mock UserService"""
@@ -61,9 +67,9 @@ class TestAuthService:
     @pytest.mark.asyncio
     async def test_change_password_success(self, auth_service, mock_user_service):
         """Test changing password successfully"""
-        user_id = "user-123"
-        current_password = "old_password"
-        new_password = "new_password"
+        user_id = self.TEST_USER_ID
+        current_password = self.OLD_PASSWORD
+        new_password = self.NEW_PASSWORD
 
         # Mock user retrieval
         mock_user = User(

@@ -2,6 +2,7 @@
 import { getEnvVar, isDev } from '../../utils/env';
 import { showError } from '../../store/toast';
 import { ref } from 'vue';
+import { getGoogleAuthUrl } from '../../utils/oauth';
 
 const isLoading = ref(false);
 
@@ -15,24 +16,11 @@ const handleGoogleLogin = async () => {
       throw new Error('Google OAuth is not configured. Please contact administrator.');
     }
 
-    const redirectUri = `${window.location.origin}/auth/callback`;
-
-    const codeVerifier = generateCodeVerifier();
-    const codeChallenge = await generateCodeChallenge(codeVerifier);
+    const redirectUri = `${globalThis.location.origin}/auth/callback`;
+    const { url, codeVerifier } = await getGoogleAuthUrl(googleClientId, redirectUri);
 
     sessionStorage.setItem('google_code_verifier', codeVerifier);
-
-    const oauthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-    oauthUrl.searchParams.append('client_id', googleClientId);
-    oauthUrl.searchParams.append('redirect_uri', redirectUri);
-    oauthUrl.searchParams.append('response_type', 'code');
-    oauthUrl.searchParams.append('scope', 'openid email profile');
-    oauthUrl.searchParams.append('code_challenge', codeChallenge);
-    oauthUrl.searchParams.append('code_challenge_method', 'S256');
-    oauthUrl.searchParams.append('access_type', 'offline');
-    oauthUrl.searchParams.append('prompt', 'consent');
-
-    window.location.href = oauthUrl.toString();
+    globalThis.location.href = url;
   } catch (err: unknown) {
     if (isDev()) {
       console.error('Google OAuth Error:', err);
@@ -43,27 +31,6 @@ const handleGoogleLogin = async () => {
     isLoading.value = false;
   }
 };
-
-// PKCE helper functions
-function generateCodeVerifier(): string {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return base64URLEncode(array);
-}
-
-async function generateCodeChallenge(codeVerifier: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(codeVerifier);
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  return base64URLEncode(new Uint8Array(digest));
-}
-
-function base64URLEncode(array: Uint8Array): string {
-  return btoa(String.fromCharCode(...array))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
-}
 </script>
 
 <template>

@@ -3,8 +3,10 @@ Authentication service for Google OAuth and traditional email/password auth
 """
 
 import hashlib
+import os
 import uuid
 from datetime import datetime, timedelta, timezone
+from typing import cast
 
 import jwt
 from supabase import Client, create_client
@@ -33,6 +35,31 @@ class AuthService:
         self.jwt_secret = config.JWT_SECRET
         self.jwt_algorithm = config.JWT_ALGORITHM
         self.jwt_expiration_hours = config.JWT_ACCESS_EXPIRATION_HOURS
+
+        if not self.jwt_secret:
+            raise ValueError("JWT_SECRET is not configured")
+
+    def _find_or_create_google_user(self, user_info, google_id):
+        """Find existing user by Google ID or prepare data for new user"""
+        existing_user = None
+        try:
+            # Use admin client to check existence
+            res = self.supabase_admin.table("users").select("id").eq("google_id", google_id).execute()
+            if res.data:
+                existing_user = res.data[0]
+        except Exception as e:
+            logger.debug("Identity check unsuccessful: %s", e)
+
+        user_id = existing_user["id"] if existing_user else str(uuid.uuid4())
+
+        return {
+            "id": user_id,
+            "sub": user_id,
+            "google_id": google_id,
+            "email": user_info["email"],
+            "name": user_info["name"],
+            "picture": user_info.get("picture", ""),
+        }
 
     def _generate_fingerprint(self, ip: str, user_agent: str) -> str:
         """Generate SHA256 fingerprint from IP (subnet) and User-Agent"""
@@ -119,55 +146,45 @@ class AuthService:
         Uses Redis if available, otherwise falls back to database.
         """
         try:
-            import os
-
-            redis_url = os.getenv("REDIS_URL")
-
-            # Try Redis first for performance
-            if redis_url:
-                try:
-                    import redis.asyncio as aioredis
-
-                    redis_client = aioredis.from_url(redis_url, encoding="utf-8", decode_responses=False)
-                    session_count_key = f"user_sessions:{user_id}"
-                    session_count = await redis_client.incr(session_count_key)
-                    await redis_client.expire(session_count_key, self.jwt_expiration_hours * 3600)  # Expire with token
-
-                    # Set to 1 if this is a new session (first increment)
-                    if session_count == 1:
-                        await redis_client.expire(session_count_key, self.jwt_expiration_hours * 3600)
-
-                    await redis_client.close()
-
-                    if session_count > self.MAX_CONCURRENT_SESSIONS:
-                        logger.warning("User %s exceeded max concurrent sessions: %d", user_id, session_count)
-                        return False
-
-                    return True
-                except Exception:
-                    pass
-
-            # Fallback to database check
-            # Count active sessions from token_blacklist (non-expired entries)
-            result = self.supabase_admin.table("token_blacklist").select("*").eq("user_id", user_id).execute()
-
-            if result.data:
-                active_sessions = 0
-                now = utc_now()
-                for entry in result.data:
-                    expires_at = datetime.fromisoformat(entry["expires_at"].replace("Z", "+00:00"))
-                    if now < expires_at:
-                        active_sessions += 1
-
-                if active_sessions >= self.MAX_CONCURRENT_SESSIONS:
-                    logger.warning("User %s exceeded max concurrent sessions: %d", user_id, active_sessions)
-                    return False
-
+            active_sessions = await self._get_active_session_count(user_id)
+            if active_sessions > self.MAX_CONCURRENT_SESSIONS:
+                logger.warning("User %s exceeded max concurrent sessions: %d", user_id, active_sessions)
+                return False
             return True
         except Exception as e:
             logger.error("Failed to check concurrent sessions: %s", e)
-            # Fail open to avoid blocking legitimate users
             return True
+
+    async def _get_active_session_count(self, user_id: str) -> int:
+        """Helper to get active session count from Redis or DB"""
+        redis_url = os.getenv("REDIS_URL")
+        if redis_url:
+            count = await self._get_redis_session_count(user_id, redis_url)
+            if count is not None:
+                return count
+        return self._get_db_session_count(user_id)
+
+    async def _get_redis_session_count(self, user_id: str, redis_url: str) -> int | None:
+        try:
+            import redis.asyncio as aioredis
+
+            redis_client = aioredis.from_url(redis_url, encoding="utf-8", decode_responses=False)
+            session_count_key = f"user_sessions:{user_id}"
+            session_count = await redis_client.incr(session_count_key)
+            await redis_client.expire(session_count_key, self.jwt_expiration_hours * 3600)
+            await redis_client.close()
+            return session_count
+        except Exception:
+            return None
+
+    def _get_db_session_count(self, user_id: str) -> int:
+        result = self.supabase_admin.table("token_blacklist").select("*").eq("user_id", user_id).execute()
+        if not result.data:
+            return 0
+        now = utc_now()
+        return sum(
+            1 for entry in result.data if datetime.fromisoformat(entry["expires_at"].replace("Z", "+00:00")) > now
+        )
 
     async def _check_user_invalidated(self, user_id: str, iat: int) -> bool:
         """Check if user has been globally invalidated"""
@@ -223,9 +240,6 @@ class AuthService:
         Get user by email, including unverified users.
         UserService.get_user_by_email wraps supabase select.
         """
-        # UserService.get_user_by_email currently does exactly this (admin select * from users where email=...)
-        # But let's verify if it returns email_confirmed_at.
-        # UserService returns a dict.
         return self.user_service.get_user_by_email(email)
 
     def authenticate_user(self, email: str, password: str) -> dict | None:
@@ -248,47 +262,7 @@ class AuthService:
             google_id = user_info["google_id"]
 
             # Check for existing user by Google ID or create new
-            # We can use create_or_get_user for this
-            user_uuid = str(uuid.uuid4())  # We don't know the ID yet, but create_or_get_user handles lookup
-
-            # Optimization: Try to find existing user first to avoid uuid churn if needed,
-            # but create_or_get_user handles it.
-            # Actually create_or_get_user expects "id" in user_data.
-            # We need to find the user first to get their ID if they exist.
-
-            # Quick check via UserService
-            # The original code did a manual check. UserService.create_or_get_user also does upsert.
-
-            # We need to construct the user_data dict expected by create_or_get_user
-            # Original code:
-            # result = self.supabase_admin.table("users").select("*").eq("google_id", google_sub).execute()
-            # if result.data: existing_user = result.data[0]
-            # user_uuid = existing_user["id"] if existing_user else str(uuid.uuid4())
-
-            # Let's duplicate this logic locally or add `get_user_by_google_id` to UserService?
-            # For now, let's just do the check here to pass the correct ID.
-
-            existing_user = None
-            try:
-                # Use admin client to check existence
-                res = self.supabase_admin.table("users").select("id").eq("google_id", google_id).execute()
-                if res.data:
-                    existing_user = res.data[0]
-            except Exception as e:
-                logger.debug("Identity check unsuccessful: %s", e)
-                pass
-
-            user_id = existing_user["id"] if existing_user else str(uuid.uuid4())
-
-            user_data = {
-                "id": user_id,
-                "sub": user_id,
-                "google_id": google_id,
-                "email": user_info["email"],
-                "name": user_info["name"],
-                "picture": user_info.get("picture", ""),
-            }
-
+            user_data = self._find_or_create_google_user(user_info, google_id)
             user = self.user_service.create_or_get_user(user_data)
 
             jwt_token = self.create_access_token(user.id, user_data)
@@ -329,7 +303,7 @@ class AuthService:
         if ip or user_agent:
             to_encode["fingerprint"] = self._generate_fingerprint(ip or "", user_agent or "")
 
-        encoded_jwt = jwt.encode(to_encode, config.JWT_REFRESH_SECRET, algorithm=self.jwt_algorithm)
+        encoded_jwt = jwt.encode(to_encode, cast(str, config.JWT_REFRESH_SECRET), algorithm=self.jwt_algorithm)
         return encoded_jwt
 
     async def verify_refresh_token(
@@ -337,7 +311,7 @@ class AuthService:
     ) -> dict | None:
         """Verify refresh token"""
         try:
-            payload = jwt.decode(token, config.JWT_REFRESH_SECRET, algorithms=[self.jwt_algorithm])
+            payload = jwt.decode(token, cast(str, config.JWT_REFRESH_SECRET), algorithms=[self.jwt_algorithm])
 
             if payload.get("type") != "refresh":
                 return None
@@ -369,7 +343,7 @@ class AuthService:
             logger.error("Session verification unsuccessful")
             return None
 
-    async def create_password_reset_token(self, email: str) -> bool:
+    def create_password_reset_token(self, email: str) -> bool:
         """Request password reset via Supabase Auth"""
         try:
             params = {
@@ -401,103 +375,68 @@ class AuthService:
     async def reset_password(self, access_token: str, new_password: str) -> bool:
         """Reset password using Supabase Auth session"""
         try:
-            is_valid, error = await password_service.validate_new_password(new_password)
-            if not is_valid:
-                logger.warning("Password validation failed during reset")
-                raise ValueError(error)
-
-            temp_client = create_client(config.SUPABASE_URL, config.SUPABASE_KEY)
-            temp_client.postgrest.auth(access_token)
-
-            user_res = temp_client.auth.get_user(access_token)
-            if not user_res or not user_res.user:
-                return False
-
-            user_id = user_res.user.id
-            temp_client.auth.update_user({"password": new_password})
-
-            self.supabase_admin.table("users").update(
-                {"password_hash": password_service.hash_password(new_password), "updated_at": utc_now().isoformat()}
-            ).eq("id", user_id).execute()
-
-            try:
-                ts = await get_token_service()
-                await ts.blacklist_all_user_tokens(user_id, reason="password_reset")
-            except Exception as e:
-                logger.warning("Background cleanup unsuccessful (Status: %s)", e)
-                pass
-
-            try:
-                email_service.send_password_changed_email(user_res.user.email)
-            except Exception as e:
-                logger.warning("Notification cleanup unsuccessful: %s", e)
-                pass
-
-            log_security_event("password_reset_success", user_id=user_id, severity="INFO")
-
+            await self._validate_and_update_password(access_token, new_password)
             return True
         except Exception as e:
-            logger.error("Reset password failed")
-            # Sanitize error in security event as well
+            logger.error(f"Reset password failed: {e}")
             log_security_event(
                 "password_reset_failed", details={"error": "An internal error occurred"}, severity="ERROR"
             )
             return False
 
+    async def _validate_and_update_password(self, access_token: str, new_password: str):
+        is_valid, error = await password_service.validate_new_password(new_password)
+        if not is_valid:
+            logger.warning("Password validation failed during reset")
+            raise ValueError(error)
+
+        temp_client = create_client(config.SUPABASE_URL, config.SUPABASE_KEY)
+        temp_client.postgrest.auth(access_token)
+
+        user_res = temp_client.auth.get_user(access_token)
+        if not user_res or not user_res.user:
+            raise ValueError("Invalid user session")
+
+        user_id = user_res.user.id
+        temp_client.auth.update_user({"password": new_password})
+
+        self.supabase_admin.table("users").update(
+            {"password_hash": password_service.hash_password(new_password), "updated_at": utc_now().isoformat()}
+        ).eq("id", user_id).execute()
+
+        if user_res.user.email:
+            await self._post_password_reset_cleanup(user_id, user_res.user.email)
+        else:
+            logger.warning(f"User {user_id} has no email, skipping cleanup notification")
+        log_security_event("password_reset_success", user_id=user_id, severity="INFO")
+
+    async def _post_password_reset_cleanup(self, user_id: str, email: str):
+        try:
+            ts = await get_token_service()
+            await ts.blacklist_all_user_tokens(user_id, reason="password_reset")
+        except Exception as e:
+            logger.warning("Token cleanup unsuccessful: %s", e)
+
+        try:
+            email_service.send_password_changed_email(email)
+        except Exception as e:
+            logger.warning("Notification cleanup unsuccessful: %s", e)
+
     async def change_password(self, user_id: str, current_password: str, new_password: str) -> bool:
         """Change password - Delegate checks to validators, then update via admin"""
         try:
-            # We can use UserService for some of this, but password verification logic is specific
-            # Let's keep the logic here but reuse components
             user = self.user_service.get_user_by_id(user_id)
             if not user:
                 return False
 
-            if user.google_id:
-                raise ValueError("This account uses Google Login. Please manage your password through Google Settings.")
-
-            is_valid, error = await password_service.validate_new_password(new_password)
-            if not is_valid:
-                raise ValueError(error)
-
-            password_verified = False
-            if user.password_hash:
-                try:
-                    password_verified = password_service.verify_password(current_password, user.password_hash)
-                except Exception:
-                    password_verified = False
-
-            if not password_verified:
-                # Fallback to Supabase Auth check
-                auth_res = self.user_service.authenticate_user(user.email, current_password)
-                if auth_res:
-                    password_verified = True
-
-            if not password_verified:
-                raise ValueError("Incorrect current password")
+            await self._verify_password_change_eligibility(user, current_password, new_password)
 
             # Update password
             self.supabase_admin.auth.admin.update_user_by_id(user_id, {"password": new_password})
-
-            # Update hash
             self.user_service.update_password_hash(user_id, new_password)
 
-            # Invalidate tokens
-            try:
-                ts = await get_token_service()
-                await ts.blacklist_all_user_tokens(user_id, reason="password_change")
-            except Exception:
-                logger.warning("Failed to blacklist tokens")
-
-            # Send email
-            try:
-                email_service.send_password_changed_email(user.email)
-            except Exception as e:
-                logger.warning("Notification cleanup unsuccessful (Retry): %s", e)
-                pass
-
+            await self._post_password_change_cleanup(user_id, user.email)
             log_security_event("password_change_success", user_id=user_id, severity="INFO")
-
             return True
         except ValueError as e:
             log_security_event(
@@ -505,11 +444,48 @@ class AuthService:
             )
             raise e
         except Exception as e:
-            logger.error("Change password failed")
+            logger.error(f"Change password failed: {e}")
             log_security_event(
                 "password_change_error",
                 user_id=user_id,
                 details={"error": "An internal error occurred"},
                 severity="ERROR",
             )
-            raise Exception("Failed to change password")
+            from exceptions import PurrfectSpotsException
+
+            raise PurrfectSpotsException("Failed to change password", error_code="INTERNAL_ERROR")
+
+    async def _verify_password_change_eligibility(self, user, current_pward, new_pward):
+        if user.google_id:
+            raise ValueError("This account uses Google Login. Please manage your password through Google Settings.")
+
+        is_valid, error = await password_service.validate_new_password(new_pward)
+        if not is_valid:
+            raise ValueError(error)
+
+        password_verified = await self._verify_current_password(user, current_pward)
+        if not password_verified:
+            raise ValueError("Incorrect current password")
+
+    async def _verify_current_password(self, user, current_pward) -> bool:
+        if user.password_hash:
+            try:
+                if password_service.verify_password(current_pward, user.password_hash):
+                    return True
+            except Exception:
+                pass
+
+        # Fallback to Supabase Auth check
+        return bool(self.user_service.authenticate_user(user.email, current_pward))
+
+    async def _post_password_change_cleanup(self, user_id, email):
+        try:
+            ts = await get_token_service()
+            await ts.blacklist_all_user_tokens(user_id, reason="password_change")
+        except Exception:
+            logger.warning("Failed to blacklist tokens")
+
+        try:
+            email_service.send_password_changed_email(email)
+        except Exception as e:
+            logger.warning("Notification cleanup unsuccessful: %s", e)

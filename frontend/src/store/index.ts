@@ -1,6 +1,6 @@
 /**
  * Pinia Store Configuration
- * 
+ *
  * Central export for all Pinia stores.
  * Import stores from this file for clean imports.
  */

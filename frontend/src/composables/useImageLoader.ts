@@ -39,13 +39,13 @@ export function useImageLoader(options: UseImageLoaderOptions): UseImageLoaderRe
     hasError.value = false;
     isLoaded.value = false;
     // Force re-render if needed, but usually src change or just retry logic in component handles it.
-    // Here we can reset intersection if we want to force re-observation, 
+    // Here we can reset intersection if we want to force re-observation,
     // but usually user clicks retry.
     if (lazy) {
-        isIntersecting.value = false;
-        setTimeout(() => {
-            isIntersecting.value = true; 
-        }, 100);
+      isIntersecting.value = false;
+      setTimeout(() => {
+        isIntersecting.value = true;
+      }, 100);
     }
   };
 
@@ -55,7 +55,7 @@ export function useImageLoader(options: UseImageLoaderOptions): UseImageLoaderRe
       return;
     }
 
-    if ('IntersectionObserver' in window) {
+    if ('IntersectionObserver' in globalThis) {
       observer = new IntersectionObserver(
         (entries) => {
           entries.forEach((entry) => {

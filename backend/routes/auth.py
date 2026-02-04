@@ -71,9 +71,8 @@ async def register(
 
         sanitized_name = sanitize_text(data.name.strip(), max_length=100)
 
-        # Create user via Supabase Auth (without email confirmation)
         try:
-            user_data = auth_service.create_user_with_password(data.email, data.password, sanitized_name)
+            auth_service.create_user_with_password(data.email, data.password, sanitized_name)
         except Exception as e:
             logger.error("Registration processing error")
             error_msg = str(e)
@@ -83,15 +82,13 @@ async def register(
 
         # Generate and send OTP
         otp_service = get_otp_service()
-        otp_code, expires_at = await otp_service.create_otp(data.email)
+        otp_code, _ = otp_service.create_otp(data.email)
 
         # Send OTP via email
         email_sent = email_service.send_otp_email(data.email, otp_code)
 
         if not email_sent:
             logger.warning("Failed to send OTP email to %s", data.email)
-
-        from utils.security import log_security_event
 
         log_security_event("register_otp_sent", details={"email": data.email}, severity="INFO")
 
@@ -148,7 +145,6 @@ async def verify_otp(
         if not user_data:
             raise HTTPException(status_code=404, detail="User not found")
 
-        # user_id = user_data["id"] # Not used but good for reference
         return await create_login_response(auth_service, user_data.copy(), request, response)
 
     except HTTPException:
@@ -169,14 +165,14 @@ async def resend_otp(
         otp_service = get_otp_service()
 
         # Check cooldown
-        can_resend, seconds_remaining = await otp_service.can_resend_otp(req.email)
+        can_resend, seconds_remaining = otp_service.can_resend_otp(req.email)
         if not can_resend:
             raise HTTPException(
                 status_code=429, detail=f"Please wait {seconds_remaining} seconds before requesting a new code."
             )
 
         # Generate new OTP
-        otp_code, expires_at = await otp_service.create_otp(req.email)
+        otp_code, expires_at = otp_service.create_otp(req.email)
 
         # Send OTP via email
         email_sent = email_service.send_otp_email(req.email, otp_code)
@@ -303,7 +299,7 @@ async def forgot_password(
     """Request password reset (via Supabase Auth)"""
     try:
         # Supabase sends the email automatically
-        await auth_service.create_password_reset_token(req.email)
+        auth_service.create_password_reset_token(req.email)
         return {"message": "If this email is registered, you will receive password reset instructions."}
     except Exception:
         logger.error("Forgot password processing failed")
@@ -455,6 +451,33 @@ async def google_login(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Login failed")
 
 
+def _validate_google_redirect_uri(redirect_uri: str) -> bool:
+    """Validate the redirect URI against allowed origins"""
+    allowed_origins = config.get_allowed_origins()
+
+    # Check if the redirect URI matches any allowed origin + /auth/callback
+    for origin in allowed_origins:
+        expected = f"{origin.rstrip('/')}/auth/callback"
+        if redirect_uri == expected:
+            return True
+
+    # Fallback for production domains not in CORS (e.g. valid subdomains)
+    if redirect_uri.endswith("/auth/callback"):
+        uri_parts = redirect_uri.split("/")
+        if len(uri_parts) >= 3:
+            origin = "/".join(uri_parts[:3])
+            allowed_production_domains = [
+                "http://localhost:5173",
+                "https://localhost:5173",
+                "https://purrfect-spots.vercel.app",
+            ]
+            if origin in allowed_production_domains:
+                logger.debug(f"Auth Exchange Debug: Matched production domain={origin}")
+                return True
+
+    return False
+
+
 @router.post("/google/exchange", response_model=LoginResponse)
 async def google_exchange_code(
     response: Response,
@@ -471,37 +494,10 @@ async def google_exchange_code(
         if not exchange_data.redirect_uri:
             raise ValueError("Redirect URI is required")
 
-        # Validate redirect URI against allowed origins
-        allowed_origins = config.get_allowed_origins()
-        redirect_origin = None
-
         logger.debug(f"Auth Exchange Debug: Received redirect_uri={exchange_data.redirect_uri}")
 
-        # Check if the redirect URI matches any allowed origin + /auth/callback
-        expected_redirects = []
-        for origin in allowed_origins:
-            expected = f"{origin.rstrip('/')}/auth/callback"
-            expected_redirects.append(expected)
-            if exchange_data.redirect_uri == expected:
-                redirect_origin = origin
-                break
-
-        # Fallback for production domains not in CORS
-        if not redirect_origin and exchange_data.redirect_uri.endswith("/auth/callback"):
-            uri_parts = exchange_data.redirect_uri.split("/")
-            if len(uri_parts) >= 3:
-                origin = "/".join(uri_parts[:3])
-                allowed_production_domains = [
-                    "http://localhost:5173",
-                    "https://localhost:5173",
-                    "https://purrfect-spots.vercel.app",
-                ]
-                if origin in allowed_production_domains:
-                    redirect_origin = origin
-                    logger.debug(f"Auth Exchange Debug: Matched production domain={origin}")
-
-        if not redirect_origin:
-            logger.warning(f"Invalid redirect URI: {exchange_data.redirect_uri}. Expected: {expected_redirects}")
+        if not _validate_google_redirect_uri(exchange_data.redirect_uri):
+            logger.warning(f"Invalid redirect URI: {exchange_data.redirect_uri}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid redirect URI",

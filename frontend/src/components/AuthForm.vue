@@ -56,7 +56,7 @@
                 :type="showPassword ? 'text' : 'password'"
                 required
                 placeholder="••••••••"
-                autocomplete="current-password"
+                :autocomplete="isLogin ? 'current-password' : 'new-password'"
                 class="form-input password-input"
               />
               <button
@@ -126,6 +126,7 @@
                 type="text"
                 required
                 placeholder="Your name"
+                autocomplete="name"
                 class="form-input"
               />
             </div>
@@ -188,6 +189,7 @@ import { useAuthStore } from '../store/authStore';
 import { showSuccess, showError } from '../store/toast';
 import { AuthService } from '../services/authService';
 import { isDev, getEnvVar } from '../utils/env';
+import { getGoogleAuthUrl } from '../utils/oauth';
 import PasswordStrengthMeter from '@/components/ui/PasswordStrengthMeter.vue';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 
@@ -221,35 +223,39 @@ const form = reactive({
 // Check if user is already logged in
 onMounted(() => {
   if (useAuthStore().isUserReady) {
-    const redirectPath = sessionStorage.getItem('redirectAfterAuth') || '/upload';
-    sessionStorage.removeItem('redirectAfterAuth');
+    const redirectPath = globalThis.sessionStorage?.getItem('redirectAfterAuth') || '/upload';
+    globalThis.sessionStorage?.removeItem('redirectAfterAuth');
     router.push(redirectPath);
   }
 });
 
+const validateForm = () => {
+  const fields = isLogin.value
+    ? [form.email, form.password]
+    : [form.name, form.email, form.password];
+
+  if (fields.some((f) => !f?.trim())) {
+    showError('Please fill in all fields');
+    return false;
+  }
+
+  if (!isLogin.value && form.password.length < 8) {
+    showError('Password must be at least 8 characters');
+    return false;
+  }
+
+  return true;
+};
+
 const handleSubmit = async () => {
+  if (!validateForm()) return;
+
   isLoading.value = true;
+  // error.value is not defined in the original code, assuming it's a placeholder or needs to be defined.
+  // For now, I'll comment it out or assume it's handled elsewhere if not explicitly defined.
+  // error.value = '';
 
   try {
-    // Client-side validation
-    if (!form.email.trim()) {
-      throw new Error('Please enter your email');
-    }
-
-    if (!form.password.trim()) {
-      throw new Error('Please enter your password');
-    }
-
-    if (!isLogin.value) {
-      if (!form.name.trim()) {
-        throw new Error('Please enter your full name');
-      }
-
-      if (form.password.length < 8) {
-        throw new Error('Password must be at least 8 characters');
-      }
-    }
-
     let data;
     if (isLogin.value) {
       data = await AuthService.login(form.email, form.password);
@@ -304,24 +310,11 @@ const handleGoogleLogin = async () => {
       throw new Error('Google OAuth is not configured. Please contact administrator.');
     }
 
-    const redirectUri = `${window.location.origin}/auth/callback`;
+    const redirectUri = `${globalThis.location.origin}/auth/callback`;
+    const { url, codeVerifier } = await getGoogleAuthUrl(googleClientId, redirectUri);
 
-    const codeVerifier = generateCodeVerifier();
-    const codeChallenge = await generateCodeChallenge(codeVerifier);
-
-    sessionStorage.setItem('google_code_verifier', codeVerifier);
-
-    const oauthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-    oauthUrl.searchParams.append('client_id', googleClientId);
-    oauthUrl.searchParams.append('redirect_uri', redirectUri);
-    oauthUrl.searchParams.append('response_type', 'code');
-    oauthUrl.searchParams.append('scope', 'openid email profile');
-    oauthUrl.searchParams.append('code_challenge', codeChallenge);
-    oauthUrl.searchParams.append('code_challenge_method', 'S256');
-    oauthUrl.searchParams.append('access_type', 'offline');
-    oauthUrl.searchParams.append('prompt', 'consent');
-
-    window.location.href = oauthUrl.toString();
+    globalThis.sessionStorage.setItem('google_code_verifier', codeVerifier);
+    globalThis.location.href = url;
   } catch (err: unknown) {
     if (isDev()) {
       console.error('Google OAuth Error:', err);
@@ -332,27 +325,6 @@ const handleGoogleLogin = async () => {
     isLoading.value = false;
   }
 };
-
-// PKCE helper functions
-function generateCodeVerifier(): string {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return base64URLEncode(array);
-}
-
-async function generateCodeChallenge(codeVerifier: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(codeVerifier);
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  return base64URLEncode(new Uint8Array(digest));
-}
-
-function base64URLEncode(array: Uint8Array): string {
-  return btoa(String.fromCharCode(...array))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
-}
 </script>
 
 <style scoped>
@@ -562,7 +534,6 @@ function base64URLEncode(array: Uint8Array): string {
   gap: 0.5rem;
   font-family: 'Nunito', sans-serif;
   font-size: 0.9rem;
-  font-weight: 600;
   font-weight: 600;
   color: #5a4632;
 }
@@ -793,8 +764,8 @@ function base64URLEncode(array: Uint8Array): string {
 }
 
 .switch-link {
-  color: #7fb7a4;
-  font-weight: 600;
+  color: #a65d37;
+  font-weight: 700;
   text-decoration: none;
   margin-left: 0.25rem;
   transition: color 0.2s ease;

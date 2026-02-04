@@ -1,3 +1,4 @@
+/* eslint-disable vue/one-component-per-file */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useNetwork } from '@/composables/useNetwork';
 import { mount } from '@vue/test-utils';
@@ -41,7 +42,7 @@ describe('useNetwork', () => {
 
     // Simulate going offline
     Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
-    window.dispatchEvent(new Event('offline'));
+    globalThis.dispatchEvent(new Event('offline'));
 
     await nextTick();
 
@@ -64,7 +65,7 @@ describe('useNetwork', () => {
     
     // Simulate going online
     Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
-    window.dispatchEvent(new Event('online'));
+    globalThis.dispatchEvent(new Event('online'));
     
     await nextTick();
 
@@ -73,7 +74,7 @@ describe('useNetwork', () => {
   });
 
   it('should remove event listeners on unmount', () => {
-    const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener');
+    const removeEventListenerSpy = vi.spyOn(globalThis, 'removeEventListener');
     
     const TestComponent = defineComponent({
       setup() {

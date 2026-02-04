@@ -47,7 +47,7 @@ if (isDev()) {
   console.log('[ImageUtils] CDN Config:', {
     configured: !!envCdnUrl,
     url: envCdnUrl || '(none)',
-    enabled: DEFAULT_CDN_CONFIG.enabled
+    enabled: DEFAULT_CDN_CONFIG.enabled,
   });
 }
 
@@ -68,14 +68,14 @@ export const getCDNUrl = (imageUrl: string, options?: ImageOptimizationOptions):
 
   const { baseUrl, defaultParams } = DEFAULT_CDN_CONFIG;
   const url = new URL(imageUrl, baseUrl);
-  
+
   // Add default parameters
   if (defaultParams) {
     Object.entries(defaultParams).forEach(([key, value]) => {
       url.searchParams.set(key, value);
     });
   }
-  
+
   // Add custom parameters based on options
   if (options) {
     if (options.maxWidth) url.searchParams.set('w', options.maxWidth.toString());
@@ -83,7 +83,7 @@ export const getCDNUrl = (imageUrl: string, options?: ImageOptimizationOptions):
     if (options.quality) url.searchParams.set('q', options.quality.toString());
     if (options.format) url.searchParams.set('f', options.format);
   }
-  
+
   return url.toString();
 };
 
@@ -95,54 +95,54 @@ export const optimizeImage = async (
   options: ImageOptimizationOptions = {}
 ): Promise<File> => {
   const mergedOptions = { ...DEFAULT_OPTIONS, ...options };
-  
+
   return new Promise((resolve, reject) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const img = new Image();
-    
+
     img.onload = () => {
       // Calculate new dimensions
       let { width, height } = img;
       const { maxWidth, maxHeight } = mergedOptions;
-      
+
       if (maxWidth && width > maxWidth) {
         height = (height * maxWidth) / width;
         width = maxWidth;
       }
-      
+
       if (maxHeight && height > maxHeight) {
         width = (width * maxHeight) / height;
         height = maxHeight;
       }
-      
+
       // Set canvas dimensions
       canvas.width = width;
       canvas.height = height;
-      
+
       // Draw and compress image
       ctx?.drawImage(img, 0, 0, width, height);
-      
+
       canvas.toBlob(
         (blob) => {
           if (!blob) {
             reject(new Error('Failed to optimize image'));
             return;
           }
-          
+
           // Create new file with optimized data
           const optimizedFile = new File([blob], file.name, {
             type: `image/${mergedOptions.format}`,
             lastModified: Date.now(),
           });
-          
+
           resolve(optimizedFile);
         },
         `image/${mergedOptions.format}`,
         mergedOptions.quality! / 100
       );
     };
-    
+
     img.onerror = () => reject(new Error('Failed to load image'));
     img.src = URL.createObjectURL(file);
   });
@@ -156,21 +156,19 @@ export const generateResponsiveSources = (
   baseOptions: ImageOptimizationOptions = {}
 ): Array<{ srcSet: string; media?: string; type?: string }> => {
   const sources = [];
-  
+
   // Generate sources for different widths
   const widths = [320, 640, 768, 1024, 1280, 1536];
-  
+
   for (const width of widths) {
     const options = { ...baseOptions, maxWidth: width };
-    const src = isCDNAvailable() 
-      ? getCDNUrl(imageUrl, options)
-      : imageUrl;
-    
+    const src = isCDNAvailable() ? getCDNUrl(imageUrl, options) : imageUrl;
+
     sources.push({
       srcSet: `${src} ${width}w`,
     });
   }
-  
+
   return sources;
 };
 
@@ -186,27 +184,25 @@ export const createResponsiveImage = (
 ): HTMLImageElement => {
   const img = document.createElement('img');
   img.alt = alt;
-  
+
   // Generate responsive sources
   const sources = generateResponsiveSources(imageUrl, options);
-  
+
   // Create srcset string
-  const srcset = sources.map(source => source.srcSet).join(', ');
+  const srcset = sources.map((source) => source.srcSet).join(', ');
   img.srcset = srcset;
   img.sizes = sizes;
-  
+
   // Set fallback src
-  img.src = isCDNAvailable() 
-    ? getCDNUrl(imageUrl, options)
-    : imageUrl;
-  
+  img.src = isCDNAvailable() ? getCDNUrl(imageUrl, options) : imageUrl;
+
   // Add loading optimization
   img.loading = 'lazy';
   img.decoding = 'async';
-  
+
   // Append to container
   container.appendChild(img);
-  
+
   return img;
 };
 
@@ -218,13 +214,11 @@ export const preloadImage = (url: string, options?: ImageOptimizationOptions): P
     const link = document.createElement('link');
     link.rel = 'preload';
     link.as = 'image';
-    link.href = isCDNAvailable() 
-      ? getCDNUrl(url, options)
-      : url;
-    
+    link.href = isCDNAvailable() ? getCDNUrl(url, options) : url;
+
     link.onload = () => resolve();
     link.onerror = () => reject(new Error(`Failed to preload image: ${url}`));
-    
+
     document.head.appendChild(link);
   });
 };
@@ -235,17 +229,17 @@ export const preloadImage = (url: string, options?: ImageOptimizationOptions): P
 export const getImageDimensions = (file: File): Promise<{ width: number; height: number }> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    
+
     img.onload = () => {
       resolve({ width: img.width, height: img.height });
       URL.revokeObjectURL(img.src);
     };
-    
+
     img.onerror = () => {
       reject(new Error('Failed to load image'));
       URL.revokeObjectURL(img.src);
     };
-    
+
     img.src = URL.createObjectURL(file);
   });
 };
@@ -265,7 +259,7 @@ export const validateImageFile = (
       error: `Invalid file type. Allowed types: ${allowedTypes.join(', ')}`,
     };
   }
-  
+
   // Check file size
   const maxSizeBytes = maxSizeMB * 1024 * 1024;
   if (file.size > maxSizeBytes) {
@@ -274,7 +268,7 @@ export const validateImageFile = (
       error: `File too large. Maximum size: ${maxSizeMB}MB`,
     };
   }
-  
+
   return { valid: true };
 };
 
@@ -300,7 +294,7 @@ export const generateThumbnail = async (
 export const imageToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    
+
     reader.onload = () => {
       if (typeof reader.result === 'string') {
         resolve(reader.result);
@@ -308,7 +302,7 @@ export const imageToBase64 = (file: File): Promise<string> => {
         reject(new Error('Failed to convert image to base64'));
       }
     };
-    
+
     reader.onerror = () => reject(new Error('Failed to read file'));
     reader.readAsDataURL(file);
   });

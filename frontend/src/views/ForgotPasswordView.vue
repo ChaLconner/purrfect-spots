@@ -179,73 +179,13 @@ const handleSubmit = async () => {
 
 .form-subtitle {
   font-family: 'Inter', sans-serif;
-  color: #7d7d7d;
-}
-
-.auth-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.form-label {
-  font-family: 'Nunito', sans-serif;
-  font-weight: 600;
   color: #5a4632;
 }
 
-.form-input {
-  width: 100%;
-  padding: 1rem 1.25rem;
-  font-family: 'Inter', sans-serif;
-  border: 2px solid rgba(127, 183, 164, 0.2);
-  border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.7);
-  outline: none;
-  transition: all 0.3s ease;
-}
-
-.form-input:focus {
-  background: white;
-  border-color: #7fb7a4;
-}
-
-.submit-btn {
-  width: 100%;
-  padding: 1rem;
-  margin-top: 0.5rem;
-  font-family: 'Nunito', sans-serif;
-  font-weight: 700;
-  color: white;
-  background: linear-gradient(135deg, #7fb7a4 0%, #6da491 100%);
-  border: none;
-  border-radius: 1rem;
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-
-.submit-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-}
-
-.submit-btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.switch-mode {
-  margin-top: 1.5rem;
-  text-align: center;
-}
+/* ... */
 
 .switch-link {
-  color: #7fb7a4;
+  color: #2f5244;
   font-weight: 600;
   text-decoration: none;
 }

@@ -79,7 +79,7 @@ async def process_uploaded_image(
 
         # Validate file type and size using Content-Type header (first check)
         try:
-            validate_image_file(file.content_type, original_size, max_size_mb)
+            validate_image_file(file.content_type or "application/octet-stream", original_size, max_size_mb)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 
@@ -99,7 +99,9 @@ async def process_uploaded_image(
             raise HTTPException(status_code=400, detail="Invalid image file type")
 
         # Check Content-Type matches actual file content
-        content_match, actual_mime = validate_content_type_matches(file.content_type, contents)
+        content_match, actual_mime = validate_content_type_matches(
+            file.content_type or "application/octet-stream", contents
+        )
         if not content_match:
             log_security_event(
                 "content_type_mismatch",
@@ -121,20 +123,22 @@ async def process_uploaded_image(
             raise HTTPException(status_code=400, detail="Invalid or corrupted image file")
 
         # Optimize image if requested (also strips EXIF metadata)
-        content_type = actual_mime if content_match else file.content_type
+        # Optimize image if requested (also strips EXIF metadata)
+        content_type_str = actual_mime if content_match else (file.content_type or "application/octet-stream")
+
         if optimize:
-            contents, content_type = optimize_image(contents, content_type, max_dimension=max_dimension)
+            contents, content_type_str = optimize_image(contents, content_type_str, max_dimension=max_dimension)
 
         # Get safe file extension based on final content type
-        file_extension = get_safe_file_extension(file.filename or "", content_type)
+        file_extension = get_safe_file_extension(file.filename or "", content_type_str)
 
         log_security_event(
             "upload_processed_successfully",
             user_id=user_id,
-            details={"final_type": content_type, "final_size_kb": len(contents) / 1024},
+            details={"final_type": content_type_str, "final_size_kb": len(contents) / 1024},
         )
 
-        return contents, content_type, file_extension.lstrip(".")
+        return contents, content_type_str, file_extension.lstrip(".")
 
     except HTTPException:
         raise
@@ -171,7 +175,7 @@ async def read_file_for_detection(file: UploadFile, max_size_mb: int = 10) -> by
         contents = await file.read()
 
         try:
-            validate_image_file(file.content_type, len(contents), max_size_mb)
+            validate_image_file(file.content_type or "application/octet-stream", len(contents), max_size_mb)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 

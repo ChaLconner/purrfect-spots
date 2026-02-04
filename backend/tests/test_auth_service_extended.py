@@ -13,10 +13,6 @@ from user_models.user import User
 
 class TestAuthServiceExtended:
     @pytest.fixture
-    def mock_supabase(self):
-        return MagicMock()
-
-    @pytest.fixture
     def auth_service(self, mock_supabase):
         with (
             patch("services.auth_service.get_supabase_admin_client", return_value=mock_supabase),
@@ -169,7 +165,7 @@ class TestAuthServiceExtended:
 
         with patch("services.auth_service.email_service") as mock_email:
             mock_email.send_reset_email.return_value = True
-            result = await auth_service.create_password_reset_token("t@t.com")
+            result = auth_service.create_password_reset_token("t@t.com")
             assert result is True
             mock_supabase.auth.admin.generate_link.assert_called()
 

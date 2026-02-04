@@ -6,24 +6,26 @@
         <div class="eyes left"></div>
         <div class="eyes right"></div>
       </div>
-      
+
       <!-- Sprite 2: The Observer -->
       <div class="soot-sprite sprite-2">
         <div class="eyes left"></div>
         <div class="eyes right"></div>
         <div class="star-candy"></div>
       </div>
-      
+
       <!-- Sprite 3: The Little One -->
       <div class="soot-sprite sprite-3">
         <div class="eyes left"></div>
         <div class="eyes right"></div>
       </div>
     </div>
-    
+
     <!-- Loading Text -->
     <div v-if="text" class="mt-6 text-center">
-      <p class="text-brown font-serif text-lg tracking-wide animate-pulse font-medium">{{ text }}</p>
+      <p class="text-brown font-serif text-lg tracking-wide animate-pulse font-medium">
+        {{ text }}
+      </p>
     </div>
   </div>
 </template>
@@ -32,8 +34,8 @@
 defineProps({
   text: {
     type: String,
-    default: undefined
-  }
+    default: undefined,
+  },
 });
 </script>
 
@@ -51,7 +53,7 @@ defineProps({
   align-items: flex-end;
   gap: 1.5rem;
   height: 60px; /* Define height for bounce consistency */
-  transform: scale(1.2); 
+  transform: scale(1.2);
 }
 
 /* Base Soot Sprite */
@@ -60,7 +62,7 @@ defineProps({
   border-radius: 50%;
   position: relative;
   /* Fuzzy edges using box-shadows */
-  box-shadow: 
+  box-shadow:
     0 0 0 3px rgba(42, 42, 42, 0.1),
     0 0 0 6px rgba(42, 42, 42, 0.05);
 }
@@ -100,9 +102,16 @@ defineProps({
   height: 50px;
   animation: big-bounce 1s infinite alternate cubic-bezier(0.5, 0.05, 1, 0.5);
 }
-.sprite-1 .eyes { width: 14px; height: 14px; }
-.sprite-1 .eyes.left { left: 10px; }
-.sprite-1 .eyes.right { right: 10px; }
+.sprite-1 .eyes {
+  width: 14px;
+  height: 14px;
+}
+.sprite-1 .eyes.left {
+  left: 10px;
+}
+.sprite-1 .eyes.right {
+  right: 10px;
+}
 
 /* Sprite 2: Holding Candy */
 .sprite-2 {
@@ -110,9 +119,16 @@ defineProps({
   height: 40px;
   animation: gentle-sway 2s infinite ease-in-out;
 }
-.sprite-2 .eyes { width: 12px; height: 12px; }
-.sprite-2 .eyes.left { left: 6px; }
-.sprite-2 .eyes.right { right: 6px; }
+.sprite-2 .eyes {
+  width: 12px;
+  height: 12px;
+}
+.sprite-2 .eyes.left {
+  left: 6px;
+}
+.sprite-2 .eyes.right {
+  right: 6px;
+}
 
 /* Star Candy (Konpeito) */
 .star-candy {
@@ -125,7 +141,8 @@ defineProps({
   transform: translateX(-50%) rotate(45deg);
   animation: spin-candy 3s linear infinite;
 }
-.star-candy::before, .star-candy::after {
+.star-candy::before,
+.star-candy::after {
   content: '';
   position: absolute;
   width: 100%;
@@ -134,8 +151,12 @@ defineProps({
   top: 0;
   left: 0;
 }
-.star-candy::before { transform: rotate(30deg); }
-.star-candy::after { transform: rotate(60deg); }
+.star-candy::before {
+  transform: rotate(30deg);
+}
+.star-candy::after {
+  transform: rotate(60deg);
+}
 
 /* Sprite 3: Small Runner */
 .sprite-3 {
@@ -143,37 +164,69 @@ defineProps({
   height: 30px;
   animation: small-jump 0.6s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
 }
-.sprite-3 .eyes { width: 10px; height: 10px; }
-.sprite-3 .eyes.left { left: 4px; }
-.sprite-3 .eyes.right { right: 4px; }
-.sprite-3 .eyes.left::after, .sprite-3 .eyes.right::after {
+.sprite-3 .eyes {
+  width: 10px;
+  height: 10px;
+}
+.sprite-3 .eyes.left {
+  left: 4px;
+}
+.sprite-3 .eyes.right {
+  right: 4px;
+}
+.sprite-3 .eyes.left::after,
+.sprite-3 .eyes.right::after {
   animation: look-around 2s infinite;
 }
 
 /* Animations */
 @keyframes big-bounce {
-  from { transform: translateY(0) scaleY(1.1); }
-  to { transform: translateY(-20px) scaleY(0.9); }
+  from {
+    transform: translateY(0) scaleY(1.1);
+  }
+  to {
+    transform: translateY(-20px) scaleY(0.9);
+  }
 }
 
 @keyframes gentle-sway {
-  0%, 100% { transform: rotate(-5deg); }
-  50% { transform: rotate(5deg); }
+  0%,
+  100% {
+    transform: rotate(-5deg);
+  }
+  50% {
+    transform: rotate(5deg);
+  }
 }
 
 @keyframes small-jump {
-  from { transform: translateY(0); }
-  to { transform: translateY(-10px); }
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-10px);
+  }
 }
 
 @keyframes look-around {
-  0%, 100% { transform: translate(0, 0); }
-  25% { transform: translate(-2px, 0); }
-  75% { transform: translate(2px, 0); }
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(-2px, 0);
+  }
+  75% {
+    transform: translate(2px, 0);
+  }
 }
 
 @keyframes spin-candy {
-  from { transform: translateX(-50%) rotate(0deg); }
-  to { transform: translateX(-50%) rotate(360deg); }
+  from {
+    transform: translateX(-50%) rotate(0deg);
+  }
+  to {
+    transform: translateX(-50%) rotate(360deg);
+  }
 }
 </style>

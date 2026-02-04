@@ -7,50 +7,9 @@ from services.gallery_service import GalleryService
 
 class TestGalleryServiceExtended:
     @pytest.fixture
-    def mock_supabase_admin(self):
-        mock = MagicMock()
-        mock.table.return_value = mock
-        mock.select.return_value = mock
-        mock.order.return_value = mock
-        mock.range.return_value = mock
-        mock.limit.return_value = mock
-        mock.eq.return_value = mock
-        mock.or_.return_value = mock
-        mock.contains.return_value = mock
-        mock.rpc.return_value = mock
-        mock.text_search.return_value = mock
-        mock.not_.return_value = mock
-        mock.is_.return_value = mock
-        mock.gte.return_value = mock
-        mock.lte.return_value = mock
-        mock.single.return_value = mock
-        mock.execute.return_value = MagicMock(data=[], count=0)
-        return mock
-
-    @pytest.fixture
-    def mock_supabase(self):
-        mock = MagicMock()
-        mock.table.return_value = mock
-        mock.select.return_value = mock
-        mock.order.return_value = mock
-        mock.range.return_value = mock
-        mock.limit.return_value = mock
-        mock.eq.return_value = mock
-        mock.or_.return_value = mock
-        mock.contains.return_value = mock
-        mock.rpc.return_value = mock
-        mock.text_search.return_value = mock
-        mock.not_.return_value = mock
-        mock.is_.return_value = mock
-        mock.gte.return_value = mock
-        mock.lte.return_value = mock
-        mock.single.return_value = mock
-        mock.execute.return_value = MagicMock(data=[], count=0)
-        return mock
-
-    @pytest.fixture
     def gallery_service(self, mock_supabase, mock_supabase_admin):
         # We need to ensure _check_fulltext_support doesn't crash or return expected value
+
         # It calls mock_supabase_admin.table()...
 
         with patch("dependencies.get_supabase_admin_client", return_value=mock_supabase_admin):

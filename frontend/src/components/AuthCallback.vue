@@ -1,9 +1,7 @@
 <template>
   <div
     class="fixed inset-0 min-h-screen bg-transparent flex items-center justify-center z-50 pointer-events-none"
-  >
-    <!-- Visual feedback removed as requested, toast handles success notification -->
-  </div>
+  ></div>
 </template>
 
 <script setup lang="ts">
@@ -32,7 +30,7 @@ onErrorCaptured((err) => {
 
 // Handle unhandled promise rejections (often from extensions)
 onMounted(() => {
-  window.addEventListener('unhandledrejection', (event) => {
+  globalThis.addEventListener('unhandledrejection', (event) => {
     if (
       event.reason &&
       event.reason.message &&
@@ -43,126 +41,111 @@ onMounted(() => {
   });
 });
 
+const handleMagicLink = async (hash: string) => {
+  const params = new URLSearchParams(hash.substring(1));
+  const accessToken = params.get('access_token');
+  const refreshToken = params.get('refresh_token');
+  const type = params.get('type');
+
+  if (accessToken && refreshToken) {
+    const { apiV1 } = await import('../utils/api');
+    const response = await apiV1.post<LoginResponse>('/auth/session-exchange', {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+
+    await useAuthStore().setAuth(response);
+    success.value = true;
+    showSuccess(type === 'recovery' ? 'Password Reset Verified' : 'Email Verified Successfully!');
+
+    if (type === 'recovery') {
+      router.push('/reset-password');
+    } else {
+      setTimeout(() => router.push('/upload'), 1000);
+    }
+    return true;
+  }
+  return false;
+};
+
+const handleGoogleCode = async (code: string, codeVerifier: string) => {
+  const data = await AuthService.googleCodeExchange(code, codeVerifier);
+  useAuthStore().setAuth(data);
+
+  try {
+    await AuthService.syncUser();
+  } catch {
+    // Ignore sync errors
+  }
+
+  globalThis.sessionStorage.removeItem('google_code_verifier');
+  success.value = true;
+
+  setTimeout(() => {
+    const redirectPath = sessionStorage.getItem('redirectAfterAuth') || '/upload';
+    sessionStorage.removeItem('redirectAfterAuth');
+    router.push(redirectPath);
+  }, 1000);
+  return true;
+};
+
+const handleAuthError = (err: unknown) => {
+  if (err.message?.includes('invalid_grant')) {
+    error.value = 'Authentication expired. Please try logging in again.';
+  } else if (err.message?.includes('redirect_uri')) {
+    error.value = 'Invalid OAuth configuration. Please contact the administrator.';
+  } else if (err.message === 'Failed to fetch') {
+    error.value = 'Cannot connect to server. Please check your internet connection.';
+  } else if (err instanceof Error && err.message) {
+    const msg = err.message;
+    error.value = msg.includes('status code') ? 'Service temporarily unavailable.' : msg;
+  } else {
+    error.value = 'An error occurred during login.';
+  }
+};
+
+const processAuthCallback = async () => {
+  const code = route.query.code as string;
+  const codeVerifier = globalThis.sessionStorage.getItem('google_code_verifier');
+  const hash = globalThis.location.hash;
+
+  if (hash && hash.includes('access_token=')) {
+    if (await handleMagicLink(hash)) return true;
+  }
+
+  if (code) {
+    if (!codeVerifier)
+      throw new Error('Authentication data not found. Please try logging in again.');
+    if (await handleGoogleCode(code, codeVerifier)) return true;
+  } else if (!hash) {
+    throw new Error('No authentication data received.');
+  }
+
+  if (hash && !hash.includes('access_token=')) {
+    const params = new URLSearchParams(hash.substring(1));
+    const errorMsg = params.get('error_description');
+    if (errorMsg) throw new Error(errorMsg.replaceAll('+', ' '));
+  }
+  return false;
+};
+
 const handleAuthCallback = async () => {
   let retryCount = 0;
   const maxRetries = 3;
 
   while (retryCount < maxRetries) {
     try {
-      const code = route.query.code as string;
-      const codeVerifier = sessionStorage.getItem('google_code_verifier');
-
-      // 1. Check for Supabase Hash Fragment (Email Verification / Magic Link)
-      const hash = window.location.hash;
-      if (hash && hash.includes('access_token=')) {
-        // Parse hash params
-        const params = new URLSearchParams(hash.substring(1)); // remove #
-        const accessToken = params.get('access_token');
-        const refreshToken = params.get('refresh_token');
-        const type = params.get('type');
-
-        if (accessToken && refreshToken) {
-          // Exchange Supabase tokens for Backend Session
-          const { apiV1 } = await import('../utils/api');
-          // Type cast response to LoginResponse
-          const response = await apiV1.post<LoginResponse>('/auth/session-exchange', {
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-
-          // Set Auth (response format matches LoginResponse)
-          await useAuthStore().setAuth(response);
-
-          success.value = true;
-          const message =
-            type === 'recovery' ? 'Password Reset Verified' : 'Email Verified Successfully!';
-          showSuccess(message);
-
-          if (type === 'recovery') {
-            // If recovery, redirect to reset password page
-            router.push('/reset-password');
-            return;
-          }
-
-          setTimeout(() => {
-            router.push('/upload');
-          }, 1000);
-          return;
-        }
-      }
-
-      // 2. Check for Google OAuth Code
-      if (code) {
-        if (!codeVerifier) {
-          throw new Error('Authentication data not found. Please try logging in again.');
-        }
-
-        // Exchange code for tokens with retry logic
-        const data = await AuthService.googleCodeExchange(code, codeVerifier);
-
-        // Save authentication data
-        useAuthStore().setAuth(data);
-
-        // Sync user data with backend
-        try {
-          await AuthService.syncUser();
-        } catch {
-          // Don't let sync error stop the login process
-        }
-
-        // Clean up
-        sessionStorage.removeItem('google_code_verifier');
-
-        success.value = true;
-        // showSuccess('Google Login Successful!'); // Removed: Transition to next screen is enough feedback
-
-        // Redirect to intended destination
-        setTimeout(() => {
-          const redirectPath = sessionStorage.getItem('redirectAfterAuth') || '/upload';
-          sessionStorage.removeItem('redirectAfterAuth');
-          router.push(redirectPath);
-        }, 1000);
-
-        return; // Success, exit retry loop
-      } else if (!hash) {
-        // No code and no hash?
-        throw new Error('No authentication data received.');
-      }
-
-      // If we got here with hash but no valid tokens inside
-      if (hash && !hash.includes('access_token=')) {
-        // Could be error hash?
-        const params = new URLSearchParams(hash.substring(1));
-        const error = params.get('error_description');
-        if (error) throw new Error(error.replace(/\+/g, ' '));
-      }
+      if (await processAuthCallback()) return;
+      break;
     } catch (err: unknown) {
-      // Handle browser extension errors
-      if (err.message && err.message.includes('message channel closed')) {
+      if (err.message?.includes('message channel closed')) {
         retryCount++;
         if (retryCount < maxRetries) {
-          await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second before retry
+          await new Promise((resolve) => setTimeout(resolve, 1000));
           continue;
         }
       }
-
-      // Handle specific OAuth errors
-      if (err.message && err.message.includes('invalid_grant')) {
-        error.value = 'Authentication expired. Please try logging in again.';
-      } else if (err.message && err.message.includes('redirect_uri')) {
-        error.value = 'Invalid OAuth configuration. Please contact the administrator.';
-      } else if (err.message === 'Failed to fetch') {
-        error.value = 'Cannot connect to server. Please check your internet connection.';
-      } else {
-        if (err instanceof Error && err.message) {
-          // Sanitize raw messages
-          const msg = err.message;
-          if (msg.includes('status code')) error.value = 'Service temporarily unavailable.';
-          else error.value = msg;
-        } else {
-          error.value = 'An error occurred during login.';
-        }
-      }
+      handleAuthError(err);
       break;
     }
   }
@@ -175,11 +158,8 @@ const handleAuthCallback = async () => {
     showError(error.value, 'Login Failed');
   }
 
-  // Redirect to login after a short delay if there was an error
   if (error.value) {
-    setTimeout(() => {
-      router.push('/login');
-    }, 3000);
+    setTimeout(() => router.push('/login'), 3000);
   }
 };
 

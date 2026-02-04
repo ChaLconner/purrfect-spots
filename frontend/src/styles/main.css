@@ -64,7 +64,7 @@
 
   .login-btn {
     @apply text-white font-bold px-6 py-2 rounded-full hover:-translate-y-0.5 transition-all duration-300;
-    background-color: #7fb7a4; /* bg-primary */
+    background-color: var(--color-primary); /* bg-primary */
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06); /* shadow-soft */
     font-family: 'Nunito', sans-serif;
   }

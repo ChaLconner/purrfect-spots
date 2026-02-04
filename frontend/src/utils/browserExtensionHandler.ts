@@ -1,6 +1,6 @@
 /**
  * Browser Extension Error Handler
- * 
+ *
  * This utility provides centralized handling for browser extension conflicts
  * that cause "message channel closed" errors and similar issues.
  */
@@ -15,20 +15,14 @@ const BROWSER_EXTENSION_ERROR_PATTERNS = [
   'A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received',
   'listener indicated an asynchronous response',
   'Non-Error promise rejection captured',
-  'ChunkLoadError'
+  'ChunkLoadError',
 ];
 
 // Error names that indicate browser extension conflicts
-const BROWSER_EXTENSION_ERROR_NAMES = [
-  'ChunkLoadError',
-  'TypeError'
-];
+const BROWSER_EXTENSION_ERROR_NAMES = new Set(['ChunkLoadError', 'TypeError']);
 
 // Error codes that indicate browser extension conflicts
-const BROWSER_EXTENSION_ERROR_CODES = [
-  'NETWORK_ERROR',
-  'ERR_NETWORK'
-];
+const BROWSER_EXTENSION_ERROR_CODES = new Set(['NETWORK_ERROR', 'ERR_NETWORK']);
 
 /**
  * Check if an error is related to browser extension conflicts
@@ -37,37 +31,17 @@ const BROWSER_EXTENSION_ERROR_CODES = [
  */
 export const isBrowserExtensionError = (error: any): boolean => {
   if (!error) return false;
+
+  const errorString = error.message || (typeof error.toString === 'function' ? error.toString() : '');
   
-  // Check error message
-  if (error.message && typeof error.message === 'string') {
-    for (const pattern of BROWSER_EXTENSION_ERROR_PATTERNS) {
-      if (error.message.includes(pattern)) {
-        return true;
-      }
-    }
-  }
-  
-  // Check error name
-  if (error.name && BROWSER_EXTENSION_ERROR_NAMES.includes(error.name)) {
+  if (typeof errorString === 'string' && BROWSER_EXTENSION_ERROR_PATTERNS.some(p => errorString.includes(p))) {
     return true;
   }
-  
-  // Check error code
-  if (error.code && BROWSER_EXTENSION_ERROR_CODES.includes(error.code)) {
-    return true;
-  }
-  
-  // Check error toString() method
-  if (error.toString && typeof error.toString === 'function') {
-    const errorString = error.toString();
-    for (const pattern of BROWSER_EXTENSION_ERROR_PATTERNS) {
-      if (errorString.includes(pattern)) {
-        return true;
-      }
-    }
-  }
-  
-  return false;
+
+  return (
+    (error.name && BROWSER_EXTENSION_ERROR_NAMES.has(error.name)) ||
+    (error.code && BROWSER_EXTENSION_ERROR_CODES.has(error.code))
+  );
 };
 
 /**
@@ -99,31 +73,31 @@ export const handleBrowserExtensionError = async <T>(
   if (!isBrowserExtensionError(error)) {
     throw error;
   }
-  
+
   logBrowserExtensionError(error, 'retry handler');
-  
+
   let lastError: any = error;
-  
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       // Add delay before retry
       if (retryDelay > 0) {
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
       }
-      
+
       return await retryCallback();
     } catch (retryError: any) {
       lastError = retryError;
-      
+
       // If it's not a browser extension error, don't retry further
       if (!isBrowserExtensionError(retryError)) {
         throw retryError;
       }
-      
+
       logBrowserExtensionError(retryError, `retry attempt ${attempt}`);
     }
   }
-  
+
   // All retries failed, throw the last error
   throw lastError;
 };

@@ -71,8 +71,7 @@ class TestStorageService:
             assert service.aws_access_key is None
             assert service.aws_secret_key is None
 
-    @pytest.mark.asyncio
-    async def test_upload_file_success(self, storage_service):
+    def test_upload_file_success(self, storage_service):
         """Test successful file upload"""
         file_content = b"test image content"
         content_type = "image/jpeg"
@@ -80,7 +79,7 @@ class TestStorageService:
         with patch("config.config") as mock_config:
             mock_config.CDN_BASE_URL = None
 
-            url = await storage_service.upload_file(file_content, content_type, "jpg", "uploads")
+            url = storage_service.upload_file(file_content, content_type, "jpg", "uploads")
 
             # Verify S3 client was called
             storage_service.s3_client.put_object.assert_called_once()
@@ -97,40 +96,37 @@ class TestStorageService:
             assert "https://test-bucket.s3.us-east-1.amazonaws.com/uploads/" in url
             assert url.endswith(".jpg")
 
-    @pytest.mark.asyncio
-    async def test_upload_file_with_cdn(self, storage_service):
+    def test_upload_file_with_cdn(self, storage_service):
         """Test file upload with CDN URL"""
         file_content = b"test content"
 
         with patch("config.config") as mock_config:
             mock_config.CDN_BASE_URL = "https://cdn.example.com"
 
-            url = await storage_service.upload_file(file_content, "image/png", "png")
+            url = storage_service.upload_file(file_content, "image/png", "png")
 
             assert url.startswith("https://cdn.example.com/upload/")
             assert url.endswith(".png")
 
-    @pytest.mark.asyncio
-    async def test_upload_file_custom_folder(self, storage_service):
+    def test_upload_file_custom_folder(self, storage_service):
         """Test file upload to custom folder"""
         file_content = b"test"
 
         with patch("config.config") as mock_config:
             mock_config.CDN_BASE_URL = None
 
-            url = await storage_service.upload_file(file_content, "image/webp", "webp", "avatars")
+            url = storage_service.upload_file(file_content, "image/webp", "webp", "avatars")
 
             call_kwargs = storage_service.s3_client.put_object.call_args[1]
             assert "avatars/" in call_kwargs["Key"]
             assert "avatars/" in url
 
-    @pytest.mark.asyncio
-    async def test_upload_file_s3_error(self, storage_service):
+    def test_upload_file_s3_error(self, storage_service):
         """Test upload file when S3 raises an error"""
         storage_service.s3_client.put_object.side_effect = Exception("S3 error")
 
         with pytest.raises(HTTPException) as exc:
-            await storage_service.upload_file(b"test", "image/jpeg")
+            storage_service.upload_file(b"test", "image/jpeg")
 
         assert exc.value.status_code == 500
         assert "Failed to upload image to S3" in exc.value.detail

@@ -51,7 +51,7 @@ describe('Auth Store', () => {
       };
     })();
 
-    Object.defineProperty(window, 'localStorage', {
+    Object.defineProperty(globalThis, 'localStorage', {
       value: storageMock,
       writable: true
     });

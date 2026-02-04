@@ -94,6 +94,7 @@ class TokenService:
             # Memory fallback
             expiry = datetime.now(timezone.utc) + timedelta(seconds=ttl)
             self._memory_blacklist[token_hash] = expiry
+            logger.debug(f"Token blacklisted in memory. Reason: {reason}")
             self._cleanup_memory_blacklist()
 
         # 3. Persist to Database (Supabase) if we have enough info
@@ -120,70 +121,81 @@ class TokenService:
 
         return True
 
+    async def _check_redis_blacklist(self, token_hash: str) -> bool:
+        """Check Redis blacklist."""
+        if not self.redis:
+            return False
+        try:
+            result = await self.redis.exists(f"blacklist:{token_hash}")
+            if result:
+                return True
+        except Exception as e:
+            logger.warning(f"Redis check failed: {e}")
+        return False
+
+    def _check_memory_blacklist(self, token_hash: str) -> bool:
+        """Check in-memory blacklist."""
+        if token_hash in self._memory_blacklist:
+            if self._memory_blacklist[token_hash] > datetime.now(timezone.utc):
+                return True
+            else:
+                del self._memory_blacklist[token_hash]
+        return False
+
+    def _check_db_blacklist(self, jti: str | None, token_hash: str) -> bool:
+        """Check database blacklist (Source of Truth)."""
+        is_production = os.getenv("ENVIRONMENT", "development").lower() == "production"
+        if not is_production:
+            return False
+
+        try:
+            result = (
+                self.supabase_admin.table("token_blacklist")
+                .select("*")
+                .eq("token_jti", jti if jti else token_hash)
+                .execute()
+            )  # type: ignore[attr-defined]
+            if result.data and len(result.data) > 0:  # type: ignore[attr-defined]
+                # Check if token is still valid (not expired)
+                for entry in result.data:  # type: ignore[attr-defined]
+                    expires_at = datetime.fromisoformat(entry["expires_at"].replace("Z", "+00:00"))
+                    if datetime.now(timezone.utc) < expires_at:
+                        return True
+        except Exception as e:
+            logger.warning(f"Database check failed: {e}")
+            # SECURITY: On DB check failure, we should fail closed for production
+            if is_production:
+                logger.error("Database check failed - blocking token for security")
+                return True
+        return False
+
     async def is_blacklisted(self, token: str | None = None, jti: str | None = None) -> bool:
         """
         Check if token is blacklisted.
 
         Priority:
         1. Check Redis/Memory (Fastest)
-        2. Check Database (Source of Truth for persistence) - SECURITY: Check DB if cache miss for critical operations
-           SECURITY: For security-critical operations, we MUST check the database as source of truth
-           even if it's slower. This prevents attackers from bypassing blacklisting
-           by exploiting cache failures or inconsistencies.
-
-           Performance vs Security Trade-off:
-           - Production: Check DB for security-critical operations (logout, password reset)
-           - Development: Cache-only for performance
+        2. Check Database (Source of Truth for persistence)
         """
         token_hash = self._hash_token(token) if token else jti
         if not token_hash:
             return False
 
         # 1. Check Redis
-        if self.redis:
-            try:
-                result = await self.redis.exists(f"blacklist:{token_hash}")
-                if result:
-                    return True
-            except Exception as e:
-                logger.warning(f"Redis check failed: {e}")
+        if await self._check_redis_blacklist(token_hash):
+            return True
 
         # 2. Check Memory
-        if token_hash in self._memory_blacklist:
-            if self._memory_blacklist[token_hash] > datetime.now(timezone.utc):
-                return True
-            else:
-                del self._memory_blacklist[token_hash]
+        if self._check_memory_blacklist(token_hash):
+            return True
 
         # 3. SECURITY: Check Database as source of truth for security-critical operations
-        # This prevents attackers from bypassing blacklisting by exploiting cache failures
-        # Only skip DB check in development for performance
-        is_production = os.getenv("ENVIRONMENT", "development").lower() == "production"
-        if is_production:
-            try:
-                result = (
-                    self.supabase_admin.table("token_blacklist")
-                    .select("*")
-                    .eq("token_jti", jti if jti else token_hash)
-                    .execute()
-                )  # type: ignore[attr-defined]
-                if result.data and len(result.data) > 0:  # type: ignore[attr-defined]
-                    # Check if token is still valid (not expired)
-                    for entry in result.data:  # type: ignore[attr-defined]
-                        expires_at = datetime.fromisoformat(entry["expires_at"].replace("Z", "+00:00"))
-                        if datetime.now(timezone.utc) < expires_at:
-                            return True
-            except Exception as e:
-                logger.warning(f"Database check failed: {e}")
-                # SECURITY: On DB check failure, we should fail closed for production
-                # but fail open for development to avoid blocking legitimate requests
-                if is_production:
-                    logger.error("Database check failed - blocking token for security")
-                    return True
+        if self._check_db_blacklist(jti, token_hash):
+            return True
 
         return False
 
-    async def blacklist_all_user_tokens(self, user_id: str, reason: str = "security") -> int:
+    async def blacklist_all_user_tokens(self, user_id: str, reason: str = "security_event") -> int:
         """
         Invalidate all tokens for a user.
         """
@@ -192,7 +204,7 @@ class TokenService:
                 key = f"user_invalidated:{user_id}"
                 await self.redis.set(key, datetime.now(timezone.utc).isoformat())
                 await self.redis.expire(key, self.default_ttl)
-                logger.info("Session state cleared for user: %s", user_id)
+                logger.info("Session state cleared for user: %s (Reason: %s)", user_id, reason)
                 return 1
             except Exception as e:
                 logger.warning(f"Redis user invalidation failed: {e}")

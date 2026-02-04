@@ -7,23 +7,23 @@
   /* ============================================
    * BUTTONS
    * ============================================ */
-  
+
   .btn-base {
     @apply inline-flex items-center justify-center gap-2 px-6 py-3 font-bold rounded-full transition-all duration-300 border-none outline-none cursor-pointer;
-    font-family: "Nunito", sans-serif;
+    font-family: 'Nunito', sans-serif;
   }
 
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 px-6 py-3 font-bold rounded-full transition-all duration-300 border-none outline-none cursor-pointer text-white;
-    background-color: #7FB7A4;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.06); /* shadow-soft */
-    font-family: "Nunito", sans-serif;
+    background-color: #7fb7a4;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06); /* shadow-soft */
+    font-family: 'Nunito', sans-serif;
   }
 
   .btn-primary:hover {
     @apply transform -translate-y-0.5;
-    box-shadow: 0 12px 30px rgba(0,0,0,0.08); /* shadow-card */
-    background-color: #6DA491;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08); /* shadow-card */
+    background-color: #6da491;
   }
 
   .btn-primary:active {
@@ -32,22 +32,22 @@
 
   .btn-secondary {
     @apply inline-flex items-center justify-center gap-2 px-6 py-3 font-bold rounded-full transition-all duration-300 border-none outline-none cursor-pointer;
-    background-color: #F6C1B1;
-    color: #5A4632;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.06); /* shadow-soft */
-    font-family: "Nunito", sans-serif;
+    background-color: #f6c1b1;
+    color: #5a4632;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06); /* shadow-soft */
+    font-family: 'Nunito', sans-serif;
   }
 
   .btn-secondary:hover {
     @apply transform -translate-y-0.5;
-    box-shadow: 0 12px 30px rgba(0,0,0,0.08); /* shadow-card */
-    background-color: #E5B0A0;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08); /* shadow-card */
+    background-color: #e5b0a0;
   }
 
   .btn-ghost {
     @apply inline-flex items-center justify-center gap-2 px-6 py-3 font-bold rounded-full transition-all duration-300 border-none outline-none cursor-pointer bg-transparent;
-    color: #5A4632;
-    font-family: "Nunito", sans-serif;
+    color: #5a4632;
+    font-family: 'Nunito', sans-serif;
   }
 
   .btn-ghost:hover {
@@ -57,13 +57,13 @@
   /* ============================================
    * CARDS
    * ============================================ */
-  
+
   .card-glass {
     @apply backdrop-blur-[12px] p-3 transition duration-300;
     border-radius: 1.5rem; /* rounded-card */
-    background-color: rgba(255,255,255,0.7);
-    border: 1px solid rgba(255,255,255,0.5);
-    box-shadow: 0 12px 30px rgba(0,0,0,0.08); /* shadow-card */
+    background-color: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08); /* shadow-card */
   }
 
   .card-glass:hover {
@@ -72,22 +72,21 @@
 
   .search-bar {
     @apply flex items-center gap-2 backdrop-blur-[12px] rounded-full px-5 py-3;
-    background-color: rgba(255,255,255,0.7);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.06); /* shadow-soft */
+    background-color: rgba(255, 255, 255, 0.7);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06); /* shadow-soft */
   }
-
 
   /* ============================================
    * INPUTS
    * ============================================ */
-  
+
   .input-glass {
     @apply w-full px-4 py-3 text-base backdrop-blur-[12px] outline-none transition-all duration-200;
     border-radius: 1.25rem; /* rounded-xl */
-    background-color: rgba(255,255,255,0.35); /* surface/50 */
-    border: 1px solid rgba(255,255,255,0.5);
-    color: #5A4632;
-    font-family: "Inter", sans-serif;
+    background-color: rgba(255, 255, 255, 0.35); /* surface/50 */
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    color: #5a4632;
+    font-family: 'Inter', sans-serif;
   }
 
   .input-glass::placeholder {
@@ -96,75 +95,75 @@
 
   .input-glass:focus {
     /* Hardcode the shadow just in case */
-    box-shadow: 0 0 0 3px rgba(127,183,164,0.2); 
-    border-color: #7FB7A4;
-    background-color: rgba(255,255,255,0.7);
+    box-shadow: 0 0 0 3px rgba(127, 183, 164, 0.2);
+    border-color: #7fb7a4;
+    background-color: rgba(255, 255, 255, 0.7);
   }
 
   /* ============================================
    * NAVIGATION
    * ============================================ */
-  
+
   .nav-glass {
     @apply backdrop-blur-[12px] rounded-full px-6 py-3;
-    background-color: rgba(255,255,255,0.7);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.06); /* shadow-soft */
+    background-color: rgba(255, 255, 255, 0.7);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06); /* shadow-soft */
   }
 
   .nav-item {
     @apply px-4 py-2 font-bold rounded-full transition-all duration-200;
-    color: #5A4632;
-    font-family: "Nunito", sans-serif;
+    color: #5a4632;
+    font-family: 'Nunito', sans-serif;
   }
 
   .nav-item:hover {
     background-color: rgba(127, 183, 164, 0.1);
-    color: #7FB7A4;
+    color: #7fb7a4;
   }
 
   .nav-item.active {
-    background-color: #7FB7A4;
+    background-color: #7fb7a4;
     color: white;
   }
 
   /* ============================================
    * BADGES
    * ============================================ */
-  
+
   .badge {
     @apply inline-flex items-center px-3 py-1 text-xs font-bold rounded-full;
-    font-family: "Nunito", sans-serif;
+    font-family: 'Nunito', sans-serif;
   }
 
   .badge-primary {
-    background-color: #7FB7A4;
+    background-color: #7fb7a4;
     color: white;
   }
 
   .badge-secondary {
-    background-color: #F6C1B1;
-    color: #5A4632;
+    background-color: #f6c1b1;
+    color: #5a4632;
   }
 
   /* ============================================
    * TAG PILLS (NEW)
    * ============================================ */
-  
+
   .tag-pill {
     @apply inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full transition-colors cursor-pointer;
     background-color: rgba(149, 167, 146, 0.2);
-    color: #6D8B6A;
+    color: #6d8b6a;
   }
 
   .tag-pill:hover {
     background-color: rgba(149, 167, 146, 0.35);
-    color: #5A7558;
+    color: #5a7558;
   }
 
   /* ============================================
    * MODAL OVERLAY (NEW)
    * ============================================ */
-  
+
   .modal-overlay {
     @apply fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4;
   }
@@ -186,7 +185,7 @@
   /* ============================================
    * LOADING STATES (NEW)
    * ============================================ */
-  
+
   .loading-container {
     @apply flex flex-col items-center justify-center min-h-[300px];
   }
@@ -198,7 +197,7 @@
   /* ============================================
    * IMAGE CARDS (NEW - FROM GALLERY)
    * ============================================ */
-  
+
   .image-card {
     @apply bg-white/40 backdrop-blur-xl rounded-[2rem] border border-white/60 shadow-sm p-2 transition-all duration-500 ease-out relative cursor-pointer;
   }
@@ -214,7 +213,7 @@
   /* ============================================
    * UTILITIES / ANIMATIONS
    * ============================================ */
-  
+
   .animate-float {
     animation: float 6s ease-in-out infinite;
   }
@@ -238,44 +237,44 @@
   /* ============================================
    * GHIBLI THEME COMPONENTS
    * ============================================ */
-  
+
   /* Ghibli Input */
   .input-ghibli {
     @apply w-full px-4 py-3 text-base outline-none transition-all duration-200;
     border-radius: 0.75rem;
-    background-color: #FAF6EC; /* cream-light */
-    border: 2px solid #E8DFC4; /* cream-dark */
-    color: #A65D37; /* brown */
-    font-family: "Inter", sans-serif;
+    background-color: #faf6ec; /* cream-light */
+    border: 2px solid #e8dfc4; /* cream-dark */
+    color: #5a3d2b; /* darker brown */
+    font-family: 'Inter', sans-serif;
   }
 
   .input-ghibli::placeholder {
-    color: #C4855C; /* brown-light */
-    opacity: 0.7;
+    color: #8c5e40; /* darker brown-light */
+    opacity: 0.8;
   }
 
   .input-ghibli:focus {
-    border-color: #95A792; /* sage */
-    box-shadow: 0 0 0 3px rgba(149, 167, 146, 0.2);
-    background-color: #FFFFFF;
+    border-color: #6d8b6a; /* sage-dark */
+    box-shadow: 0 0 0 3px rgba(109, 139, 106, 0.2);
+    background-color: #ffffff;
   }
 
   /* Ghibli Buttons */
   .btn-ghibli {
     @apply inline-flex items-center justify-center gap-2 px-6 py-3 font-semibold transition-all duration-300 border-none outline-none cursor-pointer;
     border-radius: 0.75rem;
-    font-family: "Nunito", sans-serif;
+    font-family: 'Nunito', sans-serif;
   }
 
   .btn-ghibli-primary {
-    background-color: #95A792; /* sage */
-    color: #FFFFFF;
-    box-shadow: 0 4px 12px rgba(149, 167, 146, 0.3);
+    background-color: #6d8b6a; /* sage-dark */
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(109, 139, 106, 0.3);
   }
 
   .btn-ghibli-primary:hover {
-    background-color: #6D8B6A; /* sage-dark */
-    box-shadow: 0 6px 16px rgba(149, 167, 146, 0.4);
+    background-color: #5a7558; /* sage-darker */
+    box-shadow: 0 6px 16px rgba(109, 139, 106, 0.4);
     transform: translateY(-1px);
   }
 
@@ -290,14 +289,14 @@
   }
 
   .btn-ghibli-secondary {
-    background-color: #C97B49; /* terracotta */
-    color: #FFFFFF;
-    box-shadow: 0 4px 12px rgba(201, 123, 73, 0.3);
+    background-color: #a85d2e; /* terracotta-dark */
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(168, 93, 46, 0.3);
   }
 
   .btn-ghibli-secondary:hover {
-    background-color: #A85D2E; /* terracotta-dark */
-    box-shadow: 0 6px 16px rgba(201, 123, 73, 0.4);
+    background-color: #8c4d26; /* terracotta-darker */
+    box-shadow: 0 6px 16px rgba(168, 93, 46, 0.4);
     transform: translateY(-1px);
   }
 }
@@ -307,18 +306,32 @@
  * ============================================ */
 
 @keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
 }
 
 @keyframes float-gentle {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-5px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes fadeInUp {
@@ -344,13 +357,24 @@
 }
 
 @keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 @keyframes pulse-dot {
-  0%, 100% { transform: scale(0.8); opacity: 0.5; }
-  50% { transform: scale(1.2); opacity: 0.8; }
+  0%,
+  100% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.8;
+  }
 }
 
 /* ============================================
@@ -385,7 +409,7 @@
 
 /* Background Transition for Auth Pages */
 .bg-transition {
-  background: linear-gradient(180deg, #EAF6F3 0%, #FAF6EC 50%, #F4EBD0 100%);
+  background: linear-gradient(180deg, #eaf6f3 0%, #faf6ec 50%, #f4ebd0 100%);
 }
 
 /* ============================================
@@ -422,4 +446,3 @@
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background-color: rgba(127, 183, 164, 0.5);
 }
-

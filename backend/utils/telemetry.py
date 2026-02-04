@@ -87,10 +87,10 @@ def get_tracer(name: str):
                 return self
 
             def __exit__(self, *args):
-                pass
+                pass  # No operation needed for dummy span exit
 
         class DummyTracer:
-            def start_as_current_span(self, name):
+            def start_as_current_span(self, _):
                 return DummySpan()
 
         return DummyTracer()

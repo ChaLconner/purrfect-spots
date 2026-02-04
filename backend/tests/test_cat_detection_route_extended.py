@@ -11,7 +11,7 @@ client = TestClient(app)
 
 
 # Helper to mock auth
-async def mock_get_current_user():
+def mock_get_current_user():
     return User(id="test-user", email="test@test.com", name="Test User", created_at=None)
 
 

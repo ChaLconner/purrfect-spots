@@ -45,9 +45,9 @@ if redis_url:
         logger.warning(f"Failed to connect to Redis: {e}. Falling back to in-memory cache.")
 
 # Fallback In-Memory Caches (used if Redis is unavailable)
-_gallery_cache = TTLCache(maxsize=50, ttl=300)
-_tags_cache = TTLCache(maxsize=10, ttl=600)
-_user_photos_cache = TTLCache(maxsize=100, ttl=120)
+_gallery_cache: TTLCache = TTLCache(maxsize=50, ttl=300)
+_tags_cache: TTLCache = TTLCache(maxsize=10, ttl=600)
+_user_photos_cache: TTLCache = TTLCache(maxsize=100, ttl=120)
 _cache_lock = threading.Lock()
 
 # ========== Helpers ==========
@@ -93,125 +93,97 @@ def _redis_set(key: str, value: Any, ttl: int) -> None:
 # ========== Cache Decorators ==========
 
 
-def cached_gallery(func: Callable) -> Callable:
-    """
-    Cache decorator for gallery endpoints.
-    TTL: 5 minutes (300s)
-    """
+def _create_cache_wrapper(
+    func: Callable,
+    prefix: str,
+    ttl: int,
+    memory_cache: TTLCache,
+    user_id_arg_index: int | None = None,
+    user_id_kwarg: str | None = None,
+) -> Callable:
+    """Generic cache wrapper for redis/memory hybrid caching"""
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-        cache_key = f"gallery_{generate_cache_key(*args, **kwargs)}"
+        cache_key = _get_wrapper_cache_key(prefix, user_id_arg_index, user_id_kwarg, args, kwargs)
 
-        # 1. Try Redis
-        if redis_client:
-            cached = _redis_get(cache_key)
-            if cached is not None:
-                if is_dev():
-                    logger.debug(f"Redis Cache HIT: {func.__name__}")
-                else:
-                    logger.info(f"Redis Cache HIT: {func.__name__} (key: {cache_key[:20]}...)")
-                return cached
+        # 1. Try Cache Hierarchy (Redis -> Memory)
+        cached_result = _get_from_any_cache(cache_key, memory_cache, prefix)
+        if cached_result is not None:
+            return cached_result
 
-        # 2. Try Memory (Fallback)
-        elif cache_key in _gallery_cache:
-            with _cache_lock:
-                if is_dev():
-                    logger.debug(f"Memory Cache HIT: {func.__name__}")
-                else:
-                    logger.info(f"Memory Cache HIT: {func.__name__} (key: {cache_key[:20]}...)")
-                return _gallery_cache[cache_key]
-
-        # 3. Execute Function
+        # 2. Cache Miss - Execute
         if is_dev():
-            logger.debug(f"Cache MISS: {func.__name__}")
-        else:
-            logger.info(f"Cache MISS: {func.__name__} - Executing function (key: {cache_key[:20]}...)")
+            logger.debug(f"Cache MISS: {prefix}")
         result = func(*args, **kwargs)
 
-        # 4. Save to Cache
-        if redis_client:
-            _redis_set(cache_key, result, 300)
-            logger.info(f"Saved to Redis cache: {func.__name__} (TTL: 300s)")
-        else:
-            with _cache_lock:
-                _gallery_cache[cache_key] = result
-            logger.info(f"Saved to Memory cache: {func.__name__} (TTL: 300s)")
+        # 3. Save to Hierarchy
+        _save_to_any_cache(cache_key, result, ttl, memory_cache)
 
         return result
 
     return wrapper
+
+
+def _get_from_any_cache(key: str, memory_cache: TTLCache, prefix: str) -> Any | None:
+    """Try to get result from Redis first, then Memory."""
+    if redis_client:
+        cached = _redis_get(key)
+        if cached is not None:
+            if is_dev():
+                logger.debug(f"Redis Cache HIT: {prefix}")
+            return cached
+    elif key in memory_cache:
+        with _cache_lock:
+            if is_dev():
+                logger.debug(f"Memory Cache HIT: {prefix}")
+            return memory_cache[key]
+    return None
+
+
+def _save_to_any_cache(key: str, result: Any, ttl: int, memory_cache: TTLCache) -> None:
+    """Save result to Redis if available, otherwise Memory."""
+    if redis_client:
+        _redis_set(key, result, ttl)
+    else:
+        with _cache_lock:
+            memory_cache[key] = result
+
+
+def _get_wrapper_cache_key(prefix, user_id_idx, user_id_kw, args, kwargs) -> str:
+    """Helper to determine cache key for wrapper"""
+    if user_id_idx is None and user_id_kw is None:
+        return f"{prefix}_{generate_cache_key(*args, **kwargs)}"
+
+    user_id = _extract_user_id(user_id_idx, user_id_kw, args, kwargs)
+
+    # Filter args to exclude user_id if it was the first argument
+    key_args = args[1:] if user_id_idx == 0 else args
+    return f"{prefix}_{user_id}_{generate_cache_key(*key_args, **kwargs)}"
+
+
+def _extract_user_id(idx, kw, args, kwargs) -> str:
+    """Extract user_id from args or kwargs"""
+    if kw and kw in kwargs:
+        return str(kwargs[kw])
+    if idx is not None and args and idx < len(args):
+        return str(args[idx])
+    return "unknown"
+
+
+def cached_gallery(func: Callable) -> Callable:
+    """Cache decorator for gallery endpoints. TTL: 5 minutes"""
+    return _create_cache_wrapper(func, "gallery", 300, _gallery_cache)
 
 
 def cached_tags(func: Callable) -> Callable:
-    """
-    Cache decorator for popular tags.
-    TTL: 10 minutes (600s)
-    """
-
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        cache_key = f"tags_{generate_cache_key(*args, **kwargs)}"
-
-        if redis_client:
-            cached = _redis_get(cache_key)
-            if cached is not None:
-                if is_dev():
-                    logger.debug("Redis Tags Cache HIT")
-                return cached
-        elif cache_key in _tags_cache:
-            with _cache_lock:
-                if is_dev():
-                    logger.debug("Memory Tags Cache HIT")
-                return _tags_cache[cache_key]
-
-        result = func(*args, **kwargs)
-
-        if redis_client:
-            _redis_set(cache_key, result, 600)
-        else:
-            with _cache_lock:
-                _tags_cache[cache_key] = result
-
-        return result
-
-    return wrapper
+    """Cache decorator for popular tags. TTL: 10 minutes"""
+    return _create_cache_wrapper(func, "tags", 600, _tags_cache)
 
 
 def cached_user_photos(func: Callable) -> Callable:
-    """
-    Cache decorator for user photos.
-    TTL: 2 minutes (120s)
-    """
-
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        user_id = kwargs.get("user_id") or (args[0] if args else "unknown")
-        cache_key = f"user_{user_id}_{generate_cache_key(*args[1:], **kwargs)}"
-
-        if redis_client:
-            cached = _redis_get(cache_key)
-            if cached is not None:
-                if is_dev():
-                    logger.debug(f"Redis User Cache HIT: {user_id}")
-                return cached
-        elif cache_key in _user_photos_cache:
-            with _cache_lock:
-                if is_dev():
-                    logger.debug(f"Memory User Cache HIT: {user_id}")
-                return _user_photos_cache[cache_key]
-
-        result = func(*args, **kwargs)
-
-        if redis_client:
-            _redis_set(cache_key, result, 120)
-        else:
-            with _cache_lock:
-                _user_photos_cache[cache_key] = result
-
-        return result
-
-    return wrapper
+    """Cache decorator for user photos. TTL: 2 minutes"""
+    return _create_cache_wrapper(func, "user", 120, _user_photos_cache, user_id_arg_index=0, user_id_kwarg="user_id")
 
 
 # ========== Cache Invalidation ==========

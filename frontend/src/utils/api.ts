@@ -1,6 +1,6 @@
 /**
  * API configuration and utilities with centralized error handling and interceptors
- * 
+ *
  * API Versioning:
  * - All new endpoints should use /api/v1/ prefix
  * - Legacy endpoints (without prefix) are maintained for backward compatibility
@@ -18,22 +18,17 @@ export const ApiErrorTypes = {
   AUTHORIZATION_ERROR: 'AUTHORIZATION_ERROR',
   VALIDATION_ERROR: 'VALIDATION_ERROR',
   SERVER_ERROR: 'SERVER_ERROR',
-  UNKNOWN_ERROR: 'UNKNOWN_ERROR'
+  UNKNOWN_ERROR: 'UNKNOWN_ERROR',
 } as const;
 
-export type ApiErrorType = typeof ApiErrorTypes[keyof typeof ApiErrorTypes];
+export type ApiErrorType = (typeof ApiErrorTypes)[keyof typeof ApiErrorTypes];
 
 export class ApiError extends Error {
   type: ApiErrorType;
   statusCode?: number;
   originalError?: unknown;
 
-  constructor(
-    type: ApiErrorType,
-    message: string,
-    statusCode?: number,
-    originalError?: unknown
-  ) {
+  constructor(type: ApiErrorType, message: string, statusCode?: number, originalError?: unknown) {
     super(message);
     this.name = 'ApiError';
     this.type = type;
@@ -52,10 +47,7 @@ export const setAccessToken = (token: string | null) => {
   currentAccessToken = token;
 };
 
-export const setAuthCallbacks = (
-  refreshFn: () => Promise<boolean>,
-  logoutFn: () => void
-) => {
+export const setAuthCallbacks = (refreshFn: () => Promise<boolean>, logoutFn: () => void) => {
   refreshTokenCallback = refreshFn;
   logoutCallback = logoutFn;
 };
@@ -88,22 +80,22 @@ export interface PaginatedResponse<T> {
 // ========== Helpers ==========
 export const getApiBaseUrl = (): string => {
   const envUrl = getEnvVar('VITE_API_BASE_URL');
-  
+
   if (envUrl) {
     return envUrl;
   }
-  
-  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  
+
+  const isLocalhost =
+    globalThis.location.hostname === 'localhost' || globalThis.location.hostname === '127.0.0.1';
+
   if (isLocalhost) {
     return 'http://localhost:8000';
-  } 
-  
-  if (!envUrl) {
-     
-// Info logs removed for production safety
   }
-  
+
+  if (!envUrl) {
+    // Info logs removed for production safety
+  }
+
   return envUrl || '';
 };
 
@@ -116,7 +108,7 @@ export const getApiUrl = (endpoint: string): string => {
 export const getDefaultHeaders = (): Record<string, string> => {
   return {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
+    Accept: 'application/json',
   };
 };
 
@@ -153,24 +145,24 @@ const createApiInstance = (): AxiosInstance => {
     (response) => {
       const contentType = response.headers['content-type'];
       if (contentType && !contentType.includes('application/json')) {
-// Warn removed
+        // Warn removed
         if (typeof response.data === 'string') {
           try {
             response.data = JSON.parse(response.data);
           } catch {
-             // ignore
+            // ignore
           }
         }
         if (typeof response.data !== 'object' || response.data === null) {
-             // Only throw if we strictly expect object and got something else that isn't parseable
-             // But for now, let's allow it unless it causes issues, or throw specific error?
-             // Original code threw error here.
-             throw new ApiError(
-                ApiErrorTypes.SERVER_ERROR,
-                'Server returned invalid response format.',
-                response.status,
-                new Error(`Invalid response data type: ${typeof response.data}`)
-              );
+          // Only throw if we strictly expect object and got something else that isn't parseable
+          // But for now, let's allow it unless it causes issues, or throw specific error?
+          // Original code threw error here.
+          throw new ApiError(
+            ApiErrorTypes.SERVER_ERROR,
+            'Server returned invalid response format.',
+            response.status,
+            new Error(`Invalid response data type: ${typeof response.data}`)
+          );
         }
       }
       return response;
@@ -190,80 +182,73 @@ const createApiInstance = (): AxiosInstance => {
       }
 
       const { status, data } = error.response;
-      
-      switch (status) {
-          case 401: {
-            const originalRequest = error.config;
-            const isRefreshRequest = originalRequest?.url?.includes('/auth/refresh-token');
-            
-            if (isRefreshRequest) {
-               if (logoutCallback) logoutCallback();
-               throw new ApiError(ApiErrorTypes.AUTHENTICATION_ERROR, 'Session expired', status, error);
-            }
 
-            if (status === 401 && originalRequest && !(originalRequest as AxiosRequestConfig & { _retry?: boolean })._retry) {
-              (originalRequest as AxiosRequestConfig & { _retry?: boolean })._retry = true;
-              
-              try {
-                if (refreshTokenCallback) {
-                  const refreshed = await refreshTokenCallback();
-                  if (refreshed && currentAccessToken) {
-                    originalRequest.headers['Authorization'] = `Bearer ${currentAccessToken}`;
-                    return instance(originalRequest);
-                  }
-                }
-              } catch {
-        // Warn removed
-              }
-              
-              if (logoutCallback) logoutCallback();
-              throw new ApiError(ApiErrorTypes.AUTHENTICATION_ERROR, 'Login session expired. Please log in again', status, error);
-            }
-             
-            if (!isRefreshRequest) {
-              if (logoutCallback) logoutCallback();
-              throw new ApiError(ApiErrorTypes.AUTHENTICATION_ERROR, 'Login session expired. Please log in again', status, error);
-            }
-            
-            throw new ApiError(ApiErrorTypes.AUTHENTICATION_ERROR, 'No active session', status, error);
-          }
-            
-          case 403:
-            throw new ApiError(
-              ApiErrorTypes.AUTHORIZATION_ERROR,
-              'You do not have permission to access this information',
-              status,
-              error
-            );
-            
-          case 422:
-            const validationMessage = (data as { detail?: string })?.detail || 'Invalid data';
-            throw new ApiError(ApiErrorTypes.VALIDATION_ERROR, validationMessage, status, error);
-            
-          case 500:
-          case 502:
-          case 503:
-          case 504: {
-            const serverDetail = (data as { detail?: string })?.detail;
-            const message = serverDetail || 'Server error. Please try again later';
-            throw new ApiError(ApiErrorTypes.SERVER_ERROR, message, status, error);
-          }
-            
-          default:
-            const contentType = error.response.headers['content-type'];
-            if (contentType && contentType.includes('text/html')) {
-              throw new ApiError(ApiErrorTypes.SERVER_ERROR, 'Server returned HTML error page instead of JSON.', status, error);
-            }
-            if (typeof error.response.data === 'string' && error.response.data.includes('<html')) {
-              throw new ApiError(ApiErrorTypes.SERVER_ERROR, 'Server returned HTML content instead of JSON.', status, error);
-            }
-            const errorMessage = (data as { detail?: string })?.detail || (data as { message?: string })?.message || (error as Error).message || 'An unknown error occurred';
-            throw new ApiError(ApiErrorTypes.UNKNOWN_ERROR, errorMessage, status, error);
+      const handlers: Record<number, () => never> = {
+        403: () => {
+          throw new ApiError(ApiErrorTypes.AUTHORIZATION_ERROR, 'You do not have permission to access this information', status, error);
+        },
+        422: () => {
+          const validationMessage = (data as { detail?: string })?.detail || 'Invalid data';
+          throw new ApiError(ApiErrorTypes.VALIDATION_ERROR, validationMessage, status, error);
+        }
+      };
+
+      if (status === 401) {
+        return handleUnauthorizedError(error, status);
       }
+
+      if (handlers[status]) return handlers[status]();
+
+      if (status >= 500) {
+        const serverDetail = (data as { detail?: string })?.detail;
+        const message = serverDetail || 'Server error. Please try again later';
+        throw new ApiError(ApiErrorTypes.SERVER_ERROR, message, status, error);
+      }
+
+      const errorMessage =
+        (data as { detail?: string })?.detail ||
+        (data as { message?: string })?.message ||
+        (error as Error).message ||
+        'An unknown error occurred';
+      throw new ApiError(ApiErrorTypes.UNKNOWN_ERROR, errorMessage, status, error);
     }
   );
 
   return instance;
+};
+
+// Handle 401 errors (Token Expiry)
+async function handleUnauthorizedError(error: AxiosError, status: number) {
+  const originalRequest = error.config;
+  if (!originalRequest) return Promise.reject(error);
+
+  // Avoid infinite loops
+  if ((originalRequest as any)._retry) { // eslint-disable-line @typescript-eslint/no-explicit-any
+    if (logoutCallback) logoutCallback();
+    return Promise.reject(error);
+  }
+
+  (originalRequest as any)._retry = true; // eslint-disable-line @typescript-eslint/no-explicit-any
+
+  try {
+    if (refreshTokenCallback) {
+      const refreshed = await refreshTokenCallback();
+      if (refreshed) {
+        // Retry original request with new token
+        if (currentAccessToken) {
+          originalRequest.headers.Authorization = `Bearer ${currentAccessToken}`;
+        }
+        return apiInstance(originalRequest);
+      }
+    }
+    
+    // Refresh failed or no callback
+    if (logoutCallback) logoutCallback();
+    throw new ApiError(ApiErrorTypes.AUTHENTICATION_ERROR, 'Session expired. Please login again.', status, error);
+  } catch (refreshError) {
+    if (logoutCallback) logoutCallback();
+    return Promise.reject(refreshError);
+  }
 };
 
 export const apiInstance = createApiInstance();
@@ -287,20 +272,22 @@ function calculateBackoffDelay(attempt: number, config: RetryConfig): number {
   const exponentialDelay = config.baseDelayMs * Math.pow(2, attempt);
   // nosec typescript:S2245 - Math.random() is intentional for retry jitter timing
   // PRNG is acceptable for network retry delays; cryptographic randomness not required
-  const jitter = Math.random() * 0.3 * exponentialDelay; 
+  const jitter = Math.random() * 0.3 * exponentialDelay;
   return Math.min(exponentialDelay + jitter, config.maxDelayMs);
 }
 
 function isRetryableError(error: unknown, config: RetryConfig): boolean {
   if (error instanceof ApiError && error.type === ApiErrorTypes.NETWORK_ERROR) return true;
-  if (error instanceof ApiError && error.statusCode) return config.retryableStatuses.includes(error.statusCode);
-  if ((error as AxiosError).response?.status) return config.retryableStatuses.includes((error as AxiosError).response!.status);
+  if (error instanceof ApiError && error.statusCode)
+    return config.retryableStatuses.includes(error.statusCode);
+  if ((error as AxiosError).response?.status)
+    return config.retryableStatuses.includes((error as AxiosError).response!.status);
   if ((error as AxiosError).request && !(error as AxiosError).response) return true;
   return false;
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export const apiRequest = async <T = unknown>(
@@ -310,7 +297,7 @@ export const apiRequest = async <T = unknown>(
 ): Promise<T> => {
   const config = { ...DEFAULT_RETRY_CONFIG, ...retryConfig };
   let lastError: unknown;
-  
+
   for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
     try {
       const response = await apiInstance.request<T>({
@@ -320,25 +307,26 @@ export const apiRequest = async <T = unknown>(
       return response.data;
     } catch (error) {
       lastError = error;
-      
-      if (error instanceof ApiError) {
-        if (error.type === ApiErrorTypes.AUTHENTICATION_ERROR ||
-            error.type === ApiErrorTypes.AUTHORIZATION_ERROR ||
-            error.type === ApiErrorTypes.VALIDATION_ERROR) {
-          throw error;
-        }
+
+      if (
+        error instanceof ApiError &&
+        (error.type === ApiErrorTypes.AUTHENTICATION_ERROR ||
+          error.type === ApiErrorTypes.AUTHORIZATION_ERROR ||
+          error.type === ApiErrorTypes.VALIDATION_ERROR)
+      ) {
+        throw error;
       }
-      
+
       const isLastAttempt = attempt === config.maxRetries;
       const shouldRetry = !isLastAttempt && isRetryableError(error, config);
-      
+
       if (shouldRetry) {
         const delay = calculateBackoffDelay(attempt, config);
-// Log removed
+        // Log removed
         await sleep(delay);
         continue;
       }
-      
+
       if (error instanceof ApiError) throw error;
       throw new ApiError(
         ApiErrorTypes.UNKNOWN_ERROR,
@@ -359,19 +347,19 @@ export const authenticatedApiRequest = async <T = unknown>(
 };
 
 export const api = {
-  get: <T = unknown>(endpoint: string, config?: AxiosRequestConfig) => 
+  get: <T = unknown>(endpoint: string, config?: AxiosRequestConfig) =>
     apiRequest<T>(endpoint, { method: 'GET', ...config }),
-    
-  post: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig) => 
+
+  post: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig) =>
     apiRequest<T>(endpoint, { method: 'POST', data, ...config }),
-    
-  put: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig) => 
+
+  put: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig) =>
     apiRequest<T>(endpoint, { method: 'PUT', data, ...config }),
-    
-  patch: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig) => 
+
+  patch: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig) =>
     apiRequest<T>(endpoint, { method: 'PATCH', data, ...config }),
-    
-  delete: <T = unknown>(endpoint: string, config?: AxiosRequestConfig) => 
+
+  delete: <T = unknown>(endpoint: string, config?: AxiosRequestConfig) =>
     apiRequest<T>(endpoint, { method: 'DELETE', ...config }),
 };
 
@@ -383,17 +371,17 @@ export const uploadFile = async <T = unknown>(
 ): Promise<T> => {
   const formData = new FormData();
   formData.append('file', file);
-  
+
   if (additionalData) {
     Object.entries(additionalData).forEach(([key, value]) => {
-      if (typeof value === 'object') {
+      if (typeof value === 'object' && value !== null) {
         formData.append(key, JSON.stringify(value));
       } else {
         formData.append(key, String(value));
       }
     });
   }
-  
+
   return apiRequest<T>(endpoint, {
     method: 'POST',
     data: formData,
@@ -405,19 +393,19 @@ export const uploadFile = async <T = unknown>(
 };
 
 export const apiV1 = {
-  get: <T = unknown>(endpoint: string, config?: AxiosRequestConfig) => 
+  get: <T = unknown>(endpoint: string, config?: AxiosRequestConfig) =>
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'GET', ...config }),
-    
-  post: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig) => 
+
+  post: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig) =>
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'POST', data, ...config }),
-    
-  put: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig) => 
+
+  put: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig) =>
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'PUT', data, ...config }),
-    
-  patch: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig) => 
+
+  patch: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig) =>
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'PATCH', data, ...config }),
-    
-  delete: <T = unknown>(endpoint: string, config?: AxiosRequestConfig) => 
+
+  delete: <T = unknown>(endpoint: string, config?: AxiosRequestConfig) =>
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'DELETE', ...config }),
 };
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { announce, useFocusTrap, useArrowKeyNavigation } from '@/composables/useAccessibility';
 import { nextTick, ref } from 'vue';
 

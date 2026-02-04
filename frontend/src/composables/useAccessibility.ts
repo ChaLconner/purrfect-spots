@@ -1,6 +1,6 @@
 /**
  * useAccessibility Composable
- * 
+ *
  * Provides accessibility utilities:
  * - Focus management for modals/dialogs
  * - Screen reader announcements
@@ -12,7 +12,7 @@ import { ref, onMounted, onUnmounted, nextTick } from 'vue';
 let announcer: HTMLElement | null = null;
 
 function getOrCreateAnnouncer(): HTMLElement {
-  if (announcer && document.body.contains(announcer)) {
+  if (announcer && globalThis.document.body.contains(announcer)) {
     return announcer;
   }
 
@@ -30,10 +30,10 @@ function getOrCreateAnnouncer(): HTMLElement {
     overflow: 'hidden',
     clip: 'rect(0, 0, 0, 0)',
     whiteSpace: 'nowrap',
-    border: '0'
+    border: '0',
   });
   document.body.appendChild(announcer);
-  
+
   return announcer;
 }
 
@@ -43,7 +43,7 @@ function getOrCreateAnnouncer(): HTMLElement {
 export function announce(message: string, priority: 'polite' | 'assertive' = 'polite') {
   const el = getOrCreateAnnouncer();
   el.setAttribute('aria-live', priority);
-  
+
   // Clear and set message (ensures it's announced even if same)
   el.textContent = '';
   requestAnimationFrame(() => {
@@ -56,7 +56,7 @@ export function announce(message: string, priority: 'polite' | 'assertive' = 'po
  */
 export function useFocusTrap(containerRef: { value: HTMLElement | null }) {
   const previousActiveElement = ref<HTMLElement | null>(null);
-  
+
   const focusableSelectors = [
     'a[href]',
     'button:not([disabled])',
@@ -64,18 +64,19 @@ export function useFocusTrap(containerRef: { value: HTMLElement | null }) {
     'select:not([disabled])',
     'textarea:not([disabled])',
     '[tabindex]:not([tabindex="-1"])',
-    '[contenteditable="true"]'
+    '[contenteditable="true"]',
   ].join(', ');
 
   function getFocusableElements(): HTMLElement[] {
     if (!containerRef.value) return [];
-    return Array.from(containerRef.value.querySelectorAll<HTMLElement>(focusableSelectors))
-      .filter(el => el.offsetParent !== null); // Visible elements only
+    return Array.from(containerRef.value.querySelectorAll<HTMLElement>(focusableSelectors)).filter(
+      (el) => el.offsetParent !== null
+    ); // Visible elements only
   }
 
   function handleKeyDown(event: KeyboardEvent) {
     if (event.key !== 'Tab') return;
-    
+
     const focusable = getFocusableElements();
     if (focusable.length === 0) return;
 
@@ -88,18 +89,16 @@ export function useFocusTrap(containerRef: { value: HTMLElement | null }) {
         event.preventDefault();
         lastFocusable.focus();
       }
-    } else {
+    } else if (document.activeElement === lastFocusable) {
       // Tab
-      if (document.activeElement === lastFocusable) {
-        event.preventDefault();
-        firstFocusable.focus();
-      }
+      event.preventDefault();
+      firstFocusable.focus();
     }
   }
 
   function activate() {
     previousActiveElement.value = document.activeElement as HTMLElement;
-    
+
     nextTick(() => {
       const focusable = getFocusableElements();
       if (focusable.length > 0) {
@@ -114,8 +113,8 @@ export function useFocusTrap(containerRef: { value: HTMLElement | null }) {
 
   function deactivate() {
     document.removeEventListener('keydown', handleKeyDown);
-    
-    if (previousActiveElement.value && previousActiveElement.value.focus) {
+
+    if (previousActiveElement.value?.focus) {
       previousActiveElement.value.focus();
     }
   }
@@ -123,7 +122,7 @@ export function useFocusTrap(containerRef: { value: HTMLElement | null }) {
   return {
     activate,
     deactivate,
-    getFocusableElements
+    getFocusableElements,
   };
 }
 
@@ -153,7 +152,7 @@ export function useModalFocus(isOpen: { value: boolean }, modalRef: { value: HTM
 
   return {
     activateFocusTrap: activate,
-    deactivateFocusTrap: deactivate
+    deactivateFocusTrap: deactivate,
   };
 }
 
@@ -171,52 +170,29 @@ export function useArrowKeyNavigation(
 
   function handleKeyDown(event: KeyboardEvent) {
     const itemsList = Array.from(items.value);
-    const currentIndex = itemsList.findIndex(el => el === document.activeElement);
+    const currentIndex = itemsList.findIndex((el) => el === document.activeElement);
     if (currentIndex === -1) return;
 
-    let nextIndex = currentIndex;
+    const keyActions: Record<string, () => number> = {
+      ArrowUp: () => orientation !== 'horizontal' ? currentIndex - 1 : currentIndex,
+      ArrowDown: () => orientation !== 'horizontal' ? currentIndex + 1 : currentIndex,
+      ArrowLeft: () => orientation !== 'vertical' ? currentIndex - 1 : currentIndex,
+      ArrowRight: () => orientation !== 'vertical' ? currentIndex + 1 : currentIndex,
+      Home: () => 0,
+      End: () => itemsList.length - 1,
+    };
 
-    switch (event.key) {
-      case 'ArrowUp':
-        if (orientation !== 'horizontal') {
-          nextIndex = currentIndex - 1;
-          event.preventDefault();
-        }
-        break;
-      case 'ArrowDown':
-        if (orientation !== 'horizontal') {
-          nextIndex = currentIndex + 1;
-          event.preventDefault();
-        }
-        break;
-      case 'ArrowLeft':
-        if (orientation !== 'vertical') {
-          nextIndex = currentIndex - 1;
-          event.preventDefault();
-        }
-        break;
-      case 'ArrowRight':
-        if (orientation !== 'vertical') {
-          nextIndex = currentIndex + 1;
-          event.preventDefault();
-        }
-        break;
-      case 'Home':
-        nextIndex = 0;
-        event.preventDefault();
-        break;
-      case 'End':
-        nextIndex = itemsList.length - 1;
-        event.preventDefault();
-        break;
-      default:
-        return;
-    }
+    const action = keyActions[event.key];
+    if (!action) return;
+
+    let nextIndex = action();
+    if (nextIndex === currentIndex && !['Home', 'End'].includes(event.key)) return;
+    
+    event.preventDefault();
 
     // Handle looping
     if (loop) {
-      if (nextIndex < 0) nextIndex = itemsList.length - 1;
-      if (nextIndex >= itemsList.length) nextIndex = 0;
+      nextIndex = (nextIndex + itemsList.length) % itemsList.length;
     } else {
       nextIndex = Math.max(0, Math.min(nextIndex, itemsList.length - 1));
     }
@@ -247,5 +223,5 @@ export default {
   useFocusTrap,
   useModalFocus,
   useArrowKeyNavigation,
-  useSkipLink
+  useSkipLink,
 };

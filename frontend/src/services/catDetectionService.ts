@@ -1,9 +1,5 @@
 // Imported from api.ts to avoid duplication
-import type { 
-  CatDetectionResult, 
-  SpotAnalysisResult, 
-  CombinedAnalysisResult 
-} from '../types/api';
+import type { CatDetectionResult, SpotAnalysisResult, CombinedAnalysisResult } from '../types/api';
 
 import { uploadFile } from '../utils/api';
 

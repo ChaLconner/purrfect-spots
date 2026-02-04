@@ -1,9 +1,9 @@
 /**
  * Composables Index
- * 
+ *
  * Central export for all composables.
  * Import from '@/composables' for cleaner imports.
- * 
+ *
  * @module Composables
  */
 
@@ -13,7 +13,7 @@ export {
   useFocusTrap,
   useModalFocus,
   useArrowKeyNavigation,
-  useSkipLink
+  useSkipLink,
 } from './useAccessibility';
 
 // Performance monitoring
@@ -26,7 +26,7 @@ export {
   useApiTiming,
   getMetrics,
   clearMetrics,
-  getPerformanceSummary
+  getPerformanceSummary,
 } from './usePerformance';
 
 // Geolocation

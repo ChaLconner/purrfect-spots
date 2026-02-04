@@ -4,12 +4,18 @@
  */
 
 export { colors, tailwindColors, type GhibliColor, type SemanticColor } from './colors';
-export { typography, tailwindFontFamily, googleFontsUrl, type FontFamily, type FontWeight } from './typography';
+export {
+  typography,
+  tailwindFontFamily,
+  googleFontsUrl,
+  type FontFamily,
+  type FontWeight,
+} from './typography';
 
 // Theme configuration object for programmatic use
 export const ghibliTheme = {
   name: 'ghibli',
-  
+
   // Design tokens
   spacing: {
     unit: 8,

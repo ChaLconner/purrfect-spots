@@ -11,27 +11,6 @@ class TestGalleryService:
     """Test suite for GalleryService"""
 
     @pytest.fixture
-    def mock_supabase_admin(self):
-        """Create a fully mocked supabase admin client"""
-        mock = MagicMock()
-        mock.table.return_value = mock
-        mock.select.return_value = mock
-        mock.order.return_value = mock
-        mock.range.return_value = mock
-        mock.limit.return_value = mock
-        mock.eq.return_value = mock
-        mock.or_.return_value = mock
-        mock.contains.return_value = mock
-        mock.is_.return_value = mock
-        mock.gte.return_value = mock
-        mock.lte.return_value = mock
-        mock.text_search.return_value = mock
-        mock.rpc.return_value = mock
-        mock.not_.is_.return_value = mock
-        mock.execute.return_value = MagicMock(data=[], count=0)
-        return mock
-
-    @pytest.fixture
     def gallery_service(self, mock_supabase, mock_supabase_admin):
         """Create GalleryService instance with mocked dependencies"""
         # Patch at the dependencies module level
@@ -192,4 +171,5 @@ class TestGalleryService:
             # Force ILIKE search to test error handling
             gallery_service.search_photos(query="test", use_fulltext=False)
 
-        assert "Failed to search photos" in str(excinfo.value)
+        # ExternalServiceError from _ilike_search contains this message
+        assert "Database error during photo retrieval" in str(excinfo.value)

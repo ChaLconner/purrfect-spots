@@ -29,6 +29,7 @@ const router = useRouter();
 const hasError = ref(false);
 const errorMessage = ref('');
 const errorStack = ref('');
+const isDev = import.meta.env.DEV;
 
 // Capture errors from child components
 onErrorCaptured((error: Error, instance, info) => {
@@ -50,10 +51,13 @@ onErrorCaptured((error: Error, instance, info) => {
   errorStack.value = error.stack || '';
 
   // Report to Sentry if available
-  const win = window as Window & {
-    Sentry?: { captureException: (error: Error, context: Record<string, unknown>) => void };
-  };
-  if (typeof window !== 'undefined' && win.Sentry) {
+  interface WindowWithSentry extends Window {
+    Sentry?: {
+      captureException: (error: Error, options?: Record<string, unknown>) => void;
+    };
+  }
+  const win = globalThis as unknown as WindowWithSentry;
+  if (typeof globalThis !== 'undefined' && win.Sentry) {
     win.Sentry.captureException(error, {
       extra: {
         componentInfo: info,
@@ -87,7 +91,7 @@ function handleGoHome() {
 }
 
 function handleReload() {
-  window.location.reload();
+  globalThis.location.reload();
 }
 
 // Provide error state to children if needed
@@ -142,10 +146,7 @@ provide('errorBoundary', {
       </p>
 
       <!-- Debug Info (Development Only) -->
-      <details
-        v-if="errorStack && import.meta.env.DEV"
-        class="text-left mb-6 bg-gray-100 rounded-lg p-4"
-      >
+      <details v-if="errorStack && isDev" class="text-left mb-6 bg-gray-100 rounded-lg p-4">
         <summary class="cursor-pointer text-sm font-medium text-gray-700 hover:text-gray-900">
           Technical Details
         </summary>

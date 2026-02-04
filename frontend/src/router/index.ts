@@ -86,7 +86,7 @@ router.beforeEach(async (to) => {
   // 2. Auth Protection Guard
   if (to.meta.requiresAuth) {
     const auth = useAuthStore();
-    
+
     // Wait for auth initialization if needed
     if (!auth.isInitialized) {
       await auth.initializeAuth();
@@ -104,7 +104,7 @@ router.beforeEach(async (to) => {
     // If user is already logged in and has complete profile, redirect to upload
     return { name: 'Upload' };
   }
-  
+
   return true;
 });
 

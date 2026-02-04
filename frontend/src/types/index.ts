@@ -1,6 +1,6 @@
 /**
  * Types Index
- * 
+ *
  * Central export for all type definitions.
  * Import from '@/types' for cleaner imports.
  */
@@ -21,7 +21,7 @@ export type {
   SearchParams,
   ProfileUpdateRequest,
   ProfileResponse,
-  ApiErrorType
+  ApiErrorType,
 } from './api';
 
 export { ApiErrorTypes } from './api';

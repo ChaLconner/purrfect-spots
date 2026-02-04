@@ -1,6 +1,6 @@
 /**
  * Pinia Auth Store
- * 
+ *
  * Centralized authentication state management with Pinia.
  * Handles user authentication, token management, and session verification.
  */
@@ -10,7 +10,6 @@ import type { User, LoginResponse } from '../types/auth';
 import { ProfileService } from '../services/profileService';
 
 import { apiV1, setAccessToken, setAuthCallbacks } from '../utils/api';
-
 
 export const useAuthStore = defineStore('auth', () => {
   // ========== State ==========
@@ -22,13 +21,14 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isLoading = ref(false);
   const error = ref<string | null>(null);
-  
+  const lastLoginTime = ref(0);
+
   // Singleton promise to avoid parallel refresh calls
   let refreshPromise: Promise<boolean> | null = null;
 
   // ========== Getters ==========
   const hasCompleteProfile = computed(() => {
-    return !!(user.value && user.value.email && user.value.name);
+    return !!(user.value?.email && user.value?.name);
   });
 
   const isUserReady = computed(() => {
@@ -44,7 +44,7 @@ export const useAuthStore = defineStore('auth', () => {
   });
 
   // ========== Actions ==========
-  
+
   /**
    * Initialize authentication state
    * Try to recover session from HttpOnly cookie via refresh endpoint
@@ -60,16 +60,14 @@ export const useAuthStore = defineStore('auth', () => {
           user.value = parsedUser;
         }
       } catch {
-         
-        // console.error('Failed to parse stored user data:', _e);
+        // invalid user data
       }
     }
-
 
     // Always try to refresh token on init to check valid session
     // This effectively restores the session using the HttpOnly cookie
     await refreshToken();
-    
+
     isInitialized.value = true;
   }
 
@@ -77,7 +75,6 @@ export const useAuthStore = defineStore('auth', () => {
    * Refresh access token using HttpOnly cookie
    */
   // State
-  const lastLoginTime = ref(0);
 
   // ...
 
@@ -86,8 +83,12 @@ export const useAuthStore = defineStore('auth', () => {
 
     refreshPromise = (async () => {
       try {
-        const response = await apiV1.post<{ access_token: string | null, token_type: string | null, user?: User }>('/auth/refresh-token');
-        
+        const response = await apiV1.post<{
+          access_token: string | null;
+          token_type: string | null;
+          user?: User;
+        }>('/auth/refresh-token');
+
         if (response.access_token) {
           token.value = response.access_token;
           isAuthenticated.value = true;
@@ -100,18 +101,16 @@ export const useAuthStore = defineStore('auth', () => {
         }
         return false;
       } catch {
-        // console.debug('No active session found');
-        
         // RACE CONDITION FIx:
         // If we just logged in (within last 5 seconds), ignore this background check failure.
         // This prevents initializeAuth() from wiping a session established by AuthCallback
         // while the refresh check was in flight.
         const justLoggedIn = Date.now() - lastLoginTime.value < 5000;
-        
+
         if (isAuthenticated.value && !justLoggedIn) {
           clearAuth();
         }
-        
+
         return false;
       } finally {
         refreshPromise = null;
@@ -122,15 +121,14 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function updateApiHeader(accessToken: string | null) {
-      if (accessToken) {
-        setAccessToken(accessToken);
-      } else {
-        setAccessToken(null);
-        localStorage.removeItem('auth_token'); // Clean up legacy
-        localStorage.removeItem('access_token'); // Clean up legacy
-      }
+    if (accessToken) {
+      setAccessToken(accessToken);
+    } else {
+      setAccessToken(null);
+      localStorage.removeItem('auth_token'); // Clean up legacy
+      localStorage.removeItem('access_token'); // Clean up legacy
+    }
   }
-
 
   /**
    * Validate user object shape
@@ -140,10 +138,7 @@ export const useAuthStore = defineStore('auth', () => {
       return false;
     }
     const obj = userData as Record<string, unknown>;
-    return (
-      typeof obj.id === 'string' &&
-      typeof obj.email === 'string'
-    );
+    return typeof obj.id === 'string' && typeof obj.email === 'string';
   }
 
   /**
@@ -158,7 +153,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     // Persist user data for UX
     localStorage.setItem('user_data', JSON.stringify(data.user));
-    
+
     // Update headers/storage
     updateApiHeader(data.access_token);
   }
@@ -182,8 +177,8 @@ export const useAuthStore = defineStore('auth', () => {
    */
   async function verifySession(): Promise<boolean> {
     if (!isAuthenticated.value) {
-        // Try refresh first
-        return await refreshToken();
+      // Try refresh first
+      return await refreshToken();
     }
 
     // ... existing verification logic ...
@@ -240,13 +235,13 @@ export const useAuthStore = defineStore('auth', () => {
     isInitialized,
     isLoading,
     error,
-    
+
     // Getters
     hasCompleteProfile,
     isUserReady,
     userDisplayName,
     userAvatar,
-    
+
     // Actions
     initializeAuth,
     setAuth,
@@ -257,5 +252,3 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
   };
 });
-
-

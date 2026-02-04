@@ -48,7 +48,7 @@ class GalleryService:
         """
         try:
             # Try to select the search_vector column - using standard client (RLS safe)
-            resp = self.supabase.table("cat_photos").select("search_vector").limit(1).execute()
+            self.supabase.table("cat_photos").select("search_vector").limit(1).execute()
             logger.info("Full-text search is available")
             return True
         except Exception as e:
@@ -147,7 +147,7 @@ class GalleryService:
             # Get total count if requested
             if include_total:
                 count_resp = (
-                    self.supabase.table("cat_photos").select("id", count="exact").is_("deleted_at", "null").execute()
+                    self.supabase.table("cat_photos").select("id", count="exact").is_("deleted_at", "null").execute()  # type: ignore
                 )
                 total = count_resp.count if count_resp.count else len(data)
                 logger.info(f"Total photos in database: {total}")
@@ -161,7 +161,9 @@ class GalleryService:
             }
         except Exception as e:
             logger.error(f"Failed to fetch gallery images: {e!s}", exc_info=True)
-            raise Exception(f"Failed to fetch gallery images: {e!s}")
+            from exceptions import ExternalServiceError
+
+            raise ExternalServiceError(f"Failed to fetch gallery images: {e!s}", service="Supabase")
 
     def get_all_photos_simple(self, limit: int = 1000) -> list[dict[str, Any]]:
         """
@@ -191,7 +193,9 @@ class GalleryService:
             # For now, let's keep get_all_photos_simple for backward compat.
             return resp.data if resp.data else []
         except Exception as e:
-            raise Exception(f"Failed to fetch gallery images: {e!s}")
+            from exceptions import ExternalServiceError
+
+            raise ExternalServiceError(f"Failed to fetch gallery images: {e!s}", service="Supabase")
 
     def get_map_locations(self) -> list[dict[str, Any]]:
         """
@@ -228,7 +232,9 @@ class GalleryService:
                         photo["image_url"] = f"{photo['image_url']}{sep}width=200&resize=cover&format=webp"
             return data
         except Exception as e:
-            raise Exception(f"Failed to fetch map locations: {e!s}")
+            from exceptions import ExternalServiceError
+
+            raise ExternalServiceError(f"Failed to fetch map locations: {e!s}", service="Supabase")
 
     def _get_all_photos_simple_cached(self, limit: int) -> list[dict[str, Any]]:
         """Wrapper to pass supabase client to cached function."""
@@ -274,8 +280,9 @@ class GalleryService:
                     sanitized_query = sanitize_search_input(query) if query else None
                     return self._ilike_search(sanitized_query, tags, limit)
                 except Exception as e2:
-                    raise Exception(f"Failed to search photos: {e2!s}")
-            raise Exception(f"Failed to search photos: {e!s}")
+                    logger.error(f"Fallback search also failed: {e2}")
+                    raise
+            raise
 
     def _fulltext_search(self, query: str, tags: list[str] | None = None, limit: int = 100) -> list[dict[str, Any]]:
         """
@@ -386,7 +393,9 @@ class GalleryService:
             return self._process_photos(data)
 
         except Exception as e:
-            raise Exception(f"Failed to search photos: {e!s}")
+            from exceptions import ExternalServiceError
+
+            raise ExternalServiceError(f"Database error during photo retrieval: {e!s}", service="Supabase")
 
     def _filter_by_tags(self, photos: list[dict[str, Any]], tags: list[str]) -> list[dict[str, Any]]:
         """
@@ -399,11 +408,11 @@ class GalleryService:
         Returns:
             Filtered list of photos
         """
-        clean_tags = set(tag.strip().lower().replace("#", "") for tag in tags)
+        clean_tags = {tag.strip().lower().replace("#", "") for tag in tags}
 
         filtered = []
         for photo in photos:
-            photo_tags = set(t.lower() for t in (photo.get("tags") or []))
+            photo_tags = {t.lower() for t in (photo.get("tags") or [])}
             if clean_tags.issubset(photo_tags):
                 filtered.append(photo)
 
@@ -453,7 +462,9 @@ class GalleryService:
             return [{"tag": tag, "count": count} for tag, count in popular]
 
         except Exception as e:
-            raise Exception(f"Failed to get popular tags: {e!s}")
+            from exceptions import ExternalServiceError
+
+            raise ExternalServiceError(f"Failed to get popular tags: {e!s}", service="Supabase")
 
     def _get_popular_tags_cached(self, limit: int) -> list[dict[str, Any]]:
         """Wrapper to pass supabase client to cached function."""
@@ -473,7 +484,9 @@ class GalleryService:
             data = resp.data if resp.data else []
             return self._process_photos(data)
         except Exception as e:
-            raise Exception(f"Failed to fetch user images: {e!s}")
+            from exceptions import ExternalServiceError
+
+            raise ExternalServiceError(f"Failed to fetch user images: {e!s}", service="Supabase")
 
     def get_nearby_photos(
         self, latitude: float, longitude: float, radius_km: float = 5.0, limit: int = 50
@@ -565,7 +578,9 @@ class GalleryService:
             return self._process_photos(data)
 
         except Exception as e:
-            raise Exception(f"Failed to fetch nearby photos: {e!s}")
+            from exceptions import ExternalServiceError
+
+            raise ExternalServiceError(f"Failed to fetch nearby photos: {e!s}", service="Supabase")
 
     def get_photo_by_id(self, photo_id: str) -> dict[str, Any] | None:
         """Get a specific photo by ID."""
@@ -591,4 +606,6 @@ class GalleryService:
             if "JSON object requested" in msg or "no rows returned" in msg:
                 return None
             logger.error("Resource retrieval failed for identifier %s: %s", photo_id, msg)
-            raise Exception(f"Failed to fetch photo {photo_id}")
+            from exceptions import ExternalServiceError
+
+            raise ExternalServiceError(f"Failed to fetch photo {photo_id}", service="Supabase")

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { isDev, isProd, getEnvVar } from '@/utils/env';
 
 describe('env utils', () => {

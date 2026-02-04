@@ -14,11 +14,15 @@ from supabase import Client
 
 from config import config
 from dependencies import get_supabase_admin_client
+from exceptions import ConflictError, ExternalServiceError, PurrfectSpotsException
 from logger import logger
 from services.email_service import email_service
 from services.password_service import password_service
 from user_models.user import User
 from utils.datetime_utils import utc_now_iso
+
+ERROR_FAILED_TO_CREATE_USER = "Failed to create user"
+ERROR_EMAIL_ALREADY_REGISTERED = "Email already registered"
 
 
 class UserService:
@@ -69,7 +73,7 @@ class UserService:
             res = self.supabase_admin.auth.admin.generate_link(params)
 
             if not res or not res.user:
-                raise Exception("Failed to create user")
+                raise ExternalServiceError(ERROR_FAILED_TO_CREATE_USER, service="Supabase Auth")
 
             user = res.user
             # Extract action_link safely
@@ -79,7 +83,7 @@ class UserService:
                 # Fallback or error?
                 # If no link, we can't verify.
                 logger.error("No action_link returned from generate_link")
-                raise Exception("Failed to generate confirmation link")
+                raise ExternalServiceError("Failed to generate confirmation link", service="Supabase Auth")
 
             # 2. Send Email via our custom EmailService
             sent = email_service.send_confirmation_email(email, action_link)
@@ -101,9 +105,10 @@ class UserService:
         except Exception as e:
             # Clean up error message
             msg = str(e)
+
             if "already registered" in msg.lower():
-                raise Exception("Email already registered")
-            raise Exception(f"Failed to create user: {msg}")
+                raise ConflictError(ERROR_EMAIL_ALREADY_REGISTERED)
+            raise PurrfectSpotsException(f"Failed to create user: {msg}")
 
     def create_user(self, email: str, password: str, name: str) -> dict:
         """Alias for create_user_with_password"""
@@ -126,7 +131,7 @@ class UserService:
             )
 
             if not res or not res.user:
-                raise Exception("Failed to create user")
+                raise ExternalServiceError("Failed to create user", service="Supabase Auth")
 
             user = res.user
 
@@ -143,12 +148,13 @@ class UserService:
         except Exception as e:
             # Clean up error message
             msg = str(e)
+
             if "already registered" in msg.lower() or "already been registered" in msg.lower():
-                raise Exception("Email already registered")
+                raise ConflictError(ERROR_EMAIL_ALREADY_REGISTERED)
             if "unique constraint" in msg.lower():
-                raise Exception("Email already registered")
+                raise ConflictError(ERROR_EMAIL_ALREADY_REGISTERED)
             logger.error("Failed to create unverified account: %s", msg)
-            raise Exception("Failed to create user")
+            raise PurrfectSpotsException(ERROR_FAILED_TO_CREATE_USER)
 
     def create_or_get_user(self, user_data: dict) -> User:
         """Create new user or get existing user from database (for OAuth)"""
@@ -185,7 +191,7 @@ class UserService:
             return User(**user_dict)
 
         except Exception as e:
-            raise Exception(f"Database error: {e!s}")
+            raise ExternalServiceError(f"Database error: {e!s}", service="Supabase Database")
 
     def authenticate_user(self, email: str, password: str) -> dict | None:
         """Authenticate user using Supabase Auth"""
@@ -225,6 +231,6 @@ class UserService:
                 {"password_hash": password_service.hash_password(new_password), "updated_at": utc_now_iso()}
             ).eq("id", user_id).execute()
             return True
-        except Exception:
+        except RuntimeError:
             logger.error("Failed to update security data for user: %s", user_id)
             return False

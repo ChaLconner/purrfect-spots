@@ -35,9 +35,13 @@ class CatDetectionService:
             return image
 
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid image: {e!s}")
+            from PIL import UnidentifiedImageError
 
-    async def detect_cats(self, file: UploadFile | bytes) -> dict[str, Any]:
+            if isinstance(e, UnidentifiedImageError):
+                raise HTTPException(status_code=400, detail="Invalid image file format")
+            raise HTTPException(status_code=400, detail=f"Image processing failed: {e!s}")
+
+    def detect_cats(self, file: UploadFile | bytes) -> dict[str, Any]:
         """
         Detect cats in image using Google Cloud Vision API
 
@@ -90,7 +94,7 @@ class CatDetectionService:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Cat detection failed: {e!s}")
 
-    async def analyze_cat_spot_suitability(self, file: UploadFile | bytes) -> dict[str, Any]:
+    def analyze_cat_spot_suitability(self, file: UploadFile | bytes) -> dict[str, Any]:
         """
         Analyze spot suitability for cats using Google Cloud Vision
 

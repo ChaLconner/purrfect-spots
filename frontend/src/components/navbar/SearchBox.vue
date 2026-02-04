@@ -55,6 +55,7 @@ const clearSearch = () => {
       type="text"
       placeholder="Find a spot..."
       class="search-input"
+      autocomplete="off"
       @keyup.enter="handleSearch"
     />
     <button
@@ -121,7 +122,7 @@ const clearSearch = () => {
 }
 
 .search-input::placeholder {
-  color: #b0a090;
+  color: #8b7d6b;
   font-style: italic;
   opacity: 0.8;
 }

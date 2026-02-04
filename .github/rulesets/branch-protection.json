@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json.schemastore.org/github-ruleset.json",
+  "name": "Production and Staging Protection",
+  "description": "Enforces code quality and review requirements for main and dev branches",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": ["refs/heads/main", "refs/heads/dev"],
+      "exclude": []
+    }
+  },
+  "rules": [
+    {
+      "type": "deletion",
+      "parameters": {}
+    },
+    {
+      "type": "non_fast_forward",
+      "parameters": {}
+    },
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 1,
+        "dismiss_stale_reviews_on_push": true,
+        "require_code_owner_review": true,
+        "require_last_push_approval": true,
+        "required_review_thread_resolution": true
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": true,
+        "required_status_checks": [
+          {
+            "context": "Backend Lint and Quality",
+            "integration_id": null
+          },
+          {
+            "context": "Backend Unit Tests",
+            "integration_id": null
+          },
+          {
+            "context": "Frontend Lint & Type Check",
+            "integration_id": null
+          },
+          {
+            "context": "Frontend Unit Tests",
+            "integration_id": null
+          },
+          {
+            "context": "Frontend Build",
+            "integration_id": null
+          },
+          {
+            "context": "Quality Gate",
+            "integration_id": null
+          }
+        ]
+      }
+    }
+  ],
+  "bypass_actors": []
+}

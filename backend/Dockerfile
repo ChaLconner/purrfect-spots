@@ -5,7 +5,7 @@
 # Base image: Python 3.12 slim
 
 # Stage 1: Builder
-FROM python:3.12-slim as builder
+FROM python:3.12-slim AS builder
 
 WORKDIR /build
 
@@ -26,7 +26,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # Stage 2: Production
-FROM python:3.12-slim as production
+FROM python:3.12-slim AS production
 
 LABEL maintainer="Purrfect Spots Team <support@purrfectspots.com>"
 LABEL description="Purrfect Spots API - Cat location sharing platform"
@@ -52,26 +52,34 @@ RUN groupadd -r appgroup && \
 # Copy application code with explicit ownership
 # nosec docker:S6470 - Recursive copy is intentional; .dockerignore excludes tests, cache, git
 # nosec docker:S6504 - Using --chown to set proper non-root ownership
-COPY --chown=appuser:appgroup --chmod=755 . .
+COPY --chown=appuser:appgroup --chmod=755 .
 
 # Remove unnecessary files
 RUN rm -rf tests/ .pytest_cache/ __pycache__/ .coverage .git/
+
+# Build arguments for configuration (non-secret data)
+# SECURITY NOTE: DO NOT use ARG for secrets as they are baked into the image layers.
+# Use environment variables at runtime or secrets mounts for sensitive data.
+ARG APP_PORT=8000
+ARG WORKER_COUNT=2
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     ENVIRONMENT=production \
-    PORT=8000
+    PORT=${APP_PORT} \
+    WORKERS=${WORKER_COUNT}
 
 # Switch to non-root user
 USER appuser
 
-# Expose port
-EXPOSE 8000
+# Expose port (uses ARG/ENV for flexibility)
+EXPOSE ${PORT}
 
-# Health check
+# Health check (uses PORT env)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health/live || exit 1
+    CMD curl -f http://localhost:${PORT}/health/live || exit 1
 
 # Run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+# nosec B104 - 0.0.0.0 is required for container network binding
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT} --workers ${WORKERS}"]

@@ -2,12 +2,12 @@
   <div class="gallery-stats-container" role="status" aria-live="polite">
     <div class="stats-pill">
       <div class="stat-item">
-        <span class="stat-value">{{ totalCount }}</span>
+        <output class="stat-value" aria-label="Total photos">{{ totalCount }}</output>
         <span class="stat-label">{{ totalCount === 1 ? 'photo' : 'photos' }}</span>
       </div>
       <div v-if="totalCount !== visibleCount" class="separator" aria-hidden="true"></div>
       <div v-if="totalCount !== visibleCount" class="stat-item">
-        <span class="stat-value">{{ visibleCount }}</span>
+        <output class="stat-value">{{ visibleCount }}</output>
         <span class="stat-label">showing</span>
       </div>
     </div>
@@ -37,7 +37,7 @@ defineProps<{
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(8px);
   border-radius: 100px;
-  box-shadow: 
+  box-shadow:
     0 4px 6px -1px rgba(0, 0, 0, 0.02),
     0 2px 4px -1px rgba(0, 0, 0, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.5);
@@ -46,7 +46,7 @@ defineProps<{
 
 .stats-pill:hover {
   transform: translateY(-2px);
-  box-shadow: 
+  box-shadow:
     0 10px 15px -3px rgba(0, 0, 0, 0.05),
     0 4px 6px -2px rgba(0, 0, 0, 0.025);
   background: rgba(255, 255, 255, 0.95);
@@ -62,7 +62,7 @@ defineProps<{
   font-family: 'Nunito', sans-serif;
   font-size: 1.25rem;
   font-weight: 800;
-  color: #5A4632;
+  color: #5a4632;
   line-height: 1;
 }
 
@@ -70,7 +70,7 @@ defineProps<{
   font-family: 'Inter', sans-serif;
   font-size: 0.875rem;
   font-weight: 500;
-  color: #7D7D7D;
+  color: #7d7d7d;
   text-transform: lowercase;
   letter-spacing: 0.02em;
 }

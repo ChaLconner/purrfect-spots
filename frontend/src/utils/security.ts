@@ -23,7 +23,7 @@ export function escapeHtml(text: string): string {
     '/': '&#x2F;',
   };
 
-  return text.replace(/[&<>"'/]/g, (char) => htmlEntities[char] || char);
+  return text.replaceAll(/[&<>"'/]/g, (char) => htmlEntities[char] || char);
 }
 
 /**
@@ -37,10 +37,10 @@ export function sanitizeInput(input: string, maxLength = 1000): string {
   let sanitized = input.slice(0, maxLength);
 
   // Remove script tags (simplified non-backtracking pattern)
-   
-  sanitized = sanitized.replace(/<script[^>]*>.*?<\/script>/gis, '');
-  sanitized = sanitized.replace(/on\w+\s*=/gi, '');
-  sanitized = sanitized.replace(/javascript:/gi, '');
+
+  sanitized = sanitized.replaceAll(/<script[^>]*>.*?<\/script>/gis, '');
+  sanitized = sanitized.replaceAll(/on\w+\s*=/gi, '');
+  sanitized = sanitized.replaceAll(/javascript:/gi, '');
 
   return sanitized.trim();
 }
@@ -58,7 +58,6 @@ export function sanitizeUrl(url: string): string {
   for (const protocol of dangerousProtocols) {
     if (trimmed.startsWith(protocol)) {
       if (isDev()) {
-         
         console.warn(`Blocked dangerous URL: ${url.slice(0, 50)}...`);
       }
       return '';
@@ -115,6 +114,7 @@ export function getSecureHeaders(): Record<string, string> {
  * Validate email format
  */
 export function isValidEmail(email: string): boolean {
+  if (email.length > 254) return false;
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 }
@@ -137,7 +137,7 @@ export function validatePassword(password: string): {
   if (!/[a-z]/.test(password)) {
     errors.push('Password must contain at least one lowercase letter');
   }
-  if (!/[0-9]/.test(password)) {
+  if (!/\d/.test(password)) {
     errors.push('Password must contain at least one number');
   }
 
@@ -169,7 +169,6 @@ export function secureGetItem<T>(key: string, defaultValue: T): T {
     return JSON.parse(item) as T;
   } catch {
     if (isDev()) {
-       
       console.warn(`Failed to parse localStorage item: ${key}`);
     }
     return defaultValue;
@@ -187,7 +186,6 @@ export function secureSetItem(key: string, value: unknown): boolean {
     // Check size (5MB typical limit, we limit to 1MB per item)
     if (serialized.length > 1_000_000) {
       if (isDev()) {
-         
         console.warn(`Item too large for localStorage: ${key}`);
       }
       return false;
@@ -197,7 +195,6 @@ export function secureSetItem(key: string, value: unknown): boolean {
     return true;
   } catch (error) {
     if (isDev()) {
-       
       console.warn('Failed to set localStorage item:', key, error);
     }
     return false;
@@ -212,7 +209,6 @@ export function secureRemoveItem(key: string): void {
     localStorage.removeItem(key);
   } catch (error) {
     if (isDev()) {
-       
       console.warn('Failed to remove localStorage item:', key, error);
     }
   }
@@ -226,7 +222,7 @@ export function secureRemoveItem(key: string): void {
  * Check if running in secure context (HTTPS)
  */
 export function isSecureContext(): boolean {
-  return window.isSecureContext ?? window.location.protocol === 'https:';
+  return globalThis.isSecureContext ?? globalThis.location.protocol === 'https:';
 }
 
 /**
@@ -252,6 +248,6 @@ export async function generateCodeChallenge(verifier: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(verifier);
   const hash = await crypto.subtle.digest('SHA-256', data);
-  const base64 = btoa(String.fromCharCode(...new Uint8Array(hash)));
-  return base64.replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  const base64 = btoa(String.fromCodePoint(...new Uint8Array(hash)));
+  return base64.replaceAll('=', '').replaceAll('+', '-').replaceAll('/', '_');
 }

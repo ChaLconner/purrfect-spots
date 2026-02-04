@@ -3,11 +3,7 @@
     <!-- Tags Display -->
     <div class="tags-wrapper">
       <TransitionGroup name="tag">
-        <span
-          v-for="(tag, index) in modelValue"
-          :key="tag"
-          class="tag-chip"
-        >
+        <span v-for="(tag, index) in modelValue" :key="tag" class="tag-chip">
           <span class="tag-text">#{{ tag }}</span>
           <button
             type="button"
@@ -16,14 +12,20 @@
             @click="removeTag(index)"
           >
             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </span>
       </TransitionGroup>
-      
+
       <!-- Input Field -->
       <input
+        :id="id"
         ref="inputRef"
         v-model="inputValue"
         type="text"
@@ -37,7 +39,7 @@
         @focus="$emit('focus', $event)"
       />
     </div>
-    
+
     <!-- Helper Text -->
     <div class="tags-helper">
       <span class="tags-count" :class="{ 'at-limit': modelValue.length >= maxTags }">
@@ -59,6 +61,7 @@ interface Props {
   maxTags?: number;
   maxTagLength?: number;
   disabled?: boolean;
+  id?: string;
 }
 
 interface Emits {
@@ -70,7 +73,7 @@ const props = withDefaults(defineProps<Props>(), {
   placeholder: 'Add tags (press Enter or comma)',
   maxTags: 20,
   maxTagLength: 50,
-  disabled: false
+  disabled: false,
 });
 
 const emit = defineEmits<Emits>();
@@ -82,13 +85,13 @@ const inputValue = ref('');
 const sanitizeTag = (tag: string): string => {
   // Remove # prefix if present
   let cleaned = tag.replace(/^#/, '');
-  
+
   // Keep only alphanumeric, Thai characters, underscores, spaces, and hyphens
-  cleaned = cleaned.replace(/[^a-zA-Z0-9\u0E00-\u0E7F_\s-]/g, '');
-  
+  cleaned = cleaned.replaceAll(/[^a-zA-Z0-9\u0E00-\u0E7F_\s-]/g, '');
+
   // Normalize whitespace and convert to lowercase
-  cleaned = cleaned.replace(/\s+/g, ' ').trim().toLowerCase();
-  
+  cleaned = cleaned.replaceAll(/\s+/g, ' ').trim().toLowerCase();
+
   // Enforce max length
   return cleaned.slice(0, props.maxTagLength);
 };
@@ -96,20 +99,20 @@ const sanitizeTag = (tag: string): string => {
 const addTag = () => {
   if (!inputValue.value.trim()) return;
   if (props.modelValue.length >= props.maxTags) return;
-  
+
   const newTag = sanitizeTag(inputValue.value);
-  
+
   if (!newTag) {
     inputValue.value = '';
     return;
   }
-  
+
   // Check for duplicates
   if (props.modelValue.includes(newTag)) {
     inputValue.value = '';
     return;
   }
-  
+
   emit('update:modelValue', [...props.modelValue, newTag]);
   inputValue.value = '';
 };
@@ -286,12 +289,12 @@ defineExpose({ focus: focusInput });
   .tags-wrapper {
     padding: 0.5rem 0.75rem;
   }
-  
+
   .tag-chip {
     font-size: 0.8rem;
     padding: 0.2rem 0.4rem 0.2rem 0.6rem;
   }
-  
+
   .tag-text {
     max-width: 100px;
   }

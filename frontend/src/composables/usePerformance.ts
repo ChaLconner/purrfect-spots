@@ -1,12 +1,12 @@
 /**
  * Performance Monitoring Composable
- * 
+ *
  * Provides utilities for tracking and reporting performance metrics:
  * - Page load times
  * - Component render times
  * - API call durations
  * - Web Vitals metrics
- * 
+ *
  * @module usePerformance
  */
 import { onMounted, ref } from 'vue';
@@ -26,18 +26,17 @@ interface PerformanceMetric {
  * Web Vitals thresholds for performance rating
  */
 const VITALS_THRESHOLDS = {
-  LCP: { good: 2500, poor: 4000 },  // Largest Contentful Paint
-  FID: { good: 100, poor: 300 },    // First Input Delay
-  CLS: { good: 0.1, poor: 0.25 },   // Cumulative Layout Shift
-  FCP: { good: 1800, poor: 3000 },  // First Contentful Paint
-  TTFB: { good: 800, poor: 1800 }   // Time to First Byte
+  LCP: { good: 2500, poor: 4000 }, // Largest Contentful Paint
+  FID: { good: 100, poor: 300 }, // First Input Delay
+  CLS: { good: 0.1, poor: 0.25 }, // Cumulative Layout Shift
+  FCP: { good: 1800, poor: 3000 }, // First Contentful Paint
+  TTFB: { good: 800, poor: 1800 }, // Time to First Byte
 };
 
 /**
  * Performance metrics store
  */
 const metrics = ref<PerformanceMetric[]>([]);
-const _isMonitoring = ref(false);
 
 /**
  * Rate a metric as good, needs improvement, or poor
@@ -45,7 +44,7 @@ const _isMonitoring = ref(false);
 function rateMetric(name: string, value: number): 'good' | 'needs-improvement' | 'poor' {
   const threshold = VITALS_THRESHOLDS[name as keyof typeof VITALS_THRESHOLDS];
   if (!threshold) return 'good';
-  
+
   if (value <= threshold.good) return 'good';
   if (value <= threshold.poor) return 'needs-improvement';
   return 'poor';
@@ -56,11 +55,16 @@ function rateMetric(name: string, value: number): 'good' | 'needs-improvement' |
  */
 export function logMetric(metric: PerformanceMetric): void {
   metrics.value.push(metric);
-  
+
   // Log to console in development
   if (import.meta.env.DEV) {
     const rating = rateMetric(metric.name, metric.value);
-    const emoji = rating === 'good' ? '✅' : rating === 'needs-improvement' ? '⚠️' : '❌';
+    const ratingEmojis: Record<string, string> = {
+      good: '✅',
+      'needs-improvement': '⚠️',
+      poor: '❌',
+    };
+    const emoji = ratingEmojis[rating] || '❓';
     // eslint-disable-next-line no-console
     console.log(
       '[Perf]',
@@ -70,13 +74,14 @@ export function logMetric(metric: PerformanceMetric): void {
       metric.metadata || ''
     );
   }
-  
-  // Send to analytics in production (if configured)
-  if (import.meta.env.PROD && window.gtag) {
-    window.gtag('event', 'performance_metric', {
+
+// Send to analytics in production (if configured)
+  const win = globalThis as unknown as { gtag?: (command: string, action: string, params: Record<string, unknown>) => void };
+  if (import.meta.env.PROD && win.gtag) {
+    win.gtag('event', 'performance_metric', {
       metric_name: metric.name,
       metric_value: metric.value,
-      metric_rating: rateMetric(metric.name, metric.value)
+      metric_rating: rateMetric(metric.name, metric.value),
     });
   }
 }
@@ -93,27 +98,27 @@ export async function measureAsync<T>(
   try {
     const result = await fn();
     const duration = performance.now() - start;
-    
+
     logMetric({
       name,
       value: duration,
       unit: 'ms',
       timestamp: Date.now(),
-      metadata: { ...metadata, success: true }
+      metadata: { ...metadata, success: true },
     });
-    
+
     return result;
   } catch (error) {
     const duration = performance.now() - start;
-    
+
     logMetric({
       name,
       value: duration,
       unit: 'ms',
       timestamp: Date.now(),
-      metadata: { ...metadata, success: false, error: String(error) }
+      metadata: { ...metadata, success: false, error: String(error) },
     });
-    
+
     throw error;
   }
 }
@@ -121,23 +126,19 @@ export async function measureAsync<T>(
 /**
  * Measure execution time of a sync function
  */
-export function measureSync<T>(
-  name: string,
-  fn: () => T,
-  metadata?: Record<string, unknown>
-): T {
+export function measureSync<T>(name: string, fn: () => T, metadata?: Record<string, unknown>): T {
   const start = performance.now();
   const result = fn();
   const duration = performance.now() - start;
-  
+
   logMetric({
     name,
     value: duration,
     unit: 'ms',
     timestamp: Date.now(),
-    metadata
+    metadata,
   });
-  
+
   return result;
 }
 
@@ -148,8 +149,8 @@ export function useWebVitals() {
   const vitals = ref<Record<string, number>>({});
 
   onMounted(() => {
-    if (typeof window === 'undefined') return;
-    
+    if (typeof globalThis === 'undefined') return;
+
     // Use PerformanceObserver for Web Vitals
     try {
       // Largest Contentful Paint
@@ -161,7 +162,7 @@ export function useWebVitals() {
           name: 'LCP',
           value: lastEntry.startTime,
           unit: 'ms',
-          timestamp: Date.now()
+          timestamp: Date.now(),
         });
       });
       lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true });
@@ -169,13 +170,13 @@ export function useWebVitals() {
       // First Input Delay
       const fidObserver = new PerformanceObserver((list) => {
         const entries = list.getEntries() as PerformanceEventTiming[];
-        entries.forEach(entry => {
+        entries.forEach((entry) => {
           vitals.value.FID = entry.processingStart - entry.startTime;
           logMetric({
             name: 'FID',
             value: entry.processingStart - entry.startTime,
             unit: 'ms',
-            timestamp: Date.now()
+            timestamp: Date.now(),
           });
         });
       });
@@ -185,7 +186,7 @@ export function useWebVitals() {
       let clsValue = 0;
       const clsObserver = new PerformanceObserver((list) => {
         const entries = list.getEntries() as LayoutShiftEntry[];
-        entries.forEach(entry => {
+        entries.forEach((entry) => {
           if (!entry.hadRecentInput) {
             clsValue += entry.value;
             vitals.value.CLS = clsValue;
@@ -193,38 +194,36 @@ export function useWebVitals() {
         });
       });
       clsObserver.observe({ type: 'layout-shift', buffered: true });
-
     } catch (e) {
       console.warn('[Perf] PerformanceObserver not supported:', e);
     }
 
-    // Navigation timing
-    if (performance.timing) {
-      const timing = performance.timing;
-      
+    // Navigation timing - use modern API if available
+    const [navigation] = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+    if (navigation) {
       // Wait for load to complete
-      window.addEventListener('load', () => {
+      globalThis.addEventListener('load', () => {
         setTimeout(() => {
-          const ttfb = timing.responseStart - timing.navigationStart;
+          const ttfb = navigation.responseStart;
           const fcp = performance.getEntriesByName('first-contentful-paint')[0]?.startTime || 0;
-          
+
           if (ttfb > 0) {
             vitals.value.TTFB = ttfb;
             logMetric({
               name: 'TTFB',
               value: ttfb,
               unit: 'ms',
-              timestamp: Date.now()
+              timestamp: Date.now(),
             });
           }
-          
+
           if (fcp > 0) {
             vitals.value.FCP = fcp;
             logMetric({
               name: 'FCP',
               value: fcp,
               unit: 'ms',
-              timestamp: Date.now()
+              timestamp: Date.now(),
             });
           }
         }, 0);
@@ -244,14 +243,15 @@ export function useRenderTime(componentName: string) {
 
   onMounted(() => {
     renderTime.value = performance.now() - renderStart.value;
-    
-    if (renderTime.value > 100) { // Only log slow renders
+
+    if (renderTime.value > 100) {
+      // Only log slow renders
       logMetric({
         name: 'component_render',
         value: renderTime.value,
         unit: 'ms',
         timestamp: Date.now(),
-        metadata: { component: componentName }
+        metadata: { component: componentName },
       });
     }
   });
@@ -277,7 +277,7 @@ export function useApiTiming() {
   ): Promise<T> => {
     return measureAsync(`api_${method}_${endpoint}`, apiCall, {
       endpoint,
-      method
+      method,
     });
   };
 
@@ -301,34 +301,36 @@ export function clearMetrics(): void {
 /**
  * Get performance summary
  */
-export function getPerformanceSummary(): Record<string, { avg: number; min: number; max: number; count: number }> {
-  const summary: Record<string, { avg: number; min: number; max: number; count: number; total: number }> = {};
-  
-  metrics.value.forEach(metric => {
+export function getPerformanceSummary(): Record<
+  string,
+  { avg: number; min: number; max: number; count: number }
+> {
+  const summary: Record<
+    string,
+    { avg: number; min: number; max: number; count: number; total: number }
+  > = {};
+
+  metrics.value.forEach((metric) => {
     if (!summary[metric.name]) {
       summary[metric.name] = { avg: 0, min: Infinity, max: -Infinity, count: 0, total: 0 };
     }
-    
+
     summary[metric.name].count++;
     summary[metric.name].total += metric.value;
     summary[metric.name].min = Math.min(summary[metric.name].min, metric.value);
     summary[metric.name].max = Math.max(summary[metric.name].max, metric.value);
     summary[metric.name].avg = summary[metric.name].total / summary[metric.name].count;
   });
-  
+
   return summary;
 }
 
 // TypeScript declarations for window extensions
 declare global {
-  interface Window {
+  interface globalThis {
     gtag?: (...args: unknown[]) => void;
   }
-  
-  interface PerformanceEventTiming extends PerformanceEntry {
-    processingStart: number;
-  }
-  
+
   interface LayoutShiftEntry extends PerformanceEntry {
     hadRecentInput: boolean;
     value: number;
@@ -344,5 +346,5 @@ export default {
   useApiTiming,
   getMetrics,
   clearMetrics,
-  getPerformanceSummary
+  getPerformanceSummary,
 };

@@ -43,7 +43,7 @@ async def detect_cats_in_image(
 
     try:
         # Detect cats using pre-read contents
-        result = await detection_service.detect_cats(contents)
+        result = detection_service.detect_cats(contents)
 
         # Add metadata
         result.update(
@@ -81,7 +81,7 @@ async def analyze_cat_spot(
 
     try:
         # Analyze spot using pre-read contents
-        result = await detection_service.analyze_cat_spot_suitability(contents)
+        result = detection_service.analyze_cat_spot_suitability(contents)
 
         # Add metadata
         result.update({"filename": file.filename, "analyzed_by": current_user.email})
@@ -114,10 +114,10 @@ async def combined_cat_and_spot_analysis(
 
     try:
         # Run cat detection using pre-read contents
-        cat_detection = await detection_service.detect_cats(contents)
+        cat_detection = detection_service.detect_cats(contents)
 
         # Run spot analysis using same contents (no file seek needed)
-        spot_analysis = await detection_service.analyze_cat_spot_suitability(contents)
+        spot_analysis = detection_service.analyze_cat_spot_suitability(contents)
 
         # Combine results
         result = {
@@ -162,7 +162,7 @@ async def test_detect_cats(
     file_size = len(contents)
 
     try:
-        result = await detection_service.detect_cats(contents)
+        result = detection_service.detect_cats(contents)
 
         result.update(
             {
@@ -195,7 +195,7 @@ async def test_analyze_spot(
     contents = await read_file_for_detection(file, max_size_mb=10)
 
     try:
-        result = await detection_service.analyze_cat_spot_suitability(contents)
+        result = detection_service.analyze_cat_spot_suitability(contents)
         result.update({"filename": file.filename, "analyzed_by": current_user.email})
 
         return result

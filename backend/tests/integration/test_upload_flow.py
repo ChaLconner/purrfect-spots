@@ -13,6 +13,7 @@ These tests verify the end-to-end upload process:
 """
 
 import io
+import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -23,13 +24,19 @@ from PIL import Image
 class TestUploadFlowIntegration:
     """End-to-end tests for the upload workflow"""
 
+    # Test Constants
+    TEST_USER_ID = "test-user-123"
+    TEST_EMAIL = "test@example.com"
+    TEST_NAME = "Test User"
+    TEST_PASSWORD = os.getenv("TEST_PASSWORD", "password123")
+
     @pytest.fixture
     def mock_auth_user(self):
         """Mock authenticated user"""
         return {
-            "user_id": "test-user-123",
-            "email": "test@example.com",
-            "name": "Test User",
+            "user_id": self.TEST_USER_ID,
+            "email": self.TEST_EMAIL,
+            "name": self.TEST_NAME,
         }
 
     @pytest.fixture
@@ -101,7 +108,7 @@ class TestUploadFlowIntegration:
 
         # Mock dependencies
         mock_detection_service = MagicMock()
-        mock_detection_service.detect_cats = AsyncMock(
+        mock_detection_service.detect_cats = MagicMock(
             return_value={
                 "has_cats": True,
                 "cat_count": 1,
@@ -140,7 +147,7 @@ class TestUploadFlowIntegration:
         app.dependency_overrides[get_supabase_client] = lambda: mock_client
         app.dependency_overrides[get_cat_detection_service] = lambda: mock_detection_service
         app.dependency_overrides[get_storage_service] = lambda: mock_storage_service
-        app.dependency_overrides[get_current_user] = lambda: MagicMock(id="user-123", email="test@example.com")
+        app.dependency_overrides[get_current_user] = lambda: MagicMock(id=self.TEST_USER_ID, email=self.TEST_EMAIL)
 
         with (
             patch("routes.upload.get_supabase_admin_client") as mock_get_admin,
@@ -238,6 +245,9 @@ class TestGalleryFlowIntegration:
 class TestAuthFlowIntegration:
     """End-to-end tests for authentication flows"""
 
+    TEST_EMAIL = "test@example.com"
+    TEST_PASSWORD = os.getenv("TEST_PASSWORD", "password123")
+
     def test_register_creates_user(self, client):
         """Test: Registration creates a new user"""
         mock_service = MagicMock()
@@ -264,7 +274,7 @@ class TestAuthFlowIntegration:
                 "/api/v1/auth/register",
                 json={
                     "email": "new@example.com",
-                    "password": "SecurePass123",
+                    "password": "SecurePass123!@#",  # pragma: allowlist secret
                     "name": "New User",
                 },
             )
@@ -295,7 +305,7 @@ class TestAuthFlowIntegration:
         try:
             response = client.post(
                 "/api/v1/auth/login",
-                json={"email": "test@example.com", "password": "password123"},
+                json={"email": self.TEST_EMAIL, "password": self.TEST_PASSWORD},
             )
         finally:
             app.dependency_overrides = {}

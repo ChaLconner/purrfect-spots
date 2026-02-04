@@ -21,7 +21,11 @@
               <!-- Main Image -->
               <img
                 :src="image.image_url"
-                :alt="image.location_name || 'Cat photo'"
+                :alt="
+                  image.location_name
+                    ? `Photo of a cat at ${image.location_name}`
+                    : 'A beautiful spotted cat'
+                "
                 class="main-image"
                 :class="{ 'is-visible': isLoaded }"
                 @load="onImageLoad"
@@ -35,7 +39,7 @@
               <button
                 v-if="hasPrevious"
                 class="nav-btn prev-btn"
-                aria-label="Previous image"
+                aria-label="Previous"
                 @click.stop="navigatePrev"
               >
                 <svg
@@ -53,7 +57,7 @@
               <button
                 v-if="hasNext"
                 class="nav-btn next-btn"
-                aria-label="Next image"
+                aria-label="Next"
                 @click.stop="navigateNext"
               >
                 <svg
@@ -348,23 +352,38 @@ function preloadAdjacentImages() {
   }
 }
 
+// Event listener management
+function setupListeners() {
+  document.body.style.overflow = 'hidden';
+  document.addEventListener('keydown', handleKeydown);
+
+  if (imageStageRef.value) {
+    imageStageRef.value.addEventListener('touchstart', handleTouchStart, { passive: true });
+    imageStageRef.value.addEventListener('touchmove', handleTouchMove, { passive: false });
+    imageStageRef.value.addEventListener('touchend', handleTouchEnd, { passive: true });
+  }
+
+  setTimeout(() => {
+    closeButtonRef.value?.focus();
+  }, 100);
+
+  preloadAdjacentImages();
+}
+
+function cleanupListeners() {
+  document.body.style.overflow = '';
+  document.removeEventListener('keydown', handleKeydown);
+
+  if (imageStageRef.value) {
+    imageStageRef.value.removeEventListener('touchstart', handleTouchStart);
+    imageStageRef.value.removeEventListener('touchmove', handleTouchMove);
+    imageStageRef.value.removeEventListener('touchend', handleTouchEnd);
+  }
+}
+
 onMounted(() => {
   if (props.image) {
-    document.body.style.overflow = 'hidden';
-    document.addEventListener('keydown', handleKeydown);
-
-    // Setup touch events for swipe
-    if (imageStageRef.value) {
-      imageStageRef.value.addEventListener('touchstart', handleTouchStart, { passive: true });
-      imageStageRef.value.addEventListener('touchmove', handleTouchMove, { passive: false });
-      imageStageRef.value.addEventListener('touchend', handleTouchEnd, { passive: true });
-    }
-
-    setTimeout(() => {
-      closeButtonRef.value?.focus();
-    }, 100);
-
-    preloadAdjacentImages();
+    setupListeners();
   }
 });
 
@@ -372,37 +391,12 @@ watch(
   () => props.image,
   (newVal, oldVal) => {
     if (newVal) {
-      // Only reset loading state on initial open or if we want to show loading state
-      // For navigation, we keep the previous image visible until the new one loads (no flicker)
       if (!oldVal) {
         isLoaded.value = false;
       }
-      document.body.style.overflow = 'hidden';
-      document.addEventListener('keydown', handleKeydown);
-
-      // Setup touch events for swipe
-      if (imageStageRef.value) {
-        imageStageRef.value.addEventListener('touchstart', handleTouchStart, { passive: true });
-        imageStageRef.value.addEventListener('touchmove', handleTouchMove, { passive: false });
-        imageStageRef.value.addEventListener('touchend', handleTouchEnd, { passive: true });
-      }
-
-      setTimeout(() => {
-        closeButtonRef.value?.focus();
-      }, 100);
-
-      // Preload adjacent images
-      preloadAdjacentImages();
+      setupListeners();
     } else {
-      document.body.style.overflow = '';
-      document.removeEventListener('keydown', handleKeydown);
-
-      // Cleanup touch events
-      if (imageStageRef.value) {
-        imageStageRef.value.removeEventListener('touchstart', handleTouchStart);
-        imageStageRef.value.removeEventListener('touchmove', handleTouchMove);
-        imageStageRef.value.removeEventListener('touchend', handleTouchEnd);
-      }
+      cleanupListeners();
     }
   }
 );
@@ -416,15 +410,7 @@ watch(
 );
 
 onUnmounted(() => {
-  document.body.style.overflow = '';
-  document.removeEventListener('keydown', handleKeydown);
-
-  // Cleanup touch events
-  if (imageStageRef.value) {
-    imageStageRef.value.removeEventListener('touchstart', handleTouchStart);
-    imageStageRef.value.removeEventListener('touchmove', handleTouchMove);
-    imageStageRef.value.removeEventListener('touchend', handleTouchEnd);
-  }
+  cleanupListeners();
 });
 
 function onImageLoad() {

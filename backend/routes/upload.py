@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 
 from config import config
 from dependencies import get_supabase_admin_client, get_supabase_client
+from exceptions import ExternalServiceError
 from limiter import limiter
 from logger import logger
 from middleware.auth_middleware import get_current_user
@@ -51,7 +52,7 @@ def parse_and_sanitize_tags(tags_json: str | None) -> list:
         if tag_list and isinstance(tag_list, list):
             # Use security utility for sanitization
             return sanitize_tags(tag_list)
-    except Exception as e:
+    except (ValueError, TypeError) as e:
         logger.warning("Failed to parse tags: %s", e)
 
     return []
@@ -91,8 +92,78 @@ def validate_cat_detection_data(cat_data: dict) -> bool:
         return True
     except ValidationError:
         return False
-    except Exception:
+    except (ValueError, TypeError):
         return False
+
+
+async def _perform_server_side_detection(
+    file: UploadFile, detection_service: CatDetectionService, user_id: str, client_cat_data: dict | None
+) -> dict:
+    """Run server-side cat detection and validate results"""
+    # CRITICAL SECURITY FIX: Always perform server-side detection
+    await file.seek(0)
+    detection_result = detection_service.detect_cats(file)
+
+    # Log discrepancy if client said "has_cats" but server says "no"
+    if client_cat_data and client_cat_data.get("has_cats") and not detection_result.get("has_cats"):
+        log_security_event(
+            "detection_mismatch",
+            user_id=user_id,
+            details={
+                "client_result": client_cat_data,
+                "server_result": str(detection_result)[:200],
+            },
+            severity="WARNING",
+        )
+
+    # Reject if no cats found by server
+    if not detection_result.get("has_cats", False):
+        log_security_event(
+            "upload_rejected_no_cats",
+            user_id=user_id,
+            details={"detection_result": str(detection_result)[:200]},
+            severity="INFO",
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="No cats detected in the image. Please upload a photo containing cats.",
+        )
+
+    return {
+        "has_cats": detection_result.get("has_cats"),
+        "cat_count": detection_result.get("cat_count", 0),
+        "confidence": detection_result.get("confidence", 0),
+        "suitable_for_cat_spot": detection_result.get("suitable_for_cat_spot", False),
+        "cats_detected": detection_result.get("cats_detected", []),
+        "detection_timestamp": datetime.now().isoformat(),
+        "detection_source": "server",
+    }
+
+
+def _save_photo_to_db(supabase_admin, photo_data: dict, user_id: str, image_url: str, storage_service) -> dict:
+    """Save photo metadata to database with rollback support"""
+    try:
+        result = supabase_admin.table("cat_photos").insert(photo_data).execute()
+
+        if not result.data:
+            from exceptions import ExternalServiceError
+
+            raise ExternalServiceError("Database insert returned no data", service="Supabase")
+
+        return result.data[0]
+
+    except Exception as db_error:
+        # Rollback: Delete file from S3 if DB insert fails
+        logger.error("Database insert failed: %s. Rolling back S3 upload.", db_error)
+        storage_service.delete_file(image_url)
+
+        log_security_event(
+            "upload_transaction_rollback",
+            user_id=user_id,
+            details={"error": str(db_error)[:200], "image_url": image_url},
+            severity="ERROR",
+        )
+        raise HTTPException(status_code=500, detail="Failed to save cat photo")
 
 
 @router.post("/cat")
@@ -153,53 +224,8 @@ async def upload_cat_photo(
             except json.JSONDecodeError:
                 logger.warning("Failed to parse client detection data: %s", cat_detection_data)
 
-        # CRITICAL SECURITY FIX: Always perform server-side detection
-        # Never trust client-side validation results for content security
-        await file.seek(0)
-        detection_result = await detection_service.detect_cats(file)
-
-        # Log discrepancy if client said "has_cats" but server says "no"
-        if client_cat_data and client_cat_data.get("has_cats") and not detection_result.get("has_cats"):
-            log_security_event(
-                "detection_mismatch",
-                user_id=user_id,
-                details={
-                    "client_result": client_cat_data,
-                    "server_result": str(detection_result)[:200],
-                },
-                severity="WARNING",
-            )
-
-        # Reject if no cats found by server
-        if not detection_result.get("has_cats", False):
-            log_security_event(
-                "upload_rejected_no_cats",
-                user_id=user_id,
-                details={"detection_result": str(detection_result)[:200]},
-                severity="INFO",
-            )
-            raise HTTPException(
-                status_code=400,
-                detail="No cats detected in the image. Please upload a photo containing cats.",
-            )
-
-        # Use server determination for the record
-        cat_data = {
-            "has_cats": detection_result.get("has_cats"),
-            "cat_count": detection_result.get("cat_count", 0),
-            "confidence": detection_result.get("confidence", 0),
-            "suitable_for_cat_spot": detection_result.get("suitable_for_cat_spot", False),
-            "cats_detected": detection_result.get("cats_detected", []),
-            "detection_timestamp": datetime.now().isoformat(),
-            "detection_source": "server",
-        }
-
-        # Validate that cats were detected (Redundant but safe check)
-        has_cats = cat_data.get("has_cats", False)
-
-        if not has_cats:
-            # Should be caught above, but double check
-            raise HTTPException(status_code=400, detail="Cannot upload: No cats detected in the image")
+        # Perform server-side detection
+        cat_data = await _perform_server_side_detection(file, detection_service, user_id, client_cat_data)
 
         # Use shared validation utilities for coordinates and location text
         latitude, longitude = validate_coordinates(lat, lng)
@@ -214,12 +240,13 @@ async def upload_cat_photo(
 
         # Upload optimized file to S3
         try:
-            image_url = await storage_service.upload_file(
+            image_url = storage_service.upload_file(
                 file_content=contents,
                 content_type=content_type,
                 file_extension=file_extension,
             )
-        except Exception as s3_error:
+        except ExternalServiceError as s3_error:
+            # Catch all S3/storage related errors
             logger.error("S3 upload failed: %s", s3_error)
             log_security_event(
                 "s3_upload_failed",
@@ -243,27 +270,8 @@ async def upload_cat_photo(
         }
 
         # Use admin client to bypass RLS
-        try:
-            supabase_admin = get_supabase_admin_client()
-            result = supabase_admin.table("cat_photos").insert(photo_data).execute()
-
-            if not result.data:
-                raise Exception("Database insert returned no data")
-
-        except Exception as db_error:
-            # Rollback: Delete file from S3 if DB insert fails
-            logger.error("Database insert failed: %s. Rolling back S3 upload.", db_error)
-            storage_service.delete_file(image_url)
-
-            log_security_event(
-                "upload_transaction_rollback",
-                user_id=user_id,
-                details={"error": str(db_error)[:200], "image_url": image_url},
-                severity="ERROR",
-            )
-            raise HTTPException(status_code=500, detail="Failed to save cat photo")
-
-        created_photo = result.data[0]
+        supabase_admin = get_supabase_admin_client()
+        created_photo = _save_photo_to_db(supabase_admin, photo_data, user_id, image_url, storage_service)
 
         # Invalidate gallery and tags cache after new upload
         invalidate_gallery_cache()
@@ -304,6 +312,7 @@ async def upload_cat_photo(
     except HTTPException:
         raise
     except Exception as e:
+        # Catch-all for any other unexpected errors during upload process
         logger.error("Upload error: %s", e, exc_info=True)
         log_security_event(
             "upload_error",

@@ -19,28 +19,26 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
   const DEFAULT_MAP_CENTER = { lat: 13.7563, lng: 100.5018 };
   const DEFAULT_ZOOM_NO_SELECTION = 6; // Zoomed out to show more area
   const DEFAULT_ZOOM_WITH_SELECTION = 15; // Zoomed in when location selected
-  
-  const latitude = ref("");
-  const longitude = ref("");
+
+  const latitude = ref('');
+  const longitude = ref('');
   const hasSelectedLocation = ref(false);
-  
+
   const mapCenter = shallowRef<Coordinates>(DEFAULT_MAP_CENTER);
-  
+
   const mapInstance = shallowRef<google.maps.Map | null>(null);
-  const mapMarker = shallowRef<google.maps.Marker | null>(null);
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const mapMarker = shallowRef<any | null>(null);
+  /* eslint-enable @typescript-eslint/no-explicit-any */
   const gettingLocation = ref(false);
-  const mapElementId = options.mapElementId || "uploadMap";
+  const mapElementId = options.mapElementId || 'uploadMap';
 
   const googleMapsApiKey = getEnvVar('VITE_GOOGLE_MAPS_API_KEY');
 
   const markerIcon = Object.freeze({
-    url: "/location_10753796.png",
-    scaledSize: { width: 32, height: 32 }
-  } as unknown as google.maps.Icon);
-
-  const hoverIcon = Object.freeze({
-    url: "/location_10753796.png",
-    scaledSize: { width: 38, height: 38 }
+    url: '/location_10753796.png',
+    scaledSize: { width: 40, height: 40 },
+    anchor: { x: 20, y: 20 },
   } as unknown as google.maps.Icon);
 
   // Helper to update all coordinate refs and create marker if needed
@@ -49,14 +47,17 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
     longitude.value = lng.toFixed(6);
     mapCenter.value = { lat, lng };
     hasSelectedLocation.value = true;
-    
+
     // Create marker if it doesn't exist yet
     if (!mapMarker.value && mapInstance.value) {
       createDraggableMarker({ lat, lng });
+    } else if (mapMarker.value) {
+      // Update existing marker position
+      mapMarker.value.setPosition({ lat, lng });
     }
-    
+
     debouncedUpdateMap();
-    
+
     // Zoom in when location is selected
     if (mapInstance.value) {
       mapInstance.value.setZoom(DEFAULT_ZOOM_WITH_SELECTION);
@@ -66,60 +67,52 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
   const createMarkerWithHover = (position: Coordinates, title: string, map: google.maps.Map) => {
     const googleMaps = getGoogleMaps();
     if (!googleMaps) return null;
-    
-    const marker = new googleMaps.Marker({
+
+    // Use Legacy Marker for stability and custom icon support
+    const marker = new google.maps.Marker({
       position,
       map,
       title,
-      icon: markerIcon
+      icon: markerIcon,
+      draggable: true, // Enable dragging
+      animation: google.maps.Animation.DROP,
     });
-    
-    marker.addListener('mouseover', () => {
-      marker.setIcon(hoverIcon);
-      marker.setAnimation(googleMaps.Animation.BOUNCE);
-    });
-    
-    marker.addListener('mouseout', () => {
-      marker.setIcon(markerIcon);
-      marker.setAnimation(null);
-    });
-    
+
     return marker;
   };
 
   let mapInitializationAttempts = 0;
-  
+
   const initializeMap = async () => {
     try {
       const mapElement = document.getElementById(mapElementId);
       if (!mapElement) return;
-      
+
       await loadGoogleMaps({
         apiKey: googleMapsApiKey,
-        libraries: "places",
-        version: "weekly"
+        libraries: 'places,marker',
+        version: 'weekly',
       });
-      
+
       const googleMaps = getGoogleMaps();
       if (!googleMaps) return;
-      
+
       const mapOptions = {
         center: mapCenter.value,
         zoom: DEFAULT_ZOOM_NO_SELECTION, // Start zoomed out
+        mapId: '2e9b14b966a476a5ec49973f',
         disableDefaultUI: true,
         zoomControl: true,
         gestureHandling: 'cooperative', // Best for mobile to prevent scroll trapping
-        mapTypeId: "roadmap",
-        styles: [
-          { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] }
-        ]
+        mapTypeId: 'roadmap',
+        styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }],
       };
-      
+
       mapInstance.value = new googleMaps.Map(mapElement, mapOptions);
-      
+
       // Don't create marker initially - wait for user to select location
       // Marker will be created when user clicks on map or uses "Get My Location"
-      
+
       mapInstance.value.addListener('click', (event: google.maps.MapMouseEvent) => {
         if (event.latLng) {
           const lat = event.latLng.lat();
@@ -127,7 +120,6 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
           setCoordinates(lat, lng);
         }
       });
-      
     } catch {
       if (mapInitializationAttempts < 3) {
         // nosec typescript:S2245 - Math.pow() for exponential backoff timing, not security-sensitive
@@ -142,20 +134,21 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
   const createDraggableMarker = (position: Coordinates) => {
     if (mapMarker.value) return; // Already exists
     if (!mapInstance.value) return; // Map must be initialized
-    
-    mapMarker.value = createMarkerWithHover(
-      position,
-      'Selected Location',
-      mapInstance.value
-    );
-    
+
+    mapMarker.value = createMarkerWithHover(position, 'Selected Location', mapInstance.value);
+
     if (mapMarker.value) {
-      mapMarker.value.setDraggable(true);
+      // Legacy Marker dragend event
       mapMarker.value.addListener('dragend', (event: google.maps.MapMouseEvent) => {
         if (event.latLng) {
           const lat = event.latLng.lat();
           const lng = event.latLng.lng();
-          setCoordinates(lat, lng);
+          // Update internal state but DON'T move the marker again (it's already moved by drag)
+          latitude.value = lat.toFixed(6);
+          longitude.value = lng.toFixed(6);
+          mapCenter.value = { lat, lng };
+          hasSelectedLocation.value = true;
+          debouncedUpdateMap();
         }
       });
     }
@@ -165,18 +158,19 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
   const debouncedUpdateMap = () => {
     if (!mapInstance.value) return;
     if (mapUpdateDebounce) clearTimeout(mapUpdateDebounce);
-    
+
     mapUpdateDebounce = setTimeout(() => {
       if (!latitude.value || !longitude.value || !mapInstance.value) return;
-      
+
       const position = {
-        lat: parseFloat(latitude.value),
-        lng: parseFloat(longitude.value)
+        lat: Number.parseFloat(latitude.value),
+        lng: Number.parseFloat(longitude.value),
       };
-      
+
       mapInstance.value.setCenter(position);
       if (mapMarker.value) {
-        mapMarker.value.setPosition(position);
+        // AdvancedMarkerElement uses 'position' property, not setPosition()
+        mapMarker.value.position = position;
       }
     }, 16);
   };
@@ -187,7 +181,7 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
       // Using ipapi.co (free tier, HTTPS, allowed by CSP)
       const response = await fetch('https://ipapi.co/json/');
       if (!response.ok) return null;
-      
+
       const data = await response.json();
       if (data.latitude && data.longitude) {
         return { lat: data.latitude, lng: data.longitude };
@@ -205,7 +199,7 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
     if (!navigator.geolocation) {
       // nosec typescript:S5604 - Geolocation is the core feature of this cat location sharing app
       // Privacy protected: user consent via browser prompt, IP fallback available
-      if (!silent) showError("Geolocation is not supported by your browser.");
+      if (!silent) showError('Geolocation is not supported by your browser.');
       // Fallback: try IP geolocation, then default
       await setApproximateLocationMarker(silent);
       gettingLocation.value = false;
@@ -215,7 +209,7 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
     const geoOptions = {
       enableHighAccuracy: true,
       timeout: 15000,
-      maximumAge: 0
+      maximumAge: 0,
     };
 
     navigator.geolocation.getCurrentPosition(
@@ -226,7 +220,7 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
         gettingLocation.value = false;
       },
       async (_err) => {
-        if (!silent) showError("Unable to get precise location. Using approximate location.");
+        if (!silent) showError('Unable to get precise location. Using approximate location.');
         // Fallback: try IP geolocation, then default
         await setApproximateLocationMarker(silent);
         gettingLocation.value = false;
@@ -238,35 +232,41 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
   // Helper to set marker at approximate location from IP or default
   const setApproximateLocationMarker = async (silent = false) => {
     if (!mapInstance.value) return;
-    
+
     // Try to get approximate location from IP
     const approximatePos = await getApproximateLocationFromIP();
     const position = approximatePos || DEFAULT_MAP_CENTER;
-    
+
     // Create marker if it doesn't exist
     if (!mapMarker.value) {
       createDraggableMarker(position);
     }
-    
+
     // Update marker position
     if (mapMarker.value) {
-      mapMarker.value.setPosition(position);
+      // AdvancedMarkerElement uses 'position' property, not setPosition()
+      mapMarker.value.position = position;
     }
-    
+
     // Center map on position
     mapInstance.value.setCenter(position);
-    
+
     // Use different zoom levels based on whether we got IP location
     if (approximatePos) {
       mapInstance.value.setZoom(12); // Closer zoom for IP-based location
       if (!silent) {
         // Show info that this is approximate location
-        addToast("Showing approximate location based on your network. Please adjust the marker to the exact location.", "info", 6000, "Approximate Location");
+        addToast(
+          'Showing approximate location based on your network. Please adjust the marker to the exact location.',
+          'info',
+          6000,
+          'Approximate Location'
+        );
       }
     } else {
       mapInstance.value.setZoom(10); // Wider zoom for default location
     }
-    
+
     // Mark as having a selected location so user can see they need to adjust
     latitude.value = position.lat.toFixed(6);
     longitude.value = position.lng.toFixed(6);
@@ -276,13 +276,15 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
   // Watch for external coordinate changes
   watch([latitude, longitude], () => {
     // This watcher handles manual input changes
-    const latIdx = parseFloat(latitude.value);
-    const lngIdx = parseFloat(longitude.value);
-    if (!isNaN(latIdx) && !isNaN(lngIdx)) {
-      if (Math.abs(latIdx - mapCenter.value.lat) > 0.0001 || 
-          Math.abs(lngIdx - mapCenter.value.lng) > 0.0001) {
-             mapCenter.value = { lat: latIdx, lng: lngIdx };
-             debouncedUpdateMap();
+    const latIdx = Number.parseFloat(latitude.value);
+    const lngIdx = Number.parseFloat(longitude.value);
+    if (!Number.isNaN(latIdx) && !Number.isNaN(lngIdx)) {
+      if (
+        Math.abs(latIdx - mapCenter.value.lat) > 0.0001 ||
+        Math.abs(lngIdx - mapCenter.value.lng) > 0.0001
+      ) {
+        mapCenter.value = { lat: latIdx, lng: lngIdx };
+        debouncedUpdateMap();
       }
     }
   });
@@ -294,20 +296,21 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
       clearTimeout(mapUpdateDebounce);
       mapUpdateDebounce = null;
     }
-    
+
     // Clean up marker
     if (mapMarker.value) {
-      mapMarker.value.setMap(null);
+      // AdvancedMarkerElement uses 'map' property, not setMap()
+      mapMarker.value.map = null;
       mapMarker.value = null;
     }
-    
+
     // Clear map instance
     mapInstance.value = null;
-    
+
     // Reset state
     hasSelectedLocation.value = false;
-    latitude.value = "";
-    longitude.value = "";
+    latitude.value = '';
+    longitude.value = '';
   };
 
   return {
@@ -319,6 +322,6 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
     mapInstance,
     initializeMap,
     getCurrentLocation,
-    cleanup
+    cleanup,
   };
 }

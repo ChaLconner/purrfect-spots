@@ -21,7 +21,7 @@ class TestProfileRoutes:
     @pytest.fixture
     def mock_storage_service(self):
         service = MagicMock()
-        service.upload_file = AsyncMock()
+        service.upload_file = MagicMock()
         return service
 
     def test_get_profile(self, client, mock_user, mock_auth_service):
@@ -110,8 +110,10 @@ class TestProfileRoutes:
         app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
         app.dependency_overrides[get_storage_service] = lambda: mock_storage_service
 
-        with patch("routes.profile.process_uploaded_image") as mock_process:
-            mock_process.return_value = (sample_image_bytes, "image/jpeg", "jpg")
+        async def mock_process_impl(*args, **kwargs):
+            return (sample_image_bytes, "image/jpeg", "jpg")
+
+        with patch("routes.profile.process_uploaded_image", side_effect=mock_process_impl) as mock_process:
 
             files = {"file": ("avatar.jpg", sample_image_bytes, "image/jpeg")}
             response = client.post("/api/v1/profile/picture", files=files)

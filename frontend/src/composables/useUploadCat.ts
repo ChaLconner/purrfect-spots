@@ -34,17 +34,17 @@ export function useUploadCat() {
 
       // Get image dimensions
       const dimensions = await getImageDimensions(file);
-// Log removed for production safety
+      // Log removed for production safety
 
       // Optimize image before upload
       const optimizedFile = await optimizeImage(file, {
-        maxWidth: parseInt(getEnvVar('VITE_MAX_IMAGE_WIDTH') || '1920'),
-        maxHeight: parseInt(getEnvVar('VITE_MAX_IMAGE_HEIGHT') || '1080'),
-        quality: parseInt(getEnvVar('VITE_IMAGE_QUALITY') || '85'),
+        maxWidth: Number.parseInt(getEnvVar('VITE_MAX_IMAGE_WIDTH') || '1920'),
+        maxHeight: Number.parseInt(getEnvVar('VITE_MAX_IMAGE_HEIGHT') || '1080'),
+        quality: Number.parseInt(getEnvVar('VITE_IMAGE_QUALITY') || '85'),
         format: 'jpeg',
       });
 
-// Log removed for production safety
+      // Log removed for production safety
 
       // Prepare additional data
       const additionalData = {
@@ -58,20 +58,25 @@ export function useUploadCat() {
       };
 
       // Upload file with progress tracking
-      const result = await uploadFile('/api/v1/upload/cat', optimizedFile, additionalData, (progressEvent) => {
-        if (progressEvent.lengthComputable && progressEvent.total) {
-          uploadProgress.value = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+      const result = await uploadFile(
+        '/api/v1/upload/cat',
+        optimizedFile,
+        additionalData,
+        (progressEvent) => {
+          if (progressEvent.lengthComputable && progressEvent.total) {
+            uploadProgress.value = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          }
         }
-      });
+      );
 
       return result;
     } catch (err) {
-// Error logged to state, console log suppressed
-      
+      // Error logged to state, console log suppressed
+
       // Handle API errors specifically
       if (err instanceof ApiError) {
         let errorMessage = '';
-        
+
         switch (err.type) {
           case ApiErrorTypes.NETWORK_ERROR:
             errorMessage = 'Cannot connect to server. Please check your internet connection';
@@ -88,12 +93,12 @@ export function useUploadCat() {
           default:
             errorMessage = err.message || 'An unknown error occurred';
         }
-        
+
         error.value = errorMessage;
       } else {
         error.value = (err as Error).message || 'An error occurred during image upload';
       }
-      
+
       return null;
     } finally {
       isUploading.value = false;

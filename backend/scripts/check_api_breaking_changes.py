@@ -43,6 +43,78 @@ def get_current_schema() -> dict:
     return app.openapi()
 
 
+def _check_removed_endpoints(baseline_paths: dict, current_paths: dict) -> list[dict]:
+    """Check for completely removed endpoints."""
+    changes = []
+    for path in baseline_paths:
+        if path not in current_paths:
+            changes.append({"type": "endpoint_removed", "path": path, "message": f"❌ Endpoint removed: {path}"})
+    return changes
+
+
+def _check_method_changes(path: str, baseline_methods: dict, current_spec: dict) -> list[dict]:
+    """Check for changes within a specific endpoint path."""
+    changes = []
+    current_methods = current_spec  # current_spec is actually all methods for the path
+
+    for method, spec in baseline_methods.items():
+        if method.startswith("x-"):  # Skip OpenAPI extensions
+            continue
+
+        if method not in current_methods:
+            changes.append(
+                {
+                    "type": "method_removed",
+                    "path": f"{method.upper()} {path}",
+                    "message": f"❌ Method removed: {method.upper()} {path}",
+                }
+            )
+            continue
+
+        # Method exists, check parameters and responses
+        curr_method_spec = current_methods[method]
+        changes.extend(_check_parameter_changes(path, method, spec, curr_method_spec))
+        changes.extend(_check_response_changes(path, method, spec, curr_method_spec))
+
+    return changes
+
+
+def _check_parameter_changes(path: str, method: str, baseline_spec: dict, current_spec: dict) -> list[dict]:
+    """Check for removed required parameters."""
+    changes = []
+    baseline_params = {p["name"]: p for p in baseline_spec.get("parameters", [])}
+    current_params = {p["name"]: p for p in current_spec.get("parameters", [])}
+
+    for param_name, param in baseline_params.items():
+        if param.get("required", False) and param_name not in current_params:
+            changes.append(
+                {
+                    "type": "required_param_removed",
+                    "path": f"{method.upper()} {path}",
+                    "message": f"❌ Required parameter removed: {param_name} from {method.upper()} {path}",
+                }
+            )
+    return changes
+
+
+def _check_response_changes(path: str, method: str, baseline_spec: dict, current_spec: dict) -> list[dict]:
+    """Check for removed successful responses."""
+    changes = []
+    baseline_responses = baseline_spec.get("responses", {})
+    current_responses = current_spec.get("responses", {})
+
+    for status_code in ["200", "201"]:
+        if status_code in baseline_responses and status_code not in current_responses:
+            changes.append(
+                {
+                    "type": "response_removed",
+                    "path": f"{method.upper()} {path}",
+                    "message": f"❌ Response {status_code} removed from {method.upper()} {path}",
+                }
+            )
+    return changes
+
+
 def compare_schemas(baseline: dict, current: dict) -> list[dict]:
     """
     Compare two OpenAPI schemas and return list of breaking changes.
@@ -56,57 +128,12 @@ def compare_schemas(baseline: dict, current: dict) -> list[dict]:
     current_paths = current.get("paths", {})
 
     # Check for removed endpoints
+    breaking_changes.extend(_check_removed_endpoints(baseline_paths, current_paths))
+
+    # Check for method/param/response changes in existing endpoints
     for path, methods in baseline_paths.items():
-        if path not in current_paths:
-            breaking_changes.append(
-                {"type": "endpoint_removed", "path": path, "message": f"❌ Endpoint removed: {path}"}
-            )
-            continue
-
-        for method, spec in methods.items():
-            if method.startswith("x-"):  # Skip OpenAPI extensions
-                continue
-
-            if method not in current_paths[path]:
-                breaking_changes.append(
-                    {
-                        "type": "method_removed",
-                        "path": f"{method.upper()} {path}",
-                        "message": f"❌ Method removed: {method.upper()} {path}",
-                    }
-                )
-                continue
-
-            current_spec = current_paths[path][method]
-
-            # Check for removed/changed parameters
-            baseline_params = {p["name"]: p for p in spec.get("parameters", [])}
-            current_params = {p["name"]: p for p in current_spec.get("parameters", [])}
-
-            for param_name, param in baseline_params.items():
-                if param.get("required", False):
-                    if param_name not in current_params:
-                        breaking_changes.append(
-                            {
-                                "type": "required_param_removed",
-                                "path": f"{method.upper()} {path}",
-                                "message": f"❌ Required parameter removed: {param_name} from {method.upper()} {path}",
-                            }
-                        )
-
-            # Check response schema changes (simplified check)
-            baseline_responses = spec.get("responses", {})
-            current_responses = current_spec.get("responses", {})
-
-            for status_code in ["200", "201"]:
-                if status_code in baseline_responses and status_code not in current_responses:
-                    breaking_changes.append(
-                        {
-                            "type": "response_removed",
-                            "path": f"{method.upper()} {path}",
-                            "message": f"❌ Response {status_code} removed from {method.upper()} {path}",
-                        }
-                    )
+        if path in current_paths:
+            breaking_changes.extend(_check_method_changes(path, methods, current_paths[path]))
 
     return breaking_changes
 

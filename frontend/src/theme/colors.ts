@@ -28,18 +28,18 @@ export const colors = {
 
   // Semantic aliases (for easy theming)
   semantic: {
-    primary: '#A65D37',      // brown
-    secondary: '#95A792',    // sage
-    accent: '#C97B49',       // terracotta
-    background: '#F4EBD0',   // cream
-    surface: '#FAF6EC',      // cream-light
+    primary: '#A65D37', // brown
+    secondary: '#95A792', // sage
+    accent: '#C97B49', // terracotta
+    background: '#F4EBD0', // cream
+    surface: '#FAF6EC', // cream-light
     text: {
       primary: '#A65D37',
       secondary: '#C4855C',
       muted: '#8B7355',
     },
-    success: '#6D8B6A',      // sage-dark
-    warning: '#C97B49',      // terracotta
+    success: '#6D8B6A', // sage-dark
+    warning: '#C97B49', // terracotta
     error: '#C75B5B',
   },
 } as const;

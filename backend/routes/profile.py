@@ -213,7 +213,7 @@ async def upload_profile_picture(
         )
 
         # Upload to Storage
-        image_url = await storage_service.upload_file(
+        image_url = storage_service.upload_file(
             file_content=contents,
             content_type=content_type,
             file_extension=file_extension,
@@ -243,9 +243,7 @@ async def change_password(
     """
     Change user password
     """
-    # Extract client info for audit log
-    ip = request.client.host if request.client else "unknown"
-    user_agent = request.headers.get("user-agent", "unknown")
+    # Extract client info for audit log (removed unused ip/user_agent)
 
     # Audit log: Attempt
     logger.info("[AUDIT] Password change attempt")

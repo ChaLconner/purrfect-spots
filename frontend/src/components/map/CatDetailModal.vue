@@ -18,7 +18,7 @@
         <div class="relative h-64">
           <img
             :src="cat.image_url"
-            :alt="cat.location_name || 'Cat photo'"
+            :alt="cat.location_name || 'Cat'"
             class="w-full h-full object-cover"
             loading="lazy"
             decoding="async"
@@ -125,4 +125,3 @@ const tags = computed(() => {
   return extractTags(props.cat.description);
 });
 </script>
-

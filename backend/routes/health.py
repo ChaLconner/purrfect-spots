@@ -16,7 +16,7 @@ import asyncio
 import os
 import sys
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -25,13 +25,16 @@ from config import config
 from limiter import limiter
 from logger import logger
 
+ERROR_CONNECTION_FAILED = "Connection failed"
+CACHE_CONTROL_NO_STORE = "no-cache, no-store, must-revalidate"
+
 router = APIRouter(prefix="/health", tags=["Health"])
 
 
 # ========== Dependency Checks ==========
 
 
-async def check_database() -> dict[str, Any]:
+def check_database() -> dict[str, Any]:
     """
     Check Supabase/PostgreSQL database connectivity.
 
@@ -42,10 +45,10 @@ async def check_database() -> dict[str, Any]:
     try:
         from dependencies import get_supabase_client
 
-        client = get_supabase_client()
+        supabase = get_supabase_client()
 
         # Simple query to verify connection - count users (lightweight)
-        result = client.table("users").select("id", count="exact").limit(1).execute()
+        _ = supabase.table("cat_photos").select("count", count="exact").limit(1).execute()
 
         latency_ms = (datetime.now(UTC) - start_time).total_seconds() * 1000
 
@@ -57,14 +60,10 @@ async def check_database() -> dict[str, Any]:
     except Exception as e:
         latency_ms = (datetime.now(UTC) - start_time).total_seconds() * 1000
         logger.error(f"Database health check failed: {e}")
-        return {
-            "status": "unhealthy",
-            "latency_ms": round(latency_ms, 2),
-            "error": "Connection failed",
-        }
+        return {"status": "unhealthy", "error": ERROR_CONNECTION_FAILED}
 
 
-async def check_redis() -> dict[str, Any]:
+def check_redis() -> dict[str, Any]:
     """
     Check Redis connectivity for caching and rate limiting.
 
@@ -101,10 +100,10 @@ async def check_redis() -> dict[str, Any]:
         return {"status": "not_available", "error": "Redis package not installed"}
     except Exception as e:
         logger.error(f"Redis health check failed: {e}")
-        return {"status": "unhealthy", "error": "Connection failed"}
+        return {"status": "unhealthy", "error": ERROR_CONNECTION_FAILED}
 
 
-async def check_s3() -> dict[str, Any]:
+def check_s3() -> dict[str, Any]:
     """
     Check AWS S3 connectivity for image storage.
 
@@ -121,12 +120,18 @@ async def check_s3() -> dict[str, Any]:
         from botocore.config import Config as BotoConfig
 
         start_time = datetime.now(UTC)
+        account_id = os.getenv("AWS_ACCOUNT_ID")
 
         # Create S3 client with timeout
         s3 = boto3.client("s3", config=BotoConfig(connect_timeout=5, read_timeout=5))
 
         # Check if bucket exists and is accessible
-        s3.head_bucket(Bucket=bucket_name)
+        # Using ExpectedBucketOwner to verify bucket ownership if account_id is provided
+        head_kwargs = {"Bucket": bucket_name}
+        if account_id:
+            head_kwargs["ExpectedBucketOwner"] = account_id
+
+        s3.head_bucket(**head_kwargs)
 
         latency_ms = (datetime.now(UTC) - start_time).total_seconds() * 1000
 
@@ -134,15 +139,16 @@ async def check_s3() -> dict[str, Any]:
             "status": "healthy",
             "latency_ms": round(latency_ms, 2),
             "bucket": bucket_name,
+            "ownership_verified": bool(account_id),
         }
     except ImportError:
         return {"status": "not_available", "error": "boto3 package not installed"}
     except Exception as e:
         logger.error(f"S3 health check failed: {e}")
-        return {"status": "unhealthy", "error": "Connection failed"}
+        return {"status": "unhealthy", "error": ERROR_CONNECTION_FAILED}
 
 
-async def check_google_vision() -> dict[str, Any]:
+def check_google_vision() -> dict[str, Any]:
     """
     Check Google Vision API connectivity for cat detection.
 
@@ -183,7 +189,7 @@ async def check_google_vision() -> dict[str, Any]:
         return {"status": "unknown", "error": "Check failed"}
 
 
-async def check_sentry() -> dict[str, Any]:
+def check_sentry() -> dict[str, Any]:
     """
     Check Sentry error monitoring configuration.
 
@@ -209,7 +215,7 @@ async def check_sentry() -> dict[str, Any]:
 
 @router.get("/live")
 @limiter.limit("100/minute")  # SECURITY: Rate limit health checks to prevent abuse
-async def liveness_check(request: Request):
+def liveness_check(request: Request):
     """
     Liveness probe - checks if the application is running.
 
@@ -227,7 +233,7 @@ async def liveness_check(request: Request):
             "timestamp": datetime.now(UTC).isoformat(),
             "version": "3.0.0",
         },
-        headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+        headers={"Cache-Control": CACHE_CONTROL_NO_STORE},
     )
 
 
@@ -246,20 +252,28 @@ async def readiness_check(request: Request):
         200 OK if ready to serve requests
         503 Service Unavailable if critical dependencies are down
     """
-    # Run all checks in parallel
+    # Run all checks in parallel using threads to avoid blocking the event loop
     checks = await asyncio.gather(
-        check_database(),
-        check_redis(),
-        check_s3(),
-        check_sentry(),
+        asyncio.to_thread(check_database),
+        asyncio.to_thread(check_redis),
+        asyncio.to_thread(check_s3),
+        asyncio.to_thread(check_sentry),
         return_exceptions=True,
     )
 
-    results = {
-        "database": checks[0] if not isinstance(checks[0], Exception) else {"status": "error", "error": str(checks[0])},
-        "redis": checks[1] if not isinstance(checks[1], Exception) else {"status": "error", "error": str(checks[1])},
-        "s3": checks[2] if not isinstance(checks[2], Exception) else {"status": "error", "error": str(checks[2])},
-        "sentry": checks[3] if not isinstance(checks[3], Exception) else {"status": "error", "error": str(checks[3])},
+    results: dict[str, dict[str, Any]] = {
+        "database": cast(dict[str, Any], checks[0])
+        if not isinstance(checks[0], Exception)
+        else {"status": "error", "error": str(checks[0])},
+        "redis": cast(dict[str, Any], checks[1])
+        if not isinstance(checks[1], Exception)
+        else {"status": "error", "error": str(checks[1])},
+        "s3": cast(dict[str, Any], checks[2])
+        if not isinstance(checks[2], Exception)
+        else {"status": "error", "error": str(checks[2])},
+        "sentry": cast(dict[str, Any], checks[3])
+        if not isinstance(checks[3], Exception)
+        else {"status": "error", "error": str(checks[3])},
     }
 
     # Critical services that must be healthy
@@ -267,7 +281,7 @@ async def readiness_check(request: Request):
 
     # Check if all critical services are healthy
     all_critical_healthy = all(
-        isinstance(results.get(service), dict) and results.get(service, {}).get("status") == "healthy"
+        isinstance(results.get(service), dict) and results.get(service, {}).get("status") == "healthy"  # type: ignore
         for service in critical_services
     )
 
@@ -288,7 +302,7 @@ async def readiness_check(request: Request):
             "environment": os.getenv("ENVIRONMENT", "development"),
             "checks": results,
         },
-        headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+        headers={"Cache-Control": CACHE_CONTROL_NO_STORE},
     )
 
 
@@ -305,13 +319,13 @@ async def dependency_check(request: Request):
     Returns:
         Detailed status of all dependencies
     """
-    # Run all checks including Vision API
+    # Run all checks including Vision API using threads
     checks = await asyncio.gather(
-        check_database(),
-        check_redis(),
-        check_s3(),
-        check_google_vision(),
-        check_sentry(),
+        asyncio.to_thread(check_database),
+        asyncio.to_thread(check_redis),
+        asyncio.to_thread(check_s3),
+        asyncio.to_thread(check_google_vision),
+        asyncio.to_thread(check_sentry),
         return_exceptions=True,
     )
 
@@ -344,13 +358,13 @@ async def dependency_check(request: Request):
             "health_score_label": f"{healthy_count}/{total_count} services healthy",
             "dependencies": results,
         },
-        headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+        headers={"Cache-Control": CACHE_CONTROL_NO_STORE},
     )
 
 
 @router.get("/metrics")
 @limiter.limit("20/minute")  # SECURITY: Rate limit metrics endpoint to prevent abuse
-async def metrics(request: Request):
+def metrics(request: Request):
     """
     Basic metrics endpoint for monitoring.
 
@@ -368,5 +382,5 @@ async def metrics(request: Request):
             "environment": os.getenv("ENVIRONMENT", "development"),
             "python_version": sys.version.split()[0],
         },
-        headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+        headers={"Cache-Control": CACHE_CONTROL_NO_STORE},
     )

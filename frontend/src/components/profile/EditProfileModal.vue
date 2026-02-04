@@ -113,7 +113,6 @@ const handleFileSelect = async (event: Event) => {
     try {
       const imageUrl = await ProfileService.uploadProfilePicture(file);
       editForm.picture = imageUrl;
-      // showSuccess('Photo uploaded!'); // Removed: Visual update in form is sufficient
       announce('Profile photo uploaded successfully');
     } catch {
       showError('Failed to upload photo');
@@ -192,11 +191,10 @@ const handleKeydown = (event: KeyboardEvent) => {
       leave-from-class="opacity-100"
       leave-to-class="opacity-0"
     >
-      <div
+      <dialog
         v-if="isOpen"
         class="fixed inset-0 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-        role="dialog"
-        aria-modal="true"
+        open
         aria-labelledby="edit-profile-title"
         @click="handleBackdropClick"
         @keydown="handleKeydown"
@@ -232,7 +230,11 @@ const handleKeydown = (event: KeyboardEvent) => {
                   <img
                     :src="editForm.picture || '/default-avatar.svg'"
                     class="w-32 h-32 rounded-full object-cover border-4 border-white shadow-md transition-transform group-hover:scale-105"
-                    alt="Profile picture"
+                    :alt="
+                      editForm.name
+                        ? `Profile picture of ${editForm.name}`
+                        : 'Current profile picture'
+                    "
                   />
                   <div
                     class="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
@@ -272,6 +274,7 @@ const handleKeydown = (event: KeyboardEvent) => {
                   type="text"
                   class="w-full px-5 py-3.5 bg-white/60 border-2 border-stone-200 rounded-2xl focus:outline-none focus:border-terracotta focus:bg-white focus:ring-4 focus:ring-terracotta/10 transition-all duration-300 text-brown font-medium placeholder-stone-400"
                   placeholder="Your name"
+                  autocomplete="name"
                   required
                 />
               </div>
@@ -470,7 +473,7 @@ const handleKeydown = (event: KeyboardEvent) => {
             </form>
           </div>
         </div>
-      </div>
+      </dialog>
     </Transition>
   </Teleport>
 </template>

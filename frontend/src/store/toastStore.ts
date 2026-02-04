@@ -1,6 +1,6 @@
 /**
  * Pinia Toast Store
- * 
+ *
  * Centralized notification/toast management.
  * Supports multiple toast types with auto-dismiss.
  */
@@ -16,7 +16,7 @@ export const useToastStore = defineStore('toast', () => {
   // ========== Getters ==========
   const activeToasts = computed(() => toasts.value);
   const hasToasts = computed(() => toasts.value.length > 0);
-  const errorCount = computed(() => toasts.value.filter(t => t.type === 'error').length);
+  const errorCount = computed(() => toasts.value.filter((t) => t.type === 'error').length);
 
   // ========== Actions ==========
 
@@ -48,7 +48,7 @@ export const useToastStore = defineStore('toast', () => {
    * Remove a toast by ID
    */
   function removeToast(id: string) {
-    const index = toasts.value.findIndex(t => t.id === id);
+    const index = toasts.value.findIndex((t) => t.id === id);
     if (index !== -1) {
       toasts.value.splice(index, 1);
     }
@@ -125,7 +125,9 @@ function getStore() {
 
 // Legacy reactive export
 export const toastState = {
-  get toasts() { return getStore()?.toasts ?? []; },
+  get toasts() {
+    return getStore()?.toasts ?? [];
+  },
 };
 
 // Legacy function exports

@@ -187,7 +187,7 @@ const handleKeydown = (index: number, event: KeyboardEvent) => {
 const handlePaste = (event: ClipboardEvent) => {
   event.preventDefault();
   const pastedData = event.clipboardData?.getData('text') || '';
-  const digits = pastedData.replace(/\D/g, '').slice(0, 6);
+  const digits = pastedData.replaceAll(/\D/g, '').slice(0, 6);
 
   if (digits.length > 0) {
     for (let i = 0; i < 6; i++) {
@@ -329,12 +329,12 @@ onUnmounted(() => {
 .verify-subtitle {
   font-family: 'Inter', sans-serif;
   font-size: 0.95rem;
-  color: #7d7d7d;
+  color: #5a4632;
   line-height: 1.6;
 }
 
 .email-display {
-  color: #5a4632;
+  color: #2c3e50;
   word-break: break-all;
 }
 
@@ -498,7 +498,7 @@ onUnmounted(() => {
 .cooldown-text {
   font-family: 'Inter', sans-serif;
   font-size: 0.9rem;
-  color: #888;
+  color: #5a4632;
 }
 
 /* Back Link */
@@ -511,7 +511,7 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  color: #7d7d7d;
+  color: #5a4632;
   font-family: 'Inter', sans-serif;
   font-size: 0.9rem;
   text-decoration: none;

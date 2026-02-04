@@ -7,35 +7,36 @@ import { AuthService } from '../services/authService';
 import { showSuccess } from '../store/toast';
 import { isDev } from '../utils/env';
 
+// Child Components
+import SearchBox from './navbar/SearchBox.vue';
+import UserMenu from './navbar/UserMenu.vue';
+
 // Icons
 import Logo from './icons/logo.vue';
 import Paw from './icons/paw.vue';
-import Search from './icons/search.vue';
 import MapIcon from './icons/map.vue';
 import Upload from './icons/upload.vue';
 import Gallery from './icons/gallery.vue';
 import ProfileIcon from './icons/profile.vue';
 
 const menuOpen = ref(false);
-const showUserMenu = ref(false);
-const searchQuery = ref('');
 const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
 const catsStore = useCatsStore();
 
 // Close menus when clicking outside
-const handleClickOutside = (event: Event) => {
+const handleEvents = (event: Event) => {
   const target = event.target as HTMLElement;
   const navContainer = document.querySelector('.navbar-container');
 
-  // Close user menu
-  if (showUserMenu.value && target && !target.closest('.user-menu-container')) {
-    showUserMenu.value = false;
+  // Close mobile hamburger menu on click outside
+  if (event.type === 'click' && menuOpen.value && navContainer && !navContainer.contains(target)) {
+    menuOpen.value = false;
   }
 
-  // Close mobile hamburger menu
-  if (menuOpen.value && navContainer && !navContainer.contains(target)) {
+  // Close on Escape key
+  if (event.type === 'keydown' && (event as KeyboardEvent).key === 'Escape' && menuOpen.value) {
     menuOpen.value = false;
   }
 };
@@ -51,57 +52,6 @@ watch(menuOpen, (isOpen) => {
   }
 });
 
-// Initialize search from route query
-onMounted(() => {
-  if (route.query.search) {
-    searchQuery.value = route.query.search as string;
-  }
-});
-
-// Watch for route changes to update search
-watch(
-  () => route.query.search,
-  (newSearch) => {
-    if (newSearch) {
-      searchQuery.value = newSearch as string;
-    }
-  }
-);
-
-function goHome() {
-  router.push('/');
-}
-
-const handleSearch = () => {
-  catsStore.setSearchQuery(searchQuery.value);
-
-  if (route.path !== '/map' && route.path !== '/') {
-    router.push({ path: '/map', query: { search: searchQuery.value } });
-  }
-};
-
-watch(searchQuery, (newValue) => {
-  if (!newValue.trim()) {
-    catsStore.setSearchQuery('');
-  }
-});
-
-const clearSearch = () => {
-  searchQuery.value = '';
-  catsStore.setSearchQuery('');
-  if (route.path === '/map') {
-    // Update URL without reloading if on map
-    router.replace({ ...route, query: { ...route.query, search: undefined } });
-  }
-};
-
-const handleImageError = (event: Event) => {
-  const target = event.target as HTMLImageElement;
-  if (!target.src.includes('default-avatar.svg')) {
-    target.src = '/default-avatar.svg';
-  }
-};
-
 const logout = async () => {
   try {
     await AuthService.logout();
@@ -109,7 +59,6 @@ const logout = async () => {
     if (isDev()) {
       console.error('Logout error:', error);
     }
-    // Continue to clear auth even if backend fails
   } finally {
     authStore.clearAuth();
     router.push('/');
@@ -119,23 +68,25 @@ const logout = async () => {
 
 onMounted(() => {
   // authStore initialized automatically
-  document.addEventListener('click', handleClickOutside);
+  document.addEventListener('click', handleEvents);
+  document.addEventListener('keydown', handleEvents);
 });
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside);
+  document.removeEventListener('click', handleEvents);
+  document.removeEventListener('keydown', handleEvents);
 });
 </script>
 
 <template>
-  <nav class="navbar-container">
+  <nav class="navbar-container" aria-label="Main Navigation">
     <div class="navbar-content">
       <!-- Left Section: Logo + Brand + Cat Counter -->
       <div class="left-section">
-        <div class="brand-section" @click="goHome">
+        <button class="brand-section" aria-label="Go to home" @click="router.push('/')">
           <Logo class="brand-logo" />
           <span class="brand-name">Purrfect Spots</span>
-        </div>
+        </button>
 
         <div v-if="route.path === '/map' || route.path === '/'" class="cat-counter">
           <div class="paw-icon-wrapper">
@@ -150,39 +101,7 @@ onUnmounted(() => {
 
       <!-- Center Section: Search Box -->
       <div class="center-section">
-        <div class="search-box">
-          <input
-            v-model="searchQuery"
-            type="text"
-            placeholder="Find a spot..."
-            class="search-input"
-            @keyup.enter="handleSearch"
-          />
-          <button
-            v-if="searchQuery"
-            class="search-btn clear-mode"
-            aria-label="Clear search"
-            @click="clearSearch"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-          <button v-else class="search-btn" aria-label="Search" @click="handleSearch">
-            <Search class="search-icon" />
-          </button>
-        </div>
+        <SearchBox />
       </div>
 
       <!-- Right Section: Navigation + Login -->
@@ -225,56 +144,7 @@ onUnmounted(() => {
         </div>
 
         <!-- User Menu (authenticated) -->
-        <div v-else class="user-menu-container">
-          <button
-            class="user-btn"
-            :aria-expanded="showUserMenu"
-            @click="showUserMenu = !showUserMenu"
-          >
-            <img
-              :src="authStore.user?.picture || '/default-avatar.svg'"
-              :alt="authStore.user?.name || 'User'"
-              class="user-avatar"
-              @error="handleImageError"
-            />
-            <span class="user-name">{{ authStore.user?.name }}</span>
-            <svg
-              class="chevron-icon"
-              :class="{ rotate: showUserMenu }"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </button>
-
-          <!-- Dropdown Menu -->
-          <div v-if="showUserMenu" class="user-dropdown" @click.stop>
-            <div class="dropdown-header">
-              <p class="dropdown-name">{{ authStore.user?.name }}</p>
-              <p class="dropdown-email">{{ authStore.user?.email }}</p>
-            </div>
-            <div class="dropdown-divider"></div>
-            <router-link to="/profile" class="dropdown-item" @click="showUserMenu = false">
-              Profile
-            </router-link>
-            <button
-              class="dropdown-item logout"
-              @click="
-                logout();
-                showUserMenu = false;
-              "
-            >
-              Logout
-            </button>
-          </div>
-        </div>
+        <UserMenu v-else />
       </div>
 
       <!-- Hamburger button (mobile only) -->
@@ -300,49 +170,15 @@ onUnmounted(() => {
     </div>
 
     <!-- Mobile Menu -->
-    <div
+    <nav
       id="mobile-menu"
       class="mobile-menu"
       :class="{ 'mobile-menu-open': menuOpen }"
-      role="navigation"
       aria-label="Mobile navigation"
     >
       <!-- Mobile Search -->
       <div class="mobile-search-section">
-        <div class="mobile-search-box">
-          <input
-            ref="mobileSearchInput"
-            v-model="searchQuery"
-            type="text"
-            placeholder="Search for purrfect spots..."
-            class="mobile-search-input"
-            @keyup.enter="handleSearch"
-          />
-          <button
-            v-if="searchQuery"
-            class="mobile-clear-btn"
-            aria-label="Clear search"
-            @click="clearSearch"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-          <button v-else class="search-btn" aria-label="Search" @click="handleSearch">
-            <Search class="search-icon" />
-          </button>
-        </div>
+        <SearchBox />
       </div>
 
       <!-- Mobile Navigation Links -->
@@ -398,7 +234,7 @@ onUnmounted(() => {
           <span>Logout</span>
         </button>
       </div>
-    </div>
+    </nav>
   </nav>
 </template>
 
@@ -622,7 +458,7 @@ onUnmounted(() => {
   font-family: 'Zen Maru Gothic', sans-serif;
   font-size: 0.9rem;
   font-weight: 600;
-  color: #8b7355;
+  color: #5a4a3a;
   text-decoration: none;
   transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   background: transparent;
@@ -644,8 +480,8 @@ onUnmounted(() => {
 
 .nav-link.active {
   background: linear-gradient(135deg, rgba(212, 132, 90, 0.15), rgba(212, 132, 90, 0.05));
-  color: #c97b49;
-  font-weight: 700;
+  color: #a65d37;
+  font-weight: 800;
   box-shadow: inset 0 2px 6px rgba(139, 90, 43, 0.05);
 }
 

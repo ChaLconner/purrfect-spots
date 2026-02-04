@@ -8,8 +8,11 @@ import secrets
 from datetime import timedelta
 
 from dependencies import get_supabase_admin_client
+from exceptions import ExternalServiceError, PurrfectSpotsException
 from logger import logger
 from utils.datetime_utils import utc_now
+
+TIMEZONE_UTC_OFFSET = "+00:00"
 
 
 class OTPService:
@@ -72,7 +75,7 @@ class OTPService:
             if result.data and result.data[0].get("locked_until"):
                 from datetime import datetime
 
-                locked_until = datetime.fromisoformat(result.data[0]["locked_until"].replace("Z", "+00:00"))
+                locked_until = datetime.fromisoformat(result.data[0]["locked_until"].replace("Z", TIMEZONE_UTC_OFFSET))
                 return utc_now() < locked_until
 
             return False
@@ -164,7 +167,7 @@ class OTPService:
         except Exception as e:
             logger.error("Failed to clear email lockout: %s", e)
 
-    async def create_otp(self, email: str) -> tuple[str, str]:
+    def create_otp(self, email: str) -> tuple[str, str]:
         """
         Create and store OTP for email verification
 
@@ -176,7 +179,7 @@ class OTPService:
         """
         try:
             # Invalidate any existing OTPs for this email
-            await self.invalidate_existing_otps(email)
+            self.invalidate_existing_otps(email)
 
             # Generate new OTP
             otp = self._generate_otp()
@@ -199,14 +202,17 @@ class OTPService:
             )
 
             if not result.data:
-                raise Exception("Failed to store OTP")
+                raise ExternalServiceError("Failed to store OTP", service="Database")
 
             logger.info("OTP created and session initiated")
             return otp, expires_at.isoformat()
 
+        except (ExternalServiceError, PurrfectSpotsException):
+            # Re-raise specific exceptions
+            raise
         except Exception:
             logger.error("Failed to create OTP")
-            raise Exception("Failed to generate verification code")
+            raise PurrfectSpotsException("Failed to generate verification code", error_code="INTERNAL_ERROR")
 
     async def verify_otp(self, email: str, otp: str) -> dict:
         """
@@ -263,7 +269,7 @@ class OTPService:
             # Check if expired
             from datetime import datetime, timezone
 
-            expiry_time = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+            expiry_time = datetime.fromisoformat(expires_at.replace("Z", TIMEZONE_UTC_OFFSET))
             if utc_now() > expiry_time:
                 logger.warning("OTP expired")
                 return {
@@ -313,7 +319,7 @@ class OTPService:
             logger.error("OTP verification error")
             return {"success": False, "error": "Verification failed. Please try again.", "attempts_remaining": 0}
 
-    async def invalidate_existing_otps(self, email: str) -> None:
+    def invalidate_existing_otps(self, email: str) -> None:
         """Invalidate all existing OTPs for an email"""
         try:
             self.supabase.table("email_verifications").delete().eq("email", email.lower()).is_(
@@ -322,7 +328,7 @@ class OTPService:
         except Exception:
             logger.warning("Failed to invalidate existing OTPs")
 
-    async def can_resend_otp(self, email: str) -> tuple[bool, int]:
+    def can_resend_otp(self, email: str) -> tuple[bool, int]:
         """
         Check if user can request a new OTP (cooldown check)
 
@@ -347,7 +353,7 @@ class OTPService:
 
             from datetime import datetime
 
-            created_at = datetime.fromisoformat(result.data[0]["created_at"].replace("Z", "+00:00"))
+            created_at = datetime.fromisoformat(result.data[0]["created_at"].replace("Z", TIMEZONE_UTC_OFFSET))
             elapsed = (utc_now() - created_at).total_seconds()
 
             if elapsed < self.RESEND_COOLDOWN_SECONDS:
@@ -356,7 +362,7 @@ class OTPService:
 
             return True, 0
 
-        except Exception:
+        except RuntimeError:
             logger.warning("Resend check error")
             return True, 0  # Allow resend on error
 

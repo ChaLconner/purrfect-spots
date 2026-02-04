@@ -65,7 +65,7 @@ async def create_login_response(
 
     # Create tokens
     # Note: user might be a dict or object depending on source, but AuthService expects ID for tokens
-    user_id = getattr(user, "id", user.get("id") if isinstance(user, dict) else str(user))
+    user_id = str(getattr(user, "id", user.get("id") if isinstance(user, dict) else str(user)))
 
     # Prepare token extra claims if needed (usually just standard claims)
     access_token = auth_service.create_access_token(user_id)

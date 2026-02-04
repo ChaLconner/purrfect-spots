@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * CardSkeleton Component
- * 
+ *
  * Pre-designed skeleton card for gallery/profile image loading states.
  * Uses SkeletonLoader internally for consistency.
  */
@@ -14,15 +14,12 @@ interface Props {
 
 const _props = withDefaults(defineProps<Props>(), {
   variant: 'gallery',
-  count: 1
+  count: 1,
 });
 </script>
 
 <template>
-  <div 
-    class="card-skeleton-container"
-    :class="`variant-${variant}`"
-  >
+  <div class="card-skeleton-container" :class="`variant-${variant}`">
     <template v-for="i in count" :key="i">
       <!-- Gallery Card Skeleton -->
       <div v-if="variant === 'gallery'" class="gallery-skeleton-card">

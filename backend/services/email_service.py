@@ -5,6 +5,9 @@ from email.mime.text import MIMEText
 
 from logger import logger
 
+WARN_SMTP_NOT_SET = "SMTP credentials not set. Skipping email send."
+DEBUG_SEPARATOR = "============================================"
+
 
 class EmailService:
     def __init__(self):
@@ -20,11 +23,11 @@ class EmailService:
         Send password reset email
         """
         if not self.smtp_user or not self.smtp_password:
-            logger.warning("SMTP credentials not set. Skipping email send.")
+            logger.warning(WARN_SMTP_NOT_SET)
             # For dev: log the token at debug level
-            logger.debug("============================================")
+            logger.debug(DEBUG_SEPARATOR)
             logger.debug(f"PASSWORD RESET LINK: {token}")
-            logger.debug("============================================")
+            logger.debug(DEBUG_SEPARATOR)
             return True
 
         try:
@@ -64,7 +67,10 @@ class EmailService:
             return True
 
         except Exception as e:
-            logger.error(f"Failed to send email: {e!s}")
+            if isinstance(e, smtplib.SMTPException):
+                logger.error(f"SMTP error sending reset email: {e}")
+            else:
+                logger.error(f"Failed to send email: {e!s}")
             return False
 
     def send_confirmation_email(self, to_email: str, confirmation_link: str) -> bool:
@@ -72,10 +78,10 @@ class EmailService:
         Send confirmation email for new signup
         """
         if not self.smtp_user or not self.smtp_password:
-            logger.warning("SMTP credentials not set. Skipping email send.")
-            logger.debug("============================================")
+            logger.warning(WARN_SMTP_NOT_SET)
+            logger.debug(DEBUG_SEPARATOR)
             logger.debug(f"CONFIRMATION LINK: {confirmation_link}")
-            logger.debug("============================================")
+            logger.debug(DEBUG_SEPARATOR)
             return True
 
         try:
@@ -123,12 +129,12 @@ class EmailService:
         Send verification OTP code email
         """
         if not self.smtp_user or not self.smtp_password:
-            logger.warning("SMTP credentials not set. Skipping email send.")
-            logger.debug("============================================")
+            logger.warning(WARN_SMTP_NOT_SET)
+            logger.debug(DEBUG_SEPARATOR)
             logger.debug(f"VERIFICATION OTP CODE: {otp_code}")
             logger.debug(f"For email: {to_email}")
             logger.debug(f"Expires in: {expires_minutes} minutes")
-            logger.debug("============================================")
+            logger.debug(DEBUG_SEPARATOR)
             return True
 
         try:

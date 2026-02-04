@@ -32,7 +32,7 @@ const API_ENDPOINTS = [
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing service worker...');
+  console.log(`[SW] Installing service worker for scope: ${self.registration.scope}`);
   
   event.waitUntil(
     caches.open(STATIC_CACHE_NAME).then((cache) => {
@@ -47,7 +47,7 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating service worker...');
+  console.log(`[SW] Activating service worker for scope: ${self.registration.scope}`);
   
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -59,6 +59,7 @@ self.addEventListener('activate', (event) => {
             console.log('[SW] Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
+          return null;
         })
       );
     })

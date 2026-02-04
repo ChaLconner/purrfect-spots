@@ -54,11 +54,8 @@ def test_setup_telemetry_enabled_success(mock_app):
     with patch.dict(os.environ, {"ENABLE_TELEMETRY": "true"}):
         # Create mock modules and classes
         mock_trace = MagicMock()
-        mock_exporter = MagicMock()
-        mock_instrumentor = MagicMock()
         mock_resource = MagicMock()
-        mock_provider = MagicMock()
-        mock_processor = MagicMock()
+        mock_instrumentor = MagicMock()
 
         # Configure mocks
         mock_resource_cls = MagicMock()

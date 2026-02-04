@@ -2,15 +2,15 @@
   <transition name="slide-fade">
     <div v-if="isVisible" class="password-strength-meter">
       <div class="strength-bars">
-        <div 
-          v-for="i in 4" 
+        <div
+          v-for="i in 4"
           :key="i"
           class="bar"
           :class="{
-            'filled': strength >= i,
-            'weak': strength <= 2 && strength >= i,
-            'medium': strength === 3 && strength >= i,
-            'strong': strength === 4 && strength >= i
+            filled: strength >= i,
+            weak: strength <= 2 && strength >= i,
+            medium: strength === 3 && strength >= i,
+            strong: strength === 4 && strength >= i,
           }"
         ></div>
       </div>
@@ -32,14 +32,18 @@ const debouncedPassword = ref('');
 const isTyping = ref(false);
 let timeout: ReturnType<typeof setTimeout> | null = null;
 
-watch(() => props.password, (newVal) => {
-  isTyping.value = true;
-  if (timeout) clearTimeout(timeout);
-  timeout = setTimeout(() => {
-    debouncedPassword.value = newVal;
-    isTyping.value = false;
-  }, 500); // 500ms debounce
-}, { immediate: true });
+watch(
+  () => props.password,
+  (newVal) => {
+    isTyping.value = true;
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      debouncedPassword.value = newVal;
+      isTyping.value = false;
+    }, 500); // 500ms debounce
+  },
+  { immediate: true }
+);
 
 const isVisible = computed(() => {
   return debouncedPassword.value.length > 0;
@@ -48,18 +52,18 @@ const isVisible = computed(() => {
 const strength = computed(() => {
   const pwd = debouncedPassword.value;
   if (!pwd) return 0;
-  
+
   let score = 0;
-  
+
   // Criteria 1: Length >= 8
   if (pwd.length >= 8) score++;
-  
+
   // Criteria 2: Contains number
   if (/\d/.test(pwd)) score++;
-  
+
   // Criteria 3: Contains special char
   if (/[^A-Za-z0-9]/.test(pwd)) score++;
-  
+
   // Criteria 4: Mixed case
   if (/[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) score++;
 
@@ -73,28 +77,28 @@ const strengthLabel = computed(() => {
   // While typing (debounce wait), we show the *previous* calculated state (which is in debouncedPassword)
   // We prefer this over flashing "Analyzing..." or hiding/showing repeatedly
   switch (strength.value) {
-    case 1: 
+    case 1:
     case 2:
       return 'Weak';
-    case 3: 
+    case 3:
       return 'Good';
-    case 4: 
+    case 4:
       return 'Strong';
-    default: 
+    default:
       return 'Weak';
   }
 });
 
 const labelColorClass = computed(() => {
   switch (strength.value) {
-    case 1: 
+    case 1:
     case 2:
       return 'text-terracotta';
-    case 3: 
+    case 3:
       return 'text-yellow-600';
-    case 4: 
+    case 4:
       return 'text-sage-dark';
-    default: 
+    default:
       return 'text-gray-400';
   }
 });
@@ -121,15 +125,15 @@ const labelColorClass = computed(() => {
 }
 
 .bar.filled.weak {
-  background-color: #F6C1B1; /* Terracotta Light */
+  background-color: #f6c1b1; /* Terracotta Light */
 }
 
 .bar.filled.medium {
-  background-color: #EBC968; /* Golden/Yellowish */
+  background-color: #ebc968; /* Golden/Yellowish */
 }
 
 .bar.filled.strong {
-  background-color: #7FB7A4; /* Sage */
+  background-color: #7fb7a4; /* Sage */
 }
 
 .strength-label {
@@ -140,11 +144,18 @@ const labelColorClass = computed(() => {
   transition: color 0.3s ease;
 }
 
-
-.text-terracotta { color: #C97B49; }
-.text-sage-dark { color: #5A7558; }
-.text-yellow-600 { color: #D9A030; }
-.text-gray-400 { color: #9CA3AF; }
+.text-terracotta {
+  color: #c97b49;
+}
+.text-sage-dark {
+  color: #5a7558;
+}
+.text-yellow-600 {
+  color: #d9a030;
+}
+.text-gray-400 {
+  color: #9ca3af;
+}
 
 /* Transition Styles */
 .slide-fade-enter-active {

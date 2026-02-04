@@ -79,7 +79,7 @@ class TestFileProcessing:
         long_name = "A" * 300  # Very long name
 
         # Should truncate, not raise error
-        name, desc = validate_location_data(long_name, "desc")
+        name, _ = validate_location_data(long_name, "desc")
 
         assert len(name) == 100
         assert name == "A" * 100

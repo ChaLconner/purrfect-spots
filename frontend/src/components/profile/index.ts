@@ -1,6 +1,6 @@
 /**
  * Profile Components Index
- * 
+ *
  * Export all profile-related components
  */
 export { default as ProfileHeader } from './ProfileHeader.vue';

@@ -31,7 +31,7 @@ class StorageService:
             ),
         )
 
-    async def upload_file(
+    def upload_file(
         self,
         file_content: bytes,
         content_type: str,
@@ -77,6 +77,10 @@ class StorageService:
             return url
 
         except Exception as e:
+            from botocore.exceptions import ClientError
+
+            if isinstance(e, ClientError):
+                logger.error(f"S3 ClientError: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to upload image to S3: {e!s}")
 
     def delete_file(self, file_url: str):

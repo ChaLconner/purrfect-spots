@@ -85,9 +85,8 @@ def client():
     return TestClient(app)
 
 
-@pytest.fixture
-def mock_supabase():
-    """Create a mock Supabase client"""
+def _create_mock_supabase_client():
+    """Helper to create a standard mock Supabase client"""
     mock = MagicMock()
     mock.table.return_value = mock
     mock.select.return_value = mock
@@ -101,45 +100,26 @@ def mock_supabase():
     mock.limit.return_value = mock
     mock.or_.return_value = mock
     mock.contains.return_value = mock
-    # Add missing methods used in gallery service
     mock.is_.return_value = mock
     mock.gte.return_value = mock
     mock.lte.return_value = mock
     mock.text_search.return_value = mock
     mock.rpc.return_value = mock
-    # not_ is often a property returning a modifier object, but simple mocking:
     mock.not_.is_.return_value = mock  # Handling .not_.is_ chain
-
     mock.execute.return_value = MagicMock(data=[], count=0)
     return mock
+
+
+@pytest.fixture
+def mock_supabase():
+    """Create a mock Supabase client"""
+    return _create_mock_supabase_client()
 
 
 @pytest.fixture
 def mock_supabase_admin():
     """Create a mock Supabase admin client"""
-    mock = MagicMock()
-    mock.table.return_value = mock
-    mock.select.return_value = mock
-    mock.insert.return_value = mock
-    mock.update.return_value = mock
-    mock.delete.return_value = mock
-    mock.eq.return_value = mock
-    mock.single.return_value = mock
-    mock.order.return_value = mock
-    mock.range.return_value = mock
-    mock.limit.return_value = mock
-    mock.or_.return_value = mock
-    mock.contains.return_value = mock
-    # Add missing methods
-    mock.is_.return_value = mock
-    mock.gte.return_value = mock
-    mock.lte.return_value = mock
-    mock.text_search.return_value = mock
-    mock.rpc.return_value = mock
-    mock.not_.is_.return_value = mock
-
-    mock.execute.return_value = MagicMock(data=[], count=0)
-    return mock
+    return _create_mock_supabase_client()
 
 
 class MockUser:

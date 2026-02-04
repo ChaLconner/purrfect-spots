@@ -20,7 +20,6 @@ import type { App as VueApp } from 'vue';
 
 async function initSentry(app: VueApp) {
   if (!SENTRY_DSN) {
-// Log removed
     return;
   }
 
@@ -34,11 +33,11 @@ async function initSentry(app: VueApp) {
       environment: ENVIRONMENT,
 
       // Performance monitoring
-      tracesSampleRate: ENVIRONMENT === 'production' ? 0.1 : 1.0,
+      tracesSampleRate: ENVIRONMENT === 'production' ? 0.1 : 1,
 
       // Session replay (optional)
       replaysSessionSampleRate: 0.1,
-      replaysOnErrorSampleRate: 1.0,
+      replaysOnErrorSampleRate: 1,
 
       // Don't send PII
       sendDefaultPii: false,
@@ -61,103 +60,92 @@ async function initSentry(app: VueApp) {
     });
 
     // Make Sentry available globally for ErrorBoundary
-    const win = window as Window & { Sentry?: typeof Sentry };
+    const win = globalThis as unknown as Window & { Sentry?: typeof Sentry };
     win.Sentry = Sentry;
-
-// Log removed
   } catch {
-// Warn removed
+    // Sentry init failed
   }
 }
 
 const app = createApp(App);
 
-// Initialize Sentry with app instance (non-blocking but awaited for mounting)
-initSentry(app).then(async () => {
-  // Install Pinia BEFORE using any stores
-  app.use(pinia);
+await initSentry(app);
 
-  // Initialize auth state (now using Pinia store internally)
-  // Initialize auth by creating the store instance
-  const authStore = useAuthStore();
-  await authStore.initializeAuth();
+// Install Pinia BEFORE using any stores
+app.use(pinia);
 
-  // Handle browser extension conflicts globally
-  window.addEventListener('unhandledrejection', handleUnhandledRejection);
-  window.addEventListener('error', handleError);
+// Initialize auth state (now using Pinia store internally)
+// Initialize auth by creating the store instance
+const authStore = useAuthStore();
+await authStore.initializeAuth();
 
-  // Global error handler for browser extension conflicts
-  app.config.errorHandler = (err, _instance, info) => {
-    const result = handleVueError(err, info);
+// Handle browser extension conflicts globally
+globalThis.addEventListener('unhandledrejection', handleUnhandledRejection);
+globalThis.addEventListener('error', handleError);
 
-    // If handleVueError returned false, it means the error was handled
-    if (result === false) {
-      return;
-    }
+// Global error handler for browser extension conflicts
+app.config.errorHandler = (err, _instance, info) => {
+  const result = handleVueError(err, info);
 
-    // Report to Sentry if available
-    const win = window as Window & {
-      Sentry?: {
-        captureException: (
-          err: unknown,
-          context: { extra: { info: string }; tags: { handler: string } }
-        ) => void;
-      };
-    };
-    if (win.Sentry) {
-      win.Sentry.captureException(err, {
-        extra: { info },
-        tags: { handler: 'global' },
-      });
-    }
-
-    // Log other errors normally
-    if (isDev()) {
-       
-      console.error('Vue error:', err, info);
-    }
-  };
-
-  app.use(router);
-  app.mount('#app');
-
-  // Initialize Service Worker for offline support
-  if ('serviceWorker' in navigator && ENVIRONMENT === 'production') {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker
-        .register('/sw.js')
-        .then((registration) => {
-          // Check for updates
-
-          registration.addEventListener('updatefound', () => {
-            const newWorker = registration.installing;
-            if (newWorker) {
-              newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  // New version available
-                  // New version available
-                  // You can show a notification to user here
-                }
-
-              });
-            }
-          });
-        })
-        .catch((error) => {
-          console.error('[SW] Service Worker registration failed:', error);
-        });
-    });
-  } else {
-    // Service Worker not supported or not in production mode
+  // If handleVueError returned false, it means the error was handled
+  if (result === false) {
+    return;
   }
 
-
-  // Initialize Web Vitals tracking after app mount
-  import('./utils/webVitals')
-    .then(({ initWebVitals }) => {
-      initWebVitals();
-    })
-    .catch(() => {
-      // Web Vitals tracking is optional, don't break the app
+  // Report to Sentry if available
+  const win = globalThis as unknown as Window & {
+    Sentry?: {
+      captureException: (
+        err: unknown,
+        context: { extra: { info: string }; tags: { handler: string } }
+      ) => void;
+    };
+  };
+  if (win.Sentry) {
+    win.Sentry.captureException(err, {
+      extra: { info },
+      tags: { handler: 'global' },
     });
-});
+  }
+
+  // Log other errors normally
+  if (isDev()) {
+    console.error('Vue error:', err, info);
+  }
+};
+
+app.use(router);
+app.mount('#app');
+
+// Initialize Service Worker for offline support
+if ('serviceWorker' in navigator && import.meta.env.MODE === 'production') {
+  globalThis.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then((registration) => {
+        // Check for updates
+
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          if (newWorker) {
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                // New version available
+              }
+            });
+          }
+        });
+      })
+      .catch((error) => {
+        console.error('[SW] Service Worker registration failed:', error);
+      });
+  });
+}
+
+// Initialize Web Vitals tracking after app mount
+try {
+  const { initWebVitals } = await import('./utils/webVitals');
+  initWebVitals();
+} catch {
+  // Web Vitals tracking is optional, don't break the app
+}
