@@ -15,9 +15,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import redis.asyncio as aioredis
 
-from dependencies import get_supabase_admin_client, get_supabase_client
+from dependencies import get_supabase_admin_client
 from logger import logger
-from utils.datetime_utils import utc_now, utc_now_iso
+from utils.datetime_utils import utc_now_iso
 
 
 class TokenService:

@@ -79,7 +79,7 @@
                 <svg
                   v-if="!isAuthenticated"
                   xmlns="http://www.w3.org/2000/svg"
-                  class="h-5 w-5 ml-2 text-stone-400"
+                  class="h-5 w-5 ml-2 text-stone-500"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -93,7 +93,7 @@
                   />
                 </svg>
               </h2>
-              <span class="text-sm font-medium text-stone-400 uppercase tracking-widest">Required</span>
+              <span class="text-sm font-medium text-stone-500 uppercase tracking-widest">Required</span>
             </div>
 
             <div
@@ -185,7 +185,7 @@
                 <svg
                   v-if="!isAuthenticated"
                   xmlns="http://www.w3.org/2000/svg"
-                  class="h-5 w-5 ml-2 text-stone-400"
+                  class="h-5 w-5 ml-2 text-stone-500"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -199,7 +199,7 @@
                   />
                 </svg>
               </h2>
-              <span class="text-sm font-medium text-stone-400 uppercase tracking-widest">Info</span>
+              <span class="text-sm font-medium text-stone-500 uppercase tracking-widest">Info</span>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -213,7 +213,7 @@
                   v-model="locationName"
                   type="text"
                   placeholder="e.g. Sunny Window Bench"
-                  class="w-full px-4 py-3 bg-white/70 border-2 border-stone-200 rounded-xl focus:outline-none focus:border-terracotta focus:ring-4 focus:ring-terracotta/10 transition-all font-medium text-brown placeholder-stone-400"
+                  class="w-full px-4 py-3 bg-white/70 border-2 border-stone-200 rounded-xl focus:outline-none focus:border-terracotta focus:ring-4 focus:ring-terracotta/10 transition-all font-medium text-brown placeholder-stone-500"
                   required
                   @focus="handleAuthProtection"
                 />
@@ -229,7 +229,7 @@
                   v-model="description"
                   rows="1"
                   placeholder="What makes this spot special?"
-                  class="w-full px-4 py-3 bg-white/70 border-2 border-stone-200 rounded-xl focus:outline-none focus:border-terracotta focus:ring-4 focus:ring-terracotta/10 transition-all font-medium text-brown placeholder-stone-400 min-h-[52px]"
+                  class="w-full px-4 py-3 bg-white/70 border-2 border-stone-200 rounded-xl focus:outline-none focus:border-terracotta focus:ring-4 focus:ring-terracotta/10 transition-all font-medium text-brown placeholder-stone-500 min-h-[52px]"
                   @focus="handleAuthProtection"
                 ></textarea>
               </div>
@@ -260,7 +260,7 @@
                 <svg
                   v-if="!isAuthenticated"
                   xmlns="http://www.w3.org/2000/svg"
-                  class="h-5 w-5 ml-2 text-stone-400"
+                  class="h-5 w-5 ml-2 text-stone-500"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"

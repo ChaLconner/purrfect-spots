@@ -8,9 +8,14 @@ import { useAuthStore } from './store/authStore';
 import { ApiError, ApiErrorTypes } from './utils/api';
 import { useNetwork } from './composables/useNetwork';
 
+import { useWebVitals } from './composables/usePerformance';
+
 const { isOnline } = useNetwork();
 const errorCount = ref(0);
 const MAX_ERRORS_BEFORE_REFRESH = 5;
+
+// Initialize performance monitoring
+useWebVitals();
 
 onMounted(() => {
   useAuthStore().verifySession();

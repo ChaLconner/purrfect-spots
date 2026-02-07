@@ -25,10 +25,10 @@ const routes = [
     props: true,
   },
   {
-    path: '/profile',
+    path: '/profile/:id?',
     name: 'Profile',
     component: () => import('@/views/ProfileView.vue'),
-    meta: { requiresAuth: true },
+    // meta: { requiresAuth: true }, // We'll handle auth logic inside for public profiles
   },
   {
     path: '/login',
@@ -58,12 +58,52 @@ const routes = [
     component: () => import('@/views/VerifyEmailView.vue'),
     meta: { requiresGuest: true },
   },
+  {
+    path: '/leaderboard',
+    name: 'Leaderboard',
+    component: () => import('@/views/LeaderboardView.vue'),
+  },
+  {
+    path: '/subscription',
+    name: 'Subscription',
+    component: () => import('@/views/SubscriptionView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/subscription/success',
+    name: 'SubscriptionSuccess',
+    component: () => import('@/views/SubscriptionView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/subscription/cancel',
+    name: 'SubscriptionCancel',
+    component: () => import('@/views/SubscriptionView.vue'),
+    meta: { requiresAuth: true },
+  },
+
 
   {
     path: '/auth/callback',
     name: 'AuthCallback',
     component: () => import('@/components/AuthCallback.vue'),
     meta: { isAuthCallback: true },
+  },
+  {
+    path: '/admin',
+    name: 'AdminDashboard',
+    component: () => import('@/views/AdminDashboard.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+  {
+    path: '/privacy-policy',
+    name: 'PrivacyPolicy',
+    component: () => import('@/views/PrivacyPolicyView.vue'),
+  },
+  {
+    path: '/terms-of-service',
+    name: 'TermsOfService',
+    component: () => import('@/views/TermsOfServiceView.vue'),
   },
 ];
 
@@ -97,6 +137,13 @@ router.beforeEach(async (to) => {
       sessionStorage.setItem('redirectAfterAuth', to.fullPath);
       return { name: 'Login' };
     }
+
+    // 3. Admin Role Check
+    if (to.meta.requiresAdmin && auth.user?.role !== 'admin') {
+      // Redirect non-admins to home or 403 page
+      return { name: 'Home' };
+    }
+    
   } else if (
     (to.name === 'Login' || to.name === 'Register' || to.name === 'Auth') &&
     useAuthStore().isUserReady

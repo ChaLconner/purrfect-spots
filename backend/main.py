@@ -40,6 +40,7 @@ from middleware.security_middleware import (
 # Import versioned API router
 from routes.api_v1 import router as api_v1_router
 from routes.health import router as health_router
+from routes.admin import router as admin_router
 from utils.security import log_security_event
 
 SENTRY_DSN = os.getenv("SENTRY_DSN")
@@ -391,7 +392,7 @@ async def test_json_response():
     return JSONResponse(
         content={
             "success": True,
-            "message": "JSON response test successful",
+            "message": "JSON response test successful (Reloaded)",
             "api_version": "v1",
             "data": {
                 "test": "JSON parsing should work correctly",
@@ -405,6 +406,7 @@ async def test_json_response():
 # ========== API Routes ==========
 # Include versioned API router (recommended)
 app.include_router(api_v1_router)
+app.include_router(admin_router, prefix="/api/v1")
 
 # Include health check routes (no prefix, accessible at /health/*)
 app.include_router(health_router)

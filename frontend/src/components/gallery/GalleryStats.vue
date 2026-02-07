@@ -1,5 +1,5 @@
 <template>
-  <div class="gallery-stats-container" role="status" aria-live="polite">
+  <output class="gallery-stats-container" aria-live="polite">
     <div class="stats-pill">
       <div class="stat-item">
         <output class="stat-value" aria-label="Total photos">{{ totalCount }}</output>
@@ -11,7 +11,7 @@
         <span class="stat-label">showing</span>
       </div>
     </div>
-  </div>
+  </output>
 </template>
 
 <script setup lang="ts">

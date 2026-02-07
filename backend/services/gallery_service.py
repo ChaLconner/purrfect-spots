@@ -25,7 +25,6 @@ class GalleryService:
         # Use standard client for public reads (RLS safe)
         # We keep admin client reference only for specific overrides if needed
         # but prefer using the standard client
-        from dependencies import get_supabase_admin_client
 
         self._admin_client_lazy = None
 
@@ -99,7 +98,9 @@ class GalleryService:
                 photo["image_url"] = self._optimize_image_url(photo["image_url"], width)
         return photos
 
-    def get_all_photos(self, limit: int = 20, offset: int = 0, include_total: bool = True) -> dict[str, Any]:
+    def get_all_photos(
+        self, limit: int = 20, offset: int = 0, include_total: bool = True, user_id: str | None = None
+    ) -> dict[str, Any]:
         """
         Get photos for public gallery with pagination
 
@@ -107,6 +108,7 @@ class GalleryService:
             limit: Maximum number of photos to return (default 20, max 100)
             offset: Number of photos to skip for pagination
             include_total: Whether to include total count (slightly slower)
+            user_id: Optional ID of the user requesting to check 'liked' status
 
         Returns:
             Dict with 'data', 'total', 'limit', 'offset', 'has_more' keys
@@ -142,6 +144,10 @@ class GalleryService:
                 logger.debug(f"Sample image URLs: {sample_urls}")
 
             data = self._process_photos(data)  # Optimize images
+
+            # Enrich with user liked status if user_id is provided
+            if user_id and data:
+                data = self.enrich_with_user_data(data, user_id)
             total = 0
 
             # Get total count if requested
@@ -246,6 +252,7 @@ class GalleryService:
         tags: list[str] | None = None,
         limit: int = 100,
         use_fulltext: bool = True,
+        user_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """
         Search photos with optional text query and/or tags filter.
@@ -265,11 +272,18 @@ class GalleryService:
         try:
             # Use full-text search if available and requested
             if query and use_fulltext and self._fulltext_available:
-                return self._fulltext_search(query, tags, limit)
+                results = self._fulltext_search(query, tags, limit)
+                if user_id and results:
+                    results = self.enrich_with_user_data(results, user_id)
+                return results
 
             # Fallback to ILIKE search with strict sanitization
             sanitized_query = sanitize_search_input(query) if query else None
-            return self._ilike_search(sanitized_query, tags, limit)
+            results = self._ilike_search(sanitized_query, tags, limit)
+
+            if user_id and results:
+                results = self.enrich_with_user_data(results, user_id)
+            return results
 
         except Exception as e:
             logger.error("Data retrieval unsuccessful: %s", e)
@@ -609,3 +623,33 @@ class GalleryService:
             from exceptions import ExternalServiceError
 
             raise ExternalServiceError(f"Failed to fetch photo {photo_id}", service="Supabase")
+
+    def enrich_with_user_data(self, photos: list[dict[str, Any]], user_id: str) -> list[dict[str, Any]]:
+        """
+        Enrich a list of photos with user-specific data (e.g., whether they liked it).
+        Efficiently checks all photos in a single query.
+        """
+        if not photos:
+            return photos
+
+        try:
+            photo_ids = [p["id"] for p in photos]
+            # Check which of these photos the user has liked
+            likes_resp = (
+                self.supabase.table("photo_likes")
+                .select("photo_id")
+                .eq("user_id", user_id)
+                .in_("photo_id", photo_ids)
+                .execute()
+            )
+
+            liked_ids = {like["photo_id"] for like in likes_resp.data} if likes_resp.data else set()
+
+            for photo in photos:
+                photo["liked"] = photo["id"] in liked_ids
+
+            return photos
+        except Exception as e:
+            logger.error(f"Failed to enrich photos with user data: {e!s}")
+            # Non-critical, just return original photos
+            return photos

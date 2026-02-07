@@ -12,6 +12,9 @@ from logger import logger
 from schemas.location import CatLocation
 from services.gallery_service import GalleryService
 
+from middleware.auth_middleware import get_current_user_from_credentials
+from user_models.user import User
+
 router = APIRouter(prefix="/gallery", tags=["Gallery"])
 
 from schemas.gallery import (
@@ -38,6 +41,7 @@ async def get_gallery(
     offset: int = Query(0, ge=0, description="Number of items to skip"),
     page: int | None = Query(None, ge=1, description="Page number (alternative to offset)"),
     gallery_service: GalleryService = Depends(get_gallery_service),
+    current_user: User | None = Depends(get_current_user_from_credentials),
 ):
     """
     Get cat images with pagination support.
@@ -67,7 +71,11 @@ async def get_gallery(
 
         # Run synchronous service call in threadpool to avoid blocking event loop
         result = await run_in_threadpool(
-            gallery_service.get_all_photos, limit=limit, offset=actual_offset, include_total=True
+            gallery_service.get_all_photos,
+            limit=limit,
+            offset=actual_offset,
+            include_total=True,
+            user_id=current_user.id if current_user else None,
         )
 
         if not result["data"]:
@@ -221,6 +229,7 @@ async def search_locations(
     tags: str | None = Query(None, description="Comma-separated list of tags to filter by"),
     limit: int = Query(100, ge=1, le=500, description="Maximum number of results"),
     gallery_service: GalleryService = Depends(get_gallery_service),
+    current_user: User | None = Depends(get_current_user_from_credentials),
 ):
     """
     Search cat locations with optional text query and/or tag filters.
@@ -235,7 +244,13 @@ async def search_locations(
         if tags:
             tag_list = [t.strip() for t in tags.split(",") if t.strip()]
 
-        photos = await run_in_threadpool(gallery_service.search_photos, query=q, tags=tag_list, limit=limit)
+        photos = await run_in_threadpool(
+            gallery_service.search_photos,
+            query=q,
+            tags=tag_list,
+            limit=limit,
+            user_id=current_user.id if current_user else None,
+        )
 
         results = [CatLocation(**photo) for photo in photos] if photos else []
 
@@ -282,6 +297,7 @@ async def get_photo(
     request: Request,
     photo_id: str,
     gallery_service: GalleryService = Depends(get_gallery_service),
+    current_user: User | None = Depends(get_current_user_from_credentials),
 ):
     """
     Get a specific photo by its ID.
@@ -291,6 +307,12 @@ async def get_photo(
         photo = await run_in_threadpool(gallery_service.get_photo_by_id, photo_id)
         if not photo:
             raise HTTPException(status_code=404, detail="Photo not found")
+
+        # Enrich with liked status if user is authenticated
+        if current_user and photo:
+            enriched = gallery_service.enrich_with_user_data([photo], current_user.id)
+            if enriched:
+                photo = enriched[0]
 
         return CatLocation(**photo)
     except HTTPException:

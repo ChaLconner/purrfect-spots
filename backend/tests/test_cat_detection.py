@@ -3,7 +3,7 @@ Tests for cat detection service
 """
 
 import io
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -31,8 +31,8 @@ class TestCatDetectionService:
         mock_file = MagicMock()
         mock_file.filename = "cat_photo.jpg"
         mock_file.content_type = "image/jpeg"
-        mock_file.read = AsyncMock(return_value=b"fake image data")
-        mock_file.seek = AsyncMock()
+        mock_file.read = MagicMock(return_value=b"fake image data")
+        mock_file.seek = MagicMock()
         return mock_file
 
     def test_detect_cats_with_cats(self, detection_service, mock_upload_file):

@@ -1,50 +1,68 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
+import type { LocationQueryValue } from 'vue-router';
 import { useCatsStore } from '../../store';
+import { useDebounce } from '@/composables/useDebounce';
 import Search from '../icons/search.vue';
 
 const searchQuery = ref('');
+const debouncedSearch = useDebounce(searchQuery, 500); // 500ms debounce
 const router = useRouter();
 const route = useRoute();
 const catsStore = useCatsStore();
 
+// Helper to handle array query params
+const getSearchString = (val: LocationQueryValue | LocationQueryValue[]): string => {
+  const firstVal = Array.isArray(val) ? val[0] : val;
+  return firstVal ?? '';
+};
+
 // Initialize search from route query
 if (route.query.search) {
-  searchQuery.value = route.query.search as string;
+  searchQuery.value = getSearchString(route.query.search);
 }
 
-// Watch for route changes to update search
+// Watch for route changes to update search input
 watch(
   () => route.query.search,
   (newSearch) => {
-    if (newSearch) {
-      searchQuery.value = newSearch as string;
+    const searchStr = getSearchString(newSearch);
+    if (searchStr !== searchQuery.value) {
+      searchQuery.value = searchStr;
     }
   }
 );
 
-const handleSearch = () => {
-  catsStore.setSearchQuery(searchQuery.value);
+// Watch debounced search to update store automatically
+watch(debouncedSearch, (newValue) => {
+  catsStore.setSearchQuery(newValue);
 
+  // Optional: Update URL query param if on map/home without reloading
+  if (route.path === '/map' || route.path === '/') {
+    const query = { ...route.query };
+    if (newValue) {
+      query.search = newValue;
+    } else {
+      delete query.search;
+    }
+    router.replace({ query });
+  }
+});
+
+const handleSearch = () => {
+  // Force navigation if not on map
   if (route.path !== '/map' && route.path !== '/') {
     router.push({ path: '/map', query: { search: searchQuery.value } });
   }
 };
 
-watch(searchQuery, (newValue) => {
-  if (!newValue.trim()) {
-    catsStore.setSearchQuery('');
-  }
-});
-
 const clearSearch = () => {
   searchQuery.value = '';
+  // Store update will happen via debounce watcher, but we can force it for UI responsiveness if needed
+  // But let's let debounce handle it or setting it directly if instant clear is desired.
+  // Actually, for clear, we usually want instant.
   catsStore.setSearchQuery('');
-  if (route.path === '/map') {
-    // Update URL without reloading if on map
-    router.replace({ ...route, query: { ...route.query, search: undefined } });
-  }
 };
 </script>
 
@@ -87,25 +105,28 @@ const clearSearch = () => {
 
 <style scoped>
 .search-box {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: #fffdf5;
-  border: 2px solid rgba(139, 90, 43, 0.1);
+  background: var(--color-btn-shade-e);
+  border: 2px solid var(--color-btn-shade-a);
   border-radius: 2rem;
   padding: 0.35rem 0.35rem 0.35rem 1.25rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   width: 100%;
-  box-shadow: 0 2px 8px rgba(139, 90, 43, 0.03);
+  box-shadow:
+    0 0 0 2px var(--color-btn-shade-b),
+    0 0.25em 0 0 var(--color-btn-shade-a);
+  transform-style: preserve-3d;
 }
 
 .search-box:focus-within {
-  border-color: #d4845a;
   background: #fff;
   box-shadow:
-    0 4px 12px rgba(212, 132, 90, 0.15),
-    inset 0 1px 2px rgba(139, 90, 43, 0.05);
-  transform: translateY(-1px);
+    0 0 0 2px var(--color-btn-shade-b),
+    0 0.35em 0 0 var(--color-btn-shade-a);
+  transform: translateY(-2px);
 }
 
 .search-input {
@@ -115,55 +136,94 @@ const clearSearch = () => {
   font-family: 'Zen Maru Gothic', sans-serif;
   font-size: 0.9rem;
   font-weight: 500;
-  color: #5a4a3a;
+  color: var(--color-btn-shade-a);
   flex: 1;
   padding: 0.2rem 0;
   min-width: 0;
 }
 
 .search-input::placeholder {
-  color: #8b7d6b;
+  color: var(--color-btn-shade-b);
   font-style: italic;
-  opacity: 0.8;
+  opacity: 1;
 }
 
+/* 3D Search Button */
 .search-btn {
+  position: relative;
   width: 2rem;
   height: 2rem;
   border-radius: 50%;
-  background: linear-gradient(135deg, #f5a962 0%, #e89445 100%);
-  border: none;
+  background: var(--color-btn-shade-d);
+  border: 2px solid var(--color-btn-shade-a);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 175ms cubic-bezier(0, 0, 1, 1);
   flex-shrink: 0;
-  box-shadow: 0 2px 6px rgba(232, 148, 69, 0.3);
+  transform-style: preserve-3d;
+}
+
+.search-btn::before {
+  position: absolute;
+  content: '';
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  background: var(--color-btn-shade-c);
+  border-radius: inherit;
+  box-shadow:
+    0 0 0 2px var(--color-btn-shade-b),
+    0 0.2em 0 0 var(--color-btn-shade-a);
+  transform: translate3d(0, 0.2em, -1em);
+  transition: all 175ms cubic-bezier(0, 0, 1, 1);
 }
 
 .search-btn:hover {
-  transform: scale(1.1) rotate(5deg);
-  box-shadow: 0 4px 10px rgba(232, 148, 69, 0.5);
-  background: linear-gradient(135deg, #fbbd7e 0%, #f5a962 100%);
+  background: var(--color-btn-shade-c);
+  transform: translate(0, 0.1em);
 }
 
+.search-btn:hover::before {
+  transform: translate3d(0, 0.2em, -1em);
+}
+
+.search-btn:active {
+  transform: translate(0, 0.2em);
+}
+
+.search-btn:active::before {
+  transform: translate3d(0, 0, -1em);
+  box-shadow:
+    0 0 0 2px var(--color-btn-shade-b),
+    0 0.05em 0 0 var(--color-btn-shade-b);
+}
+
+/* Clear mode - red theme */
 .search-btn.clear-mode {
-  background: linear-gradient(135deg, #d47979 0%, #c96262 100%);
-  box-shadow: 0 2px 6px rgba(201, 98, 98, 0.3);
-  color: white;
+  background: #ffcccc;
+  border-color: #dc4a4a;
+  color: #dc4a4a;
+}
+
+.search-btn.clear-mode::before {
+  background: #ffaaaa;
+  box-shadow:
+    0 0 0 2px #f5a5a5,
+    0 0.2em 0 0 #dc4a4a;
 }
 
 .search-btn.clear-mode:hover {
-  transform: scale(1.1) rotate(-5deg);
-  box-shadow: 0 4px 10px rgba(201, 98, 98, 0.5);
-  background: linear-gradient(135deg, #e08888 0%, #d47979 100%);
+  background: #ffbbbb;
 }
 
 .search-icon {
   width: 1rem;
   height: 1rem;
-  color: white;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+  color: var(--color-btn-shade-a);
+  position: relative;
+  z-index: 1;
 }
 </style>

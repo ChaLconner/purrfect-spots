@@ -13,12 +13,13 @@
               class="absolute inset-0 bg-terracotta rounded-full blur-md opacity-20 group-hover:opacity-40 transition-opacity duration-500"
             ></div>
             <img
-              :src="authStore.user?.picture || '/default-avatar.svg'"
-              :alt="authStore.user?.name || 'User'"
+              :src="viewedUser?.picture || '/default-avatar.svg'"
+              :alt="viewedUser?.name || 'User'"
               class="w-40 h-40 rounded-full object-cover border-4 border-white shadow-md relative z-10"
               @error="handleImageError"
             />
             <button
+              v-if="isOwnProfile"
               class="absolute bottom-2 right-2 p-2 bg-white text-terracotta rounded-full shadow-lg hover:bg-terracotta hover:text-white transition-all transform hover:scale-110 z-20 cursor-pointer"
               title="Edit Profile"
               @click="showEditModal = true"
@@ -39,35 +40,31 @@
           <!-- Profile Info -->
           <div class="flex-1 text-center md:text-left">
             <h1 class="text-4xl font-heading font-bold text-brown mb-1">
-              {{ authStore.user?.name || 'Unknown User' }}
+              {{ viewedUser?.name || 'Unknown User' }}
             </h1>
             <p
+              v-if="viewedUser?.username"
               class="text-terracotta font-medium mb-4 flex items-center justify-center md:justify-start gap-2"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                />
-              </svg>
-              {{ authStore.user?.email }}
+              @{{ viewedUser.username }}
             </p>
 
             <p class="text-brown-light text-lg mb-4 max-w-xl font-body leading-relaxed">
-              {{ authStore.user?.bio || 'Just a cat wandering through the world...' }}
+              {{ viewedUser?.bio || 'Just a cat wandering through the world...' }}
             </p>
 
             <div
               class="flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm text-gray-500 font-medium"
             >
+              <div
+                v-if="viewedUser?.is_pro"
+                class="flex items-center px-3 py-1 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full shadow-sm border border-orange-400/30"
+              >
+                <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
+                </svg>
+                PRO
+              </div>
               <span
                 class="flex items-center px-3 py-1 bg-white/50 rounded-full border border-white/60"
               >
@@ -84,7 +81,7 @@
                     d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                   />
                 </svg>
-                Joined {{ formatJoinDate(authStore.user?.created_at) }}
+                Joined {{ formatJoinDate(viewedUser?.created_at) }}
               </span>
               <span
                 class="flex items-center px-3 py-1 bg-white/50 rounded-full border border-white/60"
@@ -104,6 +101,38 @@
                 </svg>
                 {{ uploads.length }} Uploads
               </span>
+              <span
+                class="flex items-center px-3 py-1 bg-orange-50 rounded-full border border-orange-200 text-orange-700 shadow-sm"
+              >
+                <img
+                  src="/give-treat.png"
+                  alt=""
+                  class="w-4 h-4 mr-1.5 object-contain"
+                  aria-hidden="true"
+                />
+                <span class="mr-1.5">Treats:</span>
+                {{
+                  (viewedUser as any)?.treat_balance ||
+                  (viewedUser as any)?.total_treats_received ||
+                  0
+                }}
+              </span>
+            </div>
+
+            <div class="mt-4 flex justify-center md:justify-start gap-3">
+              <router-link
+                v-if="isOwnProfile && !viewedUser?.is_pro"
+                to="/subscription"
+                class="text-xs bg-terracotta/10 text-terracotta hover:bg-terracotta hover:text-white px-3 py-1 rounded-lg transition-all font-bold border border-terracotta/20"
+              >
+                Upgrade to Pro
+              </router-link>
+              <router-link
+                to="/leaderboard"
+                class="text-xs bg-sage/10 text-sage-dark hover:bg-sage hover:text-white px-3 py-1 rounded-lg transition-all font-bold border border-sage/20"
+              >
+                Leaderboard
+              </router-link>
             </div>
           </div>
         </div>
@@ -114,7 +143,7 @@
         <h2
           class="text-2xl font-heading font-bold text-brown text-center md:text-left pl-2 mb-4 border-l-4 border-terracotta"
         >
-          My Collection
+          {{ isOwnProfile ? 'My Collection' : `${viewedUser?.name || 'User'}'s Collection` }}
         </h2>
       </div>
 
@@ -127,7 +156,7 @@
         </div>
 
         <!-- Error State -->
-        <ErrorState v-else-if="uploadsError" :message="uploadsError" @retry="loadUploads" />
+        <ErrorState v-else-if="uploadsError" :message="uploadsError" @retry="loadProfileData" />
 
         <!-- No Uploads State -->
         <EmptyState
@@ -151,7 +180,7 @@
             <!-- Image with Hover Zoom -->
             <img
               :src="upload.image_url"
-              :alt="upload.description || 'Cat photo'"
+              :alt="upload.description || 'A cat'"
               class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
               loading="lazy"
             />
@@ -180,6 +209,7 @@
     <EditProfileModal
       :is-open="showEditModal"
       :initial-name="authStore.user?.name || ''"
+      :initial-username="authStore.user?.username || ''"
       :initial-bio="authStore.user?.bio || ''"
       :initial-picture="authStore.user?.picture || ''"
       @close="showEditModal = false"
@@ -227,7 +257,7 @@
             <img
               :src="selectedImage.image_url"
               class="w-full h-full object-cover z-10"
-              :alt="selectedImage.description || 'Cat photo'"
+              :alt="selectedImage.description || 'A cat'"
             />
           </div>
 
@@ -302,7 +332,34 @@
 
                 <!-- Action Buttons -->
                 <div class="flex items-center gap-3">
+                  <!-- Give Treat Button (Only for other users' photos) -->
                   <button
+                    v-if="!isOwnProfile && authStore.isAuthenticated"
+                    class="treat-btn-mini group flex flex-col items-center"
+                    :disabled="isSendingTreat"
+                    @click="handleGiveTreat(selectedImage)"
+                  >
+                    <div
+                      class="relative w-12 h-12 transition-transform hover:scale-110 active:scale-95"
+                    >
+                      <img
+                        src="/give-treat.png"
+                        alt="Give Treat"
+                        class="w-full h-full object-contain filter drop-shadow-sm"
+                      />
+                      <div
+                        v-if="isSendingTreat"
+                        class="absolute inset-0 flex items-center justify-center bg-white/40 rounded-full"
+                      >
+                        <div
+                          class="w-4 h-4 border-2 border-terracotta border-t-transparent rounded-full animate-spin"
+                        ></div>
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    v-if="isOwnProfile"
                     class="p-2 text-stone-400 hover:text-brown transition-colors rounded-full hover:bg-stone-50 cursor-pointer"
                     title="Edit Details"
                     @click="openEditPhotoModal(selectedImage)"
@@ -323,6 +380,7 @@
                     </svg>
                   </button>
                   <button
+                    v-if="isOwnProfile"
                     class="p-2 text-stone-400 hover:text-red-500 transition-colors rounded-full hover:bg-red-50 cursor-pointer"
                     title="Delete Photo"
                     @click="confirmDeletePhoto(selectedImage)"
@@ -362,7 +420,8 @@
             <label
               for="edit-location-name"
               class="block text-xs font-bold text-brown-light mb-2 uppercase tracking-wide"
-            >Location Name</label>
+              >Location Name</label
+            >
             <input
               id="edit-location-name"
               v-model="photoEditForm.location_name"
@@ -376,7 +435,8 @@
             <label
               for="edit-description"
               class="block text-xs font-bold text-brown-light mb-2 uppercase tracking-wide"
-            >Description</label>
+              >Description</label
+            >
             <textarea
               id="edit-description"
               v-model="photoEditForm.description"
@@ -453,12 +513,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../store/authStore';
-const authStore = useAuthStore();
 import { showError, showSuccess } from '../store/toast';
 import { ProfileService, type ProfileUpdateData } from '../services/profileService';
+import { useSubscriptionStore } from '@/store/subscriptionStore';
+import { TreatsService } from '../services/treatsService';
 import { isDev } from '../utils/env';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
@@ -466,7 +527,9 @@ import GhibliLoader from '@/components/ui/GhibliLoader.vue';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 import { useSeo } from '@/composables/useSeo';
 import EditProfileModal from '@/components/profile/EditProfileModal.vue';
+import type { User } from '@/types/auth'; // Ensure you have this type or use any
 
+const authStore = useAuthStore();
 const router = useRouter();
 const route = useRoute();
 const { setMetaTags, resetMetaTags } = useSeo();
@@ -481,6 +544,23 @@ interface Upload {
   uploaded_at: string;
 }
 
+// User State
+const viewedUser = ref<User | null>(null);
+const loadingUser = ref(true);
+const isOwnProfile = computed(() => {
+  if (!authStore.user) return false;
+  // If no ID param, it's my profile
+  if (!route.params.id) return true;
+
+  // Check against ID
+  if (route.params.id === authStore.user.id) return true;
+
+  // Check against Username (if available)
+  if (authStore.user.username && route.params.id === authStore.user.username) return true;
+
+  return false;
+});
+
 const uploads = ref<Upload[]>([]);
 const uploadsLoading = ref(false);
 const uploadsError = ref<string | null>(null);
@@ -493,6 +573,7 @@ const showEditPhotoModal = ref(false);
 const showDeleteConfirm = ref(false);
 const isSavingPhoto = ref(false);
 const isDeletingPhoto = ref(false);
+const isSendingTreat = ref(false);
 const photoToEdit = ref<Upload | null>(null);
 const photoEditForm = ref({
   location_name: '',
@@ -565,6 +646,28 @@ const executeDeletePhoto = async () => {
   }
 };
 
+const handleGiveTreat = async (photo: Upload | null) => {
+  if (!photo || !authStore.user) return;
+  if (isSendingTreat.value) return;
+
+  isSendingTreat.value = true;
+  const subscriptionStore = useSubscriptionStore();
+
+  try {
+    await subscriptionStore.giveTreat(photo.id, 1);
+    showSuccess('You gave a treat! 🍬');
+
+    // Store handles authStore balance update.
+    // If viewing someone else's profile, the count in our UI might need update,
+    // but the backend handles the receiver's count.
+  } catch (err: any) {
+    const msg = err.response?.data?.detail || err.message || 'Failed to give treat';
+    showError(msg);
+  } finally {
+    isSendingTreat.value = false;
+  }
+};
+
 const handleImageError = (event: Event) => {
   const target = event.target as HTMLImageElement;
   // Prevent infinite loop if default-avatar also fails
@@ -573,34 +676,59 @@ const handleImageError = (event: Event) => {
   }
 };
 
-const loadUploads = async () => {
+const loadProfileData = async () => {
+  loadingUser.value = true;
   uploadsLoading.value = true;
   uploadsError.value = null;
 
   try {
-    const userUploads = await ProfileService.getUserUploads();
-    uploads.value = userUploads;
-  } catch (error) {
-    if (isDev()) {
-      console.error('Error loading uploads:', error);
+    const targetUserId = route.params.id as string;
+
+    if (isOwnProfile.value) {
+      // Viewing my own profile
+
+      // Ensure auth
+      if (!authStore.isUserReady) {
+        // If not logged in and trying to view /profile (no id), redirect to login
+        if (!targetUserId) {
+          router.push('/login');
+          return;
+        }
+        // If has ID but coincidentally matches unauthenticated state (unlikely but possible), treat as public
+      }
+
+      viewedUser.value = authStore.user;
+
+      // Load my uploads
+      const userUploads = await ProfileService.getUserUploads();
+      uploads.value = userUploads;
+    } else {
+      // Viewing someone else's profile
+      if (!targetUserId) return;
+
+      // Load public profile
+      viewedUser.value = await ProfileService.getPublicProfile(targetUserId);
+
+      // Load public uploads
+      const publicUploads = await ProfileService.getPublicUserUploads(targetUserId);
+      uploads.value = publicUploads;
     }
 
-    if (error instanceof Error && error.message.includes('Authentication expired')) {
-      uploadsError.value = 'Your session has expired. Please log in again.';
-      setTimeout(() => {
-        router.push('/login');
-      }, 2000);
-    } else if (error instanceof Error && error.message.includes('No authentication token')) {
-      uploadsError.value = 'Please log in to view your uploads.';
-      setTimeout(() => {
-        router.push('/login');
-      }, 2000);
-    } else {
-      uploadsError.value = 'Failed to load uploads. Please try again later.';
+    // Set SEO
+    setMetaTags({
+      title: `${viewedUser.value?.name || 'User'} | Purrfect Spots`,
+      description: viewedUser.value?.bio || 'Check out this profile on Purrfect Spots',
+      image: viewedUser.value?.picture,
+    });
+  } catch (error) {
+    if (isDev()) {
+      console.error('Error loading profile:', error);
     }
-    showError(uploadsError.value);
+    uploadsError.value = 'User not found or failed to load profile.';
     uploads.value = [];
+    viewedUser.value = null;
   } finally {
+    loadingUser.value = false;
     uploadsLoading.value = false;
   }
 };
@@ -627,6 +755,14 @@ watch(
   }
 );
 
+// Watch for Route ID changes (navigation between profiles)
+watch(
+  () => route.params.id,
+  () => {
+    loadProfileData();
+  }
+);
+
 const openImageModal = (upload: Upload) => {
   router.push({ query: { ...route.query, image: upload.id } });
 };
@@ -644,10 +780,16 @@ const formatJoinDate = (dateString: string | undefined) => {
   return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
 };
 
-const handleSaveProfile = async (data: { name: string; bio: string; picture: string }) => {
+const handleSaveProfile = async (data: {
+  name: string;
+  username: string;
+  bio: string;
+  picture: string;
+}) => {
   try {
     const updateData: ProfileUpdateData = {
       name: data.name,
+      username: data.username,
       bio: data.bio,
       picture: data.picture,
     };
@@ -657,8 +799,13 @@ const handleSaveProfile = async (data: { name: string; bio: string; picture: str
     // Update local store
     if (authStore.user) {
       authStore.user.name = updatedUser.name;
+      authStore.user.username = updatedUser.username;
       authStore.user.bio = updatedUser.bio;
       authStore.user.picture = updatedUser.picture;
+      // Update local state if viewing own profile
+      if (isOwnProfile.value) {
+        viewedUser.value = authStore.user; // Reactivity sync
+      }
 
       // Update localStorage
       localStorage.setItem('user_data', JSON.stringify(authStore.user));
@@ -670,30 +817,15 @@ const handleSaveProfile = async (data: { name: string; bio: string; picture: str
     if (isDev()) {
       console.error('Error saving profile:', error);
     }
-
-    // Handle authentication errors specifically
-    if (error instanceof Error && error.message.includes('Authentication expired')) {
-      // Redirect to login after a short delay
-      setTimeout(() => {
-        router.push('/auth');
-      }, 2000);
-    }
-
+    // Handle specific errors...
     const msg = error instanceof Error ? error.message : 'Failed to update profile';
     showError(msg);
   }
 };
 
 onMounted(async () => {
-  // Set SEO meta tags
-  setMetaTags({
-    title: 'Profile | Purrfect Spots',
-    description: 'View and manage your Purrfect Spots profile and cat photo uploads.',
-    type: 'website',
-  });
-
-  // Load user uploads
-  await loadUploads();
+  // Load user data
+  await loadProfileData();
 
   // Sync state from URL after data is loaded
   syncStateFromUrl();

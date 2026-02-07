@@ -8,7 +8,6 @@ Features:
 - Different rate limits for different endpoint types
 """
 
-import os
 
 import jwt
 from fastapi import Request

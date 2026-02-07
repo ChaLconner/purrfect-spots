@@ -470,7 +470,7 @@ onUnmounted(() => {
 .resend-text {
   font-family: 'Inter', sans-serif;
   font-size: 0.9rem;
-  color: #7d7d7d;
+  color: #6b7280;
   margin-bottom: 0.5rem;
 }
 

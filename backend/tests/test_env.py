@@ -5,8 +5,6 @@ Tests for Environment Utilities
 import os
 from unittest.mock import patch
 
-import pytest
-
 from utils.env import get_env, is_dev, is_production
 
 

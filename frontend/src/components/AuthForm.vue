@@ -8,7 +8,7 @@
       <!-- Left Side - Illustration -->
       <div class="auth-illustration">
         <div class="illustration-content">
-          <img src="/cat-illustration.png" alt="Cute cat illustration" class="cat-image" />
+          <img :src="catIllustrationUrl" alt="Cute cat" class="cat-image" />
           <div class="illustration-text">
             <h2 class="welcome-title">Purrfect Spots</h2>
             <p class="welcome-subtitle">Discover the cutest cat spots around you!</p>
@@ -29,7 +29,7 @@
           </p>
         </div>
 
-        <form class="auth-form" novalidate @submit.prevent="handleSubmit">
+        <form class="auth-form" novalidate @submit.prevent="throttledSubmit">
           <!-- Email Field -->
           <div class="form-group">
             <label for="email" class="form-label"> Email </label>
@@ -183,13 +183,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, reactive } from 'vue';
+import { watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { useAuthStore } from '../store/authStore';
-import { showSuccess, showError } from '../store/toast';
-import { AuthService } from '../services/authService';
-import { isDev, getEnvVar } from '../utils/env';
-import { getGoogleAuthUrl } from '../utils/oauth';
+
+const catIllustrationUrl = '/cat-illustration.png';
+
+import { useAuthForm } from '@/composables/useAuthForm';
+import { useAuthStore } from '@/store/authStore';
+import { useThrottleFn } from '@/composables/useThrottle';
 import PasswordStrengthMeter from '@/components/ui/PasswordStrengthMeter.vue';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 
@@ -201,24 +202,21 @@ const props = withDefaults(defineProps<Props>(), {
   initialMode: 'login',
 });
 
-const isLogin = ref(props.initialMode !== 'register');
-const isLoading = ref(false);
-const showPassword = ref(false);
 const router = useRouter();
+const { isLogin, isLoading, showPassword, form, handleSubmit, handleGoogleLogin } = useAuthForm(
+  props.initialMode
+);
 
-// Watch for changes in initialMode prop
+// Throttle submit to prevent double-click issues even before loading state kicks in
+const throttledSubmit = useThrottleFn(handleSubmit, 1000, { trailing: false });
+
+// Watch for changes in initialMode prop to sync external changes
 watch(
   () => props.initialMode,
-  (newMode: 'login' | 'register' | undefined) => {
+  (newMode) => {
     isLogin.value = newMode !== 'register';
   }
 );
-
-const form = reactive({
-  email: '',
-  password: '',
-  name: '',
-});
 
 // Check if user is already logged in
 onMounted(() => {
@@ -228,103 +226,6 @@ onMounted(() => {
     router.push(redirectPath);
   }
 });
-
-const validateForm = () => {
-  const fields = isLogin.value
-    ? [form.email, form.password]
-    : [form.name, form.email, form.password];
-
-  if (fields.some((f) => !f?.trim())) {
-    showError('Please fill in all fields');
-    return false;
-  }
-
-  if (!isLogin.value && form.password.length < 8) {
-    showError('Password must be at least 8 characters');
-    return false;
-  }
-
-  return true;
-};
-
-const handleSubmit = async () => {
-  if (!validateForm()) return;
-
-  isLoading.value = true;
-  // error.value is not defined in the original code, assuming it's a placeholder or needs to be defined.
-  // For now, I'll comment it out or assume it's handled elsewhere if not explicitly defined.
-  // error.value = '';
-
-  try {
-    let data;
-    if (isLogin.value) {
-      data = await AuthService.login(form.email, form.password);
-    } else {
-      data = await AuthService.signup(form.email, form.password, form.name);
-    }
-
-    // Handle email verification case - redirect to OTP verification page
-    if (data.requires_verification && data.email) {
-      showSuccess('Please check your email for the verification code.', 'Registration Successful');
-      router.push({
-        name: 'VerifyEmail',
-        query: { email: data.email },
-      });
-      return;
-    }
-
-    // Handle legacy email verification case (fallback)
-    if (!data.access_token && data.message) {
-      showSuccess(data.message, 'Registration Successful');
-      isLogin.value = true; // Switch to login view
-      return;
-    }
-
-    useAuthStore().setAuth(data);
-
-    showSuccess(`Welcome back, ${data.user.name || 'Traveler'}!`, 'Authentication Successful');
-
-    const redirectPath = sessionStorage.getItem('redirectAfterAuth') || '/upload';
-    sessionStorage.removeItem('redirectAfterAuth');
-    router.push(redirectPath);
-  } catch (err: unknown) {
-    let message = err instanceof Error ? err.message : 'Something went wrong';
-
-    // Sanitize technical errors
-    if (message.includes('status code 401')) message = 'Invalid email or password';
-    if (message.includes('status code')) message = 'Service unavailable. Please try again later.';
-
-    showError(message, 'Authentication Failed');
-  } finally {
-    isLoading.value = false;
-  }
-};
-
-const handleGoogleLogin = async () => {
-  isLoading.value = true;
-
-  try {
-    const googleClientId = getEnvVar('VITE_GOOGLE_CLIENT_ID');
-
-    if (!googleClientId) {
-      throw new Error('Google OAuth is not configured. Please contact administrator.');
-    }
-
-    const redirectUri = `${globalThis.location.origin}/auth/callback`;
-    const { url, codeVerifier } = await getGoogleAuthUrl(googleClientId, redirectUri);
-
-    globalThis.sessionStorage.setItem('google_code_verifier', codeVerifier);
-    globalThis.location.href = url;
-  } catch (err: unknown) {
-    if (isDev()) {
-      console.error('Google OAuth Error:', err);
-    }
-    let message = err instanceof Error ? err.message : 'Google sign-in failed';
-    if (message.includes('status code')) message = 'Unable to connect to Google service.';
-    showError(message, 'Google Login Error');
-    isLoading.value = false;
-  }
-};
 </script>
 
 <style scoped>
@@ -510,7 +411,7 @@ const handleGoogleLogin = async () => {
 .form-subtitle {
   font-family: 'Inter', sans-serif;
   font-size: 0.95rem;
-  color: #7d7d7d;
+  color: #5a4632; /* Darkened from #7d7d7d */
 }
 
 /* ============================================
@@ -541,7 +442,7 @@ const handleGoogleLogin = async () => {
 .form-hint {
   font-family: 'Inter', sans-serif;
   font-size: 0.8rem;
-  color: #7d7d7d;
+  color: #5a4632; /* Darkened from #7d7d7d */
   margin-top: 0.25rem;
   margin-left: 0.5rem;
 }
@@ -564,7 +465,7 @@ const handleGoogleLogin = async () => {
 }
 
 .form-input::placeholder {
-  color: #a0a0a0;
+  color: #6b7280; /* gray-500 */
 }
 
 .form-input:focus {
@@ -593,7 +494,7 @@ const handleGoogleLogin = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #a0a0a0; /* Match placeholder color */
+  color: #6b7280; /* gray-500 */
   transition: color 0.3s ease;
 }
 
@@ -694,7 +595,7 @@ const handleGoogleLogin = async () => {
 .divider-text {
   font-family: 'Inter', sans-serif;
   font-size: 0.85rem;
-  color: #a0a0a0;
+  color: #6b7280; /* gray-500 */
   white-space: nowrap;
 }
 
@@ -760,7 +661,7 @@ const handleGoogleLogin = async () => {
 }
 
 .switch-text {
-  color: #7d7d7d;
+  color: #5a4632; /* Darkened from #7d7d7d */
 }
 
 .switch-link {

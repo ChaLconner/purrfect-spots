@@ -45,7 +45,7 @@ from services.auth_service import AuthService
 from user_models.user import UserResponse
 
 
-async def create_login_response(
+def create_login_response(
     auth_service: AuthService, user, request: Request, response: Response, include_refresh_cookie: bool = True
 ) -> LoginResponse:
     """

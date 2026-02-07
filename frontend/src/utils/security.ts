@@ -54,6 +54,8 @@ export function sanitizeUrl(url: string): string {
   const trimmed = url.trim().toLowerCase();
 
   // Block dangerous protocols
+  // nosec typescript:S2245 - These protocol strings are BLOCKED by validation, not executed
+  // This is security validation code that prevents XSS attacks
   const dangerousProtocols = ['javascript:', 'data:text/html', 'vbscript:'];
   for (const protocol of dangerousProtocols) {
     if (trimmed.startsWith(protocol)) {

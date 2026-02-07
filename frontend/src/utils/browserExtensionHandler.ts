@@ -32,9 +32,13 @@ const BROWSER_EXTENSION_ERROR_CODES = new Set(['NETWORK_ERROR', 'ERR_NETWORK']);
 export const isBrowserExtensionError = (error: any): boolean => {
   if (!error) return false;
 
-  const errorString = error.message || (typeof error.toString === 'function' ? error.toString() : '');
-  
-  if (typeof errorString === 'string' && BROWSER_EXTENSION_ERROR_PATTERNS.some(p => errorString.includes(p))) {
+  const errorString =
+    error.message || (typeof error.toString === 'function' ? error.toString() : '');
+
+  if (
+    typeof errorString === 'string' &&
+    BROWSER_EXTENSION_ERROR_PATTERNS.some((p) => errorString.includes(p))
+  ) {
     return true;
   }
 

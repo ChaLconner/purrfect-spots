@@ -1,0 +1,93 @@
+version: "3.8"
+
+services:
+  # ==========================================================================
+  # Backend API
+  # ==========================================================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: purrfect-backend
+    restart: always
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - purrfect-network
+
+  # ==========================================================================
+  # Frontend (Nginx Production Build)
+  # ==========================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=/api/v1
+        - VITE_GOOGLE_CLIENT_ID=40710057825-09pahjbe71ncf7adq9c8892r2mivm9b3.apps.googleusercontent.com
+        - VITE_GOOGLE_MAPS_API_KEY=AIzaSyBrD-w_85dml-zbdcrqkb8JUebArm9b39E
+    container_name: purrfect-frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:3000/health",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - purrfect-network
+
+  # ==========================================================================
+  # Redis - Caching & Rate Limiting
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: purrfect-redis
+    restart: always
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - purrfect-network
+
+networks:
+  purrfect-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+    driver: local

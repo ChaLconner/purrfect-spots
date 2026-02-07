@@ -91,21 +91,57 @@ onUnmounted(() => {
   position: relative;
 }
 
+/* 3D User Button */
 .user-btn {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0.75rem;
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(139, 90, 43, 0.15);
-  border-radius: 1.5rem;
+  gap: 0.625rem;
+  height: 2.5rem;
+  padding: 0 0.75rem 0 0.25rem;
+  background: var(--color-btn-shade-e);
+  border: 2px solid var(--color-btn-shade-a);
+  border-radius: 2rem;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 175ms cubic-bezier(0, 0, 1, 1);
+  flex-shrink: 0;
+  transform-style: preserve-3d;
+}
+
+.user-btn::before {
+  position: absolute;
+  content: '';
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  background: var(--color-btn-shade-c);
+  border-radius: inherit;
+  box-shadow:
+    0 0 0 2px var(--color-btn-shade-b),
+    0 0.3em 0 0 var(--color-btn-shade-a);
+  transform: translate3d(0, 0.3em, -1em);
+  transition: all 175ms cubic-bezier(0, 0, 1, 1);
 }
 
 .user-btn:hover {
-  background: rgba(255, 255, 255, 0.9);
-  border-color: rgba(139, 90, 43, 0.25);
+  background: var(--color-btn-shade-d);
+  transform: translate(0, 0.15em);
+}
+
+.user-btn:hover::before {
+  transform: translate3d(0, 0.3em, -1em);
+}
+
+.user-btn:active {
+  transform: translate(0, 0.3em);
+}
+
+.user-btn:active::before {
+  transform: translate3d(0, 0, -1em);
+  box-shadow:
+    0 0 0 2px var(--color-btn-shade-b),
+    0 0.1em 0 0 var(--color-btn-shade-b);
 }
 
 .user-avatar {
@@ -113,101 +149,116 @@ onUnmounted(() => {
   height: 1.75rem;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid rgba(201, 123, 73, 0.3);
+  border: 2px solid var(--color-btn-shade-a);
+  box-shadow: 0 2px 4px rgba(106, 163, 137, 0.2);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .user-name {
-  font-family: 'Zen Maru Gothic', sans-serif;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #5a4a3a;
-  max-width: 80px;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-btn-shade-a);
+  max-width: 90px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  position: relative;
+  z-index: 1;
 }
 
 .chevron-icon {
-  width: 0.875rem;
-  height: 0.875rem;
-  color: #8b7355;
-  transition: transform 0.3s ease;
+  width: 0.8rem;
+  height: 0.8rem;
+  color: var(--color-btn-shade-a);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  z-index: 1;
 }
 
 .chevron-icon.rotate {
   transform: rotate(180deg);
 }
 
+/* 3D Themed Dropdown */
 .user-dropdown {
   position: absolute;
-  top: calc(100% + 0.5rem);
+  top: calc(100% + 0.75rem);
   right: 0;
-  min-width: 200px;
-  background: rgba(255, 253, 250, 0.98);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(139, 90, 43, 0.15);
+  min-width: 210px;
+  background: var(--color-btn-shade-e);
+  border: 2px solid var(--color-btn-shade-a);
   border-radius: 1rem;
-  box-shadow: 0 8px 24px rgba(139, 90, 43, 0.15);
+  box-shadow:
+    0 0 0 2px var(--color-btn-shade-b),
+    0 0.5em 0 0 var(--color-btn-shade-a);
   overflow: hidden;
-  animation: slideDown 0.2s ease;
+  z-index: 100;
+  transform-origin: top right;
+  animation: ghibli-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-@keyframes slideDown {
+@keyframes ghibli-pop {
   from {
     opacity: 0;
-    transform: translateY(-8px);
+    transform: scale(0.9) translateY(-10px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: scale(1) translateY(0);
   }
 }
 
 .dropdown-header {
   padding: 0.875rem 1rem;
-  background: rgba(139, 90, 43, 0.05);
+  background: var(--color-btn-shade-d);
 }
 
 .dropdown-name {
   font-family: 'Zen Maru Gothic', sans-serif;
   font-size: 0.875rem;
   font-weight: 600;
-  color: #5a4a3a;
+  color: var(--color-btn-shade-a);
   margin: 0;
 }
 
 .dropdown-email {
   font-family: 'Zen Maru Gothic', sans-serif;
   font-size: 0.7rem;
-  color: #8b7355;
+  color: var(--color-btn-shade-b);
   margin: 0.125rem 0 0 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .dropdown-divider {
-  height: 1px;
-  background: rgba(139, 90, 43, 0.1);
+  height: 2px;
+  background: var(--color-btn-shade-b);
 }
 
+/* 3D Dropdown Items */
 .dropdown-item {
+  position: relative;
   display: block;
   width: 100%;
   padding: 0.75rem 1rem;
   font-family: 'Zen Maru Gothic', sans-serif;
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: #5a4a3a;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-btn-shade-a);
   text-decoration: none;
   text-align: left;
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: all 175ms ease;
 }
 
 .dropdown-item:hover {
-  background: rgba(139, 90, 43, 0.08);
+  background: var(--color-btn-shade-d);
+  transform: translateX(4px);
 }
 
 .dropdown-item.logout {
@@ -215,6 +266,6 @@ onUnmounted(() => {
 }
 
 .dropdown-item.logout:hover {
-  background: rgba(220, 74, 74, 0.1);
+  background: #ffeeee;
 }
 </style>

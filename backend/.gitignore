@@ -70,3 +70,8 @@ Thumbs.db
 # Keys & Secrets
 keys/
 google_vision.json
+
+# Error logs
+*_errors.txt
+
+routes/gallery.txt

@@ -6,7 +6,6 @@ import os
 from unittest.mock import MagicMock, patch
 
 import pytest
-from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import HTTPException
 
 from services.storage_service import StorageService

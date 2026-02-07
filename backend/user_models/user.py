@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 class User(BaseModel):
     id: str
+    username: str | None = None
     google_id: str | None = None
     email: str
     name: str | None
@@ -17,9 +18,15 @@ class User(BaseModel):
     password_hash: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    is_pro: bool = False
+    stripe_customer_id: str | None = None
+    subscription_end_date: datetime | None = None
+    treat_balance: int = 0
+    role: str = "user"
 
 
 class UserCreate(BaseModel):
+    username: str | None = None
     google_id: str | None = None
     email: str
     name: str
@@ -29,6 +36,7 @@ class UserCreate(BaseModel):
 
 
 class UserCreateWithPassword(BaseModel):
+    username: str | None = None
     email: str
     name: str
     password: str
@@ -41,11 +49,15 @@ class UserLogin(BaseModel):
 
 class UserResponse(BaseModel):
     id: str
+    username: str | None = None
     email: str
     name: str | None = None
     picture: str | None = None
     bio: str | None = None
     created_at: datetime | None = None
+    is_pro: bool = False
+    treat_balance: int = 0
+    role: str = "user"
 
 
 class LoginResponse(BaseModel):

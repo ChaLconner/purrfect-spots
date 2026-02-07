@@ -6,8 +6,6 @@ Handles Google OAuth 2.0 flow:
 - Exchanging auth codes for tokens via PKCE
 """
 
-import uuid
-from typing import Optional
 
 import httpx
 from google.auth.transport import requests
@@ -15,8 +13,6 @@ from google.oauth2 import id_token
 
 from config import config
 from logger import logger
-from schemas.auth import LoginResponse
-from user_models.user import UserResponse
 
 
 class GoogleAuthService:

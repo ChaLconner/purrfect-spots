@@ -1,139 +1,78 @@
 # 🐱 Purrfect Spots
 
-An application for cat lovers who want to share suitable places to take cats, with an automatic cat detection system using AI.
-
-## ✨ Key Features
-
-- 📸 **Upload Cat Photos** - Share cat photos you've found
-- 🗺️ **Interactive Map** - View cat locations in real-time on Google Maps
-- 🤖 **AI Cat Detection** - Use Google Vision API to confirm that the photo contains real cats
-- 🖼️ **Beautiful Gallery** - View all cat photos in gallery format
-- 🔐 **Authentication** - Support login with Google OAuth
-- 📱 **Responsive Design** - Works on both mobile and desktop
-- 🌏 **Multi-language** - Full language support
-
-## 🛠️ Technologies Used
-
-### Frontend
-- **Vue.js 3** - JavaScript framework
-- **TypeScript** - Type-safe JavaScript
-- **Vite** - High-speed build tool
-- **Pinia** - State Management
-- **Vue Router** - Application navigation
-- **Tailwind CSS** - Styling framework
-- **Google Maps API** - Interactive maps
-
-### Backend
-- **FastAPI** - Python web framework
-- **Supabase** - Database and Authentication
-- **AWS S3** - Image storage
-- **Google Vision API** - AI cat detection
-- **Google OAuth** - Authentication
-- **JWT** - Token-based authentication
-
-## 🚀 Installation and Setup
-
-### 1. Environment Setup
-
-Please follow the detailed guide in [docs/ENV_SETUP.md](./docs/ENV_SETUP.md) to configure environment variables for both Frontend and Backend.
-
-**Summary:**
-- **Frontend**: Copy `frontend/.env.example` to `frontend/.env`
-- **Backend**: Copy `backend/.env.example` to `backend/.env`
-
-### 2. Install and run Backend
-
-```bash
-cd backend
-pip install -r requirements.txt
-uvicorn main:app --reload
-```
-
-The server will run at http://localhost:8000
-
-### 3. Install and run Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-The application will run at http://localhost:5173
-
-## 📁 Project Structure
-
-```
-purrfect-spots/
-├── docs/                  # Documentation and Guides
-├── backend/               # FastAPI backend
-│   ├── main.py            # Main FastAPI application file
-│   ├── routes/            # API routes
-│   ├── services/          # Business logic
-│   ├── schemas/           # Pydantic models
-│   ├── custom_middleware/ # Middleware
-│   ├── keys/              # Service account keys
-│   └── requirements.txt   # Python dependencies
-├── frontend/              # Vue.js frontend
-│   ├── src/
-│   │   ├── components/    # Vue components
-│   │   ├── views/         # Page views
-│   │   ├── services/      # API services
-│   │   ├── store/         # Pinia state
-│   │   ├── router/        # Vue Router
-│   │   └── composables/   # Vue Composables
-│   └── package.json       # Frontend dependencies
-├── PROJECT_REVIEW.md      # Project status and review
-└── README.md              # This file
-```
-
-## 🔗 Main API Endpoints
-
-### Authentication
-- `POST /api/auth/google` - Google OAuth login
-- `POST /api/auth/refresh` - Refresh token
-- `GET /api/users/me` - User profile
-
-### Upload and Cat Detection
-- `POST /api/upload/presigned-url` - Get S3 upload URL
-- `POST /api/detect` - Detect cat in image
-
-### Data
-- `GET /api/images` - Gallery images
-- `GET /api/locations` - Map locations
-
-## 📚 Documentation
-
-Detailed documentation can be found in the `docs/` folder:
-
-- [Environment Setup](./docs/ENV_SETUP.md)
-- [Database Schema](./docs/DATABASE_SCHEMA.md)
-- [Deployment Secrets](./docs/DEPLOYMENT_SECRETS_SETUP.md)
-- [Runbook](./docs/RUNBOOK.md)
-
-Also check sub-project READMEs:
-- [Backend README](./backend/README.md)
-- [Frontend README](./frontend/README.md)
-
-## 🌐 Deployment
-
-### Frontend (Vercel)
-```bash
-cd frontend
-npm run build
-npm run deploy
-```
-
-### Backend (Vercel/Cloud)
-See `docs/PRODUCTION_SETUP.md` for details.
-
-## 🤝 Support
-
-If you have problems:
-1. Check `docs/ENV_SETUP.md` for configuration.
-2. Verify API keys in `backend/.env` and `frontend/.env`.
-3. Check `backend/README_API.md` for specific API details.
+**Connect. Share. Discover.**
+* The ultimate platform for cat lovers to find and share the perfect spots for their furry friends.*
 
 ---
 
-Made with ❤️ for all cat lovers 🐱
+## 📖 About Purrfect Spots
+
+Purrfect Spots is a community-driven platform designed to help cat owners discover cat-friendly locations. Whether you're looking for a quiet park, a cat cafe, or a scenic spot for a photoshoot, Purrfect Spots connects you with a network of verified locations shared by a passionate community.
+
+Powered by advanced AI, our platform ensures high-quality content by automatically detecting and verifying cat photos, creating a safe and engaging environment for all users.
+
+🌐 **Live Site:** [https://purrfectspots.xyz](https://purrfectspots.xyz)
+
+---
+
+## ✨ Key Features
+
+### 🔍 **Smart Discovery**
+- **Interactive Map**: Explore cat-friendly spots near you with our real-time, interactive map interface.
+- **Curated Gallery**: Browse through a beautiful, responsive gallery of high-quality cat photos.
+
+### 🤖 **AI-Powered Technologies**
+- **Intelligent Detection**: Our integrated Google Vision AI automatically analyzes uploaded photos to verify the presence of cats, ensuring content relevance and quality.
+- **Automated Tagging**: Smart algorithms categorise locations and images for easy searching.
+
+### 👥 **Community & Social**
+- **Share Your Journey**: Upload photos and pin new locations to help other cat lovers.
+- **Secure Authentication**: Seamless and secure login using Google OAuth.
+- **Profile Management**: Manage your contributions and favorite spots.
+
+### 📱 **Cross-Platform Experience**
+- **Responsive Design**: Flawlessly optimized for desktops, tablets, and mobile devices.
+- **PWA Ready**: Built with Progressive Web App standards for a native-app-like experience.
+
+---
+
+## 🛠️ Technology Stack
+
+Purrfect Spots is built on a modern, scalable, and secure architecture:
+
+- **Frontend**: Vue.js 3, TypeScript, Tailwind CSS, Vite
+- **Backend**: Python (FastAPI), Uvicorn
+- **Database & Storage**: Supabase (PostgreSQL), AWS S3
+- **AI & Services**: Google Vision AI, Google Maps Platform
+- **Infrastructure**: Docker, Nginx, Linux
+
+---
+
+## 🔒 Security & Privacy
+
+We prioritize user data and security:
+- **Enterprise-Grade Auth**: Secure authentication flows via OAuth 2.0.
+- **Data Encryption**: All sensitive data is encrypted in transit and at rest.
+- **Privacy First**: We only collect essential data to improve your experience.
+
+---
+
+## 💻 Developer Resources
+
+For developers and contributors, detailed technical documentation, setup guides, and API references are available in our internal documentation.
+
+- [📂 Technical Documentation](./docs/)
+- [⚙️ Environment Setup](./docs/ENV_SETUP.md)
+
+---
+
+## 📞 Contact & Support
+
+For business inquiries, partnerships, or support, please contact us at:
+
+📧 **Email**: support@purrfectspots.com
+🌐 **Website**: [purrfectspots.xyz](https://purrfectspots.xyz)
+
+---
+
+*© 2026 Purrfect Spots. All rights reserved.*

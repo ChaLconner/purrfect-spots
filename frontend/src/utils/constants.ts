@@ -33,7 +33,7 @@ export const IMAGE_CONFIG = {
   ALLOWED_EXTENSIONS: ['.jpg', '.jpeg', '.png', '.webp', '.gif'],
   MAX_DIMENSION: 1920,
   COMPRESSION_QUALITY: 0.85,
-  PLACEHOLDER_URL: 'https://placehold.co/400x400?text=No+Image',
+  PLACEHOLDER_URL: '/cat-illustration.png',
 } as const;
 
 // ========== Pagination Constants ==========

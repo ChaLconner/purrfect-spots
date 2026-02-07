@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /auth/callback
+Disallow: /verify-email
+
+Sitemap: https://purrfectspots.xyz/sitemap.xml

@@ -207,9 +207,6 @@ class OTPService:
             logger.info("OTP created and session initiated")
             return otp, expires_at.isoformat()
 
-        except (ExternalServiceError, PurrfectSpotsException):
-            # Re-raise specific exceptions
-            raise
         except Exception:
             logger.error("Failed to create OTP")
             raise PurrfectSpotsException("Failed to generate verification code", error_code="INTERNAL_ERROR")
@@ -267,7 +264,7 @@ class OTPService:
             expires_at = record["expires_at"]
 
             # Check if expired
-            from datetime import datetime, timezone
+            from datetime import datetime
 
             expiry_time = datetime.fromisoformat(expires_at.replace("Z", TIMEZONE_UTC_OFFSET))
             if utc_now() > expiry_time:

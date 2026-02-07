@@ -32,7 +32,7 @@ describe('Auth Store', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     
-    // Setup localStorage mock if not available or if clear is missing
+    // Setup localStorage mock
     const storageMock = (() => {
       let store: Record<string, string> = {};
       return {
@@ -61,6 +61,7 @@ describe('Auth Store', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   it('initializes with default state', () => {
@@ -94,7 +95,6 @@ describe('Auth Store', () => {
 
   it('logout clears state and calls API', async () => {
     const store = useAuthStore();
-    // Setup initial state
     store.token = 'fake-token';
     store.isAuthenticated = true;
 
@@ -107,44 +107,109 @@ describe('Auth Store', () => {
     expect(mockSetAccessToken).toHaveBeenCalledWith(null);
   });
 
-  it('initializeAuth restores user from localStorage', async () => {
+  it('initializeAuth restores user from localStorage and tries refresh', async () => {
     const user = { id: '1', email: 'stored@example.com', name: 'Stored User' };
     localStorage.setItem('user_data', JSON.stringify(user));
-    
-    // Mock refresh token failure so it relies on local storage for initial user state (though auth will fail)
-    mockApiPost.mockRejectedValueOnce(new Error('No session'));
+    mockApiPost.mockResolvedValueOnce({ access_token: 'new-token', user });
 
     const store = useAuthStore();
-    
-    // Wait for the async initialization in the store creation to complete if possible, 
-    // but initializeAuth is called floating. We might need to call it manually or wait.
-    // Since it's called in setup, we can't easily await it unless we expose the promise or mock properly.
-    // However, the test calls it again? No, it's called on creation.
-    
-    // We can just call it manually to verify behavior
     await store.initializeAuth();
 
     expect(store.user).toEqual(user);
-    // Token refresh failed, so authenticated should be false eventually?
-    // In the code: if refresh fails, it clears auth unless just logged in.
-    // So actually, if refresh fails, it should clear the user.
-    
-    // Let's retry with success refresh
-    mockApiPost.mockResolvedValueOnce({ access_token: 'new-token', user: user });
-    await store.initializeAuth();
-    
     expect(store.isAuthenticated).toBe(true);
     expect(store.token).toBe('new-token');
   });
 
-  it('verifySession returns true if authenticated', async () => {
-      const store = useAuthStore();
-      store.isAuthenticated = true;
-      store.token = 'valid-token';
-      
-      const result = await store.verifySession();
-      expect(result).toBe(true); // Should call refreshToken since that's what verifySession does now if auth
-       // Wait, code says: if (!isAuthenticated) return await refreshToken();
-      // If isAuth: try ProfileService.getProfile();
+  it('verifySession returns true if authenticated and profile fetch succeeds', async () => {
+    const { ProfileService } = await import('@/services/profileService');
+    vi.mocked(ProfileService.getProfile).mockResolvedValue({ id: '1' } as any);
+    
+    const store = useAuthStore();
+    store.isAuthenticated = true;
+    
+    const result = await store.verifySession();
+    expect(result).toBe(true);
+    expect(ProfileService.getProfile).toHaveBeenCalled();
+  });
+
+  it('verifySession tries refreshToken if profile fetch fails', async () => {
+    const { ProfileService } = await import('@/services/profileService');
+    vi.mocked(ProfileService.getProfile).mockRejectedValue(new Error('Auth failed'));
+    mockApiPost.mockResolvedValueOnce({ access_token: 'new-token' });
+    
+    const store = useAuthStore();
+    store.isAuthenticated = true;
+    
+    const result = await store.verifySession();
+    expect(result).toBe(true);
+    expect(mockApiPost).toHaveBeenCalledWith('/auth/refresh-token');
+  });
+
+  it('refreshToken handles parallel calls', async () => {
+    mockApiPost.mockImplementation(() => new Promise(resolve => setTimeout(() => resolve({ access_token: 'token' }), 50)));
+    const store = useAuthStore();
+    
+    const [res1, res2] = await Promise.all([store.refreshToken(), store.refreshToken()]);
+    
+    expect(res1).toBe(true);
+    expect(res2).toBe(true);
+    expect(mockApiPost).toHaveBeenCalledTimes(1);
+  });
+
+  it('refreshToken handles errors with justLoggedIn check', async () => {
+    vi.useFakeTimers();
+    const now = Date.now();
+    vi.setSystemTime(now);
+    
+    mockApiPost.mockRejectedValue(new Error('Fail'));
+    const store = useAuthStore();
+    store.isAuthenticated = true;
+    store.lastLoginTime = now;
+    
+    // Within 5 seconds
+    const res = await store.refreshToken();
+    expect(res).toBe(false);
+    expect(store.isAuthenticated).toBe(true);
+    
+    // After 6 seconds
+    vi.setSystemTime(now + 6000);
+    const res2 = await store.refreshToken();
+    expect(res2).toBe(false);
+    expect(store.isAuthenticated).toBe(false);
+  });
+
+  it('updateUser updates state and localStorage', () => {
+    const store = useAuthStore();
+    store.user = { id: '1', email: 'a@a.com', name: 'Old' } as any;
+    
+    store.updateUser({ name: 'New' });
+    
+    expect(store.user?.name).toBe('New');
+    expect(JSON.parse(localStorage.getItem('user_data')!).name).toBe('New');
+  });
+
+  it('getAuthHeader returns correct header', () => {
+    const store = useAuthStore();
+    expect(store.getAuthHeader()).toEqual({});
+    
+    store.token = 'my-token';
+    expect(store.getAuthHeader()).toEqual({ Authorization: 'Bearer my-token' });
+  });
+
+  it('getters return expected values', () => {
+    const store = useAuthStore();
+    store.user = { id: '1', email: 'test@example.com', name: 'John', picture: 'pic.jpg' } as any;
+    store.isAuthenticated = true;
+
+    expect(store.hasCompleteProfile).toBe(true);
+    expect(store.isUserReady).toBe(true);
+    expect(store.userDisplayName).toBe('John');
+    expect(store.userAvatar).toBe('pic.jpg');
+
+    store.user!.name = '';
+    expect(store.userDisplayName).toBe('test@example.com');
+    
+    store.user!.picture = '';
+    expect(store.userAvatar).toBe('/default-avatar.svg');
   });
 });

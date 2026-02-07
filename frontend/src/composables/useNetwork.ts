@@ -6,10 +6,10 @@ export function useNetwork() {
 
   function updateOnlineStatus() {
     isOnline.value = navigator.onLine;
-    if (!isOnline.value) {
-      offlineAt.value = new Date();
-    } else {
+    if (isOnline.value) {
       offlineAt.value = null;
+    } else {
+      offlineAt.value = new Date();
     }
   }
 

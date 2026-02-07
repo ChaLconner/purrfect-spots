@@ -8,11 +8,9 @@ Handles:
 - Email confirmation flow
 """
 
-import os
 
 from supabase import Client
 
-from config import config
 from dependencies import get_supabase_admin_client
 from exceptions import ConflictError, ExternalServiceError, PurrfectSpotsException
 from logger import logger
@@ -27,6 +25,8 @@ ERROR_EMAIL_ALREADY_REGISTERED = "Email already registered"
 
 class UserService:
     """Service for user-related operations"""
+
+    SERVICE_SUPABASE_AUTH = "Supabase Auth"
 
     def __init__(self, supabase_client: Client):
         self.supabase = supabase_client
@@ -52,12 +52,23 @@ class UserService:
             logger.debug("Failed to retrieve profile by email: %s", e)
             return None
 
+    def get_user_by_username(self, username: str) -> User | None:
+        """Get user by username from database"""
+        try:
+            result = self.supabase_admin.table("users").select("*").eq("username", username).single().execute()
+            if result.data:
+                return User(**result.data)
+            return None
+        except Exception as e:
+            logger.debug("Failed to retrieve profile by username: %s", e)
+            return None
+
     def create_user_with_password(self, email: str, password: str, name: str) -> dict:
         """Create new user and send confirmation email (Manual Flow via Admin)"""
         try:
             # 1. Generate Signup Link (Creates user if not exists)
             # We use generate_link to get the URL without sending via Supabase SMTP which is failing
-            frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").split(",")[0]
+            # We use generate_link to get the URL without sending via Supabase SMTP which is failing
 
             params = {
                 "type": "signup",
@@ -73,7 +84,7 @@ class UserService:
             res = self.supabase_admin.auth.admin.generate_link(params)
 
             if not res or not res.user:
-                raise ExternalServiceError(ERROR_FAILED_TO_CREATE_USER, service="Supabase Auth")
+                raise ExternalServiceError(ERROR_FAILED_TO_CREATE_USER, service=self.SERVICE_SUPABASE_AUTH)
 
             user = res.user
             # Extract action_link safely
@@ -83,7 +94,7 @@ class UserService:
                 # Fallback or error?
                 # If no link, we can't verify.
                 logger.error("No action_link returned from generate_link")
-                raise ExternalServiceError("Failed to generate confirmation link", service="Supabase Auth")
+                raise ExternalServiceError("Failed to generate confirmation link", service=self.SERVICE_SUPABASE_AUTH)
 
             # 2. Send Email via our custom EmailService
             sent = email_service.send_confirmation_email(email, action_link)
@@ -131,7 +142,7 @@ class UserService:
             )
 
             if not res or not res.user:
-                raise ExternalServiceError("Failed to create user", service="Supabase Auth")
+                raise ExternalServiceError("Failed to create user", service=self.SERVICE_SUPABASE_AUTH)
 
             user = res.user
 
@@ -222,7 +233,7 @@ class UserService:
                 raise ValueError("User not found")
             return result.data[0]
         except Exception as e:
-            raise Exception(f"Failed to update profile: {e!s}")
+            raise PurrfectSpotsException(f"Failed to update profile: {e!s}")
 
     def update_password_hash(self, user_id: str, new_password: str) -> bool:
         """Update user's password hash in database"""

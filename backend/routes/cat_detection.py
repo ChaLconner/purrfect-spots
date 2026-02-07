@@ -3,7 +3,6 @@ Cat detection API routes using Google Cloud Vision
 """
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
-from pydantic import BaseModel
 
 from limiter import limiter
 from logger import logger

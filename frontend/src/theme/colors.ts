@@ -4,42 +4,46 @@
  */
 
 export const colors = {
-  // Primary palette
+  // Primary palette (Premium Ghibli)
   cream: {
-    DEFAULT: '#F4EBD0',
-    light: '#FAF6EC',
-    dark: '#E8DFC4',
+    DEFAULT: '#FAF6EC',
+    light: '#FFFFFF',
+    dark: '#F0E6D2',
+    glass: 'rgba(250, 246, 236, 0.8)',
   },
   brown: {
-    DEFAULT: '#A65D37',
-    light: '#C4855C',
-    dark: '#8B4D2D',
+    DEFAULT: '#8B4D2D',
+    light: '#A65D37',
+    dark: '#5D321D',
+    glass: 'rgba(139, 77, 45, 0.8)',
   },
   sage: {
-    DEFAULT: '#95A792',
-    light: '#B3C4B0',
-    dark: '#6D8B6A',
+    DEFAULT: '#7A9B76',
+    light: '#95B390',
+    dark: '#5B7858',
+    glass: 'rgba(122, 155, 118, 0.8)',
   },
   terracotta: {
-    DEFAULT: '#C97B49',
-    light: '#E09A6B',
-    dark: '#A85D2E',
+    DEFAULT: '#D67A4F',
+    light: '#E59976',
+    dark: '#A65D37',
+    glass: 'rgba(214, 122, 79, 0.8)',
   },
 
-  // Semantic aliases (for easy theming)
+  // Semantic aliases
   semantic: {
-    primary: '#A65D37', // brown
-    secondary: '#95A792', // sage
-    accent: '#C97B49', // terracotta
-    background: '#F4EBD0', // cream
-    surface: '#FAF6EC', // cream-light
+    primary: '#8B4D2D', // Deep Brown
+    secondary: '#7A9B76', // Spring Sage
+    accent: '#D67A4F', // Sunset Terracotta
+    background: '#FAF6EC', // Clean Cream
+    surface: '#FFFFFF',
     text: {
-      primary: '#A65D37',
-      secondary: '#C4855C',
-      muted: '#8B7355',
+      primary: '#422110', // Very dark brown for accessibility
+      secondary: '#8B4D2D',
+      muted: '#A68B75',
     },
-    success: '#6D8B6A', // sage-dark
-    warning: '#C97B49', // terracotta
+    success: '#5B7858',
+    warning: '#D67A4F',
     error: '#C75B5B',
   },
 } as const;

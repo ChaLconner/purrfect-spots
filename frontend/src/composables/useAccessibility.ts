@@ -170,14 +170,17 @@ export function useArrowKeyNavigation(
 
   function handleKeyDown(event: KeyboardEvent) {
     const itemsList = Array.from(items.value);
-    const currentIndex = itemsList.findIndex((el) => el === document.activeElement);
+    const currentIndex = itemsList.indexOf(document.activeElement as HTMLElement);
     if (currentIndex === -1) return;
 
     const keyActions: Record<string, () => number> = {
-      ArrowUp: () => orientation !== 'horizontal' ? currentIndex - 1 : currentIndex,
-      ArrowDown: () => orientation !== 'horizontal' ? currentIndex + 1 : currentIndex,
-      ArrowLeft: () => orientation !== 'vertical' ? currentIndex - 1 : currentIndex,
-      ArrowRight: () => orientation !== 'vertical' ? currentIndex + 1 : currentIndex,
+      ArrowUp: () => (['vertical', 'both'].includes(orientation) ? currentIndex - 1 : currentIndex),
+      ArrowDown: () =>
+        ['vertical', 'both'].includes(orientation) ? currentIndex + 1 : currentIndex,
+      ArrowLeft: () =>
+        ['horizontal', 'both'].includes(orientation) ? currentIndex - 1 : currentIndex,
+      ArrowRight: () =>
+        ['horizontal', 'both'].includes(orientation) ? currentIndex + 1 : currentIndex,
       Home: () => 0,
       End: () => itemsList.length - 1,
     };
@@ -187,7 +190,7 @@ export function useArrowKeyNavigation(
 
     let nextIndex = action();
     if (nextIndex === currentIndex && !['Home', 'End'].includes(event.key)) return;
-    
+
     event.preventDefault();
 
     // Handle looping

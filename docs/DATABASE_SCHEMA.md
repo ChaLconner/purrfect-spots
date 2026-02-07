@@ -17,9 +17,23 @@ Purrfect Spots uses **Supabase** (PostgreSQL) as the database backend. This docu
 │ bio                 │         │ latitude            │
 │ password_hash       │         │ longitude           │
 │ auth_provider       │         │ image_url           │
-│ created_at          │         │ tags[]              │
-│ updated_at          │         │ uploaded_at         │
-└─────────────────────┘         └─────────────────────┘
+│ stripe_customer_id  │         │ tags[]              │
+│ is_pro              │         │ uploaded_at         │
+│ treat_balance       │         └─────────────────────┘
+│ created_at          │
+└─────────────────────┘
+       ▲     ▲
+       │     │ 1:N
+       │     └──────────────┐
+       │ 1:N                │
+┌──────┴──────────────┐   ┌─┴─────────────────────┐
+│    photo_likes      │   │   photo_comments      │
+├─────────────────────┤   ├─────────────────────┤
+│ user_id (FK, PK)    │   │ id (PK, UUID)       │
+│ photo_id (FK, PK)   │   │ user_id (FK)        │
+└─────────────────────┘   │ photo_id (FK)         │
+                          │ content               │
+                          └───────────────────────┘
 ```
 
 ---
@@ -39,6 +53,10 @@ Stores user account information for both Google OAuth and email/password authent
 | `bio` | TEXT | Yes | - | User biography |
 | `password_hash` | TEXT | Yes | - | Bcrypt hashed password (null for OAuth users) |
 | `auth_provider` | VARCHAR(50) | Yes | `'email'` | Authentication provider (`'email'`, `'google'`) |
+| `stripe_customer_id` | VARCHAR(255) | Yes | - | Stripe Customer ID |
+| `is_pro` | BOOLEAN | No | `FALSE` | Subscription status |
+| `subscription_end_date` | TIMESTAMPTZ | Yes | - | Subscription expiration date |
+| `treat_balance` | INTEGER | No | `0` | Current Treat balance |
 | `created_at` | TIMESTAMPTZ | No | `now()` | Account creation timestamp |
 | `updated_at` | TIMESTAMPTZ | Yes | - | Last update timestamp |
 
@@ -56,6 +74,10 @@ CREATE TABLE users (
     bio TEXT,
     password_hash TEXT,
     auth_provider VARCHAR(50) DEFAULT 'email',
+    stripe_customer_id VARCHAR(255),
+    is_pro BOOLEAN DEFAULT FALSE,
+    subscription_end_date TIMESTAMPTZ,
+    treat_balance INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
     updated_at TIMESTAMPTZ
 );
@@ -121,6 +143,117 @@ CREATE INDEX idx_cat_photos_location_name ON cat_photos(location_name);
 CREATE INDEX idx_cat_photos_user_uploaded ON cat_photos(user_id, uploaded_at DESC);
 CREATE INDEX idx_cat_photos_geo ON cat_photos(latitude, longitude);
 CREATE INDEX idx_cat_photos_search_vector ON cat_photos USING GIN(search_vector);
+```
+
+---
+
+### 3. `photo_likes` Table
+
+Stores user likes on photos.
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| `user_id` | UUID | No | - | Foreign key to `users.id` |
+| `photo_id` | UUID | No | - | Foreign key to `cat_photos.id` |
+| `created_at` | TIMESTAMPTZ | No | `now()` | Like timestamp |
+
+#### SQL Definition
+```sql
+CREATE TABLE photo_likes (
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    photo_id UUID REFERENCES cat_photos(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+    PRIMARY KEY (user_id, photo_id)
+);
+```
+
+### 4. `photo_comments` Table
+
+Stores user comments on photos.
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| `id` | UUID | No | `gen_random_uuid()` | Primary key |
+| `user_id` | UUID | No | - | Foreign key to `users.id` |
+| `photo_id` | UUID | No | - | Foreign key to `cat_photos.id` |
+| `content` | TEXT | No | - | Comment text |
+| `created_at` | TIMESTAMPTZ | No | `now()` | Comment timestamp |
+
+#### SQL Definition
+```sql
+CREATE TABLE photo_comments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    photo_id UUID REFERENCES cat_photos(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+
+CREATE INDEX idx_photo_comments_photo_id ON photo_comments(photo_id, created_at);
+```
+
+### 5. `notifications` Table
+
+Stores system and social notifications for users.
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| `id` | UUID | No | `gen_random_uuid()` | Primary key |
+| `user_id` | UUID | No | - | Recipient user ID |
+| `actor_id` | UUID | Yes | - | User ID who triggered the event |
+| `type` | VARCHAR(50) | No | - | Type: `like`, `comment`, `treat`, `system` |
+| `title` | VARCHAR(255) | Yes | - | Notification title |
+| `message` | TEXT | No | - | Notification body |
+| `resource_id` | UUID | Yes | - | Related entity ID (e.g. photo_id) |
+| `resource_type` | VARCHAR(50) | Yes | - | Type of resource (e.g. `photo`) |
+| `is_read` | BOOLEAN | No | `FALSE` | Read status |
+| `created_at` | TIMESTAMPTZ | No | `now()` | Creation timestamp |
+
+#### SQL Definition
+```sql
+CREATE TABLE notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    actor_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    type VARCHAR(50) NOT NULL,
+    title VARCHAR(255),
+    message TEXT NOT NULL,
+    resource_id UUID,
+    resource_type VARCHAR(50),
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+
+CREATE INDEX idx_notifications_user_created ON notifications(user_id, created_at DESC);
+```
+
+### 6. `treats_transactions` Table
+
+Logs all treat exchanges (giving treats or purchasing).
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| `id` | UUID | No | `gen_random_uuid()` | Primary key |
+| `from_user_id` | UUID | No | - | User sending treats |
+| `to_user_id` | UUID | Yes | - | User receiving treats (null for purchase) |
+| `photo_id` | UUID | Yes | - | Related photo ID |
+| `amount` | INTEGER | No | - | Amount of treats |
+| `transaction_type` | VARCHAR(50) | No | - | `give`, `purchase`, `bonus` |
+| `created_at` | TIMESTAMPTZ | No | `now()` | Timestamp |
+
+#### SQL Definition
+```sql
+CREATE TABLE treats_transactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    from_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    to_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    photo_id UUID REFERENCES cat_photos(id) ON DELETE SET NULL,
+    amount INTEGER NOT NULL,
+    transaction_type VARCHAR(50) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+
+CREATE INDEX idx_treats_transactions_users ON treats_transactions(from_user_id, to_user_id);
 ```
 
 ---

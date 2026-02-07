@@ -1,8 +1,10 @@
 """
 Tests for Password Service
+
+# nosec python:S2068 - Hardcoded passwords in this file are intentional test fixtures
+# These are not real credentials; they are used only for unit testing password hashing
 """
 
-import pytest
 
 from services.password_service import password_service
 

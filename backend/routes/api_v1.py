@@ -8,7 +8,18 @@ New versions can be created by adding new router files (api_v2.py, etc.)
 from fastapi import APIRouter
 
 # Import all route modules
-from routes import auth, cat_detection, feature_flags, gallery, profile, upload
+from routes import (
+    auth,
+    cat_detection,
+    feature_flags,
+    gallery,
+    notifications,
+    profile,
+    social,
+    subscription,
+    treats,
+    upload,
+)
 
 # Create versioned router
 router = APIRouter(prefix="/api/v1")
@@ -27,3 +38,11 @@ router.include_router(gallery.router)
 
 # System
 router.include_router(feature_flags.router)
+
+# Monetization
+router.include_router(subscription.router)
+router.include_router(treats.router)
+
+# Social
+router.include_router(social.router)
+router.include_router(notifications.router)

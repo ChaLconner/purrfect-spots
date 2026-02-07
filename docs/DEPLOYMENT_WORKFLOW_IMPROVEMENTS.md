@@ -56,7 +56,7 @@ npx vercel link --yes --token=${{ secrets.VERCEL_TOKEN }} --project "$VERCEL_BAC
 ```yaml
 environment:
   name: production
-  url: https://purrfect-spots.vercel.app
+  url: https://purrfectspots.xyz
   # Require manual approval for production deployments
   # Configure in GitHub Settings > Environments > production > Protection rules
 ```

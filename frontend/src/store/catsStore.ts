@@ -360,7 +360,7 @@ export function getCleanDescription(description: string | null | undefined): str
  */
 export function hasTag(location: CatLocation, tag: string): boolean {
   const normalizedTag = tag.toLowerCase().replace(/^#/, '');
-  const tags = location.tags || extractTags(location.description);
+  const tags = (location.tags && location.tags.length > 0) ? location.tags : extractTags(location.description);
   return tags.some((t) => t.toLowerCase() === normalizedTag);
 }
 

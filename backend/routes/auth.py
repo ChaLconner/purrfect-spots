@@ -145,7 +145,7 @@ async def verify_otp(
         if not user_data:
             raise HTTPException(status_code=404, detail="User not found")
 
-        return await create_login_response(auth_service, user_data.copy(), request, response)
+        return create_login_response(auth_service, user_data.copy(), request, response)
 
     except HTTPException:
         raise
@@ -207,7 +207,7 @@ async def login(
             raise HTTPException(status_code=401, detail="Invalid email or password.")
 
         # user_data now contains data from Supabase, but we want our own tokens
-        return await create_login_response(auth_service, user_data, request, response)
+        return create_login_response(auth_service, user_data, request, response)
 
     except HTTPException:
         raise
@@ -362,7 +362,7 @@ async def exchange_session(
             "created_at": db_user.created_at if db_user else datetime.now(timezone.utc),
         }
 
-        return await create_login_response(auth_service, user_data, request, response)
+        return create_login_response(auth_service, user_data, request, response)
     except Exception:
         logger.error("Session exchange failed")
         raise HTTPException(status_code=401, detail="Session verification failed")
@@ -442,7 +442,7 @@ async def google_login(
         user_data = auth_service.verify_google_token(token_data.token)
         user = auth_service.create_or_get_user(user_data)
 
-        return await create_login_response(auth_service, user, request, response)
+        return create_login_response(auth_service, user, request, response)
 
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -470,6 +470,8 @@ def _validate_google_redirect_uri(redirect_uri: str) -> bool:
                 "http://localhost:5173",
                 "https://localhost:5173",
                 "https://purrfect-spots.vercel.app",
+                "https://purrfectspots.xyz",
+                "https://www.purrfectspots.xyz",
             ]
             if origin in allowed_production_domains:
                 logger.debug(f"Auth Exchange Debug: Matched production domain={origin}")

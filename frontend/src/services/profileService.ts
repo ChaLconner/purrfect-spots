@@ -19,6 +19,8 @@ import { apiV1 } from '../utils/api';
 export interface ProfileUpdateData {
   /** User's display name */
   name?: string;
+  /** User's unique username */
+  username?: string;
   /** User's biography/about text */
   bio?: string;
   /** URL to user's profile picture */
@@ -113,5 +115,16 @@ export class ProfileService {
   // Delete uploaded photo
   static async deletePhoto(photoId: string): Promise<void> {
     await apiV1.delete(`/profile/uploads/${photoId}`);
+  }
+
+  // Get public profile by ID
+  static async getPublicProfile(userId: string): Promise<User> {
+    return await apiV1.get<User>(`/profile/public/${userId}`);
+  }
+
+  // Get public uploads by user ID
+  static async getPublicUserUploads(userId: string): Promise<CatLocation[]> {
+    const result = await apiV1.get<{ uploads: CatLocation[] }>(`/profile/public/${userId}/uploads`);
+    return result.uploads || [];
   }
 }

@@ -222,7 +222,7 @@ defineExpose({ focus: focusInput });
 }
 
 .tag-input::placeholder {
-  color: #a8a29e;
+  color: #6b7280;
 }
 
 .tag-input:disabled {
@@ -239,7 +239,7 @@ defineExpose({ focus: focusInput });
 }
 
 .tags-count {
-  color: #78716c;
+  color: #6b7280;
   transition: color 0.2s ease;
 }
 

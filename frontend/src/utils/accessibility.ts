@@ -173,7 +173,7 @@ export function setupArrowKeyNavigation(
 
   function handleKeyDown(e: KeyboardEvent) {
     const items = Array.from(container.querySelectorAll<HTMLElement>(itemSelector));
-    const currentIndex = items.findIndex((item) => item === document.activeElement);
+    const currentIndex = items.indexOf(document.activeElement as HTMLElement);
 
     if (currentIndex === -1) return;
 

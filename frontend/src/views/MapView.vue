@@ -1,89 +1,88 @@
 <template>
-  <div class="relative h-full flex flex-col bg-[#EAF6F3]">
-    <!-- Map Container - Full width, no padding -->
-    <div class="relative flex-1 overflow-hidden rounded-card shadow-card group">
-      <!-- Initial Loading State (Progressive) -->
-      <transition
-        enter-active-class="transition-opacity duration-300"
-        leave-active-class="transition-opacity duration-200"
-        enter-from-class="opacity-100"
-        leave-to-class="opacity-0"
-      >
-        <div
-          v-if="isInitialLoading"
-          class="absolute inset-0 flex flex-col items-center justify-center bg-[#EAF6F3] z-10"
-        >
-          <GhibliLoader text="Loading map..." />
-        </div>
-      </transition>
-
-      <!-- Data Loading State -->
-      <transition
-        enter-active-class="transition-opacity duration-300"
-        leave-active-class="transition-opacity duration-200"
-        enter-from-class="opacity-0"
-        leave-to-class="opacity-0"
-      >
-        <div
-          v-if="isLoading && !isInitialLoading"
-          class="absolute inset-0 flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm z-20"
-        >
-          <GhibliLoader text="Finding cute cats..." />
-        </div>
-      </transition>
-
-      <!-- Error State -->
-      <div
-        v-if="error && !isLoading && !isInitialLoading"
-        class="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md z-20 p-6"
-      >
-        <ErrorState :message="error" @retry="loadCatLocations" />
-      </div>
-
-      <!-- Google Map -->
-      <div id="map" class="w-full h-full min-h-[500px] outline-none"></div>
-
-      <!-- Custom Map Controls (Glassmorphism) -->
-
-      <!-- Search Results Info (Floating Badge) -->
-      <transition
-        enter-active-class="transition-all duration-300 ease-out"
-        leave-active-class="transition-all duration-200 ease-in"
-        enter-from-class="opacity-0 -translate-y-4"
-        leave-to-class="opacity-0 -translate-y-4"
-      >
-        <div
-          v-if="!isLoading && !error && searchQuery"
-          class="absolute top-6 left-1/2 transform -translate-x-1/2 z-10"
+  <div class="map-page">
+    <!-- Map Container with 3D Frame -->
+    <div class="map-frame">
+      <div class="map-container">
+        <!-- Initial Loading State (Progressive) -->
+        <transition
+          enter-active-class="transition-opacity duration-300"
+          leave-active-class="transition-opacity duration-200"
+          enter-from-class="opacity-100"
+          leave-to-class="opacity-0"
         >
           <div
-            class="bg-white/90 backdrop-blur-md rounded-full shadow-lg shadow-sage/10 border border-white/60 pl-5 pr-2 py-2 flex items-center gap-3 animate-float-gentle"
+            v-if="isInitialLoading"
+            class="absolute inset-0 flex flex-col items-center justify-center bg-[#e8f0e6] z-10 rounded-xl"
           >
-            <span class="text-sm text-brown-dark font-medium">
-              Found <strong class="text-terracotta">{{ displayedLocations.length }}</strong> cats
-              for "<span class="italic text-brown">{{ searchQuery }}</span>"
-            </span>
-            <button
-              class="w-7 h-7 rounded-full bg-sage-light/20 hover:bg-terracotta hover:text-white flex items-center justify-center text-xs text-sage-dark transition-all duration-300"
-              @click="clearSearch"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="w-4 h-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
+            <GhibliLoader text="Loading map..." />
           </div>
+        </transition>
+
+        <!-- Data Loading State -->
+        <transition
+          enter-active-class="transition-opacity duration-300"
+          leave-active-class="transition-opacity duration-200"
+          enter-from-class="opacity-0"
+          leave-to-class="opacity-0"
+        >
+          <div
+            v-if="isLoading && !isInitialLoading"
+            class="absolute inset-0 flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm z-20 rounded-xl"
+          >
+            <GhibliLoader text="Finding cute cats..." />
+          </div>
+        </transition>
+
+        <!-- Error State -->
+        <div
+          v-if="error && !isLoading && !isInitialLoading"
+          class="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md z-20 p-6 rounded-xl"
+        >
+          <ErrorState :message="error" @retry="loadCatLocations" />
         </div>
-      </transition>
+
+        <!-- Google Map -->
+        <div id="map" class="map-element"></div>
+
+        <!-- Custom Map Controls (Glassmorphism) -->
+
+        <!-- Search Results Info (Floating Badge) -->
+        <transition
+          enter-active-class="transition-all duration-300 ease-out"
+          leave-active-class="transition-all duration-200 ease-in"
+          enter-from-class="opacity-0 -translate-y-4"
+          leave-to-class="opacity-0 -translate-y-4"
+        >
+          <div
+            v-if="!isLoading && !error && searchQuery"
+            class="absolute top-6 left-1/2 transform -translate-x-1/2 z-10"
+          >
+            <div class="search-results-badge">
+              <span class="badge-text">
+                Found <strong>{{ displayedLocations.length }}</strong> cats for "<span
+                  class="search-term"
+                  >{{ searchQuery }}</span
+                >"
+              </span>
+              <button class="clear-search-btn" aria-label="Clear search" @click="clearSearch">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </transition>
+      </div>
     </div>
 
     <!-- Cat Details Modal -->
@@ -460,6 +459,49 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* Map Page Layout */
+.map-page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0 1.5rem 1rem 1.5rem;
+  overflow: hidden;
+}
+
+/* 3D Map Frame */
+.map-frame {
+  position: relative;
+  flex: 1;
+  padding: 0.5rem;
+  background: var(--color-btn-shade-e);
+  border: 3px solid var(--color-btn-shade-a);
+  border-radius: 1.25rem;
+  box-shadow:
+    0 0 0 3px var(--color-btn-shade-b),
+    0 0.5em 0 0 var(--color-btn-shade-a);
+}
+
+/* Map Container */
+.map-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  background: var(--color-btn-shade-d);
+}
+
+/* Map Element */
+.map-element {
+  width: 100%;
+  height: 100%;
+  min-height: calc(100vh - 5.5rem - 2rem - 1rem - 10px);
+  /* 100vh - navbar(5.5rem) - frame padding(2rem) - page padding(1rem) - extra(10px) */
+  outline: none;
+  border-radius: inherit;
+}
+
 /* Floating animation for welcome card */
 @keyframes float {
   0%,
@@ -495,5 +537,92 @@ onUnmounted(() => {
 }
 .delay-200 {
   animation-delay: 0.2s;
+}
+
+/* 3D Search Results Badge */
+.search-results-badge {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.625rem 0.625rem 1.25rem;
+  background: var(--color-btn-shade-e);
+  border: 2px solid var(--color-btn-shade-a);
+  border-radius: 2rem;
+  box-shadow:
+    0 0 0 2px var(--color-btn-shade-b),
+    0 0.3em 0 0 var(--color-btn-shade-a);
+  animation: float-gentle 4s ease-in-out infinite;
+}
+
+.badge-text {
+  font-family: 'Zen Maru Gothic', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-btn-shade-a);
+}
+
+.badge-text strong {
+  color: var(--color-btn-accent-a);
+  font-weight: 700;
+}
+
+.search-term {
+  font-style: italic;
+  color: var(--color-btn-brown-b);
+}
+
+/* 3D Clear Search Button */
+.clear-search-btn {
+  position: relative;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-btn-accent-e);
+  border: 2px solid var(--color-btn-accent-a);
+  border-radius: 50%;
+  color: var(--color-btn-accent-a);
+  cursor: pointer;
+  transform-style: preserve-3d;
+  transition: all 175ms cubic-bezier(0, 0, 1, 1);
+}
+
+.clear-search-btn::before {
+  position: absolute;
+  content: '';
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  background: var(--color-btn-accent-c);
+  border-radius: inherit;
+  box-shadow:
+    0 0 0 2px var(--color-btn-accent-b),
+    0 0.2em 0 0 var(--color-btn-accent-a);
+  transform: translate3d(0, 0.2em, -1em);
+  transition: all 175ms cubic-bezier(0, 0, 1, 1);
+}
+
+.clear-search-btn:hover {
+  background: var(--color-btn-accent-d);
+  transform: translate(0, 0.1em);
+}
+
+.clear-search-btn:active {
+  transform: translate(0, 0.2em);
+}
+
+.clear-search-btn:active::before {
+  transform: translate3d(0, 0, -1em);
+  box-shadow:
+    0 0 0 2px var(--color-btn-accent-b),
+    0 0.05em 0 0 var(--color-btn-accent-b);
+}
+
+.clear-search-btn svg {
+  position: relative;
+  z-index: 1;
 }
 </style>

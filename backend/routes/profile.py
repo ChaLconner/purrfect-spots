@@ -23,6 +23,7 @@ router = APIRouter(prefix="/profile", tags=["Profile"])
 
 class ProfileUpdateRequest(BaseModel):
     name: str | None = None
+    username: str | None = None
     bio: str | None = None
     picture: str | None = None
 
@@ -63,6 +64,8 @@ async def update_profile(
         update_data = {}
         if profile_data.name is not None:
             update_data["name"] = profile_data.name
+        if profile_data.username is not None:
+            update_data["username"] = profile_data.username
         if profile_data.bio is not None:
             update_data["bio"] = profile_data.bio
         if profile_data.picture is not None:
@@ -76,6 +79,19 @@ async def update_profile(
 
         if "name" in update_data:
             update_data["name"] = sanitize_text(update_data["name"], max_length=100)
+            
+        if "username" in update_data:
+            username = update_data["username"]
+            # Validate username format (alphanumeric + underscore, min 3 chars)
+            import re
+            if not re.match(r"^[a-zA-Z0-9_]{3,30}$", username):
+                raise HTTPException(status_code=400, detail="Username must be 3-30 characters and contain only letters, numbers, and underscores")
+            
+            # Check for uniqueness if username changed
+            if username != current_user.username:
+                existing_user = auth_service.user_service.get_user_by_username(username)
+                if existing_user:
+                     raise HTTPException(status_code=409, detail="Username already taken")
 
         if "bio" in update_data and update_data["bio"]:
             update_data["bio"] = sanitize_text(update_data["bio"], max_length=500)
@@ -92,6 +108,7 @@ async def update_profile(
                 "id": updated_user["id"],
                 "email": updated_user["email"],
                 "name": updated_user["name"],
+                "username": updated_user.get("username"),
                 "picture": updated_user.get("picture"),
                 "bio": updated_user.get("bio"),
                 "created_at": updated_user["created_at"],
@@ -140,6 +157,108 @@ async def get_profile(
 
 def get_admin_gallery_service(supabase=Depends(get_supabase_admin_client)):
     return GalleryService(supabase)
+
+
+@router.get("/public/{identifier}")
+async def get_public_profile(
+    identifier: str,
+    response: Response,
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    """
+    Get public user profile by ID or username
+    """
+    response.headers["Cache-Control"] = "public, max-age=60"
+    try:
+        # Check if identifier looks like a UUID
+        is_uuid = False
+        try:
+            import uuid
+
+            uuid.UUID(identifier)
+            is_uuid = True
+        except ValueError:
+            is_uuid = False
+
+        user = None
+        if is_uuid:
+            user = auth_service.get_user_by_id(identifier)
+        
+        # If not found by ID or not a UUID, try by username
+        if not user:
+            user = auth_service.user_service.get_user_by_username(identifier)
+
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        return {
+            "id": user.id,
+            "name": user.name,
+            "picture": user.picture,
+            "bio": user.bio,
+            "created_at": user.created_at,
+            "is_pro": user.is_pro,
+            # Don't expose email or other sensitive data
+        }
+
+    except Exception:
+        logger.error(f"Failed to get public profile for {user_id}")
+        raise HTTPException(status_code=404, detail="User not found")
+
+
+@router.get("/public/{identifier}/uploads")
+async def get_public_user_uploads(
+    identifier: str,
+    response: Response,
+    gallery_service: GalleryService = Depends(get_admin_gallery_service),
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    """
+    Get public uploads by user_id or username
+    """
+    response.headers["Cache-Control"] = "public, max-age=60"
+    try:
+        # Resolve identifier to user_id
+        is_uuid = False
+        try:
+            import uuid
+
+            uuid.UUID(identifier)
+            is_uuid = True
+        except ValueError:
+            is_uuid = False
+
+        user_id = identifier
+        if not is_uuid:
+            user = auth_service.user_service.get_user_by_username(identifier)
+            if not user:
+                 raise HTTPException(status_code=404, detail="User not found")
+            user_id = user.id
+
+        photos = gallery_service.get_user_photos(user_id)
+
+        # Format data
+        uploads = []
+        for photo in photos:
+            try:
+                upload_item = {
+                    "id": photo["id"],
+                    "image_url": photo["image_url"],
+                    "description": photo.get("description", ""),
+                    "location_name": photo.get("location_name", ""),
+                    "uploaded_at": photo.get("uploaded_at", ""),
+                    "latitude": photo.get("latitude"),
+                    "longitude": photo.get("longitude"),
+                }
+                uploads.append(upload_item)
+            except Exception:
+                continue
+
+        return {"uploads": uploads, "count": len(uploads)}
+
+    except Exception as e:
+        logger.error(f"Failed to get uploads for user {user_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get uploads")
 
 
 @router.get("/uploads")

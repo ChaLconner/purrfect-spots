@@ -4,8 +4,6 @@ Tests for DateTime Utilities
 
 from datetime import UTC, datetime, timezone
 
-import pytest
-
 from utils.datetime_utils import from_iso, to_utc, utc_now, utc_now_iso
 
 

@@ -134,6 +134,9 @@ const createApiInstance = (): AxiosInstance => {
     (config) => {
       if (currentAccessToken) {
         config.headers.Authorization = `Bearer ${currentAccessToken}`;
+        // console.log(`[API] Request with token to ${config.url}`);
+      } else {
+        console.warn(`[API] Request MISSING token to ${config.url}`);
       }
       return config;
     },
@@ -185,12 +188,17 @@ const createApiInstance = (): AxiosInstance => {
 
       const handlers: Record<number, () => never> = {
         403: () => {
-          throw new ApiError(ApiErrorTypes.AUTHORIZATION_ERROR, 'You do not have permission to access this information', status, error);
+          throw new ApiError(
+            ApiErrorTypes.AUTHORIZATION_ERROR,
+            'You do not have permission to access this information',
+            status,
+            error
+          );
         },
         422: () => {
           const validationMessage = (data as { detail?: string })?.detail || 'Invalid data';
           throw new ApiError(ApiErrorTypes.VALIDATION_ERROR, validationMessage, status, error);
-        }
+        },
       };
 
       if (status === 401) {
@@ -217,39 +225,48 @@ const createApiInstance = (): AxiosInstance => {
   return instance;
 };
 
+interface RetryableRequestConfig extends AxiosRequestConfig {
+  _retry?: boolean;
+}
+
 // Handle 401 errors (Token Expiry)
 async function handleUnauthorizedError(error: AxiosError, status: number) {
-  const originalRequest = error.config;
-  if (!originalRequest) return Promise.reject(error);
+  const originalRequest = error.config as RetryableRequestConfig;
+  if (!originalRequest) throw error;
 
   // Avoid infinite loops
-  if ((originalRequest as any)._retry) { // eslint-disable-line @typescript-eslint/no-explicit-any
+  if (originalRequest._retry) {
     if (logoutCallback) logoutCallback();
-    return Promise.reject(error);
+    throw error;
   }
 
-  (originalRequest as any)._retry = true; // eslint-disable-line @typescript-eslint/no-explicit-any
+  originalRequest._retry = true;
 
   try {
     if (refreshTokenCallback) {
       const refreshed = await refreshTokenCallback();
       if (refreshed) {
         // Retry original request with new token
-        if (currentAccessToken) {
+        if (currentAccessToken && originalRequest.headers) {
           originalRequest.headers.Authorization = `Bearer ${currentAccessToken}`;
         }
         return apiInstance(originalRequest);
       }
     }
-    
+
     // Refresh failed or no callback
     if (logoutCallback) logoutCallback();
-    throw new ApiError(ApiErrorTypes.AUTHENTICATION_ERROR, 'Session expired. Please login again.', status, error);
+    throw new ApiError(
+      ApiErrorTypes.AUTHENTICATION_ERROR,
+      'Session expired. Please login again.',
+      status,
+      error
+    );
   } catch (refreshError) {
     if (logoutCallback) logoutCallback();
-    return Promise.reject(refreshError);
+    throw refreshError;
   }
-};
+}
 
 export const apiInstance = createApiInstance();
 

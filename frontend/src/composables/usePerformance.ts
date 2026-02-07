@@ -75,8 +75,10 @@ export function logMetric(metric: PerformanceMetric): void {
     );
   }
 
-// Send to analytics in production (if configured)
-  const win = globalThis as unknown as { gtag?: (command: string, action: string, params: Record<string, unknown>) => void };
+  // Send to analytics in production (if configured)
+  const win = globalThis as unknown as {
+    gtag?: (command: string, action: string, params: Record<string, unknown>) => void;
+  };
   if (import.meta.env.PROD && win.gtag) {
     win.gtag('event', 'performance_metric', {
       metric_name: metric.name,
@@ -199,7 +201,9 @@ export function useWebVitals() {
     }
 
     // Navigation timing - use modern API if available
-    const [navigation] = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+    const [navigation] = performance.getEntriesByType(
+      'navigation'
+    ) as PerformanceNavigationTiming[];
     if (navigation) {
       // Wait for load to complete
       globalThis.addEventListener('load', () => {
@@ -327,7 +331,7 @@ export function getPerformanceSummary(): Record<
 
 // TypeScript declarations for window extensions
 declare global {
-  interface globalThis {
+  interface Window {
     gtag?: (...args: unknown[]) => void;
   }
 

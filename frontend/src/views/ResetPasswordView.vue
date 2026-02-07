@@ -5,7 +5,7 @@
     <div class="auth-card">
       <div class="auth-illustration">
         <div class="illustration-content">
-          <img src="/cat-illustration.png" alt="Cute cat illustration" class="cat-image" />
+          <img src="/cat-illustration.png" alt="Cute cat" class="cat-image" />
           <div class="illustration-text">
             <h2 class="welcome-title">Welcome Back</h2>
             <p class="welcome-subtitle">Set your new password and start exploring!</p>

@@ -15,9 +15,6 @@ from middleware.auth_middleware import (
     decode_custom_token,
     decode_supabase_token,
     get_current_user,
-    get_current_user_from_credentials,
-    get_current_user_from_header,
-    get_current_user_optional,
     get_jwks,
 )
 from user_models.user import User

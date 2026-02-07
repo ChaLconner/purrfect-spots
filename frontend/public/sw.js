@@ -1,6 +1,6 @@
 /**
  * Service Worker for Purrfect Spots
- * 
+ *
  * Features:
  * - Cache static assets (CSS, JS, images)
  * - Cache API responses for offline support
@@ -31,31 +31,33 @@ const API_ENDPOINTS = [
 ];
 
 // Install event - cache static assets
-self.addEventListener('install', (event) => {
-  console.log(`[SW] Installing service worker for scope: ${self.registration.scope}`);
-  
+globalThis.addEventListener('install', (event) => {
+  console.log(`[SW] Installing service worker for scope: ${globalThis.registration.scope}`);
+
   event.waitUntil(
     caches.open(STATIC_CACHE_NAME).then((cache) => {
       console.log('[SW] Caching static assets...');
       return cache.addAll(STATIC_ASSETS);
     })
   );
-  
+
   // Force the waiting service worker to become the active service worker
-  self.skipWaiting();
+  globalThis.skipWaiting();
 });
 
 // Activate event - clean up old caches
-self.addEventListener('activate', (event) => {
-  console.log(`[SW] Activating service worker for scope: ${self.registration.scope}`);
-  
+globalThis.addEventListener('activate', (event) => {
+  console.log(`[SW] Activating service worker for scope: ${globalThis.registration.scope}`);
+
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME && 
-              cacheName !== STATIC_CACHE_NAME && 
-              cacheName !== API_CACHE_NAME) {
+          if (
+            cacheName !== CACHE_NAME &&
+            cacheName !== STATIC_CACHE_NAME &&
+            cacheName !== API_CACHE_NAME
+          ) {
             console.log('[SW] Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
@@ -64,13 +66,13 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
-  
+
   // Take control of all pages immediately
-  self.clients.claim();
+  globalThis.clients.claim();
 });
 
 // Fetch event - handle requests
-self.addEventListener('fetch', (event) => {
+globalThis.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
@@ -91,7 +93,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Handle static assets with cache-first strategy
-  if (STATIC_ASSETS.some(asset => url.pathname === asset || url.pathname.endsWith(asset))) {
+  if (STATIC_ASSETS.some((asset) => url.pathname === asset || url.pathname.endsWith(asset))) {
     event.respondWith(handleStaticRequest(request));
     return;
   }
@@ -125,11 +127,9 @@ self.addEventListener('fetch', (event) => {
 // Handle API requests with network-first strategy
 async function handleApiRequest(request) {
   const url = new URL(request.url);
-  
+
   // Check if this is a gallery endpoint that should be cached
-  const isGalleryEndpoint = API_ENDPOINTS.some(endpoint => 
-    url.pathname.startsWith(endpoint)
-  );
+  const isGalleryEndpoint = API_ENDPOINTS.some((endpoint) => url.pathname.startsWith(endpoint));
 
   if (!isGalleryEndpoint) {
     // For non-cacheable API endpoints, use network-only
@@ -139,7 +139,7 @@ async function handleApiRequest(request) {
   try {
     // Try network first
     const networkResponse = await fetch(request);
-    
+
     if (networkResponse && networkResponse.status === 200) {
       // Cache successful API responses for 1 minute
       const responseClone = networkResponse.clone();
@@ -147,18 +147,18 @@ async function handleApiRequest(request) {
       await cache.put(request, responseClone);
       console.log('[SW] Cached API response:', url.pathname);
     }
-    
+
     return networkResponse;
   } catch (error) {
     console.log('[SW] Network failed, trying cache for:', url.pathname);
-    
+
     // If network fails, try cache
     const cachedResponse = await caches.match(request);
     if (cachedResponse) {
       console.log('[SW] Returning cached API response:', url.pathname);
       return cachedResponse;
     }
-    
+
     // If no cache, return error
     throw error;
   }
@@ -167,20 +167,20 @@ async function handleApiRequest(request) {
 // Handle static assets with cache-first strategy
 async function handleStaticRequest(request) {
   const cachedResponse = await caches.match(request);
-  
+
   if (cachedResponse) {
     console.log('[SW] Returning cached static asset:', request.url);
     return cachedResponse;
   }
-  
+
   try {
     const networkResponse = await fetch(request);
-    
+
     if (networkResponse && networkResponse.status === 200) {
       const cache = await caches.open(STATIC_CACHE_NAME);
       await cache.put(request, networkResponse.clone());
     }
-    
+
     return networkResponse;
   } catch (error) {
     console.error('[SW] Failed to fetch static asset:', request.url, error);
@@ -191,20 +191,20 @@ async function handleStaticRequest(request) {
 // Handle image requests with cache-first strategy
 async function handleImageRequest(request) {
   const cachedResponse = await caches.match(request);
-  
+
   if (cachedResponse) {
     console.log('[SW] Returning cached image:', request.url);
     return cachedResponse;
   }
-  
+
   try {
     const networkResponse = await fetch(request);
-    
+
     if (networkResponse && networkResponse.status === 200) {
       const cache = await caches.open(CACHE_NAME);
       await cache.put(request, networkResponse.clone());
     }
-    
+
     return networkResponse;
   } catch (error) {
     console.error('[SW] Failed to fetch image:', request.url, error);
@@ -213,18 +213,19 @@ async function handleImageRequest(request) {
 }
 
 // Handle messages from clients
-self.addEventListener('message', (event) => {
+globalThis.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
+    globalThis.skipWaiting();
   }
-  
+
   if (event.data && event.data.type === 'CLEAR_CACHE') {
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => caches.delete(cacheName))
-      );
-    }).then(() => {
-      event.ports[0].postMessage({ success: true });
-    });
+    caches
+      .keys()
+      .then((cacheNames) => {
+        return Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
+      })
+      .then(() => {
+        event.ports[0].postMessage({ success: true });
+      });
   }
 });

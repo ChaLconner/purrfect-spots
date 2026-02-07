@@ -1,10 +1,10 @@
 <template>
   <Teleport to="body">
     <Transition name="modal-fade">
-      <div
+      <dialog
         v-if="image"
         class="modal-backdrop"
-        role="dialog"
+        :open="true"
         aria-modal="true"
         aria-labelledby="modal-title"
         @click="$emit('close')"
@@ -18,14 +18,27 @@
                 <SkeletonLoader width="100%" height="100%" border-radius="0" />
               </div>
 
+              <!-- Blurred Background for gaps -->
+              <div class="blurred-bg" :style="{ backgroundImage: `url(${image.image_url})` }"></div>
+
               <!-- Main Image -->
+              <!-- Main Image -->
+              <div
+                v-if="hasError"
+                class="error-state flex flex-col items-center justify-center p-8 text-center text-white/60"
+              >
+                <img
+                  src="/cat-illustration.png"
+                  alt="No image available"
+                  class="w-48 h-auto opacity-40 mb-4 grayscale"
+                />
+                <p class="font-heading text-xl">Image Not Found</p>
+                <p class="text-sm mt-2 opacity-70">This spot's photo seems to be hiding.</p>
+              </div>
               <img
+                v-else
                 :src="image.image_url"
-                :alt="
-                  image.location_name
-                    ? `Photo of a cat at ${image.location_name}`
-                    : 'A beautiful spotted cat'
-                "
+                :alt="image.location_name ? `A cat at ${image.location_name}` : 'A cat'"
                 class="main-image"
                 :class="{ 'is-visible': isLoaded }"
                 @load="onImageLoad"
@@ -77,10 +90,15 @@
             <div class="modal-content">
               <!-- Header -->
               <div class="content-header">
-                <div>
+                <div class="flex-1">
                   <h3 id="modal-title" class="cat-title">Cat Details</h3>
-                  <div class="cat-meta">
-                    <span v-if="image.location_name" class="location-badge">
+                  <div class="cat-meta flex items-center gap-4 flex-wrap">
+                    <button
+                      v-if="image.location_name"
+                      class="location-badge hover:text-terracotta-dark transition-colors group flex items-center"
+                      title="Open in Google Maps"
+                      @click="openDirections"
+                    >
                       <svg
                         width="14"
                         height="14"
@@ -88,14 +106,26 @@
                         fill="none"
                         stroke="currentColor"
                         stroke-width="2.5"
-                        class="mr-1"
+                        class="mr-1.5 group-hover:scale-110 transition-transform"
                       >
                         <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                         <circle cx="12" cy="10" r="3" />
                       </svg>
                       {{ image.location_name }}
-                    </span>
+                    </button>
                     <span v-if="dateFormatted" class="date-text">{{ dateFormatted }}</span>
+                  </div>
+
+                  <!-- Tags moved to header -->
+                  <div v-if="imageTags.length > 0" class="tags-list mt-3">
+                    <button
+                      v-for="tag in imageTags"
+                      :key="tag"
+                      class="tag-chip-small"
+                      @click="searchByTag(tag)"
+                    >
+                      #{{ tag }}
+                    </button>
                   </div>
                 </div>
 
@@ -130,43 +160,47 @@
                   </p>
                 </div>
 
-                <!-- Tags -->
-                <div v-if="imageTags.length > 0" class="tags-section">
-                  <p class="section-label">Discover More</p>
-                  <div class="tags-list">
+                <!-- Social Interactions -->
+                <div class="social-section mt-0 mb-2 border-b border-cream-dark/50 pb-2">
+                  <div class="flex items-center justify-between">
+                    <LikeButton
+                      v-if="image"
+                      :photo-id="image.id"
+                      :initial-count="image.likes_count"
+                      :initial-liked="image.liked"
+                    />
+
                     <button
-                      v-for="tag in imageTags"
-                      :key="tag"
-                      class="tag-chip"
-                      @click="searchByTag(tag)"
+                      v-if="
+                        image && authStore.isAuthenticated && authStore.user?.id !== image.user_id
+                      "
+                      class="treat-btn-new group"
+                      :class="{ 'is-loading': isSendingTreat }"
+                      :disabled="isSendingTreat"
+                      @click="handleGiveTreat"
                     >
-                      #{{ tag }}
+                      <div class="treat-visual-container">
+                        <img src="/give-treat.png" alt="Give Treat" class="treat-main-img" />
+                        <div v-if="isSendingTreat" class="loader-overlay">
+                          <span class="loader-spinner"></span>
+                        </div>
+                        <!-- Treat Balance Indicator (Badge-like) -->
+                        <div v-if="!isSendingTreat && authStore.user" class="treat-count-badge">
+                          {{ authStore.user.treat_balance || 0 }}
+                        </div>
+                      </div>
+                      <span class="treat-label">Give Treat</span>
                     </button>
                   </div>
                 </div>
-              </div>
 
-              <!-- Footer Actions -->
-              <div class="content-footer">
-                <button class="action-btn primary" @click="openDirections">
-                  Get Directions
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2.5"
-                    class="ml-2"
-                  >
-                    <path d="M5 12h14M12 5l7 7-7 7" />
-                  </svg>
-                </button>
+                <!-- Comments -->
+                <CommentList v-if="image" :photo-id="image.id" />
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </dialog>
     </Transition>
   </Teleport>
 </template>
@@ -176,9 +210,17 @@ import { ref, watch, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import SkeletonLoader from '@/components/ui/SkeletonLoader.vue';
 import { useCatsStore } from '@/store';
+import { useAuthStore } from '@/store/authStore';
+import { useSubscriptionStore } from '@/store/subscriptionStore';
+import { TreatsService } from '@/services/treatsService';
+import { showSuccess, showError } from '@/store/toast';
 import { extractTags, getCleanDescription } from '@/store/catsStore';
 import type { CatLocation } from '@/types/api';
 import { IMAGE_CONFIG } from '@/utils/constants';
+
+import LikeButton from '@/components/social/LikeButton.vue';
+import CommentList from '@/components/social/CommentList.vue';
+import { supabase } from '@/lib/supabase';
 
 const props = defineProps<{
   image: CatLocation | null;
@@ -194,9 +236,35 @@ const emit = defineEmits<{
 
 const router = useRouter();
 const catsStore = useCatsStore();
+const authStore = useAuthStore();
+const isSendingTreat = ref(false);
+
+async function handleGiveTreat() {
+  if (!props.image) return;
+
+  // Debug: Check auth state
+  // console.log('Handling Give Treat. Authenticated:', authStore.isAuthenticated);
+
+  isSendingTreat.value = true;
+  const subscriptionStore = useSubscriptionStore();
+
+  try {
+    await subscriptionStore.giveTreat(props.image.id, 1);
+    showSuccess('You gave a treat!');
+
+    // Balance update is handled by store now
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { detail?: string } }; message?: string };
+    showError(e.response?.data?.detail || 'Failed to give treat');
+  } finally {
+    isSendingTreat.value = false;
+  }
+}
+
 const closeButtonRef = ref<HTMLButtonElement | null>(null);
 const imageStageRef = ref<HTMLDivElement | null>(null);
 const isLoaded = ref(false);
+const hasError = ref(false);
 
 // Touch swipe state
 const touchStartX = ref(0);
@@ -381,19 +449,43 @@ function cleanupListeners() {
   }
 }
 
+let balanceChannel: any = null;
+
+function setupBalanceRealtime() {
+  if (!authStore.user?.id) return;
+
+  balanceChannel = supabase
+    .channel(`user_balance_${authStore.user.id}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'users',
+        filter: `id=eq.${authStore.user.id}`,
+      },
+      (payload) => {
+        if (payload.new && typeof payload.new.treat_balance === 'number' && authStore.user) {
+          authStore.user.treat_balance = payload.new.treat_balance;
+        }
+      }
+    )
+    .subscribe();
+}
+
 onMounted(() => {
   if (props.image) {
     setupListeners();
   }
+  setupBalanceRealtime();
 });
 
 watch(
   () => props.image,
-  (newVal, oldVal) => {
+  (newVal) => {
     if (newVal) {
-      if (!oldVal) {
-        isLoaded.value = false;
-      }
+      isLoaded.value = false;
+      hasError.value = false;
       setupListeners();
     } else {
       cleanupListeners();
@@ -409,8 +501,23 @@ watch(
   }
 );
 
+watch(
+  () => authStore.user?.id,
+  (newId) => {
+    if (balanceChannel) {
+      supabase.removeChannel(balanceChannel);
+    }
+    if (newId) {
+      setupBalanceRealtime();
+    }
+  }
+);
+
 onUnmounted(() => {
   cleanupListeners();
+  if (balanceChannel) {
+    supabase.removeChannel(balanceChannel);
+  }
 });
 
 function onImageLoad() {
@@ -418,8 +525,7 @@ function onImageLoad() {
 }
 
 function handleError(event: Event) {
-  const target = event.target as HTMLImageElement;
-  target.src = IMAGE_CONFIG.PLACEHOLDER_URL;
+  hasError.value = true;
   isLoaded.value = true;
 }
 </script>
@@ -437,6 +543,12 @@ function handleError(event: Event) {
   justify-content: center;
   z-index: 1000;
   padding: 1.5rem;
+  border: none; /* Reset default dialog border */
+  margin: 0; /* Reset default dialog margin */
+  width: 100vw; /* Ensure full width */
+  height: 100vh; /* Ensure full height */
+  max-width: 100vw;
+  max-height: 100vh;
 }
 
 /* Container */
@@ -463,7 +575,9 @@ function handleError(event: Event) {
 @media (min-width: 768px) {
   .modal-card {
     flex-direction: row;
-    height: 600px;
+    min-height: 500px;
+    max-height: 90vh;
+    height: auto;
   }
 }
 
@@ -496,11 +610,24 @@ function handleError(event: Event) {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  position: relative;
+  z-index: 2;
   opacity: 0;
   transform: scale(1.05);
   transition:
     opacity 0.6s ease,
     transform 0.6s cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+.blurred-bg {
+  position: absolute;
+  inset: -20px;
+  background-size: cover;
+  background-position: center;
+  filter: blur(40px) brightness(0.7);
+  opacity: 0.6;
+  z-index: 1;
+  transform: scale(1.1);
 }
 
 .main-image.is-visible {
@@ -572,7 +699,7 @@ function handleError(event: Event) {
   background: #fffbf6; /* Very subtle cream */
   display: flex;
   flex-direction: column;
-  padding: 2.5rem;
+  padding: 1.5rem;
   position: relative;
 }
 
@@ -581,7 +708,7 @@ function handleError(event: Event) {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 2rem;
+  margin-bottom: 1.25rem;
 }
 
 .cat-title {
@@ -608,10 +735,19 @@ function handleError(event: Event) {
   font-weight: 700;
   font-size: 0.95rem;
   font-family: 'Inter', sans-serif;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.location-badge:hover {
+  color: #8a4a2a;
+  text-decoration: underline;
 }
 
 .date-text {
-  color: #8d8d8d;
+  color: #6b7280;
   font-size: 0.9rem;
   font-weight: 500;
   position: relative;
@@ -652,9 +788,14 @@ function handleError(event: Event) {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 1.25rem;
   overflow-y: auto;
-  padding-right: 0.5rem; /* Space for scrollbar */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.content-body::-webkit-scrollbar {
+  display: none;
 }
 
 /* Scrollbar styling */
@@ -678,7 +819,7 @@ function handleError(event: Event) {
 
 .description-placeholder {
   font-style: italic;
-  color: #999;
+  color: #6b7280;
 }
 
 .section-label {
@@ -710,7 +851,20 @@ function handleError(event: Event) {
   font-family: 'Inter', sans-serif;
 }
 
-.tag-chip:hover {
+.tag-chip-small {
+  padding: 0.25rem 0.6rem;
+  background: #eaf0ee;
+  color: #537c6d;
+  border: 1px solid rgba(83, 124, 109, 0.1);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'Inter', sans-serif;
+}
+
+.tag-chip-small:hover {
   background: #dce8e3;
   color: #3d5e51;
   transform: translateY(-1px);
@@ -755,6 +909,60 @@ function handleError(event: Event) {
   transform: translateY(0);
 }
 
+.action-btn-mini {
+  padding: 0.6rem 1.25rem;
+  border-radius: 0.75rem;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  letter-spacing: 0.02em;
+  border: none;
+}
+
+.action-btn-mini.primary {
+  background: #a65d37;
+  color: white;
+  box-shadow: 0 4px 12px rgba(166, 93, 55, 0.2);
+}
+
+.action-btn-mini.primary:hover {
+  background: #9a5029;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(166, 93, 55, 0.25);
+}
+
+.action-btn-compact {
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.5rem;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  letter-spacing: 0.01em;
+  border: none;
+}
+
+.action-btn-compact.primary {
+  background: #a65d37;
+  color: white;
+  box-shadow: 0 2px 8px rgba(166, 93, 55, 0.15);
+}
+
+.action-btn-compact.primary:hover {
+  background: #9a5029;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(166, 93, 55, 0.2);
+}
+
 /* Transitions */
 .modal-fade-enter-active,
 .modal-fade-leave-active {
@@ -795,4 +1003,127 @@ function handleError(event: Event) {
     opacity: 0;
   }
 }
+
+/* Treat Button Enhancements */
+.treat-btn-new {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.treat-visual-container {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  background: white;
+  border-radius: 12px;
+  padding: 4px;
+  border: 1.5px solid #f0ebe5;
+  box-shadow: 0 4px 12px rgba(166, 93, 55, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.treat-main-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: transform 0.3s ease;
+}
+
+.treat-btn-new:hover:not(:disabled) .treat-visual-container {
+  transform: translateY(-3px) scale(1.02);
+  border-color: #a65d37;
+  background: #fffcf9;
+  box-shadow: 0 8px 20px rgba(166, 93, 55, 0.15);
+}
+
+.treat-btn-new:hover:not(:disabled) .treat-main-img {
+  transform: rotate(12deg) scale(1.1);
+}
+
+.treat-btn-new:active:not(:disabled) .treat-visual-container {
+  transform: translateY(0) scale(0.95);
+}
+
+.treat-label {
+  margin-top: 8px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #a65d37;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.6;
+  transition: all 0.3s ease;
+}
+
+.treat-btn-new:hover .treat-label {
+  opacity: 1;
+  transform: translateY(1px);
+}
+
+.loader-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2px);
+  z-index: 5;
+}
+
+.loader-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #a65d37;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spinner 0.8s linear infinite;
+}
+
+@keyframes spinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.treat-count-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #d67a4f;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 900;
+  min-width: 20px;
+  padding: 2px 6px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(214, 122, 79, 0.4);
+  z-index: 2;
+  border: 2px solid white;
+}
+
+.treat-btn-new.is-loading {
+  cursor: wait;
+}
+
+.treat-btn-new.is-loading .treat-main-img {
+  opacity: 0.7;
+}
+
+/* Success "Pop" effect could be added here if we had a dedicated success state */
 </style>

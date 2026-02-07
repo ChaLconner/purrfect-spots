@@ -1,11 +1,15 @@
 export interface User {
   id: string;
   email: string;
+  username?: string;
   name: string;
   picture?: string;
   bio?: string;
   created_at: string;
   google_id?: string;
+  is_pro?: boolean;
+  treat_balance?: number;
+  role?: string;
 }
 
 export interface LoginResponse {

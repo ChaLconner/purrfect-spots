@@ -5,12 +5,20 @@ Tests for Google Authentication routes
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from httpx import ASGITransport, AsyncClient
 
 from main import app
 
 # We don't import get_auth_service for override, we patch the service class
 # from routes.auth import get_auth_service
 from middleware.auth_middleware import get_current_user_from_header
+
+
+@pytest.fixture
+async def client():
+    """Create test client using AsyncClient"""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac
 
 
 class TestGoogleAuthRoutes:
@@ -43,17 +51,17 @@ class TestGoogleAuthRoutes:
         resp.email = None
         return resp
 
-    def test_google_login_redirect(self, client):
+    async def test_google_login_redirect(self, client):
         """Test redirect to Google login"""
         with patch("routes.auth.config") as mock_config:
             mock_config.get_allowed_origins.return_value = ["http://localhost:5173"]
 
             with patch("os.getenv", return_value="google_id"):
-                response = client.get("/api/v1/auth/google/login", follow_redirects=False)
+                response = await client.get("/api/v1/auth/google/login", follow_redirects=False)
                 assert response.status_code == 302
                 assert "accounts.google.com" in response.headers["location"]
 
-    def test_google_login(self, client, mock_user_response):
+    async def test_google_login(self, client, mock_user_response):
         """Test Google login with token"""
         with patch("routes.auth.AuthService") as MockServiceClass:
             # Configure instance
@@ -69,12 +77,12 @@ class TestGoogleAuthRoutes:
                 mock_config.is_production.return_value = False
 
                 payload = {"token": "google_token"}
-                response = client.post("/api/v1/auth/google", json=payload)
+                response = await client.post("/api/v1/auth/google", json=payload)
 
                 assert response.status_code == 200, f"Response: {response.text}"
                 assert response.json()["access_token"] == "mock_access_token"
 
-    def test_google_exchange_code(self, client, mock_login_response_obj):
+    async def test_google_exchange_code(self, client, mock_login_response_obj):
         """Test exchange code for tokens"""
         with patch("routes.auth.AuthService") as MockServiceClass:
             mock_service = MockServiceClass.return_value
@@ -90,12 +98,12 @@ class TestGoogleAuthRoutes:
                     "code_verifier": "verifier",
                     "redirect_uri": "http://localhost:5173/auth/callback",
                 }
-                response = client.post("/api/v1/auth/google/exchange", json=payload)
+                response = await client.post("/api/v1/auth/google/exchange", json=payload)
 
                 assert response.status_code == 200, f"Response: {response.text}"
                 assert response.json()["access_token"] == "access"
 
-    def test_sync_user_data(self, client):
+    async def test_sync_user_data(self, client):
         """Test user sync endpoint"""
         mock_jwt_payload = {
             "sub": "user123",
@@ -112,14 +120,14 @@ class TestGoogleAuthRoutes:
         with patch("routes.auth.get_supabase_admin_client", return_value=mock_supabase_admin):
             app.dependency_overrides[get_current_user_from_header] = lambda: mock_jwt_payload
 
-            response = client.post("/api/v1/auth/sync-user")
+            response = await client.post("/api/v1/auth/sync-user")
 
             assert response.status_code == 200
             assert response.json()["message"] == "User synced"
 
         app.dependency_overrides = {}
 
-    def test_logout(self, client):
+    async def test_logout(self, client):
         """Test logout endpoint"""
-        response = client.post("/api/v1/auth/logout")
+        response = await client.post("/api/v1/auth/logout")
         assert response.status_code == 200

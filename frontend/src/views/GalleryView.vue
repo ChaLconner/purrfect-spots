@@ -8,9 +8,9 @@
 
       <div class="gallery-mint-container p-0 min-h-[600px] w-full relative z-[5]">
         <!-- Loading state -->
-        <div v-if="loading" class="loading-container" role="status" aria-live="polite">
+        <output v-if="loading" class="loading-container" aria-live="polite">
           <GhibliLoader text="Finding cute cats..." />
-        </div>
+        </output>
 
         <!-- Error state -->
         <ErrorState v-else-if="error" :message="error" @retry="fetchImages" />
@@ -36,24 +36,21 @@
                 :data-index="index"
               >
                 <div class="gallery-grid" role="grid" aria-label="Cat photo gallery chunk">
-                  <div
+                  <button
                     v-for="(image, subIndex) in item.images"
                     :key="image.id"
-                    class="gallery-item"
+                    type="button"
+                    class="gallery-item p-0 border-none bg-transparent text-left"
                     :class="[
                       getBentoClass(item.index + subIndex),
                       { 'item-loaded': loadedImages[image.id] },
                     ]"
                     :style="{ 'animation-delay': `${(subIndex % 10) * 0.05}s` }"
-                    role="gridcell"
-                    tabindex="0"
-                    :aria-label="`View photo: ${image.location_name || 'Cat photo'}`"
+                    :aria-label="`View ${image.location_name || 'Cat'}`"
                     @click="openModal(image, item.index + subIndex)"
-                    @keydown.enter="openModal(image, item.index + subIndex)"
-                    @keydown.space.prevent="openModal(image, item.index + subIndex)"
                   >
                     <!-- Glass-framed Image Card -->
-                    <div class="image-card">
+                    <div class="image-card group">
                       <!-- Placeholder -->
                       <div
                         v-if="!loadedImages[image.id]"
@@ -65,6 +62,27 @@
                         </div>
                       </div>
 
+                      <!-- Treat Button Overlay -->
+                      <div
+                        class="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                        role="group"
+                      >
+                        <button
+                          class="treat-item-btn group absolute bottom-2 right-2 transition-all z-20"
+                          title="Give a Treat! 🍬"
+                          aria-label="Give a treat to this cat"
+                          @click.stop="handleGiveTreat(image)"
+                        >
+                          <div class="treat-btn-inner">
+                            <img
+                              src="/give-treat.png"
+                              alt="Treat"
+                              class="w-12 h-12 object-contain"
+                            />
+                          </div>
+                        </button>
+                      </div>
+
                       <!-- Actual Image with native lazy loading -->
                       <div class="image-wrapper">
                         <img
@@ -72,7 +90,7 @@
                           :src="image.image_url"
                           :srcset="generateSrcSet(image.image_url)"
                           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                          :alt="image.location_name || 'Spotted cat'"
+                          :alt="image.location_name || 'A cat'"
                           class="gallery-image shadow-md"
                           :class="{ 'image-visible': loadedImages[image.id] }"
                           @load="handleImageLoad(image.id)"
@@ -80,7 +98,7 @@
                         />
                       </div>
                     </div>
-                  </div>
+                  </button>
                 </div>
               </DynamicScrollerItem>
             </template>
@@ -126,6 +144,9 @@ import GalleryHeader from '@/components/gallery/GalleryHeader.vue';
 import { useCatsStore } from '@/store';
 import type { CatLocation } from '@/types/api';
 
+import { TreatsService } from '@/services/treatsService';
+import { useSubscriptionStore } from '@/store/subscriptionStore';
+import { useToastStore } from '@/store';
 import GalleryModal from '@/components/gallery/GalleryModal.vue';
 import GhibliLoader from '@/components/ui/GhibliLoader.vue';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
@@ -513,20 +534,48 @@ function handleModalNavigate(direction: 'prev' | 'next') {
   }
 }
 
+async function handleGiveTreat(image: CatLocation) {
+  const toastStore = useToastStore();
+  const subscriptionStore = useSubscriptionStore();
+
+  try {
+    await subscriptionStore.giveTreat(image.id, 1);
+    toastStore.addToast({
+      title: 'Treat Given!',
+      message: 'You gave 1 treat 🍬',
+      type: 'success',
+    });
+  } catch (e: any) {
+    const msg = e.response?.data?.detail || e.message;
+    toastStore.addToast({
+      title: 'Failed to give treat',
+      message: msg,
+      type: 'error',
+    });
+  }
+}
+
 function handleImageError(event: Event) {
   const target = event.target as HTMLImageElement;
-  console.error(`[Gallery] Image failed to load: ${target.src}`);
-  target.src = IMAGE_CONFIG.PLACEHOLDER_URL;
+  // Prevent infinite loop if placeholder also fails
+  if (target.src !== IMAGE_CONFIG.PLACEHOLDER_URL) {
+    target.src = IMAGE_CONFIG.PLACEHOLDER_URL;
+  }
 }
 
 function getBentoClass(index: number): string {
-  // Bento Pattern (Repeats every 12 items)
-  // 0: Large (2x2)
-  // 7: Wide (2x1)
-  const remainder = index % 10;
+  // Bento Pattern (Repeats every 20 items to provide visual variety)
+  // We alternate the positions of Large (2x2) and Wide (2x1) images
+  // so they don't always appear on the left side.
+  const remainder = index % 20;
 
-  if (remainder === 0) return 'col-span-2 row-span-2';
-  if (remainder === 6) return 'col-span-2 row-span-1';
+  // Large (2x2) - Alternating Left and Right
+  if (remainder === 0) return 'col-span-2 row-span-2'; // Start of row (Left)
+  if (remainder === 13) return 'col-span-2 row-span-2'; // End of row (Right)
+
+  // Wide (2x1) - Alternating Left and Right
+  if (remainder === 6) return 'col-span-2 row-span-1'; // Start/Middle
+  if (remainder === 19) return 'col-span-2 row-span-1'; // End of row (Right)
 
   return 'col-span-1 row-span-1';
 }
@@ -759,5 +808,25 @@ function preloadFirstImages() {
   align-items: center;
   gap: 0.75rem;
   padding: 2rem;
+}
+
+.treat-item-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.treat-btn-inner {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.15));
+}
+
+.treat-item-btn:hover .treat-btn-inner {
+  transform: translateY(-2px) scale(1.1);
+}
+
+.treat-item-btn:active .treat-btn-inner {
+  transform: scale(0.95);
 }
 </style>

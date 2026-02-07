@@ -1,11 +1,9 @@
 import concurrent.futures
-import io
 import json
 import os
 from typing import Any, List, Optional
 
 from fastapi import HTTPException, UploadFile
-from PIL import Image
 
 from logger import logger
 
@@ -142,17 +140,17 @@ class GoogleVisionService:
         try:
             content, _ = self._process_image_content(image_input)
             if not self.is_initialized or not self.client:
-                return self._fallback_cat_detection(image_input, content=content)
+                return self._fallback_cat_detection()
 
             label_response, object_response = self._get_vision_api_responses(content)
             if not label_response or not object_response:
-                return self._fallback_cat_detection(image_input, error="Vision API failed")
+                return self._fallback_cat_detection(error="Vision API failed")
 
             return self._process_vision_responses(label_response, object_response)
 
         except Exception as e:
             logger.error(f"Google Vision detection failed: {e!s}")
-            return self._fallback_cat_detection(image_input, error=str(e))
+            return self._fallback_cat_detection(error=str(e))
         finally:
             if not isinstance(image_input, bytes):
                 image_input.file.seek(0)
@@ -258,14 +256,12 @@ class GoogleVisionService:
         # Determine strict suitability
         # If we have objects (high confidence localization) or very high label confidence
         suitable = False
-        if len(cat_objects) > 0:
-            suitable = True
-        elif confidence >= (self.HIGH_CONFIDENCE_THRESHOLD * 100):
+        if len(cat_objects) > 0 or confidence >= (self.HIGH_CONFIDENCE_THRESHOLD * 100):
             suitable = True
 
         result = {
             "has_cats": has_cats,
-            "cat_count": len(cat_objects) if cat_objects else (1 if has_cats else 0),
+            "cat_count": len(cat_objects) if cat_objects else int(has_cats),
             "confidence": confidence,
             "suitable_for_cat_spot": suitable,
             "cats_detected": cat_objects,
@@ -302,7 +298,7 @@ class GoogleVisionService:
             logger.warning(f"Vision API call failed: {api_error}")
             return None, None
 
-    def _fallback_cat_detection(self, image_input, error=None, content=None) -> dict:
+    def _fallback_cat_detection(self, error=None) -> dict:
         """Fallback cat detection when Google Vision is not available.
 
         SECURITY: Returns has_cats=False to prevent bypass when Vision API is unavailable.

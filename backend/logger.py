@@ -130,6 +130,12 @@ def setup_logger(name: str = "purrfect_spots") -> logging.Logger:
         # Add handler to logger
         logger.addHandler(handler)
 
+        # Add FileHandler for debugging
+        file_handler = logging.FileHandler("debug.log")
+        file_handler.setLevel(logging.DEBUG)
+        file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+        logger.addHandler(file_handler)
+
     return logger
 
 

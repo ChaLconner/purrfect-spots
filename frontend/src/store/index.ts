@@ -13,6 +13,8 @@ export const pinia = createPinia();
 export { useAuthStore } from './authStore';
 export { useCatsStore, extractTags, getCleanDescription, hasTag } from './catsStore';
 export { useToastStore } from './toastStore';
+export { useSubscriptionStore } from './subscriptionStore';
+export { useNotificationStore } from './notificationStore';
 
 // Export types
 export type { CatLocation, PaginationMeta, TagInfo } from './catsStore';

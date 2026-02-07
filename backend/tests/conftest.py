@@ -19,7 +19,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Mock supabase module if it cannot be imported
 try:
-    import supabase
+    import supabase  # noqa: F401
 except ImportError:
     mock_supabase_module = MagicMock()
     sys.modules["supabase"] = mock_supabase_module
@@ -27,7 +27,7 @@ except ImportError:
 
 # Mock google cloud modules if they are missing
 try:
-    import google.cloud.vision
+    import google.cloud.vision  # noqa: F401
 except ImportError:
     # Logic to mock only the missing parts
     # We assume google package itself might exist because of google-auth
@@ -40,7 +40,7 @@ except ImportError:
 
 # Mock slowapi if not present
 try:
-    import slowapi
+    import slowapi  # noqa: F401
 except ImportError:
     mock_slowapi = MagicMock()
     sys.modules["slowapi"] = mock_slowapi

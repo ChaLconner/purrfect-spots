@@ -2,7 +2,6 @@
 Authentication middleware for protecting routes with Supabase Auth
 """
 
-import os
 import time
 from datetime import datetime, timezone
 
@@ -18,7 +17,7 @@ from logger import logger
 from services.token_service import get_token_service
 from user_models.user import User
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 # JWKS Cache
 _jwks_cache: dict | None = None
@@ -187,27 +186,37 @@ def _verify_via_supabase_api(token: str, supabase: Client) -> dict | None:
 
 async def _attempt_token_decoding(token: str, supabase: Client | None) -> tuple[dict, str]:
     """Try multiple strategies to key decode the token"""
+    if not token:
+        logger.warning("Authentication failed: No token provided in credentials")
+        raise HTTPException(status_code=401, detail="Authentication failed: No token provided")
+
     # 1. Try Supabase JWT (Standard)
     try:
-        return await decode_supabase_token(token), "supabase"
-    except (HTTPException, ValueError):
+        payload = await decode_supabase_token(token)
+        logger.info("Token decoded successfully using Supabase JWKS")
+        return payload, "supabase"
+    except (HTTPException, ValueError) as e:
+        logger.debug("Supabase token decoding attempted but failed: %s", e)
         pass
 
     # 2. Try Custom JWT (Fallback)
     try:
-        return decode_custom_token(token), "custom"
+        payload = decode_custom_token(token)
+        logger.info("Token decoded successfully using custom JWT_SECRET")
+        return payload, "custom"
     except HTTPException as http_exc:
-        logger.warning("Custom authentication check unsuccessful (Status Code: %d)", http_exc.status_code)
-    except Exception:
-        logger.debug("Custom authentication check unsuccessful")
+        logger.warning("Custom authentication check unsuccessful (Status Code: %d): %s", http_exc.status_code, http_exc.detail)
+    except Exception as e:
+        logger.debug("Custom authentication check unsuccessful: %s", e)
 
     # 3. Try Direct API (Final Fallback)
     if supabase:
         payload = _verify_via_supabase_api(token, supabase)
         if payload:
+            logger.info("Token verified via direct Supabase Auth API")
             return payload, "supabase"
 
-    logger.warning("All authentication verification methods failed")
+    logger.warning("All authentication verification methods failed for the provided token")
     raise HTTPException(status_code=401, detail="Authentication failed: Invalid or expired token")
 
 
@@ -251,11 +260,19 @@ async def _verify_and_decode_token(token: str, supabase: Client | None = None) -
 
 
 async def get_current_user_from_credentials(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
     supabase: Client = Depends(get_supabase_client),
 ):
     """Get current authenticated user using Supabase Auth"""
+    if not credentials:
+        logger.warning("Missing Authorization header in request (credentials is None)")
+        raise HTTPException(status_code=401, detail="Authentication failed: No token provided")
+
     token = credentials.credentials
+    if not token:
+        logger.warning("Bearer token is empty in Authorization header")
+        raise HTTPException(status_code=401, detail="Authentication failed: Empty token")
+
     payload, source = await _verify_and_decode_token(token, supabase)
     return _get_user_from_payload(payload, source)
 

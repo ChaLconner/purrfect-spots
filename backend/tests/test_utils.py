@@ -203,7 +203,7 @@ class TestImageUtils:
         img.save(buffer, format="GIF")
         original_bytes = buffer.getvalue()
 
-        optimized_bytes, content_type = optimize_image(original_bytes, "image/gif")
+        optimized_bytes, _ = optimize_image(original_bytes, "image/gif")
 
         # Should return original
         assert optimized_bytes == original_bytes

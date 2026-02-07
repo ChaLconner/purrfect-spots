@@ -27,9 +27,11 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
   const mapCenter = shallowRef<Coordinates>(DEFAULT_MAP_CENTER);
 
   const mapInstance = shallowRef<google.maps.Map | null>(null);
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  const mapMarker = shallowRef<any | null>(null);
-  /* eslint-enable @typescript-eslint/no-explicit-any */
+
+  const mapMarker = shallowRef<
+    google.maps.Marker | google.maps.marker.AdvancedMarkerElement | null
+  >(null);
+
   const gettingLocation = ref(false);
   const mapElementId = options.mapElementId || 'uploadMap';
 
@@ -53,7 +55,13 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
       createDraggableMarker({ lat, lng });
     } else if (mapMarker.value) {
       // Update existing marker position
-      mapMarker.value.setPosition({ lat, lng });
+      if (mapMarker.value.position && typeof mapMarker.value.position === 'object') {
+        // AdvancedMarkerElement
+        mapMarker.value.position = { lat, lng };
+      } else if (typeof mapMarker.value.setPosition === 'function') {
+        // Legacy Marker
+        mapMarker.value.setPosition({ lat, lng });
+      }
     }
 
     debouncedUpdateMap();
@@ -68,7 +76,26 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
     const googleMaps = getGoogleMaps();
     if (!googleMaps) return null;
 
-    // Use Legacy Marker for stability and custom icon support
+    // Check for AdvancedMarkerElement support
+    if (google.maps.marker?.AdvancedMarkerElement) {
+      const iconImg = document.createElement('img');
+      iconImg.src = '/location_10753796.png';
+      iconImg.width = 40;
+      iconImg.height = 40;
+
+      const marker = new google.maps.marker.AdvancedMarkerElement({
+        position,
+        map,
+        title,
+        content: iconImg,
+        gmpDraggable: true, // Enable dragging for AdvancedMarkerElement
+        zIndex: 999,
+      });
+
+      return marker;
+    }
+
+    // Fallback: Use Legacy Marker
     const marker = new google.maps.Marker({
       position,
       map,

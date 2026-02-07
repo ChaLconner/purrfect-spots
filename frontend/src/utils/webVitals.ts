@@ -307,7 +307,9 @@ export function initWebVitals() {
 
   // Wait for idle to not block main thread
   if ('requestIdleCallback' in globalThis) {
-    (globalThis as unknown as { requestIdleCallback: (cb: () => void) => void }).requestIdleCallback(() => {
+    (
+      globalThis as unknown as { requestIdleCallback: (cb: () => void) => void }
+    ).requestIdleCallback(() => {
       observeLCP();
       observeFID();
       observeCLS();

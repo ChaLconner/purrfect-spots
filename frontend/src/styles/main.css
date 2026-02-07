@@ -14,6 +14,30 @@
     -webkit-tap-highlight-color: transparent;
     color: #5a4632;
     font-family: 'Inter', sans-serif;
+    --text-muted: #4b5563; /* gray-600 */
+  }
+
+  /* Global Cursor Pointers */
+  button,
+  [role="button"],
+  select,
+  label,
+  input[type="submit"],
+  input[type="button"],
+  input[type="reset"],
+  input[type="checkbox"],
+  input[type="radio"] {
+    cursor: pointer;
+  }
+
+  a {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [role="button"]:disabled,
+  input:disabled {
+    cursor: not-allowed;
   }
 
   /* Define missing texture overlay */
@@ -33,6 +57,11 @@
     @apply backdrop-blur-[12px];
   }
 
+  /* Accessibility Utilities */
+  .text-muted {
+    color: var(--text-muted);
+  }
+
   /* Navbar update */
   .navbar-glass {
     @apply backdrop-blur-[12px] px-8 py-4 mx-8 my-4 transition-all duration-300;
@@ -48,18 +77,18 @@
   /* Menu Items */
   .menu-item {
     @apply px-4 py-2 rounded-full transition-colors;
-    color: #7d7d7d; /* text-text-secondary */
+    color: #5a4632; /* text-primary-darker */
   }
 
   .menu-item:hover {
     color: #7fb7a4; /* text-primary */
-    background-color: rgba(127, 183, 164, 0.1); /* bg-primary/10 */
+    background-color: rgba(127, 183, 164, 0.15); /* bg-primary/15 */
   }
 
   .menu-item.active {
     @apply font-bold;
     color: #7fb7a4; /* text-primary */
-    background-color: rgba(127, 183, 164, 0.1); /* bg-primary/10 */
+    background-color: rgba(127, 183, 164, 0.15); /* bg-primary/15 */
   }
 
   .login-btn {

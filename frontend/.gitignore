@@ -45,3 +45,6 @@ Desktop.ini
 
 # Optional: test coverage
 coverage/
+
+# Output files
+coverage_output.txt

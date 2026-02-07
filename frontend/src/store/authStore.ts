@@ -11,6 +11,17 @@ import { ProfileService } from '../services/profileService';
 
 import { apiV1, setAccessToken, setAuthCallbacks } from '../utils/api';
 
+// Module-level helper to update API header - avoids recreation on every store access
+function updateApiHeader(accessToken: string | null): void {
+  if (accessToken) {
+    setAccessToken(accessToken);
+  } else {
+    setAccessToken(null);
+    localStorage.removeItem('auth_token'); // Clean up legacy
+    localStorage.removeItem('access_token'); // Clean up legacy
+  }
+}
+
 export const useAuthStore = defineStore('auth', () => {
   // ========== State ==========
 
@@ -120,16 +131,6 @@ export const useAuthStore = defineStore('auth', () => {
     return refreshPromise;
   }
 
-  function updateApiHeader(accessToken: string | null) {
-    if (accessToken) {
-      setAccessToken(accessToken);
-    } else {
-      setAccessToken(null);
-      localStorage.removeItem('auth_token'); // Clean up legacy
-      localStorage.removeItem('access_token'); // Clean up legacy
-    }
-  }
-
   /**
    * Validate user object shape
    */
@@ -235,6 +236,7 @@ export const useAuthStore = defineStore('auth', () => {
     isInitialized,
     isLoading,
     error,
+    lastLoginTime,
 
     // Getters
     hasCompleteProfile,
@@ -244,6 +246,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     // Actions
     initializeAuth,
+    refreshToken,
     setAuth,
     clearAuth,
     verifySession,

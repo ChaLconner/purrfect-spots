@@ -18,7 +18,7 @@ from schemas.auth import LoginResponse
 from services.email_service import email_service
 from services.google_auth_service import google_auth_service
 from services.password_service import password_service
-from services.token_service import get_token_service, get_token_service_sync
+from services.token_service import get_token_service
 from services.user_service import UserService
 from user_models.user import User, UserResponse
 from utils.datetime_utils import utc_now
@@ -463,19 +463,22 @@ class AuthService:
         if not is_valid:
             raise ValueError(error)
 
-        password_verified = await self._verify_current_password(user, current_pward)
+        password_verified = self._verify_current_password(user, current_pward)
         if not password_verified:
             raise ValueError("Incorrect current password")
 
-    async def _verify_current_password(self, user, current_pward) -> bool:
+    def _verify_current_password(self, user, current_pward) -> bool:
         if user.password_hash:
             try:
+                # Note: verify_password is CPU bound (bcrypt) but sync.
+                # In a high-throughput async app, this should ideally be offloaded to a threadpool.
                 if password_service.verify_password(current_pward, user.password_hash):
                     return True
             except Exception:
                 pass
 
-        # Fallback to Supabase Auth check
+        # Fallback to Supabase Auth check (blocking I/O)
+        # Ideally this calls an async authenticate_user
         return bool(self.user_service.authenticate_user(user.email, current_pward))
 
     async def _post_password_change_cleanup(self, user_id, email):

@@ -10,6 +10,7 @@ import { isDev } from '../utils/env';
 // Child Components
 import SearchBox from './navbar/SearchBox.vue';
 import UserMenu from './navbar/UserMenu.vue';
+import NotificationBell from './ui/NotificationBell.vue';
 
 // Icons
 import Logo from './icons/logo.vue';
@@ -18,6 +19,7 @@ import MapIcon from './icons/map.vue';
 import Upload from './icons/upload.vue';
 import Gallery from './icons/gallery.vue';
 import ProfileIcon from './icons/profile.vue';
+import Trophy from './icons/trophy.vue';
 
 const menuOpen = ref(false);
 const router = useRouter();
@@ -109,7 +111,7 @@ onUnmounted(() => {
         <div class="nav-links">
           <router-link
             to="/map"
-            class="nav-link"
+            class="nav-link-3d nav-link-sage"
             :class="{ active: route.path === '/map' || route.path === '/' }"
             aria-label="Map"
           >
@@ -119,7 +121,7 @@ onUnmounted(() => {
 
           <router-link
             to="/upload"
-            class="nav-link"
+            class="nav-link-3d nav-link-sky"
             :class="{ active: route.path === '/upload' }"
             aria-label="Upload"
           >
@@ -129,22 +131,35 @@ onUnmounted(() => {
 
           <router-link
             to="/gallery"
-            class="nav-link"
+            class="nav-link-3d nav-link-lavender"
             :class="{ active: route.path === '/gallery' }"
             aria-label="Gallery"
           >
             <Gallery class="nav-icon" />
             <span>Gallery</span>
           </router-link>
+
+          <router-link
+            to="/leaderboard"
+            class="nav-link-3d nav-link-sakura"
+            :class="{ active: route.path === '/leaderboard' }"
+            aria-label="Leaderboard"
+          >
+            <Trophy class="nav-icon" />
+            <span>Leaderboard</span>
+          </router-link>
         </div>
 
         <!-- Login Button (not authenticated) -->
         <div v-if="!authStore.isAuthenticated">
-          <router-link to="/login" class="login-btn"> Login </router-link>
+          <router-link to="/login" class="login-btn-3d"> Login </router-link>
         </div>
 
         <!-- User Menu (authenticated) -->
-        <UserMenu v-else />
+        <div v-if="authStore.isAuthenticated" class="flex items-center gap-2">
+          <NotificationBell />
+          <UserMenu />
+        </div>
       </div>
 
       <!-- Hamburger button (mobile only) -->
@@ -185,7 +200,7 @@ onUnmounted(() => {
       <div class="mobile-nav-links">
         <router-link
           to="/map"
-          class="mobile-nav-link"
+          class="mobile-nav-link-3d"
           role="link"
           aria-label="Map"
           @click="menuOpen = false"
@@ -194,20 +209,25 @@ onUnmounted(() => {
           <span>Map</span>
         </router-link>
 
-        <router-link to="/upload" class="mobile-nav-link" @click="menuOpen = false">
+        <router-link to="/upload" class="mobile-nav-link-3d" @click="menuOpen = false">
           <Upload class="nav-icon" />
           <span>Upload</span>
         </router-link>
 
-        <router-link to="/gallery" class="mobile-nav-link" @click="menuOpen = false">
+        <router-link to="/gallery" class="mobile-nav-link-3d" @click="menuOpen = false">
           <Gallery class="nav-icon" />
           <span>Gallery</span>
+        </router-link>
+
+        <router-link to="/leaderboard" class="mobile-nav-link-3d" @click="menuOpen = false">
+          <Trophy class="nav-icon" />
+          <span>Leaderboard</span>
         </router-link>
 
         <router-link
           v-if="authStore.isAuthenticated"
           to="/profile"
-          class="mobile-nav-link"
+          class="mobile-nav-link-3d"
           @click="menuOpen = false"
         >
           <ProfileIcon class="nav-icon" />
@@ -217,7 +237,7 @@ onUnmounted(() => {
         <router-link
           v-if="!authStore.isAuthenticated"
           to="/login"
-          class="mobile-nav-link login"
+          class="mobile-nav-link-3d login"
           @click="menuOpen = false"
         >
           <span>Login</span>
@@ -225,7 +245,7 @@ onUnmounted(() => {
 
         <button
           v-else
-          class="mobile-nav-link logout"
+          class="mobile-nav-link-3d logout"
           @click="
             logout();
             menuOpen = false;
@@ -246,25 +266,33 @@ onUnmounted(() => {
   margin: 1rem 2rem;
 }
 
+/* 3D Navbar Content */
 .navbar-content {
+  position: relative;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   padding: 0.75rem 1.5rem;
-  background: linear-gradient(
-    135deg,
-    rgba(255, 253, 250, 0.95) 0%,
-    rgba(250, 245, 235, 0.95) 50%,
-    rgba(255, 253, 250, 0.95) 100%
-  );
-  backdrop-filter: blur(12px);
-  border-radius: 2rem;
-  border: 1px solid rgba(139, 90, 43, 0.1);
+  background: var(--color-btn-bg);
+  border-radius: 1.25rem;
+  border: 2px solid var(--color-btn-shade-a);
+  transform-style: preserve-3d;
+}
+
+.navbar-content::before {
+  position: absolute;
+  content: '';
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  background: var(--color-btn-shade-c);
+  border-radius: inherit;
   box-shadow:
-    0 4px 20px rgba(139, 90, 43, 0.08),
-    0 2px 8px rgba(0, 0, 0, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  position: relative;
+    0 0 0 2px var(--color-btn-shade-b),
+    0 0.4em 0 0 var(--color-btn-shade-a);
+  transform: translate3d(0, 0.4em, -1em);
+  z-index: -1;
 }
 
 /* Left Section */
@@ -274,43 +302,101 @@ onUnmounted(() => {
   gap: 1rem;
 }
 
+/* 3D Brand Section */
 .brand-section {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   cursor: pointer;
-  padding: 0.25rem 0.5rem;
-  border-radius: 1rem;
-  transition: all 0.3s ease;
+  padding: 0.375rem 0.75rem;
+  border-radius: 1em;
+  border: 2px solid var(--color-btn-shade-a);
+  background: var(--color-btn-shade-e);
+  transform-style: preserve-3d;
+  transition: all 175ms cubic-bezier(0, 0, 1, 1);
+}
+
+.brand-section::before {
+  position: absolute;
+  content: '';
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  background: var(--color-btn-shade-c);
+  border-radius: inherit;
+  box-shadow:
+    0 0 0 2px var(--color-btn-shade-b),
+    0 0.35em 0 0 var(--color-btn-shade-a);
+  transform: translate3d(0, 0.35em, -1em);
+  transition: all 175ms cubic-bezier(0, 0, 1, 1);
 }
 
 .brand-section:hover {
-  /* background removed */
+  background: var(--color-btn-shade-d);
+  transform: translate(0, 0.175em);
+}
+
+.brand-section:hover::before {
+  transform: translate3d(0, 0.35em, -1em);
+}
+
+.brand-section:active {
+  transform: translate(0, 0.35em);
+}
+
+.brand-section:active::before {
+  transform: translate3d(0, 0, -1em);
+  box-shadow:
+    0 0 0 2px var(--color-btn-shade-b),
+    0 0.1em 0 0 var(--color-btn-shade-b);
 }
 
 .brand-logo {
   width: 2.25rem;
   height: 2.25rem;
-  filter: drop-shadow(0 2px 4px rgba(201, 123, 73, 0.3));
+  filter: drop-shadow(0 2px 4px rgba(106, 163, 137, 0.3));
+  position: relative;
+  z-index: 1;
 }
 
 .brand-name {
   font-family: 'Zen Maru Gothic', sans-serif;
   font-weight: 700;
   font-size: 1.1rem;
-  color: #5a4a3a;
+  color: var(--color-btn-shade-a);
   white-space: nowrap;
+  position: relative;
+  z-index: 1;
 }
 
-/* Cat Counter */
+/* 3D Cat Counter */
 .cat-counter {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   padding: 0.375rem 0.75rem;
-  border-radius: 1.25rem;
-  background: rgba(139, 90, 43, 0.05);
-  border: 1px solid rgba(139, 90, 43, 0.1);
+  border-radius: 1em;
+  background: var(--color-btn-shade-e);
+  border: 2px solid var(--color-btn-shade-a);
+  transform-style: preserve-3d;
+}
+
+.cat-counter::before {
+  position: absolute;
+  content: '';
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  background: var(--color-btn-shade-c);
+  border-radius: inherit;
+  box-shadow:
+    0 0 0 2px var(--color-btn-shade-b),
+    0 0.25em 0 0 var(--color-btn-shade-a);
+  transform: translate3d(0, 0.25em, -1em);
 }
 
 .paw-icon-wrapper {
@@ -319,31 +405,35 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  z-index: 1;
 }
 
 .paw-icon {
   width: 1.5rem;
   height: 1.5rem;
-  color: #d4845a;
+  color: var(--color-btn-shade-a);
 }
 
 .cat-counter-text {
   display: flex;
   flex-direction: column;
   line-height: 1.1;
+  position: relative;
+  z-index: 1;
 }
 
 .cat-count {
   font-family: 'Zen Maru Gothic', sans-serif;
   font-weight: 700;
   font-size: 0.8rem;
-  color: #5a4a3a;
+  color: var(--color-btn-shade-a);
 }
 
 .cat-subtitle {
   font-family: 'Zen Maru Gothic', sans-serif;
   font-size: 0.6rem;
-  color: #8b7355;
+  color: var(--color-btn-shade-b);
 }
 
 /* Center Section - Search */
@@ -390,7 +480,7 @@ onUnmounted(() => {
 }
 
 .search-input::placeholder {
-  color: #b0a090;
+  color: #757575; /* Darkened from #b0a090 */
   font-style: italic;
   opacity: 0.8;
 }
@@ -446,81 +536,224 @@ onUnmounted(() => {
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.5rem;
 }
 
-.nav-link {
-  display: flex;
+/* 3D Nav Link - using CSS custom buttons from provided design */
+.nav-link-3d {
+  position: relative;
+  display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.6rem 1rem;
-  border-radius: 2rem;
-  font-family: 'Zen Maru Gothic', sans-serif;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #5a4a3a;
+  cursor: pointer;
+  outline: none;
+  border: 0;
+  vertical-align: middle;
   text-decoration: none;
-  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  background: transparent;
-  position: relative;
+  font-size: 0.85rem;
+  color: var(--color-btn-shade-a);
+  font-weight: 600;
+  font-family: 'Zen Maru Gothic', sans-serif;
+  padding: 0.5rem 0.875rem;
+  border: 2px solid var(--color-btn-shade-a);
+  border-radius: 0.75em;
+  background: var(--color-btn-shade-e);
+  transform-style: preserve-3d;
+  transition: all 175ms cubic-bezier(0, 0, 1, 1);
 }
 
-.nav-link:hover {
-  background: rgba(255, 255, 255, 0.8);
-  color: #d4845a;
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 8px 20px rgba(212, 132, 90, 0.2);
+.nav-link-3d::before {
+  position: absolute;
+  content: '';
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--color-btn-shade-c);
+  border-radius: inherit;
+  box-shadow:
+    0 0 0 2px var(--color-btn-shade-b),
+    0 0.4em 0 0 var(--color-btn-shade-a);
+  transform: translate3d(0, 0.4em, -1em);
+  transition: all 175ms cubic-bezier(0, 0, 1, 1);
 }
 
-.nav-link:active {
-  transform: translateY(1px) scale(0.94);
-  box-shadow: 0 2px 8px rgba(212, 132, 90, 0.15);
-  transition: all 0.1s ease;
+.nav-link-3d:hover {
+  background: var(--color-btn-shade-d);
+  transform: translate(0, 0.2em);
 }
 
-.nav-link.active {
-  background: linear-gradient(135deg, rgba(212, 132, 90, 0.15), rgba(212, 132, 90, 0.05));
-  color: #a65d37;
-  font-weight: 800;
-  box-shadow: inset 0 2px 6px rgba(139, 90, 43, 0.05);
+.nav-link-3d:hover::before {
+  transform: translate3d(0, 0.4em, -1em);
+}
+
+.nav-link-3d:active {
+  transform: translate(0em, 0.4em);
+}
+
+.nav-link-3d:active::before {
+  transform: translate3d(0, 0, -1em);
+  box-shadow:
+    0 0 0 2px var(--color-btn-shade-b),
+    0 0.1em 0 0 var(--color-btn-shade-b);
+}
+
+.nav-link-3d.active {
+  background: var(--color-btn-shade-d);
+  font-weight: 700;
 }
 
 .nav-icon {
   width: 1.1rem;
   height: 1.1rem;
-  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform 0.2s ease;
+  position: relative;
+  z-index: 1;
 }
 
-.nav-link:hover .nav-icon {
-  transform: rotate(-12deg) scale(1.15);
+.nav-link-3d span {
+  position: relative;
+  z-index: 1;
 }
 
-.nav-link:active .nav-icon {
-  transform: rotate(-12deg) scale(0.9);
+.nav-link-3d:hover .nav-icon {
+  transform: rotate(-8deg) scale(1.1);
 }
 
-/* Login Button */
-.login-btn {
-  display: flex;
+/* Nav Link Color Variants */
+/* Sage (default - already applied in base) */
+.nav-link-sage {
+  /* Uses default shade variables */
+}
+
+/* Sky Blue Variant */
+.nav-link-sky {
+  color: var(--color-btn-sky-a);
+  border-color: var(--color-btn-sky-a);
+  background: var(--color-btn-sky-e);
+}
+
+.nav-link-sky::before {
+  background: var(--color-btn-sky-c);
+  box-shadow:
+    0 0 0 2px var(--color-btn-sky-b),
+    0 0.4em 0 0 var(--color-btn-sky-a);
+}
+
+.nav-link-sky:hover {
+  background: var(--color-btn-sky-d);
+}
+
+.nav-link-sky.active {
+  background: var(--color-btn-sky-d);
+}
+
+/* Lavender Variant */
+.nav-link-lavender {
+  color: var(--color-btn-lavender-a);
+  border-color: var(--color-btn-lavender-a);
+  background: var(--color-btn-lavender-e);
+}
+
+.nav-link-lavender::before {
+  background: var(--color-btn-lavender-c);
+  box-shadow:
+    0 0 0 2px var(--color-btn-lavender-b),
+    0 0.4em 0 0 var(--color-btn-lavender-a);
+}
+
+.nav-link-lavender:hover {
+  background: var(--color-btn-lavender-d);
+}
+
+.nav-link-lavender.active {
+  background: var(--color-btn-lavender-d);
+}
+
+/* Sakura Pink Variant */
+.nav-link-sakura {
+  color: var(--color-btn-sakura-a);
+  border-color: var(--color-btn-sakura-a);
+  background: var(--color-btn-sakura-e);
+}
+
+.nav-link-sakura::before {
+  background: var(--color-btn-sakura-c);
+  box-shadow:
+    0 0 0 2px var(--color-btn-sakura-b),
+    0 0.4em 0 0 var(--color-btn-sakura-a);
+}
+
+.nav-link-sakura:hover {
+  background: var(--color-btn-sakura-d);
+}
+
+.nav-link-sakura.active {
+  background: var(--color-btn-sakura-d);
+}
+
+/* 3D Login Button - Terracotta Accent */
+.login-btn-3d {
+  position: relative;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.5rem 1.25rem;
-  background: linear-gradient(135deg, #c97b49 0%, #b06a3d 100%);
-  border: none;
-  border-radius: 1.25rem;
-  font-family: 'Zen Maru Gothic', sans-serif;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #fff;
-  text-decoration: none;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(201, 123, 73, 0.3);
+  outline: none;
+  border: 0;
+  vertical-align: middle;
+  text-decoration: none;
+  font-size: 0.85rem;
+  color: var(--color-btn-accent-a);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-family: 'Zen Maru Gothic', sans-serif;
+  padding: 0.5rem 1.25rem;
+  border: 2px solid var(--color-btn-accent-a);
+  border-radius: 1em;
+  background: var(--color-btn-accent-e);
+  transform-style: preserve-3d;
+  transition: all 175ms cubic-bezier(0, 0, 1, 1);
 }
 
-.login-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(201, 123, 73, 0.4);
+.login-btn-3d::before {
+  position: absolute;
+  content: '';
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--color-btn-accent-c);
+  border-radius: inherit;
+  box-shadow:
+    0 0 0 2px var(--color-btn-accent-b),
+    0 0.5em 0 0 var(--color-btn-accent-a);
+  transform: translate3d(0, 0.5em, -1em);
+  transition: all 175ms cubic-bezier(0, 0, 1, 1);
+}
+
+.login-btn-3d:hover {
+  background: var(--color-btn-accent-d);
+  transform: translate(0, 0.25em);
+}
+
+.login-btn-3d:hover::before {
+  transform: translate3d(0, 0.5em, -1em);
+}
+
+.login-btn-3d:active {
+  transform: translate(0em, 0.5em);
+}
+
+.login-btn-3d:active::before {
+  transform: translate3d(0, 0, -1em);
+  box-shadow:
+    0 0 0 2px var(--color-btn-accent-b),
+    0 0.15em 0 0 var(--color-btn-accent-b);
 }
 
 /* User Menu */
@@ -655,20 +888,58 @@ onUnmounted(() => {
   background: rgba(220, 74, 74, 0.1);
 }
 
-/* Hamburger Button */
+/* 3D Hamburger Button */
 .hamburger-btn {
   display: none;
-  padding: 0.75rem;
-  border-radius: 50%;
-  background: transparent;
-  border: none;
+  position: relative;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border-radius: 0.75em;
+  background: var(--color-btn-shade-e);
+  border: 2px solid var(--color-btn-shade-a);
   cursor: pointer;
-  transition: all 0.3s ease;
-  color: #5a4a3a;
+  transition: all 175ms cubic-bezier(0, 0, 1, 1);
+  color: var(--color-btn-shade-a);
+  transform-style: preserve-3d;
+  justify-content: center;
+  align-items: center;
+}
+
+.hamburger-btn::before {
+  position: absolute;
+  content: '';
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  background: var(--color-btn-shade-c);
+  border-radius: inherit;
+  box-shadow:
+    0 0 0 2px var(--color-btn-shade-b),
+    0 0.35em 0 0 var(--color-btn-shade-a);
+  transform: translate3d(0, 0.35em, -1em);
+  transition: all 175ms cubic-bezier(0, 0, 1, 1);
 }
 
 .hamburger-btn:hover {
-  background: rgba(139, 90, 43, 0.1);
+  background: var(--color-btn-shade-d);
+  transform: translate(0, 0.175em);
+}
+
+.hamburger-btn:hover::before {
+  transform: translate3d(0, 0.35em, -1em);
+}
+
+.hamburger-btn:active {
+  transform: translate(0, 0.35em);
+}
+
+.hamburger-btn:active::before {
+  transform: translate3d(0, 0, -1em);
+  box-shadow:
+    0 0 0 2px var(--color-btn-shade-b),
+    0 0.1em 0 0 var(--color-btn-shade-b);
 }
 
 .hamburger-lines {
@@ -679,6 +950,7 @@ onUnmounted(() => {
   flex-direction: column;
   justify-content: center;
   align-items: center;
+  z-index: 1;
 }
 
 .hamburger-line {
@@ -690,7 +962,7 @@ onUnmounted(() => {
   transition: all 0.3s ease;
 }
 
-/* Mobile Menu */
+/* 3D Mobile Menu */
 .mobile-menu {
   display: none;
   flex-direction: column;
@@ -701,11 +973,12 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   margin-top: 0.75rem;
-  background: linear-gradient(135deg, rgba(255, 253, 250, 0.98) 0%, rgba(250, 245, 235, 0.98) 100%);
-  backdrop-filter: blur(12px);
-  border-radius: 1.5rem;
-  border: 1px solid rgba(139, 90, 43, 0.1);
-  box-shadow: 0 10px 30px rgba(139, 90, 43, 0.15);
+  background: var(--color-btn-shade-e);
+  border: 2px solid var(--color-btn-shade-a);
+  border-radius: 1.25rem;
+  box-shadow:
+    0 0 0 2px var(--color-btn-shade-b),
+    0 0.5em 0 0 var(--color-btn-shade-a);
   z-index: 100;
 }
 
@@ -747,7 +1020,7 @@ onUnmounted(() => {
 }
 
 .mobile-search-input::placeholder {
-  color: #a69c91;
+  color: #6b7280; /* gray-500 */
 }
 
 .mobile-search-icon {
@@ -763,7 +1036,7 @@ onUnmounted(() => {
   position: absolute;
   right: 0.75rem;
   padding: 0.4rem;
-  color: #a69c91;
+  color: #757575; /* Darkened from #a69c91 */
   background: #f5f0e8;
   border-radius: 50%;
   display: flex;
@@ -780,50 +1053,112 @@ onUnmounted(() => {
 .mobile-nav-links {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
-.mobile-nav-link {
+/* 3D Mobile Nav Link */
+.mobile-nav-link-3d {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.875rem 1rem;
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(139, 90, 43, 0.1);
-  border-radius: 1rem;
-  font-family: 'Zen Maru Gothic', sans-serif;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: #5a4a3a;
+  cursor: pointer;
+  outline: none;
+  border: 0;
   text-decoration: none;
-  transition: all 0.3s ease;
+  font-size: 0.95rem;
+  color: var(--color-btn-shade-a);
+  font-weight: 600;
+  font-family: 'Zen Maru Gothic', sans-serif;
+  padding: 0.875rem 1.25rem;
+  border: 2px solid var(--color-btn-shade-a);
+  border-radius: 1em;
+  background: var(--color-btn-shade-e);
+  transform-style: preserve-3d;
+  transition: all 175ms cubic-bezier(0, 0, 1, 1);
 }
 
-.mobile-nav-link:hover {
-  background: rgba(255, 255, 255, 0.9);
+.mobile-nav-link-3d::before {
+  position: absolute;
+  content: '';
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--color-btn-shade-c);
+  border-radius: inherit;
+  box-shadow:
+    0 0 0 2px var(--color-btn-shade-b),
+    0 0.5em 0 0 var(--color-btn-shade-a);
+  transform: translate3d(0, 0.5em, -1em);
+  transition: all 175ms cubic-bezier(0, 0, 1, 1);
 }
 
-.mobile-nav-link .nav-icon {
+.mobile-nav-link-3d:hover {
+  background: var(--color-btn-shade-d);
+  transform: translate(0, 0.25em);
+}
+
+.mobile-nav-link-3d:hover::before {
+  transform: translate3d(0, 0.5em, -1em);
+}
+
+.mobile-nav-link-3d:active {
+  transform: translate(0em, 0.5em);
+}
+
+.mobile-nav-link-3d:active::before {
+  transform: translate3d(0, 0, -1em);
+  box-shadow:
+    0 0 0 2px var(--color-btn-shade-b),
+    0 0.15em 0 0 var(--color-btn-shade-b);
+}
+
+.mobile-nav-link-3d .nav-icon {
   width: 1.25rem;
   height: 1.25rem;
-  color: #d4845a;
-  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  color: var(--color-btn-shade-a);
+  transition: transform 0.2s ease;
+  position: relative;
+  z-index: 1;
 }
 
-.mobile-nav-link:active .nav-icon {
-  transform: scale(0.9);
+.mobile-nav-link-3d span {
+  position: relative;
+  z-index: 1;
 }
 
-.mobile-nav-link.login {
-  background: linear-gradient(135deg, #c97b49 0%, #b06a3d 100%);
-  color: white;
-  border: none;
+.mobile-nav-link-3d:hover .nav-icon {
+  transform: rotate(-8deg) scale(1.1);
 }
 
-.mobile-nav-link.logout {
+.mobile-nav-link-3d.login {
+  background: var(--color-btn-accent-e);
+  border-color: var(--color-btn-accent-a);
+  color: var(--color-btn-accent-a);
+  font-weight: 700;
+}
+
+.mobile-nav-link-3d.login::before {
+  background: var(--color-btn-accent-c);
+  box-shadow:
+    0 0 0 2px var(--color-btn-accent-b),
+    0 0.5em 0 0 var(--color-btn-accent-a);
+}
+
+.mobile-nav-link-3d.logout {
   color: #dc4a4a;
-  border-color: rgba(220, 74, 74, 0.2);
-  cursor: pointer;
+  border-color: #dc4a4a;
+  background: #fff0f0;
+}
+
+.mobile-nav-link-3d.logout::before {
+  background: #ffcccc;
+  box-shadow:
+    0 0 0 2px #f5a5a5,
+    0 0.5em 0 0 #dc4a4a;
 }
 
 /* Responsive */
@@ -840,11 +1175,11 @@ onUnmounted(() => {
     padding: 0.375rem;
   }
 
-  .nav-link span {
+  .nav-link-3d span {
     display: none;
   }
 
-  .nav-link {
+  .nav-link-3d {
     padding: 0.5rem;
   }
 

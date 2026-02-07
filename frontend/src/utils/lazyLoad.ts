@@ -2,6 +2,26 @@
  * Lazy loading utilities for images and components
  */
 
+// Shared image load handler
+function handleImageLoad(img: HTMLImageElement): void {
+  img.classList.add('loaded');
+}
+
+// Shared image error handler
+function handleImageError(img: HTMLImageElement): void {
+  img.classList.add('error');
+  img.src = 'https://placehold.co/400x300?text=Image+Error';
+}
+
+// Helper to create an IntersectionObserver with common options
+function createIntersectionObserver(
+  callback: IntersectionObserverCallback,
+  rootMargin: string,
+  threshold: number
+): IntersectionObserver {
+  return new IntersectionObserver(callback, { rootMargin, threshold });
+}
+
 // Image lazy loading with Intersection Observer
 export function useImageLazyLoad(
   imageElements: Element[],
@@ -14,32 +34,23 @@ export function useImageLazyLoad(
 
   let observer: IntersectionObserver | null = null;
 
-  const setupObserver = () => {
-    observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const img = entry.target as HTMLImageElement;
-            const src = img.dataset.src;
-            if (src && !img.src) {
-              img.src = src;
-              img.onload = () => {
-                img.classList.add('loaded');
-              };
-              img.onerror = () => {
-                img.classList.add('error');
-                img.src = 'https://placehold.co/400x300?text=Image+Error';
-              };
-              observer?.unobserve(img);
-            }
-          }
-        });
-      },
-      {
-        rootMargin,
-        threshold,
+  const handleIntersection = (entries: IntersectionObserverEntry[]) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) {
+        const img = entry.target as HTMLImageElement;
+        const src = img.dataset.src;
+        if (src && !img.src) {
+          img.src = src;
+          img.onload = () => handleImageLoad(img);
+          img.onerror = () => handleImageError(img);
+          observer?.unobserve(img);
+        }
       }
-    );
+    }
+  };
+
+  const setupObserver = () => {
+    observer = createIntersectionObserver(handleIntersection, rootMargin, threshold);
   };
 
   const observeImages = () => {
@@ -81,21 +92,18 @@ export function useComponentLazyLoad(
 
   let observer: IntersectionObserver | null = null;
 
-  const setupObserver = () => {
-    observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            callback();
-            observer?.disconnect();
-          }
-        });
-      },
-      {
-        rootMargin,
-        threshold,
+  const handleIntersection = (entries: IntersectionObserverEntry[]) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) {
+        callback();
+        observer?.disconnect();
+        break;
       }
-    );
+    }
+  };
+
+  const setupObserver = () => {
+    observer = createIntersectionObserver(handleIntersection, rootMargin, threshold);
   };
 
   const observe = () => {

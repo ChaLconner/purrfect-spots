@@ -14,6 +14,7 @@ import PasswordStrengthMeter from '@/components/ui/PasswordStrengthMeter.vue';
 interface Props {
   isOpen: boolean;
   initialName: string;
+  initialUsername?: string;
   initialBio: string;
   initialPicture: string;
 }
@@ -22,7 +23,7 @@ const props = defineProps<Props>();
 
 const emit = defineEmits<{
   (e: 'close'): void;
-  (e: 'save', data: { name: string; bio: string; picture: string }): void;
+  (e: 'save', data: { name: string; username: string; bio: string; picture: string }): void;
 }>();
 
 const modalRef = ref<HTMLElement | null>(null);
@@ -39,6 +40,7 @@ const passwordRequirements = computed(() => {
 
 const editForm = reactive({
   name: props.initialName,
+  username: props.initialUsername || '',
   bio: props.initialBio,
   picture: props.initialPicture,
 });
@@ -75,6 +77,7 @@ watch(
   (newVal) => {
     if (newVal) {
       editForm.name = props.initialName;
+      editForm.username = props.initialUsername || '';
       editForm.bio = props.initialBio;
       editForm.picture = props.initialPicture;
       announce('Edit profile dialog opened');
@@ -159,6 +162,7 @@ const updatePassword = async () => {
 const handleSave = () => {
   emit('save', {
     name: editForm.name,
+    username: editForm.username,
     bio: editForm.bio,
     picture: editForm.picture,
   });
@@ -230,11 +234,7 @@ const handleKeydown = (event: KeyboardEvent) => {
                   <img
                     :src="editForm.picture || '/default-avatar.svg'"
                     class="w-32 h-32 rounded-full object-cover border-4 border-white shadow-md transition-transform group-hover:scale-105"
-                    :alt="
-                      editForm.name
-                        ? `Profile picture of ${editForm.name}`
-                        : 'Current profile picture'
-                    "
+                    :alt="editForm.name ? `${editForm.name}` : 'Current profile'"
                   />
                   <div
                     class="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
@@ -255,7 +255,7 @@ const handleKeydown = (event: KeyboardEvent) => {
                   type="file"
                   accept="image/*"
                   class="hidden"
-                  aria-label="Upload profile picture"
+                  aria-label="Upload profile photo"
                   @change="handleFileSelect"
                 />
                 <p class="text-xs text-brown-light mt-2">Click to upload new picture</p>
@@ -277,6 +277,28 @@ const handleKeydown = (event: KeyboardEvent) => {
                   autocomplete="name"
                   required
                 />
+              </div>
+
+              <div>
+                <label
+                  for="profile-username"
+                  class="block text-xs font-bold text-brown-light mb-2 uppercase tracking-widest pl-1"
+                >
+                  Username
+                </label>
+                <input
+                  id="profile-username"
+                  v-model="editForm.username"
+                  type="text"
+                  class="w-full px-5 py-3.5 bg-white/60 border-2 border-stone-200 rounded-2xl focus:outline-none focus:border-terracotta focus:bg-white focus:ring-4 focus:ring-terracotta/10 transition-all duration-300 text-brown font-medium placeholder-stone-400"
+                  placeholder="Unique username"
+                  autocomplete="username"
+                  pattern="^[a-zA-Z0-9_]+$"
+                  title="Username can only contain letters, numbers, and underscores"
+                />
+                <p class="text-[10px] text-stone-400 mt-1 pl-1">
+                  Public profile link: /profile/{{ editForm.username || 'username' }}
+                </p>
               </div>
 
               <div>
@@ -439,9 +461,9 @@ const handleKeydown = (event: KeyboardEvent) => {
                         type="button"
                         :disabled="
                           isUpdatingPassword ||
-                            !passwordForm.current ||
-                            !passwordForm.new ||
-                            !passwordForm.confirm
+                          !passwordForm.current ||
+                          !passwordForm.new ||
+                          !passwordForm.confirm
                         "
                         class="px-5 py-2.5 bg-[#C07040] text-white rounded-lg text-sm font-bold hover:bg-[#A05030] shadow-md transition-all disabled:opacity-50 disabled:shadow-none cursor-pointer disabled:cursor-not-allowed"
                         @click="updatePassword"

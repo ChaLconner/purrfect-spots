@@ -14,6 +14,7 @@ export default defineConfig({
     environment: "jsdom",
     root: "./",
     include: ["tests/**/*.spec.ts"],
+    setupFiles: ["./tests/setup.ts"],
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "lcov", "json"],
@@ -26,13 +27,13 @@ export default defineConfig({
         "**/*.d.ts",
         "src/main.ts"
       ],
-      // Code Quality: Coverage thresholds enforced at 80%
+      // Code Quality: Coverage thresholds (Phase 1: 50%)
       // Run `npm run test:coverage` to verify
       thresholds: {
-        statements: 30,
-        branches: 25,
-        functions: 30,
-        lines: 30
+        statements: 50,
+        branches: 40,
+        functions: 50,
+        lines: 50
       }
     },
   },

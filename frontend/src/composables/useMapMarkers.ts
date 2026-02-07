@@ -5,9 +5,8 @@ import { MarkerClusterer } from '@googlemaps/markerclusterer';
 
 // Type for google maps objects (since we load them dynamically)
 type GoogleMap = google.maps.Map;
-// Use any for marker to support both legacy Marker and AdvancedMarkerElement in clusterer
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type GoogleMarker = any;
+
+type GoogleMarker = google.maps.Marker | google.maps.marker.AdvancedMarkerElement;
 
 export function useMapMarkers(map: Ref<GoogleMap | null>) {
   // Use shallowRef for markers array to avoid deep reactivity overhead with Google Maps objects
@@ -18,10 +17,37 @@ export function useMapMarkers(map: Ref<GoogleMap | null>) {
   // Keep track of event listeners to clean them up
   const markerListeners = new Map<string, google.maps.MapsEventListener>();
 
+  // Clusterer Options
+  const clustererOptions = {
+    renderer: {
+      render: ({ count, position }: { count: number; position: google.maps.LatLng }) => {
+        return new google.maps.Marker({
+          position,
+          label: {
+            text: String(count),
+            color: 'white',
+            fontSize: '14px',
+            fontWeight: 'bold',
+          },
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 18,
+            fillColor: '#A65D37',
+            fillOpacity: 0.9,
+            strokeColor: 'white',
+            strokeWeight: 2,
+          },
+          // Safety check for MAX_ZINDEX which might be missing in some type defs or versions
+          zIndex: (google.maps.Marker.MAX_ZINDEX || 1000000) + count,
+        });
+      },
+    },
+  };
+
   // Watch for map changes to initialize/destroy clusterer
   watch(map, (newMap) => {
     if (newMap) {
-      clusterer.value ??= new MarkerClusterer({ map: newMap });
+      clusterer.value ??= new MarkerClusterer({ map: newMap, ...clustererOptions });
     } else if (clusterer.value) {
       clusterer.value.clearMarkers();
       (clusterer.value as any).setMap(null); // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -32,38 +58,70 @@ export function useMapMarkers(map: Ref<GoogleMap | null>) {
   /**
    * Update markers based on current locations list (Diffing logic)
    */
-  const updateMarkers = (locations: CatLocation[], onMarkerClick?: (cat: CatLocation) => void) => {
-    if (!map.value) {
-      return;
+  const getMarkerPosition = (marker: GoogleMarker) => {
+    // Check if it's an AdvancedMarkerElement (has 'position' property directly accessible)
+    // Legacy Marker uses getPosition()
+    if (marker instanceof google.maps.Marker) {
+      const pos = marker.getPosition();
+      if (!pos) return null;
+      return { lat: pos.lat(), lng: pos.lng() };
+    } else {
+      // AdvancedMarkerElement
+      const pos = marker.position;
+      if (!pos) return null;
+      // AdvancedMarkerElement position can be LatLng or LatLngLiteral
+      const lat = typeof pos.lat === 'function' ? pos.lat() : pos.lat;
+      const lng = typeof pos.lng === 'function' ? pos.lng() : pos.lng;
+      return { lat, lng };
+    }
+  };
+
+  const createMarker = (location: CatLocation, onMarkerClick?: (cat: CatLocation) => void) => {
+    // Use Legacy Marker for consistent display of custom icons
+    // AdvancedMarkerElement requires a valid Map ID and Vector Map, which can be flaky in some envs
+
+    // Fallback to Legacy Marker
+    const marker = new google.maps.Marker({
+      position: { lat: location.latitude, lng: location.longitude },
+      title: location.location_name || 'Cat Location',
+      icon: {
+        url: '/location_10753796.png',
+        scaledSize: new google.maps.Size(40, 40),
+        anchor: new google.maps.Point(20, 20),
+      },
+    });
+
+    if (onMarkerClick) {
+      const listener = marker.addListener('click', () => onMarkerClick(location));
+      markerListeners.set(location.id, listener);
     }
 
-    // Ensure clusterer exists if map exists
-    // Custom renderer for Ghibli theme
-    clusterer.value ??= new MarkerClusterer({ 
-      map: map.value,
-      renderer: {
-        render: ({ count, position }) => {
-          return new google.maps.Marker({
-            position,
-            label: {
-              text: String(count),
-              color: "white",
-              fontSize: "14px",
-              fontWeight: "bold",
-            },
-            icon: {
-              path: google.maps.SymbolPath.CIRCLE,
-              scale: 18,
-              fillColor: '#A65D37', // Ghibli Theme Primary (Brown)
-              fillOpacity: 0.9,
-              strokeColor: "white",
-              strokeWeight: 2,
-            },
-            // Adjust zIndex to be above other markers
-            zIndex: Number(google.maps.Marker.MAX_ZINDEX) + count,
-          });
+    return marker;
+  };
+
+  const updateExistingMarker = (marker: GoogleMarker, location: CatLocation) => {
+    const currentPos = getMarkerPosition(marker);
+    if (currentPos) {
+      if (
+        Math.abs(currentPos.lat - location.latitude) > 0.001 ||
+        Math.abs(currentPos.lng - location.longitude) > 0.001
+      ) {
+        if (marker instanceof google.maps.marker.AdvancedMarkerElement) {
+          marker.position = { lat: location.latitude, lng: location.longitude };
+        } else {
+          marker.setPosition({ lat: location.latitude, lng: location.longitude });
         }
       }
+    }
+  };
+
+  const updateMarkers = (locations: CatLocation[], onMarkerClick?: (cat: CatLocation) => void) => {
+    if (!map.value) return;
+
+    // Ensure clusterer is initialized with options if not already
+    clusterer.value ??= new MarkerClusterer({
+      map: map.value,
+      ...clustererOptions,
     });
 
     const currentIds = new Set(locations.map((l) => l.id));
@@ -71,17 +129,14 @@ export function useMapMarkers(map: Ref<GoogleMap | null>) {
     const markersToRemove: GoogleMarker[] = [];
     const markersToAdd: GoogleMarker[] = [];
 
-    // 1. Remove markers that are no longer in the list
+    // 1. Remove markers
     for (const [id, marker] of markersMap.entries()) {
       if (!currentIds.has(id)) {
         markersToRemove.push(marker);
-
-        // Remove listener
         if (markerListeners.has(id)) {
           google.maps.event.removeListener(markerListeners.get(id)!);
           markerListeners.delete(id);
         }
-
         markersMap.delete(id);
       }
     }
@@ -89,90 +144,22 @@ export function useMapMarkers(map: Ref<GoogleMap | null>) {
     // 2. Add or Update markers
     locations.forEach((location) => {
       const existingMarker = markersMap.get(location.id);
-
       if (existingMarker) {
-        // OPTIMIZATION: Skip position check if no significant change
-        // Only update if position changed significantly (more than 0.001 degrees)
-        // AdvancedMarkerElement uses 'position' property, not getPosition() method
-        const currentPos = existingMarker.position;
-        if (currentPos) {
-          const lat = typeof currentPos.lat === 'function' ? currentPos.lat() : currentPos.lat;
-          const lng = typeof currentPos.lng === 'function' ? currentPos.lng() : currentPos.lng;
-          if (
-            Math.abs(lat - location.latitude) > 0.001 ||
-            Math.abs(lng - location.longitude) > 0.001
-          ) {
-            // AdvancedMarkerElement uses position property assignment
-            existingMarker.position = { lat: location.latitude, lng: location.longitude };
-          }
-        }
+        updateExistingMarker(existingMarker, location);
       } else {
-        // Create new marker
-        // Important: Do not set 'map' property, let clusterer handle it
-        
-        // Defensive check for AdvancedMarkerElement
-        if (!google.maps.marker || !google.maps.marker.AdvancedMarkerElement) {
-          console.warn('AdvancedMarkerElement NOT available, falling back to legacy Marker');
-          const marker = new google.maps.Marker({
-            position: { lat: location.latitude, lng: location.longitude },
-            title: location.location_name || 'Cat Location',
-          });
-          
-          if (onMarkerClick) {
-            const listener = marker.addListener('click', () => {
-              onMarkerClick(location);
-            });
-            markerListeners.set(location.id, listener);
-          }
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          markersToAdd.push(marker as any);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          markersMap.set(location.id, marker as any);
-          return;
-        }
-
-        // Force Legacy Marker for stability
-        // AdvancedMarkerElement seems to have issues with current configuration/browser
-        const marker = new google.maps.Marker({
-          position: { lat: location.latitude, lng: location.longitude },
-          title: location.location_name || 'Cat Location',
-          // map: map.value, // REMOVED: Let Clusterer manage the map
-          icon: {
-            url: '/location_10753796.png',
-            scaledSize: new google.maps.Size(40, 40),
-            anchor: new google.maps.Point(20, 20), // Center anchor
-          },
-        });
-        // Add Click Listener - Use 'click' for Legacy Marker
-        if (onMarkerClick) {
-          const listener = marker.addListener('click', () => {
-            onMarkerClick(location);
-          });
-          markerListeners.set(location.id, listener);
-        }
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        markersToAdd.push(marker as any);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        markersMap.set(location.id, marker as any);
+        const marker = createMarker(location, onMarkerClick);
+        markersToAdd.push(marker);
+        markersMap.set(location.id, marker);
       }
     });
 
-    // Apply batch updates to clusterer
-    if (markersToRemove.length > 0) {
-      clusterer.value.removeMarkers(markersToRemove, true); // true = noDraw (defer redraw)
-    }
+    if (markersToRemove.length > 0) clusterer.value.removeMarkers(markersToRemove, true);
+    if (markersToAdd.length > 0) clusterer.value.addMarkers(markersToAdd, true);
 
-    if (markersToAdd.length > 0) {
-      clusterer.value.addMarkers(markersToAdd, true); // true = noDraw
-    }
-
-    // Perform redraw once if changes occured
     if (markersToRemove.length > 0 || markersToAdd.length > 0) {
       clusterer.value.render();
     }
 
-    // Trigger shallow update if needed (though Map mutation is internal)
     markers.value = markersMap;
   };
 
@@ -184,53 +171,40 @@ export function useMapMarkers(map: Ref<GoogleMap | null>) {
 
     if (!position) {
       if (userMarker.value) {
-        // AdvancedMarkerElement uses 'map' property assignment, not setMap()
-        userMarker.value.map = null;
+        if (userMarker.value instanceof google.maps.Marker) {
+          userMarker.value.setMap(null);
+        } else {
+          userMarker.value.map = null;
+        }
         userMarker.value = null;
       }
       return;
     }
 
     if (userMarker.value) {
-      // AdvancedMarkerElement uses 'position' property assignment, not setPosition()
-      userMarker.value.position = position;
-    } else {
-      // Use AdvancedMarkerElement for user marker as well for consistency
-      if (google.maps.marker && google.maps.marker.AdvancedMarkerElement) {
-        // Create a custom element for the user blue dot
-        const pinElement = document.createElement('div');
-        pinElement.className = 'user-location-marker';
-        pinElement.style.width = '20px';
-        pinElement.style.height = '20px';
-        pinElement.style.backgroundColor = '#4285F4';
-        pinElement.style.border = '3px solid white';
-        pinElement.style.borderRadius = '50%';
-        pinElement.style.boxShadow = '0 0 10px rgba(0,0,0,0.3)';
-
-        userMarker.value = new google.maps.marker.AdvancedMarkerElement({
-          position: position,
-          map: map.value,
-          title: 'Your Location',
-          content: pinElement,
-          zIndex: 999,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        }) as any;
+      // Update existing marker
+      if (userMarker.value instanceof google.maps.Marker) {
+        userMarker.value.setPosition(position);
       } else {
-        userMarker.value = new google.maps.Marker({
-          position: position,
-          map: map.value, // User marker is NOT clustered, add to map directly
-          title: 'Your Location',
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 10,
-            fillColor: '#4285F4',
-            fillOpacity: 1,
-            strokeColor: '#FFFFFF',
-            strokeWeight: 3,
-          },
-          zIndex: 999,
-        });
+        // AdvancedMarkerElement
+        userMarker.value.position = position;
       }
+    } else {
+      // Use Legacy Marker for user location as well (consistent with cat markers)
+      userMarker.value = new google.maps.Marker({
+        position: position,
+        map: map.value, // User marker is NOT clustered, add to map directly
+        title: 'Your Location',
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: '#4285F4',
+          fillOpacity: 1,
+          strokeColor: '#FFFFFF',
+          strokeWeight: 3,
+        },
+        zIndex: 999,
+      });
 
       const infoWindow = new google.maps.InfoWindow({
         content:
@@ -238,9 +212,8 @@ export function useMapMarkers(map: Ref<GoogleMap | null>) {
       });
 
       if (userMarker.value) {
-        // Use 'gmp-click' for AdvancedMarkerElement, 'click' for legacy Marker
-        const eventName = google.maps.marker?.AdvancedMarkerElement ? 'gmp-click' : 'click';
-        userMarker.value.addListener(eventName, () => {
+        // Use 'click' for legacy Marker
+        userMarker.value.addListener('click', () => {
           if (map.value && userMarker.value) {
             infoWindow.open(map.value, userMarker.value);
           }
@@ -264,8 +237,11 @@ export function useMapMarkers(map: Ref<GoogleMap | null>) {
     markerListeners.clear();
 
     if (userMarker.value) {
-      // AdvancedMarkerElement uses 'map' property assignment, not setMap()
-      userMarker.value.map = null;
+      if (userMarker.value instanceof google.maps.Marker) {
+        userMarker.value.setMap(null);
+      } else {
+        userMarker.value.map = null;
+      }
       userMarker.value = null;
     }
   };

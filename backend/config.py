@@ -253,6 +253,8 @@ class Config:
                 "http://127.0.0.1:3000",
                 "http://127.0.0.1:5173",
                 "https://purrfect-spots.vercel.app",  # Production Frontend
+                "https://purrfectspots.xyz",
+                "https://www.purrfectspots.xyz",
             ]
 
         # Add Vercel URL if present
@@ -266,9 +268,14 @@ class Config:
             allowed.append(frontend_url)
 
         # Force add production frontend URL (Hardcoded safety net)
-        prod_url = "https://purrfect-spots.vercel.app"
-        if prod_url not in allowed:
-            allowed.append(prod_url)
+        prod_urls = [
+            "https://purrfect-spots.vercel.app",
+            "https://purrfectspots.xyz",
+            "https://www.purrfectspots.xyz"
+        ]
+        for url in prod_urls:
+            if url not in allowed:
+                allowed.append(url)
 
         return list(set(allowed))
 

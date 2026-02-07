@@ -14,7 +14,7 @@ These tests verify the end-to-end upload process:
 
 import io
 import os
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -119,7 +119,7 @@ class TestUploadFlowIntegration:
         )
 
         mock_storage_service = MagicMock()
-        mock_storage_service.upload_file = AsyncMock(return_value="https://s3.example.com/cat.jpg")
+        mock_storage_service.upload_file = MagicMock(return_value="https://s3.example.com/cat.jpg")
 
         # Mock Supabase return for insert
         mock_supabase_params = MagicMock()
@@ -141,8 +141,6 @@ class TestUploadFlowIntegration:
         from dependencies import get_supabase_client
         from main import app
         from routes.upload import get_cat_detection_service, get_current_user, get_storage_service
-        from services.cat_detection_service import CatDetectionService
-        from services.storage_service import StorageService
 
         app.dependency_overrides[get_supabase_client] = lambda: mock_client
         app.dependency_overrides[get_cat_detection_service] = lambda: mock_detection_service

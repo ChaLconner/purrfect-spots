@@ -18,6 +18,8 @@ from utils.security import (
     validate_image_magic_bytes,
 )
 
+DEFAULT_CONTENT_TYPE = "application/octet-stream"
+
 
 async def process_uploaded_image(
     file: UploadFile,
@@ -79,7 +81,7 @@ async def process_uploaded_image(
 
         # Validate file type and size using Content-Type header (first check)
         try:
-            validate_image_file(file.content_type or "application/octet-stream", original_size, max_size_mb)
+            validate_image_file(file.content_type or DEFAULT_CONTENT_TYPE, original_size, max_size_mb)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 
@@ -99,9 +101,7 @@ async def process_uploaded_image(
             raise HTTPException(status_code=400, detail="Invalid image file type")
 
         # Check Content-Type matches actual file content
-        content_match, actual_mime = validate_content_type_matches(
-            file.content_type or "application/octet-stream", contents
-        )
+        content_match, actual_mime = validate_content_type_matches(file.content_type or DEFAULT_CONTENT_TYPE, contents)
         if not content_match:
             log_security_event(
                 "content_type_mismatch",
@@ -124,7 +124,7 @@ async def process_uploaded_image(
 
         # Optimize image if requested (also strips EXIF metadata)
         # Optimize image if requested (also strips EXIF metadata)
-        content_type_str = actual_mime if content_match else (file.content_type or "application/octet-stream")
+        content_type_str = actual_mime if content_match else (file.content_type or DEFAULT_CONTENT_TYPE)
 
         if optimize:
             contents, content_type_str = optimize_image(contents, content_type_str, max_dimension=max_dimension)
@@ -175,7 +175,7 @@ async def read_file_for_detection(file: UploadFile, max_size_mb: int = 10) -> by
         contents = await file.read()
 
         try:
-            validate_image_file(file.content_type or "application/octet-stream", len(contents), max_size_mb)
+            validate_image_file(file.content_type or DEFAULT_CONTENT_TYPE, len(contents), max_size_mb)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 

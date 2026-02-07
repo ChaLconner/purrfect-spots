@@ -1,13 +1,19 @@
-"""
-Tests for upload route functionality
-"""
-
 import io
 import json
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from httpx import ASGITransport, AsyncClient
+
+from main import app
+
+
+@pytest.fixture
+async def client():
+    """Create test client using AsyncClient"""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac
 
 
 class TestUploadRoute:
@@ -22,7 +28,7 @@ class TestUploadRoute:
     def mock_storage_service(self):
         """Create mock storage service"""
         service = MagicMock()
-        service.upload_file = AsyncMock(return_value="https://s3.example.com/cat.jpg")
+        service.upload_file.return_value = "https://s3.example.com/cat.jpg"
         return service
 
     @pytest.fixture
@@ -40,25 +46,25 @@ class TestUploadRoute:
         )
         return service
 
-    def test_upload_test_endpoint(self, client):
+    async def test_upload_test_endpoint(self, client):
         """Test that upload test endpoint works"""
-        response = client.get("/api/v1/upload/test")
+        response = await client.get("/api/v1/upload/test")
 
         assert response.status_code == 200
         data = response.json()
         assert data["message"] == "Upload endpoint is working!"
 
-    def test_upload_requires_authentication(self, client, sample_image_bytes):
+    async def test_upload_requires_authentication(self, client, sample_image_bytes):
         """Test that upload requires authentication"""
         files = {"file": ("cat.jpg", io.BytesIO(sample_image_bytes), "image/jpeg")}
         data = {"lat": "13.7563", "lng": "100.5018", "location_name": "Test Cat Spot"}
 
-        response = client.post("/api/v1/upload/cat", files=files, data=data)
+        response = await client.post("/api/v1/upload/cat", files=files, data=data)
 
         # Should return 401 or 403 without auth
         assert response.status_code in [401, 403]
 
-    def test_upload_with_mock_auth(
+    async def test_upload_with_mock_auth(
         self,
         client,
         sample_image_bytes,
@@ -96,7 +102,7 @@ class TestUploadRoute:
         )
 
         with patch("routes.upload.get_supabase_admin_client", return_value=mock_admin):
-            with patch("routes.upload.process_uploaded_image") as mock_process:
+            with patch("routes.upload.process_uploaded_image", new_callable=AsyncMock) as mock_process:
                 mock_process.return_value = (sample_image_bytes, "image/jpeg", "jpg")
 
                 files = {"file": ("cat.jpg", io.BytesIO(sample_image_bytes), "image/jpeg")}
@@ -108,7 +114,7 @@ class TestUploadRoute:
                     "tags": json.dumps(["orange", "friendly"]),
                 }
 
-            response = client.post("/api/v1/upload/cat", files=files, data=data)
+                response = await client.post("/api/v1/upload/cat", files=files, data=data)
 
         # Clean up overrides
         app.dependency_overrides = {}
@@ -231,7 +237,7 @@ class TestParsingFunctions:
 class TestUploadValidation:
     """Test validation in upload process"""
 
-    def test_upload_rejects_no_cats(self, client, sample_image_bytes, mock_user, mock_supabase):
+    async def test_upload_rejects_no_cats(self, client, sample_image_bytes, mock_user, mock_supabase):
         """Test that upload rejects images without cats"""
         from dependencies import get_supabase_client
         from main import app
@@ -258,7 +264,7 @@ class TestUploadValidation:
         app.dependency_overrides[get_storage_service] = lambda: mock_storage
         app.dependency_overrides[get_supabase_client] = lambda: mock_supabase
 
-        with patch("routes.upload.process_uploaded_image") as mock_process:
+        with patch("routes.upload.process_uploaded_image", new_callable=AsyncMock) as mock_process:
             mock_process.return_value = (sample_image_bytes, "image/jpeg", "jpg")
 
             files = {"file": ("dog.jpg", io.BytesIO(sample_image_bytes), "image/jpeg")}
@@ -268,7 +274,7 @@ class TestUploadValidation:
                 "location_name": "Test Location",
             }
 
-            response = client.post("/api/v1/upload/cat", files=files, data=data)
+            response = await client.post("/api/v1/upload/cat", files=files, data=data)
 
         # Clean up overrides
         app.dependency_overrides = {}
@@ -276,7 +282,7 @@ class TestUploadValidation:
         assert response.status_code == 400
         assert "No cats detected" in response.json()["detail"]
 
-    def test_upload_validates_coordinates(self, client, sample_image_bytes, mock_user, mock_supabase):
+    async def test_upload_validates_coordinates(self, client, sample_image_bytes, mock_user, mock_supabase):
         """Test that invalid coordinates are rejected"""
         from dependencies import get_supabase_client
         from main import app
@@ -286,7 +292,7 @@ class TestUploadValidation:
         app.dependency_overrides[get_current_user] = lambda: mock_user
         app.dependency_overrides[get_supabase_client] = lambda: mock_supabase
 
-        with patch("routes.upload.process_uploaded_image") as mock_process:
+        with patch("routes.upload.process_uploaded_image", new_callable=AsyncMock) as mock_process:
             mock_process.return_value = (sample_image_bytes, "image/jpeg", "jpg")
 
             files = {"file": ("cat.jpg", io.BytesIO(sample_image_bytes), "image/jpeg")}
@@ -302,7 +308,7 @@ class TestUploadValidation:
 
                 mock_validate.side_effect = HTTPException(status_code=400, detail="Invalid coordinate format")
 
-                response = client.post("/api/v1/upload/cat", files=files, data=data)
+                response = await client.post("/api/v1/upload/cat", files=files, data=data)
 
         # Clean up overrides
         app.dependency_overrides = {}
@@ -313,7 +319,7 @@ class TestUploadValidation:
 class TestUploadWithPredetectedCats:
     """Test upload with pre-detected cat data"""
 
-    def test_upload_ignores_client_detection_data(
+    async def test_upload_ignores_client_detection_data(
         self,
         client,
         sample_image_bytes,
@@ -330,7 +336,7 @@ class TestUploadWithPredetectedCats:
         from routes.upload import get_cat_detection_service, get_storage_service
 
         mock_storage = MagicMock()
-        mock_storage.upload_file = AsyncMock(return_value="https://s3.example.com/cat.jpg")
+        mock_storage.upload_file.return_value = "https://s3.example.com/cat.jpg"
 
         # Mock DETECTION service to return a specific "Server Truth"
         mock_cat_detection_service = MagicMock()
@@ -367,7 +373,7 @@ class TestUploadWithPredetectedCats:
         )
 
         with patch("routes.upload.get_supabase_admin_client", return_value=mock_admin):
-            with patch("routes.upload.process_uploaded_image") as mock_process:
+            with patch("routes.upload.process_uploaded_image", new_callable=AsyncMock) as mock_process:
                 mock_process.return_value = (sample_image_bytes, "image/jpeg", "jpg")
 
                 # Client sends "Fake" data: 2 cats, 0.98 confidence
@@ -388,7 +394,7 @@ class TestUploadWithPredetectedCats:
                     "cat_detection_data": cat_detection_data,
                 }
 
-                response = client.post("/api/v1/upload/cat", files=files, data=data)
+                response = await client.post("/api/v1/upload/cat", files=files, data=data)
 
         # Clean up overrides
         app.dependency_overrides = {}

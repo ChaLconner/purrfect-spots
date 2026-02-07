@@ -52,6 +52,9 @@ export interface CatLocation {
   image_url: string;
   tags: string[]; // always present, default []
   uploaded_at: string;
+  likes_count: number;
+  comments_count: number;
+  liked: boolean; // Track if current user liked this photo
 }
 
 export interface GalleryImage extends CatLocation {

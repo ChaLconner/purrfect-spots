@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 
 # Import routes
 from routes.auth import LoginRequest, RegisterInput, get_auth_service, router
@@ -27,9 +27,10 @@ def app():
 
 
 @pytest.fixture
-def client(app):
-    """Create test client"""
-    return TestClient(app)
+async def client(app):
+    """Create test client using AsyncClient"""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac
 
 
 @pytest.fixture
@@ -57,7 +58,7 @@ class TestRegisterEndpoint:
     TEST_PASSWORD = os.getenv("TEST_PASSWORD", "securepass123")
     TEST_NAME = "Test User"
 
-    def test_register_success(self, client, mock_auth_service, mock_limiter):
+    async def test_register_success(self, client, mock_auth_service, mock_limiter):
         """Test successful registration"""
         # Setup mock
         mock_auth_service.get_user_by_email.return_value = None
@@ -73,7 +74,7 @@ class TestRegisterEndpoint:
         mock_auth_service.create_refresh_token.return_value = "test-refresh-token"
 
         # Make request
-        response = client.post(
+        response = await client.post(
             "/api/v1/auth/register",
             json={
                 "email": self.TEST_EMAIL,
@@ -90,9 +91,9 @@ class TestRegisterEndpoint:
             assert "verification code" in data["message"]
             assert data["email"] == "test@example.com"
 
-    def test_register_password_too_short(self, client, mock_limiter):
+    async def test_register_password_too_short(self, client, mock_limiter):
         """Test registration fails with short password"""
-        response = client.post(
+        response = await client.post(
             "/api/v1/auth/register",
             json={
                 "email": "test@example.com",
@@ -104,7 +105,7 @@ class TestRegisterEndpoint:
         assert response.status_code == 422
         assert "8 characters" in str(response.json()["detail"])
 
-    def test_register_password_no_special_chars_allowed(self, client, mock_auth_service, mock_limiter):
+    async def test_register_password_no_special_chars_allowed(self, client, mock_auth_service, mock_limiter):
         """Test registration succeeds with password that has no numbers (policy: 8+ chars only)"""
         # Setup mock for successful registration
         mock_auth_service.get_user_by_email.return_value = None
@@ -122,7 +123,7 @@ class TestRegisterEndpoint:
         # Authenticate returns None for verification flow
         mock_auth_service.authenticate_user.return_value = None
 
-        response = client.post(
+        response = await client.post(
             "/api/v1/auth/register",
             json={
                 "email": "unique_no_number@example.com",
@@ -135,9 +136,9 @@ class TestRegisterEndpoint:
         # This should succeed (200) or fail for other reasons, but NOT for missing numbers
         assert response.status_code in [200, 429]  # 429 = rate limited
 
-    def test_register_empty_name(self, client, mock_limiter):
+    async def test_register_empty_name(self, client, mock_limiter):
         """Test registration fails with empty name"""
-        response = client.post(
+        response = await client.post(
             "/api/v1/auth/register",
             json={
                 "email": self.TEST_EMAIL,
@@ -149,12 +150,12 @@ class TestRegisterEndpoint:
         assert response.status_code == 400
         assert "name" in response.json()["detail"].lower()
 
-    def test_register_duplicate_email(self, client, mock_auth_service, mock_limiter):
+    async def test_register_duplicate_email(self, client, mock_auth_service, mock_limiter):
         """Test registration fails for existing email"""
         # create_user_with_password should raise for duplicate
         mock_auth_service.create_user_with_password.side_effect = Exception("Email already registered")
 
-        response = client.post(
+        response = await client.post(
             "/api/v1/auth/register",
             json={
                 "email": "existing@example.com",
@@ -178,7 +179,7 @@ class TestLoginEndpoint:
     TEST_EMAIL = "test@example.com"
     TEST_PASSWORD = os.getenv("TEST_PASSWORD", "correctpassword123")
 
-    def test_login_success(self, client, mock_auth_service, mock_limiter):
+    async def test_login_success(self, client, mock_auth_service, mock_limiter):
         """Test successful login"""
         mock_auth_service.authenticate_user.return_value = {
             "id": "test-user-id",
@@ -191,7 +192,7 @@ class TestLoginEndpoint:
         mock_auth_service.create_access_token.return_value = "test-access-token"
         mock_auth_service.create_refresh_token.return_value = "test-refresh-token"
 
-        response = client.post(
+        response = await client.post(
             "/api/v1/auth/login",
             json={"email": self.TEST_EMAIL, "password": self.TEST_PASSWORD},
         )
@@ -203,11 +204,11 @@ class TestLoginEndpoint:
             # Refresh token is returned in body AND cookie now
             assert "refresh_token" in data
 
-    def test_login_invalid_credentials(self, client, mock_auth_service, mock_limiter):
+    async def test_login_invalid_credentials(self, client, mock_auth_service, mock_limiter):
         """Test login fails with invalid credentials"""
         mock_auth_service.authenticate_user.return_value = None
 
-        response = client.post(
+        response = await client.post(
             "/api/v1/auth/login",
             json={"email": "test@example.com", "password": "wrongpassword"},
         )
@@ -215,9 +216,9 @@ class TestLoginEndpoint:
         assert response.status_code == 401
         assert "Invalid" in response.json()["detail"]
 
-    def test_login_invalid_email_format(self, client, mock_limiter):
+    async def test_login_invalid_email_format(self, client, mock_limiter):
         """Test login fails with invalid email format"""
-        response = client.post(
+        response = await client.post(
             "/api/v1/auth/login",
             json={"email": "not-an-email", "password": "somepassword"},
         )
@@ -228,7 +229,7 @@ class TestLoginEndpoint:
 class TestRefreshTokenEndpoint:
     """Tests for POST /auth/refresh-token"""
 
-    def test_refresh_token_success(self, client, mock_auth_service):
+    async def test_refresh_token_success(self, client, mock_auth_service):
         """Test successful token refresh"""
         from unittest.mock import AsyncMock
 
@@ -252,15 +253,15 @@ class TestRefreshTokenEndpoint:
         # Set refresh token cookie
         client.cookies.set("refresh_token", "valid-refresh-token")
 
-        response = client.post("/api/v1/auth/refresh-token")
+        response = await client.post("/api/v1/auth/refresh-token")
 
         if response.status_code == 200:
             data = response.json()
             assert data["access_token"] == "new-access-token"
 
-    def test_refresh_token_missing(self, client, mock_auth_service):
+    async def test_refresh_token_missing(self, client, mock_auth_service):
         """Test refresh returns soft failure when cookie is missing (SPA friendly)"""
-        response = client.post("/api/v1/auth/refresh-token")
+        response = await client.post("/api/v1/auth/refresh-token")
 
         # Route returns 200 with null token for soft failure (SPA UX)
         assert response.status_code == 200
@@ -268,14 +269,14 @@ class TestRefreshTokenEndpoint:
         assert data["access_token"] is None
         assert "session" in data.get("message", "").lower()
 
-    def test_refresh_token_invalid(self, client, mock_auth_service):
+    async def test_refresh_token_invalid(self, client, mock_auth_service):
         """Test refresh returns soft failure with invalid token (SPA friendly)"""
         from unittest.mock import AsyncMock
 
         mock_auth_service.verify_refresh_token = AsyncMock(return_value=None)
 
         client.cookies.set("refresh_token", "invalid-token")
-        response = client.post("/api/v1/auth/refresh-token")
+        response = await client.post("/api/v1/auth/refresh-token")
 
         # Route returns 200 with null token for soft failure (SPA UX)
         assert response.status_code == 200
@@ -287,7 +288,7 @@ class TestRefreshTokenEndpoint:
 class TestLogoutEndpoint:
     """Tests for POST /auth/logout"""
 
-    def test_logout_success(self, client, mock_auth_service):
+    async def test_logout_success(self, client, mock_auth_service):
         """Test successful logout clears cookie"""
         client.cookies.set("refresh_token", "some-token")
 
@@ -296,7 +297,7 @@ class TestLogoutEndpoint:
         mock_auth_service.verify_refresh_token = AsyncMock(return_value={"jti": "J", "user_id": "U", "exp": 123})
         mock_auth_service.revoke_token = AsyncMock(return_value=True)
 
-        response = client.post("/api/v1/auth/logout")
+        response = await client.post("/api/v1/auth/logout")
 
         assert response.status_code == 200
         assert response.json()["message"] == "Logged out successfully"
@@ -305,21 +306,21 @@ class TestLogoutEndpoint:
 class TestForgotPasswordEndpoint:
     """Tests for POST /auth/forgot-password"""
 
-    def test_forgot_password_existing_email(self, client, mock_auth_service, mock_limiter):
+    async def test_forgot_password_existing_email(self, client, mock_auth_service, mock_limiter):
         """Test forgot password for existing email"""
         mock_auth_service.create_password_reset_token.return_value = "reset-token"
 
         with patch("routes.auth.email_service"):
-            response = client.post("/api/v1/auth/forgot-password", json={"email": "existing@example.com"})
+            response = await client.post("/api/v1/auth/forgot-password", json={"email": "existing@example.com"})
 
         if response.status_code == 200:
             assert "instructions" in response.json()["message"]
 
-    def test_forgot_password_nonexistent_email(self, client, mock_auth_service, mock_limiter):
+    async def test_forgot_password_nonexistent_email(self, client, mock_auth_service, mock_limiter):
         """Test forgot password for non-existent email (no enumeration)"""
         mock_auth_service.create_password_reset_token.return_value = None
 
-        response = client.post("/api/v1/auth/forgot-password", json={"email": "nonexistent@example.com"})
+        response = await client.post("/api/v1/auth/forgot-password", json={"email": "nonexistent@example.com"})
 
         # Should still return 200 to prevent account enumeration
         if response.status_code == 200:
@@ -329,13 +330,13 @@ class TestForgotPasswordEndpoint:
 class TestResetPasswordEndpoint:
     """Tests for POST /auth/reset-password"""
 
-    def test_reset_password_success(self, client, mock_auth_service, mock_limiter):
+    async def test_reset_password_success(self, client, mock_auth_service, mock_limiter):
         """Test successful password reset"""
         from unittest.mock import AsyncMock
 
         mock_auth_service.reset_password = AsyncMock(return_value=True)
 
-        response = client.post(
+        response = await client.post(
             "/api/v1/auth/reset-password",
             json={"token": "valid-reset-token", "new_password": "newpassword123"},
         )
@@ -343,13 +344,13 @@ class TestResetPasswordEndpoint:
         if response.status_code == 200:
             assert "successfully" in response.json()["message"]
 
-    def test_reset_password_invalid_token(self, client, mock_auth_service, mock_limiter):
+    async def test_reset_password_invalid_token(self, client, mock_auth_service, mock_limiter):
         """Test reset fails with invalid token"""
         from unittest.mock import AsyncMock
 
         mock_auth_service.reset_password = AsyncMock(return_value=False)
 
-        response = client.post(
+        response = await client.post(
             "/api/v1/auth/reset-password",
             json={"token": "invalid-token", "new_password": "newpassword123"},
         )
@@ -362,10 +363,11 @@ class TestResetPasswordEndpoint:
 class TestAuthMeEndpoint:
     """Tests for GET /auth/me"""
 
-    def test_get_current_user(self, client):
+    async def test_get_current_user(self, client):
         """Test getting current user info"""
         with patch("routes.auth.get_current_user") as mock_user:
-            mock_user.return_value = MagicMock(id="test-id", email="test@example.com", name="Test User")
+            from unittest.mock import AsyncMock
+            mock_user.side_effect = AsyncMock(return_value=MagicMock(id="test-id", email="test@example.com", name="Test User"))
 
             # This test would need proper auth header setup
             # For now we just verify the endpoint exists
