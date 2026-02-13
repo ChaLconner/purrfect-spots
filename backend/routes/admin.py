@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from dependencies import get_supabase_admin_client, get_current_admin_user
-from logger import logger
-from typing import List, Optional
-from user_models.user import UserResponse
 from datetime import datetime
+from typing import Any, List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException
+
+from dependencies import get_current_admin_user, get_supabase_admin_client
+from logger import logger
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -13,7 +14,7 @@ async def list_users(
     offset: int = 0,
     search: Optional[str] = None,
     current_admin: dict = Depends(get_current_admin_user)
-):
+) -> List[dict[str, Any]]:
     """
     List all users with pagination and optional search.
     Only accessible by admins.
@@ -32,7 +33,7 @@ async def list_users(
         raise HTTPException(status_code=500, detail="Failed to fetch users")
 
 @router.get("/stats")
-async def get_system_stats(current_admin: dict = Depends(get_current_admin_user)):
+async def get_system_stats(current_admin: dict = Depends(get_current_admin_user)) -> dict[str, Any]:
     """
     Get basic system statistics.
     """
@@ -40,10 +41,10 @@ async def get_system_stats(current_admin: dict = Depends(get_current_admin_user)
         admin_client = get_supabase_admin_client()
         
         # User count
-        user_count = admin_client.table("users").select("id", count="exact").execute().count
+        user_count = admin_client.table("users").select("id", count="exact").execute().count  # type: ignore
         
         # Photo count
-        photo_count = admin_client.table("cat_photos").select("id", count="exact").is_("deleted_at", "null").execute().count
+        photo_count = admin_client.table("cat_photos").select("id", count="exact").is_("deleted_at", "null").execute().count  # type: ignore
         
         # Recent activity (last 24h)
         # Note: This might be slow on large datasets, optimize later
@@ -58,7 +59,7 @@ async def get_system_stats(current_admin: dict = Depends(get_current_admin_user)
         raise HTTPException(status_code=500, detail="Failed to fetch stats")
 
 @router.delete("/users/{user_id}")
-async def delete_user(user_id: str, current_admin: dict = Depends(get_current_admin_user)):
+async def delete_user(user_id: str, current_admin: dict = Depends(get_current_admin_user)) -> dict[str, str]:
     """
     Delete (ban) a user.
     """

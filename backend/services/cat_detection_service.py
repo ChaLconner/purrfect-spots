@@ -12,7 +12,7 @@ from PIL import Image
 class CatDetectionService:
     """Service for cat detection and spot analysis using Google Cloud Vision API"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the service"""
         from services.google_vision import GoogleVisionService
 
@@ -79,7 +79,7 @@ class CatDetectionService:
                     )
 
             # Format the result
-            result = {
+            return {
                 "has_cats": vision_result.get("has_cats", False),
                 "cat_count": vision_result.get("cat_count", 0),
                 "confidence": int(vision_result.get("confidence", 0)),
@@ -89,7 +89,6 @@ class CatDetectionService:
                 "reasoning": vision_result.get("reasoning", "Cannot analyze"),
             }
 
-            return result
 
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Cat detection failed: {e!s}")
@@ -106,8 +105,7 @@ class CatDetectionService:
         """
         try:
             # Use Google Vision API to analyze spot suitability
-            result = self.vision_service.analyze_cat_spot_suitability(file)
-            return result
+            return self.vision_service.analyze_cat_spot_suitability(file)
 
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Spot analysis failed: {e!s}")

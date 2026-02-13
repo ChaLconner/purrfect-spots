@@ -15,6 +15,7 @@ from routes import (
     gallery,
     notifications,
     profile,
+    seo,
     social,
     subscription,
     treats,
@@ -46,3 +47,6 @@ router.include_router(treats.router)
 # Social
 router.include_router(social.router)
 router.include_router(notifications.router)
+
+# SEO
+router.include_router(seo.router)

@@ -76,7 +76,7 @@ export function useAuthForm(initialMode: 'login' | 'register' = 'login') {
       }
 
       authStore.setAuth(data);
-      showSuccess(`Welcome back, ${data.user.name || 'Traveler'}!`, 'Authentication Successful');
+      showSuccess(`Welcome back, ${data.user.name || 'Traveler'}!`, 'Successful');
 
       const redirectPath = sessionStorage.getItem('redirectAfterAuth') || '/upload';
       sessionStorage.removeItem('redirectAfterAuth');

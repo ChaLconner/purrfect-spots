@@ -6,11 +6,7 @@ const routes = [
     path: '/',
     name: 'Home',
     component: () => import('@/views/MapView.vue'),
-  },
-  {
-    path: '/map',
-    name: 'Map',
-    component: () => import('@/views/MapView.vue'),
+    alias: '/map', // Allow /map to work but serve same content
   },
   {
     path: '/upload',
@@ -105,6 +101,12 @@ const routes = [
     name: 'TermsOfService',
     component: () => import('@/views/TermsOfServiceView.vue'),
   },
+  // Catch-all 404 - Should always be the last route
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'NotFound',
+    component: () => import('@/views/NotFoundView.vue'),
+  },
 ];
 
 const router = createRouter({
@@ -153,6 +155,23 @@ router.beforeEach(async (to) => {
   }
 
   return true;
+});
+
+// Dynamic Title Management
+router.afterEach((to) => {
+  const baseTitle = 'Purrfect Spots';
+  if (to.meta.title) {
+    document.title = `${to.meta.title} | ${baseTitle}`;
+  } else if (to.name) {
+    // Fallback to route name if no meta title
+    // e.g. "UserProfile" -> "User Profile"
+    const readableName = String(to.name)
+      .replace(/([A-Z])/g, ' $1')
+      .trim();
+    document.title = `${readableName} | ${baseTitle}`;
+  } else {
+    document.title = baseTitle;
+  }
 });
 
 export default router;

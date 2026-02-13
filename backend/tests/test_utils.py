@@ -14,7 +14,7 @@ import pytest
 class TestFileProcessing:
     """Test suite for file processing utilities"""
 
-    def test_validate_coordinates_valid(self):
+    def test_validate_coordinates_valid(self) -> None:
         """Test coordinate validation with valid values"""
         from utils.file_processing import validate_coordinates
 
@@ -23,7 +23,7 @@ class TestFileProcessing:
         assert lat == pytest.approx(13.7563)
         assert lng == pytest.approx(100.5018)
 
-    def test_validate_coordinates_invalid_lat(self):
+    def test_validate_coordinates_invalid_lat(self) -> None:
         """Test coordinate validation with invalid latitude"""
         from fastapi import HTTPException
 
@@ -33,7 +33,7 @@ class TestFileProcessing:
             validate_coordinates("91", "100")  # Lat > 90
         assert excinfo.value.status_code == 400
 
-    def test_validate_coordinates_invalid_lng(self):
+    def test_validate_coordinates_invalid_lng(self) -> None:
         """Test coordinate validation with invalid longitude"""
         from fastapi import HTTPException
 
@@ -43,7 +43,7 @@ class TestFileProcessing:
             validate_coordinates("13", "181")  # Lng > 180
         assert excinfo.value.status_code == 400
 
-    def test_validate_coordinates_non_numeric(self):
+    def test_validate_coordinates_non_numeric(self) -> None:
         """Test coordinate validation with non-numeric values"""
         from fastapi import HTTPException
 
@@ -53,7 +53,7 @@ class TestFileProcessing:
             validate_coordinates("abc", "100")
         assert excinfo.value.status_code == 400
 
-    def test_validate_location_data(self):
+    def test_validate_location_data(self) -> None:
         """Test location data validation and cleaning"""
         from utils.file_processing import validate_location_data
 
@@ -62,7 +62,7 @@ class TestFileProcessing:
         assert location == "Test Location"
         assert description == "Test description"
 
-    def test_validate_location_data_empty_name(self):
+    def test_validate_location_data_empty_name(self) -> None:
         """Test location validation with empty name"""
         from fastapi import HTTPException
 
@@ -72,7 +72,7 @@ class TestFileProcessing:
             validate_location_data("", "description")
         assert excinfo.value.status_code == 400
 
-    def test_validate_location_data_long_name(self):
+    def test_validate_location_data_long_name(self) -> None:
         """Test location validation with long name truncates it"""
         from utils.file_processing import validate_location_data
 
@@ -88,7 +88,7 @@ class TestFileProcessing:
 class TestImageUtils:
     """Test suite for image utility functions"""
 
-    def test_get_image_dimensions_valid(self):
+    def test_get_image_dimensions_valid(self) -> None:
         """Test getting image dimensions from valid image"""
         from PIL import Image
 
@@ -105,7 +105,7 @@ class TestImageUtils:
         assert width == 1920
         assert height == 1080
 
-    def test_get_image_dimensions_invalid(self):
+    def test_get_image_dimensions_invalid(self) -> None:
         """Test getting image dimensions from invalid data"""
         from utils.image_utils import get_image_dimensions
 
@@ -116,7 +116,7 @@ class TestImageUtils:
         assert height == 0
 
     @patch("utils.image_utils.logger")
-    def test_optimize_image(self, mock_logger):
+    def test_optimize_image(self, mock_logger) -> None:
         """Test image optimization default behavior (JPEG)"""
         from PIL import Image
 
@@ -136,7 +136,7 @@ class TestImageUtils:
         opt_img = Image.open(io.BytesIO(optimized_bytes))
         assert max(opt_img.size) <= 1920
 
-    def test_optimize_image_rgba(self):
+    def test_optimize_image_rgba(self) -> None:
         """Test optimization of RGBA images (transparency to white bg)"""
         from PIL import Image
 
@@ -154,7 +154,7 @@ class TestImageUtils:
         opt_img = Image.open(io.BytesIO(optimized_bytes))
         assert opt_img.mode == "RGB"
 
-    def test_optimize_image_vertical_resize(self):
+    def test_optimize_image_vertical_resize(self) -> None:
         """Test resizing logic for tall images"""
         from PIL import Image
 
@@ -175,7 +175,7 @@ class TestImageUtils:
         assert h == 1000
         assert w < 1000  # Aspect ratio preserved (approx 333)
 
-    def test_optimize_image_target_format_webp(self):
+    def test_optimize_image_target_format_webp(self) -> None:
         """Test forcing WEBP format"""
         from PIL import Image
 
@@ -191,7 +191,7 @@ class TestImageUtils:
         opt_img = Image.open(io.BytesIO(optimized_bytes))
         assert opt_img.format == "WEBP"
 
-    def test_optimize_image_gif_passthrough(self):
+    def test_optimize_image_gif_passthrough(self) -> None:
         """Test GIF images are passed through untouched"""
         from PIL import Image
 
@@ -209,7 +209,7 @@ class TestImageUtils:
         assert optimized_bytes == original_bytes
         # Content type might be normalized but check behavior
 
-    def test_optimize_image_corrupted(self):
+    def test_optimize_image_corrupted(self) -> None:
         """Test graceful handling of corrupted images"""
         from utils.image_utils import optimize_image
 
@@ -221,7 +221,7 @@ class TestImageUtils:
         assert optimized_bytes == bad_data
         assert content_type == "image/jpeg"
 
-    def test_is_valid_image(self):
+    def test_is_valid_image(self) -> None:
         """Test image validation"""
         from PIL import Image
 
@@ -241,7 +241,7 @@ class TestImageUtils:
 class TestFileUtils:
     """Test suite for file utilities"""
 
-    def test_get_safe_file_extension_from_content_type(self):
+    def test_get_safe_file_extension_from_content_type(self) -> None:
         """Test getting file extension from content type"""
         from utils.file_utils import get_safe_file_extension
 
@@ -250,7 +250,7 @@ class TestFileUtils:
         assert get_safe_file_extension("photo.gif", "image/gif") == ".gif"
         assert get_safe_file_extension("photo.webp", "image/webp") == ".webp"
 
-    def test_get_safe_file_extension_fallback(self):
+    def test_get_safe_file_extension_fallback(self) -> None:
         """Test file extension fallback to filename"""
         from utils.file_utils import get_safe_file_extension
 
@@ -258,21 +258,21 @@ class TestFileUtils:
         ext = get_safe_file_extension("photo.jpeg", "application/octet-stream")
         assert ext in [".jpeg", ".jpg"]
 
-    def test_validate_image_file_valid(self):
+    def test_validate_image_file_valid(self) -> None:
         """Test image file validation with valid params"""
         from utils.file_utils import validate_image_file
 
         # Should not raise
         validate_image_file("image/jpeg", 1024 * 1024)  # 1MB
 
-    def test_validate_image_file_too_large(self):
+    def test_validate_image_file_too_large(self) -> None:
         """Test image file validation with file too large"""
         from utils.file_utils import validate_image_file
 
         with pytest.raises(ValueError):
             validate_image_file("image/jpeg", 15 * 1024 * 1024)  # 15MB
 
-    def test_validate_image_file_wrong_type(self):
+    def test_validate_image_file_wrong_type(self) -> None:
         """Test image file validation with wrong content type"""
         from utils.file_utils import validate_image_file
 
@@ -283,7 +283,7 @@ class TestFileUtils:
 class TestRateLimiter:
     """Test suite for rate limiter"""
 
-    def test_get_user_id_from_request_authenticated(self):
+    def test_get_user_id_from_request_authenticated(self) -> None:
         """Test user ID extraction from authenticated request"""
         import jwt
 
@@ -305,7 +305,7 @@ class TestRateLimiter:
 
         assert result == "user:user-123"
 
-    def test_get_user_id_from_request_unauthenticated(self):
+    def test_get_user_id_from_request_unauthenticated(self) -> None:
         """Test user ID extraction from unauthenticated request"""
         from limiter import get_user_id_from_request
 

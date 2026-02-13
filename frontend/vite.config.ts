@@ -42,7 +42,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['cat-icon.png', 'default-avatar.svg'],
+      includeAssets: ['cat-icon-192.png', 'cat-icon-512.png', 'default-avatar.svg'],
       manifest: {
         name: 'Purrfect Spots',
         short_name: 'PurrfectSpots',
@@ -53,19 +53,64 @@ export default defineConfig({
         orientation: 'portrait',
         icons: [
           {
-            src: 'cat-icon.png',
+            src: 'cat-icon-192.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: 'cat-icon.png',
+            src: 'cat-icon-512.png',
             sizes: '512x512',
             type: 'image/png'
           }
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}']
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // 10 MiB to accommodate large images
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/v1/gallery'),
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-gallery-cache',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 // 1 hour
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/v1/gallery/locations'),
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-locations-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 // 1 hour
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/v1/gallery/popular-tags'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'api-tags-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 24 * 60 * 60 // 24 hours
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          }
+        ]
       }
     }),
     viteCompression({
@@ -198,7 +243,6 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ["@googlemaps/js-api-loader"],
-    force: true
   },
   define: {
     // Ensure environment variables are properly replaced

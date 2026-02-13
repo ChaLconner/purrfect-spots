@@ -160,7 +160,9 @@ class Config:
     REDIS_URL = os.getenv("REDIS_URL")
 
     # App URLs
-    FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    # App URLs
+    _frontend_urls = os.getenv("FRONTEND_URL", "http://localhost:5173").split(",")
+    FRONTEND_URL = _frontend_urls[0].strip() if _frontend_urls else "http://localhost:5173"
 
     # Sentry (optional)
     SENTRY_DSN = os.getenv("SENTRY_DSN")
@@ -212,6 +214,15 @@ class Config:
     # 2. Concurrent session management
     # 3. Security event logging
     # 4. User experience (auto-logout on idle)
+
+    # ==========================================
+    # Payment / Subscription Configuration
+    # ==========================================
+    STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
+    STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
+
+    # Treat packages are now managed in the database (public.treat_packages)
+    # Use TreatsService.get_packages() to fetch them.
 
     @staticmethod
     def validate_required_config() -> list[str]:

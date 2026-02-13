@@ -71,3 +71,11 @@ build-reports/
 # Local Review
 lint_output.txt
 docs/archive/
+# Debug & Junk
+*_errors.txt
+*_output.txt
+test_out.txt
+type_check.log
+debug.log
+backend/dist/
+frontend/coverage/

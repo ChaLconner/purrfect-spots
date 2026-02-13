@@ -100,7 +100,7 @@ export function useThrottleFn<T extends (...args: Parameters<T>) => ReturnType<T
   };
 
   // Add cancel method
-  throttledFn.cancel = () => {
+  throttledFn.cancel = (): void => {
     if (timeoutId) {
       clearTimeout(timeoutId);
       timeoutId = null;

@@ -6,6 +6,7 @@ Enhanced with security features: rate limiting, input sanitization, security log
 import json
 import uuid
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
@@ -29,7 +30,7 @@ router = APIRouter(prefix="/upload", tags=["Upload"])
 
 
 # Alias for backward compatibility with tests
-def parse_tags(tags_json):
+def parse_tags(tags_json: str | None) -> list[str]:
     """Backward compatible alias for parse_and_sanitize_tags"""
     return parse_and_sanitize_tags(tags_json)
 
@@ -42,7 +43,7 @@ def get_cat_detection_service() -> CatDetectionService:
     return cat_detection_service
 
 
-def parse_and_sanitize_tags(tags_json: str | None) -> list:
+def parse_and_sanitize_tags(tags_json: str | None) -> list[str]:
     """Parse and sanitize tags from JSON string with security measures."""
     if not tags_json:
         return []
@@ -58,7 +59,7 @@ def parse_and_sanitize_tags(tags_json: str | None) -> list:
     return []
 
 
-def format_tags_for_description(tags: list, description: str) -> str:
+def format_tags_for_description(tags: list[str], description: str) -> str:
     """Append hashtags to description for backward compatibility."""
     if not tags:
         return description
@@ -98,7 +99,7 @@ def validate_cat_detection_data(cat_data: dict) -> bool:
 
 async def _perform_server_side_detection(
     file: UploadFile, detection_service: CatDetectionService, user_id: str, client_cat_data: dict | None
-) -> dict:
+) -> dict[str, Any]:
     """Run server-side cat detection and validate results"""
     # CRITICAL SECURITY FIX: Always perform server-side detection
     await file.seek(0)
@@ -140,8 +141,9 @@ async def _perform_server_side_detection(
     }
 
 
-def _save_photo_to_db(supabase_admin, photo_data: dict, user_id: str, image_url: str, storage_service) -> dict:
+def _save_photo_to_db(supabase_admin: Any, photo_data: dict[str, Any], user_id: str, image_url: str, storage_service: StorageService) -> dict[str, Any]:
     """Save photo metadata to database with rollback support"""
+    from typing import cast
     try:
         result = supabase_admin.table("cat_photos").insert(photo_data).execute()
 
@@ -150,7 +152,7 @@ def _save_photo_to_db(supabase_admin, photo_data: dict, user_id: str, image_url:
 
             raise ExternalServiceError("Database insert returned no data", service="Supabase")
 
-        return result.data[0]
+        return cast(dict[str, Any], result.data[0])
 
     except Exception as db_error:
         # Rollback: Delete file from S3 if DB insert fails
@@ -177,11 +179,11 @@ async def upload_cat_photo(
     description: str | None = Form(""),
     tags: str | None = Form(None),
     cat_detection_data: str | None = Form(None),
-    current_user=Depends(get_current_user),
-    supabase=Depends(get_supabase_client),
+    current_user: Any = Depends(get_current_user),
+    supabase: Any = Depends(get_supabase_client),
     detection_service: CatDetectionService = Depends(get_cat_detection_service),
     storage_service: StorageService = Depends(get_storage_service),
-):
+) -> JSONResponse:
     """
     Upload cat photo with location information.
 
@@ -274,8 +276,8 @@ async def upload_cat_photo(
         created_photo = _save_photo_to_db(supabase_admin, photo_data, user_id, image_url, storage_service)
 
         # Invalidate gallery and tags cache after new upload
-        invalidate_gallery_cache()
-        invalidate_tags_cache()
+        await invalidate_gallery_cache()
+        await invalidate_tags_cache()
 
         log_security_event(
             "cat_photo_upload_success",
@@ -324,7 +326,7 @@ async def upload_cat_photo(
 
 
 @router.get("/test")
-async def test_upload_endpoint():
+async def test_upload_endpoint() -> dict[str, Any]:
     """
     Test if upload endpoint is working
     """

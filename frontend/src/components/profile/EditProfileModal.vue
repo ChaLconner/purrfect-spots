@@ -53,22 +53,7 @@ const passwordForm = reactive({
 
 const authStore = useAuthStore();
 const isSocialUser = computed(() => {
-  // Logic to determine if user is from social provider
-  // Usually social users have avatars from google/facebook domains
-  const avatarUrl = props.initialPicture || '';
-
-  const isSocialDomain = (url: string) => {
-    try {
-      const hostname = new URL(url).hostname;
-      return hostname.endsWith('googleusercontent.com') || hostname.endsWith('facebook.com');
-    } catch {
-      return false;
-    }
-  };
-
-  return (
-    isSocialDomain(avatarUrl) || (authStore.user?.picture && isSocialDomain(authStore.user.picture))
-  );
+  return !!authStore.user?.google_id;
 });
 
 // Sync form when props change
@@ -195,17 +180,18 @@ const handleKeydown = (event: KeyboardEvent) => {
       leave-from-class="opacity-100"
       leave-to-class="opacity-0"
     >
-      <dialog
+      <div
         v-if="isOpen"
         class="fixed inset-0 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-        open
+        role="dialog"
+        aria-modal="true"
         aria-labelledby="edit-profile-title"
         @click="handleBackdropClick"
         @keydown="handleKeydown"
       >
         <div
           ref="modalRef"
-          class="bg-white/90 backdrop-blur-xl rounded-[2rem] shadow-2xl p-8 w-full max-w-lg border border-white/50 transform transition-all relative overflow-hidden flex flex-col max-h-[90vh]"
+          class="bg-white/90 backdrop-blur-xl rounded-2xl md:rounded-[2rem] shadow-2xl p-4 sm:p-6 md:p-8 w-full max-w-lg border border-white/50 relative overflow-hidden flex flex-col max-h-[95vh] md:max-h-[90vh]"
           tabindex="-1"
         >
           <!-- Decorative background elements -->
@@ -219,21 +205,25 @@ const handleKeydown = (event: KeyboardEvent) => {
             class="absolute -bottom-10 -left-10 w-32 h-32 bg-sage/10 rounded-full blur-2xl"
           ></div>
 
-          <div class="overflow-y-auto pr-2 custom-scrollbar relative z-10">
+          <div class="flex-1 overflow-y-auto pr-1 sm:pr-2 custom-scrollbar relative z-10 p-1">
             <h2
               id="edit-profile-title"
-              class="text-3xl font-heading font-bold mb-8 text-brown text-center"
+              class="text-2xl sm:text-3xl font-heading font-bold mb-4 sm:mb-6 md:mb-8 text-brown text-center"
             >
               Edit Profile
             </h2>
 
-            <form class="space-y-6" @submit.prevent="handleSave">
+            <form
+              id="edit-profile-form"
+              class="space-y-4 sm:space-y-5 md:space-y-6 pb-6"
+              @submit.prevent="handleSave"
+            >
               <!-- Profile Picture Upload -->
-              <div class="flex flex-col items-center mb-6">
+              <div class="flex flex-col items-center mb-4 sm:mb-6">
                 <div class="relative group cursor-pointer" @click="triggerFileInput">
                   <img
                     :src="editForm.picture || '/default-avatar.svg'"
-                    class="w-32 h-32 rounded-full object-cover border-4 border-white shadow-md transition-transform group-hover:scale-105"
+                    class="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-full object-cover border-4 border-white shadow-md transition-transform group-hover:scale-105"
                     :alt="editForm.name ? `${editForm.name}` : 'Current profile'"
                   />
                   <div
@@ -258,7 +248,9 @@ const handleKeydown = (event: KeyboardEvent) => {
                   aria-label="Upload profile photo"
                   @change="handleFileSelect"
                 />
-                <p class="text-xs text-brown-light mt-2">Click to upload new picture</p>
+                <p class="text-[10px] sm:text-xs text-brown-light mt-1.5 sm:mt-2">
+                  Click to upload new picture
+                </p>
               </div>
 
               <div>
@@ -272,7 +264,7 @@ const handleKeydown = (event: KeyboardEvent) => {
                   id="profile-name"
                   v-model="editForm.name"
                   type="text"
-                  class="w-full px-5 py-3.5 bg-white/60 border-2 border-stone-200 rounded-2xl focus:outline-none focus:border-terracotta focus:bg-white focus:ring-4 focus:ring-terracotta/10 transition-all duration-300 text-brown font-medium placeholder-stone-400"
+                  class="w-full px-4 sm:px-5 py-2.5 sm:py-3 md:py-3.5 bg-white/60 border-2 border-stone-200 rounded-xl sm:rounded-2xl focus:outline-none focus:border-terracotta focus:bg-white focus:ring-4 focus:ring-terracotta/10 transition-all duration-300 text-sm sm:text-base text-brown font-medium placeholder-stone-400"
                   placeholder="Your name"
                   autocomplete="name"
                   required
@@ -290,7 +282,7 @@ const handleKeydown = (event: KeyboardEvent) => {
                   id="profile-username"
                   v-model="editForm.username"
                   type="text"
-                  class="w-full px-5 py-3.5 bg-white/60 border-2 border-stone-200 rounded-2xl focus:outline-none focus:border-terracotta focus:bg-white focus:ring-4 focus:ring-terracotta/10 transition-all duration-300 text-brown font-medium placeholder-stone-400"
+                  class="w-full px-4 sm:px-5 py-2.5 sm:py-3 md:py-3.5 bg-white/60 border-2 border-stone-200 rounded-xl sm:rounded-2xl focus:outline-none focus:border-terracotta focus:bg-white focus:ring-4 focus:ring-terracotta/10 transition-all duration-300 text-sm sm:text-base text-brown font-medium placeholder-stone-400"
                   placeholder="Unique username"
                   autocomplete="username"
                   pattern="^[a-zA-Z0-9_]+$"
@@ -311,8 +303,8 @@ const handleKeydown = (event: KeyboardEvent) => {
                 <textarea
                   id="profile-bio"
                   v-model="editForm.bio"
-                  class="w-full px-5 py-3.5 bg-white/60 border-2 border-stone-200 rounded-2xl focus:outline-none focus:border-terracotta focus:bg-white focus:ring-4 focus:ring-terracotta/10 transition-all duration-300 text-brown font-medium resize-none placeholder-stone-400"
-                  rows="4"
+                  class="w-full px-4 sm:px-5 py-2.5 sm:py-3 md:py-3.5 bg-white/60 border-2 border-stone-200 rounded-xl sm:rounded-2xl focus:outline-none focus:border-terracotta focus:bg-white focus:ring-4 focus:ring-terracotta/10 transition-all duration-300 text-sm sm:text-base text-brown font-medium resize-none placeholder-stone-400"
+                  rows="3"
                   placeholder="Tell us a bit about yourself..."
                 ></textarea>
               </div>
@@ -358,7 +350,7 @@ const handleKeydown = (event: KeyboardEvent) => {
                           :type="showPasswords ? 'text' : 'password'"
                           autocomplete="current-password"
                           required
-                          class="w-full px-4 py-2 bg-white/60 border-2 border-stone-200 rounded-xl focus:border-terracotta focus:ring-2 focus:ring-terracotta/10 outline-none text-brown pr-10"
+                          class="w-full px-4 sm:px-5 py-2.5 sm:py-3 bg-white/60 border-2 border-stone-200 rounded-xl sm:rounded-2xl focus:border-terracotta focus:ring-4 focus:ring-terracotta/10 outline-none transition-all duration-300 text-sm sm:text-base text-brown pr-10"
                         />
                         <button
                           type="button"
@@ -418,7 +410,7 @@ const handleKeydown = (event: KeyboardEvent) => {
                           :type="showPasswords ? 'text' : 'password'"
                           autocomplete="new-password"
                           required
-                          class="w-full px-4 py-2 bg-white/60 border-2 border-stone-200 rounded-xl focus:border-terracotta focus:ring-2 focus:ring-terracotta/10 outline-none text-brown pr-10"
+                          class="w-full px-4 sm:px-5 py-2.5 sm:py-3 bg-white/60 border-2 border-stone-200 rounded-xl sm:rounded-2xl focus:border-terracotta focus:ring-4 focus:ring-terracotta/10 outline-none transition-all duration-300 text-sm sm:text-base text-brown pr-10"
                         />
                       </div>
                       <div class="mt-3 flex flex-wrap gap-2">
@@ -452,7 +444,7 @@ const handleKeydown = (event: KeyboardEvent) => {
                         :type="showPasswords ? 'text' : 'password'"
                         autocomplete="new-password"
                         required
-                        class="w-full px-4 py-2 bg-white/60 border-2 border-stone-200 rounded-xl focus:border-terracotta focus:ring-2 focus:ring-terracotta/10 outline-none text-brown"
+                        class="w-full px-4 sm:px-5 py-2.5 sm:py-3 bg-white/60 border-2 border-stone-200 rounded-xl sm:rounded-2xl focus:border-terracotta focus:ring-4 focus:ring-terracotta/10 outline-none transition-all duration-300 text-sm sm:text-base text-brown"
                       />
                     </div>
                     <!-- Password Save Button -->
@@ -461,11 +453,11 @@ const handleKeydown = (event: KeyboardEvent) => {
                         type="button"
                         :disabled="
                           isUpdatingPassword ||
-                          !passwordForm.current ||
-                          !passwordForm.new ||
-                          !passwordForm.confirm
+                            !passwordForm.current ||
+                            !passwordForm.new ||
+                            !passwordForm.confirm
                         "
-                        class="px-5 py-2.5 bg-[#C07040] text-white rounded-lg text-sm font-bold hover:bg-[#A05030] shadow-md transition-all disabled:opacity-50 disabled:shadow-none cursor-pointer disabled:cursor-not-allowed"
+                        class="px-5 py-2.5 bg-[#C07040] text-white rounded-lg sm:rounded-xl text-sm font-bold hover:bg-[#A05030] shadow-md transition-all disabled:opacity-50 disabled:shadow-none cursor-pointer disabled:cursor-not-allowed"
                         @click="updatePassword"
                       >
                         {{ isUpdatingPassword ? 'Updating...' : 'Update Password' }}
@@ -474,28 +466,30 @@ const handleKeydown = (event: KeyboardEvent) => {
                   </template>
                 </div>
               </div>
-
-              <div
-                class="flex justify-end items-center gap-4 mt-8 pt-4 border-t border-stone-200/50 sticky bottom-0 p-2"
-              >
-                <button
-                  type="button"
-                  class="px-6 py-3 text-brown-dark hover:text-black font-heading font-bold transition-colors cursor-pointer"
-                  @click="handleClose"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  class="px-8 py-3 bg-[#C07040] hover:bg-[#A05030] text-white rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-300 cursor-pointer font-heading font-extrabold tracking-wide"
-                >
-                  Save Profile
-                </button>
-              </div>
             </form>
           </div>
+
+          <!-- Fixed Footer -->
+          <div
+            class="flex-shrink-0 flex justify-end items-center gap-2 sm:gap-3 md:gap-4 pt-3 sm:pt-4 mt-2 border-t border-stone-200/50 relative z-20"
+          >
+            <button
+              type="button"
+              class="px-4 sm:px-5 md:px-6 py-2 sm:py-2.5 md:py-3 text-sm sm:text-base text-brown-dark hover:text-black font-heading font-bold transition-colors cursor-pointer"
+              @click="handleClose"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="edit-profile-form"
+              class="px-5 sm:px-6 md:px-8 py-2 sm:py-2.5 md:py-3 text-sm sm:text-base bg-[#C07040] hover:bg-[#A05030] text-white rounded-lg sm:rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-300 cursor-pointer font-heading font-extrabold tracking-wide"
+            >
+              Save Profile
+            </button>
+          </div>
         </div>
-      </dialog>
+      </div>
     </Transition>
   </Teleport>
 </template>

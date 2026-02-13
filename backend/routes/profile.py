@@ -3,8 +3,10 @@ User profile management routes
 """
 
 from datetime import datetime, timezone
+from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Response, UploadFile
+from supabase import Client
 from pydantic import BaseModel
 from starlette.requests import Request
 
@@ -13,6 +15,7 @@ from dependencies import get_supabase_admin_client, get_supabase_client
 from limiter import auth_limiter
 from logger import logger
 from middleware.auth_middleware import get_current_user_from_credentials
+from schemas.location import CatLocation
 from services.storage_service import StorageService
 from user_models.user import User
 from utils.cache import invalidate_gallery_cache
@@ -37,11 +40,11 @@ from services.auth_service import AuthService
 from services.gallery_service import GalleryService
 
 
-def get_auth_service(supabase=Depends(get_supabase_client)):
+def get_auth_service(supabase: Client = Depends(get_supabase_client)) -> AuthService:
     return AuthService(supabase)
 
 
-def get_gallery_service(supabase=Depends(get_supabase_client)):
+def get_gallery_service(supabase: Client = Depends(get_supabase_client)) -> GalleryService:
     return GalleryService(supabase)
 
 
@@ -55,7 +58,7 @@ async def update_profile(
     profile_data: ProfileUpdateRequest,
     current_user: User = Depends(get_current_user_from_credentials),
     auth_service: AuthService = Depends(get_auth_service),
-):
+) -> dict[str, Any]:
     """
     Update user profile information
     """
@@ -130,7 +133,7 @@ async def get_profile(
     response: Response,
     current_user: User = Depends(get_current_user_from_credentials),
     auth_service: AuthService = Depends(get_auth_service),
-):
+) -> dict[str, Any]:
     """
     Get current user profile
     """
@@ -155,7 +158,7 @@ async def get_profile(
         raise HTTPException(status_code=500, detail="Failed to get profile")
 
 
-def get_admin_gallery_service(supabase=Depends(get_supabase_admin_client)):
+def get_admin_gallery_service(supabase: Client = Depends(get_supabase_admin_client)) -> GalleryService:
     return GalleryService(supabase)
 
 
@@ -164,7 +167,7 @@ async def get_public_profile(
     identifier: str,
     response: Response,
     auth_service: AuthService = Depends(get_auth_service),
-):
+) -> dict[str, Any]:
     """
     Get public user profile by ID or username
     """
@@ -202,7 +205,7 @@ async def get_public_profile(
         }
 
     except Exception:
-        logger.error(f"Failed to get public profile for {user_id}")
+        logger.error(f"Failed to get public profile for {identifier}")
         raise HTTPException(status_code=404, detail="User not found")
 
 
@@ -212,7 +215,7 @@ async def get_public_user_uploads(
     response: Response,
     gallery_service: GalleryService = Depends(get_admin_gallery_service),
     auth_service: AuthService = Depends(get_auth_service),
-):
+) -> dict[str, Any]:
     """
     Get public uploads by user_id or username
     """
@@ -235,7 +238,7 @@ async def get_public_user_uploads(
                  raise HTTPException(status_code=404, detail="User not found")
             user_id = user.id
 
-        photos = gallery_service.get_user_photos(user_id)
+        photos = await gallery_service.get_user_photos(user_id)
 
         # Format data
         uploads = []
@@ -251,7 +254,8 @@ async def get_public_user_uploads(
                     "longitude": photo.get("longitude"),
                 }
                 uploads.append(upload_item)
-            except Exception:
+            except Exception as e:
+                logger.debug(f"Skipping malformed photo {photo.get('id')}: {e}")
                 continue
 
         return {"uploads": uploads, "count": len(uploads)}
@@ -266,42 +270,17 @@ async def get_user_uploads(
     response: Response,
     current_user: User = Depends(get_current_user_from_credentials),
     gallery_service: GalleryService = Depends(get_admin_gallery_service),
-):
+) -> dict[str, Any]:
     """
     Get all uploads by current user - filtered by user_id
     """
     # Prevent caching of user uploads
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     try:
-        photos = gallery_service.get_user_photos(current_user.id)
+        photos = await gallery_service.get_user_photos(current_user.id)
 
-        # Format data
-        uploads = []
-        for photo in photos:
-            try:
-                upload_item = {
-                    "id": photo["id"],
-                    "image_url": photo["image_url"],
-                    "description": photo.get("description", ""),
-                    "location_name": photo.get("location_name", ""),
-                    "uploaded_at": photo.get("uploaded_at", ""),
-                    "latitude": photo.get("latitude"),
-                    "longitude": photo.get("longitude"),
-                }
-
-                if photo.get("latitude") and photo.get("longitude"):
-                    try:
-                        upload_item["location"] = {
-                            "lat": float(photo["latitude"]),
-                            "lng": float(photo["longitude"]),
-                        }
-                    except (ValueError, TypeError):
-                        pass  # Skip location if invalid
-
-                uploads.append(upload_item)
-            except Exception as item_error:
-                logger.warning("Error processing photo item %s: %s", photo.get("id"), item_error)
-                continue
+        # Use central schema for consistent data structure
+        uploads = [CatLocation(**photo).dict() for photo in photos]
 
         return {"uploads": uploads, "count": len(uploads)}
 
@@ -318,7 +297,7 @@ async def upload_profile_picture(
     current_user: User = Depends(get_current_user_from_credentials),
     auth_service: AuthService = Depends(get_auth_service),
     storage_service: StorageService = Depends(get_storage_service),
-):
+) -> dict[str, str]:
     """
     Upload and update profile picture
     """
@@ -358,7 +337,7 @@ async def change_password(
     password_data: ChangePasswordRequest,
     current_user: User = Depends(get_current_user_from_credentials),
     auth_service: AuthService = Depends(get_auth_service),
-):
+) -> dict[str, str]:
     """
     Change user password
     """
@@ -376,13 +355,12 @@ async def change_password(
             # Audit log: Success
             logger.info("[AUDIT] Password change SUCCESS")
             return {"message": "Password changed successfully"}
-        else:
-            # Audit log: Failure (Logic)
-            logger.warning("[AUDIT] Password change FAILED (logic)")
-            raise HTTPException(
-                status_code=400,
-                detail="Failed to change password (check current password)",
-            )
+        # Audit log: Failure (Logic)
+        logger.warning("[AUDIT] Password change FAILED (logic)")
+        raise HTTPException(
+            status_code=400,
+            detail="Failed to change password (check current password)",
+        )
 
     except HTTPException:
         # Audit log: Failure (Validation/Auth)
@@ -409,11 +387,11 @@ async def update_user_photo(
     update_data: UpdatePhotoRequest,
     current_user: User = Depends(get_current_user_from_credentials),
     gallery_service: GalleryService = Depends(get_admin_gallery_service),
-):
+) -> dict[str, str]:
     """Update a user's upload photo details (description, etc)"""
     try:
         # 1. Check ownership
-        photo = gallery_service.get_photo_by_id(photo_id)
+        photo = await gallery_service.get_photo_by_id(photo_id)
         if not photo:
             raise HTTPException(status_code=404, detail="Photo not found")
 
@@ -447,7 +425,7 @@ async def update_user_photo(
         gallery_service.supabase.table("cat_photos").update(valid_updates).eq("id", photo_id).execute()
 
         # Invalidate cache to ensure updates are reflected immediately
-        invalidate_gallery_cache()
+        await invalidate_gallery_cache()
 
         from utils.security import log_security_event
 
@@ -466,49 +444,31 @@ async def update_user_photo(
         raise HTTPException(status_code=500, detail="Failed to update photo")
 
 
-@router.delete("/uploads/{photo_id}")
+@router.delete("/uploads/{photo_id}", status_code=202)
 async def delete_user_photo(
     photo_id: str,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user_from_credentials),
     gallery_service: GalleryService = Depends(get_admin_gallery_service),
     storage_service: StorageService = Depends(get_storage_service),
-):
-    """Delete a user's uploaded photo"""
+) -> dict[str, str]:
+    """Delete a user's uploaded photo with background processing"""
     try:
-        # 1. Check ownership
-        photo = gallery_service.get_photo_by_id(photo_id)
+        # 1. Check ownership using service method
+        photo = await gallery_service.verify_photo_ownership(photo_id, current_user.id)
         if not photo:
-            raise HTTPException(status_code=404, detail="Photo not found")
+            raise HTTPException(status_code=404, detail="Photo not found or access denied")
 
-        if photo["user_id"] != current_user.id:
-            from utils.security import log_security_event
+        # 2. Schedule background deletion (same as gallery route)
+        background_tasks.add_task(
+            gallery_service.process_photo_deletion,
+            photo_id=photo_id,
+            image_url=photo.get("image_url") or "",
+            user_id=current_user.id,
+            storage_service=storage_service
+        )
 
-            log_security_event(
-                "unauthorized_delete_attempt",
-                user_id=current_user.id,
-                details={"photo_id": photo_id, "owner": photo["user_id"]},
-                severity="WARNING",
-            )
-            raise HTTPException(status_code=403, detail="Not authorized to delete this photo")
-
-        # 2. Delete from Storage (S3)
-        if photo.get("image_url"):
-            storage_service.delete_file(photo["image_url"])
-
-        # 3. Delete from Database
-        gallery_service.supabase.table("cat_photos").delete().eq("id", photo_id).execute()
-
-        # 4. Invalidate Caches
-        from utils.cache import invalidate_tags_cache
-
-        invalidate_gallery_cache()
-        invalidate_tags_cache()
-
-        from utils.security import log_security_event
-
-        log_security_event("photo_deleted", user_id=current_user.id, details={"photo_id": photo_id})
-
-        return {"message": "Photo deleted successfully"}
+        return {"message": "Deletion scheduled"}
 
     except HTTPException:
         raise

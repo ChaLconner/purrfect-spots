@@ -182,11 +182,18 @@
                 </svg>
                 ACTIVE PLAN
               </div>
+              <div
+                v-if="subscriptionStore.cancelAtPeriodEnd && subscriptionStore.subscriptionEndDate"
+                class="text-center mb-4 text-amber-600 font-medium text-sm"
+              >
+                Cancels on
+                {{ new Date(subscriptionStore.subscriptionEndDate).toLocaleDateString() }}
+              </div>
               <button
                 class="w-full bg-stone-100 text-stone-500 py-3 rounded-2xl hover:bg-stone-200 transition-colors font-bold text-sm"
-                @click="handleCancel"
+                @click="handleManageSubscription"
               >
-                Cancel Subscription
+                Manage Subscription
               </button>
             </div>
             <button
@@ -205,126 +212,81 @@
       <div>
         <h2 class="text-3xl font-heading font-bold text-brown mb-4 text-center">Buy Treats</h2>
         <p class="text-center text-brown-light mb-12 max-w-xl mx-auto font-body">
-          Show some love to your favorite cats! 🍬 Treats let you tip creators and earn a spot on
-          the leaderboard.
+          Show some love to your favorite cats! Treats let you tip creators and earn a spot on the
+          leaderboard.
         </p>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <!-- Tier 1: Small -->
+        <div
+          class="flex overflow-x-auto snap-x snap-mandatory sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-6 pt-8 pb-12 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 sm:overflow-visible hide-scrollbar"
+        >
           <div
-            class="bg-glass p-6 rounded-3xl border border-white/60 shadow-md hover:shadow-lg transition-all text-center flex flex-col group"
+            v-for="pkg in sortedPackages"
+            :key="pkg.key"
+            class="min-w-[80vw] sm:min-w-0 snap-center bg-glass p-6 rounded-3xl border border-white/60 shadow-md hover:shadow-lg transition-all text-center flex flex-col group relative"
+            :class="{ 'border-2 border-sage shadow-xl scale-105': pkg.key === 'medium' }"
           >
             <div
-              class="h-16 mb-4 flex items-center justify-center transition-transform group-hover:scale-110"
+              v-if="pkg.bonus > 0"
+              class="absolute -top-3 left-1/2 -translate-x-1/2 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm"
+              :class="
+                pkg.key === 'medium'
+                  ? 'bg-sage'
+                  : pkg.key === 'legendary'
+                    ? 'bg-orange-500'
+                    : 'bg-terracotta'
+              "
             >
-              <img src="/give-treat.png" alt="Treat" class="h-full object-contain" />
+              {{ pkg.key === 'medium' ? 'Best Value' : pkg.bonus + ' FREE!' }}
             </div>
-            <h4 class="text-lg font-bold text-brown mb-1">Tiny Snack</h4>
-            <p class="text-3xl font-extrabold text-brown mb-4">
-              10 <span class="text-sm font-normal text-stone-400">Treats</span>
-            </p>
-            <div class="mt-auto">
-              <button
-                class="w-full py-2.5 bg-white text-brown border-2 border-stone-100 hover:border-terracotta hover:text-terracotta rounded-xl font-bold transition-all text-sm mb-2"
-                @click="buyTreats('small')"
-              >
-                ฿49
-              </button>
-              <p class="text-[10px] text-stone-400 uppercase tracking-tighter">฿4.90 per treat</p>
-            </div>
-          </div>
 
-          <!-- Tier 2: Medium (Target) -->
-          <div
-            class="bg-white p-6 rounded-3xl border-2 border-sage shadow-xl hover:shadow-2xl transition-all text-center flex flex-col relative transform scale-105 group"
-          >
-            <div
-              class="absolute -top-3 left-1/2 -translate-x-1/2 bg-sage text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm"
-            >
-              Best Value
-            </div>
             <div
               class="h-16 mb-4 flex items-center justify-center transition-transform group-hover:scale-110"
             >
-              <img src="/give-treat.png" alt="Treat" class="h-full object-contain" />
+              <img src="/give-treat.png" alt="Treat" loading="lazy" class="h-full object-contain" />
             </div>
-            <h4 class="text-lg font-bold text-brown mb-1">Fishy Feast</h4>
+            <h4 class="text-lg font-bold text-brown mb-1">{{ pkg.name }}</h4>
             <p class="text-3xl font-extrabold text-brown mb-1">
-              35 <span class="text-sm font-normal text-stone-400">Treats</span>
+              {{ pkg.amount }} <span class="text-sm font-normal text-stone-400">Treats</span>
             </p>
-            <p class="text-sage-dark font-bold text-xs mb-4">30 + 5 FREE!</p>
-            <div class="mt-auto">
-              <button
-                class="w-full py-3 bg-sage hover:bg-sage-dark text-white rounded-xl font-bold shadow-lg shadow-sage/20 transition-all text-sm mb-2"
-                @click="buyTreats('medium')"
-              >
-                ฿129
-              </button>
-              <p class="text-[10px] text-stone-400 uppercase tracking-tighter line-through mb-0.5">
-                ฿171 VALUE
-              </p>
-              <p class="text-[10px] text-sage-dark font-bold uppercase tracking-tighter">
-                ฿3.68 per treat
-              </p>
-            </div>
-          </div>
+            <p
+              v-if="pkg.bonus > 0"
+              class="font-bold text-xs mb-4"
+              :class="
+                pkg.key === 'medium'
+                  ? 'text-sage-dark'
+                  : pkg.key === 'legendary'
+                    ? 'text-orange-500'
+                    : 'text-terracotta'
+              "
+            >
+              {{ pkg.amount - pkg.bonus }} + {{ pkg.bonus }} FREE!
+            </p>
+            <p v-else class="text-transparent font-bold text-xs mb-4 select-none">No Bonus</p>
 
-          <!-- Tier 3: Large -->
-          <div
-            class="bg-glass p-6 rounded-3xl border border-white/60 shadow-md hover:shadow-lg transition-all text-center flex flex-col group"
-          >
-            <div
-              class="h-16 mb-4 flex items-center justify-center transition-transform group-hover:scale-110"
-            >
-              <img src="/give-treat.png" alt="Treat" class="h-full object-contain" />
-            </div>
-            <h4 class="text-lg font-bold text-brown mb-1">Meaty Banquet</h4>
-            <p class="text-3xl font-extrabold text-brown mb-1">
-              125 <span class="text-sm font-normal text-stone-400">Treats</span>
-            </p>
-            <p class="text-terracotta font-bold text-xs mb-4">100 + 25 FREE!</p>
             <div class="mt-auto">
               <button
-                class="w-full py-2.5 bg-white text-brown border-2 border-stone-100 hover:border-terracotta hover:text-terracotta rounded-xl font-bold transition-all text-sm mb-2"
-                @click="buyTreats('large')"
+                class="w-full py-2.5 rounded-xl font-bold transition-all text-sm mb-2"
+                :class="
+                  pkg.key === 'medium'
+                    ? 'bg-sage hover:bg-sage-dark text-white shadow-lg shadow-sage/20 py-3'
+                    : 'bg-white text-brown border-2 border-stone-100 hover:border-terracotta hover:text-terracotta'
+                "
+                @click="buyTreats(pkg.key)"
               >
-                ฿399
+                ฿{{ pkg.price }}
               </button>
-              <p class="text-[10px] text-stone-400 uppercase tracking-tighter line-through mb-0.5">
-                ฿612 VALUE
-              </p>
-              <p class="text-[10px] text-terracotta font-bold uppercase tracking-tighter">
-                ฿3.19 per treat
-              </p>
-            </div>
-          </div>
-
-          <!-- Tier 4: Legendary -->
-          <div
-            class="bg-glass p-6 rounded-3xl border border-white/60 shadow-md hover:shadow-lg transition-all text-center flex flex-col group"
-          >
-            <div
-              class="h-16 mb-4 flex items-center justify-center transition-transform group-hover:scale-110"
-            >
-              <img src="/give-treat.png" alt="Treat" class="h-full object-contain" />
-            </div>
-            <h4 class="text-lg font-bold text-brown mb-1">Royal Buffet</h4>
-            <p class="text-3xl font-extrabold text-brown mb-1">
-              650 <span class="text-sm font-normal text-stone-400">Treats</span>
-            </p>
-            <p class="text-orange-500 font-bold text-xs mb-4">500 + 150 FREE!</p>
-            <div class="mt-auto">
-              <button
-                class="w-full py-2.5 bg-white text-brown border-2 border-stone-100 hover:border-terracotta hover:text-terracotta rounded-xl font-bold transition-all text-sm mb-2"
-                @click="buyTreats('legendary')"
+              <p
+                class="text-[10px] text-stone-400 uppercase tracking-tighter"
+                :class="{ 'line-through mb-0.5': pkg.bonus > 0 }"
               >
-                ฿1,499
-              </button>
-              <p class="text-[10px] text-stone-400 uppercase tracking-tighter line-through mb-0.5">
-                ฿3,185 VALUE
+                <!-- Value calculation logic or just hide value if simpler -->
+                {{ pkg.bonus > 0 ? 'VALUE' : '' }}
               </p>
-              <p class="text-[10px] text-orange-500 font-bold uppercase tracking-tighter">
-                ฿3.57 per treat
+              <p
+                class="text-[10px] uppercase tracking-tighter"
+                :class="pkg.key === 'medium' ? 'text-sage-dark font-bold' : 'text-stone-400'"
+              >
+                ฿{{ pkg.price_per_treat }} per treat
               </p>
             </div>
           </div>
@@ -336,6 +298,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useSubscriptionStore } from '../store/subscriptionStore';
 import { SubscriptionService } from '../services/subscriptionService';
 import { TreatsService } from '../services/treatsService';
@@ -345,18 +308,53 @@ import { useSeo } from '@/composables/useSeo';
 
 const subscriptionStore = useSubscriptionStore();
 const toastStore = useToastStore();
+const route = useRoute();
+const router = useRouter();
 const isLoading = ref(false);
+const purchasingPackage = ref<string | null>(null);
 const { setMetaTags } = useSeo();
 
-onMounted(() => {
-  subscriptionStore.fetchStatus();
+// Use store's cached sortedPackages directly
+const sortedPackages = subscriptionStore.sortedPackages;
+
+onMounted(async () => {
   setMetaTags({
     title: 'Subscription & Treats | Purrfect Spots',
     description: 'Upgrade your account and support the community with treats.',
   });
+
+  // Handle Return from Stripe (Success)
+  if (route.path.includes('/success') || route.query.purchase === 'success') {
+    toastStore.addToast({
+      title: 'Purchase Successful',
+      message: 'Thank you for your support! Your balance has been updated.',
+      type: 'success',
+    });
+    // Force refresh to get updated balance after purchase
+    subscriptionStore.refreshAll();
+
+    // Clean URL
+    router.replace('/subscription');
+  }
+
+  // Handle Return from Stripe (Cancel)
+  if (route.path.includes('/cancel') || route.query.purchase === 'cancel') {
+    toastStore.addToast({
+      title: 'Action Cancelled',
+      message: 'No charges were made.',
+      type: 'info',
+    });
+
+    // Clean URL
+    router.replace('/subscription');
+  }
+
+  // Parallel fetch: status + packages
+  await Promise.all([subscriptionStore.fetchStatus(), subscriptionStore.fetchPackages()]);
 });
 
-async function handleSubscribe() {
+async function handleSubscribe(): Promise<void> {
+  if (isLoading.value) return;
   isLoading.value = true;
   try {
     const priceId = import.meta.env.VITE_STRIPE_PRO_PRICE_ID;
@@ -364,11 +362,11 @@ async function handleSubscribe() {
 
     const { checkout_url } = await SubscriptionService.createCheckout(priceId);
     window.location.href = checkout_url;
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error(e);
     toastStore.addToast({
       title: 'Error',
-      message: e.message || 'Failed to start checkout',
+      message: (e as Error).message || 'Failed to start checkout',
       type: 'error',
     });
   } finally {
@@ -376,25 +374,29 @@ async function handleSubscribe() {
   }
 }
 
-async function handleCancel() {
-  if (
-    !window.confirm(
-      'Are you sure you want to cancel your subscription? You will lose Pro features at the end of the billing period.'
-    )
-  )
-    return;
+async function handleManageSubscription(): Promise<void> {
+  if (isLoading.value) return;
+  isLoading.value = true;
   try {
-    await SubscriptionService.cancel();
-    toastStore.addToast({ title: 'Success', message: 'Subscription cancelled', type: 'success' });
-    await subscriptionStore.fetchStatus();
+    // Use clean URL for return to avoid stale query params
+    const returnUrl = `${window.location.origin}/subscription`;
+    const { url } = await SubscriptionService.createPortalSession(returnUrl);
+    window.location.href = url;
   } catch (e) {
     console.error(e);
-    toastStore.addToast({ title: 'Error', message: 'Failed to cancel', type: 'error' });
+    toastStore.addToast({
+      title: 'Error',
+      message: 'Failed to access subscription portal',
+      type: 'error',
+    });
+  } finally {
+    isLoading.value = false;
   }
 }
 
-async function buyTreats(packageType: 'small' | 'medium' | 'large' | 'legendary') {
-  isLoading.value = true;
+async function buyTreats(packageType: string): Promise<void> {
+  if (purchasingPackage.value) return; // prevent double-click
+  purchasingPackage.value = packageType;
   try {
     const { checkout_url } = await TreatsService.purchaseCheckout(packageType);
     window.location.href = checkout_url;
@@ -406,7 +408,7 @@ async function buyTreats(packageType: 'small' | 'medium' | 'large' | 'legendary'
       type: 'error',
     });
   } finally {
-    isLoading.value = false;
+    purchasingPackage.value = null;
   }
 }
 </script>
@@ -445,5 +447,18 @@ async function buyTreats(packageType: 'small' | 'medium' | 'large' | 'legendary'
 }
 .border-sage {
   border-color: #8da18e;
+}
+</style>
+
+<style>
+/* Global utility for hiding scrollbar but allowing scroll */
+.hide-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 </style>

@@ -11,8 +11,11 @@ Adds a unique request ID to each request for:
 import uuid
 from contextvars import ContextVar
 
+from typing import Callable, Awaitable
+
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 
 # Context variable for request ID (thread-safe, async-safe)
 request_id_ctx: ContextVar[str] = ContextVar("request_id", default="")
@@ -31,7 +34,7 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
 
     HEADER_NAME = "X-Request-ID"
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         # Get existing request ID or generate new one
         request_id = request.headers.get(self.HEADER_NAME)
         if not request_id:

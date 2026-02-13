@@ -49,12 +49,13 @@ def sanitize_text(text: str, max_length: int | None = None) -> str:
     # Strip whitespace
     text = text.strip()
 
-    # HTML escape special characters
-    text = html.escape(text, quote=True)
-
-    # Remove any remaining dangerous patterns
+    # Remove any dangerous patterns BEFORE escaping
+    # If we escape first, patterns like <script> will become &lt;script&gt; and won't be caught
     for pattern in DANGEROUS_PATTERNS:
         text = re.sub(pattern, "", text, flags=re.IGNORECASE | re.DOTALL)
+
+    # HTML escape special characters
+    text = html.escape(text, quote=True)
 
     # Normalize whitespace
     text = re.sub(r"\s+", " ", text)
@@ -66,7 +67,7 @@ def sanitize_text(text: str, max_length: int | None = None) -> str:
     return text
 
 
-def sanitize_html(text: str, allowed_tags: list | None = None) -> str:
+def sanitize_html(text: str, allowed_tags: list[str] | None = None) -> str:
     """
     Sanitize HTML content while preserving allowed tags.
 
@@ -113,7 +114,7 @@ def sanitize_tag(tag: str) -> str:
     return tag[:MAX_TAG_LENGTH]
 
 
-def sanitize_tags(tags: list) -> list:
+def sanitize_tags(tags: list[str]) -> list[str]:
     """
     Sanitize a list of tags.
 
@@ -251,7 +252,7 @@ def log_security_event(
     severity: str = "INFO",
     ip_address: str | None = None,
     user_agent: str | None = None,
-):
+) -> None:
     """
     Log security-related events for audit trail.
 
@@ -314,7 +315,7 @@ def log_audit_event(
     ip_address: str | None = None,
     user_agent: str | None = None,
     success: bool = True,
-):
+) -> None:
     """
     Log audit events for sensitive operations.
 
@@ -377,7 +378,7 @@ def log_authentication_event(
     user_agent: str | None = None,
     success: bool = True,
     failure_reason: str | None = None,
-):
+) -> None:
     """
     Log authentication events for security monitoring.
 
@@ -418,7 +419,7 @@ def log_data_access_event(
     access_type: str = "read",
     ip_address: str | None = None,
     user_agent: str | None = None,
-):
+) -> None:
     """
     Log data access events for compliance monitoring.
 
@@ -453,7 +454,7 @@ def log_file_operation_event(
     user_agent: str | None = None,
     success: bool = True,
     error_message: str | None = None,
-):
+) -> None:
     """
     Log file operation events for security monitoring.
 

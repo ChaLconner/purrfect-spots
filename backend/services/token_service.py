@@ -34,7 +34,7 @@ class TokenService:
     - User-level invalidation support
     """
 
-    def __init__(self, redis_client: "aioredis.Redis | None" = None):
+    def __init__(self, redis_client: "aioredis.Redis | None" = None) -> None:
         """
         Initialize token service.
 
@@ -53,7 +53,7 @@ class TokenService:
         Hash token for secure storage.
         Never store raw tokens - use hash for lookup.
         """
-        return hashlib.sha256(token.encode()).hexdigest()[:32]
+        return hashlib.sha256(token.encode()).hexdigest()
 
     async def blacklist_token(
         self,
@@ -138,8 +138,7 @@ class TokenService:
         if token_hash in self._memory_blacklist:
             if self._memory_blacklist[token_hash] > datetime.now(timezone.utc):
                 return True
-            else:
-                del self._memory_blacklist[token_hash]
+            del self._memory_blacklist[token_hash]
         return False
 
     def _check_db_blacklist(self, jti: str | None, token_hash: str) -> bool:
@@ -232,7 +231,7 @@ class TokenService:
 
         return False
 
-    def _cleanup_memory_blacklist(self):
+    def _cleanup_memory_blacklist(self) -> None:
         """Remove expired entries from memory blacklist"""
         now = datetime.now(timezone.utc)
         expired = [k for k, expiry in self._memory_blacklist.items() if expiry <= now]

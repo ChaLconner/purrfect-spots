@@ -96,7 +96,7 @@ const sanitizeTag = (tag: string): string => {
   return cleaned.slice(0, props.maxTagLength);
 };
 
-const addTag = () => {
+const addTag = (): void => {
   if (!inputValue.value.trim()) return;
   if (props.modelValue.length >= props.maxTags) return;
 
@@ -117,27 +117,27 @@ const addTag = () => {
   inputValue.value = '';
 };
 
-const removeTag = (index: number) => {
+const removeTag = (index: number): void => {
   const newTags = [...props.modelValue];
   newTags.splice(index, 1);
   emit('update:modelValue', newTags);
 };
 
-const handleInputKeydown = (e: KeyboardEvent) => {
+const handleInputKeydown = (e: KeyboardEvent): void => {
   if (e.key === ',') {
     e.preventDefault();
     addTag();
   }
 };
 
-const handleBackspace = () => {
+const handleBackspace = (): void => {
   if (inputValue.value === '' && props.modelValue.length > 0) {
     removeTag(props.modelValue.length - 1);
   }
 };
 
 // Focus the input when clicking the container
-const focusInput = () => {
+const focusInput = (): void => {
   inputRef.value?.focus();
 };
 

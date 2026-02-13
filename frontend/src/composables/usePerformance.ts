@@ -9,7 +9,7 @@
  *
  * @module usePerformance
  */
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, type Ref } from 'vue';
 
 /**
  * Performance metric entry
@@ -147,7 +147,7 @@ export function measureSync<T>(name: string, fn: () => T, metadata?: Record<stri
 /**
  * Web Vitals observer
  */
-export function useWebVitals() {
+export function useWebVitals(): { vitals: Ref<Record<string, number>> } {
   const vitals = ref<Record<string, number>>({});
 
   onMounted(() => {
@@ -241,7 +241,7 @@ export function useWebVitals() {
 /**
  * Component render time tracking
  */
-export function useRenderTime(componentName: string) {
+export function useRenderTime(componentName: string): { renderTime: Ref<number>; startMeasure: () => void } {
   const renderStart = ref(0);
   const renderTime = ref(0);
 
@@ -261,7 +261,7 @@ export function useRenderTime(componentName: string) {
   });
 
   // Call this at the start of setup()
-  const startMeasure = () => {
+  const startMeasure = (): void => {
     renderStart.value = performance.now();
   };
 
@@ -271,7 +271,7 @@ export function useRenderTime(componentName: string) {
 /**
  * API call timing wrapper
  */
-export function useApiTiming() {
+export function useApiTiming(): { apiCalls: Ref<Map<string, number>>; trackApiCall: <T>(endpoint: string, method: string, apiCall: () => Promise<T>) => Promise<T> } {
   const apiCalls = ref<Map<string, number>>(new Map());
 
   const trackApiCall = async <T>(

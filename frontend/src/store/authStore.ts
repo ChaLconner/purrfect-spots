@@ -5,9 +5,11 @@
  * Handles user authentication, token management, and session verification.
  */
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import type { User, LoginResponse } from '../types/auth';
 import { ProfileService } from '../services/profileService';
+import { supabase } from '../lib/supabase';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 import { apiV1, setAccessToken, setAuthCallbacks } from '../utils/api';
 
@@ -22,6 +24,17 @@ function updateApiHeader(accessToken: string | null): void {
   }
 }
 
+/**
+ * Filter sensitive fields before caching to localStorage
+ */
+function sanitizeUserForCache(userData: User | null): Partial<User> | null {
+  if (!userData) return null;
+  // Omit sensitive/volatile fields that should only be trusted from the verified token/API
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { role, stripe_customer_id, treat_balance, ...safeData } = userData;
+  return safeData;
+}
+
 export const useAuthStore = defineStore('auth', () => {
   // ========== State ==========
 
@@ -33,6 +46,8 @@ export const useAuthStore = defineStore('auth', () => {
   const isLoading = ref(false);
   const error = ref<string | null>(null);
   const lastLoginTime = ref(0);
+
+  let balanceChannel: RealtimeChannel | null = null;
 
   // Singleton promise to avoid parallel refresh calls
   let refreshPromise: Promise<boolean> | null = null;
@@ -79,6 +94,10 @@ export const useAuthStore = defineStore('auth', () => {
     // This effectively restores the session using the HttpOnly cookie
     await refreshToken();
 
+    if (isAuthenticated.value) {
+      setupBalanceRealtime();
+    }
+
     isInitialized.value = true;
   }
 
@@ -105,7 +124,7 @@ export const useAuthStore = defineStore('auth', () => {
           isAuthenticated.value = true;
           if (response.user) {
             user.value = response.user;
-            localStorage.setItem('user_data', JSON.stringify(response.user));
+            localStorage.setItem('user_data', JSON.stringify(sanitizeUserForCache(response.user)));
           }
           updateApiHeader(response.access_token);
           return true;
@@ -152,11 +171,14 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null;
     lastLoginTime.value = Date.now();
 
-    // Persist user data for UX
-    localStorage.setItem('user_data', JSON.stringify(data.user));
+    // Persist safe user data for UX
+    localStorage.setItem('user_data', JSON.stringify(sanitizeUserForCache(data.user)));
 
     // Update headers/storage
     updateApiHeader(data.access_token);
+
+    // Setup realtime
+    setupBalanceRealtime();
   }
 
   /**
@@ -171,6 +193,12 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('user_data');
     localStorage.removeItem('user');
     updateApiHeader(null);
+
+    // Cleanup realtime
+    if (balanceChannel) {
+      supabase.removeChannel(balanceChannel);
+      balanceChannel = null;
+    }
   }
 
   /**
@@ -199,7 +227,7 @@ export const useAuthStore = defineStore('auth', () => {
   function updateUser(updates: Partial<User>) {
     if (user.value) {
       user.value = { ...user.value, ...updates };
-      localStorage.setItem('user_data', JSON.stringify(user.value));
+      localStorage.setItem('user_data', JSON.stringify(sanitizeUserForCache(user.value)));
     }
   }
 
@@ -223,6 +251,45 @@ export const useAuthStore = defineStore('auth', () => {
       // Navigation should be handled by the component calling this
     }
   }
+
+  function setupBalanceRealtime(): void {
+    if (!user.value?.id) return;
+
+    if (balanceChannel) {
+      supabase.removeChannel(balanceChannel);
+    }
+
+    balanceChannel = supabase
+      .channel(`user_balance_${user.value.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'users',
+          filter: `id=eq.${user.value.id}`,
+        },
+        (payload: { new: { treat_balance: number } }): void => {
+          if (payload.new && typeof payload.new.treat_balance === 'number' && user.value) {
+            updateUser({ treat_balance: payload.new.treat_balance });
+          }
+        }
+      )
+      .subscribe();
+  }
+
+  // Watch for user changes to handle setup/cleanup
+  watch(
+    () => user.value?.id,
+    (newId, oldId) => {
+      if (oldId && !newId && balanceChannel) {
+        supabase.removeChannel(balanceChannel);
+        balanceChannel = null;
+      } else if (newId && newId !== oldId) {
+        setupBalanceRealtime();
+      }
+    }
+  );
 
   // Initialize on store creation
   // Register callbacks to API utility to break circular dependency

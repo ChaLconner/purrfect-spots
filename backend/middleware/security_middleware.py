@@ -13,8 +13,9 @@ import os
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import RedirectResponse
+from starlette.responses import RedirectResponse, Response
 from starlette.types import ASGIApp
+from typing import Callable, Awaitable
 
 
 class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
@@ -23,11 +24,11 @@ class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
     Checks X-Forwarded-Proto header set by reverse proxies (Vercel, nginx, etc.)
     """
 
-    def __init__(self, app: ASGIApp):
+    def __init__(self, app: ASGIApp) -> None:
         super().__init__(app)
         self.is_production = os.getenv("ENVIRONMENT", "development").lower() == "production"
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         # Only enforce in production
         if self.is_production:
             # Check for forwarded proto (set by reverse proxy)
@@ -59,11 +60,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     - Permissions-Policy: Restricts browser features
     """
 
-    def __init__(self, app: ASGIApp):
+    def __init__(self, app: ASGIApp) -> None:
         super().__init__(app)
         self.is_production = os.getenv("ENVIRONMENT", "development").lower() == "production"
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         response = await call_next(request)
 
         # Content Security Policy (CSP)

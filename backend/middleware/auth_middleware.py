@@ -16,6 +16,7 @@ from dependencies import get_supabase_admin_client, get_supabase_client
 from logger import logger
 from services.token_service import get_token_service
 from user_models.user import User
+from utils.auth_utils import decode_token
 
 security = HTTPBearer(auto_error=False)
 
@@ -25,7 +26,7 @@ _jwks_last_update: int = 0
 JWKS_CACHE_TTL = 3600  # 1 hour
 
 
-async def get_jwks():
+async def get_jwks() -> dict | None:
     """Lazily fetch and cache JWKS"""
     global _jwks_cache, _jwks_last_update
 
@@ -56,7 +57,7 @@ async def get_jwks():
     return _jwks_cache
 
 
-async def decode_supabase_token(token: str):
+async def decode_supabase_token(token: str) -> dict:
     """Decode Supabase JWT token using JWKS"""
     try:
         jwks = await get_jwks()
@@ -73,25 +74,12 @@ async def decode_supabase_token(token: str):
             raise ValueError(f"Key with kid '{kid}' not found in JWKS")
 
         public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key)
-        payload = jwt.decode(token, public_key, algorithms=["RS256"], audience="authenticated")  # type: ignore[arg-type]
-        return payload
+        return jwt.decode(token, public_key, algorithms=["RS256"], audience="authenticated")  # type: ignore[arg-type]
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Invalid Supabase token: {e!s}")
 
 
-def decode_custom_token(token: str):
-    """Decode custom JWT token (fallback) - Sync part"""
-    jwt_secret = config.JWT_SECRET
-    if not jwt_secret:
-        raise HTTPException(status_code=500, detail="Server misconfiguration: JWT_SECRET not set")
-
-    try:
-        payload = jwt.decode(token, jwt_secret, algorithms=[config.JWT_ALGORITHM])
-        return payload
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+# decode_custom_token removed - replaced by utils.auth_utils.decode_token in _attempt_token_decoding
 
 
 async def _is_token_revoked(jti: str) -> bool:
@@ -125,11 +113,19 @@ def _get_user_from_payload(payload: dict, source: str) -> User:
             data = result.data
             return User(
                 id=data["id"],
+                username=data.get("username"),
                 email=data.get("email", ""),
-                name=data.get("name", ""),
-                picture=data.get("picture", ""),
+                name=data.get("name"),
+                picture=data.get("picture"),
                 bio=data.get("bio"),
-                created_at=data.get("created_at", ""),
+                is_pro=data.get("is_pro", False),
+                stripe_customer_id=data.get("stripe_customer_id"),
+                subscription_end_date=data.get("subscription_end_date"),
+                cancel_at_period_end=data.get("cancel_at_period_end", False),
+                treat_balance=data.get("treat_balance", 0),
+                role=data.get("role", "user"),
+                created_at=data.get("created_at"),
+                google_id=data.get("google_id"),
             )
     except Exception:
         # Fallback to payload data if DB lookup fails
@@ -149,16 +145,18 @@ def _get_user_from_payload(payload: dict, source: str) -> User:
             picture=user_metadata.get("avatar_url", user_metadata.get("picture", "")),
             bio=None,
             created_at=created_at,
+            google_id=user_metadata.get("provider_id") if payload.get("app_metadata", {}).get("provider") == "google" else None,
         )
-    else:  # custom
-        return User(
-            id=user_id,
-            email=payload.get("email", ""),
-            name=payload.get("name", ""),
-            picture=payload.get("picture", ""),
-            bio=payload.get("bio"),
-            created_at=created_at,
-        )
+    # custom
+    return User(
+        id=user_id,
+        email=payload.get("email", ""),
+        name=payload.get("name", ""),
+        picture=payload.get("picture", ""),
+        bio=payload.get("bio"),
+        created_at=created_at,
+        google_id=payload.get("google_id"),
+    )
 
 
 def _verify_via_supabase_api(token: str, supabase: Client) -> dict | None:
@@ -199,22 +197,26 @@ async def _attempt_token_decoding(token: str, supabase: Client | None) -> tuple[
         logger.debug("Supabase token decoding attempted but failed: %s", e)
         pass
 
-    # 2. Try Custom JWT (Fallback)
+    # 2. Try Standard JWT Decoding (Supabase Key or Custom Secret)
     try:
-        payload = decode_custom_token(token)
-        logger.info("Token decoded successfully using custom JWT_SECRET")
-        return payload, "custom"
-    except HTTPException as http_exc:
-        logger.warning("Custom authentication check unsuccessful (Status Code: %d): %s", http_exc.status_code, http_exc.detail)
+        # decode_token handles both config.SUPABASE_KEY and config.JWT_SECRET
+        payload = decode_token(token)
+        logger.info("Token decoded successfully using verify_token utility")
+        
+        # Determine source - if it has app_metadata it's likely Supabase
+        source = "supabase" if "app_metadata" in payload else "custom"
+        return payload, source
+    except ValueError as e:
+        logger.debug("Standard token verification failed: %s", e)
     except Exception as e:
-        logger.debug("Custom authentication check unsuccessful: %s", e)
+        logger.debug("Unexpected error during standard token verification: %s", e)
 
     # 3. Try Direct API (Final Fallback)
     if supabase:
-        payload = _verify_via_supabase_api(token, supabase)
-        if payload:
+        api_payload = _verify_via_supabase_api(token, supabase)
+        if api_payload:
             logger.info("Token verified via direct Supabase Auth API")
-            return payload, "supabase"
+            return api_payload, "supabase"
 
     logger.warning("All authentication verification methods failed for the provided token")
     raise HTTPException(status_code=401, detail="Authentication failed: Invalid or expired token")
@@ -262,7 +264,7 @@ async def _verify_and_decode_token(token: str, supabase: Client | None = None) -
 async def get_current_user_from_credentials(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
     supabase: Client = Depends(get_supabase_client),
-):
+) -> User:
     """Get current authenticated user using Supabase Auth"""
     if not credentials:
         logger.warning("Missing Authorization header in request (credentials is None)")
@@ -277,7 +279,7 @@ async def get_current_user_from_credentials(
     return _get_user_from_payload(payload, source)
 
 
-async def get_current_user(request: Request):
+async def get_current_user(request: Request) -> User:
     """Get current user from request headers using JWT token"""
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
@@ -291,7 +293,7 @@ async def get_current_user(request: Request):
 async def get_current_user_optional(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
     supabase: Client = Depends(get_supabase_client),
-):
+) -> User | None:
     """Get current user if authenticated, otherwise return None"""
     if not credentials:
         return None
@@ -301,7 +303,7 @@ async def get_current_user_optional(
         return None
 
 
-async def get_current_user_from_header(request: Request):
+async def get_current_user_from_header(request: Request) -> dict:
     """Get decoded token payload from request headers"""
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):

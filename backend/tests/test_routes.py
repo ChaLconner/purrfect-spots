@@ -2,7 +2,7 @@
 Tests for API routes (integration tests)
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -46,13 +46,13 @@ class TestGalleryRoutes:
     def test_get_gallery_empty(self, client):
         """Test gallery endpoint returns empty list when no photos exist"""
         mock_service = MagicMock()
-        mock_service.get_all_photos.return_value = {
+        mock_service.get_all_photos = AsyncMock(return_value={
             "data": [],
             "total": 0,
             "limit": 20,
             "offset": 0,
             "has_more": False,
-        }
+        })
 
         app.dependency_overrides[get_gallery_service] = lambda: mock_service
 
@@ -68,13 +68,13 @@ class TestGalleryRoutes:
     def test_get_gallery_with_data(self, client, mock_cat_photo):
         """Test gallery endpoint returns correct data format"""
         mock_service = MagicMock()
-        mock_service.get_all_photos.return_value = {
+        mock_service.get_all_photos = AsyncMock(return_value={
             "data": [mock_cat_photo],
             "total": 1,
             "limit": 20,
             "offset": 0,
             "has_more": False,
-        }
+        })
 
         app.dependency_overrides[get_gallery_service] = lambda: mock_service
 
@@ -91,13 +91,13 @@ class TestGalleryRoutes:
     def test_get_gallery_pagination(self, client, mock_cat_photo):
         """Test gallery endpoint pagination parameters"""
         mock_service = MagicMock()
-        mock_service.get_all_photos.return_value = {
+        mock_service.get_all_photos = AsyncMock(return_value={
             "data": [mock_cat_photo],
             "total": 50,
             "limit": 10,
             "offset": 20,
             "has_more": True,
-        }
+        })
 
         app.dependency_overrides[get_gallery_service] = lambda: mock_service
 
@@ -114,13 +114,13 @@ class TestGalleryRoutes:
     def test_get_gallery_by_page(self, client, mock_cat_photo):
         """Test gallery endpoint with page parameter"""
         mock_service = MagicMock()
-        mock_service.get_all_photos.return_value = {
+        mock_service.get_all_photos = AsyncMock(return_value={
             "data": [mock_cat_photo],
             "total": 50,
             "limit": 10,
             "offset": 10,
             "has_more": True,
-        }
+        })
 
         app.dependency_overrides[get_gallery_service] = lambda: mock_service
 
@@ -132,6 +132,7 @@ class TestGalleryRoutes:
             limit=10,
             offset=10,  # (2-1) * 10
             include_total=True,
+            user_id=None,
         )
 
         app.dependency_overrides = {}
@@ -139,7 +140,7 @@ class TestGalleryRoutes:
     def test_get_gallery_all_endpoint(self, client, mock_cat_photo):
         """Test /gallery/all endpoint for backward compatibility"""
         mock_service = MagicMock()
-        mock_service.get_all_photos_simple.return_value = [mock_cat_photo]
+        mock_service.get_all_photos_simple = AsyncMock(return_value=[mock_cat_photo])
 
         app.dependency_overrides[get_gallery_service] = lambda: mock_service
 
@@ -154,7 +155,7 @@ class TestGalleryRoutes:
     def test_get_locations(self, client, mock_cat_photo):
         """Test locations endpoint for map display"""
         mock_service = MagicMock()
-        mock_service.get_map_locations.return_value = [mock_cat_photo]
+        mock_service.get_map_locations = AsyncMock(return_value=[mock_cat_photo])
 
         app.dependency_overrides[get_gallery_service] = lambda: mock_service
 
@@ -171,7 +172,7 @@ class TestGalleryRoutes:
     def test_search_locations(self, client, mock_cat_photo):
         """Test search endpoint"""
         mock_service = MagicMock()
-        mock_service.search_photos.return_value = [mock_cat_photo]
+        mock_service.search_photos = AsyncMock(return_value=[mock_cat_photo])
 
         app.dependency_overrides[get_gallery_service] = lambda: mock_service
 
@@ -187,7 +188,7 @@ class TestGalleryRoutes:
     def test_search_by_tags(self, client, mock_cat_photo):
         """Test search endpoint with tags"""
         mock_service = MagicMock()
-        mock_service.search_photos.return_value = [mock_cat_photo]
+        mock_service.search_photos = AsyncMock(return_value=[mock_cat_photo])
 
         app.dependency_overrides[get_gallery_service] = lambda: mock_service
 
@@ -202,10 +203,10 @@ class TestGalleryRoutes:
     def test_get_popular_tags(self, client):
         """Test popular tags endpoint"""
         mock_service = MagicMock()
-        mock_service.get_popular_tags.return_value = [
+        mock_service.get_popular_tags = AsyncMock(return_value=[
             {"tag": "cute", "count": 10},
             {"tag": "orange", "count": 8},
-        ]
+        ])
 
         app.dependency_overrides[get_gallery_service] = lambda: mock_service
 
@@ -221,7 +222,7 @@ class TestGalleryRoutes:
     def test_gallery_error_handling(self, client):
         """Test gallery endpoint handles errors gracefully"""
         mock_service = MagicMock()
-        mock_service.get_all_photos.side_effect = Exception("Database error")
+        mock_service.get_all_photos = AsyncMock(side_effect=Exception("Database error"))
 
         app.dependency_overrides[get_gallery_service] = lambda: mock_service
 
@@ -239,13 +240,13 @@ class TestAPIVersioning:
     def test_v1_gallery_endpoint(self, client):
         """Test that /api/v1/gallery works"""
         mock_service = MagicMock()
-        mock_service.get_all_photos.return_value = {
+        mock_service.get_all_photos = AsyncMock(return_value={
             "data": [],
             "total": 0,
             "limit": 20,
             "offset": 0,
             "has_more": False,
-        }
+        })
 
         app.dependency_overrides[get_gallery_service] = lambda: mock_service
 

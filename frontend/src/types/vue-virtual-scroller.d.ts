@@ -1,5 +1,5 @@
 declare module 'vue-virtual-scroller' {
-  import { DefineComponent } from 'vue';
+  import type { DefineComponent } from 'vue';
 
   export const DynamicScroller: DefineComponent;
   export const DynamicScrollerItem: DefineComponent;

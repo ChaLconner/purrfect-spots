@@ -34,308 +34,42 @@
         </div>
 
         <!-- Success State -->
-        <div
+        <UploadSuccess
           v-else-if="uploadSuccess"
-          class="p-16 text-center flex flex-col items-center justify-center min-h-[400px]"
-        >
-          <div
-            class="w-20 h-20 bg-sage/20 rounded-full flex items-center justify-center mb-6 text-sage-dark"
-          >
-            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-          </div>
-          <h3 class="text-3xl font-heading font-bold text-brown mb-4">Spot Added!</h3>
-          <p class="text-brown-light mb-10 text-lg">Thank you for contributing to the map.</p>
-          <div class="flex flex-col sm:flex-row gap-4 justify-center w-full max-w-md">
-            <button
-              class="px-8 py-3 bg-white border-2 border-terracotta text-terracotta font-heading font-bold rounded-xl hover:bg-terracotta hover:text-white transition-all duration-300 transform hover:-translate-y-1"
-              @click="globalThis.location.reload()"
-            >
-              Upload Another
-            </button>
-            <button
-              class="px-8 py-3 font-heading font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
-              style="background-color: #c97b49; color: white"
-              @click="router.push('/map')"
-            >
-              View Map
-            </button>
-          </div>
-        </div>
+          @upload-another="globalThis.location.reload()"
+          @view-map="router.push('/map')"
+        />
 
         <!-- Upload Form -->
         <form v-else class="p-6 md:p-10 space-y-12" @submit.prevent="handleSubmit">
           <!-- Section 1: Photo -->
-          <div class="space-y-6">
-            <div class="flex items-baseline justify-between border-b border-stone-200 pb-4">
-              <h2 class="text-2xl font-heading font-bold text-brown flex items-center">
-                01. The Photo
-                <svg
-                  v-if="!isAuthenticated"
-                  xmlns="http://www.w3.org/2000/svg"
-                  class="h-5 w-5 ml-2 text-stone-500"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  title="Login required"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                  />
-                </svg>
-              </h2>
-              <span class="text-sm font-medium text-stone-500 uppercase tracking-widest">Required</span>
-            </div>
-
-            <div
-              class="group relative border-2 border-dashed rounded-2xl p-8 transition-all duration-300 min-h-[300px] flex flex-col items-center justify-center text-center cursor-pointer overflow-hidden bg-white/40 hover:bg-white/60"
-              :class="[
-                previewUrl
-                  ? 'border-sage-dark/50 bg-white/60'
-                  : 'border-stone-300 hover:border-terracotta/50',
-                isDetectingCats ? 'cursor-wait opacity-80' : '',
-                !isAuthenticated ? 'opacity-75' : '',
-              ]"
-              @dragover.prevent
-              @drop.prevent="handleDrop"
-              @click="handleFrameClick"
-            >
-              <label for="file-upload" class="sr-only">Upload Photo</label>
-              <input
-                id="file-upload"
-                ref="fileInput"
-                type="file"
-                accept="image/*"
-                class="hidden"
-                @change="handleFileChange"
-              />
-
-              <!-- Preview State -->
-              <div v-if="previewUrl" class="w-full h-full absolute inset-0 z-10 bg-stone-50">
-                <img :src="previewUrl" class="w-full h-full object-contain" alt="Preview" />
-
-                <!-- Verification Badge -->
-                <div
-                  v-if="catDetectionResult?.has_cats"
-                  class="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-sage-dark text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-lg flex items-center animate-fade-in-up"
-                >
-                  Verified Cat Photo
-                </div>
-
-                <!-- Click to change hint -->
-                <div
-                  v-if="catDetectionResult?.has_cats && !isDetectingCats"
-                  class="absolute top-4 right-4 bg-white/80 text-stone-500 px-3 py-1.5 rounded-lg text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                >
-                  Click to change
-                </div>
-              </div>
-
-              <!-- Empty State -->
-              <div v-else class="space-y-4 pointer-events-none">
-                <div
-                  class="w-20 h-20 bg-stone-100 rounded-full mx-auto flex items-center justify-center text-stone-300 mb-4 group-hover:scale-110 transition-transform duration-500"
-                >
-                  <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <p class="text-xl font-heading font-medium text-brown mb-1">
-                    Drag and drop photo
-                  </p>
-                  <p class="text-stone-500 text-sm">or click to browse from your device</p>
-                </div>
-              </div>
-
-              <!-- Detecting State Overlay -->
-              <div
-                v-if="isDetectingCats"
-                class="absolute inset-0 z-20 bg-white/90 flex flex-col items-center justify-center"
-              >
-                <div
-                  class="w-10 h-10 border-2 border-terracotta border-t-transparent rounded-full animate-spin mb-3"
-                ></div>
-                <p class="text-terracotta font-medium tracking-wide text-sm uppercase">
-                  Verifying Cat Content...
-                </p>
-              </div>
-            </div>
-          </div>
+          <UploadPhotoSection
+            :preview-url="previewUrl"
+            :is-detecting-cats="isDetectingCats"
+            :cat-detection-result="catDetectionResult"
+            :is-authenticated="isAuthenticated"
+            @file-selected="handleFileSelected"
+            @check-auth="handleCheckAuth"
+          />
 
           <!-- Section 2: Details -->
-          <div class="space-y-6">
-            <div class="flex items-baseline justify-between border-b border-stone-200 pb-4">
-              <h2 class="text-2xl font-heading font-bold text-brown flex items-center">
-                02. Details
-                <svg
-                  v-if="!isAuthenticated"
-                  xmlns="http://www.w3.org/2000/svg"
-                  class="h-5 w-5 ml-2 text-stone-500"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  title="Login required"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                  />
-                </svg>
-              </h2>
-              <span class="text-sm font-medium text-stone-500 uppercase tracking-widest">Info</span>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div class="space-y-2">
-                <label
-                  for="place-name"
-                  class="block text-xs font-bold text-brown-light uppercase tracking-wider pl-1"
-                >Name of Place</label>
-                <input
-                  id="place-name"
-                  v-model="locationName"
-                  type="text"
-                  placeholder="e.g. Sunny Window Bench"
-                  class="w-full px-4 py-3 bg-white/70 border-2 border-stone-200 rounded-xl focus:outline-none focus:border-terracotta focus:ring-4 focus:ring-terracotta/10 transition-all font-medium text-brown placeholder-stone-500"
-                  required
-                  @focus="handleAuthProtection"
-                />
-              </div>
-
-              <div class="space-y-2">
-                <label
-                  for="place-description"
-                  class="block text-xs font-bold text-brown-light uppercase tracking-wider pl-1"
-                >Description</label>
-                <textarea
-                  id="place-description"
-                  v-model="description"
-                  rows="1"
-                  placeholder="What makes this spot special?"
-                  class="w-full px-4 py-3 bg-white/70 border-2 border-stone-200 rounded-xl focus:outline-none focus:border-terracotta focus:ring-4 focus:ring-terracotta/10 transition-all font-medium text-brown placeholder-stone-500 min-h-[52px]"
-                  @focus="handleAuthProtection"
-                ></textarea>
-              </div>
-
-              <div class="space-y-2 md:col-span-2">
-                <label
-                  for="tags-input"
-                  class="block text-xs font-bold text-brown-light uppercase tracking-wider pl-1"
-                >Tags (Optional)</label>
-                <TagsInput
-                  id="tags-input"
-                  v-model="tags"
-                  placeholder="Add tag (press Enter)"
-                  :max-tags="20"
-                  :max-tag-length="50"
-                  :disabled="!isAuthenticated"
-                  @focus="handleAuthProtection"
-                />
-              </div>
-            </div>
-          </div>
+          <UploadDetailsSection
+            v-model:location-name="locationName"
+            v-model:description="description"
+            v-model:tags="tags"
+            :is-authenticated="isAuthenticated"
+            @focus-auth="handleAuthProtection"
+          />
 
           <!-- Section 3: Location -->
-          <div class="space-y-6">
-            <div class="flex items-baseline justify-between border-b border-stone-200 pb-4">
-              <h2 class="text-2xl font-heading font-bold text-brown flex items-center">
-                03. Location
-                <svg
-                  v-if="!isAuthenticated"
-                  xmlns="http://www.w3.org/2000/svg"
-                  class="h-5 w-5 ml-2 text-stone-500"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  title="Login required"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                  />
-                </svg>
-              </h2>
-              <div class="flex items-center gap-2">
-                <button
-                  type="button"
-                  :disabled="gettingLocation"
-                  class="text-xs font-bold uppercase tracking-wider text-terracotta hover:text-terracotta-dark transition-colors disabled:opacity-50 cursor-pointer"
-                  @click="handleGetLocation"
-                >
-                  {{ gettingLocation ? 'Locating...' : 'Use My Location' }}
-                </button>
-              </div>
-            </div>
-
-            <div
-              class="relative rounded-2xl overflow-hidden border-2 border-white shadow-sm h-[300px] bg-stone-100 group"
-            >
-              <div
-                id="uploadMap"
-                class="w-full h-full opacity-90 transition-opacity duration-300"
-              ></div>
-
-              <!-- Login Overlay for Map -->
-              <div
-                v-if="!isAuthenticated"
-                class="absolute inset-0 z-10 cursor-pointer bg-transparent"
-                title="Login to use map"
-                @click="checkAuth"
-              ></div>
-
-              <!-- Map Instruction Overlay -->
-              <div
-                class="absolute bottom-4 left-4 right-4 bg-white/80 backdrop-blur-sm p-3 rounded-lg text-xs text-brown text-center pointer-events-none border border-white/50 shadow-sm transition-all duration-300"
-              >
-                <span
-                  v-if="!hasSelectedLocation"
-                  class="flex items-center justify-center gap-2 animate-pulse"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                    />
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                  </svg>
-                  Tap or click on map to pin location
-                </span>
-                <span v-else> Drag marker to pinpoint exact location </span>
-              </div>
-            </div>
-          </div>
+          <UploadLocationSection
+            map-id="uploadMap"
+            :is-authenticated="isAuthenticated"
+            :getting-location="gettingLocation"
+            :has-selected-location="hasSelectedLocation"
+            @get-location="handleGetLocation"
+            @check-auth="handleCheckAuth"
+          />
 
           <!-- Submit Action -->
           <div class="pt-8">
@@ -365,18 +99,20 @@ import { useRouter } from 'vue-router';
 import { useUploadCat } from '../composables/useUploadCat';
 import { useLocationPicker } from '../composables/useLocationPicker';
 import { useAuthStore } from '../store/authStore';
-const authStore = useAuthStore();
 import { showError } from '../store/toast';
 import { catDetectionService } from '../services/catDetectionService';
 import { isDev, getEnvVar } from '../utils/env';
-import { DEFAULT_COORDINATES } from '../utils/constants';
 import GhibliBackground from '../components/ui/GhibliBackground.vue';
 import GhibliLoader from '../components/ui/GhibliLoader.vue';
 import LoginRequiredModal from '../components/ui/LoginRequiredModal.vue';
-import TagsInput from '../components/ui/TagsInput.vue';
+import UploadSuccess from '@/components/upload/UploadSuccess.vue';
+import UploadPhotoSection from '@/components/upload/UploadPhotoSection.vue';
+import UploadDetailsSection from '@/components/upload/UploadDetailsSection.vue';
+import UploadLocationSection from '@/components/upload/UploadLocationSection.vue';
 import { useSeo } from '../composables/useSeo';
 
 const router = useRouter();
+const authStore = useAuthStore();
 const { setMetaTags, resetMetaTags } = useSeo();
 
 const locationName = ref('');
@@ -384,7 +120,6 @@ const description = ref('');
 const tags = ref<string[]>([]);
 const file = ref<File | null>(null);
 const previewUrl = ref<string | null>(null);
-const fileInput = ref<HTMLInputElement | null>(null);
 const uploadSuccess = ref(false);
 const isDetectingCats = ref(false);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -441,7 +176,6 @@ onMounted(async () => {
 
 // Cleanup on unmount
 onUnmounted(() => {
-  // Revoke object URL to prevent memory leak
   if (previewUrl.value) {
     URL.revokeObjectURL(previewUrl.value);
   }
@@ -449,7 +183,7 @@ onUnmounted(() => {
   resetMetaTags(); // Reset SEO meta tags
 });
 
-const checkAuth = () => {
+const checkAuth = (): boolean => {
   if (!isAuthenticated.value) {
     showLoginModal.value = true;
     return false;
@@ -457,73 +191,50 @@ const checkAuth = () => {
   return true;
 };
 
-const handleLoginRedirect = () => {
+const handleCheckAuth = (): void => {
+  checkAuth();
+};
+
+const handleLoginRedirect = (): void => {
   sessionStorage.setItem('redirectAfterAuth', '/upload');
   router.push('/login');
 };
 
-const handleAuthProtection = (e: Event) => {
+const handleAuthProtection = (e: Event): void => {
   if (!checkAuth()) {
     (e.target as HTMLElement)?.blur?.();
   }
 };
 
-const handleGetLocation = () => {
+const handleGetLocation = (): void => {
   if (checkAuth()) {
     getCurrentLocation();
   }
 };
 
-function triggerFileInput() {
-  if (!checkAuth()) return;
-  fileInput.value?.click();
-}
-
-function handleFrameClick() {
-  if (isDetectingCats.value) return; // Don't allow click while detecting
-
-  // Allow click to change photo if verified cat, or if no preview yet
-  if (!previewUrl.value || catDetectionResult.value?.has_cats) {
-    triggerFileInput();
-  }
-}
-
-const resetImageSelection = () => {
+const resetImageSelection = (): void => {
   if (previewUrl.value) {
     URL.revokeObjectURL(previewUrl.value);
   }
   file.value = null;
   previewUrl.value = null;
   catDetectionResult.value = null;
-  if (fileInput.value) {
-    fileInput.value.value = '';
-  }
 };
 
-const processFile = (imageFile: File) => {
-  if (!imageFile || !imageFile.type.startsWith('image/')) return;
-
-  // Revoke old URL to prevent memory leak
-  resetImageSelection();
-
-  file.value = imageFile;
-  previewUrl.value = URL.createObjectURL(imageFile);
-  detectCatsInImage(imageFile);
-};
-
-function handleFileChange(e: Event) {
-  const target = e.target as HTMLInputElement;
-  const selected = target.files?.[0];
-  if (selected) processFile(selected);
-}
-
-function handleDrop(e: DragEvent) {
+// Handle file selection from component
+function handleFileSelected(payload: { file: File; url: string }): void {
   if (!checkAuth()) return;
-  const dropped = e.dataTransfer?.files[0];
-  if (dropped) processFile(dropped);
+
+  // Cleanup old if exists
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
+
+  file.value = payload.file;
+  previewUrl.value = payload.url;
+
+  detectCatsInImage(payload.file);
 }
 
-async function detectCatsInImage(imageFile: File) {
+async function detectCatsInImage(imageFile: File): Promise<void> {
   if (!imageFile) return;
 
   isDetectingCats.value = true;
@@ -563,7 +274,7 @@ async function detectCatsInImage(imageFile: File) {
   }
 }
 
-async function handleSubmit() {
+async function handleSubmit(): Promise<void> {
   if (!isAuthenticated.value || !authStore.user) {
     sessionStorage.setItem('redirectAfterAuth', '/upload');
     router.push('/login');

@@ -10,6 +10,7 @@ import axios from 'axios';
 import type { AxiosInstance, AxiosRequestConfig, AxiosError, AxiosProgressEvent } from 'axios';
 import { isBrowserExtensionError, handleBrowserExtensionError } from './browserExtensionHandler';
 import { getEnvVar } from './env';
+import { getCsrfToken } from './security';
 
 // ========== API Error Types & Classes (Defined Early) ==========
 export const ApiErrorTypes = {
@@ -80,23 +81,16 @@ export interface PaginatedResponse<T> {
 // ========== Helpers ==========
 export const getApiBaseUrl = (): string => {
   const envUrl = getEnvVar('VITE_API_BASE_URL');
-
   if (envUrl) {
+    if (envUrl.endsWith('/')) {
+      return envUrl.slice(0, -1);
+    }
     return envUrl;
   }
 
-  const isLocalhost =
-    globalThis.location.hostname === 'localhost' || globalThis.location.hostname === '127.0.0.1';
 
-  if (isLocalhost) {
-    return 'http://localhost:8000';
-  }
-
-  if (!envUrl) {
-    // Info logs removed for production safety
-  }
-
-  return envUrl || '';
+  // Fallback for development
+  return 'http://localhost:8000';
 };
 
 export const getApiUrl = (endpoint: string): string => {
@@ -132,12 +126,22 @@ const createApiInstance = (): AxiosInstance => {
   // Request interceptor to add auth token
   instance.interceptors.request.use(
     (config) => {
+      // 1. Add Auth Token
       if (currentAccessToken) {
         config.headers.Authorization = `Bearer ${currentAccessToken}`;
-        // console.log(`[API] Request with token to ${config.url}`);
-      } else {
-        console.warn(`[API] Request MISSING token to ${config.url}`);
       }
+
+      // 2. Add CSRF Token for state-changing requests
+      // This is essential for preventing CSRF attacks
+      const method = config.method?.toUpperCase();
+      const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
+      if (method && !safeMethods.includes(method)) {
+        const csrfToken = getCsrfToken();
+        if (csrfToken) {
+          config.headers['X-CSRF-Token'] = csrfToken;
+        }
+      }
+
       return config;
     },
     (error) => Promise.reject(error)
@@ -354,13 +358,6 @@ export const apiRequest = async <T = unknown>(
     }
   }
   throw lastError;
-};
-
-export const authenticatedApiRequest = async <T = unknown>(
-  endpoint: string,
-  options: AxiosRequestConfig = {}
-): Promise<T> => {
-  return apiRequest<T>(endpoint, options);
 };
 
 export const api = {

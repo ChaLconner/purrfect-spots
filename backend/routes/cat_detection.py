@@ -2,6 +2,8 @@
 Cat detection API routes using Google Cloud Vision
 """
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
 from limiter import limiter
@@ -18,6 +20,7 @@ from schemas.cat_detection import (
     SpotAnalysisResult,
 )
 from services.cat_detection_service import CatDetectionService, cat_detection_service
+from user_models.user import User
 
 
 def get_cat_detection_service() -> CatDetectionService:
@@ -29,9 +32,9 @@ def get_cat_detection_service() -> CatDetectionService:
 async def detect_cats_in_image(
     request: Request,
     file: UploadFile = File(...),
-    current_user=Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     detection_service: CatDetectionService = Depends(get_cat_detection_service),
-):
+) -> dict[str, Any]:
     """
     Detect cats in images using Google Cloud Vision API.
     Rate Limit: 5 requests per minute per user.
@@ -68,9 +71,9 @@ async def detect_cats_in_image(
 async def analyze_cat_spot(
     request: Request,
     file: UploadFile = File(...),
-    current_user=Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     detection_service: CatDetectionService = Depends(get_cat_detection_service),
-):
+) -> dict[str, Any]:
     """
     Analyze suitability of locations for cats using Google Cloud Vision.
     Rate Limit: 5 requests per minute per user.
@@ -100,9 +103,9 @@ async def analyze_cat_spot(
 async def combined_cat_and_spot_analysis(
     request: Request,
     file: UploadFile = File(...),
-    current_user=Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     detection_service: CatDetectionService = Depends(get_cat_detection_service),
-):
+) -> dict[str, Any]:
     """
     Analyze both cat detection and location suitability using Google Cloud Vision.
     Rate Limit: 3 requests per minute per user.
@@ -149,9 +152,9 @@ async def combined_cat_and_spot_analysis(
 async def test_detect_cats(
     request: Request,
     file: UploadFile = File(...),
-    current_user=Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     detection_service: CatDetectionService = Depends(get_cat_detection_service),
-):
+) -> dict[str, Any]:
     """
     Test cat detection using Google Cloud Vision (authentication required).
     Rate Limit: 10 requests per minute per user.
@@ -183,9 +186,9 @@ async def test_detect_cats(
 async def test_analyze_spot(
     request: Request,
     file: UploadFile = File(...),
-    current_user=Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     detection_service: CatDetectionService = Depends(get_cat_detection_service),
-):
+) -> dict[str, Any]:
     """
     Test location analysis using Google Cloud Vision (authentication required).
     Rate Limit: 10 requests per minute per user.

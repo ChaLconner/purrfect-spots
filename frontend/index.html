@@ -2,38 +2,63 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link
-      rel="icon"
-      type="image/png"
-      href="https://cdn.pixabay.com/photo/2024/04/09/09/35/cat-8685499_1280.png"
-      integrity="sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"
-      crossorigin="anonymous"
-    />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" href="/cat-icon.png" sizes="512x512" />
+    <link rel="apple-touch-icon" href="/cat-icon.png" />
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
       content="Purrfect Spots - Discover and share cat-friendly locations with AI-powered cat detection. Find the best spots to see cats in your area."
     />
     <meta name="theme-color" content="#6b8e7d" />
+
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://purrfectspots.xyz/" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://purrfectspots.xyz/" />
+    <meta property="og:title" content="Purrfect Spots - Discover Cat Friendly Locations" />
+    <meta
+      property="og:description"
+      content="Discover and share cat-friendly locations with AI-powered cat detection."
+    />
+    <meta property="og:image" content="/og-image.png" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://purrfectspots.xyz/" />
+    <meta property="twitter:title" content="Purrfect Spots - Discover Cat Friendly Locations" />
+    <meta
+      property="twitter:description"
+      content="Discover and share cat-friendly locations with AI-powered cat detection."
+    />
+    <meta property="twitter:image" content="/og-image.png" />
+
+    <!-- CSP -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'unsafe-eval' https://accounts.google.com https://maps.googleapis.com https://vercel.live https://*.vercel.live; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://vercel.live; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; frame-src 'self' https://accounts.google.com https://vercel.live https://*.vercel.live; worker-src 'self' blob:; connect-src 'self' data: https://accounts.google.com https://www.googleapis.com https://maps.googleapis.com https://*.gstatic.com https://*.supabase.co https://*.sentry.io wss://*.supabase.co http://localhost:8000 http://127.0.0.1:8000 https://ipapi.co https://purrfect-spots-bucket.s3.ap-southeast-2.amazonaws.com https://purrfect-spots-backend.vercel.app https://vercel.live https://*.vercel.live wss://vercel.live wss://*.vercel.live wss://ws-us3.pusher.com wss://*.pusher.com;"
+      content="default-src 'self'; script-src 'self' 'unsafe-eval' https://accounts.google.com https://maps.googleapis.com https://vercel.live https://*.vercel.live; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://vercel.live; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; frame-src 'self' https://accounts.google.com https://vercel.live https://*.vercel.live; worker-src 'self' blob:; connect-src 'self' data: https://accounts.google.com https://www.googleapis.com https://maps.googleapis.com https://*.gstatic.com https://*.supabase.co https://*.sentry.io wss://*.supabase.co http://localhost:8000 https://ipapi.co https://purrfect-spots-bucket.s3.ap-southeast-2.amazonaws.com https://purrfect-spots-backend.vercel.app https://vercel.live https://*.vercel.live wss://vercel.live wss://*.vercel.live wss://ws-us3.pusher.com wss://*.pusher.com;"
     />
     <title>Home | Purrfect Spots</title>
+
     <!-- Preconnect to critical origins -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preconnect" href="https://maps.googleapis.com" />
-    <link rel="preconnect" href="https://maps.gstatic.com" crossorigin />
-    <link rel="preconnect" href="https://ipapi.co" />
 
-    <!-- Preload critical fonts -->
-
-    <!-- Fonts -->
+    <!-- Fonts - Preload and Load (Inter to match CSS) -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap"
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
+
     <!-- Skip link styles (inline for immediate availability) -->
     <style>
       .skip-link {

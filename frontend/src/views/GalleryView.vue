@@ -25,100 +25,15 @@
           action-link="/upload"
         />
 
-        <!-- Virtual Scroller Gallery -->
-        <div v-else class="gallery-content">
-          <DynamicScroller :items="chunkedImages" :min-item-size="200" class="scroller" page-mode>
-            <template #default="{ item, index, active }">
-              <DynamicScrollerItem
-                :item="item"
-                :active="active"
-                :size-dependencies="[item.images.length, windowWidth]"
-                :data-index="index"
-              >
-                <div class="gallery-grid" role="grid" aria-label="Cat photo gallery chunk">
-                  <button
-                    v-for="(image, subIndex) in item.images"
-                    :key="image.id"
-                    type="button"
-                    class="gallery-item p-0 border-none bg-transparent text-left"
-                    :class="[
-                      getBentoClass(item.index + subIndex),
-                      { 'item-loaded': loadedImages[image.id] },
-                    ]"
-                    :style="{ 'animation-delay': `${(subIndex % 10) * 0.05}s` }"
-                    :aria-label="`View ${image.location_name || 'Cat'}`"
-                    @click="openModal(image, item.index + subIndex)"
-                  >
-                    <!-- Glass-framed Image Card -->
-                    <div class="image-card group">
-                      <!-- Placeholder -->
-                      <div
-                        v-if="!loadedImages[image.id]"
-                        class="image-placeholder h-full w-full"
-                        aria-hidden="true"
-                      >
-                        <div class="placeholder-content">
-                          <div class="soot-dot"></div>
-                        </div>
-                      </div>
-
-                      <!-- Treat Button Overlay -->
-                      <div
-                        class="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-20"
-                        role="group"
-                      >
-                        <button
-                          class="treat-item-btn group absolute bottom-2 right-2 transition-all z-20"
-                          title="Give a Treat! 🍬"
-                          aria-label="Give a treat to this cat"
-                          @click.stop="handleGiveTreat(image)"
-                        >
-                          <div class="treat-btn-inner">
-                            <img
-                              src="/give-treat.png"
-                              alt="Treat"
-                              class="w-12 h-12 object-contain"
-                            />
-                          </div>
-                        </button>
-                      </div>
-
-                      <!-- Actual Image with native lazy loading -->
-                      <div class="image-wrapper">
-                        <img
-                          loading="lazy"
-                          :src="image.image_url"
-                          :srcset="generateSrcSet(image.image_url)"
-                          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                          :alt="image.location_name || 'A cat'"
-                          class="gallery-image shadow-md"
-                          :class="{ 'image-visible': loadedImages[image.id] }"
-                          @load="handleImageLoad(image.id)"
-                          @error="handleImageError"
-                        />
-                      </div>
-                    </div>
-                  </button>
-                </div>
-              </DynamicScrollerItem>
-            </template>
-          </DynamicScroller>
-          <!-- Load More -->
-          <div
-            v-if="hasMoreImages && !loadingMore"
-            ref="loadMoreTrigger"
-            class="load-more h-4 w-full"
-            aria-hidden="true"
-          ></div>
-          <div
-            v-if="loadingMore"
-            class="py-4 flex justify-center w-full"
-            role="status"
-            aria-live="polite"
-          >
-            <GhibliLoader size="small" />
-          </div>
-        </div>
+        <!-- Gallery Grid -->
+        <GalleryGrid
+          v-else
+          :images="visibleImages"
+          :has-more="hasMoreImages"
+          :loading-more="loadingMore"
+          @open-modal="openModal"
+          @load-more="loadMoreImages"
+        />
       </div>
 
       <!-- Modal -->
@@ -139,22 +54,18 @@ import { ref, onMounted, onUnmounted, nextTick, watch, onErrorCaptured, computed
 import { useRoute, useRouter } from 'vue-router';
 import { GalleryService } from '@/services/galleryService';
 import { isDev } from '@/utils/env';
-import { IMAGE_CONFIG, GALLERY_CONFIG } from '@/utils/constants';
+import { GALLERY_CONFIG } from '@/utils/constants';
 import GalleryHeader from '@/components/gallery/GalleryHeader.vue';
+import GalleryGrid from '@/components/gallery/GalleryGrid.vue';
 import { useCatsStore } from '@/store';
 import type { CatLocation } from '@/types/api';
 
-import { TreatsService } from '@/services/treatsService';
-import { useSubscriptionStore } from '@/store/subscriptionStore';
-import { useToastStore } from '@/store';
 import GalleryModal from '@/components/gallery/GalleryModal.vue';
 import GhibliLoader from '@/components/ui/GhibliLoader.vue';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import { useSeo } from '@/composables/useSeo';
-import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller';
-import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
 
 // SEO
 const { setMetaTags, resetMetaTags } = useSeo();
@@ -194,10 +105,6 @@ const loadingMore = ref(false);
 const error = ref('');
 const selectedImage = ref<CatLocation | null>(null);
 const currentImageIndex = ref(-1);
-const loadedImages = ref<Record<string, boolean>>({});
-
-const loadMoreTrigger = ref<HTMLElement | null>(null);
-const loadMoreObserver = ref<IntersectionObserver | null>(null);
 
 // Pagination and virtual scrolling
 const currentPage = ref(1);
@@ -207,31 +114,9 @@ const hasMoreImages = ref(false);
 const totalImages = ref(0); // Track total for modal navigation
 const isDeepLinked = ref(false); // Track if current view is a deep link to a specific image
 
-const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024);
-
-const updateWidth = () => {
-  windowWidth.value = globalThis.innerWidth;
-};
-
-// Determine chunk size based on convenient strict grid alignment (LCM of 2,3,4,5 = 60)
-// Reduced to 20 for better performance (still divisible by 2, 4, 5 for common grids)
-const CHUNK_SIZE = 20;
-
-const chunkedImages = computed(() => {
-  const chunks = [];
-  for (let i = 0; i < visibleImages.value.length; i += CHUNK_SIZE) {
-    chunks.push({
-      id: i, // Unique ID for the chunk (based on start index)
-      index: i, // Start index for Bento calculation
-      images: visibleImages.value.slice(i, i + CHUNK_SIZE),
-    });
-  }
-  return chunks;
-});
-
 onMounted(() => {
-  window.addEventListener('resize', updateWidth);
-  fetchImages();
+  // We rely on the authStore.isInitialized watcher to trigger fetchImages
+  // This avoids double-fetching on page reload.
 
   // Check for search query in URL on mount
   if (route.query.q) {
@@ -245,51 +130,13 @@ onMounted(() => {
       'Browse our collection of adorable cat photos from around the world. Find your favorite feline friends and discover cat-friendly locations.',
     type: 'website',
   });
-
-  // Preload first few images for better performance
-  nextTick(() => {
-    preloadFirstImages();
-  });
 });
 
 onUnmounted(() => {
-  window.removeEventListener('resize', updateWidth);
-
-  if (loadMoreObserver.value) {
-    loadMoreObserver.value.disconnect();
-    loadMoreObserver.value = null;
-  }
-
-  // Clear loaded images state completely
-  loadedImages.value = {};
-
   // Reset SEO meta tags
   resetMetaTags();
+  cleanupPreloads();
 });
-
-// Watch visibleImages to manage memory and initialization
-watch(
-  visibleImages,
-  () => {
-    // Initialize loadedImages for new visible images
-    visibleImages.value.forEach((image) => {
-      if (!(image.id in loadedImages.value)) {
-        loadedImages.value[image.id] = false;
-      }
-    });
-  },
-  { deep: false }
-);
-
-// Watch for DOM updates to setup load more observer
-watch(
-  [visibleImages, loadingMore],
-  async () => {
-    await nextTick();
-    setupLoadMoreObserver();
-  },
-  { deep: false }
-);
 
 // Watch search query from store to update URL and fetch data
 watch(
@@ -314,6 +161,16 @@ watch(
   () => props.id,
   () => {
     syncStateFromUrl();
+  }
+);
+
+// Watch images to trigger preload
+watch(
+  () => visibleImages.value.length,
+  (newCount, oldCount) => {
+    if (newCount > 0 && oldCount === 0) {
+      preloadFirstImages();
+    }
   }
 );
 
@@ -393,15 +250,18 @@ async function fetchGalleryData(reset = false) {
     let total = 0;
 
     if (query) {
-      // Server-side Search
+      // Server-side Search - Now with pagination!
       const response = await GalleryService.search({
         query,
-        limit: 100, // Current backend search limit
+        page: currentPage.value,
+        limit: imagesPerPage,
       });
 
       newImages = response.results || [];
-      hasNext = false; // Search endpoint doesn't support pagination yet
-      total = response.total || newImages.length;
+      total = response.total || 0;
+      // Simple hasMore logic for search: if we got exactly 'limit' results, there's likely more.
+      // Or if we know the total:
+      hasNext = visibleImages.value.length + newImages.length < total;
     } else {
       // Server-side Pagination
       const response = await GalleryService.getImages({
@@ -447,38 +307,6 @@ function fetchImages() {
   fetchGalleryData(true);
 }
 
-function handleImageLoad(id: number | string) {
-  loadedImages.value[id] = true;
-}
-
-// Removed old setupLazyLoading and simplified loadMoreObserver
-
-function setupLoadMoreObserver() {
-  // Clean up previous observer
-  if (loadMoreObserver.value) {
-    loadMoreObserver.value.disconnect();
-  }
-
-  if (!loadMoreTrigger.value || !hasMoreImages.value) return;
-
-  // Create new observer for load more trigger
-  loadMoreObserver.value = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting && hasMoreImages.value && !loadingMore.value) {
-          loadMoreImages();
-        }
-      });
-    },
-    {
-      rootMargin: GALLERY_CONFIG.LOAD_MORE_ROOT_MARGIN,
-      threshold: GALLERY_CONFIG.LAZY_LOAD_THRESHOLD,
-    }
-  );
-
-  loadMoreObserver.value.observe(loadMoreTrigger.value);
-}
-
 function loadMoreImages() {
   if (loadingMore.value || !hasMoreImages.value) return;
 
@@ -497,10 +325,10 @@ function openModal(image: CatLocation, index: number) {
 }
 
 function closeModal() {
-  // Remove ID from Path
+  // Remove ID from Path - using undefined to avoid trailing slash or empty string issues
   router.push({
     name: 'Gallery',
-    params: { id: '' }, // Empty ID to go back to list
+    params: { id: undefined },
     query: route.query,
   });
 }
@@ -534,299 +362,95 @@ function handleModalNavigate(direction: 'prev' | 'next') {
   }
 }
 
-async function handleGiveTreat(image: CatLocation) {
-  const toastStore = useToastStore();
-  const subscriptionStore = useSubscriptionStore();
-
-  try {
-    await subscriptionStore.giveTreat(image.id, 1);
-    toastStore.addToast({
-      title: 'Treat Given!',
-      message: 'You gave 1 treat 🍬',
-      type: 'success',
-    });
-  } catch (e: any) {
-    const msg = e.response?.data?.detail || e.message;
-    toastStore.addToast({
-      title: 'Failed to give treat',
-      message: msg,
-      type: 'error',
-    });
-  }
-}
-
-function handleImageError(event: Event) {
-  const target = event.target as HTMLImageElement;
-  // Prevent infinite loop if placeholder also fails
-  if (target.src !== IMAGE_CONFIG.PLACEHOLDER_URL) {
-    target.src = IMAGE_CONFIG.PLACEHOLDER_URL;
-  }
-}
-
-function getBentoClass(index: number): string {
-  // Bento Pattern (Repeats every 20 items to provide visual variety)
-  // We alternate the positions of Large (2x2) and Wide (2x1) images
-  // so they don't always appear on the left side.
-  const remainder = index % 20;
-
-  // Large (2x2) - Alternating Left and Right
-  if (remainder === 0) return 'col-span-2 row-span-2'; // Start of row (Left)
-  if (remainder === 13) return 'col-span-2 row-span-2'; // End of row (Right)
-
-  // Wide (2x1) - Alternating Left and Right
-  if (remainder === 6) return 'col-span-2 row-span-1'; // Start/Middle
-  if (remainder === 19) return 'col-span-2 row-span-1'; // End of row (Right)
-
-  return 'col-span-1 row-span-1';
-}
-
-function generateSrcSet(url: string): string {
-  if (!url || !url.includes('supabase.co')) {
-    return '';
-  }
-
-  // Base URL without existing query params if possible, or just append replacing width
-  // Our backend adds ?width=300&...
-  // We want to generate: url?width=300 300w, url?width=500 500w, url?width=800 800w
-
-  const widths = [300, 500, 800];
-  const srcSetParts = widths.map((width) => {
-    // Replace existing width param or append new one
-    let newUrl = url;
-    if (url.includes('width=')) {
-      newUrl = url.replace(/width=\d+/, `width=${width}`);
-    } else {
-      const sep = url.includes('?') ? '&' : '?';
-      newUrl = `${url}${sep}width=${width}`;
-    }
-    return `${newUrl} ${width}w`;
-  });
-
-  const srcSet = srcSetParts.join(', ');
-  return srcSet;
-}
+// Store preloaded links for cleanup
+const preloadedLinks: HTMLLinkElement[] = [];
 
 // Preload first few images for better performance
-
 function preloadFirstImages() {
-  const imagesToPreload = visibleImages.value.slice(0, 6); // Preload first 6 images
+  // Avoid duplicate preloads
+  if (preloadedLinks.length > 0) return;
+
+  const imagesToPreload = visibleImages.value.slice(0, 6);
 
   imagesToPreload.forEach((image, index) => {
     if (image.image_url) {
       const link = document.createElement('link');
       link.rel = 'preload';
       link.as = 'image';
-      // Use smaller size for preloading (300px)
-      const preloadUrl = image.image_url.includes('width=')
-        ? image.image_url.replace(/width=\d+/, 'width=300')
-        : `${image.image_url}${image.image_url.includes('?') ? '&' : '?'}width=300`;
+      // Use smaller size for preloading (300px) only if supported (Supabase)
+      let preloadUrl = image.image_url;
+      if (image.image_url.includes('supabase.co')) {
+        preloadUrl = image.image_url.includes('width=')
+          ? image.image_url.replace(/width=\d+/, 'width=300')
+          : `${image.image_url}${image.image_url.includes('?') ? '&' : '?'}width=300`;
+      }
       link.href = preloadUrl;
       link.setAttribute('fetchpriority', index === 0 ? 'high' : 'low');
       document.head.appendChild(link);
+      preloadedLinks.push(link);
     }
   });
 }
+
+function cleanupPreloads() {
+  preloadedLinks.forEach((link) => {
+    if (link.parentNode) {
+      link.parentNode.removeChild(link);
+    }
+  });
+  preloadedLinks.length = 0;
+}
+
+// Watch for auth initialization to fetch gallery data
+// This handles both initial load (wait for auth) and subsequent updates
+// immediate: true ensures it runs if auth is already initialized (e.g. client-side nav)
+import { useAuthStore } from '@/store/authStore';
+const authStore = useAuthStore();
+
+watch(
+  () => authStore.isInitialized,
+  (isInit) => {
+    if (isInit) {
+      // Auth is ready (either logged in or guest confirmed)
+      // Now safe to fetch data with correct auth context
+      fetchImages();
+    }
+  },
+  { immediate: true }
+);
+
+// We don't need to call fetchImages in onMounted anymore because the watcher handles it.
+// If isInitialized is false, we wait. If true, watcher runs.
+onMounted(() => {
+  // Check for search query in URL on mount
+  if (route.query.q) {
+    catsStore.setGallerySearchQuery(route.query.q as string);
+  }
+
+  // Set SEO meta tags
+  setMetaTags({
+    title: 'Gallery | Purrfect Spots',
+    description:
+      'Browse our collection of adorable cat photos from around the world. Find your favorite feline friends and discover cat-friendly locations.',
+    type: 'website',
+  });
+});
+
+onUnmounted(() => {
+  // Reset SEO meta tags
+  resetMetaTags();
+  cleanupPreloads();
+});
 </script>
 
 <style scoped>
-/* ========================================
-   Gallery Grid (Bento)
-   ======================================== */
-.gallery-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  grid-auto-rows: 200px; /* Fixed row height for Bento cells */
-  grid-auto-flow: dense;
-  gap: 0.25rem;
+/* Scoped styles specific to GalleryView layout */
+.gallery-container {
+  /* Ensure container doesn't overflow horizontally */
+  overflow-x: hidden;
 }
 
-@media (min-width: 640px) {
-  .gallery-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-@media (min-width: 1024px) {
-  .gallery-grid {
-    grid-template-columns: repeat(4, 1fr);
-    grid-auto-rows: 240px;
-    gap: 0.375rem;
-  }
-}
-
-@media (min-width: 1280px) {
-  .gallery-grid {
-    grid-template-columns: repeat(5, 1fr);
-    grid-auto-rows: 260px;
-  }
-}
-
-/* Gallery Item */
-.gallery-item {
-  /* margin-bottom is handled by grid gap */
-  margin-bottom: 0;
-  width: 100%;
-  height: 100%;
-  animation: galleryFadeIn 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-
-.gallery-item:focus {
-  outline: none;
-}
-
-.gallery-item:focus-visible .image-card {
-  outline: 3px solid #7fb7a4;
-  outline-offset: 4px;
-}
-
-@keyframes galleryFadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* Bento Spans */
-.col-span-2 {
-  grid-column: span 2;
-}
-.row-span-2 {
-  grid-row: span 2;
-}
-.row-span-1 {
-  grid-row: span 1;
-}
-
-.image-card {
-  background-color: transparent;
-  border-radius: 0.25rem;
-  position: relative;
-  cursor: pointer;
-  transition: transform 0.3s ease;
-  overflow: hidden;
-  height: 100%;
-  width: 100%;
-}
-
-.image-wrapper {
-  position: relative;
-  border-radius: 0.25rem;
-  overflow: hidden;
-  width: 100%;
-  height: 100%;
-  display: block;
-  box-shadow: none;
-  transition: box-shadow 0.3s ease;
-}
-
-.gallery-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  border-radius: 0.25rem;
-  transform: scale(1);
-  transition:
-    transform 0.5s ease,
-    opacity 0.5s ease;
-  opacity: 0;
-}
-
-.gallery-image.image-visible {
-  opacity: 1;
-}
-
-.image-card:hover .gallery-image {
-  transform: scale(1.05);
-}
-
-/* Image Placeholder */
-.image-placeholder {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 10;
-  background: #f0fdf4;
-  border-radius: 0.25rem;
-}
-
-.image-placeholder::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
-  animation: shimmer 1.5s infinite;
-  transform: translateX(-100%);
-}
-
-.placeholder-content {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-}
-
-.soot-dot {
-  width: 12px;
-  height: 12px;
-  background-color: rgba(90, 74, 58, 0.1);
-  border-radius: 50%;
-  animation: pulseDot 1.5s ease-in-out infinite;
-}
-
-@keyframes shimmer {
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-@keyframes pulseDot {
-  0%,
-  100% {
-    transform: scale(0.8);
-    opacity: 0.5;
-  }
-  50% {
-    transform: scale(1.2);
-    opacity: 0.8;
-  }
-}
-
-/* ========================================
-   Load More
-   ======================================== */
-.load-more {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 2rem;
-}
-
-.treat-item-btn {
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-}
-
-.treat-btn-inner {
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.15));
-}
-
-.treat-item-btn:hover .treat-btn-inner {
-  transform: translateY(-2px) scale(1.1);
-}
-
-.treat-item-btn:active .treat-btn-inner {
-  transform: scale(0.95);
+.gallery-page {
+  background-color: #fffbf6;
 }
 </style>

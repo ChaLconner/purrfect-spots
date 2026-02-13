@@ -1,7 +1,4 @@
 import { apiV1 } from '../utils/api';
-import { supabase } from '@/lib/supabase';
-import { useAuthStore } from '@/store';
-import { ref } from 'vue';
 
 export interface Notification {
   id: string;

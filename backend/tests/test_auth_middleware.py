@@ -12,7 +12,6 @@ from fastapi import HTTPException
 from middleware.auth_middleware import (
     _get_user_from_payload,
     _verify_and_decode_token,
-    decode_custom_token,
     decode_supabase_token,
     get_current_user,
     get_jwks,
@@ -117,37 +116,7 @@ async def test_decode_supabase_token_missing_kid(mock_env, mock_jwks_response):
             assert "missing 'kid'" in exc.value.detail
 
 
-# --- Tests for decode_custom_token ---
-
-
-def test_decode_custom_token_success(mock_env):
-    with patch("middleware.auth_middleware.config.JWT_SECRET", "supersecretkey"):
-        with patch("jwt.decode", return_value={"sub": "user123"}) as mock_decode:
-            payload = decode_custom_token("token")
-            assert payload["sub"] == "user123"
-            mock_decode.assert_called()
-            args = mock_decode.call_args
-            assert args[0][0] == "token"
-            assert args[0][1] == "supersecretkey"
-
-
-def test_decode_custom_token_no_secret():
-    with patch("middleware.auth_middleware.config.JWT_SECRET", None):
-        with pytest.raises(HTTPException) as exc:
-            decode_custom_token("token")
-        assert exc.value.status_code == 500
-        assert "JWT_SECRET not set" in exc.value.detail
-
-
-def test_decode_custom_token_expired(mock_env):
-    from jwt import ExpiredSignatureError
-
-    with patch("middleware.auth_middleware.config.JWT_SECRET", "supersecretkey"):
-        with patch("jwt.decode", side_effect=ExpiredSignatureError):
-            with pytest.raises(HTTPException) as exc:
-                decode_custom_token("token")
-            assert exc.value.status_code == 401
-            assert "Token expired" in exc.value.detail
+# Removed tests for decode_custom_token as it was replaced by auth_utils.decode_token
 
 
 # --- Tests for _get_user_from_payload ---
@@ -223,7 +192,7 @@ async def test_verify_and_decode_token_supabase_ok(mock_env):
 async def test_verify_and_decode_token_fallback_custom(mock_env):
     with (
         patch("middleware.auth_middleware.decode_supabase_token", side_effect=ValueError),
-        patch("middleware.auth_middleware.decode_custom_token") as mock_cust,
+        patch("middleware.auth_middleware.decode_token") as mock_cust,
     ):
         mock_cust.return_value = {"sub": "456"}
         payload, source = await _verify_and_decode_token("token")
@@ -235,7 +204,7 @@ async def test_verify_and_decode_token_fallback_custom(mock_env):
 async def test_verify_and_decode_token_all_fail(mock_env):
     with (
         patch("middleware.auth_middleware.decode_supabase_token", side_effect=ValueError),
-        patch("middleware.auth_middleware.decode_custom_token", side_effect=Exception),
+        patch("middleware.auth_middleware.decode_token", side_effect=Exception),
     ):
         with pytest.raises(HTTPException) as exc:
             await _verify_and_decode_token("token")

@@ -3,12 +3,14 @@ import { ref, computed } from 'vue';
 import { NotificationService, type Notification } from '@/services/notificationService';
 import { useAuthStore } from './authStore';
 import { supabase } from '@/lib/supabase';
+import type { RealtimeChannel } from '@supabase/supabase-js';
+import { ProfileService } from '@/services/profileService';
 
 export const useNotificationStore = defineStore('notifications', () => {
     const notifications = ref<Notification[]>([]);
     const unreadCount = computed(() => notifications.value.filter(n => !n.is_read).length);
     const authStore = useAuthStore();
-    let subscription: any = null;
+    let subscription: RealtimeChannel | null = null;
 
     async function fetchNotifications() {
         if (!authStore.isAuthenticated) return;
@@ -53,10 +55,20 @@ export const useNotificationStore = defineStore('notifications', () => {
                     table: 'notifications',
                     filter: `user_id=eq.${authStore.user.id}`
                 },
-                (payload) => {
+                async (payload) => {
                     const newNotification = payload.new as Notification;
-                    // We might miss actor info purely from realtime, but ok for now
-                    // Ideally we'd fetch the full object, but let's just push it to top
+                    
+                    // Fetch actor details if available
+                    if (newNotification.actor_id) {
+                        try {
+                            const user = await ProfileService.getPublicProfile(newNotification.actor_id);
+                            newNotification.actor_name = user.name;
+                            newNotification.actor_picture = user.picture;
+                        } catch (e) {
+                            console.error("Failed to fetch actor details for notification", e);
+                        }
+                    }
+                    
                     notifications.value.unshift(newNotification);
                 }
             )

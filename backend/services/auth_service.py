@@ -3,10 +3,9 @@ Authentication service for Google OAuth and traditional email/password auth
 """
 
 import hashlib
-import os
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import cast
+from typing import Any, cast
 
 import jwt
 from supabase import Client, create_client
@@ -28,7 +27,7 @@ from utils.security import log_security_event
 class AuthService:
     MAX_CONCURRENT_SESSIONS = 5  # Maximum concurrent sessions per user
 
-    def __init__(self, supabase_client: Client):
+    def __init__(self, supabase_client: Client) -> None:
         self.supabase = supabase_client
         self.supabase_admin = get_supabase_admin_client()
         self.user_service = UserService(supabase_client)
@@ -39,7 +38,7 @@ class AuthService:
         if not self.jwt_secret:
             raise ValueError("JWT_SECRET is not configured")
 
-    def _find_or_create_google_user(self, user_info, google_id):
+    def _find_or_create_google_user(self, user_info: dict[str, Any], google_id: str) -> dict[str, Any]:
         """Find existing user by Google ID or prepare data for new user"""
         existing_user = None
         try:
@@ -90,7 +89,8 @@ class AuthService:
             return await token_service.is_blacklisted(jti=jti)
         except Exception as e:
             logger.error("Failed to check revocation status: %s", e)
-            return False
+            # SECURITY: Fail closed for token revocation check
+            return True
 
     async def revoke_token(self, jti: str, user_id: str, expires_at: datetime) -> bool:
         """Add token to blacklist"""
@@ -103,15 +103,15 @@ class AuthService:
             logger.error("Failed to revoke session: %s", e)
             return False
 
-    def verify_google_token(self, token: str) -> dict:
+    def verify_google_token(self, token: str) -> dict[str, Any]:
         """Verify Google OAuth token - Delegated to GoogleAuthService"""
         return google_auth_service.verify_google_token(token)
 
-    def create_or_get_user(self, user_data: dict) -> User:
+    def create_or_get_user(self, user_data: dict[str, Any]) -> User:
         """Delegated to UserService"""
         return self.user_service.create_or_get_user(user_data)
 
-    def create_access_token(self, user_id: str, user_data: dict | None = None) -> str:
+    def create_access_token(self, user_id: str, user_data: dict[str, Any] | None = None, role: str = "user") -> str:
         """Create JWT access token with user data"""
         expire = utc_now() + timedelta(hours=self.jwt_expiration_hours)
         jti = str(uuid.uuid4())
@@ -119,6 +119,7 @@ class AuthService:
         to_encode = {
             "user_id": user_id,
             "sub": user_id,
+            "role": role,
             "jti": jti,
             "exp": expire,
             "iat": utc_now(),
@@ -137,8 +138,7 @@ class AuthService:
                 }
             )
 
-        encoded_jwt = jwt.encode(to_encode, self.jwt_secret, algorithm=self.jwt_algorithm)
-        return encoded_jwt
+        return jwt.encode(to_encode, self.jwt_secret, algorithm=self.jwt_algorithm)
 
     async def _check_concurrent_sessions(self, user_id: str) -> bool:
         """
@@ -157,24 +157,21 @@ class AuthService:
 
     async def _get_active_session_count(self, user_id: str) -> int:
         """Helper to get active session count from Redis or DB"""
-        redis_url = os.getenv("REDIS_URL")
-        if redis_url:
-            count = await self._get_redis_session_count(user_id, redis_url)
+        token_service = await get_token_service()
+        if token_service.redis:
+            count = await self._get_redis_session_count(user_id, token_service.redis)
             if count is not None:
                 return count
         return self._get_db_session_count(user_id)
 
-    async def _get_redis_session_count(self, user_id: str, redis_url: str) -> int | None:
+    async def _get_redis_session_count(self, user_id: str, redis_client: Any) -> int | None:
         try:
-            import redis.asyncio as aioredis
-
-            redis_client = aioredis.from_url(redis_url, encoding="utf-8", decode_responses=False)
             session_count_key = f"user_sessions:{user_id}"
             session_count = await redis_client.incr(session_count_key)
             await redis_client.expire(session_count_key, self.jwt_expiration_hours * 3600)
-            await redis_client.close()
-            return session_count
-        except Exception:
+            return int(session_count)
+        except Exception as e:
+            logger.warning("Failed to get session count from Redis: %s", e)
             return None
 
     def _get_db_session_count(self, user_id: str) -> int:
@@ -208,15 +205,15 @@ class AuthService:
         """Delegated to UserService"""
         return self.user_service.get_user_by_id(user_id)
 
-    def get_user_by_email(self, email: str) -> dict | None:
+    def get_user_by_email(self, email: str) -> dict[str, Any] | None:
         """Delegated to UserService"""
         return self.user_service.get_user_by_email(email)
 
-    def create_user_with_password(self, email: str, password: str, name: str) -> dict:
+    def create_user_with_password(self, email: str, password: str, name: str) -> dict[str, Any]:
         """Delegated to UserService (unverified flow)"""
         return self.user_service.create_unverified_user(email, password, name)
 
-    def create_user(self, email: str, password: str, name: str) -> dict:
+    def create_user(self, email: str, password: str, name: str) -> dict[str, Any]:
         return self.create_user_with_password(email, password, name)
 
     def confirm_user_email(self, email: str) -> bool:
@@ -235,18 +232,18 @@ class AuthService:
             logger.error("Failed to confirm email")
             return False
 
-    def get_user_by_email_unverified(self, email: str) -> dict | None:
+    def get_user_by_email_unverified(self, email: str) -> dict[str, Any] | None:
         """
         Get user by email, including unverified users.
         UserService.get_user_by_email wraps supabase select.
         """
         return self.user_service.get_user_by_email(email)
 
-    def authenticate_user(self, email: str, password: str) -> dict | None:
+    def authenticate_user(self, email: str, password: str) -> dict[str, Any] | None:
         """Delegated to UserService"""
         return self.user_service.authenticate_user(email, password)
 
-    def update_user_profile(self, user_id: str, update_data: dict) -> dict:
+    def update_user_profile(self, user_id: str, update_data: dict[str, Any]) -> dict[str, Any]:
         """Delegated to UserService"""
         return self.user_service.update_user_profile(user_id, update_data)
 
@@ -265,7 +262,7 @@ class AuthService:
             user_data = self._find_or_create_google_user(user_info, google_id)
             user = self.user_service.create_or_get_user(user_data)
 
-            jwt_token = self.create_access_token(user.id, user_data)
+            jwt_token = self.create_access_token(user.id, user_data, role=user.role)
             refresh_token = self.create_refresh_token(user.id, ip, user_agent)
 
             return LoginResponse(
@@ -278,6 +275,7 @@ class AuthService:
                     picture=user.picture,
                     bio=user.bio,
                     created_at=user.created_at,
+                    google_id=user.google_id,
                 ),
                 refresh_token=refresh_token,
             )
@@ -303,15 +301,14 @@ class AuthService:
         if ip or user_agent:
             to_encode["fingerprint"] = self._generate_fingerprint(ip or "", user_agent or "")
 
-        encoded_jwt = jwt.encode(to_encode, cast(str, config.JWT_REFRESH_SECRET), algorithm=self.jwt_algorithm)
-        return encoded_jwt
+        return jwt.encode(to_encode, cast("str", config.JWT_REFRESH_SECRET), algorithm=self.jwt_algorithm)
 
     async def verify_refresh_token(
         self, token: str, ip: str | None = None, user_agent: str | None = None
-    ) -> dict | None:
+    ) -> dict[str, Any] | None:
         """Verify refresh token"""
         try:
-            payload = jwt.decode(token, cast(str, config.JWT_REFRESH_SECRET), algorithms=[self.jwt_algorithm])
+            payload = jwt.decode(token, cast("str", config.JWT_REFRESH_SECRET), algorithms=[self.jwt_algorithm])
 
             if payload.get("type") != "refresh":
                 return None
@@ -352,7 +349,7 @@ class AuthService:
                 "options": {"redirect_to": f"{config.FRONTEND_URL}/reset-password"},
             }
 
-            res = self.supabase_admin.auth.admin.generate_link(params)
+            res = self.supabase_admin.auth.admin.generate_link(cast(Any, params))
 
             if not res or not hasattr(res, "properties"):
                 logger.error("Failed to generate recovery link for %s", email)
@@ -365,12 +362,13 @@ class AuthService:
                 return False
 
             # Send Email via EmailService
-            sent = email_service.send_reset_email(email, action_link)
-            return sent
+            return email_service.send_reset_email(email, action_link)
 
-        except Exception:
-            logger.error("Failed to process password reset")
-            return True
+        except Exception as e:
+            # SECURITY: Return True to prevent email enumeration
+            logger.error("Failed to process password reset: %s", e)
+        
+        return True
 
     async def reset_password(self, access_token: str, new_password: str) -> bool:
         """Reset password using Supabase Auth session"""
@@ -384,7 +382,7 @@ class AuthService:
             )
             return False
 
-    async def _validate_and_update_password(self, access_token: str, new_password: str):
+    async def _validate_and_update_password(self, access_token: str, new_password: str) -> None:
         is_valid, error = await password_service.validate_new_password(new_password)
         if not is_valid:
             logger.warning("Password validation failed during reset")
@@ -401,7 +399,7 @@ class AuthService:
         temp_client.auth.update_user({"password": new_password})
 
         self.supabase_admin.table("users").update(
-            {"password_hash": password_service.hash_password(new_password), "updated_at": utc_now().isoformat()}
+            {"updated_at": utc_now().isoformat()}
         ).eq("id", user_id).execute()
 
         if user_res.user.email:
@@ -410,7 +408,7 @@ class AuthService:
             logger.warning(f"User {user_id} has no email, skipping cleanup notification")
         log_security_event("password_reset_success", user_id=user_id, severity="INFO")
 
-    async def _post_password_reset_cleanup(self, user_id: str, email: str):
+    async def _post_password_reset_cleanup(self, user_id: str, email: str) -> None:
         try:
             ts = await get_token_service()
             await ts.blacklist_all_user_tokens(user_id, reason="password_reset")
@@ -433,7 +431,6 @@ class AuthService:
 
             # Update password
             self.supabase_admin.auth.admin.update_user_by_id(user_id, {"password": new_password})
-            self.user_service.update_password_hash(user_id, new_password)
 
             await self._post_password_change_cleanup(user_id, user.email)
             log_security_event("password_change_success", user_id=user_id, severity="INFO")
@@ -455,7 +452,7 @@ class AuthService:
 
             raise PurrfectSpotsException("Failed to change password", error_code="INTERNAL_ERROR")
 
-    async def _verify_password_change_eligibility(self, user, current_pward, new_pward):
+    async def _verify_password_change_eligibility(self, user: User, current_pward: str, new_pward: str) -> None:
         if user.google_id:
             raise ValueError("This account uses Google Login. Please manage your password through Google Settings.")
 
@@ -467,21 +464,14 @@ class AuthService:
         if not password_verified:
             raise ValueError("Incorrect current password")
 
-    def _verify_current_password(self, user, current_pward) -> bool:
-        if user.password_hash:
-            try:
-                # Note: verify_password is CPU bound (bcrypt) but sync.
-                # In a high-throughput async app, this should ideally be offloaded to a threadpool.
-                if password_service.verify_password(current_pward, user.password_hash):
-                    return True
-            except Exception:
-                pass
-
-        # Fallback to Supabase Auth check (blocking I/O)
-        # Ideally this calls an async authenticate_user
+    def _verify_current_password(self, user: User, current_pward: str) -> bool:
+        """
+        Verify current password using Supabase Auth.
+        We no longer store or check password hashes locally for security.
+        """
         return bool(self.user_service.authenticate_user(user.email, current_pward))
 
-    async def _post_password_change_cleanup(self, user_id, email):
+    async def _post_password_change_cleanup(self, user_id: str, email: str) -> None:
         try:
             ts = await get_token_service()
             await ts.blacklist_all_user_tokens(user_id, reason="password_change")

@@ -266,11 +266,12 @@ async function postComment() {
 }
 
 async function deleteComment(id: string) {
-  if (!confirm('Delete this comment?')) return;
+  // eslint-disable-next-line no-alert
+  if (!window.confirm('Delete this comment?')) return;
   try {
     await SocialService.deleteComment(id);
     comments.value = comments.value.filter((c) => c.id !== id);
-  } catch (e) {
+  } catch {
     toastStore.addToast({ title: 'Error', message: 'Failed to delete', type: 'error' });
   }
 }
@@ -296,7 +297,7 @@ async function saveEdit(id: string) {
       comments.value[index] = updated;
     }
     cancelEdit();
-  } catch (e) {
+  } catch {
     toastStore.addToast({
       title: 'Error',
       message: 'Failed to update comment',
@@ -316,3 +317,9 @@ function formatDate(dateStr: string) {
   });
 }
 </script>
+<style scoped>
+.comments-section {
+  /* Allow full expansion, parent handles scrolling */
+  width: 100%;
+}
+</style>

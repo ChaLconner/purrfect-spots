@@ -47,7 +47,7 @@ export const useToastStore = defineStore('toast', () => {
   /**
    * Remove a toast by ID
    */
-  function removeToast(id: string) {
+  function removeToast(id: string): void {
     const index = toasts.value.findIndex((t) => t.id === id);
     if (index !== -1) {
       toasts.value.splice(index, 1);
@@ -57,35 +57,35 @@ export const useToastStore = defineStore('toast', () => {
   /**
    * Remove all toasts
    */
-  function clearAllToasts() {
+  function clearAllToasts(): void {
     toasts.value = [];
   }
 
   /**
    * Show success toast
    */
-  function showSuccess(message: string, title: string = 'Success') {
+  function showSuccess(message: string, title: string = 'Success'): string {
     return addToast(message, 'success', 4000, title);
   }
 
   /**
    * Show error toast
    */
-  function showError(message: string, title: string = 'Error') {
+  function showError(message: string, title: string = 'Error'): string {
     return addToast(message, 'error', 6000, title);
   }
 
   /**
    * Show warning toast
    */
-  function showWarning(message: string, title: string = 'Warning') {
+  function showWarning(message: string, title: string = 'Warning'): string {
     return addToast(message, 'warning', 5000, title);
   }
 
   /**
    * Show info toast
    */
-  function showInfo(message: string, title?: string) {
+  function showInfo(message: string, title?: string): string {
     return addToast(message, 'info', 5000, title);
   }
 
@@ -112,7 +112,7 @@ export const useToastStore = defineStore('toast', () => {
 // ========== Legacy exports for backward compatibility ==========
 let _store: ReturnType<typeof useToastStore> | null = null;
 
-function getStore() {
+function getStore(): ReturnType<typeof useToastStore> | null {
   if (!_store) {
     try {
       _store = useToastStore();
@@ -125,7 +125,7 @@ function getStore() {
 
 // Legacy reactive export
 export const toastState = {
-  get toasts() {
+  get toasts(): Toast[] {
     return getStore()?.toasts ?? [];
   },
 };
@@ -136,18 +136,18 @@ export function addToast(
   type: ToastType = 'info',
   duration: number = 5000,
   title?: string
-) {
+): string {
   return getStore()?.addToast(message, type, duration, title) ?? '';
 }
 
-export function removeToast(id: string) {
+export function removeToast(id: string): void {
   getStore()?.removeToast(id);
 }
 
-export function showError(message: string, title: string = 'Error') {
+export function showError(message: string, title: string = 'Error'): string {
   return getStore()?.showError(message, title) ?? '';
 }
 
-export function showSuccess(message: string, title: string = 'Success') {
+export function showSuccess(message: string, title: string = 'Success'): string {
   return getStore()?.showSuccess(message, title) ?? '';
 }

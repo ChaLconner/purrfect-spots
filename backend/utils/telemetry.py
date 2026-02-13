@@ -4,6 +4,7 @@ Sets up OpenTelemetry tracing.
 """
 
 import os
+from typing import Any
 
 from fastapi import FastAPI
 
@@ -74,7 +75,7 @@ def setup_telemetry(app: FastAPI, service_name: str = "purrfect-backend") -> Non
         logger.error(f"Failed to initialize telemetry: {e}")
 
 
-def get_tracer(name: str):
+def get_tracer(name: str) -> Any:  # noqa: ANN401
     """Safe wrapper to get tracer."""
     try:
         from opentelemetry import trace
@@ -83,14 +84,14 @@ def get_tracer(name: str):
     except ImportError:
         # Return a dummy tracer if OTel not available
         class DummySpan:
-            def __enter__(self):
+            def __enter__(self) -> "DummySpan":
                 return self
 
-            def __exit__(self, *args):
+            def __exit__(self, *args: Any) -> None:  # noqa: ANN401
                 pass  # No operation needed for dummy span exit
 
         class DummyTracer:
-            def start_as_current_span(self, _):
+            def start_as_current_span(self, _: str) -> "DummySpan":
                 return DummySpan()
 
         return DummyTracer()

@@ -247,6 +247,7 @@ class TestRefreshTokenEndpoint:
             created_at=datetime(2024, 1, 1),
             picture=None,
             bio=None,
+            role="user",
         )
         mock_auth_service.get_user_by_id.return_value = user_obj
 

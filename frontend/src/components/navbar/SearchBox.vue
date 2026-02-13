@@ -115,6 +115,7 @@ const clearSearch = () => {
   padding: 0.35rem 0.35rem 0.35rem 1.25rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   width: 100%;
+  max-width: 400px; /* Limit overall box width */
   box-shadow:
     0 0 0 2px var(--color-btn-shade-b),
     0 0.25em 0 0 var(--color-btn-shade-a);

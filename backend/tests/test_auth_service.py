@@ -33,10 +33,9 @@ class TestAuthService:
     @pytest.fixture
     def auth_service(self, mock_supabase, mock_user_service):
         """Create AuthService instance with mocked supabase and user service"""
-        service = AuthService(mock_supabase)
+        return AuthService(mock_supabase)
         # Verify UserService was initialized with supabase client
         # mock_user_service_class.assert_called_with(mock_supabase) # Can't easily check this here due to fixture yield
-        return service
 
     def test_create_or_get_user_new(self, auth_service, mock_user_service):
         """Test creating a new user via OAuth data"""

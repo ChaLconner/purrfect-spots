@@ -4,4 +4,4 @@ Disallow: /admin
 Disallow: /auth/callback
 Disallow: /verify-email
 
-Sitemap: https://purrfectspots.xyz/sitemap.xml
+Sitemap: https://purrfectspots.xyz/api/v1/sitemap.xml

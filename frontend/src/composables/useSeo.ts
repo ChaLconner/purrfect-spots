@@ -58,6 +58,15 @@ export function setMetaTags(options: MetaTagOptions) {
   setMeta('og:url', url, true);
   setMeta('og:type', type, true);
 
+  // Canonical URL
+  let canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement;
+  if (!canonical) {
+    canonical = document.createElement('link');
+    canonical.rel = 'canonical';
+    document.head.appendChild(canonical);
+  }
+  canonical.href = url;
+
   // Twitter Card tags
   setMeta('twitter:card', 'summary_large_image');
   setMeta('twitter:title', title);

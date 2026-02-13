@@ -8,7 +8,7 @@ from logger import logger
 
 
 class StorageService:
-    def __init__(self):
+    def __init__(self) -> None:
         self.aws_region = os.getenv("AWS_REGION", "ap-southeast-2")
         self.aws_bucket = os.getenv("AWS_S3_BUCKET", "purrfect-spots-bucket")
         self.aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")
@@ -83,7 +83,7 @@ class StorageService:
                 logger.error(f"S3 ClientError: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to upload image to S3: {e!s}")
 
-    def delete_file(self, file_url: str):
+    def delete_file(self, file_url: str) -> None:
         """
         Deletes a file from S3 (optional, for cleanup)
 

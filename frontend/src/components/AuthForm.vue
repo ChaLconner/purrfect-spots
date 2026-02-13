@@ -219,13 +219,27 @@ watch(
 );
 
 // Check if user is already logged in
-onMounted(() => {
+const checkAuthAndRedirect = () => {
   if (useAuthStore().isUserReady) {
     const redirectPath = globalThis.sessionStorage?.getItem('redirectAfterAuth') || '/upload';
     globalThis.sessionStorage?.removeItem('redirectAfterAuth');
     router.push(redirectPath);
   }
+};
+
+onMounted(() => {
+  checkAuthAndRedirect();
 });
+
+// Watch for delayed auth initialization (e.g. refresh token success)
+watch(
+  () => useAuthStore().isUserReady,
+  (isReady) => {
+    if (isReady) {
+      checkAuthAndRedirect();
+    }
+  }
+);
 </script>
 
 <style scoped>

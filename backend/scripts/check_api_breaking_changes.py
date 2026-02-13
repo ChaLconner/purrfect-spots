@@ -171,7 +171,7 @@ def check_non_breaking_changes(baseline: dict, current: dict) -> list[dict]:
     return warnings
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(description="Check for API breaking changes")
     parser.add_argument(
         "--baseline",

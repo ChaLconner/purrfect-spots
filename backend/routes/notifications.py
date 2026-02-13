@@ -1,6 +1,7 @@
-from typing import List
+from typing import Any, List
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from supabase import Client
 
 from dependencies import get_supabase_client
 from middleware.auth_middleware import get_current_user_from_credentials
@@ -10,7 +11,7 @@ from user_models.user import User
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
-def get_notification_service(supabase=Depends(get_supabase_client)):
+def get_notification_service(supabase: Client = Depends(get_supabase_client)) -> NotificationService:
     return NotificationService(supabase)
 
 @router.get("", response_model=List[NotificationResponse])
@@ -19,7 +20,7 @@ async def get_notifications(
     offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_user_from_credentials),
     service: NotificationService = Depends(get_notification_service),
-):
+) -> List[dict[str, Any]]:
     """Get user notifications"""
     return await service.get_notifications(current_user.id, limit, offset)
 
@@ -28,7 +29,7 @@ async def mark_as_read(
     id: str,
     current_user: User = Depends(get_current_user_from_credentials),
     service: NotificationService = Depends(get_notification_service),
-):
+) -> dict[str, str]:
     """Mark notification as read"""
     await service.mark_as_read(current_user.id, id)
     return {"status": "success"}
@@ -37,7 +38,7 @@ async def mark_as_read(
 async def mark_all_as_read(
     current_user: User = Depends(get_current_user_from_credentials),
     service: NotificationService = Depends(get_notification_service),
-):
+) -> dict[str, str]:
     """Mark all notifications as read"""
     await service.mark_all_as_read(current_user.id)
     return {"status": "success"}

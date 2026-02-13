@@ -23,7 +23,7 @@ class OTPService:
     RESEND_COOLDOWN_SECONDS = 60  # Minimum time between resends
     LOCKOUT_DURATION_MINUTES = 15  # Account lockout duration after max attempts
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.supabase = get_supabase_admin_client()
 
     def _generate_otp(self) -> str:
@@ -297,20 +297,19 @@ class OTPService:
 
                 logger.info("OTP verified successfully")
                 return {"success": True}
-            else:
-                # Failed - increment attempts
-                new_attempts = attempts + 1
-                self.supabase.table("email_verifications").update({"attempts": new_attempts}).eq(
-                    "id", record_id
-                ).execute()
+            # Failed - increment attempts
+            new_attempts = attempts + 1
+            self.supabase.table("email_verifications").update({"attempts": new_attempts}).eq(
+                "id", record_id
+            ).execute()
 
-                remaining = max_attempts - new_attempts
-                logger.warning("Invalid OTP, %s attempts remaining", remaining)
-                return {
-                    "success": False,
-                    "error": f"Invalid verification code. {remaining} attempts remaining.",
-                    "attempts_remaining": remaining,
-                }
+            remaining = max_attempts - new_attempts
+            logger.warning("Invalid OTP, %s attempts remaining", remaining)
+            return {
+                "success": False,
+                "error": f"Invalid verification code. {remaining} attempts remaining.",
+                "attempts_remaining": remaining,
+            }
 
         except Exception:
             logger.error("OTP verification error")

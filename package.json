@@ -1,0 +1,28 @@
+{
+  "name": "purrfect-spots",
+  "version": "1.0.0",
+  "description": "**Connect. Share. Discover.**\r The ultimate platform for cat lovers to find and share the perfect spots for their furry friends.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "husky"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChaLconner/purrfect-spots.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ChaLconner/purrfect-spots/issues"
+  },
+  "homepage": "https://github.com/ChaLconner/purrfect-spots#readme",
+  "devDependencies": {
+    "husky": "^9.1.7"
+  }
+}

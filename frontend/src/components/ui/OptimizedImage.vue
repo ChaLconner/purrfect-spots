@@ -52,12 +52,12 @@ const {
 });
 
 // Event handlers
-function handleLoad() {
+function handleLoad(): void {
   onInternalLoad();
   emit('load');
 }
 
-function handleError(event: Event) {
+function handleError(event: Event): void {
   onInternalError(event);
   emit('error', event);
 }

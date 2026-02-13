@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import NavBar from './components/NavBar.vue';
+import BottomNav from './components/layout/BottomNav.vue';
 import ToastContainer from './components/toast/ToastContainer.vue';
 import { onErrorCaptured, onMounted, ref } from 'vue';
 import { isBrowserExtensionError, logBrowserExtensionError } from './utils/browserExtensionHandler';
@@ -7,6 +8,8 @@ import { showError } from './store/toast';
 import { useAuthStore } from './store/authStore';
 import { ApiError, ApiErrorTypes } from './utils/api';
 import { useNetwork } from './composables/useNetwork';
+import { ErrorBoundary } from './components/ui';
+import { useStructuredData } from './composables/useStructuredData';
 
 import { useWebVitals } from './composables/usePerformance';
 
@@ -14,8 +17,29 @@ const { isOnline } = useNetwork();
 const errorCount = ref(0);
 const MAX_ERRORS_BEFORE_REFRESH = 5;
 
-// Initialize performance monitoring
+// Initialize Web Vitals monitoring
 useWebVitals();
+
+// Global SEO Schema
+useStructuredData({
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'Purrfect Spots',
+  url: 'https://purrfectspots.xyz',
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: 'https://purrfectspots.xyz/search?q={search_term_string}',
+    'query-input': 'required name=search_term_string',
+  },
+  publisher: {
+    '@type': 'Organization',
+    name: 'Purrfect Spots Community',
+    logo: {
+      '@type': 'ImageObject',
+      url: 'https://purrfectspots.xyz/cat-icon-512.png',
+    },
+  },
+});
 
 onMounted(() => {
   useAuthStore().verifySession();
@@ -119,9 +143,13 @@ onErrorCaptured((err, instance, info) => {
       id="main-content"
       role="main"
       tabindex="-1"
-      class="flex-1 overflow-auto flex flex-col focus:outline-none w-full"
+      class="flex-1 overflow-auto flex flex-col focus:outline-none w-full pb-20 xl:pb-0"
     >
-      <router-view />
+      <ErrorBoundary>
+        <router-view />
+      </ErrorBoundary>
     </main>
+
+    <BottomNav />
   </div>
 </template>

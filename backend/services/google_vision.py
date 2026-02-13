@@ -49,7 +49,7 @@ class GoogleVisionService:
     NON_CAT_SCORE_THRESHOLD = 0.7
     HIGH_CONFIDENCE_THRESHOLD = 0.75
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize Google Vision client"""
         self.client = None
         self.is_initialized = False
@@ -155,7 +155,7 @@ class GoogleVisionService:
             if not isinstance(image_input, bytes):
                 image_input.file.seek(0)
 
-    def _process_vision_responses(self, label_response, object_response) -> dict:
+    def _process_vision_responses(self, label_response: Any, object_response: Any) -> dict:
         """Process Raw Vision API responses into detection result."""
         labels = label_response.label_annotations
         objects = object_response.localized_object_annotations
@@ -175,14 +175,14 @@ class GoogleVisionService:
         confidence = self._calculate_confidence(cat_labels, cat_objects)
         return self._create_detection_result(has_cats, cat_labels, cat_objects, labels, confidence)
 
-    def _check_non_cat_animals(self, objects) -> Optional[str]:
+    def _check_non_cat_animals(self, objects: Any) -> Optional[str]:
         """Check for presence of other animals that might cause false positives"""
         for obj in objects:
             if obj.name.lower() in self.NON_CAT_ANIMALS and obj.score >= self.NON_CAT_SCORE_THRESHOLD:
                 return f"Dominant non-cat animal detected: {obj.name} ({obj.score:.2f})"
         return None
 
-    def _create_non_cat_result(self, labels, reason: str) -> dict:
+    def _create_non_cat_result(self, labels: Any, reason: str) -> dict:
         """Create result when a non-cat animal is detected"""
         labels_list = [label.description for label in labels]
         logger.info(f"Non-cat detection: {reason}")
@@ -196,7 +196,7 @@ class GoogleVisionService:
             "reasoning": reason,
         }
 
-    def _filter_cat_labels(self, labels) -> List[dict]:
+    def _filter_cat_labels(self, labels: Any) -> List[dict]:
         """Filter and process cat-related labels"""
         cat_labels = []
         for label in labels:
@@ -205,7 +205,7 @@ class GoogleVisionService:
                     cat_labels.append({"description": label.description, "score": label.score})
         return cat_labels
 
-    def _filter_cat_objects(self, objects) -> List[dict]:
+    def _filter_cat_objects(self, objects: Any) -> List[dict]:
         """Filter and process cat objects"""
         cat_objects = []
         for obj in objects:
@@ -224,7 +224,7 @@ class GoogleVisionService:
                     )
         return cat_objects
 
-    def _create_no_cats_detected_result(self, labels) -> dict:
+    def _create_no_cats_detected_result(self, labels: Any) -> dict:
         """Create result when no cats are detected"""
         labels_list = [label.description for label in labels]
         logger.info("No cats detected in image (safe filter)")
@@ -248,7 +248,7 @@ class GoogleVisionService:
         return round(confidence, 2)
 
     def _create_detection_result(
-        self, has_cats: bool, cat_labels: List[dict], cat_objects: List[dict], labels, confidence: float
+        self, has_cats: bool, cat_labels: List[dict], cat_objects: List[dict], labels: Any, confidence: float
     ) -> dict:
         """Create standard detection result"""
         labels_list = [label.description for label in labels]
@@ -273,7 +273,7 @@ class GoogleVisionService:
         logger.info(f"Cat detection success: {result['cat_count']} cats, {confidence}% confidence")
         return result
 
-    def _get_vision_api_responses(self, content: bytes):
+    def _get_vision_api_responses(self, content: bytes) -> tuple[Any, Any] | tuple[None, None]:
         """Execute Vision API calls with timeout."""
         VISION_API_TIMEOUT = 10
         image = vision.Image(content=content)
@@ -298,7 +298,7 @@ class GoogleVisionService:
             logger.warning(f"Vision API call failed: {api_error}")
             return None, None
 
-    def _fallback_cat_detection(self, error=None) -> dict:
+    def _fallback_cat_detection(self, error: Optional[str] = None) -> dict:
         """Fallback cat detection when Google Vision is not available.
 
         SECURITY: Returns has_cats=False to prevent bypass when Vision API is unavailable.
@@ -319,23 +319,24 @@ class GoogleVisionService:
             "fallback_mode": True,
         }
 
-    def _get_fallback_content(self, image_input, content):
+    def _get_fallback_content(self, image_input: Any, content: Optional[bytes]) -> bytes:
         if content is not None:
             return content
         if isinstance(image_input, bytes):
             return image_input
+        from typing import cast
         res = image_input.file.read()
         image_input.file.seek(0)
-        return res
+        return cast(bytes, res)
 
-    def _check_filename_for_cats(self, image_input) -> bool:
+    def _check_filename_for_cats(self, image_input: Any) -> bool:
         if isinstance(image_input, bytes):
             return False
         filename = getattr(image_input, "filename", "").lower()
         cat_keywords = list(set(self.CAT_LABEL_KEYWORDS + ["kitty"]))
         return any(k in filename for k in cat_keywords)
 
-    def _create_fallback_result(self, has_cats, confidence, width, height, format_name, error) -> dict:
+    def _create_fallback_result(self, has_cats: bool, confidence: float, width: int, height: int, format_name: str, error: Optional[str]) -> dict:
         return {
             "has_cats": has_cats,
             "cat_count": 1 if has_cats else 0,
@@ -349,7 +350,7 @@ class GoogleVisionService:
             "fallback_mode": True,
         }
 
-    def _emergency_fallback(self, error) -> dict:
+    def _emergency_fallback(self, error: Any) -> dict:
         """Emergency fallback - SECURITY: Reject image when all detection methods fail."""
         logger.error(f"Emergency fallback triggered - rejecting image: {error!s}")
         return {
@@ -431,14 +432,14 @@ class GoogleVisionService:
             "recommendations": recs,
         }
 
-    def _check_park_environment(self, labels: List[str], safety: dict, pros: List[str]):
+    def _check_park_environment(self, labels: List[str], safety: dict, pros: List[str]) -> str | None:
         if any(label in labels for label in ["park", "garden", "nature", "tree", "grass"]):
             safety.update({"has_shelter": True, "escape_routes": True})
             pros.extend(["Has spacious area", "Has trees for shelter"])
             return "Public park"
         return None
 
-    def _check_street_environment(self, labels: List[str], safety: dict, cons: List[str], recs: List[str]):
+    def _check_street_environment(self, labels: List[str], safety: dict, cons: List[str], recs: List[str]) -> str | None:
         if any(label in labels for label in ["street", "road", "traffic", "car"]):
             safety["safe_from_traffic"] = False
             cons.extend(["Near traffic roads", "Potential danger from vehicles"])
@@ -446,7 +447,7 @@ class GoogleVisionService:
             return "Street or public road"
         return None
 
-    def _check_residential_environment(self, labels: List[str], safety: dict, pros: List[str]):
+    def _check_residential_environment(self, labels: List[str], safety: dict, pros: List[str]) -> str | None:
         if any(label in labels for label in ["building", "house", "shelter", "roof"]):
             safety.update({"has_shelter": True, "escape_routes": True})
             pros.extend(["Has shelter from weather", "Has multiple entry/exit routes"])

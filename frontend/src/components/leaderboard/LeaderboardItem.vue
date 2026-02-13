@@ -1,0 +1,94 @@
+<template>
+  <router-link
+    :to="`/profile/${user.username || user.id}`"
+    class="flex items-center p-6 hover:bg-white/50 transition-colors duration-300 gap-6 group cursor-pointer"
+  >
+    <div class="flex-shrink-0 w-12 text-center">
+      <span
+        class="text-2xl font-bold font-heading"
+        :class="{
+          'text-yellow-500': rank === 1,
+          'text-stone-400': rank === 2,
+          'text-orange-400': rank === 3,
+          'text-stone-300': rank > 3,
+        }"
+      >#{{ rank }}</span>
+    </div>
+
+    <!-- Avatar -->
+    <div class="flex-shrink-0 relative">
+      <img
+        :src="user.picture || '/default-avatar.svg'"
+        loading="lazy"
+        class="w-16 h-16 rounded-full object-cover border-4 border-white shadow-md transition-transform duration-300 group-hover:scale-105"
+        :class="{
+          'ring-4 ring-yellow-400/30 animate-bounce-slow': rank === 1,
+          'ring-4 ring-stone-300/30': rank === 2,
+          'ring-4 ring-orange-300/30': rank === 3,
+        }"
+        :alt="`${user.name || 'User'}'s avatar`"
+      />
+    </div>
+
+    <!-- Info -->
+    <div class="flex-grow min-w-0">
+      <h3
+        class="text-xl font-bold text-brown truncate font-heading group-hover:text-terracotta transition-colors"
+      >
+        {{ user.name || 'Anonymous Spotter' }}
+      </h3>
+      <p class="text-sm text-stone-500 font-medium">
+        {{ getRankTitle(rank - 1) }}
+      </p>
+    </div>
+
+    <div class="flex-shrink-0 text-right">
+      <div class="flex items-center gap-2 justify-end">
+        <span class="text-3xl font-black text-terracotta">{{
+          user.total_treats_received || 0
+        }}</span>
+      </div>
+      <p class="text-xs text-stone-400 font-bold uppercase tracking-wider">Treats Received</p>
+    </div>
+  </router-link>
+</template>
+
+<script setup lang="ts">
+export interface LeaderboardUser {
+  id: string;
+  name: string;
+  username?: string;
+  picture?: string;
+  total_treats_received: number;
+}
+
+defineProps<{
+  user: LeaderboardUser;
+  rank: number;
+}>();
+
+const getRankTitle = (index: number): string => {
+  if (index === 0) return 'The Cat Whisperer';
+  if (index === 1) return 'Treat Master';
+  if (index === 2) return 'Feline Friend';
+  return 'Spotter';
+};
+</script>
+
+<style scoped>
+.animate-bounce-slow {
+  animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+  0%,
+  100% {
+    transform: translateY(-5%);
+    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+  }
+  50% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+</style>

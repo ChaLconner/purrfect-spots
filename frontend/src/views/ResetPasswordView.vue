@@ -115,7 +115,7 @@ onUnmounted(() => {
   resetMetaTags();
 });
 
-const handleSubmit = async () => {
+const handleSubmit = async (): Promise<void> => {
   if (password.value !== confirmPassword.value) {
     showError('Passwords do not match', 'Validation Error');
     return;

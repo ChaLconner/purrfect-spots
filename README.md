@@ -1,78 +1,106 @@
 # 🐱 Purrfect Spots
 
 **Connect. Share. Discover.**
-* The ultimate platform for cat lovers to find and share the perfect spots for their furry friends.*
+The ultimate platform for cat lovers to find and share the perfect spots for their furry friends.
 
----
+## 🏗️ Architecture
 
-## 📖 About Purrfect Spots
+Purrfect Spots is a full-stack application built with:
 
-Purrfect Spots is a community-driven platform designed to help cat owners discover cat-friendly locations. Whether you're looking for a quiet park, a cat cafe, or a scenic spot for a photoshoot, Purrfect Spots connects you with a network of verified locations shared by a passionate community.
+- **Frontend**: Vue 3 + Vite + TypeScript (Single Page Application)
+- **Backend**: Python FastAPI (Async)
+- **Database**: Supabase (PostgreSQL)
+- **Storage**: AWS S3 (via Supabase Storage)
+- **Caching**: Redis (Rate Limiting & Data Caching)
+- **AI**: Google Vision API (Cat Detection)
+- **Infrastructure**: Docker & Nginx
 
-Powered by advanced AI, our platform ensures high-quality content by automatically detecting and verifying cat photos, creating a safe and engaging environment for all users.
+### Key Components
 
-🌐 **Live Site:** [https://purrfectspots.xyz](https://purrfectspots.xyz)
+- **Authentication**: JWT-based (Supabase Auth & Custom tokens).
+- **Security**: Rate limiting (Redis-backed), CSRF protection, Helmet headers, Input sanitization.
+- **Observability**: Sentry (Error Tracking), Jaeger (Tracing), Structured Logging.
 
----
+## 🚀 Getting Started
 
-## ✨ Key Features
+### Prerequisites
 
-### 🔍 **Smart Discovery**
-- **Interactive Map**: Explore cat-friendly spots near you with our real-time, interactive map interface.
-- **Curated Gallery**: Browse through a beautiful, responsive gallery of high-quality cat photos.
+- Docker & Docker Compose
+- Node.js 20+ (for local frontend dev)
+- Python 3.12+ (for local backend dev)
 
-### 🤖 **AI-Powered Technologies**
-- **Intelligent Detection**: Our integrated Google Vision AI automatically analyzes uploaded photos to verify the presence of cats, ensuring content relevance and quality.
-- **Automated Tagging**: Smart algorithms categorise locations and images for easy searching.
+### Environment Setup
 
-### 👥 **Community & Social**
-- **Share Your Journey**: Upload photos and pin new locations to help other cat lovers.
-- **Secure Authentication**: Seamless and secure login using Google OAuth.
-- **Profile Management**: Manage your contributions and favorite spots.
+1. Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+2. Fill in the required credentials (Supabase, Google Cloud, etc.).
 
-### 📱 **Cross-Platform Experience**
-- **Responsive Design**: Flawlessly optimized for desktops, tablets, and mobile devices.
-- **PWA Ready**: Built with Progressive Web App standards for a native-app-like experience.
+### Running with Docker (Recommended)
 
----
+```bash
+docker-compose up -d --build
+```
+- Frontend: http://localhost:3000
+- Backend: http://localhost:8000
+- API Docs: http://localhost:8000/docs (Development only)
 
-## 🛠️ Technology Stack
+### Local Development
 
-Purrfect Spots is built on a modern, scalable, and secure architecture:
+**Backend:**
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
 
-- **Frontend**: Vue.js 3, TypeScript, Tailwind CSS, Vite
-- **Backend**: Python (FastAPI), Uvicorn
-- **Database & Storage**: Supabase (PostgreSQL), AWS S3
-- **AI & Services**: Google Vision AI, Google Maps Platform
-- **Infrastructure**: Docker, Nginx, Linux
+**Frontend:**
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
----
+## 🧪 Testing
 
-## 🔒 Security & Privacy
+We use `pytest` for backend and `vitest` for frontend.
 
-We prioritize user data and security:
-- **Enterprise-Grade Auth**: Secure authentication flows via OAuth 2.0.
-- **Data Encryption**: All sensitive data is encrypted in transit and at rest.
-- **Privacy First**: We only collect essential data to improve your experience.
+**Run Backend Tests:**
+```bash
+cd backend
+pytest
+```
 
----
+**Run Frontend Tests:**
+```bash
+cd frontend
+npm run test:unit
+```
 
-## 💻 Developer Resources
+## 📂 Project Structure
 
-For developers and contributors, detailed technical documentation, setup guides, and API references are available in our internal documentation.
+```
+/backend          # FastAPI Application
+  /middleware     # Auth, CSRF, Security middleware
+  /routes         # API endpoints (v1)
+  /services       # Business logic (Auth, Gallery, Storage)
+  /utils          # Helpers (Security, Logging, Config)
 
-- [📂 Technical Documentation](./docs/)
-- [⚙️ Environment Setup](./docs/ENV_SETUP.md)
+/frontend         # Vue 3 Application
+  /src/components # Reusable UI components
+  /src/views      # Page views
+  /src/stores     # Pinia state management
+  /src/composables# Shared state logic
+```
 
----
+## 🔒 Security Measures
 
-## 📞 Contact & Support
+- **Rate Limiting**: Per-IP and per-User limits on all endpoints.
+- **Input Validation**: Strict Pydantic models and manual sanitization.
+- **XSS Protection**: Content-Security-Policy and input encoding.
+- **CSRF**: Double Submit Cookie pattern.
 
-For business inquiries, partnerships, or support, please contact us at:
+## 🤝 Contributing
 
-📧 **Email**: support@purrfectspots.com
-🌐 **Website**: [purrfectspots.xyz](https://purrfectspots.xyz)
-
----
-
-*© 2026 Purrfect Spots. All rights reserved.*
+Please read [CODING_STANDARDS.md](CODING_STANDARDS.md) before contributing.

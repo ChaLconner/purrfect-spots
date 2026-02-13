@@ -1,86 +1,63 @@
 <template>
   <transition
-    enter-active-class="transition-all duration-300 ease-out"
-    leave-active-class="transition-all duration-200 ease-in"
-    enter-from-class="opacity-0 scale-95"
-    leave-to-class="opacity-0 scale-95"
+    enter-active-class="transition-all duration-500 ease-out"
+    leave-active-class="transition-all duration-300 ease-in"
+    enter-from-class="opacity-0 translate-x-full"
+    leave-to-class="opacity-0 translate-x-12"
   >
     <div
       v-if="cat"
-      class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      class="fixed inset-0 z-[100] flex justify-end items-stretch pointer-events-auto"
       @click="$emit('close')"
     >
-      <div class="modal-container" @click.stop>
-        <!-- Image with gradient overlay -->
-        <div class="relative h-64">
-          <img
-            :src="cat.image_url"
-            :alt="cat.location_name || 'Cat'"
-            class="w-full h-full object-cover"
-            loading="lazy"
-            decoding="async"
-          />
-          <div
-            class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"
-          ></div>
+      <div class="minimal-panel w-full max-w-[450px]" @click.stop>
+        <!-- Close Action (Top Corner) -->
+        <button class="close-x-btn" aria-label="Close" @click="$emit('close')">
+          <svg
+            viewBox="0 0 24 24"
+            width="24"
+            height="24"
+            stroke="currentColor"
+            stroke-width="2.5"
+            fill="none"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
 
-          <!-- Close button (3D Style) -->
-          <button class="close-btn-3d" aria-label="Close" @click="$emit('close')">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="w-5 h-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+        <div class="panel-inner custom-scrollbar">
+          <!-- Image Section -->
+          <div class="image-wrapper">
+            <img
+              :src="cat.image_url"
+              :alt="cat.location_name || 'Cat'"
+              class="main-image"
+              loading="lazy"
+            />
+          </div>
 
-          <!-- Location badge (3D Style) -->
-          <div class="absolute bottom-4 left-4">
-            <span class="location-badge-3d">
+          <!-- Content Section -->
+          <div class="details-section">
+            <div class="location-label">
               {{ cat.location_name }}
-            </span>
+            </div>
+
+            <h2 class="cat-name">Cat Spotted!</h2>
+
+            <div class="description-text font-zen-maru">
+              {{ cleanDescription || 'A beautiful cat was found at this location.' }}
+            </div>
+
+            <div v-if="tags.length > 0" class="tags-row">
+              <span v-for="tag in tags" :key="tag" class="tag-text">#{{ tag }}</span>
+            </div>
           </div>
         </div>
 
-        <!-- Content -->
-        <div class="p-6 pt-5">
-          <div class="text-center mb-6">
-            <h3 class="modal-title">Cat Spotted!</h3>
-            <p class="modal-subtitle">Click direction for navigation</p>
-          </div>
-
-          <!-- Description Box (3D Style) -->
-          <div class="description-box-3d">
-            <p class="description-text">
-              {{ cleanDescription || 'A lovely cat was spotted here.' }}
-            </p>
-          </div>
-
-          <!-- Tags (3D pills) -->
-          <div v-if="tags.length > 0" class="flex flex-wrap gap-2 justify-center mb-6">
-            <button
-              v-for="tag in tags"
-              :key="tag"
-              class="tag-btn-3d"
-              @click="$emit('tag-click', tag)"
-            >
-              #{{ tag }}
-            </button>
-          </div>
-
-          <!-- Action button (3D Style) -->
-          <div class="flex flex-col gap-3 mt-4">
-            <button class="directions-btn-3d" @click="$emit('get-directions', cat)">
-              GET DIRECTIONS
-            </button>
-          </div>
+        <!-- Footer Action -->
+        <div class="footer-action">
+          <button class="elegant-btn" @click="$emit('get-directions', cat)">GET DIRECTIONS</button>
         </div>
       </div>
     </div>
@@ -88,7 +65,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, onUnmounted } from 'vue';
 import type { CatLocation } from '@/types/api';
 import { extractTags, getCleanDescription } from '@/store/catsStore';
 
@@ -96,7 +73,7 @@ const props = defineProps<{
   cat: CatLocation | null;
 }>();
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'close'): void;
   (e: 'tag-click', tag: string): void;
   (e: 'get-directions', cat: CatLocation): void;
@@ -112,227 +89,170 @@ const tags = computed(() => {
   if (!props.cat) return [];
   return extractTags(props.cat.description);
 });
+
+const handleKeydown = (e: KeyboardEvent) => {
+  if (e.key === 'Escape') {
+    emit('close');
+  }
+};
+
+onMounted(() => {
+  document.addEventListener('keydown', handleKeydown);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown);
+});
 </script>
 
 <style scoped>
-/* 3D Modal Container */
-.modal-container {
-  position: relative;
-  max-width: 24rem;
+.minimal-panel {
+  display: flex;
+  flex-direction: column;
   width: 100%;
-  background: var(--color-btn-shade-e);
-  border: 3px solid var(--color-btn-shade-a);
+  height: calc(100vh - 3rem);
+  margin: 1.5rem;
+  background: white;
+  border: 1px solid #e5e7eb;
   border-radius: 1.5rem;
+  box-shadow: -10px 20px 40px rgba(0, 0, 0, 0.08);
+  position: relative;
   overflow: hidden;
-  box-shadow:
-    0 0 0 3px var(--color-btn-shade-b),
-    0 0.6em 0 0 var(--color-btn-shade-a);
-  transform: translateY(-0.3em);
 }
 
-/* 3D Close Button */
-.close-btn-3d {
+/* Close Button - Simple X */
+.close-x-btn {
   position: absolute;
-  top: 1rem;
-  right: 1rem;
-  width: 2.25rem;
-  height: 2.25rem;
+  top: 1.25rem;
+  right: 1.25rem;
+  z-index: 20;
+  width: 2.5rem;
+  height: 2.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-btn-accent-e);
-  border: 2px solid var(--color-btn-accent-a);
-  border-radius: 50%;
-  color: var(--color-btn-accent-a);
+  color: white;
+  background: none;
+  border: none;
   cursor: pointer;
-  transform-style: preserve-3d;
-  transition: all 175ms cubic-bezier(0, 0, 1, 1);
-  z-index: 10;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  transition: opacity 0.2s;
 }
 
-.close-btn-3d::before {
-  position: absolute;
-  content: '';
+.close-x-btn:hover {
+  opacity: 0.7;
+}
+
+.panel-inner {
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
+/* Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f3f4f6;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #f3f4f6;
+  border-radius: 10px;
+}
+
+/* Image */
+.image-wrapper {
+  width: 100%;
+  aspect-ratio: 1/1;
+  overflow: hidden;
+}
+
+.main-image {
   width: 100%;
   height: 100%;
-  top: 0;
-  left: 0;
-  background: var(--color-btn-accent-c);
-  border-radius: inherit;
-  box-shadow:
-    0 0 0 2px var(--color-btn-accent-b),
-    0 0.2em 0 0 var(--color-btn-accent-a);
-  transform: translate3d(0, 0.2em, -1em);
-  transition: all 175ms cubic-bezier(0, 0, 1, 1);
+  object-fit: cover;
 }
 
-.close-btn-3d:hover {
-  background: var(--color-btn-accent-d);
-  transform: translate(0, 0.1em);
+/* Content */
+.details-section {
+  padding: 2rem;
 }
 
-.close-btn-3d:active {
-  transform: translate(0, 0.2em);
-}
-
-.close-btn-3d:active::before {
-  transform: translate3d(0, 0, -1em);
-}
-
-.close-btn-3d svg {
-  position: relative;
-  z-index: 1;
-}
-
-/* 3D Location Badge */
-.location-badge-3d {
-  display: inline-block;
-  padding: 0.5rem 1rem;
-  background: var(--color-btn-shade-e);
-  border: 2px solid var(--color-btn-shade-a);
-  border-radius: 2rem;
-  font-family: 'Zen Maru Gothic', sans-serif;
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--color-btn-shade-a);
-  box-shadow:
-    0 0 0 2px var(--color-btn-shade-b),
-    0 0.2em 0 0 var(--color-btn-shade-a);
-}
-
-/* Modal Typography */
-.modal-title {
+.location-label {
   font-family: 'Quicksand', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--color-sage);
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+
+.cat-name {
+  font-family: 'Quicksand', sans-serif;
+  font-size: 1.75rem;
   font-weight: 800;
-  font-size: 1.5rem;
-  color: var(--color-btn-brown-b);
-  margin-bottom: 0.25rem;
-}
-
-.modal-subtitle {
-  font-family: 'Zen Maru Gothic', sans-serif;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--color-btn-shade-b);
-}
-
-/* 3D Description Box */
-.description-box-3d {
-  position: relative;
-  padding: 1.25rem;
+  color: var(--color-brown-dark);
   margin-bottom: 1.5rem;
-  background: var(--color-btn-lavender-e);
-  border: 2px solid var(--color-btn-lavender-a);
-  border-radius: 1rem;
-  box-shadow:
-    0 0 0 2px var(--color-btn-lavender-b),
-    0 0.25em 0 0 var(--color-btn-lavender-a);
+  line-height: 1.2;
 }
 
 .description-text {
-  font-family: 'Zen Maru Gothic', sans-serif;
   font-size: 1rem;
-  font-weight: 500;
-  color: var(--color-btn-lavender-a);
-  text-align: center;
   line-height: 1.6;
+  color: #4b5563;
+  margin-bottom: 1.5rem;
 }
 
-/* 3D Tag Buttons */
-.tag-btn-3d {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  padding: 0.375rem 0.75rem;
-  background: var(--color-btn-sky-e);
-  border: 2px solid var(--color-btn-sky-a);
-  border-radius: 2rem;
-  font-family: 'Zen Maru Gothic', sans-serif;
-  font-size: 0.75rem;
+.tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.tag-text {
+  font-size: 0.85rem;
   font-weight: 600;
-  color: var(--color-btn-sky-a);
-  cursor: pointer;
-  transform-style: preserve-3d;
-  transition: all 175ms cubic-bezier(0, 0, 1, 1);
+  color: #9ca3af;
 }
 
-.tag-btn-3d::before {
-  position: absolute;
-  content: '';
+/* Action Button */
+.footer-action {
+  padding: 2rem;
+  padding-top: 0;
+}
+
+.elegant-btn {
   width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
-  background: var(--color-btn-sky-c);
-  border-radius: inherit;
-  box-shadow:
-    0 0 0 2px var(--color-btn-sky-b),
-    0 0.2em 0 0 var(--color-btn-sky-a);
-  transform: translate3d(0, 0.2em, -1em);
-  transition: all 175ms cubic-bezier(0, 0, 1, 1);
-}
-
-.tag-btn-3d:hover {
-  background: var(--color-btn-sky-d);
-  transform: translate(0, 0.1em);
-}
-
-.tag-btn-3d:active {
-  transform: translate(0, 0.2em);
-}
-
-.tag-btn-3d:active::before {
-  transform: translate3d(0, 0, -1em);
-}
-
-/* 3D Directions Button */
-.directions-btn-3d {
-  position: relative;
-  width: 100%;
-  padding: 1rem;
-  background: var(--color-btn-accent-e);
-  border: 3px solid var(--color-btn-accent-a);
+  padding: 1.25rem;
+  background: var(--color-brown);
+  border: none;
   border-radius: 1rem;
+  color: white;
   font-family: 'Quicksand', sans-serif;
-  font-size: 1rem;
-  font-weight: 800;
-  color: var(--color-btn-accent-a);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   cursor: pointer;
-  transform-style: preserve-3d;
-  transition: all 175ms cubic-bezier(0, 0, 1, 1);
+  transition: all 0.3s ease;
 }
 
-.directions-btn-3d::before {
-  position: absolute;
-  content: '';
-  width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
-  background: var(--color-btn-accent-c);
-  border-radius: inherit;
-  box-shadow:
-    0 0 0 3px var(--color-btn-accent-b),
-    0 0.4em 0 0 var(--color-btn-accent-a);
-  transform: translate3d(0, 0.4em, -1em);
-  transition: all 175ms cubic-bezier(0, 0, 1, 1);
+.elegant-btn:hover {
+  background: var(--color-brown-dark);
+  box-shadow: 0 10px 20px rgba(139, 77, 45, 0.2);
+  transform: translateY(-2px);
 }
 
-.directions-btn-3d:hover {
-  background: var(--color-btn-accent-d);
-  transform: translate(0, 0.2em);
+.elegant-btn:active {
+  transform: translateY(0);
 }
 
-.directions-btn-3d:active {
-  transform: translate(0, 0.4em);
-}
-
-.directions-btn-3d:active::before {
-  transform: translate3d(0, 0, -1em);
-  box-shadow:
-    0 0 0 3px var(--color-btn-accent-b),
-    0 0.1em 0 0 var(--color-btn-accent-b);
+@media (max-width: 640px) {
+  .minimal-panel {
+    margin: 0;
+    height: 100vh;
+    border-radius: 0;
+    max-width: 100%;
+  }
 }
 </style>

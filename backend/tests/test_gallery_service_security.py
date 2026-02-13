@@ -16,8 +16,7 @@ class TestGalleryServiceSecurity:
         ):
             from services.gallery_service import GalleryService
 
-            service = GalleryService(mock_supabase)
-            return service
+            return GalleryService(mock_supabase)
 
     def test_get_all_photos_uses_public_client(self, gallery_service, mock_supabase, mock_supabase_admin):
         """Verify get_all_photos uses standard client (enforcing RLS)"""

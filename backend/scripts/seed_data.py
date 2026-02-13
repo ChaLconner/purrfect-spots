@@ -1,11 +1,10 @@
 import asyncio
 import os
 import random
-from datetime import datetime, timezone
 
-from faker import Faker
 from dotenv import load_dotenv
-from supabase import create_client, Client
+from faker import Faker
+from supabase import Client, create_client
 
 # Load environment variables
 backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -22,14 +21,14 @@ if not url or not key:
 supabase: Client = create_client(url, key)
 fake = Faker()
 
-async def seed_data():
+async def seed_data() -> None:
     print("🌱 Starting data seeding...")
     
     # 1. Create Users
     print("Creating users...")
     users = []
     for _ in range(5):
-        user_data = {
+        {
             "email": fake.email(),
             "name": fake.name(),
             "picture": f"https://i.pravatar.cc/150?u={random.randint(1, 1000)}",
@@ -79,7 +78,7 @@ async def seed_data():
         "https://images.unsplash.com/photo-1519052537078-e6302a4968ef"
     ]
     
-    for i in range(10):
+    for _i in range(10):
         owner = random.choice(users)
         photo_data = {
             "user_id": owner['id'],
@@ -116,12 +115,13 @@ async def seed_data():
 
         # Random comments
         for _ in range(random.randint(0, 3)):
-            actor = random.choice(users)
-            supabase.table("photo_comments").insert({
-                "user_id": actor['id'],
-                "photo_id": photo['id'],
-                "content": fake.sentence()
-            }).execute()
+            if users:
+                actor = random.choice(users)
+                supabase.table("photo_comments").insert({
+                    "user_id": actor['id'],
+                    "photo_id": photo['id'],
+                    "content": fake.sentence()
+                }).execute()
 
     print("✅ Seed data inserted successfully!")
 

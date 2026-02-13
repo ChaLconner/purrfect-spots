@@ -15,12 +15,12 @@ class User(BaseModel):
     name: str | None
     picture: str | None = None
     bio: str | None = None
-    password_hash: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
     is_pro: bool = False
     stripe_customer_id: str | None = None
     subscription_end_date: datetime | None = None
+    cancel_at_period_end: bool = False
     treat_balance: int = 0
     role: str = "user"
 
@@ -32,7 +32,6 @@ class UserCreate(BaseModel):
     name: str
     picture: str | None = None
     bio: str | None = None
-    password_hash: str | None = None
 
 
 class UserCreateWithPassword(BaseModel):
@@ -50,6 +49,7 @@ class UserLogin(BaseModel):
 class UserResponse(BaseModel):
     id: str
     username: str | None = None
+    google_id: str | None = None
     email: str
     name: str | None = None
     picture: str | None = None

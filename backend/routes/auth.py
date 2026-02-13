@@ -29,7 +29,8 @@ from services.auth_service import AuthService
 from services.email_service import email_service
 from services.otp_service import get_otp_service
 from user_models.user import UserResponse
-from utils.auth_utils import create_login_response, get_client_info, set_refresh_cookie
+from utils.auth_response_utils import create_login_response
+from utils.auth_utils import get_client_info, set_refresh_cookie
 from utils.security import log_security_event, sanitize_text
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -47,7 +48,7 @@ class GoogleCodeExchangeRequest(BaseModel):
 
 
 # --- Dependency ---
-def get_auth_service():
+def get_auth_service() -> AuthService:
     return AuthService(get_supabase_client())
 
 
@@ -59,11 +60,11 @@ def get_auth_service():
 @router.post("/register", response_model=LoginResponse)
 @limiter.limit("5/minute")
 async def register(
-    response: Response,
-    request: Request,
+    response: Response,  # noqa: ARG001
+    request: Request,  # noqa: ARG001
     data: RegisterInput,
     auth_service: AuthService = Depends(get_auth_service),
-):
+) -> LoginResponse | dict:
     """Register new user with email and password, then send OTP for verification"""
     try:
         if not data.name.strip():
@@ -116,7 +117,7 @@ async def verify_otp(
     request: Request,
     req: VerifyOTPRequest,
     auth_service: AuthService = Depends(get_auth_service),
-):
+) -> LoginResponse | dict:
     """Verify email using 6-digit OTP code"""
     try:
         otp_service = get_otp_service()
@@ -157,9 +158,10 @@ async def verify_otp(
 @router.post("/resend-otp")
 @limiter.limit("3/minute")
 async def resend_otp(
-    request: Request,
+    request: Request,  # noqa: ARG001
     req: ResendOTPRequest,
-):
+    response: Response,  # noqa: ARG001
+) -> dict:
     """Resend verification OTP code"""
     try:
         otp_service = get_otp_service()
@@ -198,7 +200,7 @@ async def login(
     request: Request,
     req: LoginRequest,
     auth_service: AuthService = Depends(get_auth_service),
-):
+) -> LoginResponse:
     """Login with email and password via Supabase Auth"""
     try:
         user_data = auth_service.authenticate_user(req.email, req.password)
@@ -222,7 +224,7 @@ async def refresh_token(
     response: Response,
     request: Request,
     auth_service: AuthService = Depends(get_auth_service),
-):
+) -> dict:
     """Refresh access token using long-lived refresh token from HttpOnly cookie"""
     refresh_token = request.cookies.get("refresh_token")
 
@@ -238,6 +240,12 @@ async def refresh_token(
         return {"access_token": None, "token_type": None, "message": "Session expired"}
 
     user_id = payload["user_id"]
+    
+    # Fetch user data FIRST to maintain role and permissions
+    user_obj = auth_service.get_user_by_id(user_id)
+    if not user_obj:
+        response.delete_cookie("refresh_token")
+        return {"access_token": None, "token_type": None, "message": "User not found"}
 
     # Rotate token means we should revoke the OLD one to prevent reuse!
     old_jti = payload.get("jti")
@@ -245,31 +253,27 @@ async def refresh_token(
     if old_jti and old_exp:
         await auth_service.revoke_token(old_jti, user_id, datetime.fromtimestamp(old_exp, timezone.utc))
 
-    new_access_token = auth_service.create_access_token(user_id)
+    new_access_token = auth_service.create_access_token(user_id, role=user_obj.role)
     new_refresh_token = auth_service.create_refresh_token(user_id, ip, ua)
 
     set_refresh_cookie(response, new_refresh_token)
 
-    # Fetch latest user data to return
-    user_obj = auth_service.get_user_by_id(user_id)
-
     # Convert to safe response format (exclude password_hash)
-    user_response = None
-    if user_obj:
-        user_response = UserResponse(
-            id=user_obj.id,
+    user_response = UserResponse(
+        id=user_obj.id,
             email=user_obj.email,
             name=user_obj.name,
             picture=user_obj.picture,
             bio=user_obj.bio,
             created_at=user_obj.created_at,
+            google_id=user_obj.google_id,
         )
 
     return {"access_token": new_access_token, "token_type": "bearer", "user": user_response}
 
 
 @router.post("/logout")
-async def logout(response: Response, request: Request, auth_service: AuthService = Depends(get_auth_service)):
+async def logout(response: Response, request: Request, auth_service: AuthService = Depends(get_auth_service)) -> dict:
     """Logout user (clear refresh token cookie and revoke it)"""
     refresh_token = request.cookies.get("refresh_token")
     if refresh_token:
@@ -292,13 +296,12 @@ async def logout(response: Response, request: Request, auth_service: AuthService
 @router.post("/forgot-password")
 @limiter.limit("3/minute")
 async def forgot_password(
-    request: Request,
+    request: Request,  # noqa: ARG001
     req: ForgotPasswordRequest,
     auth_service: AuthService = Depends(get_auth_service),
-):
+) -> dict:
     """Request password reset (via Supabase Auth)"""
     try:
-        # Supabase sends the email automatically
         auth_service.create_password_reset_token(req.email)
         return {"message": "If this email is registered, you will receive password reset instructions."}
     except Exception:
@@ -309,10 +312,10 @@ async def forgot_password(
 @router.post("/reset-password")
 @limiter.limit("3/minute")
 async def reset_password(
-    request: Request,
+    request: Request,  # noqa: ARG001
     req: ResetPasswordRequest,
     auth_service: AuthService = Depends(get_auth_service),
-):
+) -> dict:
     """Reset password using token"""
     try:
         success = await auth_service.reset_password(req.token, req.new_password)
@@ -331,7 +334,7 @@ async def exchange_session(
     request: Request,
     req: SessionExchangeRequest,
     auth_service: AuthService = Depends(get_auth_service),
-):
+) -> LoginResponse:
     """
     Exchange Supabase Session (from email verification redirect) for Backend Session.
     Validates the Supabase token and issues our own secure HttpOnly cookies.
@@ -344,6 +347,7 @@ async def exchange_session(
 
         user_id = user.user.id
         email = user.user.email
+        # ... (rest of function body remains conceptually same, just adding type hints)
 
         # 2. Get User Profile (to ensure we have name/picture)
         db_user = auth_service.get_user_by_id(user_id)
@@ -369,7 +373,7 @@ async def exchange_session(
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_info(current_user=Depends(get_current_user)):
+async def get_current_user_info(current_user: UserResponse = Depends(get_current_user)) -> UserResponse:
     """Get current user information (unified from bot manual and google auth)"""
     return UserResponse(
         id=current_user.id,
@@ -378,6 +382,7 @@ async def get_current_user_info(current_user=Depends(get_current_user)):
         picture=current_user.picture,
         bio=current_user.bio,
         created_at=current_user.created_at,
+        google_id=current_user.google_id,
     )
 
 
@@ -387,7 +392,7 @@ async def get_current_user_info(current_user=Depends(get_current_user)):
 
 
 @router.get("/google/login")
-async def google_login_redirect():
+async def google_login_redirect() -> RedirectResponse:
     """Redirect to Google OAuth login page with PKCE support"""
     try:
         google_client_id = os.getenv("GOOGLE_CLIENT_ID")
@@ -436,7 +441,7 @@ async def google_login(
     request: Request,
     token_data: GoogleTokenRequest,
     auth_service: AuthService = Depends(get_auth_service),
-):
+) -> LoginResponse:
     """Login with Google OAuth token"""
     try:
         user_data = auth_service.verify_google_token(token_data.token)
@@ -486,7 +491,7 @@ async def google_exchange_code(
     request: Request,
     exchange_data: GoogleCodeExchangeRequest,
     auth_service: AuthService = Depends(get_auth_service),
-):
+) -> LoginResponse:
     """Exchange Google authorization code for tokens (PKCE OAuth 2.0 flow)"""
     try:
         if not exchange_data.code:
@@ -531,7 +536,7 @@ async def google_exchange_code(
 
 
 @router.post("/sync-user")
-async def sync_user_data(user=Depends(get_current_user_from_header), supabase=Depends(get_supabase_client)):
+async def sync_user_data(user: dict = Depends(get_current_user_from_header)) -> dict:
     """Insert/Upsert user into Supabase Table from JWT payload (Supabase Auth compatible)"""
     try:
         user_id = user["sub"]

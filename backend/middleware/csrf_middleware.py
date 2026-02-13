@@ -11,9 +11,11 @@ This protects against Cross-Site Request Forgery attacks by:
 import os
 import secrets
 
+from typing import Any, Awaitable, Callable
+
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
 
 from logger import logger
 
@@ -39,7 +41,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
     CSRF_HEADER_NAME = "X-CSRF-Token"
     SAFE_METHODS: set[str] = {"GET", "HEAD", "OPTIONS", "TRACE"}
 
-    def __init__(self, app, exempt_paths: list[str] | None = None):
+    def __init__(self, app: Any, exempt_paths: list[str] | None = None) -> None:
         super().__init__(app)
         self.is_production = os.getenv("ENVIRONMENT", "development").lower() == "production"
         # Default exempt paths - APIs that don't need CSRF
@@ -54,7 +56,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             "/api/v1/auth/google/callback",
             "/api/v1/auth/login",
             "/api/v1/auth/register",
-            "/api/v1/auth/refresh-token",
+            # "/api/v1/auth/refresh-token",  # Protected by CSRF
             "/api/v1/auth/logout",
             "/api/v1/auth/forgot-password",
             "/api/v1/auth/reset-password",
@@ -65,7 +67,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             "/api/v1/cat-detection",
         ]
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         # Skip CSRF for safe methods (GET, HEAD, OPTIONS, TRACE)
         if request.method in self.SAFE_METHODS:
             response = await call_next(request)
@@ -124,7 +126,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         """Check if path is exempt from CSRF validation"""
         return any(path.startswith(exempt) for exempt in self.exempt_paths)
 
-    def _set_csrf_cookie(self, request: Request, response):
+    def _set_csrf_cookie(self, request: Request, response: Response) -> Response:
         """Set CSRF token cookie if not already present"""
         if self.CSRF_COOKIE_NAME not in request.cookies:
             token = secrets.token_urlsafe(32)

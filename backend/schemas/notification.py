@@ -1,14 +1,22 @@
 from datetime import datetime
+from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel
+
+
+class NotificationType(str, Enum):
+    LIKE = "like"
+    COMMENT = "comment"
+    TREAT = "treat"
+    SYSTEM = "system"
 
 
 class NotificationResponse(BaseModel):
     id: str
     user_id: str
     actor_id: Optional[str] = None
-    type: str
+    type: NotificationType
     title: Optional[str] = None
     message: Optional[str] = None
     resource_id: Optional[str] = None

@@ -14,5 +14,13 @@ class CheckoutSessionResponse(BaseModel):
 
 class SubscriptionStatus(BaseModel):
     is_pro: bool
-    subscription_end_date: datetime | None
-    stripe_customer_id: str | None
+    subscription_end_date: datetime | None = None
+    cancel_at_period_end: bool = False
+    stripe_customer_id: str | None = None
+    treat_balance: int = 0
+
+class CreatePortalRequest(BaseModel):
+    return_url: str
+
+class PortalResponse(BaseModel):
+    url: str

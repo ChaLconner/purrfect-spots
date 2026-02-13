@@ -1,9 +1,25 @@
-import { ref } from 'vue';
+import { ref, type Ref } from 'vue';
 import { uploadFile, ApiError, ApiErrorTypes } from '../utils/api';
 import { optimizeImage, validateImageFile, getImageDimensions } from '../utils/imageUtils';
 import { getEnvVar } from '../utils/env';
 
-export function useUploadCat() {
+export function useUploadCat(): {
+  isUploading: Ref<boolean>;
+  error: Ref<string | null>;
+  uploadProgress: Ref<number>;
+  uploadCatPhoto: (
+    file: File,
+    locationData: {
+      lat: string;
+      lng: string;
+      location_name: string;
+      description?: string;
+      tags?: string[];
+    },
+    catDetectionData?: Record<string, unknown>
+  ) => Promise<unknown | null>;
+  resetState: () => void;
+} {
   const isUploading = ref(false);
   const error = ref<string | null>(null);
   const uploadProgress = ref(0);
@@ -19,7 +35,7 @@ export function useUploadCat() {
       tags?: string[];
     },
     catDetectionData?: Record<string, unknown>
-  ) => {
+  ): Promise<unknown | null> => {
     try {
       isUploading.value = true;
       error.value = null;
@@ -106,7 +122,7 @@ export function useUploadCat() {
   };
 
   // Reset state
-  const resetState = () => {
+  const resetState = (): void => {
     isUploading.value = false;
     error.value = null;
     uploadProgress.value = 0;

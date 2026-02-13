@@ -14,9 +14,10 @@
           At Purrfect Spots ("we", "us", or "our"), we respect your privacy and are committed to
           protecting your personal data. This Privacy Policy explains how we collect, use, and
           safeguard your information when you visit our website
-          <a href="https://purrfectspots.xyz" class="text-terracotta-600 hover:text-terracotta-700"
-            >purrfectspots.xyz</a
-          >.
+          <a
+            href="https://purrfectspots.xyz"
+            class="text-terracotta-600 hover:text-terracotta-700"
+          >purrfectspots.xyz</a>.
         </p>
 
         <h3>1. Information We Collect</h3>

@@ -1,8 +1,7 @@
 <template>
   <button
     class="like-button flex items-center gap-2 transition-all duration-300 group"
-    :class="[liked ? 'text-terracotta' : 'text-brown-light', { 'is-processing': isProcessing }]"
-    :disabled="isProcessing"
+    :class="[liked ? 'text-terracotta' : 'text-brown-light']"
     :aria-label="liked ? 'Unlike' : 'Like'"
     @click="handleClick"
   >
@@ -54,14 +53,19 @@ const toastStore = useToastStore();
 // State
 const liked = ref(props.initialLiked ?? false);
 const count = ref(props.initialCount ?? 0);
-const isProcessing = ref(false);
+const isProcessing = ref(false); // Used to show loading state or suppress realtime, NOT to block user
 const animating = ref(false);
 
-// Debounce timer
+// Debounce timer for coalescing rapid clicks
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-// Flag to ignore realtime updates triggered by our own action
-let ignoreNextRealtimeUpdate = false;
+// Track the confirmed server state for rollback and skip-if-same
+let serverLiked = props.initialLiked ?? false;
+let serverCount = props.initialCount ?? 0;
+
+// Request tracking to handle out-of-order responses
+let lastRequestId = 0;
+let activeRequests = 0;
 
 let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 
@@ -78,13 +82,24 @@ onMounted(() => {
         filter: `id=eq.${props.photoId}`,
       },
       (payload) => {
-        // Skip if this update was triggered by our own action
-        if (ignoreNextRealtimeUpdate) {
-          ignoreNextRealtimeUpdate = false;
+        // Skip updates if we have active requests or a pending debounce
+        // This prevents the UI from jittering while the user is interacting
+        if (activeRequests > 0 || debounceTimer) {
           return;
         }
+
         if (payload.new && typeof payload.new.likes_count === 'number') {
+          // If the server update matches our current state, just update the server baseline
+          // preventing rollback to an old state if a race occurred
+          if (payload.new.likes_count === count.value) {
+            serverCount = payload.new.likes_count;
+            // We can't know 'liked' status from this payload easily without user context,
+            // so we generally trust our local 'liked' state unless count drastically changes.
+            return;
+          }
+
           count.value = payload.new.likes_count;
+          serverCount = payload.new.likes_count;
           emit('update:count', payload.new.likes_count);
         }
       }
@@ -96,113 +111,154 @@ onUnmounted(() => {
   if (realtimeChannel) {
     supabase.removeChannel(realtimeChannel);
   }
-  // Clear any pending debounce
   if (debounceTimer) {
     clearTimeout(debounceTimer);
   }
 });
 
-// Watch for prop changes with proper default handling
 watch(
   () => props.initialLiked,
   (val) => {
-    liked.value = val ?? false;
+    // Only update from props if we're not interacting
+    if (activeRequests === 0 && !debounceTimer) {
+      const v = val ?? false;
+      liked.value = v;
+      serverLiked = v;
+    }
   }
 );
 
 watch(
   () => props.initialCount,
   (val) => {
-    count.value = val ?? 0;
+    if (activeRequests === 0 && !debounceTimer) {
+      const v = val ?? 0;
+      count.value = v;
+      serverCount = v;
+    }
   }
 );
 
 /**
- * Handle click with debouncing to prevent rapid clicks
+ * Handle click with INSTANT optimistic update + debounced API call.
  */
 function handleClick() {
-  // Prevent action if already processing
-  if (isProcessing.value) {
-    return;
-  }
-
-  // Check authentication
+  // Check authentication first
   if (!authStore.isAuthenticated) {
     toastStore.addToast({
-      title: 'Sign in needed',
-      message: 'Please sign in to like photos',
+      title: 'Want to like this?',
+      message: 'Sign in to interact with users and collect your favorite spots!',
       type: 'info',
     });
     return;
   }
 
-  // Clear any pending debounce and start new one
-  if (debounceTimer) {
-    clearTimeout(debounceTimer);
-  }
-
-  // Debounce: wait 150ms before actually sending the request
-  // This prevents double-clicks and rapid toggling
-  debounceTimer = setTimeout(() => {
-    toggleLike();
-  }, 150);
-}
-
-async function toggleLike() {
-  // Optimistic update
-  const previousLiked = liked.value;
-  const previousCount = count.value;
-
+  // --- INSTANT optimistic update ---
   liked.value = !liked.value;
   count.value = liked.value ? count.value + 1 : Math.max(0, count.value - 1);
+  emit('update:liked', liked.value);
+  emit('update:count', count.value);
 
-  // Trigger animation
+  // Trigger heart pop animation on every click
   animating.value = true;
   setTimeout(() => {
     animating.value = false;
   }, 300);
 
+  // --- Debounced API call ---
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+  }
+
+  debounceTimer = setTimeout(() => {
+    // If user toggled back to the same state as server → no API call needed
+    if (liked.value === serverLiked) {
+      // Correct the count if it drifted (e.g. if we did +1 -1 but started offset)
+      count.value = serverCount;
+      debounceTimer = null;
+      return;
+    }
+
+    // Clear timer reference before sending
+    debounceTimer = null;
+    sendToggleLike();
+  }, 300);
+}
+
+/**
+ * Send the actual API request to toggle like.
+ */
+async function sendToggleLike() {
+  const requestId = ++lastRequestId;
+  activeRequests++;
   isProcessing.value = true;
-  // Flag to ignore the realtime update we're about to trigger
-  ignoreNextRealtimeUpdate = true;
 
   try {
     const res = await SocialService.toggleLike(props.photoId);
-    // Sync with server source of truth
+
+    // If this is an old request (newer one started), ignore the results for UI update
+    if (requestId !== lastRequestId) {
+      return;
+    }
+
+    // Update server truth
+    serverLiked = res.liked;
+    serverCount = res.likes_count;
+
+    // If the user has started a NEW interaction (debounceTimer exists),
+    // DO NOT overwrite their optimistic state with this response.
+    // The new interaction will eventually trigger its own request.
+    if (debounceTimer) {
+      return;
+    }
+
+    // Sync UI with server response
     liked.value = res.liked;
     count.value = res.likes_count;
+
     emit('update:liked', res.liked);
     emit('update:count', res.likes_count);
   } catch (e: unknown) {
-    // Revert on error
-    liked.value = previousLiked;
-    count.value = previousCount;
-    ignoreNextRealtimeUpdate = false;
+    // Only rollback if this is the latest request AND no new interaction is pending
+    if (requestId === lastRequestId && !debounceTimer) {
+      liked.value = serverLiked;
+      count.value = serverCount;
 
-    // Show user-friendly error message
-    const error = e as { response?: { status?: number; data?: { detail?: string } } };
-    if (error.response?.status === 404) {
-      toastStore.addToast({
-        title: 'Not found',
-        message: 'This photo no longer exists',
-        type: 'error',
-      });
-    } else if (error.response?.status === 503) {
-      toastStore.addToast({
-        title: 'Service unavailable',
-        message: 'Please try again in a moment',
-        type: 'warning',
-      });
-    } else {
-      toastStore.addToast({
-        title: 'Error',
-        message: 'Failed to update like',
-        type: 'error',
-      });
+      // Show error toast
+      const error = e as { response?: { status?: number; data?: { detail?: string } } };
+      if (error.response?.status === 404) {
+        toastStore.addToast({
+          title: 'Ghost Cat?',
+          message: 'This photo seems to have disappeared like a ninja.',
+          type: 'error',
+        });
+      } else if (error.response?.status === 429) {
+        // For rate limits, we should technically revert.
+        toastStore.addToast({
+          title: 'Slow Down!',
+          message: 'Too many likes too fast! Take a breath. 🐱',
+          type: 'warning',
+        });
+      } else if (error.response?.status === 503) {
+        toastStore.addToast({
+          title: 'Cat Nap in Progress',
+          message: 'Our servers are taking a short break. Try again soon!',
+          type: 'warning',
+        });
+      } else {
+        toastStore.addToast({
+          title: 'Hairball Error',
+          message: 'Something went wrong. Please try liking again.',
+          type: 'error',
+        });
+      }
     }
     console.error('Toggle like error:', e);
   } finally {
-    isProcessing.value = false;
+    activeRequests--;
+    if (activeRequests === 0) {
+      isProcessing.value = false;
+    }
   }
 }
 </script>
@@ -217,17 +273,12 @@ async function toggleLike() {
   -webkit-tap-highlight-color: transparent;
 }
 
-.like-button:hover:not(.is-processing) {
+.like-button:hover {
   transform: scale(1.05);
 }
 
-.like-button:active:not(.is-processing) {
+.like-button:active {
   transform: scale(0.95);
-}
-
-.like-button.is-processing {
-  opacity: 0.7;
-  pointer-events: none;
 }
 
 /* Heart animation on like */

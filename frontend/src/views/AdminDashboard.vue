@@ -13,7 +13,7 @@
       </div>
 
       <!-- Stats Grid -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" v-if="stats">
+      <div v-if="stats" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="bg-white p-6 rounded-2xl shadow-sm border border-sand-100">
           <h3 class="text-sm font-medium text-brown-500 uppercase tracking-wider">Total Users</h3>
           <p class="mt-2 text-3xl font-bold text-brown-900">{{ stats.total_users }}</p>
@@ -33,10 +33,10 @@
           <div class="relative max-w-xs w-full">
             <input
               v-model="searchQuery"
-              @input="handleSearch"
               type="text"
               placeholder="Search users..."
               class="w-full pl-10 pr-4 py-2 border border-sand-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 transition-colors"
+              @input="handleSearch"
             />
             <div class="absolute left-3 top-1/2 -translate-y-1/2 text-brown-400">
               <svg
@@ -96,7 +96,7 @@
                         class="h-10 w-10 rounded-full object-cover"
                         :src="
                           user.picture ||
-                          `https://ui-avatars.com/api/?name=${user.name}&background=random`
+                            `https://ui-avatars.com/api/?name=${user.name}&background=random`
                         "
                         :alt="user.name"
                       />
@@ -125,8 +125,8 @@
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <button
                     v-if="user.role !== 'admin'"
-                    @click="confirmDelete(user)"
                     class="text-red-600 hover:text-red-900 font-medium transition-colors"
+                    @click="confirmDelete(user)"
                   >
                     Delete/Ban
                   </button>
@@ -141,21 +141,21 @@
 
         <!-- Pagination -->
         <div
-          class="px-6 py-4 border-t border-sand-200 flex items-center justify-between"
           v-if="users.length > 0"
+          class="px-6 py-4 border-t border-sand-200 flex items-center justify-between"
         >
           <button
-            @click="page > 1 && loadUsers(page - 1)"
             :disabled="page === 1"
             class="px-4 py-2 border border-sand-300 rounded-md text-sm font-medium text-brown-700 bg-white hover:bg-sand-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            @click="page > 1 && loadUsers(page - 1)"
           >
             Previous
           </button>
           <span class="text-sm text-brown-600">Page {{ page }}</span>
           <button
-            @click="loadUsers(page + 1)"
             :disabled="users.length < limit"
             class="px-4 py-2 border border-sand-300 rounded-md text-sm font-medium text-brown-700 bg-white hover:bg-sand-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            @click="loadUsers(page + 1)"
           >
             Next
           </button>
@@ -220,7 +220,10 @@ const handleSearch = () => {
 
 const confirmDelete = async (user: User) => {
   if (
-    confirm(`Are you sure you want to ban/delete user ${user.name}? This action cannot be undone.`)
+    // eslint-disable-next-line no-alert
+    window.confirm(
+      `Are you sure you want to ban/delete user ${user.name}? This action cannot be undone.`
+    )
   ) {
     try {
       await apiV1.delete(`/admin/users/${user.id}`);
@@ -229,7 +232,8 @@ const confirmDelete = async (user: User) => {
       // Refresh stats
       loadStats();
     } catch (e) {
-      alert('Failed to delete user');
+      // eslint-disable-next-line no-alert
+      window.alert('Failed to delete user');
       console.error(e);
     }
   }

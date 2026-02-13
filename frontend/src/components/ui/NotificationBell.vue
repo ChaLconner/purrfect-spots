@@ -45,7 +45,7 @@
 
         <div class="notification-list custom-scrollbar">
           <div v-if="store.notifications.length === 0" class="empty-state py-12 px-6 text-center">
-            <div class="empty-icon mb-3">🔔</div>
+            <div class="empty-icon mb-3"></div>
             <p class="text-sm font-body font-medium text-brown-light italic">
               No notifications yet... quiet as a napping kitten.
             </p>
@@ -84,15 +84,6 @@
             </div>
           </div>
         </div>
-        <div class="dropdown-footer p-2.5 text-center">
-          <router-link
-            to="/profile"
-            class="view-all-link text-[11px] font-bold py-1.5 w-full block rounded-lg transition-colors"
-            @click="isOpen = false"
-          >
-            View all activity
-          </router-link>
-        </div>
       </div>
     </Transition>
   </div>
@@ -102,17 +93,18 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useNotificationStore } from '@/store';
 import { useRouter } from 'vue-router';
+import type { Notification } from '@/services/notificationService';
 
 const store = useNotificationStore();
 const router = useRouter();
 const isOpen = ref(false);
 const unreadCount = computed(() => store.unreadCount);
 
-function toggleDropdown() {
+function toggleDropdown(): void {
   isOpen.value = !isOpen.value;
 }
 
-function handleRead(notification: any) {
+function handleRead(notification: Notification): void {
   if (!notification.is_read) {
     store.markRead(notification.id);
   }
@@ -124,7 +116,7 @@ function handleRead(notification: any) {
   }
 }
 
-function formatDate(dateStr: string) {
+function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
   const now = new Date();
   const diff = (now.getTime() - d.getTime()) / 1000; // seconds
@@ -136,7 +128,7 @@ function formatDate(dateStr: string) {
 }
 
 // Close on click outside
-function handleClickOutside(event: MouseEvent) {
+function handleClickOutside(event: MouseEvent): void {
   const target = event.target as HTMLElement;
   const wrapper = document.querySelector('.notification-wrapper');
   if (wrapper && !wrapper.contains(target)) {

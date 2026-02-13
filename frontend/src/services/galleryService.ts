@@ -42,13 +42,15 @@ export class GalleryService {
   /**
    * Search for cat locations
    */
-  static async search(params: SearchParams): Promise<{ results: CatLocation[]; total: number }> {
+  static async search(params: SearchParams): Promise<{ results: CatLocation[]; total: number; limit?: number; offset?: number }> {
     const apiParams = {
       q: params.query,
       tags: params.tags?.join(','),
       limit: params.limit,
+      offset: params.offset,
+      page: params.page,
     };
-    return await apiV1.get<{ results: CatLocation[]; total: number }>('/gallery/search', {
+    return await apiV1.get<{ results: CatLocation[]; total: number; limit?: number; offset?: number }>('/gallery/search', {
       params: apiParams,
     });
   }
@@ -67,5 +69,12 @@ export class GalleryService {
     return await apiV1.get<{ tags: { tag: string; count: number }[] }>('/gallery/popular-tags', {
       params: { limit },
     });
+  }
+
+  /**
+   * Delete a photo by ID
+   */
+  static async deletePhoto(id: string): Promise<void> {
+    await apiV1.delete(`/gallery/${id}`);
   }
 }

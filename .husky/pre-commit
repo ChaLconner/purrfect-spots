@@ -1,0 +1,30 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+# Check Backend
+echo "🔍 Checking Backend (Ruff)..."
+if [ -d "backend" ]; then
+  cd backend || exit 1
+  # Try to activate venv if exists, otherwise assume global
+  if [ -f ".venv/Scripts/activate" ]; then
+    . .venv/Scripts/activate
+  fi
+  # If ruff is not found, warn but don't fail drastically if not set up
+  if command -v ruff >/dev/null 2>&1; then
+    ruff check . || exit 1
+  else
+    echo "⚠️ Ruff not found. Skipping backend checks."
+  fi
+  cd ..
+fi
+
+# Check Frontend
+echo "🔍 Checking Frontend (ESLint & TypeCheck)..."
+if [ -d "frontend" ]; then
+  cd frontend || exit 1
+  npm run type-check || exit 1
+  npm run lint || exit 1
+  cd ..
+fi
+
+echo "✅ All checks passed!"

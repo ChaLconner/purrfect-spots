@@ -126,6 +126,7 @@ jobs:
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: prepare
     if: needs.prepare.outputs.environment == 'staging'
     environment:
@@ -340,6 +341,7 @@ jobs:
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: prepare
     outputs:
       frontend_url: ${{ steps.deploy-frontend.outputs.deployment_url }}

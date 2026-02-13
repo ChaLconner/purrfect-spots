@@ -13,6 +13,10 @@ select = [
     "SIM",    # flake8-simplify
     "PTH",    # flake8-use-pathlib
     "RUF",    # Ruff-specific rules
+    "ANN",    # flake8-annotations (Force type annotations)
+    "TCH",    # flake8-type-checking (Type checking blocks)
+    "RET",    # flake8-return (Return consistency)
+    "ARG",    # flake8-unused-arguments (Unused arguments)
 ]
 ignore = [
     "E501",   # Line too long (handled by formatter)
@@ -33,13 +37,17 @@ ignore = [
     "W291",   # Trailing whitespace
     "W292",   # No newline at end of file
     "E402",   # Module level import not at top of file
+    "RET",    # Return consistency (too strict)
+    "ARG",    # Unused arguments (often false positives in tests/frameworks)
+    "TCH",    # Type checking blocks (can be noisy)
+    "ANN",    # Missing type annotations (too many to fix right now)
 ]
 
 [lint.per-file-ignores]
 "tests/conftest.py" = ["E402"]
 "main.py" = ["E402"]
-"tests/**/*.py" = ["S101", "S105", "S106"]  # Allow assert and test credentials in tests
-"scripts/**/*.py" = ["S101"]
+"tests/**/*.py" = ["S101", "S105", "S106", "ANN"]  # Allow assert, test credentials, and missing type annotations in tests
+"scripts/**/*.py" = ["S101", "S311"]
 
 [lint.isort]
 known-first-party = ["routes", "services", "utils", "middleware"]

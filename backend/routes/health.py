@@ -48,7 +48,7 @@ def check_database() -> dict[str, Any]:
         supabase = get_supabase_client()
 
         # Simple query to verify connection - count users (lightweight)
-        _ = supabase.table("cat_photos").select("count", count="exact").limit(1).execute()
+        _ = supabase.table("cat_photos").select("count", count="exact").limit(1).execute()  # type: ignore
 
         latency_ms = (datetime.now(UTC) - start_time).total_seconds() * 1000
 
@@ -170,20 +170,19 @@ def check_google_vision() -> dict[str, Any]:
                 "credentials_path": key_path,
                 "note": "Credentials file found (API not called to save quota)",
             }
-        else:
-            # Check for application default credentials
-            adc_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-            if adc_path and Path(adc_path).exists():
-                return {
-                    "status": "configured",
-                    "credentials_type": "application_default",
-                    "note": "Using ADC credentials",
-                }
-
+        # Check for application default credentials
+        adc_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+        if adc_path and Path(adc_path).exists():
             return {
-                "status": "not_configured",
-                "error": f"Credentials file not found at {key_path}",
+                "status": "configured",
+                "credentials_type": "application_default",
+                "note": "Using ADC credentials",
             }
+
+        return {
+            "status": "not_configured",
+            "error": f"Credentials file not found at {key_path}",
+        }
     except Exception as e:
         logger.error(f"Google Vision health check failed: {e}")
         return {"status": "unknown", "error": "Check failed"}
@@ -215,7 +214,7 @@ def check_sentry() -> dict[str, Any]:
 
 @router.get("/live")
 @limiter.limit("100/minute")  # SECURITY: Rate limit health checks to prevent abuse
-def liveness_check(request: Request):
+def liveness_check(request: Request) -> JSONResponse:
     """
     Liveness probe - checks if the application is running.
 
@@ -239,7 +238,7 @@ def liveness_check(request: Request):
 
 @router.get("/ready")
 @limiter.limit("50/minute")  # SECURITY: Rate limit readiness checks to prevent abuse
-async def readiness_check(request: Request):
+async def readiness_check(request: Request) -> JSONResponse:
     """
     Readiness probe - checks if the application can handle requests.
 
@@ -262,16 +261,16 @@ async def readiness_check(request: Request):
     )
 
     results: dict[str, dict[str, Any]] = {
-        "database": cast(dict[str, Any], checks[0])
+        "database": cast("dict[str, Any]", checks[0])
         if not isinstance(checks[0], Exception)
         else {"status": "error", "error": str(checks[0])},
-        "redis": cast(dict[str, Any], checks[1])
+        "redis": cast("dict[str, Any]", checks[1])
         if not isinstance(checks[1], Exception)
         else {"status": "error", "error": str(checks[1])},
-        "s3": cast(dict[str, Any], checks[2])
+        "s3": cast("dict[str, Any]", checks[2])
         if not isinstance(checks[2], Exception)
         else {"status": "error", "error": str(checks[2])},
-        "sentry": cast(dict[str, Any], checks[3])
+        "sentry": cast("dict[str, Any]", checks[3])
         if not isinstance(checks[3], Exception)
         else {"status": "error", "error": str(checks[3])},
     }
@@ -308,7 +307,7 @@ async def readiness_check(request: Request):
 
 @router.get("/dependencies")
 @limiter.limit("20/minute")  # SECURITY: Rate limit dependency checks to prevent abuse
-async def dependency_check(request: Request):
+async def dependency_check(request: Request) -> JSONResponse:
     """
     Detailed dependency health check.
 
@@ -329,7 +328,7 @@ async def dependency_check(request: Request):
         return_exceptions=True,
     )
 
-    def safe_result(result):
+    def safe_result(result: Any) -> Any | dict[str, str]:
         if isinstance(result, Exception):
             return {"status": "error", "error": str(result)}
         return result
@@ -364,7 +363,7 @@ async def dependency_check(request: Request):
 
 @router.get("/metrics")
 @limiter.limit("20/minute")  # SECURITY: Rate limit metrics endpoint to prevent abuse
-def metrics(request: Request):
+def metrics(request: Request) -> JSONResponse:
     """
     Basic metrics endpoint for monitoring.
 

@@ -3,6 +3,11 @@
     <!-- Map Container with 3D Frame -->
     <div class="map-frame">
       <div class="map-container">
+        <!-- Search Box Overlay (Mobile/Tablet accessibility) -->
+        <div class="absolute top-4 left-4 right-4 z-30 lg:hidden">
+          <SearchBox />
+        </div>
+
         <!-- Initial Loading State (Progressive) -->
         <transition
           enter-active-class="transition-opacity duration-300"
@@ -55,14 +60,13 @@
         >
           <div
             v-if="!isLoading && !error && searchQuery"
-            class="absolute top-6 left-1/2 transform -translate-x-1/2 z-10"
+            class="absolute top-20 lg:top-6 left-1/2 transform -translate-x-1/2 z-10"
           >
             <div class="search-results-badge">
               <span class="badge-text">
                 Found <strong>{{ displayedLocations.length }}</strong> cats for "<span
                   class="search-term"
-                  >{{ searchQuery }}</span
-                >"
+                >{{ searchQuery }}</span>"
               </span>
               <button class="clear-search-btn" aria-label="Clear search" @click="clearSearch">
                 <svg
@@ -103,6 +107,7 @@ import { showError } from '../store/toast';
 import GhibliLoader from '@/components/ui/GhibliLoader.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import CatDetailModal from '@/components/map/CatDetailModal.vue';
+import SearchBox from '@/components/navbar/SearchBox.vue';
 import { loadGoogleMaps, isGoogleMapsLoaded } from '../utils/googleMapsLoader';
 import { getEnvVar } from '../utils/env';
 import { FALLBACK_LOCATION, MAP_CONFIG, EXTERNAL_URLS } from '../utils/constants';
@@ -465,7 +470,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 0 1.5rem 1rem 1.5rem;
+  padding: 1.5rem 1.5rem 1rem 1.5rem; /* Increased top padding */
   overflow: hidden;
 }
 
@@ -496,8 +501,7 @@ onUnmounted(() => {
 .map-element {
   width: 100%;
   height: 100%;
-  min-height: calc(100vh - 5.5rem - 2rem - 1rem - 10px);
-  /* 100vh - navbar(5.5rem) - frame padding(2rem) - page padding(1rem) - extra(10px) */
+  /* Removed fixed min-height to rely on flexbox and avoid scrollbars */
   outline: none;
   border-radius: inherit;
 }

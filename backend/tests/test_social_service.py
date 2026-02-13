@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from exceptions import NotFoundError, ExternalServiceError
+from exceptions import ExternalServiceError, NotFoundError
 from services.social_service import SocialService
 
 
@@ -100,7 +100,7 @@ async def test_toggle_like_no_self_notification(social_service):
     
     # Notification insert should NOT be called for self-like
     # The insert on notifications table should not happen
-    insert_calls = [
+    [
         call for call in social_service.supabase.table.call_args_list 
         if call[0][0] == "notifications"
     ]
@@ -129,7 +129,7 @@ async def test_add_comment(social_service):
     user_mock.execute.return_value.data = {"name": "CatLover", "picture": "avatar.jpg"}
     
     # Set up chain of mocks
-    table_mock = MagicMock()
+    MagicMock()
     
     def table_router(table_name):
         mock = MagicMock()

@@ -10,7 +10,7 @@ DEBUG_SEPARATOR = "============================================"
 
 
 class EmailService:
-    def __init__(self):
+    def __init__(self) -> None:
         self.smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
         self.smtp_port = int(os.getenv("SMTP_PORT", "587"))
         self.smtp_user = os.getenv("SMTP_USER")

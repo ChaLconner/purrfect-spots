@@ -9,7 +9,9 @@ export interface User {
   google_id?: string;
   is_pro?: boolean;
   treat_balance?: number;
+  total_treats_received?: number;
   role?: string;
+  stripe_customer_id?: string;
 }
 
 export interface LoginResponse {

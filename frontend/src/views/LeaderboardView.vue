@@ -11,6 +11,27 @@
         </p>
       </div>
 
+      <!-- Time Period Filter -->
+      <div class="flex justify-center mb-8">
+        <div
+          class="bg-white/80 backdrop-blur-sm rounded-full p-1 shadow-sm border border-stone-200 inline-flex"
+        >
+          <button
+            v-for="p in periods"
+            :key="p.value"
+            :class="[
+              'px-6 py-2 rounded-full text-sm font-medium transition-all duration-200',
+              period === p.value
+                ? 'bg-brown text-white shadow-md'
+                : 'text-stone-600 hover:text-brown hover:bg-stone-100',
+            ]"
+            @click="period = p.value as any"
+          >
+            {{ p.label }}
+          </button>
+        </div>
+      </div>
+
       <!-- Leaderboard Card -->
       <div
         class="bg-white/80 backdrop-blur-md rounded-3xl shadow-xl overflow-hidden border border-white/50"
@@ -22,67 +43,17 @@
 
         <!-- Empty State -->
         <div v-else-if="users.length === 0" class="p-12 text-center text-stone-500">
-          No treats given yet. Be the first to spread some joy.
+          No treats given yet in this period. Be the first to spread some joy.
         </div>
 
         <!-- List -->
         <div v-else class="divide-y divide-stone-100">
-          <router-link
+          <LeaderboardItem
             v-for="(user, index) in users"
             :key="user.id"
-            :to="`/profile/${user.username || user.id}`"
-            class="flex items-center p-6 hover:bg-white/50 transition-colors duration-300 gap-6 group cursor-pointer"
-          >
-            <div class="flex-shrink-0 w-12 text-center">
-              <span
-                class="text-2xl font-bold font-heading"
-                :class="{
-                  'text-yellow-500': index === 0,
-                  'text-stone-400': index === 1,
-                  'text-orange-400': index === 2,
-                  'text-stone-300': index > 2,
-                }"
-                >#{{ index + 1 }}</span
-              >
-            </div>
-
-            <!-- Avatar -->
-            <div class="flex-shrink-0 relative">
-              <img
-                :src="user.picture || '/default-avatar.svg'"
-                class="w-16 h-16 rounded-full object-cover border-4 border-white shadow-md transition-transform duration-300 group-hover:scale-105"
-                :class="{
-                  'ring-4 ring-yellow-400/30 animate-bounce-slow': index === 0,
-                  'ring-4 ring-stone-300/30': index === 1,
-                  'ring-4 ring-orange-300/30': index === 2,
-                }"
-                :alt="`${user.name || 'User'}'s avatar`"
-              />
-            </div>
-
-            <!-- Info -->
-            <div class="flex-grow min-w-0">
-              <h3
-                class="text-xl font-bold text-brown truncate font-heading group-hover:text-terracotta transition-colors"
-              >
-                {{ user.name || 'Anonymous Spotter' }}
-              </h3>
-              <p class="text-sm text-stone-500 font-medium">
-                {{ getRankTitle(index) }}
-              </p>
-            </div>
-
-            <div class="flex-shrink-0 text-right">
-              <div class="flex items-center gap-2 justify-end">
-                <span class="text-3xl font-black text-terracotta">{{
-                  user.total_treats_received || 0
-                }}</span>
-              </div>
-              <p class="text-xs text-stone-400 font-bold uppercase tracking-wider">
-                Treats Received
-              </p>
-            </div>
-          </router-link>
+            :user="user"
+            :rank="index + 1"
+          />
         </div>
       </div>
     </div>
@@ -90,30 +61,44 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { TreatsService } from '../services/treatsService';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 import GhibliLoader from '@/components/ui/GhibliLoader.vue';
 import { useSeo } from '@/composables/useSeo';
-
-interface LeaderboardUser {
-  id: string;
-  name: string;
-  username?: string;
-  picture?: string;
-  total_treats_received: number;
-}
+import LeaderboardItem, {
+  type LeaderboardUser,
+} from '@/components/leaderboard/LeaderboardItem.vue';
+import { showError } from '@/store/toast';
 
 const { setMetaTags } = useSeo();
 const loading = ref(true);
 const users = ref<LeaderboardUser[]>([]);
+const period = ref<'weekly' | 'monthly' | 'all_time'>('all_time');
 
-const getRankTitle = (index: number) => {
-  if (index === 0) return 'The Cat Whisperer';
-  if (index === 1) return 'Treat Master';
-  if (index === 2) return 'Feline Friend';
-  return 'Spotter';
+const periods = [
+  { label: 'This Week', value: 'weekly' },
+  { label: 'This Month', value: 'monthly' },
+  { label: 'All Time', value: 'all_time' },
+];
+
+const fetchLeaderboard = async () => {
+  loading.value = true;
+  try {
+    const data = await TreatsService.getLeaderboard(period.value);
+    // Ensure data matches LeaderboardUser interface if not guaranteed by service
+    users.value = data as LeaderboardUser[];
+  } catch (e: unknown) {
+    console.error('Failed to load leaderboard:', e);
+    showError('Failed to load leaderboard data.');
+  } finally {
+    loading.value = false;
+  }
 };
+
+watch(period, () => {
+  fetchLeaderboard();
+});
 
 onMounted(async () => {
   setMetaTags({
@@ -121,30 +106,6 @@ onMounted(async () => {
     description: 'See the most spoiled cats and top contributors in the Purrfect Spots community.',
   });
 
-  try {
-    users.value = await TreatsService.getLeaderboard();
-  } catch (e) {
-    console.error(e);
-  } finally {
-    loading.value = false;
-  }
+  await fetchLeaderboard();
 });
 </script>
-
-<style scoped>
-.animate-bounce-slow {
-  animation: bounce 2s infinite;
-}
-
-@keyframes bounce {
-  0%,
-  100% {
-    transform: translateY(-5%);
-    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
-  }
-  50% {
-    transform: translateY(0);
-    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
-  }
-}
-</style>

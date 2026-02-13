@@ -77,7 +77,10 @@ app.use(pinia);
 // Initialize auth state (now using Pinia store internally)
 // Initialize auth by creating the store instance
 const authStore = useAuthStore();
-await authStore.initializeAuth();
+// Don't block app mount - initialize auth in background
+authStore.initializeAuth().catch((e) => {
+  console.warn('[Auth] Failed to initialize auth:', e);
+});
 
 // Handle browser extension conflicts globally
 globalThis.addEventListener('unhandledrejection', handleUnhandledRejection);
@@ -117,30 +120,7 @@ app.config.errorHandler = (err, _instance, info) => {
 app.use(router);
 app.mount('#app');
 
-// Initialize Service Worker for offline support
-if ('serviceWorker' in navigator && import.meta.env.MODE === 'production') {
-  globalThis.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register('/sw.js')
-      .then((registration) => {
-        // Check for updates
-
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing;
-          if (newWorker) {
-            newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                // New version available
-              }
-            });
-          }
-        });
-      })
-      .catch((error) => {
-        console.error('[SW] Service Worker registration failed:', error);
-      });
-  });
-}
+// Web Vitals tracking is handled below
 
 // Initialize Web Vitals tracking after app mount
 try {

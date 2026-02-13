@@ -9,7 +9,6 @@ Provides:
 - Color-coded output for development
 """
 
-import json
 import logging
 import os
 import sys
@@ -18,44 +17,45 @@ from collections.abc import Callable
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from functools import wraps
-from typing import Any, TypeVar
+from typing import Any, Generator, TypeVar
 
 # Type variable for generic function decoration
 F = TypeVar("F", bound=Callable[..., Any])
 
 
-class StructuredFormatter(logging.Formatter):
-    """
-    JSON formatter for production environments.
-    Outputs logs as JSON for easy parsing by log aggregators.
-    """
+from pythonjsonlogger import jsonlogger
 
-    def format(self, record: logging.LogRecord) -> str:
-        log_data = {
-            "timestamp": datetime.now(UTC).isoformat(),
-            "level": record.levelname,
-            "logger": record.name,
-            "message": record.getMessage(),
-            "module": record.module,
-            "function": record.funcName,
-            "line": record.lineno,
-        }
 
-        # Add extra fields if present
+class CustomJsonFormatter(jsonlogger.JsonFormatter):
+    """
+    JSON formatter with custom field mappings for production.
+    """
+    def add_fields(self, log_record: dict[str, Any], record: logging.LogRecord, message_dict: dict[str, Any]) -> None:
+        super().add_fields(log_record, record, message_dict)
+        
+        # Add timestamp if not present
+        if not log_record.get("timestamp"):
+            log_record["timestamp"] = datetime.now(UTC).isoformat()
+            
+        # Standardize level
+        if log_record.get("level"):
+            log_record["level"] = log_record["level"].upper()
+        else:
+            log_record["level"] = record.levelname
+
+        # Map standard fields
+        log_record["logger"] = record.name
+        log_record["module"] = record.module
+        log_record["function"] = record.funcName
+        log_record["line"] = record.lineno
+
+        # Add custom fields if present
         if hasattr(record, "request_id"):
-            log_data["request_id"] = record.request_id
+            log_record["request_id"] = record.request_id
         if hasattr(record, "user_id"):
-            log_data["user_id"] = record.user_id
+            log_record["user_id"] = record.user_id
         if hasattr(record, "duration_ms"):
-            log_data["duration_ms"] = record.duration_ms
-        if hasattr(record, "extra_data"):
-            log_data["data"] = record.extra_data
-
-        # Add exception info if present
-        if record.exc_info:
-            log_data["exception"] = self.formatException(record.exc_info)
-
-        return json.dumps(log_data)
+            log_record["duration_ms"] = record.duration_ms
 
 
 class ColoredFormatter(logging.Formatter):
@@ -123,18 +123,20 @@ def setup_logger(name: str = "purrfect_spots") -> logging.Logger:
         is_production = os.getenv("ENVIRONMENT", "development").lower() == "production"
 
         if is_production:
-            handler.setFormatter(StructuredFormatter())
+            handler.setFormatter(CustomJsonFormatter('%(timestamp)s %(level)s %(name)s %(message)s'))
         else:
             handler.setFormatter(ColoredFormatter())
 
         # Add handler to logger
         logger.addHandler(handler)
 
-        # Add FileHandler for debugging
-        file_handler = logging.FileHandler("debug.log")
-        file_handler.setLevel(logging.DEBUG)
-        file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-        logger.addHandler(file_handler)
+        # Add FileHandler for debugging (development only)
+        # In production, rely on structured JSON stdout logging collected by the platform
+        if not is_production:
+            file_handler = logging.FileHandler("debug.log")
+            file_handler.setLevel(logging.DEBUG)
+            file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+            logger.addHandler(file_handler)
 
     return logger
 
@@ -143,7 +145,7 @@ def setup_logger(name: str = "purrfect_spots") -> logging.Logger:
 logger = setup_logger()
 
 
-def log_performance(operation_name: str | None = None):
+def log_performance(operation_name: str | None = None) -> Callable[[F], F]:
     """
     Decorator to log function execution time.
 
@@ -172,7 +174,7 @@ def log_performance(operation_name: str | None = None):
             return record
 
         @wraps(func)
-        async def async_wrapper(*args, **kwargs):
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             name = operation_name or f"{func.__module__}.{func.__name__}"
             start_time = time.perf_counter()
 
@@ -187,7 +189,7 @@ def log_performance(operation_name: str | None = None):
                 raise
 
         @wraps(func)
-        def sync_wrapper(*args, **kwargs):
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             name = operation_name or f"{func.__module__}.{func.__name__}"
             start_time = time.perf_counter()
 
@@ -212,7 +214,7 @@ def log_performance(operation_name: str | None = None):
 
 
 @contextmanager
-def log_timing(operation_name: str):
+def log_timing(operation_name: str) -> Generator[None, None, None]:
     """
     Context manager for timing code blocks.
 
@@ -232,7 +234,7 @@ def log_timing(operation_name: str):
             logger.debug(f"⏱️ {operation_name} took {duration_ms:.2f}ms")
 
 
-def log_request(request_id: str, method: str, path: str, user_id: str | None = None):
+def log_request(request_id: str, method: str, path: str, user_id: str | None = None) -> None:
     """
     Log incoming request with context.
 
@@ -267,7 +269,7 @@ def _get_status_metadata(status_code: int) -> tuple[int, str]:
     return logging.ERROR, "✗"
 
 
-def log_response(request_id: str, status_code: int, duration_ms: float):
+def log_response(request_id: str, status_code: int, duration_ms: float) -> None:
     """
     Log outgoing response with timing.
 

@@ -12,9 +12,10 @@
 
         <p>
           Welcome to Purrfect Spots ("Services"). By using our website
-          <a href="https://purrfectspots.xyz" class="text-terracotta-600 hover:text-terracotta-700"
-            >purrfectspots.xyz</a
-          >, you agree to be bound by these Terms of Service. If you disagree with any part of the
+          <a
+            href="https://purrfectspots.xyz"
+            class="text-terracotta-600 hover:text-terracotta-700"
+          >purrfectspots.xyz</a>, you agree to be bound by these Terms of Service. If you disagree with any part of the
           terms, you must not use our Services.
         </p>
 

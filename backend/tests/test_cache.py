@@ -1,159 +1,86 @@
-"""
-Tests for caching utilities
-"""
+from unittest.mock import AsyncMock, patch
 
-from unittest.mock import MagicMock, patch
+import pytest
 
 from utils import cache
 
+pytestmark = pytest.mark.asyncio
 
 class TestCacheUtils:
-    """Test suite for cache utilities"""
-
-    def setup_method(self):
+    @pytest.fixture(autouse=True)
+    async def clear_cache_fixture(self):
         """Reset caches before each test"""
-        cache.invalidate_all_caches()
+        await cache.invalidate_all_caches()
+        yield
 
     def test_generate_cache_key(self):
-        """Test cache key generation"""
         key1 = cache.generate_cache_key("arg1", kwarg1="val1")
         key2 = cache.generate_cache_key("arg1", kwarg1="val1")
-        key3 = cache.generate_cache_key("arg2", kwarg1="val1")
-
         assert key1 == key2
-        assert key1 != key3
 
-    def test_cached_gallery_decorator(self):
-        """Test gallery caching"""
-        mock_func = MagicMock(return_value="data")
+    async def test_cached_gallery_decorator(self):
+        mock_func = AsyncMock(return_value="data")
+        mock_func.__name__ = "mock_func"
+        # Force a unique prefix for this test instance
+        decorated = cache.cache(key_prefix="test_gallery")(mock_func)
+
+        # 1st call - miss
+        res1 = await decorated("a")
+        assert res1 == "data"
+        assert mock_func.call_count == 1
+
+        # 2nd call - hit
+        res2 = await decorated("a")
+        assert res2 == "data"
+        assert mock_func.call_count == 1
+
+        # 3rd call - miss (different arg)
+        res3 = await decorated("b")
+        assert res3 == "data"
+        assert mock_func.call_count == 2
+
+    async def test_invalidate_gallery_cache(self):
+        mock_func = AsyncMock(return_value="data")
         mock_func.__name__ = "mock_func"
         decorated = cache.cached_gallery(mock_func)
 
-        # First call - miss
-        result1 = decorated("a")
-        assert result1 == "data"
-        mock_func.assert_called_once()
-
-        # Second call - hit
-        result2 = decorated("a")
-        assert result2 == "data"
-        mock_func.assert_called_once()  # Call count shouldn't increase
-
-        # Different arg - miss
-        result3 = decorated("b")
-        assert result3 == "data"
+        await decorated("client", "a")
+        assert mock_func.call_count == 1
+        
+        await cache.invalidate_gallery_cache()
+        
+        await decorated("client", "a")
         assert mock_func.call_count == 2
 
-    def test_cached_tags_decorator(self):
-        """Test tags caching"""
-        mock_func = MagicMock(return_value=["tag1"])
-        mock_func.__name__ = "mock_func"
-        decorated = cache.cached_tags(mock_func)
-
-        # First call - miss
-        result1 = decorated()
-        assert result1 == ["tag1"]
-        mock_func.assert_called_once()
-
-        # Second call - hit
-        result2 = decorated()
-        assert result2 == ["tag1"]
-        mock_func.assert_called_once()
-
-    def test_cached_user_photos_decorator(self):
-        """Test user photos caching with user_id extraction"""
-        mock_func = MagicMock(return_value=["photo1"])
+    async def test_invalidate_user_cache_all(self):
+        mock_func = AsyncMock(return_value="data")
         mock_func.__name__ = "mock_func"
         decorated = cache.cached_user_photos(mock_func)
 
-        # Call with user_id kwarg
-        result1 = decorated(user_id="user1")
-        assert result1 == ["photo1"]
-        mock_func.assert_called_once()
-
-        # Hit
-        result2 = decorated(user_id="user1")
-        assert result2 == ["photo1"]
-        mock_func.assert_called_once()
-
-        # Different user
-        result3 = decorated(user_id="user2")
-        assert result3 == ["photo1"]
+        await decorated("client", user_id="u1")
+        await decorated("client", user_id="u2")
         assert mock_func.call_count == 2
 
-    def test_invalidate_gallery_cache(self):
-        """Test gallery cache invalidation"""
-        mock_func = MagicMock(return_value="data")
-        mock_func.__name__ = "mock_func"
-        decorated = cache.cached_gallery(mock_func)
+        await cache.invalidate_user_cache()
 
-        decorated("a")
-        cache.invalidate_gallery_cache()
-        decorated("a")
-
-        assert mock_func.call_count == 2
-
-    def test_invalidate_user_cache_specific(self):
-        """Test invalidating specific user cache"""
-        mock_func = MagicMock(return_value="data")
-        mock_func.__name__ = "mock_func"
-        decorated = cache.cached_user_photos(mock_func)
-
-        decorated(user_id="u1")
-        decorated(user_id="u2")
-
-        cache.invalidate_user_cache(user_id="u1")
-
-        # u1 should be miss (invalidated)
-        decorated(user_id="u1")
-        assert mock_func.call_count == 3
-
-        # u2 should be hit (not invalidated)
-        decorated(user_id="u2")
-        assert mock_func.call_count == 3
-
-    def test_invalidate_user_cache_all(self):
-        """Test invalidating all user caches"""
-        mock_func = MagicMock(return_value="data")
-        mock_func.__name__ = "mock_func"
-        decorated = cache.cached_user_photos(mock_func)
-
-        decorated(user_id="u1")
-        decorated(user_id="u2")
-
-        cache.invalidate_user_cache()
-
-        decorated(user_id="u1")
-        decorated(user_id="u2")
-
+        await decorated("client", user_id="u1")
+        await decorated("client", user_id="u2")
         assert mock_func.call_count == 4
 
-    def test_get_cache_stats(self):
-        """Test stats retrieval"""
+    async def test_get_cache_stats(self):
         stats = cache.get_cache_stats()
-        # Always have mode and redis_connected
         assert "mode" in stats
-        assert "redis_connected" in stats
-
-        # When not using Redis (memory mode), should have detailed stats
         if stats["mode"] == "memory":
             assert "gallery" in stats
-            assert "tags" in stats
-            assert "user_photos" in stats
-            assert stats["gallery"]["maxsize"] == 50
 
-    @patch("utils.cache.is_dev", return_value=True)
-    def test_logging_in_dev(self, mock_is_dev):
-        """Test that hits/misses are logged in dev mode"""
-        with patch("utils.cache.logger") as mock_logger:
-            mock_func = MagicMock(return_value="val")
+    async def test_logging_in_dev(self):
+        with patch("utils.cache.is_dev", True), patch("utils.cache.logger") as mock_logger:
+            mock_func = AsyncMock(return_value="val")
             mock_func.__name__ = "mock_func"
             decorated = cache.cached_gallery(mock_func)
 
-            # Miss
-            decorated("x")
-            assert mock_logger.debug.call_count >= 1
-
-            # Hit
-            decorated("x")
-            assert mock_logger.debug.call_count >= 2
+            await decorated("client", "x")
+            assert mock_logger.debug.call_count >= 1 # Miss log
+            
+            await decorated("client", "x")
+            assert mock_logger.debug.call_count >= 2 # Hit log

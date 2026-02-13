@@ -52,23 +52,18 @@ onUnmounted(() => {
 
 <template>
   <div class="user-menu-container">
-    <button class="user-btn" :aria-expanded="showUserMenu" @click="showUserMenu = !showUserMenu">
+    <button
+      class="user-btn"
+      :aria-expanded="showUserMenu"
+      aria-label="User menu"
+      @click="showUserMenu = !showUserMenu"
+    >
       <img
         :src="authStore.user?.picture || '/default-avatar.svg'"
         :alt="authStore.user?.name || 'User'"
         class="user-avatar"
         @error="handleImageError"
       />
-      <span class="user-name">{{ authStore.user?.name }}</span>
-      <svg
-        class="chevron-icon"
-        :class="{ rotate: showUserMenu }"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-      </svg>
     </button>
 
     <!-- Dropdown Menu -->
@@ -96,12 +91,13 @@ onUnmounted(() => {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 0.625rem;
+  justify-content: center;
   height: 2.5rem;
-  padding: 0 0.75rem 0 0.25rem;
+  width: 2.5rem;
+  padding: 0.15rem;
   background: var(--color-btn-shade-e);
   border: 2px solid var(--color-btn-shade-a);
-  border-radius: 2rem;
+  border-radius: 50%;
   cursor: pointer;
   transition: all 175ms cubic-bezier(0, 0, 1, 1);
   flex-shrink: 0;
@@ -145,8 +141,8 @@ onUnmounted(() => {
 }
 
 .user-avatar {
-  width: 1.75rem;
-  height: 1.75rem;
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
   object-fit: cover;
   border: 2px solid var(--color-btn-shade-a);
@@ -154,32 +150,6 @@ onUnmounted(() => {
   flex-shrink: 0;
   position: relative;
   z-index: 1;
-}
-
-.user-name {
-  font-family: 'Quicksand', sans-serif;
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--color-btn-shade-a);
-  max-width: 90px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  position: relative;
-  z-index: 1;
-}
-
-.chevron-icon {
-  width: 0.8rem;
-  height: 0.8rem;
-  color: var(--color-btn-shade-a);
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  position: relative;
-  z-index: 1;
-}
-
-.chevron-icon.rotate {
-  transform: rotate(180deg);
 }
 
 /* 3D Themed Dropdown */

@@ -7,7 +7,7 @@
 <script setup lang="ts">
 const starCount = 12; // Increased count for better distribution
 
-const getStarStyle = (_n: number) => {
+const getStarStyle = (_n: number): Record<string, string> => {
   // nosec typescript:S2245 - Math.random() is safe here: used only for visual animation timing/positioning
   // PRNG is intentional for UI effects; cryptographic randomness not required for decorative animations
   const top = Math.random() * 120 - 20; // Start from -20% to 100% height

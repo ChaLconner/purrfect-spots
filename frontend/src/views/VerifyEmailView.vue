@@ -136,7 +136,7 @@ const otpCode = computed(() => otpDigits.value.join(''));
 // Cooldown timer
 let cooldownInterval: ReturnType<typeof setInterval> | null = null;
 
-const startCooldown = (seconds: number) => {
+const startCooldown = (seconds: number): void => {
   resendCooldown.value = seconds;
   if (cooldownInterval) clearInterval(cooldownInterval);
   cooldownInterval = setInterval(() => {
@@ -148,12 +148,12 @@ const startCooldown = (seconds: number) => {
 };
 
 // Input refs management
-const setInputRef = (el: unknown, index: number) => {
+const setInputRef = (el: unknown, index: number): void => {
   inputRefs.value[index] = el as HTMLInputElement;
 };
 
 // Handle input
-const handleInput = (index: number, event: Event) => {
+const handleInput = (index: number, event: Event): void => {
   const input = event.target as HTMLInputElement;
   const value = input.value;
 
@@ -177,14 +177,14 @@ const handleInput = (index: number, event: Event) => {
 };
 
 // Handle keydown for backspace navigation
-const handleKeydown = (index: number, event: KeyboardEvent) => {
+const handleKeydown = (index: number, event: KeyboardEvent): void => {
   if (event.key === 'Backspace' && !otpDigits.value[index] && index > 0) {
     inputRefs.value[index - 1]?.focus();
   }
 };
 
 // Handle paste
-const handlePaste = (event: ClipboardEvent) => {
+const handlePaste = (event: ClipboardEvent): void => {
   event.preventDefault();
   const pastedData = event.clipboardData?.getData('text') || '';
   const digits = pastedData.replaceAll(/\D/g, '').slice(0, 6);
@@ -205,7 +205,7 @@ const handlePaste = (event: ClipboardEvent) => {
 };
 
 // Verify OTP
-const handleVerify = async () => {
+const handleVerify = async (): Promise<void> => {
   if (otpCode.value.length !== 6 || isLoading.value) return;
 
   isLoading.value = true;
@@ -244,7 +244,7 @@ const handleVerify = async () => {
 };
 
 // Resend OTP
-const handleResend = async () => {
+const handleResend = async (): Promise<void> => {
   if (isResending.value || resendCooldown.value > 0) return;
 
   isResending.value = true;

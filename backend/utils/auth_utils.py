@@ -1,96 +1,89 @@
-"""
-Authentication utility functions for common tasks across multiple auth routes.
-"""
+import logging
+from typing import Any, Dict
 
-from fastapi import Request, Response
+import jwt
 
 from config import config
 
+# Set up logging
+logger = logging.getLogger(__name__)
 
-def get_client_info(request: Request) -> tuple[str, str]:
+
+def decode_token(token: str) -> Dict[str, Any]:
     """
-    Get client IP and User-Agent safely from request.
-    Handles proxy headers (X-Forwarded-For) if present.
+    Decode and verify a JWT token.
+
+    Tries decoding with:
+    1. SUPABASE_KEY (if available) - for Supabase tokens
+    2. JWT_SECRET (if available) - for custom tokens
+
+    Args:
+        token: The JWT token string
 
     Returns:
-        tuple[str, str]: (ip_address, user_agent)
+        dict: The decoded token claims
+
+    Raises:
+        ValueError: If token is invalid or expired
     """
+    if not token:
+        raise ValueError("Token is missing")
+
+    errors = []
+
+    # Attempt 1: Decode with Supabase Key (HS256 usually)
+    if config.SUPABASE_KEY:
+        try:
+            # removing 'aud' check as it can vary (authenticated vs anon) unless strictly enforced
+            return jwt.decode(
+                token,
+                config.SUPABASE_KEY,
+                algorithms=["HS256"],
+                options={"verify_aud": False},
+            )
+        except jwt.ExpiredSignatureError:
+            raise ValueError("Token has expired")
+        except jwt.InvalidTokenError as e:
+            errors.append(f"Supabase key: {e}")
+
+    # Attempt 2: Decode with Custom JWT Secret
+    if config.JWT_SECRET:
+        try:
+            return jwt.decode(token, config.JWT_SECRET, algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            raise ValueError("Token has expired")
+        except jwt.InvalidTokenError as e:
+            errors.append(f"JWT secret: {e}")
+
+    logger.warning(f"Failed to decode token: {errors}")
+    raise ValueError("Invalid token")
+
+
+def get_client_info(request: Any) -> tuple[str, str]:
+    """Extract client IP and User-Agent from request"""
     ip = request.client.host if request.client else "unknown"
     user_agent = request.headers.get("user-agent", "")
 
-    # Check X-Forwarded-For if behind proxy
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        ip = forwarded.split(",")[0].strip()
+    # Check for proxies
+    x_real_ip = request.headers.get("X-Real-IP")
+    if x_real_ip:
+        ip = x_real_ip
+    else:
+        forwarded = request.headers.get("X-Forwarded-For")
+        if forwarded:
+            ip = forwarded.split(",")[0].strip()
 
     return ip, user_agent
 
 
-def set_refresh_cookie(response: Response, refresh_token: str):
-    """
-    Helper to set secure refresh token cookie.
-    Sets HttpOnly, Secure (prod), SameSite=Lax.
-    """
+def set_refresh_cookie(response: Any, refresh_token: str) -> None:
+    """Set HttpOnly Secure cookie for refresh token"""
     response.set_cookie(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
         secure=config.is_production(),
         samesite="lax",
-    )
-
-
-from schemas.auth import LoginResponse
-from services.auth_service import AuthService
-from user_models.user import UserResponse
-
-
-def create_login_response(
-    auth_service: AuthService, user, request: Request, response: Response, include_refresh_cookie: bool = True
-) -> LoginResponse:
-    """
-    Unified helper to create tokens, set cookies, and return LoginResponse.
-
-    Args:
-        auth_service: AuthService instance
-        user: User object (must have id, email, name, picture, bio, created_at)
-        request: FastAPI Request
-        response: FastAPI Response
-        include_refresh_cookie: Whether to set the refresh token cookie
-
-    Returns:
-        LoginResponse model
-    """
-    ip, ua = get_client_info(request)
-
-    # Create tokens
-    # Note: user might be a dict or object depending on source, but AuthService expects ID for tokens
-    user_id = str(getattr(user, "id", user.get("id") if isinstance(user, dict) else str(user)))
-
-    # Prepare token extra claims if needed (usually just standard claims)
-    access_token = auth_service.create_access_token(user_id)
-    refresh_token = auth_service.create_refresh_token(user_id, ip, ua)
-
-    if include_refresh_cookie:
-        set_refresh_cookie(response, refresh_token)
-
-    # Standardize user object for response
-    # Handle both dict and object (Pydantic model)
-    def get_attr(obj, name, default=None):
-        if isinstance(obj, dict):
-            return obj.get(name, default)
-        return getattr(obj, name, default)
-
-    return LoginResponse(
-        access_token=access_token,
-        token_type="bearer",  # nosec B106
-        user=UserResponse(
-            id=user_id,
-            email=get_attr(user, "email"),
-            name=get_attr(user, "name"),
-            picture=get_attr(user, "picture"),
-            bio=get_attr(user, "bio"),
-            created_at=get_attr(user, "created_at"),
-        ),
-        refresh_token=refresh_token,
+        max_age=config.JWT_REFRESH_EXPIRATION_DAYS * 86400,
+        path="/",
     )

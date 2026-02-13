@@ -32,22 +32,30 @@ dependencies = [
     "aiohttp>=3.9.0,<4.0.0",
     "slowapi>=0.1.9,<1.0.0",
     "sentry-sdk[fastapi]>=1.39.0,<3.0.0",
-    "pytest>=7.4.0,<9.0.0",
-    "pytest-asyncio>=0.21.0,<1.0.0",
-    "pytest-cov>=4.1.0,<6.0.0",
     "redis>=5.0.0,<6.0.0",
     "python-magic-bin>=0.4.14,<1.0.0 ; sys_platform == 'win32'",
     "python-magic>=0.4.14,<1.0.0 ; sys_platform != 'win32'",
     "bleach>=6.0.0,<7.0.0",
     "orjson>=3.9.10",
+    "stripe>=8.0.0",
+    "resend>=2.0.0",
     "opentelemetry-api>=1.20.0",
     "opentelemetry-sdk>=1.20.0",
     "opentelemetry-instrumentation-fastapi>=0.40b0",
     "opentelemetry-exporter-otlp>=1.20.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0,<9.0.0",
+    "pytest-asyncio>=0.21.0,<1.0.0",
+    "pytest-cov>=4.1.0,<6.0.0",
     "types-requests>=2.31.0",
     "types-redis>=4.6.0",
     "types-Pillow>=10.0.0",
     "types-bleach>=6.0.0",
+    "mypy>=1.0.0",
+    "ruff>=0.1.0",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -55,13 +63,14 @@ packages = ["."]
 
 [tool.mypy]
 python_version = "3.12"
-warn_return_any = false  # Too many false positives with Supabase client
+warn_return_any = true
 warn_unused_configs = true
-ignore_missing_imports = false  # Now we have type stubs installed
-disallow_untyped_defs = false
-check_untyped_defs = true  # Enable with type stubs
-strict_optional = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
 no_implicit_optional = true
+strict_optional = true
 warn_no_return = true
 warn_redundant_casts = true
 warn_unused_ignores = false
@@ -71,6 +80,7 @@ exclude = [
     "^scripts/",
     "^\\.venv/",
     "^__pycache__/",
+    "^migrations/",
 ]
 
 # Third-party library overrides (still missing stubs)

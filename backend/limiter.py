@@ -60,7 +60,16 @@ def test_redis_connection(redis_url: str) -> bool:
     try:
         import redis
 
-        client = redis.from_url(redis_url, socket_connect_timeout=5)
+        if redis_url.startswith("rediss://"):
+            client = redis.from_url(
+                redis_url, 
+                socket_connect_timeout=10, 
+                socket_timeout=10,
+                ssl_cert_reqs=None  # Mitigate WinError 10054 with Upstash
+            )
+        else:
+            client = redis.from_url(redis_url, socket_connect_timeout=5)
+        
         client.ping()
         logger.info("Redis connection successful - using Redis for rate limiting")
         return True
@@ -157,7 +166,12 @@ def get_identifier_with_endpoint(request: Request) -> str:
 
 
 # Get validated storage URI (Redis or None for in-memory)
-_storage_uri = get_storage_uri()
+# Wrapped in try/except to prevent import-time crashes if Redis is unreachable
+try:
+    _storage_uri = get_storage_uri()
+except Exception as e:
+    logger.warning(f"Failed to initialize rate limit storage: {e} — falling back to in-memory")
+    _storage_uri = "memory://"
 
 # ========== Rate Limiters ==========
 

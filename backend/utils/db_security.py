@@ -164,9 +164,8 @@ def sanitize_search_input(value: str, max_length: int = 100) -> str:
     sanitized = re.sub(r"[;\-\'\"\\,()]", "", sanitized)
 
     # Remove multiple spaces
-    sanitized = re.sub(r"\s+", " ", sanitized).strip()
+    return re.sub(r"\s+", " ", sanitized).strip()
 
-    return sanitized
 
 
 # ==============================================================================
@@ -190,8 +189,7 @@ def escape_like_pattern(pattern: str) -> str:
     # Escape SQL LIKE special characters
     pattern = pattern.replace("\\", "\\\\")
     pattern = pattern.replace("%", "\\%")
-    pattern = pattern.replace("_", "\\_")
-    return pattern
+    return pattern.replace("_", "\\_")
 
 
 def build_safe_like_pattern(search_term: str, match_type: str = "contains") -> str:
@@ -209,12 +207,12 @@ def build_safe_like_pattern(search_term: str, match_type: str = "contains") -> s
 
     if match_type == "contains":
         return f"%{escaped}%"
-    elif match_type == "starts":
+    if match_type == "starts":
         return f"{escaped}%"
-    elif match_type == "ends":
+    if match_type == "ends":
         return f"%{escaped}"
-    else:  # exact
-        return escaped
+    # exact
+    return escaped
 
 
 # ==============================================================================

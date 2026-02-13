@@ -32,6 +32,8 @@ class SearchResponse(BaseModel):
     total: int
     query: str | None = None
     tags: list[str] | None = None
+    limit: int | None = None
+    offset: int | None = None
 
 
 class TagInfo(BaseModel):

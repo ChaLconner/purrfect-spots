@@ -16,7 +16,7 @@ from logger import logger
 
 
 class GoogleAuthService:
-    def __init__(self):
+    def __init__(self) -> None:
         self.google_client_id = config.GOOGLE_CLIENT_ID
         self.google_client_secret = config.GOOGLE_CLIENT_SECRET
 

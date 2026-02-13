@@ -51,7 +51,7 @@ class PurrfectSpotsException(Exception):
         status_code: int = 500,
         error_code: str = "INTERNAL_ERROR",
         details: dict[str, Any] | None = None,
-    ):
+    ) -> None:
         self.message = message
         self.status_code = status_code
         self.error_code = error_code
@@ -106,7 +106,7 @@ class ValidationError(PurrfectSpotsException):
         value: Optional invalid value (sanitized)
     """
 
-    def __init__(self, message: str, field: str | None = None, value: str | None = None):
+    def __init__(self, message: str, field: str | None = None, value: str | None = None) -> None:
         details = {}
         if field:
             details["field"] = field
@@ -131,7 +131,7 @@ class AuthenticationError(PurrfectSpotsException):
         reason: Specific reason code (e.g., "invalid_token", "expired")
     """
 
-    def __init__(self, message: str = "Authentication required", reason: str | None = None):
+    def __init__(self, message: str = "Authentication required", reason: str | None = None) -> None:
         details = {"reason": reason} if reason else {}
         super().__init__(
             message=message,
@@ -151,7 +151,7 @@ class AuthorizationError(PurrfectSpotsException):
         resource: Optional resource that was being accessed
     """
 
-    def __init__(self, message: str = "Permission denied", resource: str | None = None):
+    def __init__(self, message: str = "Permission denied", resource: str | None = None) -> None:
         details = {"resource": resource} if resource else {}
         super().__init__(
             message=message,
@@ -171,7 +171,7 @@ class RateLimitError(PurrfectSpotsException):
         retry_after: Seconds until rate limit resets
     """
 
-    def __init__(self, message: str = "Rate limit exceeded", retry_after: int | None = None):
+    def __init__(self, message: str = "Rate limit exceeded", retry_after: int | None = None) -> None:
         details = {"retry_after": retry_after} if retry_after else {}
         super().__init__(
             message=message,
@@ -197,7 +197,7 @@ class NotFoundError(PurrfectSpotsException):
         message: str = "Resource not found",
         resource_type: str | None = None,
         resource_id: str | None = None,
-    ):
+    ) -> None:
         details = {}
         if resource_type:
             details["resource_type"] = resource_type
@@ -222,7 +222,7 @@ class ConflictError(PurrfectSpotsException):
         self,
         message: str = "Resource already exists",
         conflicting_field: str | None = None,
-    ):
+    ) -> None:
         details = {"field": conflicting_field} if conflicting_field else {}
         super().__init__(message=message, status_code=409, error_code="CONFLICT", details=details)
         self.conflicting_field = conflicting_field
@@ -243,7 +243,7 @@ class ExternalServiceError(PurrfectSpotsException):
         message: str = "External service error",
         service: str | None = None,
         retryable: bool = False,
-    ):
+    ) -> None:
         details = {"service": service, "retryable": retryable}
         super().__init__(
             message=message,
@@ -270,7 +270,7 @@ class FileProcessingError(PurrfectSpotsException):
         message: str = "File processing failed",
         filename: str | None = None,
         reason: str | None = None,
-    ):
+    ) -> None:
         details = {}
         if filename:
             details["filename"] = filename
@@ -296,7 +296,7 @@ class CatDetectionError(PurrfectSpotsException):
         confidence: Confidence score if available
     """
 
-    def __init__(self, message: str = "Cat detection failed", confidence: float | None = None):
+    def __init__(self, message: str = "Cat detection failed", confidence: float | None = None) -> None:
         details = {"confidence": confidence} if confidence is not None else {}
         super().__init__(
             message=message,

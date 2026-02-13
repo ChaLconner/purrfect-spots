@@ -145,6 +145,8 @@ export interface SearchParams {
   query?: string;
   tags?: string[];
   limit?: number;
+  offset?: number;
+  page?: number;
 }
 
 // ========== Profile Types ==========

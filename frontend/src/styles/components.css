@@ -322,10 +322,12 @@
 
   .btn-3d-nav::before {
     @apply absolute w-full h-full top-0 left-0 right-0 bottom-0;
-    content: "";
+    content: '';
     background: var(--color-btn-shade-c);
     border-radius: inherit;
-    box-shadow: 0 0 0 2px var(--color-btn-shade-b), 0 0.75em 0 0 var(--color-btn-shade-a);
+    box-shadow:
+      0 0 0 2px var(--color-btn-shade-b),
+      0 0.75em 0 0 var(--color-btn-shade-a);
     transform: translate3d(0, 0.75em, -1em);
     transition: all 175ms cubic-bezier(0, 0, 1, 1);
   }
@@ -345,7 +347,9 @@
 
   .btn-3d-nav:active::before {
     transform: translate3d(0, 0, -1em);
-    box-shadow: 0 0 0 2px var(--color-btn-shade-b), 0 0.25em 0 0 var(--color-btn-shade-b);
+    box-shadow:
+      0 0 0 2px var(--color-btn-shade-b),
+      0 0.25em 0 0 var(--color-btn-shade-b);
   }
 
   /* Navbar-specific 3D buttons (smaller size) */
@@ -361,10 +365,12 @@
 
   .btn-3d-nav-sm::before {
     @apply absolute w-full h-full top-0 left-0 right-0 bottom-0;
-    content: "";
+    content: '';
     background: var(--color-btn-shade-c);
     border-radius: inherit;
-    box-shadow: 0 0 0 2px var(--color-btn-shade-b), 0 0.5em 0 0 var(--color-btn-shade-a);
+    box-shadow:
+      0 0 0 2px var(--color-btn-shade-b),
+      0 0.5em 0 0 var(--color-btn-shade-a);
     transform: translate3d(0, 0.5em, -1em);
     transition: all 175ms cubic-bezier(0, 0, 1, 1);
   }
@@ -384,7 +390,9 @@
 
   .btn-3d-nav-sm:active::before {
     transform: translate3d(0, 0, -1em);
-    box-shadow: 0 0 0 2px var(--color-btn-shade-b), 0 0.15em 0 0 var(--color-btn-shade-b);
+    box-shadow:
+      0 0 0 2px var(--color-btn-shade-b),
+      0 0.15em 0 0 var(--color-btn-shade-b);
   }
 
   /* 3D Nav Link styling */
@@ -404,10 +412,12 @@
 
   .nav-link-3d::before {
     @apply absolute w-full h-full top-0 left-0;
-    content: "";
+    content: '';
     background: var(--color-btn-shade-c);
     border-radius: inherit;
-    box-shadow: 0 0 0 2px var(--color-btn-shade-b), 0 0.4em 0 0 var(--color-btn-shade-a);
+    box-shadow:
+      0 0 0 2px var(--color-btn-shade-b),
+      0 0.4em 0 0 var(--color-btn-shade-a);
     transform: translate3d(0, 0.4em, -1em);
     transition: all 175ms cubic-bezier(0, 0, 1, 1);
   }
@@ -427,7 +437,9 @@
 
   .nav-link-3d:active::before {
     transform: translate3d(0, 0, -1em);
-    box-shadow: 0 0 0 2px var(--color-btn-shade-b), 0 0.1em 0 0 var(--color-btn-shade-b);
+    box-shadow:
+      0 0 0 2px var(--color-btn-shade-b),
+      0 0.1em 0 0 var(--color-btn-shade-b);
   }
 
   .nav-link-3d.active {
@@ -578,6 +590,30 @@
   border-radius: 3px;
 }
 
-.scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(127, 183, 164, 0.5);
+/* ============================================
+ * CUSTOM SCROLLBAR (GLOBAL)
+ * ============================================ */
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(166, 93, 55, 0.2) transparent;
+  scroll-behavior: smooth;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(166, 93, 55, 0.2);
+  border-radius: 20px;
+  transition: background-color 0.3s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(166, 93, 55, 0.5);
 }

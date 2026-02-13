@@ -9,13 +9,14 @@ Handles:
 """
 
 
+from typing import Any, cast
+
 from supabase import Client
 
 from dependencies import get_supabase_admin_client
 from exceptions import ConflictError, ExternalServiceError, PurrfectSpotsException
 from logger import logger
 from services.email_service import email_service
-from services.password_service import password_service
 from user_models.user import User
 from utils.datetime_utils import utc_now_iso
 
@@ -28,7 +29,7 @@ class UserService:
 
     SERVICE_SUPABASE_AUTH = "Supabase Auth"
 
-    def __init__(self, supabase_client: Client):
+    def __init__(self, supabase_client: Client) -> None:
         self.supabase = supabase_client
         self.supabase_admin = get_supabase_admin_client()
 
@@ -43,7 +44,7 @@ class UserService:
             logger.debug("Failed to retrieve profile by ID: %s", e)
             return None
 
-    def get_user_by_email(self, email: str) -> dict | None:
+    def get_user_by_email(self, email: str) -> dict[str, Any] | None:
         """Get user by email from database"""
         try:
             result = self.supabase_admin.table("users").select("*").eq("email", email).single().execute()
@@ -63,7 +64,7 @@ class UserService:
             logger.debug("Failed to retrieve profile by username: %s", e)
             return None
 
-    def create_user_with_password(self, email: str, password: str, name: str) -> dict:
+    def create_user_with_password(self, email: str, password: str, name: str) -> dict[str, Any]:
         """Create new user and send confirmation email (Manual Flow via Admin)"""
         try:
             # 1. Generate Signup Link (Creates user if not exists)
@@ -81,7 +82,7 @@ class UserService:
 
             # This returns a UserResponse object from gotrue-py
             # Structure: res.user (User), res.properties.action_link (str)
-            res = self.supabase_admin.auth.admin.generate_link(params)
+            res = self.supabase_admin.auth.admin.generate_link(cast(Any, params))
 
             if not res or not res.user:
                 raise ExternalServiceError(ERROR_FAILED_TO_CREATE_USER, service=self.SERVICE_SUPABASE_AUTH)
@@ -121,11 +122,11 @@ class UserService:
                 raise ConflictError(ERROR_EMAIL_ALREADY_REGISTERED)
             raise PurrfectSpotsException(f"Failed to create user: {msg}")
 
-    def create_user(self, email: str, password: str, name: str) -> dict:
+    def create_user(self, email: str, password: str, name: str) -> dict[str, Any]:
         """Alias for create_user_with_password"""
         return self.create_user_with_password(email, password, name)
 
-    def create_unverified_user(self, email: str, password: str, name: str) -> dict:
+    def create_unverified_user(self, email: str, password: str, name: str) -> dict[str, Any]:
         """
         Create a new user without sending a confirmation email automatically.
         Used for the OTP flow where verification is handled separately.
@@ -167,7 +168,7 @@ class UserService:
             logger.error("Failed to create unverified account: %s", msg)
             raise PurrfectSpotsException(ERROR_FAILED_TO_CREATE_USER)
 
-    def create_or_get_user(self, user_data: dict) -> User:
+    def create_or_get_user(self, user_data: dict[str, Any]) -> User:
         """Create new user or get existing user from database (for OAuth)"""
         try:
             user_id = user_data.get("id") or user_data.get("sub")
@@ -189,22 +190,17 @@ class UserService:
                 "bio": None,
                 "created_at": utc_now_iso(),
                 "updated_at": utc_now_iso(),
-                "password_hash": None,
             }
 
             # Use admin client for user creation (bypass RLS)
             result = self.supabase_admin.table("users").upsert(user_record, on_conflict="id").execute()
 
-            user_dict = result.data[0]
-            if "password_hash" not in user_dict:
-                user_dict["password_hash"] = None
-
-            return User(**user_dict)
+            return User(**result.data[0])
 
         except Exception as e:
             raise ExternalServiceError(f"Database error: {e!s}", service="Supabase Database")
 
-    def authenticate_user(self, email: str, password: str) -> dict | None:
+    def authenticate_user(self, email: str, password: str) -> dict[str, Any] | None:
         """Authenticate user using Supabase Auth"""
         try:
             res = self.supabase.auth.sign_in_with_password({"email": email, "password": password})
@@ -225,23 +221,14 @@ class UserService:
             logger.warning("Authentication failure: %s", e)
             return None
 
-    def update_user_profile(self, user_id: str, update_data: dict) -> dict:
+    def update_user_profile(self, user_id: str, update_data: dict[str, Any]) -> dict[str, Any]:
         """Update user profile"""
         try:
             result = self.supabase_admin.table("users").update(update_data).eq("id", user_id).execute()
             if not result.data:
                 raise ValueError("User not found")
-            return result.data[0]
+            return cast(dict[str, Any], result.data[0])
         except Exception as e:
             raise PurrfectSpotsException(f"Failed to update profile: {e!s}")
 
-    def update_password_hash(self, user_id: str, new_password: str) -> bool:
-        """Update user's password hash in database"""
-        try:
-            self.supabase_admin.table("users").update(
-                {"password_hash": password_service.hash_password(new_password), "updated_at": utc_now_iso()}
-            ).eq("id", user_id).execute()
-            return True
-        except RuntimeError:
-            logger.error("Failed to update security data for user: %s", user_id)
-            return False
+
