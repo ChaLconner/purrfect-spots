@@ -36,7 +36,11 @@ export const useCatsStore = defineStore('cats', () => {
   const locations = ref<CatLocation[]>([]);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
+  
+  // Client-side search for Map View (filters loaded locations)
   const searchQuery = ref('');
+  
+  // Server-side search for Gallery View (API based)
   const gallerySearchQuery = ref('');
   const popularTags = ref<TagInfo[]>([]);
   const selectedTags = ref<string[]>([]);
@@ -104,6 +108,7 @@ export const useCatsStore = defineStore('cats', () => {
 
   /**
    * Filter locations by search query (client-side)
+   * Usage: Primary for Map View filtering
    * OPTIMIZATION: Memoized for better performance
    */
   const filteredLocations = computed(() => {
@@ -364,80 +369,4 @@ export function hasTag(location: CatLocation, tag: string): boolean {
   return tags.some((t) => t.toLowerCase() === normalizedTag);
 }
 
-// ========== Legacy exports for backward compatibility ==========
 
-let _store: ReturnType<typeof useCatsStore> | null = null;
-
-function getStore() {
-  if (!_store) {
-    try {
-      _store = useCatsStore();
-    } catch {
-      return null;
-    }
-  }
-  return _store;
-}
-
-// Legacy reactive exports
-export const catStore = {
-  get locations() {
-    return getStore()?.locations ?? [];
-  },
-  set locations(val) {
-    const store = getStore();
-    if (store) store.locations = val;
-  },
-  get isLoading() {
-    return getStore()?.isLoading ?? false;
-  },
-  set isLoading(val) {
-    const store = getStore();
-    if (store) store.isLoading = val;
-  },
-  get error() {
-    return getStore()?.error ?? null;
-  },
-  set error(val) {
-    const store = getStore();
-    if (store) store.error = val;
-  },
-  get searchQuery() {
-    return getStore()?.searchQuery ?? '';
-  },
-  set searchQuery(val) {
-    const store = getStore();
-    if (store) store.searchQuery = val;
-  },
-  get popularTags() {
-    return getStore()?.popularTags ?? [];
-  },
-};
-
-// Legacy computed exports
-export const catCount = computed(() => getStore()?.catCount ?? 0);
-export const filteredLocations = computed(() => getStore()?.filteredLocations ?? []);
-export const filteredCount = computed(() => getStore()?.filteredCount ?? 0);
-export const allTags = computed(() => getStore()?.allTags ?? []);
-export const popularTagsComputed = computed(() => getStore()?.popularTagsComputed ?? []);
-
-// Legacy action exports
-export function setLocations(data: CatLocation[]) {
-  getStore()?.setLocations(data);
-}
-
-export function setLoading(loading: boolean) {
-  getStore()?.setLoading(loading);
-}
-
-export function setError(err: string | null) {
-  getStore()?.setError(err);
-}
-
-export function setSearchQuery(query: string) {
-  getStore()?.setSearchQuery(query);
-}
-
-export function clearSearch() {
-  getStore()?.clearSearch();
-}

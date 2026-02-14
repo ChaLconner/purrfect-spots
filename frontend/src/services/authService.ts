@@ -1,4 +1,5 @@
 import type { User, LoginResponse } from '../types/auth';
+import { AuthErrorMessages } from '../utils/errorMessages';
 import { apiV1, ApiError } from '../utils/api';
 import { isDev } from '../utils/env';
 
@@ -69,13 +70,13 @@ export class AuthService {
         if (error.message.includes('invalid_grant')) {
           throw new ApiError(
             error.type,
-            'Authentication expired. Please try signing in again.',
+            AuthErrorMessages.SESSION_EXPIRED,
             error.statusCode
           );
         } else if (error.message.includes('redirect_uri')) {
           throw new ApiError(
             error.type,
-            'Redirect URI mismatch. Please check your OAuth configuration.',
+            AuthErrorMessages.REDIRECT_URI_MISMATCH,
             error.statusCode
           );
         }

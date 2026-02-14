@@ -6,12 +6,12 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Response, UploadFile
-from supabase import Client
 from pydantic import BaseModel
 from starlette.requests import Request
+from supabase import Client
 
 from config import config
-from dependencies import get_supabase_admin_client, get_supabase_client
+from dependencies import get_current_token, get_supabase_admin_client, get_supabase_client
 from limiter import auth_limiter
 from logger import logger
 from middleware.auth_middleware import get_current_user_from_credentials
@@ -24,16 +24,9 @@ from utils.file_processing import process_uploaded_image
 router = APIRouter(prefix="/profile", tags=["Profile"])
 
 
-class ProfileUpdateRequest(BaseModel):
-    name: str | None = None
-    username: str | None = None
-    bio: str | None = None
-    picture: str | None = None
+from schemas.profile import ChangePasswordRequest, ProfileUpdateRequest, UpdatePhotoRequest
 
 
-class ChangePasswordRequest(BaseModel):
-    current_password: str
-    new_password: str
 
 
 from services.auth_service import AuthService
@@ -58,6 +51,7 @@ async def update_profile(
     profile_data: ProfileUpdateRequest,
     current_user: User = Depends(get_current_user_from_credentials),
     auth_service: AuthService = Depends(get_auth_service),
+    token: str = Depends(get_current_token),
 ) -> dict[str, Any]:
     """
     Update user profile information
@@ -101,7 +95,9 @@ async def update_profile(
 
         # Update via service
         try:
-            updated_user = auth_service.update_user_profile(current_user.id, update_data)
+            updated_user = await auth_service.update_user_profile(
+                current_user.id, update_data, jwt_token=token
+            )
         except ValueError:
             raise HTTPException(status_code=404, detail="User not found")
 
@@ -376,9 +372,7 @@ async def change_password(
         raise HTTPException(status_code=500, detail="An error occurred")
 
 
-class UpdatePhotoRequest(BaseModel):
-    location_name: str | None = None
-    description: str | None = None
+
 
 
 @router.put("/uploads/{photo_id}")

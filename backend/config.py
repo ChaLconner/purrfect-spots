@@ -170,6 +170,11 @@ class Config:
     # CDN Configuration
     CDN_BASE_URL = os.getenv("CDN_BASE_URL", "").rstrip("/")
 
+    # Feature Flags
+    # Enable external image proxy (wsrv.nl) for non-Supabase images
+    # Default: True (to maintain current behavior)
+    ENABLE_IMAGE_PROXY = os.getenv("ENABLE_IMAGE_PROXY", "true").lower() in ("true", "1", "yes")
+
     # ==========================================
     # Upload Configuration
     # ==========================================

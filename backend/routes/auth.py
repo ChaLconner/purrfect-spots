@@ -17,6 +17,8 @@ from logger import logger
 from middleware.auth_middleware import get_current_user, get_current_user_from_header
 from schemas.auth import (
     ForgotPasswordRequest,
+    GoogleCodeExchangeRequest,
+    GoogleTokenRequest,
     LoginRequest,
     LoginResponse,
     RegisterInput,
@@ -36,15 +38,7 @@ from utils.security import log_security_event, sanitize_text
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-# --- Models specific to Google Auth ---
-class GoogleTokenRequest(BaseModel):
-    token: str
 
-
-class GoogleCodeExchangeRequest(BaseModel):
-    code: str
-    code_verifier: str
-    redirect_uri: str
 
 
 # --- Dependency ---

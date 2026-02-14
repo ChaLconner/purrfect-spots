@@ -30,10 +30,10 @@ export default defineConfig({
       // Code Quality: Coverage thresholds (Phase 1: 50%)
       // Run `npm run test:coverage` to verify
       thresholds: {
-        statements: 50,
-        branches: 40,
-        functions: 50,
-        lines: 50
+        statements: 70,
+        branches: 70,
+        functions: 70,
+        lines: 70
       }
     },
   },

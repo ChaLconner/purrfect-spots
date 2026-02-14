@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from supabase import Client
 
 from config import config
-from dependencies import get_supabase_admin_client
+from dependencies import get_current_token, get_supabase_admin_client
 from logger import logger
 from middleware.auth_middleware import get_current_user_from_credentials
 from schemas.treats import GiveTreatRequest, PurchaseTreatsRequest, TreatBalanceResponse
@@ -32,10 +32,11 @@ async def give_treat(
     req: GiveTreatRequest,
     current_user: User = Depends(get_current_user_from_credentials),
     treats_service: TreatsService = Depends(get_treats_service),
+    token: str = Depends(get_current_token),
 ) -> dict[str, Any]:
     """Give treats to a photo owner"""
     try:
-        return await treats_service.give_treat(current_user.id, req.photo_id, req.amount)
+        return await treats_service.give_treat(current_user.id, req.photo_id, req.amount, jwt_token=token)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

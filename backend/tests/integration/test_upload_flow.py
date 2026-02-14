@@ -14,7 +14,7 @@ These tests verify the end-to-end upload process:
 
 import io
 import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -34,6 +34,7 @@ class TestUploadFlowIntegration:
     def mock_auth_user(self):
         """Mock authenticated user"""
         return {
+            "id": self.TEST_USER_ID,
             "user_id": self.TEST_USER_ID,
             "email": self.TEST_EMAIL,
             "name": self.TEST_NAME,
@@ -145,7 +146,7 @@ class TestUploadFlowIntegration:
         app.dependency_overrides[get_supabase_client] = lambda: mock_client
         app.dependency_overrides[get_cat_detection_service] = lambda: mock_detection_service
         app.dependency_overrides[get_storage_service] = lambda: mock_storage_service
-        app.dependency_overrides[get_current_user] = lambda: MagicMock(id=self.TEST_USER_ID, email=self.TEST_EMAIL)
+        app.dependency_overrides[get_current_user] = lambda: MagicMock(id=self.TEST_USER_ID, user_id=self.TEST_USER_ID, email=self.TEST_EMAIL)
 
         with (
             patch("routes.upload.get_supabase_admin_client") as mock_get_admin,
@@ -187,7 +188,7 @@ class TestGalleryFlowIntegration:
         """Test: Gallery returns paginated photos"""
         # Mock Service
         mock_service = MagicMock()
-        mock_service.get_all_photos.return_value = {
+        mock_service.get_all_photos = AsyncMock(return_value={
             "data": [
                 {
                     "id": "photo-1",
@@ -201,8 +202,10 @@ class TestGalleryFlowIntegration:
                 }
             ],
             "total": 1,
+            "limit": 20,
+            "offset": 0,
             "has_more": False,
-        }
+        })
 
         # Override dependency
         from main import app

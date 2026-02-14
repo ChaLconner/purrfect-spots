@@ -8,12 +8,14 @@ Tests for registration, login, logout, refresh token, and password reset endpoin
 """
 
 import os
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
+from user_models.user import User
 # Import routes
 from routes.auth import LoginRequest, RegisterInput, get_auth_service, router
 
@@ -62,14 +64,14 @@ class TestRegisterEndpoint:
         """Test successful registration"""
         # Setup mock
         mock_auth_service.get_user_by_email.return_value = None
-        mock_auth_service.create_user_with_password.return_value = {
-            "id": "test-user-id",
-            "email": "test@example.com",
-            "name": "Test User",
-            "picture": None,
-            "bio": None,
-            "created_at": "2024-01-01T00:00:00",
-        }
+        mock_auth_service.create_user_with_password.return_value = User(
+            id="test-user-id",
+            email="test@example.com",
+            name="Test User",
+            picture=None,
+            bio=None,
+            created_at=datetime(2024, 1, 1),
+        )
         mock_auth_service.create_access_token.return_value = "test-access-token"
         mock_auth_service.create_refresh_token.return_value = "test-refresh-token"
 
@@ -109,15 +111,15 @@ class TestRegisterEndpoint:
         """Test registration succeeds with password that has no numbers (policy: 8+ chars only)"""
         # Setup mock for successful registration
         mock_auth_service.get_user_by_email.return_value = None
-        mock_auth_service.create_user_with_password.return_value = {
-            "id": "test-user-id",
-            "email": "test@example.com",
-            "name": "Test User",
-            "picture": None,
-            "bio": None,
-            "created_at": "2024-01-01T00:00:00",
-            "verification_required": True,  # Set this for test
-        }
+        mock_auth_service.create_user_with_password.return_value = User(
+            id="test-user-id",
+            email="test@example.com",
+            name="Test User",
+            picture=None,
+            bio=None,
+            created_at=datetime(2024, 1, 1),
+            role="user",
+        )
         mock_auth_service.create_access_token.return_value = "test-access-token"
         mock_auth_service.create_refresh_token.return_value = "test-refresh-token"
         # Authenticate returns None for verification flow
@@ -181,14 +183,14 @@ class TestLoginEndpoint:
 
     async def test_login_success(self, client, mock_auth_service, mock_limiter):
         """Test successful login"""
-        mock_auth_service.authenticate_user.return_value = {
-            "id": "test-user-id",
-            "email": "test@example.com",
-            "name": "Test User",
-            "picture": None,
-            "bio": None,
-            "created_at": "2024-01-01T00:00:00",
-        }
+        mock_auth_service.authenticate_user.return_value = User(
+            id="test-user-id",
+            email="test@example.com",
+            name="Test User",
+            picture=None,
+            bio=None,
+            created_at=datetime(2024, 1, 1),
+        )
         mock_auth_service.create_access_token.return_value = "test-access-token"
         mock_auth_service.create_refresh_token.return_value = "test-refresh-token"
 
@@ -237,10 +239,7 @@ class TestRefreshTokenEndpoint:
         mock_auth_service.create_access_token.return_value = "new-access-token"
 
         # Mock user retrieval to satisfy LoginResponse Pydantic validation
-        from datetime import datetime
-        from types import SimpleNamespace
-
-        user_obj = SimpleNamespace(
+        user_obj = User(
             id="test-user-id",
             email="test@example.com",
             name="Test User",

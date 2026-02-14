@@ -36,8 +36,8 @@ class ImageService:
 
         # S3 / External Storage Proxy (using wsrv.nl)
         # This gives S3 'superpowers' to resize images on the fly
-        # Only proxy if a specific width is requested to assume optimization is needed
-        if width:
+        # Only proxy if a specific width is requested and enabled in config
+        if width and config.ENABLE_IMAGE_PROXY:
             from urllib.parse import quote
             encoded_url = quote(final_url)
             return f"https://wsrv.nl/?url={encoded_url}&w={width}&q=80&output=webp"

@@ -5,12 +5,6 @@ import {
   extractTags,
   getCleanDescription,
   hasTag,
-  catStore,
-  catCount,
-  setLocations,
-  setError,
-  setSearchQuery,
-  clearSearch,
   type CatLocation,
 } from '@/store/catsStore';
 
@@ -518,43 +512,7 @@ describe('Cats Store', () => {
     });
   });
 
-  // ========== Legacy Exports ==========
-  describe('Legacy Exports', () => {
-    it('legacy object and exports should work together', () => {
-      // We test them in one block to avoid issues with the module-level singleton _store
-      const store = useCatsStore();
-      
-      // Test catStore object
-      catStore.locations = [{ id: 'legacy' } as any];
-      expect(store.locations).toHaveLength(1);
-      expect(catStore.locations).toEqual(store.locations);
-      
-      catStore.isLoading = true;
-      expect(store.isLoading).toBe(true);
-      expect(catStore.isLoading).toBe(true);
 
-      catStore.error = 'Oops';
-      expect(store.error).toBe('Oops');
-      expect(catStore.error).toBe('Oops');
-
-      // Test action exports
-      setLocations([{ id: 'action-1' } as any]);
-      expect(store.locations).toHaveLength(1);
-      expect(store.locations[0].id).toBe('action-1');
-      
-      setError('legacy error');
-      expect(store.error).toBe('legacy error');
-      
-      setSearchQuery('legacy search');
-      expect(store.searchQuery).toBe('legacy search');
-
-      clearSearch();
-      expect(store.searchQuery).toBe('');
-      
-      // Test computed exports
-      expect(catCount.value).toEqual(1);
-    });
-  });
 });
 
 // ========== Utility Function Tests ==========

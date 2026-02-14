@@ -173,13 +173,15 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
 # ========== Exception Handlers ==========
+from typing import cast
+
+from starlette.types import ExceptionHandler
+
 from utils.exception_handlers import (
     custom_http_exception_handler,
     generic_exception_handler,
     validation_exception_handler,
 )
-from typing import cast
-from starlette.types import ExceptionHandler
 
 app.add_exception_handler(Exception, cast(ExceptionHandler, generic_exception_handler))
 app.add_exception_handler(StarletteHTTPException, cast(ExceptionHandler, custom_http_exception_handler))

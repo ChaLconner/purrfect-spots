@@ -15,7 +15,7 @@ from supabase import Client
 from logger import logger
 from services.image_service import ImageService
 from services.search_service import SearchService
-from utils.cache import cached_gallery, cached_tags
+from utils.cache import cache, cached_gallery, cached_tags
 
 if TYPE_CHECKING:
     from services.storage_service import StorageService
@@ -47,14 +47,12 @@ class GalleryService:
         return ImageService.process_photos(photos, width)
 
     async def get_all_photos(
-        self, limit: int = 20, offset: int = 0, include_total: bool = True, user_id: str | None = None
+        self, limit: int = 20, offset: int = 0, include_total: bool = True, user_id: str | None = None, jwt_token: str | None = None
     ) -> dict[str, Any]:
         """
         Get photos for public gallery with pagination.
         Optimized to use native async HTTP client (httpx) for high concurrency.
         """
-        import asyncio
-
         from utils.async_client import async_supabase
 
         try:
@@ -67,51 +65,41 @@ class GalleryService:
             data = []
             
             # Primary: Try native async RPC
-            try:
-                rpc_params: dict[str, Any] = {"p_limit": limit, "p_offset": offset}
-                if user_id:
-                    rpc_params["p_user_id"] = user_id
-                
-                data = await async_supabase.rpc("get_gallery_photos_with_likes", rpc_params)
-                
-            except Exception as rpc_error:
-                logger.debug(f"Async RPC fetch failed, falling back to sync client: {rpc_error}")
-                
-                # Fallback: Synchronous client in thread pool
-                def fetch_fallback() -> list[dict[str, Any]]:
-                    try:
-                        # Fallback to standard paginated query
-                        query = (
-                            self.supabase.table("cat_photos")
-                            .select("*")
-                            .is_("deleted_at", "null")
-                            .order("uploaded_at", desc=True)
-                            .range(offset, offset + limit - 1)
-                        )
-                        resp = query.execute()
-                        fallback_data = resp.data if resp.data else []
-                        
-                        # Manual enrichment if fallback used
-                        if user_id and fallback_data:
-                            fallback_data = self.enrich_with_user_data_sync(fallback_data, user_id)
-                        return fallback_data
-                    except Exception as e:
-                        logger.error(f"Fallback fetch failed: {e}", exc_info=True)
-                        raise
+            rpc_params: dict[str, Any] = {"p_limit": limit, "p_offset": offset}
+            if user_id:
+                rpc_params["p_user_id"] = user_id
 
-                data = await asyncio.to_thread(fetch_fallback)
+            try:
+                data = await async_supabase.rpc("get_gallery_photos_with_likes", rpc_params, jwt_token=jwt_token)
+            except Exception as rpc_error:
+                logger.debug(f"Async RPC fetch failed, using fallback query: {rpc_error}")
+                # Fallback: Async direct table query
+                filters = {"deleted_at": "is.null"}
+                data = await async_supabase.select(
+                    "cat_photos",
+                    order="uploaded_at.desc",
+                    limit=limit,
+                    offset=offset,
+                    filters=filters,
+                    jwt_token=jwt_token,
+                )
+                if user_id and data:
+                    data = await self.enrich_with_user_data(data, user_id)
 
             data = self._process_photos(data)  # Optimize images
 
             total = 0
-            # Get total count if requested (keep using sync client for simplicity/consistency for now)
+            # Get total count if requested (using async client)
             if include_total:
-                def fetch_count() -> int:
-                    count_resp = (
-                        self.supabase.table("cat_photos").select("id", count="exact").is_("deleted_at", "null").execute()  # type: ignore
+                try:
+                    total = await async_supabase.count(
+                        "cat_photos",
+                        filters={"deleted_at": "is.null"},
+                        jwt_token=jwt_token
                     )
-                    return count_resp.count if count_resp.count else len(data)
-                total = await asyncio.to_thread(fetch_count)
+                except Exception as e:
+                    logger.error(f"Count fetch failed: {e}")
+                    total = len(data)
 
             return {
                 "data": data,
@@ -125,89 +113,51 @@ class GalleryService:
             from exceptions import ExternalServiceError
             raise ExternalServiceError(f"Failed to fetch gallery images: {e!s}", service="Supabase")
 
+    @cached_gallery
     async def get_all_photos_simple(self, limit: int = 100) -> list[dict[str, Any]]:
         """
         Get all photos without pagination (for backward compatibility).
         Cached for 5 minutes to reduce database load.
-
-        Args:
-            limit: Maximum number of photos to return (default: 1000)
         """
-
-        return await self._get_all_photos_simple_cached(limit)
-
-    @staticmethod
-    @cached_gallery
-    async def _get_all_photos_simple_impl(supabase_client: Client, limit: int) -> list[dict[str, Any]]:
-        """Internal cached implementation."""
         try:
-            import asyncio
-            def fetch() -> Any:
-                return (
-                    supabase_client.table("cat_photos")
-                    .select("*")
-                    .is_("deleted_at", "null")
-                    .order("uploaded_at", desc=True)
-                    .limit(limit)
-                    .execute()
-                )
-            resp = await asyncio.to_thread(fetch)
-            # But we could if we wanted to enforce it everywhere.
-            # For now, let's keep get_all_photos_simple for backward compat.
-            data: list[dict[str, Any]] = resp.data if resp.data else []
+            from utils.async_client import async_supabase
+            filters = {"deleted_at": "is.null"}
+            data = await async_supabase.select(
+                "cat_photos",
+                order="uploaded_at.desc",
+                limit=limit,
+                filters=filters
+            )
             return data
         except Exception as e:
             from exceptions import ExternalServiceError
-
             raise ExternalServiceError(f"Failed to fetch gallery images: {e!s}", service="Supabase")
-
+    @cached_gallery
     async def get_map_locations(self) -> list[dict[str, Any]]:
         """
-        Get lightweight locations for map display.
+        Get lightweight locations for map display (Cached).
         Selects only essential fields.
         """
-        return await self._get_map_locations_cached()
-
-    async def _get_map_locations_cached(self) -> list[dict[str, Any]]:
-        from typing import cast
-        return cast(list[dict[str, Any]], await self._get_map_locations_impl(self.supabase))
-
-    @staticmethod
-    @cached_gallery  # Reuse same cache decorator or make a new one? cached_gallery key depends on args.
-    # We should probably use a dedicated cache or distinct arguments to avoid collision if the key generation is naive.
-    # The existing @cached_gallery decorator in utils/cache.py likely uses function name in key or arguments.
-    # Let's assume it handles it safely (usually includes func name).
-    async def _get_map_locations_impl(supabase_client: Client) -> list[dict[str, Any]]:
         try:
-            import asyncio
-            def fetch() -> Any:
-                return (
-                    supabase_client.table("cat_photos")
-                    .select("id,latitude,longitude,location_name,image_url")  # Minimal fields
-                    .is_("deleted_at", "null")
-                    .order("uploaded_at", desc=True)
-                    .limit(2000)  # Reasonable limit for map
-                    .execute()
-                )
-            resp = await asyncio.to_thread(fetch)
-            data: list[dict[str, Any]] = resp.data if resp.data else []
-            # We can resize these too, map thumbnails are small
+            from utils.async_client import async_supabase
+            filters = {"deleted_at": "is.null"}
+            data = await async_supabase.select(
+                "cat_photos",
+                columns="id,latitude,longitude,location_name,image_url",
+                order="uploaded_at.desc",
+                limit=2000,
+                filters=filters
+            )
+            # Optimize thumbnails for map markers (very small)
             for photo in data:
-                if "image_url" in photo:
-                    # Simple manual optimization here since it's a static method
-                    if photo["image_url"] and "supabase.co/storage/v1/object/public" in photo["image_url"]:
+                if "image_url" in photo and photo["image_url"]:
+                    if "supabase.co/storage/v1/object/public" in photo["image_url"]:
                         sep = "&" if "?" in photo["image_url"] else "?"
-                        photo["image_url"] = f"{photo['image_url']}{sep}width=200&resize=cover&format=webp"
+                        photo["image_url"] = f"{photo['image_url']}{sep}width=100&resize=cover&format=webp"
             return data
         except Exception as e:
             from exceptions import ExternalServiceError
-
             raise ExternalServiceError(f"Failed to fetch map locations: {e!s}", service="Supabase")
-
-    async def _get_all_photos_simple_cached(self, limit: int) -> list[dict[str, Any]]:
-        """Wrapper to pass supabase client to cached function."""
-        from typing import cast
-        return cast(list[dict[str, Any]], await GalleryService._get_all_photos_simple_impl(self.supabase, limit))
 
     async def search_photos(
         self,
@@ -221,8 +171,12 @@ class GalleryService:
         """
         Search photos with optional text query and/or tags filter.
         """
-        import asyncio
         try:
+            # For now, search_service still uses sync client (historical)
+            # but we call it from here. We should ideally make search_service async too.
+            # As part of 'improvement', we wrap it or ideally call async directly.
+            # Let's check search_service for async potential.
+            import asyncio
             results = await asyncio.to_thread(self.search_service.search_photos, query, tags, limit, offset, use_fulltext)
             
             results = self._process_photos(results)
@@ -250,26 +204,21 @@ class GalleryService:
     async def _get_popular_tags_impl(supabase_client: Client, limit: int) -> list[dict[str, Any]]:
         """Internal cached implementation for popular tags."""
         try:
-            # Fetch only tags column for better performance
-            # Limit to recent photos to reduce processing time
-            import asyncio
-            def fetch() -> Any:
-                return (
-                    supabase_client.table("cat_photos")
-                    .select("tags")
-                    .not_.is_("tags", "null")
-                    .is_("deleted_at", "null")
-                    .limit(1000)  # Sample from most recent 1000 photos
-                    .execute()
-                )
-            resp = await asyncio.to_thread(fetch)
+            from utils.async_client import async_supabase
+            filters = {"tags": "not.is.null", "deleted_at": "is.null"}
+            data = await async_supabase.select(
+                "cat_photos",
+                columns="tags",
+                limit=1000,
+                filters=filters
+            )
 
-            if not resp.data:
+            if not data:
                 return []
 
             tag_counter: Counter = Counter()
 
-            for row in resp.data:
+            for row in data:
                 # Use tags array column (primary method)
                 tags_array = row.get("tags") or []
                 if tags_array and isinstance(tags_array, list):
@@ -291,27 +240,24 @@ class GalleryService:
         from typing import cast
         return cast(list[dict[str, Any]], await GalleryService._get_popular_tags_impl(self.supabase, limit))
 
+    @cache(expire=300, key_prefix="user_photos", skip_args=1)
     async def get_user_photos(self, user_id: str) -> list[dict[str, Any]]:
-        """Get all photos uploaded by a specific user"""
-        import asyncio
+        """Get all photos uploaded by a specific user (Cached for 5m)"""
         try:
-            def fetch() -> Any:
-                return (
-                    self.supabase.table("cat_photos")
-                    .select("*")
-                    .eq("user_id", user_id)
-                    .is_("deleted_at", "null")
-                    .order("uploaded_at", desc=True)
-                    .execute()
-                )
-            resp = await asyncio.to_thread(fetch)
-            data: list[dict[str, Any]] = resp.data if resp.data else []
+            from utils.async_client import async_supabase
+            filters = {"user_id": f"eq.{user_id}", "deleted_at": "is.null"}
+            data = await async_supabase.select(
+                "cat_photos",
+                filters=filters,
+                order="uploaded_at.desc"
+            )
             return self._process_photos(data)
         except Exception as e:
             from exceptions import ExternalServiceError
 
             raise ExternalServiceError(f"Failed to fetch user images: {e!s}", service="Supabase")
 
+    @cache(expire=300, key_prefix="nearby", skip_args=1)
     async def get_nearby_photos(
         self, latitude: float, longitude: float, radius_km: float = 5.0, limit: int = 50
     ) -> list[dict[str, Any]]:
@@ -332,17 +278,13 @@ class GalleryService:
         """
         Get nearby photos using PostGIS ST_DWithin for accurate distance calculation.
         """
-        import asyncio
         try:
-            def fetch() -> Any:
-                return self.supabase.rpc(
-                    "search_nearby_photos",
-                    {"lat": latitude, "lng": longitude, "radius_meters": radius_km * 1000, "result_limit": limit},
-                ).execute()
-            
-            resp = await asyncio.to_thread(fetch)
+            from utils.async_client import async_supabase
+            data = await async_supabase.rpc(
+                "search_nearby_photos",
+                {"lat": latitude, "lng": longitude, "radius_meters": radius_km * 1000, "result_limit": limit},
+            )
 
-            data: list[dict[str, Any]] = resp.data if resp.data else []
             return self._process_photos(data)
 
         except Exception as e:
@@ -355,7 +297,6 @@ class GalleryService:
         """
         Fallback: Get nearby photos using bounding box approximation.
         """
-        import asyncio
         try:
             # Approximate degrees per km (varies by latitude)
             import math
@@ -373,22 +314,19 @@ class GalleryService:
             min_lng = longitude - lng_delta
             max_lng = longitude + lng_delta
             
-            def fetch() -> Any:
-                return (
-                    self.supabase.table("cat_photos")
-                    .select("*")
-                    .gte("latitude", min_lat)
-                    .lte("latitude", max_lat)
-                    .gte("longitude", min_lng)
-                    .lte("longitude", max_lng)
-                    .order("uploaded_at", desc=True)
-                    .limit(limit)
-                    .execute()
-                )
+            from utils.async_client import async_supabase
+            filters = {
+                "latitude": f"gte.{min_lat},lte.{max_lat}",
+                "longitude": f"gte.{min_lng},lte.{max_lng}",
+                "deleted_at": "is.null"
+            }
+            data = await async_supabase.select(
+                "cat_photos",
+                filters=filters,
+                order="uploaded_at.desc",
+                limit=limit
+            )
 
-            resp = await asyncio.to_thread(fetch)
-
-            data: list[dict[str, Any]] = resp.data if resp.data else []
             return self._process_photos(data)
 
         except Exception as e:
@@ -398,24 +336,13 @@ class GalleryService:
 
     async def get_photo_by_id(self, photo_id: str) -> dict[str, Any] | None:
         """Get a specific photo by ID."""
-        import asyncio
         try:
-            def fetch() -> Any:
-                return (
-                    self.supabase.table("cat_photos")
-                    .select("*")
-                    .eq("id", photo_id)
-                    .is_("deleted_at", "null")
-                    .single()
-                    .execute()
-                )
-            resp = await asyncio.to_thread(fetch)
-            data: dict[str, Any] | None = resp.data
-            return data
+            from utils.async_client import async_supabase
+            filters = {"id": f"eq.{photo_id}", "deleted_at": "is.null"}
+            data = await async_supabase.select("cat_photos", filters=filters, limit=1)
+            return data[0] if data else None
         except Exception as e:
             msg = str(e)
-            if "JSON object requested" in msg or "no rows returned" in msg:
-                return None
             logger.error("Resource retrieval failed for identifier %s: %s", photo_id, msg)
             from exceptions import ExternalServiceError
 
@@ -426,49 +353,23 @@ class GalleryService:
         Enrich a list of photos with user-specific data (e.g., whether they liked it).
         Efficiently checks all photos in a single query.
         """
-        import asyncio
         if not photos:
             return photos
 
         try:
-            def fetch_likes() -> set[str]:
-                photo_ids = [p["id"] for p in photos]
-                # Check which of these photos the user has liked
-                likes_resp = (
-                    self.supabase.table("photo_likes")
-                    .select("photo_id")
-                    .eq("user_id", user_id)
-                    .in_("photo_id", photo_ids)
-                    .execute()
-                )
-                return {like["photo_id"] for like in likes_resp.data} if likes_resp.data else set()
-
-            liked_ids = await asyncio.to_thread(fetch_likes)
-
-            for photo in photos:
-                photo["liked"] = photo["id"] in liked_ids
-
-            return photos
-        except Exception as e:
-            logger.error(f"Failed to enrich photos with user data: {e!s}")
-            return photos
-
-    def enrich_with_user_data_sync(self, photos: list[dict[str, Any]], user_id: str) -> list[dict[str, Any]]:
-        """Synchronous version for internal use."""
-        if not photos:
-            return photos
-        try:
+            from utils.async_client import async_supabase
             photo_ids = [p["id"] for p in photos]
-            likes_resp = (
-                self.supabase.table("photo_likes")
-                .select("photo_id")
-                .eq("user_id", user_id)
-                .in_("photo_id", photo_ids)
-                .execute()
-            )
-            liked_ids = {like["photo_id"] for like in likes_resp.data} if likes_resp.data else set()
+            # Check which of these photos the user has liked
+            filters = {
+                "user_id": f"eq.{user_id}",
+                "photo_id": f"in.({','.join(photo_ids)})"
+            }
+            likes_data = await async_supabase.select("photo_likes", columns="photo_id", filters=filters)
+            liked_ids = {like["photo_id"] for like in likes_data} if likes_data else set()
+
             for photo in photos:
                 photo["liked"] = photo["id"] in liked_ids
+
             return photos
         except Exception as e:
             logger.error(f"Failed to enrich photos with user data: {e!s}")
@@ -478,19 +379,11 @@ class GalleryService:
         Verify if a user owns a photo.
         Returns the photo data if owned, None otherwise.
         """
-        import asyncio
         try:
-            def fetch() -> Any:
-                return (
-                    self.supabase.table("cat_photos")
-                    .select("id, user_id, image_url")
-                    .eq("id", photo_id)
-                    .is_("deleted_at", "null")
-                    .single()
-                    .execute()
-                )
-            resp = await asyncio.to_thread(fetch)
-            photo: dict[str, Any] | None = resp.data
+            from utils.async_client import async_supabase
+            filters = {"id": f"eq.{photo_id}", "deleted_at": "is.null"}
+            data = await async_supabase.select("cat_photos", columns="id,user_id,image_url", filters=filters, limit=1)
+            photo = data[0] if data else None
             
             if photo and photo.get("user_id") == user_id:
                 return photo

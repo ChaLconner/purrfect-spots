@@ -93,18 +93,18 @@ class TestAuthService:
 
                 # Mock email service
                 with patch("services.auth_service.email_service"):
-                    # Mock Supabase Admin Update (AuthService does this directly currently for password change in step 4/5)
-                    # Wait, looking at AuthService.change_password:
-                    # It calls self.supabase_admin.auth.admin.update_user_by_id
-                    # AND self.user_service.update_password_hash
-
                     # Mock admin client
                     auth_service.supabase_admin.auth.admin.update_user_by_id = MagicMock()
+                    
+                    # Mock successful authentication for current password check
+                    mock_user_service.authenticate_user.return_value = {"id": user_id}
 
                     result = await auth_service.change_password(user_id, current_password, new_password)
 
                     assert result is True
-                    mock_user_service.update_password_hash.assert_called_once_with(user_id, new_password)
+                    auth_service.supabase_admin.auth.admin.update_user_by_id.assert_called_once_with(
+                        user_id, {"password": new_password}
+                    )
 
     @pytest.mark.asyncio
     async def test_change_password_incorrect(self, auth_service, mock_user_service):
@@ -131,17 +131,18 @@ class TestAuthService:
             with pytest.raises(ValueError, match="Incorrect current password"):
                 await auth_service.change_password(user_id, "wrong_password", "new_password")
 
-    def test_update_user_profile(self, auth_service, mock_user_service):
+    @pytest.mark.asyncio
+    async def test_update_user_profile(self, auth_service, mock_user_service):
         """Test updating user profile"""
         user_id = "user-123"
         update_data = {"name": "Updated Name"}
 
-        mock_user_service.update_user_profile.return_value = {"id": user_id, "name": "Updated Name"}
+        mock_user_service.update_user_profile = AsyncMock(return_value={"id": user_id, "name": "Updated Name"})
 
-        result = auth_service.update_user_profile(user_id, update_data)
+        result = await auth_service.update_user_profile(user_id, update_data)
 
         assert result["name"] == "Updated Name"
-        mock_user_service.update_user_profile.assert_called_once_with(user_id, update_data)
+        mock_user_service.update_user_profile.assert_called_once_with(user_id, update_data, jwt_token=None)
 
     def test_get_user_by_id_found(self, auth_service, mock_user_service):
         """Test getting user by ID when user exists"""

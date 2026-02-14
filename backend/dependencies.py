@@ -7,7 +7,7 @@ from utils.auth_utils import decode_token
 from utils.supabase_client import get_supabase_admin_client, get_supabase_client
 
 # Re-export for compatibility
-__all__ = ["get_supabase_client", "get_supabase_admin_client", "get_current_user_from_token", "get_current_admin_user"]
+__all__ = ["get_supabase_client", "get_supabase_admin_client", "get_current_user_from_token", "get_current_admin_user", "get_current_token"]
 
 
 def get_current_user_from_token(authorization: Optional[str] = Header(None)) -> dict:
@@ -33,6 +33,22 @@ def get_current_user_from_token(authorization: Optional[str] = Header(None)) -> 
     except Exception as e:
         logger.error(f"Unexpected token validation error: {type(e).__name__}")
         raise HTTPException(status_code=401, detail="Invalid token")
+
+def get_current_token(authorization: Optional[str] = Header(None)) -> Optional[str]:
+    """
+    Extract the JWT token string from the Authorization header.
+    Returns None if header is missing or invalid scheme.
+    """
+    if not authorization:
+        return None
+
+    try:
+        scheme, token = authorization.split()
+        if scheme.lower() != "bearer":
+            return None
+        return token
+    except ValueError:
+        return None
 
 
 def get_current_admin_user(user: dict = Depends(get_current_user_from_token)) -> dict:

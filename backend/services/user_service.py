@@ -221,13 +221,37 @@ class UserService:
             logger.warning("Authentication failure: %s", e)
             return None
 
-    def update_user_profile(self, user_id: str, update_data: dict[str, Any]) -> dict[str, Any]:
+    async def update_user_profile(
+        self, user_id: str, update_data: dict[str, Any], jwt_token: str | None = None
+    ) -> dict[str, Any]:
         """Update user profile"""
+        from utils.async_client import async_supabase
         try:
-            result = self.supabase_admin.table("users").update(update_data).eq("id", user_id).execute()
-            if not result.data:
-                raise ValueError("User not found")
-            return cast(dict[str, Any], result.data[0])
+            # Use async client if token is provided (preferred for RLS)
+            if jwt_token:
+                # async_supabase.update returns List[Dict]
+                result = await async_supabase.update(
+                    table="users",
+                    data=update_data,
+                    filters={"id": f"eq.{user_id}"},
+                    jwt_token=jwt_token
+                )
+                if not result:
+                    raise ValueError("User not found or update failed")
+                return result[0]
+            else:
+                # Fallback to sync admin client
+                # Note: This runs synchronously, blocking the loop if not threaded.
+                # Ideally, we should always use token.
+                logger.warning("Updating profile without JWT token (using admin client)")
+                from starlette.concurrency import run_in_threadpool
+                res = await run_in_threadpool(
+                    lambda: self.supabase_admin.table("users").update(update_data).eq("id", user_id).execute()
+                )
+                if not res.data:
+                    raise ValueError("User not found")
+                return cast(dict[str, Any], res.data[0])
+
         except Exception as e:
             raise PurrfectSpotsException(f"Failed to update profile: {e!s}")
 

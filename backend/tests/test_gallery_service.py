@@ -2,7 +2,7 @@
 Tests for gallery service with pagination
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -27,9 +27,10 @@ class TestGalleryService:
             service._admin_client_lazy = mock_supabase_admin
             return service
 
-    async def test_get_all_photos_empty(self, gallery_service, mock_supabase):
+    async def test_get_all_photos_empty(self, gallery_service, mock_async_supabase):
         """Test getting photos when database is empty"""
-        mock_supabase.execute.return_value = MagicMock(data=[], count=0)
+        mock_async_supabase.rpc = AsyncMock(return_value=[])
+        mock_async_supabase.count = AsyncMock(return_value=0)
 
         result = await gallery_service.get_all_photos()
 
@@ -37,9 +38,10 @@ class TestGalleryService:
         assert result["total"] == 0
         assert result["has_more"] is False
 
-    async def test_get_all_photos_with_data(self, gallery_service, mock_supabase, mock_cat_photo):
+    async def test_get_all_photos_with_data(self, gallery_service, mock_async_supabase, mock_cat_photo):
         """Test getting photos with existing data"""
-        mock_supabase.execute.return_value = MagicMock(data=[mock_cat_photo], count=1)
+        mock_async_supabase.rpc = AsyncMock(return_value=[mock_cat_photo])
+        mock_async_supabase.count = AsyncMock(return_value=1)
 
         result = await gallery_service.get_all_photos(limit=10, offset=0)
 
@@ -48,9 +50,10 @@ class TestGalleryService:
         assert result["limit"] == 10
         assert result["offset"] == 0
 
-    async def test_get_all_photos_pagination(self, gallery_service, mock_supabase, mock_cat_photo):
+    async def test_get_all_photos_pagination(self, gallery_service, mock_async_supabase, mock_cat_photo):
         """Test pagination parameters"""
-        mock_supabase.execute.return_value = MagicMock(data=[mock_cat_photo], count=50)
+        mock_async_supabase.rpc = AsyncMock(return_value=[mock_cat_photo])
+        mock_async_supabase.count = AsyncMock(return_value=50)
 
         result = await gallery_service.get_all_photos(limit=10, offset=20)
 
@@ -59,9 +62,10 @@ class TestGalleryService:
         assert result["total"] == 50
         assert result["has_more"] is True  # 20 + 1 < 50
 
-    async def test_get_all_photos_limit_clamping(self, gallery_service, mock_supabase):
+    async def test_get_all_photos_limit_clamping(self, gallery_service, mock_async_supabase):
         """Test that limit is clamped to valid range"""
-        mock_supabase.execute.return_value = MagicMock(data=[], count=0)
+        mock_async_supabase.rpc = AsyncMock(return_value=[])
+        mock_async_supabase.count = AsyncMock(return_value=0)
 
         # Test max limit clamping
         result = await gallery_service.get_all_photos(limit=500)
@@ -71,10 +75,9 @@ class TestGalleryService:
         result = await gallery_service.get_all_photos(limit=0)
         assert result["limit"] == 1  # Min is 1
 
-    async def test_get_all_photos_simple(self, gallery_service, mock_supabase, mock_cat_photo):
+    async def test_get_all_photos_simple(self, gallery_service, mock_async_supabase, mock_cat_photo):
         """Test simple get all photos without pagination"""
-        print(f"DEBUG: method type={type(gallery_service.get_all_photos_simple)}")
-        mock_supabase.execute.return_value = MagicMock(data=[mock_cat_photo])
+        mock_async_supabase.select = AsyncMock(return_value=[mock_cat_photo])
 
         result = await gallery_service.get_all_photos_simple()
 
@@ -117,10 +120,10 @@ class TestGalleryService:
 
         assert result == []
 
-    async def test_get_popular_tags(self, gallery_service, mock_supabase):
+    async def test_get_popular_tags(self, gallery_service, mock_async_supabase):
         """Test getting popular tags"""
-        mock_supabase.execute.return_value = MagicMock(
-            data=[
+        mock_async_supabase.select = AsyncMock(
+            return_value=[
                 {"tags": ["orange", "cute"], "description": "#orange #cute"},
                 {"tags": ["orange", "sleeping"], "description": "#orange #sleeping"},
                 {"tags": ["black", "cute"], "description": "#black #cute"},
@@ -135,17 +138,17 @@ class TestGalleryService:
             # Most popular should be at the top
             assert result[0]["count"] >= result[-1]["count"] if len(result) > 1 else True
 
-    async def test_get_popular_tags_empty(self, gallery_service, mock_supabase):
+    async def test_get_popular_tags_empty(self, gallery_service, mock_async_supabase):
         """Test getting popular tags when no photos exist"""
-        mock_supabase.execute.return_value = MagicMock(data=[])
+        mock_async_supabase.select = AsyncMock(return_value=[])
 
         result = await gallery_service.get_popular_tags()
 
         assert result == []
 
-    async def test_get_user_photos(self, gallery_service, mock_supabase, mock_cat_photo):
+    async def test_get_user_photos(self, gallery_service, mock_async_supabase, mock_cat_photo):
         """Test getting photos for a specific user"""
-        mock_supabase.execute.return_value = MagicMock(data=[mock_cat_photo])
+        mock_async_supabase.select = AsyncMock(return_value=[mock_cat_photo])
 
         user_id = mock_cat_photo["user_id"]
         result = await gallery_service.get_user_photos(user_id)
@@ -153,9 +156,9 @@ class TestGalleryService:
         assert len(result) == 1
         assert result[0]["user_id"] == user_id
 
-    async def test_get_user_photos_empty(self, gallery_service, mock_supabase):
+    async def test_get_user_photos_empty(self, gallery_service, mock_async_supabase):
         """Test getting photos for user with no uploads"""
-        mock_supabase.execute.return_value = MagicMock(data=[])
+        mock_async_supabase.select = AsyncMock(return_value=[])
 
         result = await gallery_service.get_user_photos("user-with-no-photos")
 
@@ -170,6 +173,22 @@ class TestGalleryService:
 
         assert "Failed to fetch gallery images" in str(excinfo.value)
 
+    async def test_get_all_photos_with_token(self, gallery_service, mock_supabase):
+        """Test getting photos with JWT token propagation to async client"""
+        # We need to patch the async_supabase imported inside the method
+        with patch("utils.async_client.async_supabase") as mock_async_client:
+            # Setup mock return value - MUST be AsyncMock for await
+            mock_async_client.rpc = AsyncMock(return_value=[{"id": "1", "url": "test.jpg"}])
+            
+            # Call with token
+            result = await gallery_service.get_all_photos(limit=10, jwt_token="test-token")
+            
+            # Verify rpc was called with token
+            mock_async_client.rpc.assert_called_once()
+            call_args = mock_async_client.rpc.call_args
+            assert call_args.kwargs.get("jwt_token") == "test-token"
+            assert result["data"][0]["id"] == "1"
+
     async def test_search_photos_error_handling(self, gallery_service, mock_supabase):
         """Test error handling in search_photos"""
         mock_supabase.execute.side_effect = Exception("Database error")
@@ -180,3 +199,4 @@ class TestGalleryService:
 
         # ExternalServiceError from _ilike_search contains this message
         assert "Database error during photo retrieval" in str(excinfo.value)
+

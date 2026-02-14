@@ -86,6 +86,8 @@ async def delete_user(user_id: str, current_admin: dict = Depends(get_current_ad
         
         return {"message": f"User {user_id} deleted successfully"}
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to delete user {user_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to delete user: {e}")

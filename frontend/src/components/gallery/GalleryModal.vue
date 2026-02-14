@@ -9,7 +9,13 @@
         aria-labelledby="modal-title"
         @click="$emit('close')"
       >
-        <div class="modal-container" @click.stop>
+        <div
+          ref="modalContainer"
+          class="modal-container"
+          @click.stop
+          tabindex="-1"
+          @keydown="handleKeydown"
+        >
           <div class="modal-card">
             <!-- Left Side: Image Stage -->
             <GalleryModalImageStage
@@ -141,13 +147,11 @@ function preloadAdjacentImages(): void {
 
 function setupListeners(): void {
   document.body.style.overflow = 'hidden';
-  document.addEventListener('keydown', handleKeydown);
   preloadAdjacentImages();
 }
 
 function cleanupListeners(): void {
   document.body.style.overflow = '';
-  document.removeEventListener('keydown', handleKeydown);
 }
 
 function onImageLoad(): void {
@@ -159,9 +163,15 @@ function handleError(_event: Event): void {
   isLoaded.value = true;
 }
 
+const modalContainer = ref<HTMLElement | null>(null);
+
 onMounted(() => {
   if (props.image) {
     setupListeners();
+    // Focus for a11y
+    nextTick(() => {
+      modalContainer.value?.focus();
+    });
   }
 });
 

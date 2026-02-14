@@ -10,7 +10,6 @@ This protects against Cross-Site Request Forgery attacks by:
 
 import os
 import secrets
-
 from typing import Any, Awaitable, Callable
 
 from fastapi import Request

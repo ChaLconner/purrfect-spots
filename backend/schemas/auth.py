@@ -45,3 +45,13 @@ class ResetPasswordRequest(BaseModel):
 class SessionExchangeRequest(BaseModel):
     access_token: str
     refresh_token: str
+
+
+class GoogleTokenRequest(BaseModel):
+    token: str
+
+
+class GoogleCodeExchangeRequest(BaseModel):
+    code: str
+    code_verifier: str
+    redirect_uri: str

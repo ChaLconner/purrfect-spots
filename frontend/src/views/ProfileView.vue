@@ -115,9 +115,10 @@ interface Upload {
 const viewedUser = ref<User | null>(null);
 const loadingUser = ref(true);
 const isOwnProfile = computed(() => {
-  if (!authStore.user) return false;
-  // If no ID param, it's my profile
+  // If no ID param, it's intended to be my profile (even if not logged in yet)
   if (!route.params.id) return true;
+
+  if (!authStore.user) return false;
 
   // Check against ID
   if (route.params.id === authStore.user.id) return true;

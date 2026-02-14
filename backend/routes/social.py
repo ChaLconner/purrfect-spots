@@ -3,13 +3,12 @@ from typing import Any, List
 from fastapi import APIRouter, Depends, HTTPException
 from supabase import Client
 
-from dependencies import get_supabase_admin_client
+from dependencies import get_current_token, get_supabase_admin_client
 from exceptions import ExternalServiceError, NotFoundError
 from logger import logger
 from middleware.auth_middleware import get_current_user_from_credentials
 from schemas.social import CommentCreate, CommentResponse, LikeResponse
 from services.social_service import SocialService
-from user_models.user import User
 from services.subscription_service import SubscriptionService
 from user_models.user import User
 from utils.rate_limiter import like_rate_limiter
@@ -32,6 +31,7 @@ async def toggle_like(
     photo_id: str,
     current_user: User = Depends(get_current_user_from_credentials),
     social_service: SocialService = Depends(get_social_service),
+    token: str = Depends(get_current_token),
 ) -> dict[str, Any]:
     """
     Toggle like on a photo.
@@ -45,7 +45,7 @@ async def toggle_like(
         raise HTTPException(status_code=429, detail="Too many requests. Please slow down.")
 
     try:
-        return await social_service.toggle_like(current_user.id, photo_id)
+        return await social_service.toggle_like(current_user.id, photo_id, jwt_token=token)
     except NotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e.message))
     except ExternalServiceError as e:
@@ -62,10 +62,11 @@ async def add_comment(
     comment: CommentCreate,
     current_user: User = Depends(get_current_user_from_credentials),
     social_service: SocialService = Depends(get_social_service),
+    token: str = Depends(get_current_token),
 ) -> dict[str, Any]:
     """Add a comment to a photo."""
     try:
-        return await social_service.add_comment(current_user.id, photo_id, comment.content)
+        return await social_service.add_comment(current_user.id, photo_id, comment.content, jwt_token=token)
     except NotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e.message))
     except ExternalServiceError as e:
@@ -94,10 +95,11 @@ async def delete_comment(
     comment_id: str,
     current_user: User = Depends(get_current_user_from_credentials),
     social_service: SocialService = Depends(get_social_service),
+    token: str = Depends(get_current_token),
 ) -> dict[str, str]:
     """Delete a comment."""
     try:
-        success = await social_service.delete_comment(current_user.id, comment_id)
+        success = await social_service.delete_comment(current_user.id, comment_id, jwt_token=token)
         if not success:
             raise HTTPException(status_code=403, detail="Not authorized or comment not found")
         return {"message": "Comment deleted"}

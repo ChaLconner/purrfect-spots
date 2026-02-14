@@ -286,7 +286,8 @@ class GoogleVisionService:
         client = self.client
 
         try:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            # Using 5 workers for better concurrency of AI calls
+            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
                 future = executor.submit(
                     lambda: (
                         client.label_detection(image=image),

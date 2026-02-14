@@ -142,6 +142,22 @@ const chunkedImages = computed(() => {
 });
 
 function getBentoClass(index: number): string {
+  // Determine current column count based on windowWidth
+  // Breakpoints must match CSS media queries
+  let cols = 2;
+  if (windowWidth.value >= 1280) cols = 5;
+  else if (windowWidth.value >= 1024) cols = 4;
+  else if (windowWidth.value >= 640) cols = 3;
+
+  // The simplified Bento pattern (28 cells per 20 items) works perfectly for:
+  // - 2 columns (28 / 2 = 14 rows)
+  // - 4 columns (28 / 4 = 7 rows)
+  // It leaves gaps for 3 and 5 columns.
+  // For those breakpoints, we revert to a standard grid to avoid visual glitches.
+  if (cols !== 2 && cols !== 4) {
+    return 'col-span-1 row-span-1';
+  }
+
   const remainder = index % 20;
   if (remainder === 0) return 'col-span-2 row-span-2';
   if (remainder === 13) return 'col-span-2 row-span-2';

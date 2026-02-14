@@ -17,6 +17,16 @@ os.environ["SENTRY_DSN"] = ""
 # Add backend directory to path so imports work
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Mock bcrypt before it's imported by services to avoid PyO3 initialization error
+try:
+    import bcrypt  # noqa: F401
+except (ImportError, RuntimeError, Exception):
+    mock_bcrypt = MagicMock()
+    mock_bcrypt.gensalt.return_value = b"$2b$12$test"
+    mock_bcrypt.hashpw.return_value = b"hashed"
+    mock_bcrypt.checkpw.return_value = True
+    sys.modules["bcrypt"] = mock_bcrypt
+
 # Mock supabase module if it cannot be imported
 try:
     import supabase  # noqa: F401
@@ -120,6 +130,22 @@ def mock_supabase():
 def mock_supabase_admin():
     """Create a mock Supabase admin client"""
     return _create_mock_supabase_client()
+
+
+@pytest.fixture(autouse=True)
+def mock_async_supabase():
+    """
+    Mock the async_supabase client with proper async behavior.
+    """
+    from unittest.mock import patch, AsyncMock
+    
+    with patch("utils.async_client.async_supabase") as mock:
+        # Use AsyncMock for methods that are awaited
+        # Default successful but empty returns
+        mock.rpc = AsyncMock(return_value=[])
+        mock.select = AsyncMock(return_value=[])
+        mock.count = AsyncMock(return_value=0)
+        yield mock
 
 
 class MockUser:

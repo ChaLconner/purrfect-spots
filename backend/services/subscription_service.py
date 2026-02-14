@@ -171,7 +171,7 @@ class SubscriptionService:
         # Retrieve subscription details (sync SDK → threadpool)
         sub = await run_in_threadpool(stripe.Subscription.retrieve, subscription_id)
         current_period_end = datetime.fromtimestamp(
-            getattr(sub, "current_period_end"), timezone.utc  # type: ignore[arg-type]
+            sub.current_period_end, timezone.utc  # type: ignore[arg-type]
         )
 
         await run_in_threadpool(

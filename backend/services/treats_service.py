@@ -27,9 +27,10 @@ class TreatsService:
     # ── Give treats ──────────────────────────────────────────────────
 
     async def give_treat(
-        self, from_user_id: str, photo_id: str, amount: int
+        self, from_user_id: str, photo_id: str, amount: int, jwt_token: str | None = None
     ) -> Dict[str, Any]:
         """Give treats to a photo owner (fully atomic via DB RPC)."""
+        from utils.async_client import async_supabase
         try:
             # Atomic transaction via RPC handles:
             # 1. Photo existence check
@@ -38,18 +39,22 @@ class TreatsService:
             # 4. Balance transfer (sender → receiver)
             # 5. Stats update (total_treats_given/received)
             # 6. Transaction log
-            res = await run_in_threadpool(
-                lambda: self.supabase.rpc(
-                    "give_treat_atomic",
-                    {
-                        "p_from_user_id": from_user_id,
-                        "p_photo_id": photo_id,
-                        "p_amount": amount,
-                    },
-                ).execute()
+            # Use async_supabase with token for RLS
+            res = await async_supabase.rpc(
+                "give_treat_atomic",
+                {
+                    "p_from_user_id": from_user_id,
+                    "p_photo_id": photo_id,
+                    "p_amount": amount,
+                },
+                jwt_token=jwt_token
             )
 
-            result = res.data
+            # async_supabase.rpc returns List[Dict]
+            if not res or len(res) == 0:
+                 raise ValueError("Unknown error (no response from RPC)")
+
+            result = res[0]
             if not result.get("success"):
                 raise ValueError(result.get("error", "Unknown error"))
 

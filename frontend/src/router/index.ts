@@ -12,7 +12,6 @@ const routes = [
     path: '/upload',
     name: 'Upload',
     component: () => import('@/views/UploadView.vue'),
-    // meta: { requiresAuth: true }, // Auth is now handled within the component
   },
   {
     path: '/gallery/:id?',
@@ -77,7 +76,6 @@ const routes = [
     component: () => import('@/views/SubscriptionView.vue'),
     meta: { requiresAuth: true },
   },
-
 
   {
     path: '/auth/callback',
@@ -145,7 +143,6 @@ router.beforeEach(async (to) => {
       // Redirect non-admins to home or 403 page
       return { name: 'Home' };
     }
-    
   } else if (
     (to.name === 'Login' || to.name === 'Register' || to.name === 'Auth') &&
     useAuthStore().isUserReady

@@ -10,12 +10,12 @@ Provides:
 """
 
 import os
+from typing import Awaitable, Callable
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import RedirectResponse, Response
 from starlette.types import ASGIApp
-from typing import Callable, Awaitable
 
 
 class HTTPSRedirectMiddleware(BaseHTTPMiddleware):

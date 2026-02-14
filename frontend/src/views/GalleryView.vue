@@ -206,6 +206,14 @@ async function syncStateFromUrl() {
     currentImageIndex.value = -1;
     isDeepLinked.value = false;
     document.body.style.overflow = ''; // Ensure scroll is restored
+
+    // Reset to general Gallery SEO
+    setMetaTags({
+      title: 'Gallery | Purrfect Spots',
+      description:
+        'Browse our collection of adorable cat photos from around the world. Find your favorite feline friends and discover cat-friendly locations.',
+      type: 'website',
+    });
     return;
   }
 
@@ -229,6 +237,29 @@ async function syncStateFromUrl() {
     }
   }
 }
+
+// Watch selected image for dynamic SEO updates
+watch(
+  () => selectedImage.value,
+  (image) => {
+    if (image) {
+      const title = image.location_name
+        ? `${image.location_name} | Purrfect Spots`
+        : 'A Cute Cat | Purrfect Spots';
+      const description =
+        image.description || 'Check out this adorable cat I found on Purrfect Spots!';
+      // Use efficient image URL for sharing if possible, or fallback
+      const imageUrl = image.image_url;
+
+      setMetaTags({
+        title,
+        description,
+        image: imageUrl,
+        type: 'article',
+      });
+    }
+  }
+);
 
 async function fetchGalleryData(reset = false) {
   if (reset) {

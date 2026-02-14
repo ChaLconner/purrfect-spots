@@ -6,7 +6,7 @@ Enhanced with rate limiting and caching
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from supabase import Client
 
-from dependencies import get_supabase_client
+from dependencies import get_current_token, get_supabase_client
 from limiter import limiter
 from logger import logger
 from middleware.auth_middleware import (
@@ -73,6 +73,7 @@ async def get_gallery(
     page: int | None = Query(None, ge=1, description="Page number (alternative to offset)"),
     gallery_service: GalleryService = Depends(get_gallery_service),
     current_user: User | None = Depends(get_current_user_optional),
+    token: str | None = Depends(get_current_token),
 ) -> PaginatedGalleryResponse:
     """
     Get cat images with pagination support.
@@ -109,6 +110,7 @@ async def get_gallery(
             offset=actual_offset,
             include_total=True,
             user_id=current_user.id if current_user else None,
+            jwt_token=token,
         )
 
         if not result["data"]:

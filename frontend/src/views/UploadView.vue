@@ -47,7 +47,7 @@
             :preview-url="previewUrl"
             :is-detecting-cats="isDetectingCats"
             :cat-detection-result="catDetectionResult"
-            :is-authenticated="isAuthenticated"
+            :is-authenticated="true"
             @file-selected="handleFileSelected"
             @check-auth="handleCheckAuth"
           />
@@ -57,14 +57,13 @@
             v-model:location-name="locationName"
             v-model:description="description"
             v-model:tags="tags"
-            :is-authenticated="isAuthenticated"
-            @focus-auth="handleAuthProtection"
+            :is-authenticated="true"
           />
 
           <!-- Section 3: Location -->
           <UploadLocationSection
             map-id="uploadMap"
-            :is-authenticated="isAuthenticated"
+            :is-authenticated="true"
             :getting-location="gettingLocation"
             :has-selected-location="hasSelectedLocation"
             @get-location="handleGetLocation"
@@ -145,7 +144,6 @@ const {
 const isAuthenticated = computed(() => authStore.isAuthenticated);
 const canSubmit = computed(
   () =>
-    isAuthenticated.value &&
     file.value &&
     !isDetectingCats.value &&
     catDetectionResult.value?.has_cats &&
@@ -201,15 +199,11 @@ const handleLoginRedirect = (): void => {
 };
 
 const handleAuthProtection = (e: Event): void => {
-  if (!checkAuth()) {
-    (e.target as HTMLElement)?.blur?.();
-  }
+  // Auth check removed to allow form interaction
 };
 
 const handleGetLocation = (): void => {
-  if (checkAuth()) {
-    getCurrentLocation();
-  }
+  getCurrentLocation();
 };
 
 const resetImageSelection = (): void => {
@@ -223,8 +217,6 @@ const resetImageSelection = (): void => {
 
 // Handle file selection from component
 function handleFileSelected(payload: { file: File; url: string }): void {
-  if (!checkAuth()) return;
-
   // Cleanup old if exists
   if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
 

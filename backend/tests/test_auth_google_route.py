@@ -36,6 +36,7 @@ class TestGoogleAuthRoutes:
             picture="pic.jpg",
             bio="Bio",
             created_at=datetime(2024, 1, 1),
+            google_id="google-123",
         )
 
     @pytest.fixture

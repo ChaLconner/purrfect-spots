@@ -14,45 +14,25 @@ class SocialService:
         self.supabase = supabase_client
         self.notification_service = NotificationService(supabase_client)
 
-    async def toggle_like(self, user_id: str, photo_id: str) -> Dict[str, Any]:
+    async def toggle_like(self, user_id: str, photo_id: str, jwt_token: str | None = None) -> Dict[str, Any]:
         """
         Toggle like status for a photo using atomic database function.
-        
-        This uses a PostgreSQL function to ensure atomicity and prevent race conditions.
-        The function handles:
-        - Photo existence validation
-        - Atomic toggle (check + insert/delete in one transaction)
-        - Likes count update via trigger
-        
-        Args:
-            user_id: The ID of the user performing the action
-            photo_id: The ID of the photo to like/unlike
-            
-        Returns:
-            Dict with 'liked' (bool) and 'likes_count' (int)
-            
-        Raises:
-            NotFoundError: If the photo doesn't exist
-            ExternalServiceError: If the database operation fails
         """
+        from utils.async_client import async_supabase
         try:
-            # Run sync Supabase RPC call in thread pool to avoid blocking event loop
-            def _rpc_toggle() -> Any:
-                return self.supabase.rpc(
-                    "toggle_photo_like",
-                    {"p_user_id": user_id, "p_photo_id": photo_id}
-                ).execute()
-
-            result = await asyncio.to_thread(_rpc_toggle)
+            # Use async client for better performance and token propagation
+            data = await async_supabase.rpc(
+                "toggle_photo_like",
+                {"p_user_id": user_id, "p_photo_id": photo_id},
+                jwt_token=jwt_token
+            )
             
-            if not result.data or len(result.data) == 0:
+            if not data or len(data) == 0:
                 raise ExternalServiceError("Toggle like returned no data", service="Supabase")
             
-            row = result.data[0]
+            row = data[0]
             liked = row["liked"]
             likes_count = row["likes_count"]
-            
-            # Notification is now handled by database trigger
             
             # Invalidate caches to reflect new like status
             from utils.cache import invalidate_gallery_cache, invalidate_user_cache
@@ -79,56 +59,66 @@ class SocialService:
                 retryable=True
             )
 
-    async def add_comment(self, user_id: str, photo_id: str, content: str) -> Dict[str, Any]:
+    async def add_comment(self, user_id: str, photo_id: str, content: str, jwt_token: str | None = None) -> Dict[str, Any]:
         """Add a comment to a photo."""
-        # Validate photo exists first (run in thread pool)
-        def _check_photo() -> Any:
-            return (
-                self.supabase.table("cat_photos")
-                .select("id, user_id")
-                .eq("id", photo_id)
-                .is_("deleted_at", "null")
-                .single()
-                .execute()
-            )
-
-        photo_check = await asyncio.to_thread(_check_photo)
+        from utils.async_client import async_supabase
         
-        if not photo_check.data:
-            raise NotFoundError(
+        # Validate photo exists first
+        photo_check = await async_supabase.select(
+            table="cat_photos",
+            columns="id, user_id",
+            filters={"id": f"eq.{photo_id}", "deleted_at": "is.null"},
+            jwt_token=jwt_token,
+            limit=1
+        ) # Returns List[Dict]
+
+        if not photo_check:
+             raise NotFoundError(
                 message="Photo not found",
                 resource_type="photo",
                 resource_id=photo_id
             )
         
-        def _insert_comment() -> Any:
-            return self.supabase.table("photo_comments").insert({
+        photo_owner_id = photo_check[0].get("user_id")
+
+        # Insert comment
+        data = await async_supabase.insert(
+            table="photo_comments",
+            data={
                 "user_id": user_id,
                 "photo_id": photo_id,
                 "content": content
-            }).execute()
-
-        res = await asyncio.to_thread(_insert_comment)
+            },
+            jwt_token=jwt_token
+        )
         
-        comment = res.data[0]
+        if not data:
+             raise ExternalServiceError("Failed to create comment", service="Supabase")
+        
+        comment = data[0]
         
         # Enrich with user info for immediate display
-        def _fetch_user_info() -> Any:
-            return self.supabase.table("users").select("name, picture").eq("id", user_id).single().execute()
+        # We can use async_supabase.select to get user info, potentially with token (or without if public)
+        # Assuming user profiles are public readable
+        user_res = await async_supabase.select(
+            table="users",
+            columns="name, picture",
+            filters={"id": f"eq.{user_id}"},
+            jwt_token=jwt_token,
+            limit=1
+        )
 
-        user_res = await asyncio.to_thread(_fetch_user_info)
         user_name = "Someone"
-        if user_res.data:
-            user_name = user_res.data.get("name")
+        if user_res:
+            user_name = user_res[0].get("name")
             comment["user_name"] = user_name
-            comment["user_picture"] = user_res.data.get("picture")
+            comment["user_picture"] = user_res[0].get("picture")
             
         # Trigger Notification
         try:
-            owner_id = photo_check.data.get("user_id")
-            if owner_id and owner_id != user_id:
+            if photo_owner_id and photo_owner_id != user_id:
                 await self.notification_service.create_notification(
-                    user_id=owner_id,
+                    user_id=photo_owner_id,
                     actor_id=user_id,
                     type=NotificationType.COMMENT.value,
                     title="New Comment",
@@ -144,28 +134,42 @@ class SocialService:
 
     async def get_comments(self, photo_id: str, limit: int = 50) -> List[Dict[str, Any]]:
         """Get comments for a photo."""
-        def _fetch_comments() -> Any:
-            return self.supabase.table("photo_comments").select(
-                "*, users(name, picture)"
-            ).eq("photo_id", photo_id).order("created_at", desc=False).limit(limit).execute()
-
-        res = await asyncio.to_thread(_fetch_comments)
+        from utils.async_client import async_supabase
         
+        # Fetch comments with joined user data
+        # AsyncSupabaseClient.select is basic and doesn't support complex joins in `columns` or embedded resources easily via REST unless we use proper syntax
+        # "*, users(name, picture)" works in PostgREST if structured correctly.
+        # columns="*, users(name, picture)"
+        
+        data = await async_supabase.select(
+            table="photo_comments",
+            columns="*, users(name, picture)",
+            filters={"photo_id": f"eq.{photo_id}"},
+            order="created_at.asc",
+            limit=limit
+        )
+
         comments = []
-        for item in res.data:
+        for item in data:
             user_data = item.get("users", {}) or {}
             # Flatten structure
             item["user_name"] = user_data.get("name")
             item["user_picture"] = user_data.get("picture")
-            del item["users"]
+            if "users" in item:
+                del item["users"]
             comments.append(item)
             
         return comments
 
-    async def delete_comment(self, user_id: str, comment_id: str) -> bool:
+    async def delete_comment(self, user_id: str, comment_id: str, jwt_token: str | None = None) -> bool:
         """Delete a comment."""
-        def _delete() -> Any:
-            return self.supabase.table("photo_comments").delete().eq("id", comment_id).eq("user_id", user_id).execute()
+        from utils.async_client import async_supabase
+        
+        # Delete using token for RLS
+        data = await async_supabase.delete(
+            table="photo_comments",
+            filters={"id": f"eq.{comment_id}", "user_id": f"eq.{user_id}"},
+            jwt_token=jwt_token
+        )
+        return len(data) > 0
 
-        res = await asyncio.to_thread(_delete)
-        return len(res.data) > 0

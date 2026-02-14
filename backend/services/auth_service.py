@@ -23,6 +23,14 @@ from user_models.user import User, UserResponse
 from utils.datetime_utils import utc_now
 from utils.security import log_security_event
 
+try:
+    from redis.exceptions import RedisError
+except ImportError:
+    class RedisError(Exception):  # type: ignore
+        """Fallback if redis is not installed"""
+        pass
+
+
 
 class AuthService:
     MAX_CONCURRENT_SESSIONS = 5  # Maximum concurrent sessions per user
@@ -151,6 +159,10 @@ class AuthService:
                 logger.warning("User %s exceeded max concurrent sessions: %d", user_id, active_sessions)
                 return False
             return True
+        except RedisError as e:
+            logger.error("Redis error while checking sessions: %s", e)
+            # Fail open on Redis error to avoid blocking users
+            return True
         except Exception as e:
             logger.error("Failed to check concurrent sessions: %s", e)
             return True
@@ -243,9 +255,11 @@ class AuthService:
         """Delegated to UserService"""
         return self.user_service.authenticate_user(email, password)
 
-    def update_user_profile(self, user_id: str, update_data: dict[str, Any]) -> dict[str, Any]:
+    async def update_user_profile(
+        self, user_id: str, update_data: dict[str, Any], jwt_token: str | None = None
+    ) -> dict[str, Any]:
         """Delegated to UserService"""
-        return self.user_service.update_user_profile(user_id, update_data)
+        return await self.user_service.update_user_profile(user_id, update_data, jwt_token=jwt_token)
 
     async def exchange_google_code(
         self, code: str, code_verifier: str, redirect_uri: str, ip: str | None = None, user_agent: str | None = None
@@ -336,8 +350,8 @@ class AuthService:
             return payload
         except jwt.PyJWTError:
             return None
-        except Exception:
-            logger.error("Session verification unsuccessful")
+        except Exception as e:
+            logger.error("Session verification unsuccessful: %s", e)
             return None
 
     def create_password_reset_token(self, email: str) -> bool:

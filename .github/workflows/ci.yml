@@ -107,6 +107,7 @@ jobs:
       needs.changes.outputs.backend == 'true' || 
       needs.changes.outputs.ci == 'true' ||
       needs.changes.outputs.api_spec == 'true'
+    timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
@@ -138,6 +139,7 @@ jobs:
       needs.changes.outputs.ci == 'true' ||
       needs.changes.outputs.api_spec == 'true'
     continue-on-error: true # Non-blocking - gradual type adoption
+    timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
@@ -163,6 +165,7 @@ jobs:
       needs.changes.outputs.backend == 'true' || 
       needs.changes.outputs.ci == 'true' ||
       needs.changes.outputs.api_spec == 'true'
+    timeout-minutes: 30
     services:
       redis:
         image: redis:7-alpine
@@ -232,6 +235,7 @@ jobs:
       needs.changes.outputs.ci == 'true' ||
       needs.changes.outputs.api_spec == 'true'
     continue-on-error: true # Non-blocking - informational
+    timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
@@ -323,6 +327,7 @@ jobs:
       inputs.force_full_run == true ||
       needs.changes.outputs.frontend == 'true' || 
       needs.changes.outputs.ci == 'true'
+    timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
@@ -350,6 +355,7 @@ jobs:
       inputs.force_full_run == true ||
       needs.changes.outputs.frontend == 'true' || 
       needs.changes.outputs.ci == 'true'
+    timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
@@ -380,6 +386,7 @@ jobs:
       always() &&
       (needs.frontend-lint.result == 'success' || needs.frontend-lint.result == 'skipped') &&
       (needs.frontend-test.result == 'success' || needs.frontend-test.result == 'skipped')
+    timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
@@ -450,6 +457,7 @@ jobs:
       security-events: write
       contents: read
     continue-on-error: false # Enforced - block on security issues
+    timeout-minutes: 45
     steps:
       - name: Checkout code
         uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4

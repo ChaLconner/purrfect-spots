@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -99,52 +99,50 @@ class TestGalleryServiceExtended:
             assert len(results) == 1
             assert results[0]["id"] == "3"
 
-    async def test_get_nearby_photos_bbox(self, gallery_service, mock_supabase):
+    async def test_get_nearby_photos_bbox(self, gallery_service, mock_async_supabase):
         # Feature flag disabled by default or we can mock it
         with patch("services.feature_flags.FeatureFlagService.is_enabled", return_value=False):
-            mock_supabase.execute.return_value = MagicMock(data=[{"id": "loc1"}])
+            mock_async_supabase.select = AsyncMock(return_value=[{"id": "loc1"}])
 
             results = await gallery_service.get_nearby_photos(10.0, 20.0, radius_km=5)
             assert len(results) == 1
-            mock_supabase.gte.assert_called()  # lat/lng filters
+            assert results[0]["id"] == "loc1"
 
-    async def test_get_nearby_photos_postgis(self, gallery_service, mock_supabase):
+    async def test_get_nearby_photos_postgis(self, gallery_service, mock_async_supabase):
         with patch("services.feature_flags.FeatureFlagService.is_enabled", return_value=True):
-            mock_supabase.rpc.return_value.execute.return_value = MagicMock(data=[{"id": "loc2"}])
+            # Explicitly set return value for this specific test
+            mock_async_supabase.rpc = AsyncMock(return_value=[{"id": "loc2"}])
 
             results = await gallery_service.get_nearby_photos(10.0, 20.0, radius_km=5)
             assert len(results) == 1
             assert results[0]["id"] == "loc2"
-            mock_supabase.rpc.assert_called_with(
+            mock_async_supabase.rpc.assert_called_with(
                 "search_nearby_photos", {"lat": 10.0, "lng": 20.0, "radius_meters": 5000.0, "result_limit": 50}
             )
 
-    async def test_get_nearby_photos_postgis_fail(self, gallery_service, mock_supabase):
+    async def test_get_nearby_photos_postgis_fail(self, gallery_service, mock_async_supabase):
         with patch("services.feature_flags.FeatureFlagService.is_enabled", return_value=True):
-            mock_supabase.rpc.side_effect = Exception("PostGIS error")
-            mock_supabase.execute.return_value = MagicMock(data=[{"id": "bbox_fallback"}])
+            mock_async_supabase.rpc = AsyncMock(side_effect=Exception("PostGIS error"))
+            mock_async_supabase.select = AsyncMock(return_value=[{"id": "bbox_fallback"}])
 
             results = await gallery_service.get_nearby_photos(10.0, 20.0)
             assert len(results) == 1
             assert results[0]["id"] == "bbox_fallback"
 
-    async def test_get_photo_by_id_found(self, gallery_service, mock_supabase):
-        mock_supabase.single.return_value.execute.return_value = MagicMock(data={"id": "p1"})
+    async def test_get_photo_by_id_found(self, gallery_service, mock_async_supabase):
+        mock_async_supabase.select = AsyncMock(return_value=[{"id": "p1"}])
 
         photo = await gallery_service.get_photo_by_id("p1")
         assert photo["id"] == "p1"
 
-    async def test_get_photo_by_id_not_found_rows(self, gallery_service, mock_supabase):
-        # Supabase raises exception when single() returns no rows
-        mock_supabase.single.return_value.execute.side_effect = Exception(
-            "JSON object requested, multiple (or no) rows returned"
-        )
+    async def test_get_photo_by_id_not_found_rows(self, gallery_service, mock_async_supabase):
+        mock_async_supabase.select = AsyncMock(return_value=[])
 
         photo = await gallery_service.get_photo_by_id("p1")
         assert photo is None
 
-    async def test_get_photo_by_id_error(self, gallery_service, mock_supabase):
-        mock_supabase.single.return_value.execute.side_effect = Exception("DB connection fail")
+    async def test_get_photo_by_id_error(self, gallery_service, mock_async_supabase):
+        mock_async_supabase.select = AsyncMock(side_effect=Exception("DB connection fail"))
 
         with pytest.raises(Exception, match="Failed to fetch photo p1"):
             await gallery_service.get_photo_by_id("p1")

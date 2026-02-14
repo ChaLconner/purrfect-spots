@@ -89,9 +89,11 @@ async function handleGiveTreat(): Promise<void> {
 }
 
 function searchByTag(tag: string): void {
-  catsStore.setSearchQuery(`#${tag}`);
+  // Keep user in Gallery context when searching from Gallery
+  catsStore.setGallerySearchQuery(tag);
   emit('close');
-  router.push({ path: '/map', query: { search: `#${tag}` } });
+  // Update URL via router to reflect search, but stay on Gallery
+  router.push({ name: 'Gallery', query: { q: tag } });
 }
 
 function openDirections(): void {

@@ -1,7 +1,7 @@
 import functools
 import hashlib
 import json
-from typing import Any, Callable, TypeVar, Union, Coroutine
+from typing import Any, Callable, Coroutine, TypeVar, Union
 
 T = TypeVar("T")
 

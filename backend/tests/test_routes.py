@@ -23,21 +23,22 @@ class TestHealthEndpoints:
         assert "version" in data
 
     def test_health_endpoint(self, client):
-        """Test /health endpoint"""
-        response = client.get("/health")
+        """Test /health/live endpoint"""
+        response = client.get("/health/live")
 
         assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "healthy"
+        assert data["status"] == "alive"
 
-    def test_json_test_endpoint(self, client):
-        """Test JSON response endpoint"""
-        response = client.get("/api/test-json")
+    def test_ready_endpoint(self, client):
+        """Test /health/ready response endpoint"""
+        response = client.get("/health/ready")
 
-        assert response.status_code == 200
+        # In test environment, DB check might be "unhealthy" but we expect 200 or 503
+        assert response.status_code in [200, 503]
         data = response.json()
-        assert data["success"] is True
-        assert "api_version" in data
+        assert "status" in data
+        assert "checks" in data
 
 
 class TestGalleryRoutes:
@@ -133,6 +134,7 @@ class TestGalleryRoutes:
             offset=10,  # (2-1) * 10
             include_total=True,
             user_id=None,
+            jwt_token=None,
         )
 
         app.dependency_overrides = {}
