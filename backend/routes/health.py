@@ -34,21 +34,21 @@ router = APIRouter(prefix="/health", tags=["Health"])
 # ========== Dependency Checks ==========
 
 
-def check_database() -> dict[str, Any]:
+async def check_database() -> dict[str, Any]:
     """
-    Check Supabase/PostgreSQL database connectivity.
+    Check Supabase/PostgreSQL database connectivity (Async).
 
     Returns:
         Dict with status, latency, and any error message
     """
     start_time = datetime.now(UTC)
     try:
-        from dependencies import get_supabase_client
+        from dependencies import get_async_supabase_client
 
-        supabase = get_supabase_client()
+        supabase = await get_async_supabase_client()
 
         # Simple query to verify connection - count users (lightweight)
-        _ = supabase.table("cat_photos").select("count", count="exact").limit(1).execute()  # type: ignore
+        _ = await supabase.table("cat_photos").select("count", count="exact").limit(1).execute()  # type: ignore
 
         latency_ms = (datetime.now(UTC) - start_time).total_seconds() * 1000
 
@@ -253,7 +253,7 @@ async def readiness_check(request: Request) -> JSONResponse:
     """
     # Run all checks in parallel using threads to avoid blocking the event loop
     checks = await asyncio.gather(
-        asyncio.to_thread(check_database),
+        check_database(),
         asyncio.to_thread(check_redis),
         asyncio.to_thread(check_s3),
         asyncio.to_thread(check_sentry),
@@ -320,7 +320,7 @@ async def dependency_check(request: Request) -> JSONResponse:
     """
     # Run all checks including Vision API using threads
     checks = await asyncio.gather(
-        asyncio.to_thread(check_database),
+        check_database(),
         asyncio.to_thread(check_redis),
         asyncio.to_thread(check_s3),
         asyncio.to_thread(check_google_vision),

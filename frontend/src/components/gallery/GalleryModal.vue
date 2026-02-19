@@ -12,8 +12,8 @@
         <div
           ref="modalContainer"
           class="modal-container"
-          @click.stop
           tabindex="-1"
+          @click.stop
           @keydown="handleKeydown"
         >
           <div class="modal-card">

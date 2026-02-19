@@ -2,20 +2,24 @@
 Original gallery tests - updated for new pagination API
 """
 
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock
+
 from main import app
 from routes.gallery import get_gallery_service
+
 
 def test_get_gallery_empty(client):
     """Test gallery endpoint returns empty list when no photos exist"""
     mock_service = MagicMock()
-    mock_service.get_all_photos = AsyncMock(return_value={
-        "data": [],
-        "total": 0,
-        "limit": 20,
-        "offset": 0,
-        "has_more": False,
-    })
+    mock_service.get_all_photos = AsyncMock(
+        return_value={
+            "data": [],
+            "total": 0,
+            "limit": 20,
+            "offset": 0,
+            "has_more": False,
+        }
+    )
 
     app.dependency_overrides[get_gallery_service] = lambda: mock_service
 
@@ -31,13 +35,15 @@ def test_get_gallery_empty(client):
 def test_get_gallery_with_data(client, mock_cat_photo):
     """Test gallery endpoint returns correct data format"""
     mock_service = MagicMock()
-    mock_service.get_all_photos = AsyncMock(return_value={
-        "data": [mock_cat_photo],
-        "total": 1,
-        "limit": 20,
-        "offset": 0,
-        "has_more": False,
-    })
+    mock_service.get_all_photos = AsyncMock(
+        return_value={
+            "data": [mock_cat_photo],
+            "total": 1,
+            "limit": 20,
+            "offset": 0,
+            "has_more": False,
+        }
+    )
 
     app.dependency_overrides[get_gallery_service] = lambda: mock_service
 

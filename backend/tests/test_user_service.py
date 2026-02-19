@@ -1,14 +1,13 @@
 """
 Tests for user service
 """
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from supabase import Client
 
 from exceptions import PurrfectSpotsException
 from services.user_service import UserService
-from user_models.user import User
 
 
 class TestUserService:
@@ -49,14 +48,12 @@ class TestUserService:
     def test_get_user_by_id_success(self, user_service, mock_supabase_admin):
         """Test retrieving user by ID"""
         user_id = "user-123"
-        mock_supabase_admin.execute.return_value = MagicMock(data=[{
-            "id": user_id,
-            "email": "test@example.com",
-            "name": "Test User"
-        }])
-        
+        mock_supabase_admin.execute.return_value = MagicMock(
+            data=[{"id": user_id, "email": "test@example.com", "name": "Test User"}]
+        )
+
         user = user_service.get_user_by_id(user_id)
-        
+
         assert user is not None
         assert user.id == user_id
         mock_supabase_admin.table.assert_called_with("users")
@@ -65,9 +62,9 @@ class TestUserService:
         """Test retrieving user by email"""
         email = "test@example.com"
         mock_supabase_admin.execute.return_value = MagicMock(data={"email": email, "id": "u1"})
-        
+
         user_data = user_service.get_user_by_email(email)
-        
+
         assert user_data is not None
         assert user_data["email"] == email
 
@@ -77,17 +74,17 @@ class TestUserService:
         email = "new@example.com"
         password = "secret-password"
         name = "New User"
-        
+
         # Mock res from generate_link
         mock_res = MagicMock()
         mock_res.user = MagicMock(id="new-u1", email=email, created_at="2024-01-01")
         mock_res.properties = MagicMock(action_link="https://confirm.com/link")
         mock_supabase_admin.auth.admin.generate_link.return_value = mock_res
-        
+
         mock_email_service.send_confirmation_email.return_value = True
-        
+
         result = user_service.create_user_with_password(email, password, name)
-        
+
         assert result["id"] == "new-u1"
         assert result["email"] == email
         assert result["verification_required"] is True
@@ -96,30 +93,25 @@ class TestUserService:
     def test_create_unverified_user_success(self, user_service, mock_supabase_admin):
         """Test creating unverified user via admin API"""
         email = "unverified@example.com"
-        
+
         mock_res = MagicMock()
         mock_res.user = MagicMock(id="un-u1", email=email, created_at="2024-01-01")
         mock_supabase_admin.auth.admin.create_user.return_value = mock_res
-        
+
         result = user_service.create_unverified_user(email, "pass", "Unverified")
-        
+
         assert result["id"] == "un-u1"
         assert result["verification_required"] is True
 
     def test_create_or_get_user_oauth(self, user_service, mock_supabase_admin):
         """Test creating or getting user for OAuth flow"""
-        user_data = {
-            "id": "google-123",
-            "email": "oauth@example.com",
-            "name": "OAuth User",
-            "picture": "pic.jpg"
-        }
-        
+        user_data = {"id": "google-123", "email": "oauth@example.com", "name": "OAuth User", "picture": "pic.jpg"}
+
         mock_supabase_admin.upsert.return_value = mock_supabase_admin
         mock_supabase_admin.execute.return_value = MagicMock(data=[user_data])
-        
+
         user = user_service.create_or_get_user(user_data)
-        
+
         assert user.id == "google-123"
         assert user.email == "oauth@example.com"
         mock_supabase_admin.table.assert_called_with("users")
@@ -127,15 +119,15 @@ class TestUserService:
     def test_authenticate_user_success(self, user_service, mock_supabase):
         """Test user authentication"""
         email = "auth@example.com"
-        
+
         mock_res = MagicMock()
         mock_res.user = MagicMock(id="au1", email=email)
         mock_res.user.user_metadata = {"name": "Auth User"}
         mock_res.session = MagicMock(access_token="atoken", refresh_token="rtoken")
         mock_supabase.auth.sign_in_with_password.return_value = mock_res
-        
+
         result = user_service.authenticate_user(email, "password123")
-        
+
         assert result is not None
         assert result["access_token"] == "atoken"
         assert result["id"] == "au1"
@@ -147,11 +139,11 @@ class TestUserService:
         user_id = "u1"
         update_data = {"name": "Updated Name"}
         jwt_token = "valid-jwt"
-        
+
         mock_async_supabase.update = AsyncMock(return_value=[{"id": user_id, "name": "Updated Name"}])
-        
+
         result = await user_service.update_user_profile(user_id, update_data, jwt_token)
-        
+
         assert result["name"] == "Updated Name"
         mock_async_supabase.update.assert_called_once()
 
@@ -172,7 +164,9 @@ class TestUserService:
 
     def test_get_user_by_username_success(self, user_service, mock_supabase_admin):
         """Test retrieving user by username"""
-        mock_supabase_admin.execute.return_value = MagicMock(data={"username": "catlady", "id": "u1", "email": "c@t.com", "name": "Cat Lady"})
+        mock_supabase_admin.execute.return_value = MagicMock(
+            data={"username": "catlady", "id": "u1", "email": "c@t.com", "name": "Cat Lady"}
+        )
         user = user_service.get_user_by_username("catlady")
         assert user is not None
         assert user.id == "u1"
@@ -209,7 +203,7 @@ class TestUserService:
         mock_res.properties = MagicMock(action_link="link")
         mock_supabase_admin.auth.admin.generate_link.return_value = mock_res
         mock_email_service.send_confirmation_email.return_value = False
-        
+
         result = user_service.create_user_with_password("e@t.com", "pass", "Name")
         assert result["id"] == "u1"
 
@@ -235,6 +229,7 @@ class TestUserService:
         """Test unverified user creation conflict (already exists)"""
         mock_supabase_admin.auth.admin.create_user.side_effect = Exception("Email already registered")
         from exceptions import ConflictError
+
         with pytest.raises(ConflictError):
             user_service.create_unverified_user("e@t.com", "pass", "User")
 
@@ -242,13 +237,14 @@ class TestUserService:
         """Test unverified user creation with unique constraint error"""
         mock_supabase_admin.auth.admin.create_user.side_effect = Exception("unique constraint violation")
         from exceptions import ConflictError
+
         with pytest.raises(ConflictError):
             user_service.create_unverified_user("e@t.com", "pass", "User")
 
     def test_create_or_get_user_missing_id(self, user_service):
         """Test create_or_get_user with missing ID"""
-        with pytest.raises( PurrfectSpotsException, match="Database error"): # Error handling wraps it
-             user_service.create_or_get_user({})
+        with pytest.raises(PurrfectSpotsException, match="Database error"):  # Error handling wraps it
+            user_service.create_or_get_user({})
 
     def test_authenticate_user_failure(self, user_service, mock_supabase):
         """Test authentication failure"""
@@ -265,6 +261,7 @@ class TestUserService:
         """Test user creation conflict"""
         mock_supabase_admin.auth.admin.generate_link.side_effect = Exception("Email already registered")
         from exceptions import ConflictError
+
         with pytest.raises(ConflictError):
             user_service.create_user_with_password("existing@t.com", "pass", "User")
 
@@ -287,24 +284,25 @@ class TestUserService:
         """Test sync fallback for user profile update without JWT"""
         user_id = "u2"
         update_data = {"bio": "New bio"}
-        
+
         # We need a real-ish object for res.data to work correctly with .data[0]
         class MockResponse:
             def __init__(self, data):
                 self.data = data
-        
+
         mock_supabase_admin.execute.return_value = MockResponse([{"id": user_id, "bio": "New bio"}])
-        
+
         result = await user_service.update_user_profile(user_id, update_data)
         assert result["bio"] == "New bio"
 
     @pytest.mark.asyncio
     async def test_update_user_profile_sync_not_found(self, user_service, mock_supabase_admin):
         """Test sync fallback when user is not found"""
+
         class MockResponse:
             def __init__(self, data):
                 self.data = data
-        
+
         mock_supabase_admin.execute.return_value = MockResponse([])
         with pytest.raises(PurrfectSpotsException, match="User not found"):
             await user_service.update_user_profile("nonexistent", {"name": "X"})

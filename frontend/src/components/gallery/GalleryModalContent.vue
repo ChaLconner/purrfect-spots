@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '@/store/authStore';
 import { useSubscriptionStore } from '@/store/subscriptionStore';
 import { showSuccess, showError } from '@/store/toast';
@@ -9,6 +10,7 @@ import { extractTags, getCleanDescription } from '@/store/catsStore';
 import type { CatLocation } from '@/types/api';
 import LikeButton from '@/components/social/LikeButton.vue';
 import CommentList from '@/components/social/CommentList.vue';
+import ReportModal from '@/components/ui/ReportModal.vue';
 
 const props = defineProps<{
   image: CatLocation | null;
@@ -19,9 +21,11 @@ const emit = defineEmits<{
 }>();
 
 const router = useRouter();
+const { t } = useI18n();
 const authStore = useAuthStore();
 const catsStore = useCatsStore();
 const isSendingTreat = ref(false);
+const isReportOpen = ref(false);
 const selectedAmount = ref(1);
 
 // Clean description
@@ -50,6 +54,37 @@ const dateFormatted = computed(() => {
   }
 });
 
+// Robust visibility check for Give Treats button
+const showGiveTreats = computed(() => {
+  const result = (() => {
+    // Safety check: if image is missing, hide
+    if (!props.image) return false;
+
+    // Unauthenticated users should see the button (to get prompted)
+    if (!authStore.isAuthenticated) return true;
+
+    // If auth user is missing ID (edge case), assume not owner -> Show
+    if (!authStore.user?.id) return true;
+
+    // If image has no user_id (edge case), assume not owner -> Show
+    if (!props.image.user_id) return true;
+
+    // Strict comparison of strings to prevent type mismatches
+    return String(authStore.user.id) !== String(props.image.user_id);
+  })();
+
+  // LOGGING
+  console.log('[GalleryModal] Visibility Calc:', {
+    isAuthenticated: authStore.isAuthenticated, // Valid boolean?
+    myId: authStore.user?.id,
+    imgUserId: props.image?.user_id,
+    match: String(authStore.user?.id) === String(props.image?.user_id),
+    RESULT: result,
+  });
+
+  return result;
+});
+
 function handleUpdateLiked(val: boolean): void {
   if (props.image) {
     // eslint-disable-next-line vue/no-mutating-props
@@ -64,12 +99,19 @@ function handleUpdateLikesCount(val: number): void {
   }
 }
 
+// Watch for image changes to log debug info
+
 async function handleGiveTreat(): Promise<void> {
   if (!props.image) return;
 
+  if (!authStore.isAuthenticated) {
+    showError(t('galleryPage.modal.signInToTreat'));
+    return;
+  }
+
   const amount = selectedAmount.value;
-  if (!authStore.user || (authStore.user.treat_balance || 0) < amount) {
-    showError('Not enough treats in your bag!');
+  if ((authStore.user?.treat_balance || 0) < amount) {
+    showError(t('galleryPage.modal.notEnoughTreats'));
     return;
   }
 
@@ -78,11 +120,11 @@ async function handleGiveTreat(): Promise<void> {
 
   try {
     await subscriptionStore.giveTreat(props.image.id, amount);
-    showSuccess(`You gave ${amount} treat(s)!`);
+    showSuccess(t('galleryPage.modal.treatsGiven', { amount }));
     // Balance update is handled by store now
   } catch (err: unknown) {
     const e = err as { response?: { data?: { detail?: string } }; message?: string };
-    showError(e.response?.data?.detail || 'Failed to give treat');
+    showError(e.response?.data?.detail || t('galleryPage.modal.treatFailed'));
   } finally {
     isSendingTreat.value = false;
   }
@@ -106,21 +148,28 @@ function openDirections(): void {
 </script>
 
 <template>
-  <div class="modal-content">
+  <div
+    class="flex flex-col flex-1 bg-cream-bg p-6 sm:p-8 min-[900px]:py-10 min-[900px]:px-8 overflow-hidden relative z-10 max-sm:rounded-none max-sm:mt-0 max-sm:shadow-none sm:mt-0 sm:rounded-none sm:shadow-none"
+  >
     <!-- Mobile Drag Handle Visual -->
     <div class="block sm:hidden w-full flex justify-center pb-2">
       <div class="w-12 h-1.5 bg-gray-200/50 rounded-full"></div>
     </div>
 
     <!-- Header -->
-    <div class="content-header">
+    <div class="flex justify-between items-start mb-5">
       <div class="flex-1">
-        <h3 id="modal-title" class="cat-title">Cat Details</h3>
-        <div class="cat-meta flex items-center gap-4 flex-wrap">
+        <h3
+          id="modal-title"
+          class="font-nunito text-2xl sm:text-[1.75rem] font-extrabold text-brown-text leading-tight mb-2 break-words"
+        >
+          {{ $t('galleryPage.modal.catDetails') }}
+        </h3>
+        <div class="text-sm text-brown-meta flex items-center gap-4 flex-wrap">
           <button
             v-if="image?.location_name"
-            class="location-badge hover:text-terracotta-dark transition-colors group flex items-center"
-            title="Open in Google Maps"
+            class="text-location-badge font-bold text-sm transition-all duration-200 hover:text-terracotta-dark flex items-center group"
+            :title="$t('galleryPage.modal.openInMaps')"
             @click="openDirections"
           >
             <svg
@@ -137,15 +186,19 @@ function openDirections(): void {
             </svg>
             {{ image.location_name }}
           </button>
-          <span v-if="dateFormatted" class="date-text">{{ dateFormatted }}</span>
+          <span
+            v-if="dateFormatted"
+            class="font-normal relative pl-4 before:content-['•'] before:absolute before:left-0 before:text-date-bullet"
+            >{{ dateFormatted }}</span
+          >
         </div>
 
         <!-- Tags moved to header -->
-        <div v-if="imageTags.length > 0" class="tags-list mt-3">
+        <div v-if="imageTags.length > 0" class="flex flex-wrap gap-2 mt-3">
           <button
             v-for="tag in imageTags"
             :key="tag"
-            class="tag-chip-small"
+            class="text-xs font-semibold text-sage-pill bg-sage-pill-bg px-2.5 py-1 rounded-full cursor-pointer transition-all duration-200 hover:bg-sage-pill-bg-hover hover:-translate-y-px"
             @click="searchByTag(tag)"
           >
             #{{ tag }}
@@ -154,7 +207,31 @@ function openDirections(): void {
       </div>
 
       <div class="flex items-center gap-2">
-        <button class="close-btn desktop-close-btn" aria-label="Close" @click="$emit('close')">
+        <button
+          class="w-10 h-10 rounded-full flex items-center justify-center text-brown-meta bg-transparent transition-all duration-200 cursor-pointer hover:bg-brown-text/5 hover:text-brown-text hover:text-red-500 hover:bg-red-50"
+          :title="$t('galleryPage.modal.reportContent')"
+          @click="isReportOpen = true"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+            <line x1="4" y1="22" x2="4" y2="15" />
+          </svg>
+        </button>
+        <button
+          class="w-10 h-10 rounded-full flex items-center justify-center text-brown-meta bg-transparent transition-all duration-200 cursor-pointer hover:bg-brown-text/5 hover:text-brown-text max-[899px]:hidden"
+          :aria-label="$t('galleryPage.modal.close')"
+          @click="$emit('close')"
+        >
           <svg
             width="20"
             height="20"
@@ -171,16 +248,21 @@ function openDirections(): void {
     </div>
 
     <!-- Body -->
-    <div class="content-body">
-      <div class="description-section">
-        <p v-if="cleanDescription" class="description-text">
+    <div class="overflow-y-auto flex-1 pr-2 sm:pr-0 scrollbar-thin md:custom-scrollbar">
+      <div class="mb-6">
+        <p
+          v-if="cleanDescription"
+          class="text-base leading-relaxed text-[#5c504a] whitespace-pre-wrap"
+        >
           {{ cleanDescription }}
         </p>
-        <p v-else class="description-placeholder">No description available for this spot.</p>
+        <p v-else class="text-base leading-relaxed text-[#5c504a] italic opacity-70">
+          {{ $t('galleryPage.modal.noDescription') }}
+        </p>
       </div>
 
       <!-- Social Interactions -->
-      <div class="social-section mt-4 mb-6 border-b border-cream-dark/50 pb-6">
+      <div class="mt-4 mb-6 border-b border-cream-dark/50 pb-6">
         <div class="flex flex-col gap-4">
           <!-- Unified Interaction Row -->
           <div class="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
@@ -199,7 +281,7 @@ function openDirections(): void {
 
             <!-- Right: Treat Interaction (Responsive layout) -->
             <div
-              v-if="image && authStore.isAuthenticated && authStore.user?.id !== image.user_id"
+              v-if="showGiveTreats"
               class="flex items-center justify-between gap-3 sm:gap-4 flex-1"
             >
               <!-- Quantity Selector -->
@@ -226,7 +308,7 @@ function openDirections(): void {
                 @click="handleGiveTreat"
               >
                 <span v-if="!isSendingTreat" class="text-xs sm:text-sm tracking-wide px-2">
-                  Give Treats
+                  {{ $t('galleryPage.modal.giveTreats') }}
                 </span>
                 <span v-else class="flex gap-1">
                   <span class="w-1 h-1 bg-white rounded-full animate-bounce"></span>
@@ -241,205 +323,14 @@ function openDirections(): void {
 
       <!-- Comments -->
       <CommentList v-if="image" :photo-id="image.id" />
+
+      <!-- Report Modal -->
+      <ReportModal
+        v-if="image"
+        :is-open="isReportOpen"
+        :photo-id="image.id"
+        @close="isReportOpen = false"
+      />
     </div>
   </div>
 </template>
-
-<style scoped>
-/* Content Side */
-/* Content Side */
-.modal-content {
-  flex: 1;
-  background: #fffcf9;
-  display: flex;
-  flex-direction: column;
-  padding: 1.5rem;
-  overflow: hidden;
-  position: relative;
-  z-index: 10;
-}
-
-/* Mobile: Standard layout without overlap */
-@media (max-width: 639px) {
-  .modal-content {
-    border-radius: 0;
-    margin-top: 0;
-    padding: 1.5rem;
-    box-shadow: none;
-  }
-}
-
-/* Tablet & Desktop: Standard layout */
-@media (min-width: 640px) {
-  .modal-content {
-    margin-top: 0;
-    border-radius: 0;
-    box-shadow: none;
-    padding: 2rem;
-  }
-}
-
-@media (min-width: 900px) {
-  .modal-content {
-    /* Removed fixed max-width to allow filling the container */
-    padding: 2.5rem 2rem;
-  }
-}
-
-/* Header */
-.content-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
-}
-
-.cat-title {
-  font-family: 'Nunito', sans-serif;
-  font-size: 1.75rem;
-  font-weight: 800;
-  color: #2d2420;
-  line-height: 1.2;
-  margin-bottom: 0.5rem;
-  word-break: break-word; /* Ensure long names don't overflow */
-}
-
-@media (max-width: 639px) {
-  .cat-title {
-    font-size: 1.5rem; /* Smaller title on mobile */
-  }
-}
-
-.cat-meta {
-  font-size: 0.875rem;
-  color: #8c7e7a;
-}
-
-.location-badge {
-  color: #d97757;
-  font-weight: 700;
-  font-size: 0.9rem;
-  transition: all 0.2s ease;
-}
-
-.date-text {
-  font-weight: 400;
-  position: relative;
-  padding-left: 1rem;
-}
-
-.date-text::before {
-  content: '•';
-  position: absolute;
-  left: 0;
-  color: #d6ccc2;
-}
-
-/* Tags */
-.tags-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.tag-chip-small {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #7a9e7e;
-  background: rgba(122, 158, 126, 0.1);
-  padding: 0.25rem 0.6rem;
-  border-radius: 9999px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.tag-chip-small:hover {
-  background: rgba(122, 158, 126, 0.2);
-  transform: translateY(-1px);
-}
-
-/* Close Button */
-.close-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex; /* Flex center to align SVG */
-  align-items: center;
-  justify-content: center;
-  color: #8c7e7a;
-  background: transparent;
-  transition: all 0.2s;
-  cursor: pointer;
-}
-
-.close-btn:hover {
-  background: rgba(45, 36, 32, 0.05);
-  color: #2d2420;
-  transform: rotate(90deg);
-}
-
-/* Body */
-.content-body {
-  overflow-y: auto;
-  flex: 1;
-  padding-right: 0.5rem; /* Space for scrollbar on desktop */
-  /* Firefox */
-  scrollbar-width: thin;
-  scrollbar-color: rgba(166, 93, 55, 0.2) transparent;
-  scroll-behavior: smooth;
-}
-
-/* Hide scrollbar for Chrome, Safari and Opera on mobile */
-@media (max-width: 768px) {
-  .content-body {
-    padding-right: 0;
-    scrollbar-width: none;
-  }
-}
-@media (min-width: 769px) {
-  .content-body::-webkit-scrollbar {
-    width: 5px;
-  }
-  .content-body::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .content-body::-webkit-scrollbar-thumb {
-    background-color: rgba(166, 93, 55, 0.2);
-    border-radius: 20px;
-    transition: background-color 0.3s ease;
-  }
-  .content-body::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(166, 93, 55, 0.5);
-  }
-}
-
-.description-section {
-  margin-bottom: 1.5rem;
-}
-
-.description-text {
-  font-size: 1rem;
-  line-height: 1.6;
-  color: #5c504a;
-  white-space: pre-wrap;
-}
-
-/* Comments */
-.comment-input-area {
-  background: white;
-  border: 1px solid #f0e6e0;
-  border-radius: 1rem;
-  padding: 1rem;
-  margin-top: auto; /* Push to bottom if space permits */
-}
-
-/* Ensure placeholder text is readable */
-textarea::placeholder {
-  color: #b0a6a0;
-}
-@media (max-width: 899px) {
-  .desktop-close-btn {
-    display: none;
-  }
-}
-</style>

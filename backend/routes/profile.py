@@ -6,12 +6,16 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Response, UploadFile
-from pydantic import BaseModel
 from starlette.requests import Request
-from supabase import Client
-
 from config import config
-from dependencies import get_current_token, get_supabase_admin_client, get_supabase_client
+from dependencies import (
+    get_admin_gallery_service,
+    get_auth_service,
+    get_current_token,
+    get_gallery_service,
+    get_user_service,
+    get_async_supabase_admin_client,
+)
 from limiter import auth_limiter
 from logger import logger
 from middleware.auth_middleware import get_current_user_from_credentials
@@ -25,20 +29,11 @@ router = APIRouter(prefix="/profile", tags=["Profile"])
 
 
 from schemas.profile import ChangePasswordRequest, ProfileUpdateRequest, UpdatePhotoRequest
-
-
-
-
 from services.auth_service import AuthService
 from services.gallery_service import GalleryService
 
 
-def get_auth_service(supabase: Client = Depends(get_supabase_client)) -> AuthService:
-    return AuthService(supabase)
-
-
-def get_gallery_service(supabase: Client = Depends(get_supabase_client)) -> GalleryService:
-    return GalleryService(supabase)
+# Services are now imported from dependencies
 
 
 def get_storage_service() -> StorageService:
@@ -76,28 +71,30 @@ async def update_profile(
 
         if "name" in update_data:
             update_data["name"] = sanitize_text(update_data["name"], max_length=100)
-            
+
         if "username" in update_data:
             username = update_data["username"]
             # Validate username format (alphanumeric + underscore, min 3 chars)
             import re
+
             if not re.match(r"^[a-zA-Z0-9_]{3,30}$", username):
-                raise HTTPException(status_code=400, detail="Username must be 3-30 characters and contain only letters, numbers, and underscores")
-            
+                raise HTTPException(
+                    status_code=400,
+                    detail="Username must be 3-30 characters and contain only letters, numbers, and underscores",
+                )
+
             # Check for uniqueness if username changed
             if username != current_user.username:
-                existing_user = auth_service.user_service.get_user_by_username(username)
+                existing_user = await auth_service.user_service.get_user_by_username(username)
                 if existing_user:
-                     raise HTTPException(status_code=409, detail="Username already taken")
+                    raise HTTPException(status_code=409, detail="Username already taken")
 
         if "bio" in update_data and update_data["bio"]:
             update_data["bio"] = sanitize_text(update_data["bio"], max_length=500)
 
         # Update via service
         try:
-            updated_user = await auth_service.update_user_profile(
-                current_user.id, update_data, jwt_token=token
-            )
+            updated_user = await auth_service.update_user_profile(current_user.id, update_data, jwt_token=token)
         except ValueError:
             raise HTTPException(status_code=404, detail="User not found")
 
@@ -136,7 +133,7 @@ async def get_profile(
     # Prevent caching of profile data
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     try:
-        user = auth_service.get_user_by_id(current_user.id)
+        user = await auth_service.get_user_by_id(current_user.id)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
@@ -154,8 +151,7 @@ async def get_profile(
         raise HTTPException(status_code=500, detail="Failed to get profile")
 
 
-def get_admin_gallery_service(supabase: Client = Depends(get_supabase_admin_client)) -> GalleryService:
-    return GalleryService(supabase)
+# GalleryService is imported from dependencies
 
 
 @router.get("/public/{identifier}")
@@ -181,11 +177,11 @@ async def get_public_profile(
 
         user = None
         if is_uuid:
-            user = auth_service.get_user_by_id(identifier)
-        
+            user = await auth_service.get_user_by_id(identifier)
+
         # If not found by ID or not a UUID, try by username
         if not user:
-            user = auth_service.user_service.get_user_by_username(identifier)
+            user = await auth_service.user_service.get_user_by_username(identifier)
 
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
@@ -229,9 +225,9 @@ async def get_public_user_uploads(
 
         user_id = identifier
         if not is_uuid:
-            user = auth_service.user_service.get_user_by_username(identifier)
+            user = await auth_service.user_service.get_user_by_username(identifier)
             if not user:
-                 raise HTTPException(status_code=404, detail="User not found")
+                raise HTTPException(status_code=404, detail="User not found")
             user_id = user.id
 
         photos = await gallery_service.get_user_photos(user_id)
@@ -372,9 +368,6 @@ async def change_password(
         raise HTTPException(status_code=500, detail="An error occurred")
 
 
-
-
-
 @router.put("/uploads/{photo_id}")
 async def update_user_photo(
     photo_id: str,
@@ -416,7 +409,8 @@ async def update_user_photo(
 
         # 3. Update
         # Use admin service because we already verified ownership
-        gallery_service.supabase.table("cat_photos").update(valid_updates).eq("id", photo_id).execute()
+        admin_supabase = await get_async_supabase_admin_client()
+        await admin_supabase.table("cat_photos").update(valid_updates).eq("id", photo_id).execute()
 
         # Invalidate cache to ensure updates are reflected immediately
         await invalidate_gallery_cache()
@@ -459,7 +453,7 @@ async def delete_user_photo(
             photo_id=photo_id,
             image_url=photo.get("image_url") or "",
             user_id=current_user.id,
-            storage_service=storage_service
+            storage_service=storage_service,
         )
 
         return {"message": "Deletion scheduled"}

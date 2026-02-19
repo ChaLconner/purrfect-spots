@@ -9,17 +9,25 @@ Features:
 - CORS configuration
 """
 
+import asyncio
 import os
+from dotenv import load_dotenv
+
+# Explicitly load .env - Trigger reload (fix magic)
+load_dotenv()
+
 
 # ========== Sentry Integration ==========
 import sentry_sdk
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, ORJSONResponse
 from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.mcp import MCPIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
+
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -42,28 +50,62 @@ from routes.admin import router as admin_router
 from routes.api_v1 import router as api_v1_router
 from routes.health import router as health_router
 
-SENTRY_DSN = os.getenv("SENTRY_DSN")
+SENTRY_DSN = config.SENTRY_DSN
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 CONTENT_TYPE_JSON = "application/json"
 
 if SENTRY_DSN:
+
+    def before_send(event, hint):
+        # Filter exceptions by type (when exc_info is available)
+        if "exc_info" in hint:
+            exc_type, exc_value, tb = hint["exc_info"]
+            if isinstance(exc_value, (asyncio.CancelledError, KeyboardInterrupt)):
+                return None
+
+        # Filter by log message for errors that come through without exc_info
+        # (e.g., starlette lifespan shutdown, port binding conflicts)
+        message = event.get("logentry", {}).get("message", "") or event.get("message", "")
+        noise_patterns = [
+            "CancelledError",
+            "KeyboardInterrupt",
+            "error while attempting to bind on address",
+            "WinError 10048",
+            "Errno 10048",
+        ]
+        if any(pattern in message for pattern in noise_patterns):
+            return None
+
+        return event
+
+    sentry_integrations = [
+        StarletteIntegration(transaction_style="endpoint"),
+        FastApiIntegration(transaction_style="endpoint"),
+        MCPIntegration(
+            # Set include_prompts=False to exclude tool inputs/outputs from Sentry
+            # (useful if they contain PII). Default is True.
+            include_prompts=True,
+        ),
+    ]
+
     sentry_sdk.init(
         dsn=SENTRY_DSN,
         environment=ENVIRONMENT,
-        integrations=[
-            StarletteIntegration(transaction_style="endpoint"),
-            FastApiIntegration(transaction_style="endpoint"),
-        ],
+        integrations=sentry_integrations,
         # Performance monitoring
-        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
+        traces_sample_rate=1.0,
         # Profiling (requires additional setup)
         profiles_sample_rate=float(os.getenv("SENTRY_PROFILES_SAMPLE_RATE", "0.1")),
         # Send user info for debugging
-        send_default_pii=False,
+        send_default_pii=True,
+        # Enable Sentry Logs (required for MCP Insights logs tab)
+        enable_logs=True,
         # Enable breadcrumbs
         max_breadcrumbs=50,
         # Attach stack traces for non-exception events
         attach_stacktrace=True,
+        # Filter out CancelledError and KeyboardInterrupt
+        before_send=before_send,
     )
     logger.info(f"Sentry initialized for environment: {ENVIRONMENT}")
 else:
@@ -183,9 +225,22 @@ from utils.exception_handlers import (
     validation_exception_handler,
 )
 
+
+async def cancelled_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.info(f"Operation cancelled: {request.url.path}")
+    return JSONResponse(status_code=499, content={"detail": "Request cancelled"})
+
+
+async def keyboard_interrupt_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.info("Server shutting down...")
+    return JSONResponse(status_code=503, content={"detail": "Service shutting down"})
+
+
 app.add_exception_handler(Exception, cast(ExceptionHandler, generic_exception_handler))
 app.add_exception_handler(StarletteHTTPException, cast(ExceptionHandler, custom_http_exception_handler))
 app.add_exception_handler(RequestValidationError, cast(ExceptionHandler, validation_exception_handler))
+# import asyncio
+# app.add_exception_handler(asyncio.CancelledError, cast(ExceptionHandler, cancelled_error_handler))
 
 
 # ========== CORS Middleware ==========
@@ -321,4 +376,4 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)  # nosec B104
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)  # nosec B104

@@ -56,7 +56,11 @@ const handleMagicLink = async (hash: string) => {
 
     await useAuthStore().setAuth(response);
     success.value = true;
-    showSuccess(type === 'recovery' ? 'Password Reset Verified' : 'Email Verified Successfully!');
+    showSuccess(
+      type === 'recovery'
+        ? t('auth.callback.passwordResetVerified')
+        : t('auth.callback.emailVerified')
+    );
 
     if (type === 'recovery') {
       router.push('/reset-password');
@@ -91,16 +95,16 @@ const handleGoogleCode = async (code: string, codeVerifier: string) => {
 
 const handleAuthError = (err: unknown) => {
   if (err.message?.includes('invalid_grant')) {
-    error.value = 'Authentication expired. Please try logging in again.';
+    error.value = t('auth.callback.authExpired');
   } else if (err.message?.includes('redirect_uri')) {
-    error.value = 'Invalid OAuth configuration. Please contact the administrator.';
+    error.value = t('auth.callback.invalidOauth');
   } else if (err.message === 'Failed to fetch') {
-    error.value = 'Cannot connect to server. Please check your internet connection.';
+    error.value = t('auth.callback.connectionError');
   } else if (err instanceof Error && err.message) {
     const msg = err.message;
-    error.value = msg.includes('status code') ? 'Service temporarily unavailable.' : msg;
+    error.value = msg.includes('status code') ? t('auth.callback.serviceUnavailable') : msg;
   } else {
-    error.value = 'An error occurred during login.';
+    error.value = t('auth.callback.generalError');
   }
 };
 
@@ -114,11 +118,10 @@ const processAuthCallback = async () => {
   }
 
   if (code) {
-    if (!codeVerifier)
-      throw new Error('Authentication data not found. Please try logging in again.');
+    if (!codeVerifier) throw new Error(t('auth.callback.authDataNotFound'));
     if (await handleGoogleCode(code, codeVerifier)) return true;
   } else if (!hash) {
-    throw new Error('No authentication data received.');
+    throw new Error(t('auth.callback.noAuthData'));
   }
 
   if (hash && !hash.includes('access_token=')) {
@@ -151,11 +154,10 @@ const handleAuthCallback = async () => {
   }
 
   if (retryCount >= maxRetries) {
-    error.value =
-      'An error occurred from browser extensions. Please disable extensions and try again.';
-    showError(error.value, 'Login Error');
+    error.value = t('auth.callback.extensionError');
+    showError(error.value, t('auth.callback.loginErrorTitle'));
   } else if (error.value) {
-    showError(error.value, 'Login Failed');
+    showError(error.value, t('auth.callback.loginFailedTitle'));
   }
 
   if (error.value) {

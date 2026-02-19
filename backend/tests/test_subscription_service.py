@@ -13,9 +13,7 @@ def subscription_service():
 
 @patch("services.subscription_service.stripe.checkout.Session.create")
 @patch("services.subscription_service.stripe.Customer.create")
-async def test_create_checkout_session(
-    mock_customer_create, mock_session_create, subscription_service
-):
+async def test_create_checkout_session(mock_customer_create, mock_session_create, subscription_service):
     """Test checkout session creation with new customer."""
     # Mock user query (no existing customer id)
     mock_execute = MagicMock()
@@ -27,7 +25,7 @@ async def test_create_checkout_session(
     mock_session_create.return_value.id = "sess_123"
 
     res = await subscription_service.create_checkout_session(
-        "user123", "test@test.com", "price_123", "success", "cancel"
+        "00000000-0000-4000-a000-000000000123", "test@test.com", "price_123", "success", "cancel"
     )
 
     assert res["checkout_url"] == "http://test.url"
@@ -35,15 +33,13 @@ async def test_create_checkout_session(
 
 
 @patch("services.subscription_service.stripe.checkout.Session.create")
-async def test_create_checkout_session_with_existing_customer(
-    mock_session_create, subscription_service
-):
+async def test_create_checkout_session_with_existing_customer(mock_session_create, subscription_service):
     """Test checkout when user already has a Stripe customer ID."""
     mock_session_create.return_value.url = "http://test.url"
     mock_session_create.return_value.id = "sess_456"
 
     res = await subscription_service.create_checkout_session(
-        "user123",
+        "00000000-0000-4000-a000-000000000123",
         "test@test.com",
         "price_123",
         "success",
@@ -58,7 +54,7 @@ async def test_create_checkout_session_with_existing_customer(
 @patch("services.subscription_service.stripe.Subscription.retrieve")
 async def test_handle_webhook_checkout_completed(mock_retrieve, subscription_service):
     """Test subscription activation via webhook."""
-    session = {"metadata": {"user_id": "user123"}, "subscription": "sub_123"}
+    session = {"metadata": {"user_id": "00000000-0000-4000-a000-000000000123"}, "subscription": "sub_123"}
 
     mock_sub = MagicMock()
     mock_sub.current_period_end = 1700000000
@@ -108,7 +104,7 @@ async def test_dispatch_checkout_completed_payment(subscription_service):
     """Test that payment mode dispatches to treats fulfillment."""
     session = {
         "mode": "payment",
-        "metadata": {"user_id": "user123", "type": "treat_purchase", "package": "small"},
+        "metadata": {"user_id": "00000000-0000-4000-a000-000000000123", "type": "treat_purchase", "package": "small"},
         "id": "sess_pay_1",
     }
 
@@ -117,6 +113,4 @@ async def test_dispatch_checkout_completed_payment(subscription_service):
 
     await subscription_service._dispatch_checkout_completed(session)
 
-    subscription_service.treats_service.fulfill_treat_purchase.assert_called_once_with(
-        session
-    )
+    subscription_service.treats_service.fulfill_treat_purchase.assert_called_once_with(session)

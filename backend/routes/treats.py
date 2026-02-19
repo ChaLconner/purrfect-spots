@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from supabase import Client
 
 from config import config
-from dependencies import get_current_token, get_supabase_admin_client
+from dependencies import get_current_token, get_treats_service
 from logger import logger
 from middleware.auth_middleware import get_current_user_from_credentials
 from schemas.treats import GiveTreatRequest, PurchaseTreatsRequest, TreatBalanceResponse
@@ -12,10 +12,6 @@ from services.treats_service import TreatsService
 from user_models.user import User
 
 router = APIRouter(prefix="/treats", tags=["Treats"])
-
-
-def get_treats_service(supabase: Client = Depends(get_supabase_admin_client)) -> TreatsService:
-    return TreatsService(supabase)
 
 
 @router.get("/balance", response_model=TreatBalanceResponse)
@@ -56,9 +52,7 @@ async def purchase_treats_checkout(
     price_id = package_data.get("price_id") if package_data else None
 
     if not price_id:
-        raise HTTPException(
-            status_code=400, detail="Invalid package or price not configured in database"
-        )
+        raise HTTPException(status_code=400, detail="Invalid package or price not configured in database")
 
     try:
         frontend_url = config.FRONTEND_URL
@@ -92,4 +86,5 @@ async def get_leaderboard(
     if period not in ["weekly", "monthly", "all_time"]:
         raise HTTPException(status_code=400, detail="Invalid period")
     from typing import cast
+
     return cast(list[dict[str, Any]], await treats_service.get_leaderboard(period))

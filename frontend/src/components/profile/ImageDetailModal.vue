@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import type { CatLocation } from '@/types/api';
 import type { User } from '@/types/auth';
+import { ref } from 'vue';
+import { BaseCard } from '@/components/ui';
+import ReportModal from '@/components/ui/ReportModal.vue';
+import { useToast } from '@/components/toast/use-toast';
+import { useI18n } from 'vue-i18n';
 
 const props = defineProps<{
   image: CatLocation | null;
@@ -18,10 +23,26 @@ const emit = defineEmits<{
   delete: [image: CatLocation];
 }>();
 
+const { toast } = useToast();
+const { t, locale } = useI18n();
+
 const handleGiveTreat = () => {
   if (props.image) {
     emit('give-treat', props.image);
   }
+};
+
+const isReportOpen = ref(false);
+
+const handleReportClick = () => {
+  if (!props.currentUser) {
+    toast({
+      description: t('map.signInToReport'),
+      variant: 'destructive',
+    });
+    return;
+  }
+  isReportOpen.value = true;
 };
 </script>
 
@@ -36,11 +57,13 @@ const handleGiveTreat = () => {
   >
     <div
       v-if="isOpen && image"
-      class="fixed inset-0 bg-stone-900/80 backdrop-blur-md z-50 flex items-center justify-center p-4 md:p-8"
+      class="fixed inset-0 bg-stone-900/80 backdrop-blur-md z-[150] flex items-center justify-center p-4 md:p-8"
       @click="$emit('close')"
     >
-      <div
-        class="relative bg-white rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl max-w-6xl w-full max-h-[95vh] md:max-h-[90vh] flex flex-col md:flex-row transform transition-all"
+      <BaseCard
+        variant="white"
+        padding="none"
+        class="relative overflow-hidden shadow-2xl max-w-6xl w-full max-h-[95vh] md:max-h-[90vh] flex flex-col md:flex-row transform transition-all rounded-2xl md:rounded-3xl"
         @click.stop
       >
         <!-- Close Button (Minimalist) -->
@@ -80,16 +103,17 @@ const handleGiveTreat = () => {
               <img
                 :src="user?.picture || '/default-avatar.svg'"
                 class="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full object-cover border-2 border-stone-100 shadow-sm"
-                :alt="user?.name || 'User'"
+                :alt="user?.name || t('profile.unknownUser')"
               />
               <div>
                 <h4 class="text-brown font-heading font-bold text-lg md:text-xl leading-none mb-1">
-                  {{ user?.name }}
+                  {{ user?.name || t('profile.unknownUser') }}
                 </h4>
                 <p
                   class="text-[10px] sm:text-xs text-stone-400 font-medium uppercase tracking-widest"
                 >
-                  Uploaded {{ new Date(image.uploaded_at).toLocaleDateString() }}
+                  {{ t('profile.uploaded') }}
+                  {{ new Date(image.uploaded_at).toLocaleDateString(locale) }}
                 </p>
               </div>
             </div>
@@ -102,7 +126,7 @@ const handleGiveTreat = () => {
                 <h3
                   class="text-2xl sm:text-2xl md:text-3xl font-heading font-extrabold text-terracotta mb-2 leading-tight"
                 >
-                  {{ image.location_name || 'Unknown Spot' }}
+                  {{ image.location_name || t('map.unknownSpot') }}
                 </h3>
                 <div class="h-1 w-20 bg-sage/30 rounded-full"></div>
               </div>
@@ -113,7 +137,7 @@ const handleGiveTreat = () => {
               >
                 {{ image.description }}
               </p>
-              <p v-else class="text-stone-300 italic">No description provided.</p>
+              <p v-else class="text-stone-300 italic">{{ t('profile.noDescription') }}</p>
             </div>
 
             <!-- Footer Actions -->
@@ -142,7 +166,7 @@ const handleGiveTreat = () => {
                     d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                   />
                 </svg>
-                {{ image.latitude ? 'Location tagged' : 'No location' }}
+                {{ image.latitude ? t('profile.locationTagged') : t('profile.noLocation') }}
               </span>
 
               <!-- Action Buttons -->
@@ -150,7 +174,7 @@ const handleGiveTreat = () => {
                 <!-- Give Treat Button (Only for other users' photos) -->
                 <!-- Use currentUser to check auth status -->
                 <button
-                  v-if="!isOwnProfile && currentUser"
+                  v-if="!isOwnProfile"
                   class="treat-btn-mini group flex flex-col items-center"
                   :disabled="isSendingTreat"
                   @click="handleGiveTreat"
@@ -160,7 +184,7 @@ const handleGiveTreat = () => {
                   >
                     <img
                       src="/give-treat.png"
-                      alt="Give Treat"
+                      :alt="t('profile.giveTreat')"
                       class="w-full h-full object-contain filter drop-shadow-sm"
                     />
                     <div
@@ -178,7 +202,7 @@ const handleGiveTreat = () => {
                 <button
                   v-if="isOwnProfile"
                   class="p-2 text-stone-400 hover:text-brown transition-colors rounded-full hover:bg-stone-50 cursor-pointer"
-                  title="Edit Details"
+                  :title="t('profile.editDetails')"
                   @click="$emit('edit', image)"
                 >
                   <svg
@@ -201,7 +225,7 @@ const handleGiveTreat = () => {
                 <button
                   v-if="isOwnProfile"
                   class="p-2 text-stone-400 hover:text-red-500 transition-colors rounded-full hover:bg-red-50 cursor-pointer"
-                  title="Delete Photo"
+                  :title="t('profile.deletePhoto')"
                   @click="$emit('delete', image)"
                 >
                   <svg
@@ -219,11 +243,43 @@ const handleGiveTreat = () => {
                     />
                   </svg>
                 </button>
+
+                <!-- Report Button (Visible for non-owners) -->
+                <button
+                  v-if="!isOwnProfile"
+                  class="p-2 text-stone-400 hover:text-red-500 transition-colors rounded-full hover:bg-red-50 cursor-pointer"
+                  :title="t('profile.reportPhoto')"
+                  @click="handleReportClick"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"
+                    />
+                    <line x1="4" y1="22" x2="4" y2="15" />
+                  </svg>
+                </button>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </BaseCard>
+
+      <!-- Report Modal -->
+      <ReportModal
+        v-if="image"
+        :is-open="isReportOpen"
+        :photo-id="image.id"
+        @close="isReportOpen = false"
+      />
     </div>
   </Transition>
 </template>

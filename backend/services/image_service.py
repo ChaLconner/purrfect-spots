@@ -27,7 +27,7 @@ class ImageService:
         final_url = url
         if config.CDN_BASE_URL and s3_domain in url:
             final_url = url.replace(f"https://{s3_domain}", config.CDN_BASE_URL)
-        
+
         # 2. Resizing and Compression
         # Supabase Storage Native Transformation
         if "supabase.co/storage/v1/object/public" in final_url:
@@ -39,14 +39,17 @@ class ImageService:
         # Only proxy if a specific width is requested and enabled in config
         if width and config.ENABLE_IMAGE_PROXY:
             from urllib.parse import quote
+
             encoded_url = quote(final_url)
             return f"https://wsrv.nl/?url={encoded_url}&w={width}&q=80&output=webp"
 
         return final_url
 
     @classmethod
-    def process_photos(cls, photos: list[dict[str, Any]], width: int = 500) -> list[dict[str, Any]]:
+    def process_photos(cls, photos: list[dict[str, Any]] | None, width: int = 500) -> list[dict[str, Any]]:
         """Process a list of photos with optimizations"""
+        if not photos:
+            return []
         for photo in photos:
             if "image_url" in photo:
                 photo["image_url"] = cls.optimize_image_url(photo["image_url"], width)

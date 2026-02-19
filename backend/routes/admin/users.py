@@ -1,0 +1,379 @@
+import re
+from typing import Any, List, Optional
+from datetime import datetime
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+
+from dependencies import (
+    get_async_supabase_admin_client,
+    get_email_service,
+)
+from logger import logger
+from schemas.admin_schemas import RoleUpdateAdmin, UserUpdateAdmin, UserBan
+from services.email_service import EmailService
+from middleware.auth_middleware import require_permission
+from user_models.user import User
+from limiter import limiter
+
+router = APIRouter()
+
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+
+
+def _validate_uuid(value: str, label: str = "ID") -> None:
+    """Raise HTTP 400 if *value* is not a valid UUID."""
+    if not _UUID_RE.match(value):
+        raise HTTPException(status_code=400, detail=f"Invalid {label} format: expected UUID")
+
+
+@router.get("/users", response_model=dict[str, Any])
+@limiter.limit("60/minute")
+async def list_users(
+    request: Request,
+    limit: int = 20,
+    offset: int = 0,
+    search: Optional[str] = None,
+    sort_by: str = "created_at",
+    order: str = "desc",
+    current_admin: User = Depends(require_permission("users:read")),
+) -> dict[str, Any]:
+    """
+    List all users with pagination, search, and sorting.
+    Only accessible by admins with users:read permission.
+    """
+    try:
+        admin_client = await get_async_supabase_admin_client()
+        # Join with roles table to get the current role name reliably
+        # NOTE: count="exact" is NOT passed here because the async Supabase client
+        # internally uses a HEAD request for count which is unsupported in this version.
+        # We run a separate lightweight count query below instead.
+        query = (
+            admin_client.table("users")
+            .select("*, roles(name)")
+            .range(offset, offset + limit - 1)
+        )
+
+        # Validate sort_by to prevent injection or errors
+        allowed_sort_fields = ["created_at", "email", "name", "treat_balance", "last_sign_in_at"]
+        if sort_by not in allowed_sort_fields:
+            sort_by = "created_at"
+        
+        # Apply sorting
+        query = query.order(sort_by, desc=(order.lower() == "desc"))
+
+        if search:
+            # Use ilike for case-insensitive search
+            # Optimize: trailing wildcard only would be faster if indexed properly, but user expects full search
+            # For strict performance, we'd use Full Text Search, but this is a quick win.
+            query = query.or_(f"email.ilike.%{search}%,name.ilike.%{search}%")
+
+        result = await query.execute()
+
+        # Map the results to ensure 'role' field contains the role name from the join
+        processed_data = []
+        for user in result.data:
+            user_copy = user.copy()
+            roles_data = user_copy.pop("roles", None)
+            if roles_data and isinstance(roles_data, dict):
+                user_copy["role"] = roles_data.get("name", user_copy.get("role", "user"))
+            elif not user_copy.get("role"):
+                user_copy["role"] = "user"
+            processed_data.append(user_copy)
+
+        # Get total count via a separate lightweight query
+        # (count="exact" on a select("id") does NOT trigger the broken HEAD path)
+        try:
+            count_query = admin_client.table("users").select("id", count="exact")
+            if search:
+                count_query = count_query.or_(f"email.ilike.%{search}%,name.ilike.%{search}%")
+            count_result = await count_query.execute()
+            total_count = count_result.count or len(processed_data)
+        except Exception as count_err:
+            logger.warning(f"Count query failed, using data length: {count_err}")
+            total_count = len(processed_data)
+
+        return {
+            "data": processed_data,
+            "total": total_count
+        }
+    except Exception as e:
+        logger.error(f"Failed to list users: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch users")
+
+
+@router.delete("/users/{user_id}")
+@limiter.limit("10/minute")
+async def delete_user(
+    request: Request,
+    user_id: str,
+    background_tasks: BackgroundTasks,
+    current_admin: User = Depends(require_permission("users:delete")),
+    email_service: EmailService = Depends(get_email_service),
+) -> dict[str, str]:
+    """
+    Permanently delete a user and their data.
+    """
+    _validate_uuid(user_id, "user_id")
+    try:
+        admin_client = await get_async_supabase_admin_client()
+
+        # Check if user exists and get role
+        check = await admin_client.table("users").select("email, roles(name)").eq("id", user_id).single().execute()
+        if not check.data:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        user_data = check.data
+        # Get role name safely
+        role_info = user_data.get("roles")
+        role_name = (role_info.get("name") if role_info else "user").lower()
+        
+        if role_name == "admin" or role_name == "super_admin":
+             # Prevent deleting other admins via API
+            raise HTTPException(status_code=400, detail="Cannot delete an admin user")
+
+        # Send email before deletion
+        if user_data.get("email"):
+            background_tasks.add_task(
+                email_service.send_account_deletion_notification,
+                to_email=user_data["email"],
+                reason="Administrative Action",
+            )
+
+        await admin_client.auth.admin.delete_user(user_id)
+
+        # Log action
+        await admin_client.table("audit_logs").insert(
+            {
+                "user_id": current_admin.id,
+                "action": "DELETE_USER",
+                "resource": "users",
+                "changes": {"target_user_id": user_id, "email": user_data.get("email")},
+                "ip_address": request.client.host if request.client else "unknown",
+                "user_agent": request.headers.get("user-agent", "unknown"),
+            }
+        ).execute()
+
+        return {"message": f"User {user_id} deleted successfully"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete user {user_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete user: {e}")
+
+
+@router.patch("/users/{user_id}/profile", response_model=dict[str, Any])
+@limiter.limit("20/minute")
+async def update_user_profile_admin(
+    request: Request,
+    user_id: str,
+    update_data: UserUpdateAdmin, 
+    current_admin: User = Depends(require_permission("users:write"))
+) -> dict[str, Any]:
+    """
+    Update a user's profile as an admin.
+    """
+    _validate_uuid(user_id, "user_id")
+    try:
+        admin_client = await get_async_supabase_admin_client()
+
+        filtered_data = update_data.model_dump(exclude_unset=True)
+
+        if not filtered_data:
+            raise HTTPException(status_code=400, detail="No valid fields provided for update")
+
+        result = await admin_client.table("users").update(filtered_data).eq("id", user_id).execute()
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        return cast(dict[str, Any], result.data[0])
+    except Exception as e:
+        logger.error(f"Failed to update user profile {user_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update user profile")
+
+
+@router.get("/roles")
+@limiter.limit("60/minute")
+async def list_roles(
+    request: Request,
+    current_admin: User = Depends(require_permission("roles:read"))
+) -> List[dict[str, Any]]:
+    """
+    List all available roles.
+    """
+    try:
+        admin_client = await get_async_supabase_admin_client()
+        result = await admin_client.table("roles").select("*").order("name").execute()
+        return result.data
+    except Exception as e:
+        logger.error(f"Failed to list roles: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch roles")
+
+
+@router.put("/users/{user_id}/role")
+@limiter.limit("20/minute")
+async def update_user_role(
+    request: Request,
+    user_id: str,
+    role_data: RoleUpdateAdmin,
+    current_admin: User = Depends(require_permission("users:update")),
+) -> dict[str, Any]:
+    """
+    Update a user's role.
+    """
+    _validate_uuid(user_id, "user_id")
+    role_id = role_data.role_id
+    if not role_id:
+        raise HTTPException(status_code=400, detail="role_id is required")
+    _validate_uuid(role_id, "role_id")
+
+    try:
+        admin_client = await get_async_supabase_admin_client()
+
+        # Verify role exists
+        role_check = await admin_client.table("roles").select("name").eq("id", role_id).single().execute()
+        if not role_check.data:
+            raise HTTPException(status_code=404, detail="Role not found")
+
+        role_name = role_check.data.get("name")
+
+        # Update role_id
+        result = (
+            await admin_client.table("users")
+            .update({"role_id": role_id})
+            .eq("id", user_id)
+            .execute()
+        )
+
+        if not result.data:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Log action
+        await admin_client.table("audit_logs").insert(
+            {
+                "user_id": current_admin.id,
+                "action": "UPDATE_ROLE",
+                "resource": "users",
+                "changes": {"target_user_id": user_id, "new_role": role_name, "new_role_id": role_id},
+                "ip_address": request.client.host if request.client else "unknown",
+                "user_agent": request.headers.get("user-agent", "unknown"),
+            }
+        ).execute()
+
+        return cast(dict[str, Any], result.data[0])
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update user role {user_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update user role: {e}")
+
+
+@router.post("/users/{user_id}/ban")
+@limiter.limit("5/minute")
+async def ban_user(
+    request: Request,
+    user_id: str,
+    ban_data: UserBan,
+    background_tasks: BackgroundTasks,
+    current_admin: User = Depends(require_permission("users:update")),
+    email_service: EmailService = Depends(get_email_service),
+) -> dict[str, str]:
+    """
+    Ban a user.
+    """
+    _validate_uuid(user_id, "user_id")
+
+    try:
+        admin_client = await get_async_supabase_admin_client()
+
+        # Check user exists & not admin
+        check = await admin_client.table("users").select("email, roles(name)").eq("id", user_id).single().execute()
+        if not check.data:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        user_data = check.data
+        role_info = user_data.get("roles")
+        role_name = (role_info.get("name") if role_info else "user").lower()
+        
+        if role_name in ("admin", "super_admin"):
+             raise HTTPException(status_code=400, detail="Cannot ban an admin user")
+
+        # Update banned_at
+        await admin_client.table("users").update({"banned_at": datetime.now().isoformat()}).eq("id", user_id).execute()
+
+        # Send email
+        if user_data.get("email"):
+             background_tasks.add_task(
+                email_service.send_ban_notification,
+                to_email=user_data["email"],
+                reason=ban_data.reason
+            )
+        
+        # Log Audit
+        await admin_client.table("audit_logs").insert({
+            "user_id": current_admin.id,
+            "action": "BAN_USER",
+            "resource": "users",
+            "changes": {"target_user_id": user_id, "reason": ban_data.reason},
+            "ip_address": request.client.host if request.client else "unknown",
+            "user_agent": request.headers.get("user-agent", "unknown"),
+        }).execute()
+        
+        return {"message": f"User {user_id} banned successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to ban user: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to ban user: {str(e)}")
+
+
+@router.post("/users/{user_id}/unban")
+@limiter.limit("5/minute")
+async def unban_user(
+    request: Request,
+    user_id: str,
+    background_tasks: BackgroundTasks,
+    current_admin: User = Depends(require_permission("users:update")),
+    email_service: EmailService = Depends(get_email_service),
+) -> dict[str, str]:
+    """
+    Unban a user.
+    """
+    _validate_uuid(user_id, "user_id")
+
+    try:
+        admin_client = await get_async_supabase_admin_client()
+
+        # Check user exists
+        check = await admin_client.table("users").select("email").eq("id", user_id).single().execute()
+        if not check.data:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        user_data = check.data
+
+        # Update banned_at to NULL
+        await admin_client.table("users").update({"banned_at": None}).eq("id", user_id).execute()
+
+        # Log Audit
+        await admin_client.table("audit_logs").insert({
+            "user_id": current_admin.id,
+            "action": "UNBAN_USER",
+            "resource": "users",
+            "changes": {"target_user_id": user_id},
+            "ip_address": request.client.host if request.client else "unknown",
+            "user_agent": request.headers.get("user-agent", "unknown"),
+        }).execute()
+        
+        # Optional: Send email notification for unban? (Not implemented in EmailService currently, skipping)
+
+        return {"message": f"User {user_id} unbanned successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to unban user: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to unban user: {str(e)}")

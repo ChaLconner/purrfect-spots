@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
+
 /**
  * ProfileHeader Component
  *
@@ -21,10 +23,12 @@ defineEmits<{
   (e: 'imageError', event: Event): void;
 }>();
 
-const formatJoinDate = (dateString: string | undefined) => {
-  if (!dateString) return 'Unknown';
+const { t, locale } = useI18n();
+
+const formatJoinDate = (dateString?: string) => {
+  if (!dateString) return t('common.unknown');
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+  return date.toLocaleDateString(locale.value, { year: 'numeric', month: 'long' });
 };
 </script>
 
@@ -48,15 +52,15 @@ const formatJoinDate = (dateString: string | undefined) => {
         ></div>
         <img
           :src="picture || '/default-avatar.svg'"
-          :alt="name || 'User'"
+          :alt="name || t('profile.unknownUser')"
           class="w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-40 lg:h-40 rounded-full object-cover border-4 border-white shadow-md relative z-10"
           @error="$emit('imageError', $event)"
         />
         <button
           v-if="isOwnProfile"
           class="absolute bottom-2 right-2 p-1.5 sm:p-2 bg-white text-terracotta rounded-full shadow-lg hover:bg-terracotta hover:text-white transition-all transform hover:scale-110 z-20 cursor-pointer"
-          title="Edit Profile"
-          aria-label="Edit profile"
+          :title="t('common.edit')"
+          :aria-label="t('common.edit')"
           @click="$emit('edit')"
         >
           <svg
@@ -76,7 +80,7 @@ const formatJoinDate = (dateString: string | undefined) => {
       <!-- Profile Info -->
       <div class="flex-1 text-center md:text-left">
         <h1 class="text-2xl sm:text-3xl md:text-4xl font-heading font-bold text-brown mb-1">
-          {{ name || 'Unknown User' }}
+          {{ name || t('profile.unknownUser') }}
         </h1>
         <p
           v-if="username"
@@ -88,7 +92,7 @@ const formatJoinDate = (dateString: string | undefined) => {
         <p
           class="text-brown-light text-base sm:text-lg mb-3 sm:mb-4 max-w-xl font-body leading-relaxed"
         >
-          {{ bio || 'Just a cat wandering through the world...' }}
+          {{ bio || t('profile.defaultBio') }}
         </p>
 
         <div
@@ -102,7 +106,7 @@ const formatJoinDate = (dateString: string | undefined) => {
             <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
               <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
             </svg>
-            PRO
+            {{ t('common.pro') }}
           </div>
 
           <!-- Join Date -->
@@ -123,7 +127,7 @@ const formatJoinDate = (dateString: string | undefined) => {
                 d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
               />
             </svg>
-            Joined {{ formatJoinDate(createdAt) }}
+            {{ t('profile.joined') }} {{ formatJoinDate(createdAt) }}
           </span>
 
           <!-- Uploads Count -->
@@ -144,7 +148,7 @@ const formatJoinDate = (dateString: string | undefined) => {
                 d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
               />
             </svg>
-            {{ uploadsCount }} Uploads
+            {{ uploadsCount }} {{ t('profile.uploads') }}
           </span>
 
           <!-- Treats Count -->
@@ -158,7 +162,7 @@ const formatJoinDate = (dateString: string | undefined) => {
               aria-hidden="true"
               loading="lazy"
             />
-            <span class="mr-1.5">Treats:</span>
+            <span class="mr-1.5">{{ t('profile.treats') }}</span>
             {{ treatBalance || 0 }}
           </span>
         </div>
@@ -170,13 +174,13 @@ const formatJoinDate = (dateString: string | undefined) => {
             to="/subscription"
             class="text-xs bg-terracotta/10 text-terracotta hover:bg-terracotta hover:text-white px-3 py-1 rounded-lg transition-all font-bold border border-terracotta/20"
           >
-            Upgrade to Pro
+            {{ t('profile.upgradeToPro') }}
           </router-link>
           <router-link
             to="/leaderboard"
             class="text-xs bg-sage/10 text-sage-dark hover:bg-sage hover:text-white px-3 py-1 rounded-lg transition-all font-bold border border-sage/20"
           >
-            Leaderboard
+            {{ t('common.leaderboard') }}
           </router-link>
 
           <!-- Logout Button (Mobile/Tablet only) -->
@@ -185,7 +189,7 @@ const formatJoinDate = (dateString: string | undefined) => {
             class="text-xs bg-red-50 text-red-600 hover:bg-red-600 hover:text-white px-3 py-1 rounded-lg transition-all font-bold border border-red-200 lg:hidden"
             @click="$emit('logout')"
           >
-            Logout
+            {{ t('auth.logout') }}
           </button>
         </div>
       </div>

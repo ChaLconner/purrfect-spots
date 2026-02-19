@@ -7,8 +7,10 @@ from pydantic import BaseModel, Field
 class CommentCreate(BaseModel):
     content: str = Field(..., min_length=1, max_length=500)
 
+
 class CommentUpdate(BaseModel):
     content: str = Field(..., min_length=1, max_length=500)
+
 
 class CommentResponse(BaseModel):
     id: str
@@ -19,6 +21,7 @@ class CommentResponse(BaseModel):
     updated_at: Optional[datetime] = None
     user_name: Optional[str] = None
     user_picture: Optional[str] = None
+
 
 class LikeResponse(BaseModel):
     liked: bool

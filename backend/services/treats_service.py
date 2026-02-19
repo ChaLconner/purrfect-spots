@@ -1,10 +1,10 @@
 import os
 import time
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import stripe
 from starlette.concurrency import run_in_threadpool
-from supabase import Client
+from supabase import AClient
 
 from logger import logger
 from schemas.notification import NotificationType
@@ -20,7 +20,7 @@ _PACKAGES_CACHE_TTL = 300  # 5 minutes
 
 
 class TreatsService:
-    def __init__(self, supabase_client: Client) -> None:
+    def __init__(self, supabase_client: AClient) -> None:
         self.supabase = supabase_client
         self.notification_service = NotificationService(supabase_client)
 
@@ -30,45 +30,35 @@ class TreatsService:
         self, from_user_id: str, photo_id: str, amount: int, jwt_token: str | None = None
     ) -> Dict[str, Any]:
         """Give treats to a photo owner (fully atomic via DB RPC)."""
-        from utils.async_client import async_supabase
         try:
-            # Atomic transaction via RPC handles:
-            # 1. Photo existence check
-            # 2. Self-treat prevention
-            # 3. Balance check + row-level lock
-            # 4. Balance transfer (sender → receiver)
-            # 5. Stats update (total_treats_given/received)
-            # 6. Transaction log
-            # Use async_supabase with token for RLS
-            res = await async_supabase.rpc(
+            from utils.supabase_client import get_async_supabase_admin_client
+            
+            # Use admin client to bypass RLS/JWT issues
+            admin_client = await get_async_supabase_admin_client()
+            
+            res = await admin_client.rpc(
                 "give_treat_atomic",
                 {
                     "p_from_user_id": from_user_id,
                     "p_photo_id": photo_id,
                     "p_amount": amount,
-                },
-                jwt_token=jwt_token
-            )
+                }
+            ).execute()
 
-            # async_supabase.rpc returns List[Dict]
-            if not res or len(res) == 0:
-                 raise ValueError("Unknown error (no response from RPC)")
+            if not res.data or len(res.data) == 0:
+                raise ValueError("Unknown error (no response from RPC)")
 
-            result = res[0]
+            result = res.data[0]
             if not result.get("success"):
                 raise ValueError(result.get("error", "Unknown error"))
 
             # Fire-and-forget notification (don't fail the transaction)
             to_user_id = result.get("to_user_id")
             if to_user_id:
-                await self._send_treat_notification(
-                    from_user_id, to_user_id, photo_id, amount
-                )
+                await self._send_treat_notification(from_user_id, to_user_id, photo_id, amount)
             else:
                 # Fallback: query photo owner (only if RPC didn't return it)
-                await self._send_treat_notification_fallback(
-                    from_user_id, photo_id, amount
-                )
+                await self._send_treat_notification_fallback(from_user_id, photo_id, amount)
 
             return {
                 "success": True,
@@ -82,49 +72,41 @@ class TreatsService:
             logger.error("Give treat failed: %s", e, exc_info=True)
             raise
 
-    async def _send_treat_notification(
-        self, from_user_id: str, to_user_id: str, photo_id: str, amount: int
-    ) -> None:
+    async def _send_treat_notification(self, from_user_id: str, to_user_id: str, photo_id: str, amount: int) -> None:
         """Send notification when treats are given."""
         try:
-            actor_res = await run_in_threadpool(
-                lambda: self.supabase.table("users")
-                .select("name")
-                .eq("id", from_user_id)
-                .single()
+            actor_res = await self.supabase.table("users") \
+                .select("name") \
+                .eq("id", from_user_id) \
+                .single() \
                 .execute()
-            )
+            
             actor_name = actor_res.data.get("name") if actor_res.data else "Someone"
 
             await self.notification_service.create_notification(
                 user_id=to_user_id,
                 actor_id=from_user_id,
                 type=NotificationType.TREAT.value,
-                title="Treats Received!",
-                message=f"{actor_name} sent you {amount} treat(s)!",
+                title="Treat Received!",
+                message=f"{actor_name} sent you {amount} treats!",
                 resource_id=photo_id,
                 resource_type="photo",
             )
         except Exception as e:
             logger.error("Failed to send treat notification: %s", e)
 
-    async def _send_treat_notification_fallback(
-        self, from_user_id: str, photo_id: str, amount: int
-    ) -> None:
+    async def _send_treat_notification_fallback(self, from_user_id: str, photo_id: str, amount: int) -> None:
         """Fallback notification path when to_user_id not returned by RPC."""
         try:
-            photo_res = await run_in_threadpool(
-                lambda: self.supabase.table("cat_photos")
-                .select("user_id")
-                .eq("id", photo_id)
-                .single()
+            photo_res = await self.supabase.table("cat_photos") \
+                .select("user_id") \
+                .eq("id", photo_id) \
+                .single() \
                 .execute()
-            )
+                
             if photo_res.data:
                 to_user_id = photo_res.data["user_id"]
-                await self._send_treat_notification(
-                    from_user_id, to_user_id, photo_id, amount
-                )
+                await self._send_treat_notification(from_user_id, to_user_id, photo_id, amount)
         except Exception as e:
             logger.error("Failed to send treat notification (fallback): %s", e)
 
@@ -153,9 +135,7 @@ class TreatsService:
                     "type": "treat_purchase",
                     "package": package,
                 },
-                "payment_intent_data": {
-                    "metadata": {"user_id": user_id, "package": package}
-                },
+                "payment_intent_data": {"metadata": {"user_id": user_id, "package": package}},
             }
 
             # Associate with existing Stripe customer for unified history
@@ -163,22 +143,17 @@ class TreatsService:
                 session_params["customer"] = stripe_customer_id
             else:
                 # Try to find existing customer
-                user_res = await run_in_threadpool(
-                    lambda: self.supabase.table("users")
-                    .select("stripe_customer_id")
-                    .eq("id", user_id)
-                    .single()
+                user_res = await self.supabase.table("users") \
+                    .select("stripe_customer_id") \
+                    .eq("id", user_id) \
+                    .maybe_single() \
                     .execute()
-                )
-                db_customer_id = (
-                    user_res.data.get("stripe_customer_id") if user_res.data else None
-                )
+                    
+                db_customer_id = user_res.data.get("stripe_customer_id") if user_res.data else None
                 if db_customer_id:
                     session_params["customer"] = db_customer_id
 
-            checkout_session = await run_in_threadpool(
-                lambda: stripe.checkout.Session.create(**session_params)
-            )
+            checkout_session = await run_in_threadpool(lambda: stripe.checkout.Session.create(**session_params))
             return {
                 "checkout_url": checkout_session.url or "",
                 "session_id": checkout_session.id,
@@ -190,27 +165,24 @@ class TreatsService:
     # ── Balance & Transactions ───────────────────────────────────────
 
     async def get_balance(self, user_id: str) -> Dict[str, Any]:
-        user_res = await run_in_threadpool(
-            lambda: self.supabase.table("users")
-            .select("treat_balance")
-            .eq("id", user_id)
-            .single()
+        user_res = await self.supabase.table("users") \
+            .select("treat_balance") \
+            .eq("id", user_id) \
+            .single() \
             .execute()
-        )
+            
         balance = user_res.data["treat_balance"] if user_res.data else 0
 
-        trans_res = await run_in_threadpool(
-            lambda: self.supabase.table("treats_transactions")
-            .select("*")
-            .or_(f"from_user_id.eq.{user_id},to_user_id.eq.{user_id}")
-            .order("created_at", desc=True)
-            .limit(10)
+        trans_res = await self.supabase.table("treats_transactions") \
+            .select("*") \
+            .or_(f"from_user_id.eq.{user_id},to_user_id.eq.{user_id}") \
+            .order("created_at", desc=True) \
+            .limit(10) \
             .execute()
-        )
 
         return {
             "balance": balance,
-            "recent_transactions": trans_res.data,
+            "recent_transactions": trans_res.data or [],
         }
 
     # ── Leaderboard ──────────────────────────────────────────────────
@@ -219,10 +191,8 @@ class TreatsService:
     async def get_leaderboard(self, period: str = "all_time") -> List[Dict[str, Any]]:
         """Top treat receivers (Most Spoiled Cats owners)."""
         try:
-            res = await run_in_threadpool(
-                lambda: self.supabase.rpc("get_leaderboard", {"p_period": period}).execute()
-            )
-            data: List[Dict[str, Any]] = res.data
+            res = await self.supabase.rpc("get_leaderboard", {"p_period": period}).execute()
+            data: List[Dict[str, Any]] = res.data or []
             return data
         except Exception as e:
             logger.error(f"Failed to fetch leaderboard: {e}")
@@ -232,14 +202,12 @@ class TreatsService:
             return []
 
     async def _get_leaderboard_fallback(self) -> List[Dict[str, Any]]:
-        res = await run_in_threadpool(
-            lambda: self.supabase.table("users")
-            .select("id, name, username, picture, total_treats_received")
-            .order("total_treats_received", desc=True)
-            .limit(10)
+        res = await self.supabase.table("users") \
+            .select("id, name, username, picture, total_treats_received") \
+            .order("total_treats_received", desc=True) \
+            .limit(10) \
             .execute()
-        )
-        return res.data
+        return res.data or []
 
     # ── Packages (cached) ────────────────────────────────────────────
 
@@ -252,22 +220,15 @@ class TreatsService:
             return _packages_cache
 
         try:
-            res = await run_in_threadpool(
-                lambda: self.supabase.table("treat_packages")
-                .select("*")
-                .eq("is_active", True)
-                .execute()
-            )
+            res = await self.supabase.table("treat_packages").select("*").eq("is_active", True).execute()
             packages: Dict[str, Dict[str, Any]] = {}
-            for row in res.data:
+            for row in res.data or []:
                 packages[row["id"]] = {
                     "amount": row["amount"],
                     "price": float(row["price"]),
                     "name": row["name"],
                     "bonus": row["bonus"],
-                    "price_per_treat": (
-                        float(row["price_per_treat"]) if row["price_per_treat"] else None
-                    ),
+                    "price_per_treat": (float(row["price_per_treat"]) if row["price_per_treat"] else None),
                     "price_id": row["price_id"],
                 }
 
@@ -291,25 +252,20 @@ class TreatsService:
 
         # Direct DB fallback (in case cache is stale)
         try:
-            res = await run_in_threadpool(
-                lambda: self.supabase.table("treat_packages")
-                .select("*")
-                .eq("id", package_id)
-                .eq("is_active", True)
-                .single()
+            res = await self.supabase.table("treat_packages") \
+                .select("*") \
+                .eq("id", package_id) \
+                .eq("is_active", True) \
+                .maybe_single() \
                 .execute()
-            )
+                
             if res.data:
                 return {
                     "amount": res.data["amount"],
                     "price": float(res.data["price"]),
                     "name": res.data["name"],
                     "bonus": res.data["bonus"],
-                    "price_per_treat": (
-                        float(res.data["price_per_treat"])
-                        if res.data["price_per_treat"]
-                        else None
-                    ),
+                    "price_per_treat": (float(res.data["price_per_treat"]) if res.data["price_per_treat"] else None),
                     "price_id": res.data["price_id"],
                 }
             return None
@@ -336,8 +292,8 @@ class TreatsService:
         # Determine treat amount
         package = await self.get_package_by_id(package_id)
         if not package:
-             logger.error("Fulfillment failed: package %s not found", package_id)
-             return
+            logger.error("Fulfillment failed: package %s not found", package_id)
+            return
 
         amount = package.get("amount", 0)
 
@@ -347,26 +303,22 @@ class TreatsService:
 
         try:
             # Add treats ATOMICALLY (idempotent via stripe_session_id)
-            res = await run_in_threadpool(
-                lambda: self.supabase.rpc(
-                    "purchase_treats_atomic",
-                    {
-                        "p_user_id": user_id,
-                        "p_amount": amount,
-                        "p_description": f"Purchased {package['name']} pack",
-                        "p_stripe_session_id": session_id,
-                    },
-                ).execute()
-            )
+            res = await self.supabase.rpc(
+                "purchase_treats_atomic",
+                {
+                    "p_user_id": user_id,
+                    "p_amount": amount,
+                    "p_description": f"Purchased {package['name']} pack",
+                    "p_stripe_session_id": session_id,
+                },
+            ).execute()
 
             result = res.data or {}
 
             if result.get("error"):
                 logger.error("Failed to process purchase: %s", result.get("error"))
             elif result.get("duplicate"):
-                logger.info(
-                    "Duplicate webhook processed for session %s", session_id
-                )
+                logger.info("Duplicate webhook processed for session %s", session_id)
             else:
                 logger.info(
                     "Added %d treats to user %s. New balance: %s",

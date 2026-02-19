@@ -4,10 +4,10 @@
     <div class="max-w-4xl mx-auto relative z-10">
       <div class="text-center mb-12">
         <h1 class="text-4xl md:text-5xl font-heading font-black text-brown mb-4 drop-shadow-sm">
-          Cat Leaderboard
+          {{ $t('leaderboardPage.title') }}
         </h1>
         <p class="text-xl text-brown-light font-body max-w-2xl mx-auto">
-          The most spoiled cats! Give treats to your favorites to help them climb the ranks.
+          {{ $t('leaderboardPage.subtitle') }}
         </p>
       </div>
 
@@ -38,12 +38,12 @@
       >
         <!-- Loading State -->
         <div v-if="loading" class="p-12 flex justify-center">
-          <GhibliLoader text="Calculating treations..." />
+          <GhibliLoader :text="$t('leaderboardPage.loading')" />
         </div>
 
         <!-- Empty State -->
         <div v-else-if="users.length === 0" class="p-12 text-center text-stone-500">
-          No treats given yet in this period. Be the first to spread some joy.
+          {{ $t('leaderboardPage.empty') }}
         </div>
 
         <!-- List -->
@@ -61,7 +61,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { TreatsService } from '../services/treatsService';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 import GhibliLoader from '@/components/ui/GhibliLoader.vue';
@@ -72,15 +73,16 @@ import LeaderboardItem, {
 import { showError } from '@/store/toast';
 
 const { setMetaTags } = useSeo();
+const { t } = useI18n();
 const loading = ref(true);
 const users = ref<LeaderboardUser[]>([]);
 const period = ref<'weekly' | 'monthly' | 'all_time'>('all_time');
 
-const periods = [
-  { label: 'This Week', value: 'weekly' },
-  { label: 'This Month', value: 'monthly' },
-  { label: 'All Time', value: 'all_time' },
-];
+const periods = computed(() => [
+  { label: t('leaderboardPage.periods.weekly'), value: 'weekly' },
+  { label: t('leaderboardPage.periods.monthly'), value: 'monthly' },
+  { label: t('leaderboardPage.periods.allTime'), value: 'all_time' },
+]);
 
 const fetchLeaderboard = async () => {
   loading.value = true;
@@ -90,7 +92,7 @@ const fetchLeaderboard = async () => {
     users.value = data as LeaderboardUser[];
   } catch (e: unknown) {
     console.error('Failed to load leaderboard:', e);
-    showError('Failed to load leaderboard data.');
+    showError(t('leaderboardPage.errorLoad'));
   } finally {
     loading.value = false;
   }
@@ -102,8 +104,8 @@ watch(period, () => {
 
 onMounted(async () => {
   setMetaTags({
-    title: 'Leaderboard | Purrfect Spots',
-    description: 'See the most spoiled cats and top contributors in the Purrfect Spots community.',
+    title: t('leaderboardPage.meta.title') + ' | Purrfect Spots',
+    description: t('leaderboardPage.meta.description'),
   });
 
   await fetchLeaderboard();

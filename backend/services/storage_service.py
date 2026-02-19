@@ -1,3 +1,4 @@
+import asyncio
 import os
 import uuid
 
@@ -31,7 +32,7 @@ class StorageService:
             ),
         )
 
-    def upload_file(
+    async def upload_file(
         self,
         file_content: bytes,
         content_type: str,
@@ -39,9 +40,27 @@ class StorageService:
         folder: str = "upload",
     ) -> str:
         """
-        Uploads a file to S3 and returns the public URL.
-        Enhanced with security headers and content disposition.
+        Uploads a file to S3 and returns the public URL (Async).
+        Offloads blocking S3 I/O to a thread pool.
         """
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            None,
+            self._upload_file_sync,
+            file_content,
+            content_type,
+            file_extension,
+            folder,
+        )
+
+    def _upload_file_sync(
+        self,
+        file_content: bytes,
+        content_type: str,
+        file_extension: str,
+        folder: str,
+    ) -> str:
+        """Internal synchronous upload method"""
         unique_filename = f"{uuid.uuid4()}.{file_extension}"
         key = f"{folder}/{unique_filename}"
 
@@ -54,9 +73,7 @@ class StorageService:
                 # SECURITY: Enhanced security headers for S3 uploads
                 CacheControl="public, max-age=31536000",  # 1 year cache
                 ContentDisposition="inline",  # Prevent download prompts
-                # SECURITY: Additional security headers
-                Server="Purrfect-Spots-API",  # Server header
-                # SECURITY: Prevent MIME sniffing
+                # SECURITY: Prevent MIME sniffing and other attacks via metadata
                 Metadata={
                     "x-content-type-options": "nosniff",
                     "x-xss-protection": "1; mode=block",
@@ -66,7 +83,6 @@ class StorageService:
             )
 
             # Create S3 public URL
-            # Generate public URL (S3 or CDN)
             from config import config
 
             if config.CDN_BASE_URL:
@@ -81,26 +97,25 @@ class StorageService:
 
             if isinstance(e, ClientError):
                 logger.error(f"S3 ClientError: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to upload image to S3: {e!s}")
+            else:
+                logger.error(f"S3 upload error: {e}")
+            raise HTTPException(status_code=500, detail="Failed to upload image. Please try again later.")
 
-    def delete_file(self, file_url: str) -> None:
+    async def delete_file(self, file_url: str) -> None:
         """
-        Deletes a file from S3 (optional, for cleanup)
+        Deletes a file from S3 (Async).
+        Offloads blocking S3 I/O to a thread pool.
+        """
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, self._delete_file_sync, file_url)
 
-        Args:
-            file_url: Full public URL of the file
-        """
+    def _delete_file_sync(self, file_url: str) -> None:
+        """Internal synchronous delete method"""
         try:
             # Extract key from URL
-            # Expected format: https://bucket.s3.region.amazonaws.com/folder/filename
-            # or CDN URL
-
-            # Simple heuristic: Split by / and take the last two parts (folder/filename)
-            # This is fragile if URL structure changes, but works for current implementation
             parts = file_url.split("/")
             if len(parts) >= 2:
                 key = f"{parts[-2]}/{parts[-1]}"
-
                 self.s3_client.delete_object(Bucket=self.aws_bucket, Key=key)
 
         except Exception as e:

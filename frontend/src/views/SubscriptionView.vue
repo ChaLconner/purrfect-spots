@@ -8,10 +8,10 @@
       <!-- Header Section -->
       <div class="text-center mb-16">
         <h1 class="text-5xl font-heading font-extrabold text-brown mb-4 tracking-tight">
-          Support the <span class="text-terracotta">Purrfect</span> Community
+          {{ $t('subscription.title') }}
         </h1>
         <p class="text-xl text-brown-light max-w-2xl mx-auto font-body">
-          Choose a way to support our furry friends and unlock exclusive features.
+          {{ $t('subscription.subtitle') }}
         </p>
       </div>
 
@@ -21,199 +21,93 @@
           class="text-3xl font-heading font-bold text-brown mb-8 text-center flex items-center justify-center gap-3"
         >
           <span class="h-1 w-12 bg-terracotta/30 rounded-full"></span>
-          Monthly Membership
+          {{ $t('subscription.monthlyMembership') }}
           <span class="h-1 w-12 bg-terracotta/30 rounded-full"></span>
         </h2>
 
         <div class="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           <!-- Free Plan -->
-          <div class="bg-glass rounded-3xl shadow-lg p-8 border border-white/40 flex flex-col">
-            <h3 class="text-2xl font-semibold mb-2 text-brown">Free Spotter</h3>
-            <p class="text-stone-500 mb-6 text-sm">Everything you need to start spotting cats.</p>
-            <ul class="space-y-4 mb-8 text-brown-light flex-grow">
-              <li class="flex items-start">
-                <svg
-                  class="h-5 w-5 text-sage-dark mr-3 mt-0.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                Upload cat photos
-              </li>
-              <li class="flex items-start">
-                <svg
-                  class="h-5 w-5 text-sage-dark mr-3 mt-0.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                View map locations
-              </li>
-              <li class="flex items-start">
-                <svg
-                  class="h-5 w-5 text-sage-dark mr-3 mt-0.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                Basic markers
-              </li>
-            </ul>
-            <div class="text-center pt-6 border-t border-stone-100">
-              <span class="block text-4xl font-extrabold text-brown mb-1">฿0</span>
-              <span class="text-stone-400 text-sm font-medium">Forever Free</span>
-            </div>
-          </div>
+          <PlanCard
+            :title="$t('subscription.freePlan.title')"
+            :subtitle="$t('subscription.freePlan.subtitle')"
+            :price="formatCurrency(0)"
+            :period="$t('subscription.freePlan.period')"
+            :features="freeFeatures"
+          >
+            <template #actions>
+              <div class="text-center pt-6 border-t border-stone-100">
+                <span class="text-stone-400 text-sm font-medium">{{
+                  $t('subscription.freePlan.action')
+                }}</span>
+              </div>
+            </template>
+          </PlanCard>
 
           <!-- Pro Plan -->
-          <div
-            class="bg-white rounded-3xl shadow-2xl p-8 border-2 border-terracotta relative transform hover:scale-[1.02] transition-all duration-300 flex flex-col"
+          <PlanCard
+            :title="$t('subscription.proPlan.title')"
+            :subtitle="$t('subscription.proPlan.subtitle')"
+            :price="formatCurrency(175)"
+            :period="$t('subscription.proPlan.period')"
+            :features="proFeatures"
+            is-premium
+            :badge="$t('subscription.proPlan.badge')"
           >
-            <div
-              class="absolute -top-4 right-8 bg-terracotta text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg tracking-widest uppercase"
-            >
-              Most Popular
-            </div>
-            <h3 class="text-2xl font-bold mb-2 text-terracotta">Purrfect Plus</h3>
-            <p class="text-stone-500 mb-6 text-sm">Professional tools for cat enthusiasts.</p>
-            <ul class="space-y-4 mb-8 text-brown flex-grow">
-              <li class="flex items-start">
-                <svg
-                  class="h-5 w-5 text-terracotta mr-3 mt-0.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+            <template #actions>
+              <div v-if="subscriptionStore.isPro">
+                <div
+                  class="flex items-center justify-center gap-2 text-green-600 font-bold mb-4 bg-green-50 py-2 rounded-xl"
                 >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                Advanced Coat Color Filters
-              </li>
-              <li class="flex items-start">
-                <svg
-                  class="h-5 w-5 text-terracotta mr-3 mt-0.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+                  <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path
+                      fill-rule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                  {{ $t('subscription.proPlan.active') }}
+                </div>
+                <div
+                  v-if="
+                    subscriptionStore.cancelAtPeriodEnd && subscriptionStore.subscriptionEndDate
+                  "
+                  class="text-center mb-4 text-amber-600 font-medium text-sm"
                 >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                "Golden Spots" Access (Verified)
-              </li>
-              <li class="flex items-start">
-                <svg
-                  class="h-5 w-5 text-terracotta mr-3 mt-0.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+                  {{ $t('subscription.proPlan.cancelsOn') }}
+                  {{ new Date(subscriptionStore.subscriptionEndDate).toLocaleDateString() }}
+                </div>
+                <button
+                  class="w-full bg-stone-100 text-stone-500 py-3 rounded-2xl hover:bg-stone-200 transition-colors font-bold text-sm"
+                  @click="handleManageSubscription"
+                  :disabled="isLoading"
                 >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                Ad-Free & Pro Badge
-              </li>
-              <li class="flex items-start">
-                <svg
-                  class="h-5 w-5 text-terracotta mr-3 mt-0.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                Priority Support
-              </li>
-            </ul>
-
-            <div class="text-center pt-6 border-t border-stone-100 mb-8">
-              <span class="block text-4xl font-extrabold text-brown mb-1">฿175</span>
-              <span class="text-stone-400 text-sm font-medium">per month ($4.99)</span>
-            </div>
-
-            <div v-if="subscriptionStore.isPro">
-              <div
-                class="flex items-center justify-center gap-2 text-green-600 font-bold mb-4 bg-green-50 py-2 rounded-xl"
-              >
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path
-                    fill-rule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
-                ACTIVE PLAN
-              </div>
-              <div
-                v-if="subscriptionStore.cancelAtPeriodEnd && subscriptionStore.subscriptionEndDate"
-                class="text-center mb-4 text-amber-600 font-medium text-sm"
-              >
-                Cancels on
-                {{ new Date(subscriptionStore.subscriptionEndDate).toLocaleDateString() }}
+                  {{ $t('subscription.proPlan.manage') }}
+                </button>
               </div>
               <button
-                class="w-full bg-stone-100 text-stone-500 py-3 rounded-2xl hover:bg-stone-200 transition-colors font-bold text-sm"
-                @click="handleManageSubscription"
+                v-else
+                class="w-full bg-terracotta text-white font-bold py-4 rounded-2xl shadow-xl shadow-terracotta/20 hover:bg-terracotta-dark transition-all transform hover:-translate-y-1 block text-center text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                :disabled="isLoading"
+                @click="handleSubscribe"
               >
-                Manage Subscription
+                {{
+                  isLoading
+                    ? $t('subscription.proPlan.processing')
+                    : $t('subscription.proPlan.upgrade')
+                }}
               </button>
-            </div>
-            <button
-              v-else
-              class="w-full bg-terracotta text-white font-bold py-4 rounded-2xl shadow-xl shadow-terracotta/20 hover:bg-terracotta-dark transition-all transform hover:-translate-y-1 block text-center text-lg"
-              :disabled="isLoading"
-              @click="handleSubscribe"
-            >
-              {{ isLoading ? 'Processing...' : 'Upgrade Now' }}
-            </button>
-          </div>
+            </template>
+          </PlanCard>
         </div>
       </div>
 
       <!-- Treat Packages Section -->
       <div>
-        <h2 class="text-3xl font-heading font-bold text-brown mb-4 text-center">Buy Treats</h2>
+        <h2 class="text-3xl font-heading font-bold text-brown mb-4 text-center">
+          {{ $t('subscription.treats.title') }}
+        </h2>
         <p class="text-center text-brown-light mb-12 max-w-xl mx-auto font-body">
-          Show some love to your favorite cats! Treats let you tip creators and earn a spot on the
-          leaderboard.
+          {{ $t('subscription.treats.subtitle') }}
         </p>
 
         <div
@@ -236,7 +130,11 @@
                     : 'bg-terracotta'
               "
             >
-              {{ pkg.key === 'medium' ? 'Best Value' : pkg.bonus + ' FREE!' }}
+              {{
+                pkg.key === 'medium'
+                  ? $t('subscription.treats.bestValue')
+                  : pkg.bonus + ' ' + $t('subscription.treats.free')
+              }}
             </div>
 
             <div
@@ -246,7 +144,10 @@
             </div>
             <h4 class="text-lg font-bold text-brown mb-1">{{ pkg.name }}</h4>
             <p class="text-3xl font-extrabold text-brown mb-1">
-              {{ pkg.amount }} <span class="text-sm font-normal text-stone-400">Treats</span>
+              {{ pkg.amount }}
+              <span class="text-sm font-normal text-stone-400">{{
+                $t('subscription.treats.unit')
+              }}</span>
             </p>
             <p
               v-if="pkg.bonus > 0"
@@ -259,9 +160,11 @@
                     : 'text-terracotta'
               "
             >
-              {{ pkg.amount - pkg.bonus }} + {{ pkg.bonus }} FREE!
+              {{ pkg.amount - pkg.bonus }} + {{ pkg.bonus }} {{ $t('subscription.treats.free') }}
             </p>
-            <p v-else class="text-transparent font-bold text-xs mb-4 select-none">No Bonus</p>
+            <p v-else class="text-transparent font-bold text-xs mb-4 select-none">
+              {{ $t('subscription.treats.noBonus') }}
+            </p>
 
             <div class="mt-auto">
               <button
@@ -271,22 +174,21 @@
                     ? 'bg-sage hover:bg-sage-dark text-white shadow-lg shadow-sage/20 py-3'
                     : 'bg-white text-brown border-2 border-stone-100 hover:border-terracotta hover:text-terracotta'
                 "
-                @click="buyTreats(pkg.key)"
+                @click="buyTreats(pkg.key!)"
               >
-                ฿{{ pkg.price }}
+                {{ formatCurrency(pkg.price) }}
               </button>
               <p
                 class="text-[10px] text-stone-400 uppercase tracking-tighter"
                 :class="{ 'line-through mb-0.5': pkg.bonus > 0 }"
               >
-                <!-- Value calculation logic or just hide value if simpler -->
-                {{ pkg.bonus > 0 ? 'VALUE' : '' }}
+                {{ pkg.bonus > 0 ? $t('subscription.treats.value') : '' }}
               </p>
               <p
                 class="text-[10px] uppercase tracking-tighter"
                 :class="pkg.key === 'medium' ? 'text-sage-dark font-bold' : 'text-stone-400'"
               >
-                ฿{{ pkg.price_per_treat }} per treat
+                {{ formatCurrency(pkg.price_per_treat) }} {{ $t('subscription.treats.perTreat') }}
               </p>
             </div>
           </div>
@@ -297,15 +199,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
+import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { useSubscriptionStore } from '../store/subscriptionStore';
 import { SubscriptionService } from '../services/subscriptionService';
 import { TreatsService } from '../services/treatsService';
 import { useToastStore } from '../store/toastStore';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 import { useSeo } from '@/composables/useSeo';
+import PlanCard from '@/components/subscription/PlanCard.vue';
+import { config } from '@/config';
 
+const { t, locale } = useI18n();
 const subscriptionStore = useSubscriptionStore();
 const toastStore = useToastStore();
 const route = useRoute();
@@ -313,21 +220,43 @@ const router = useRouter();
 const isLoading = ref(false);
 const purchasingPackage = ref<string | null>(null);
 const { setMetaTags } = useSeo();
+const { sortedPackages } = storeToRefs(subscriptionStore);
 
-// Use store's cached sortedPackages directly
-const sortedPackages = subscriptionStore.sortedPackages;
+const freeFeatures = computed(() => [
+  t('subscription.freePlan.features.0'),
+  t('subscription.freePlan.features.1'),
+  t('subscription.freePlan.features.2'),
+  t('subscription.freePlan.features.3'),
+]);
+
+const proFeatures = computed(() => [
+  t('subscription.proPlan.features.0'),
+  t('subscription.proPlan.features.1'),
+  t('subscription.proPlan.features.2'),
+  t('subscription.proPlan.features.3'),
+  t('subscription.proPlan.features.4'),
+]);
+
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat(locale.value === 'th' ? 'th-TH' : 'en-US', {
+    style: 'currency',
+    currency: config.app.currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
 
 onMounted(async () => {
   setMetaTags({
-    title: 'Subscription & Treats | Purrfect Spots',
-    description: 'Upgrade your account and support the community with treats.',
+    title: t('subscription.meta.title') + ' | Purrfect Spots',
+    description: t('subscription.meta.description'),
   });
 
   // Handle Return from Stripe (Success)
   if (route.path.includes('/success') || route.query.purchase === 'success') {
     toastStore.addToast({
-      title: 'Purchase Successful',
-      message: 'Thank you for your support! Your balance has been updated.',
+      title: t('subscription.toast.successTitle'),
+      message: t('subscription.toast.successMessage'),
       type: 'success',
     });
     // Force refresh to get updated balance after purchase
@@ -339,12 +268,6 @@ onMounted(async () => {
 
   // Handle Return from Stripe (Cancel)
   if (route.path.includes('/cancel') || route.query.purchase === 'cancel') {
-    toastStore.addToast({
-      title: 'Action Cancelled',
-      message: 'No charges were made.',
-      type: 'info',
-    });
-
     // Clean URL
     router.replace('/subscription');
   }
@@ -357,7 +280,7 @@ async function handleSubscribe(): Promise<void> {
   if (isLoading.value) return;
   isLoading.value = true;
   try {
-    const priceId = import.meta.env.VITE_STRIPE_PRO_PRICE_ID;
+    const priceId = config.stripe.proPriceId;
     if (!priceId) throw new Error('Price ID not configured');
 
     const { checkout_url } = await SubscriptionService.createCheckout(priceId);
@@ -365,8 +288,8 @@ async function handleSubscribe(): Promise<void> {
   } catch (e: unknown) {
     console.error(e);
     toastStore.addToast({
-      title: 'Error',
-      message: (e as Error).message || 'Failed to start checkout',
+      title: t('subscription.toast.errorTitle'),
+      message: (e as Error).message || t('subscription.toast.checkoutFailed'),
       type: 'error',
     });
   } finally {
@@ -385,8 +308,8 @@ async function handleManageSubscription(): Promise<void> {
   } catch (e) {
     console.error(e);
     toastStore.addToast({
-      title: 'Error',
-      message: 'Failed to access subscription portal',
+      title: t('subscription.toast.errorTitle'),
+      message: t('subscription.toast.portalFailed'),
       type: 'error',
     });
   } finally {
@@ -403,8 +326,8 @@ async function buyTreats(packageType: string): Promise<void> {
   } catch (e) {
     console.error(e);
     toastStore.addToast({
-      title: 'Error',
-      message: 'Failed to initiate purchase',
+      title: t('subscription.toast.errorTitle'),
+      message: t('subscription.toast.purchaseFailed'),
       type: 'error',
     });
   } finally {
@@ -420,10 +343,7 @@ async function buyTreats(packageType: string): Promise<void> {
 .font-body {
   font-family: 'Inter', sans-serif;
 }
-.bg-glass {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(10px);
-}
+/* Reused simplified utilities */
 .text-terracotta {
   color: #c97b49;
 }
@@ -432,9 +352,6 @@ async function buyTreats(packageType: string): Promise<void> {
 }
 .bg-terracotta-dark {
   background-color: #a66136;
-}
-.border-terracotta {
-  border-color: #c97b49;
 }
 .text-sage-dark {
   color: #5c755e;
@@ -447,6 +364,10 @@ async function buyTreats(packageType: string): Promise<void> {
 }
 .border-sage {
   border-color: #8da18e;
+}
+.bg-glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
 }
 </style>
 

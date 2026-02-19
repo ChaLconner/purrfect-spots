@@ -2,6 +2,7 @@
 Helper utility for creating login responses.
 Separated to avoid circular imports between AuthService and Utils.
 """
+
 from typing import TYPE_CHECKING, Any, Dict, Union
 
 from fastapi import Request, Response
@@ -28,16 +29,21 @@ def create_login_response(
     ip, ua = get_client_info(request)
 
     # normalizing user ID access (attrs vs dict)
+    # normalizing user ID access (attrs vs dict)
     if isinstance(user, dict):
         user_id = str(user.get("id"))
         role = user.get("role", "user")
+        permissions = user.get("permissions", [])
+        role_id = user.get("role_id")
     else:
         user_id = str(user.id)
         role = getattr(user, "role", "user")
+        permissions = getattr(user, "permissions", [])
+        role_id = getattr(user, "role_id", None)
 
     # Generate tokens
     # Note: user data is optional if not updating claims
-    access_token = auth_service.create_access_token(user_id, role=role)
+    access_token = auth_service.create_access_token(user_id, role=role, permissions=permissions)
     refresh_token = auth_service.create_refresh_token(user_id, ip, ua)
 
     if include_refresh_cookie:
@@ -53,6 +59,9 @@ def create_login_response(
             bio=user.get("bio"),
             created_at=user.get("created_at"),
             google_id=user.get("google_id"),
+            role=role,
+            role_id=role_id,
+            permissions=permissions,
         )
     else:
         user_response = UserResponse(
@@ -63,8 +72,14 @@ def create_login_response(
             bio=user.bio,
             created_at=user.created_at,
             google_id=user.google_id,
+            role=role,
+            role_id=role_id,
+            permissions=permissions,
         )
 
     return LoginResponse(
-        access_token=access_token, token_type="bearer", user=user_response, refresh_token=refresh_token  # nosec B106
+        access_token=access_token,
+        token_type="bearer",
+        user=user_response,
+        refresh_token=refresh_token,  # nosec B106
     )

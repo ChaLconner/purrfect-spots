@@ -167,7 +167,6 @@ def sanitize_search_input(value: str, max_length: int = 100) -> str:
     return re.sub(r"\s+", " ", sanitized).strip()
 
 
-
 # ==============================================================================
 # LIKE Pattern Safety
 # ==============================================================================

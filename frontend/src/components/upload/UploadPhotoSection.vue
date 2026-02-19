@@ -2,7 +2,7 @@
   <div class="space-y-6">
     <div class="flex items-baseline justify-between border-b border-stone-200 pb-4">
       <h2 class="text-2xl font-heading font-bold text-brown flex items-center">
-        01. The Photo
+        {{ t('upload.photoSection.title') }}
         <svg
           v-if="!isAuthenticated"
           xmlns="http://www.w3.org/2000/svg"
@@ -20,7 +20,9 @@
           />
         </svg>
       </h2>
-      <span class="text-sm font-medium text-stone-500 uppercase tracking-widest">Required</span>
+      <span class="text-sm font-medium text-stone-500 uppercase tracking-widest">{{
+        t('upload.photoSection.required')
+      }}</span>
     </div>
 
     <div
@@ -31,12 +33,13 @@
           : 'border-stone-300 hover:border-terracotta/50',
         isDetectingCats ? 'cursor-wait opacity-80' : '',
         !isAuthenticated ? 'opacity-75' : '',
+        isQuotaFull ? 'cursor-not-allowed opacity-75 grayscale' : '',
       ]"
       @dragover.prevent
-      @drop.prevent="handleDrop"
-      @click="handleFrameClick"
+      @drop.prevent="!isQuotaFull && handleDrop($event)"
+      @click="!isQuotaFull && handleFrameClick()"
     >
-      <label for="file-upload" class="sr-only">Upload Photo</label>
+      <label for="file-upload" class="sr-only">{{ t('upload.photoSection.uploadPhoto') }}</label>
       <input
         id="file-upload"
         ref="fileInput"
@@ -55,7 +58,7 @@
           v-if="catDetectionResult?.has_cats"
           class="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-sage-dark text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-lg flex items-center animate-fade-in-up"
         >
-          Verified Cat Photo
+          {{ t('upload.photoSection.verifiedCatPhoto') }}
         </div>
 
         <!-- Click to change hint -->
@@ -63,7 +66,29 @@
           v-if="catDetectionResult?.has_cats && !isDetectingCats"
           class="absolute top-4 right-4 bg-white/80 text-stone-500 px-3 py-1.5 rounded-lg text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300"
         >
-          Click to change
+          {{ t('upload.photoSection.clickToChange') }}
+        </div>
+      </div>
+
+      <!-- Quota Full State -->
+      <div v-else-if="isQuotaFull" class="space-y-4">
+        <div
+          class="w-16 h-16 bg-red-50 rounded-full mx-auto flex items-center justify-center text-red-500 mb-4"
+        >
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            />
+          </svg>
+        </div>
+        <div>
+          <p class="text-xl font-heading font-medium text-red-600 mb-1">Quota Limit Reached</p>
+          <p class="text-stone-500 text-sm">
+            Please wait for your rolling window to reset or upgrade to Pro.
+          </p>
         </div>
       </div>
 
@@ -82,8 +107,10 @@
           </svg>
         </div>
         <div>
-          <p class="text-xl font-heading font-medium text-brown mb-1">Drag and drop photo</p>
-          <p class="text-stone-500 text-sm">or click to browse from your device</p>
+          <p class="text-xl font-heading font-medium text-brown mb-1">
+            {{ t('upload.photoSection.dragAndDrop') }}
+          </p>
+          <p class="text-stone-500 text-sm">{{ t('upload.photoSection.orClickToBrowse') }}</p>
         </div>
       </div>
 
@@ -96,7 +123,7 @@
           class="w-10 h-10 border-2 border-terracotta border-t-transparent rounded-full animate-spin mb-3"
         ></div>
         <p class="text-terracotta font-medium tracking-wide text-sm uppercase">
-          Verifying Cat Content...
+          {{ t('upload.photoSection.verifyingCatContent') }}
         </p>
       </div>
     </div>
@@ -105,7 +132,11 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { showError } from '@/store/toast';
+import { validateImageFile } from '@/utils/imageUtils';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   previewUrl: string | null;
@@ -113,6 +144,7 @@ const props = defineProps<{
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   catDetectionResult: any;
   isAuthenticated: boolean;
+  isQuotaFull?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -166,12 +198,10 @@ function handleDrop(e: DragEvent): void {
 }
 
 const processFile = (imageFile: File): void => {
-  if (!imageFile || !imageFile.type.startsWith('image/')) return;
-
-  // Size validation (Max 5MB)
-  if (imageFile.size > 5 * 1024 * 1024) {
-    showError('Image is too large. Please upload a file smaller than 5MB.', 'File Too Large');
-    // We don't reset parent state here, just notify error
+  // Validate file using shared utility (type and size)
+  const validation = validateImageFile(imageFile);
+  if (!validation.valid) {
+    showError(validation.error || t('upload.invalidImage'), 'Upload Error');
     return;
   }
 
@@ -185,8 +215,8 @@ const processFile = (imageFile: File): void => {
     // We want to avoid thin strips.
     if (ratio < 0.5 || ratio > 2.0) {
       showError(
-        'Please use a standard aspect ratio (4:3 or 1:1 recommended).',
-        'Invalid Aspect Ratio'
+        t('upload.photoSection.aspectRatioMessage'),
+        t('upload.photoSection.invalidAspectRatio')
       );
       URL.revokeObjectURL(tempUrl);
       return;
@@ -196,7 +226,7 @@ const processFile = (imageFile: File): void => {
     emit('file-selected', { file: imageFile, url: tempUrl });
   };
   img.onerror = (): void => {
-    showError('Invalid image file.', 'Load Error');
+    showError(t('upload.invalidImage'), 'Load Error');
     URL.revokeObjectURL(tempUrl);
   };
   img.src = tempUrl;

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import SkeletonLoader from '@/components/ui/SkeletonLoader.vue';
 import type { CatLocation } from '@/types/api';
 
@@ -100,20 +101,20 @@ onUnmounted(() => {
       v-if="hasError"
       class="error-state flex flex-col items-center justify-center p-8 text-center text-white/60"
     >
-      <img
-        src="/cat-illustration.png"
-        alt="No image available"
-        class="w-48 h-auto opacity-40 mb-4 grayscale"
-      />
-      <p class="font-heading text-xl">Image Not Found</p>
-      <p class="text-sm mt-2 opacity-70">This spot's photo seems to be hiding.</p>
+      <img class="w-48 h-auto opacity-40 mb-4 grayscale" />
+      <p class="font-heading text-xl">{{ $t('galleryPage.modal.imageNotFound') }}</p>
+      <p class="text-sm mt-2 opacity-70">{{ $t('galleryPage.modal.imageHiding') }}</p>
     </div>
 
     <!-- Main Image -->
     <img
       v-else-if="image"
       :src="image.image_url"
-      :alt="image.location_name ? `A cat at ${image.location_name}` : 'A cat'"
+      :alt="
+        image.location_name
+          ? $t('galleryPage.modal.aCatAt', { location: image.location_name })
+          : $t('galleryPage.modal.aCat')
+      "
       class="main-image"
       @load="$emit('image-load')"
       @error="$emit('image-error', $event)"
@@ -126,7 +127,7 @@ onUnmounted(() => {
     <button
       v-if="hasPrevious"
       class="nav-btn prev-btn"
-      aria-label="Previous"
+      :aria-label="$t('galleryPage.modal.previous')"
       @click.stop="$emit('navigate', 'prev')"
     >
       <svg
@@ -144,7 +145,7 @@ onUnmounted(() => {
     <button
       v-if="hasNext"
       class="nav-btn next-btn"
-      aria-label="Next"
+      :aria-label="$t('galleryPage.modal.next')"
       @click.stop="$emit('navigate', 'next')"
     >
       <svg

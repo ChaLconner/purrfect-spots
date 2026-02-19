@@ -4,8 +4,10 @@
       <!-- Header -->
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 class="text-3xl font-bold text-brown-900 font-display">Admin Dashboard</h1>
-          <p class="mt-1 text-brown-600">Manage users and content.</p>
+          <h1 class="text-3xl font-bold text-brown-900 font-display">
+            {{ $t('admin.dashboard') }}
+          </h1>
+          <p class="mt-1 text-brown-600">{{ $t('admin.manageUsers') }}</p>
         </div>
         <div class="flex gap-4">
           <!-- Stats Cards will go here -->
@@ -15,11 +17,15 @@
       <!-- Stats Grid -->
       <div v-if="stats" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="bg-white p-6 rounded-2xl shadow-sm border border-sand-100">
-          <h3 class="text-sm font-medium text-brown-500 uppercase tracking-wider">Total Users</h3>
+          <h3 class="text-sm font-medium text-brown-500 uppercase tracking-wider">
+            {{ $t('admin.totalUsers') }}
+          </h3>
           <p class="mt-2 text-3xl font-bold text-brown-900">{{ stats.total_users }}</p>
         </div>
         <div class="bg-white p-6 rounded-2xl shadow-sm border border-sand-100">
-          <h3 class="text-sm font-medium text-brown-500 uppercase tracking-wider">Total Photos</h3>
+          <h3 class="text-sm font-medium text-brown-500 uppercase tracking-wider">
+            {{ $t('admin.totalPhotos') }}
+          </h3>
           <p class="mt-2 text-3xl font-bold text-terracotta-600">{{ stats.total_photos }}</p>
         </div>
       </div>
@@ -29,12 +35,12 @@
         <div
           class="p-6 border-b border-sand-100 flex flex-col sm:flex-row justify-between items-center gap-4"
         >
-          <h2 class="text-xl font-bold text-brown-900">Users</h2>
+          <h2 class="text-xl font-bold text-brown-900">{{ $t('admin.users') }}</h2>
           <div class="relative max-w-xs w-full">
             <input
               v-model="searchQuery"
               type="text"
-              placeholder="Search users..."
+              :placeholder="$t('admin.searchUsers')"
               class="w-full pl-10 pr-4 py-2 border border-sand-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 transition-colors"
               @input="handleSearch"
             />
@@ -65,25 +71,25 @@
                   scope="col"
                   class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-wider"
                 >
-                  User
+                  {{ $t('admin.table.user') }}
                 </th>
                 <th
                   scope="col"
                   class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-wider"
                 >
-                  Role
+                  {{ $t('admin.table.role') }}
                 </th>
                 <th
                   scope="col"
                   class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-wider"
                 >
-                  Joined
+                  {{ $t('admin.table.joined') }}
                 </th>
                 <th
                   scope="col"
                   class="px-6 py-3 text-right text-xs font-medium text-brown-500 uppercase tracking-wider"
                 >
-                  Actions
+                  {{ $t('admin.table.actions') }}
                 </th>
               </tr>
             </thead>
@@ -96,7 +102,7 @@
                         class="h-10 w-10 rounded-full object-cover"
                         :src="
                           user.picture ||
-                            `https://ui-avatars.com/api/?name=${user.name}&background=random`
+                          `https://ui-avatars.com/api/?name=${user.name}&background=random`
                         "
                         :alt="user.name"
                       />
@@ -128,12 +134,14 @@
                     class="text-red-600 hover:text-red-900 font-medium transition-colors"
                     @click="confirmDelete(user)"
                   >
-                    Delete/Ban
+                    {{ $t('admin.table.deleteBan') }}
                   </button>
                 </td>
               </tr>
               <tr v-if="users.length === 0">
-                <td colspan="4" class="px-6 py-12 text-center text-brown-500">No users found.</td>
+                <td colspan="4" class="px-6 py-12 text-center text-brown-500">
+                  {{ $t('admin.table.noUsers') }}
+                </td>
               </tr>
             </tbody>
           </table>
@@ -149,15 +157,15 @@
             class="px-4 py-2 border border-sand-300 rounded-md text-sm font-medium text-brown-700 bg-white hover:bg-sand-50 disabled:opacity-50 disabled:cursor-not-allowed"
             @click="page > 1 && loadUsers(page - 1)"
           >
-            Previous
+            {{ $t('admin.pagination.previous') }}
           </button>
-          <span class="text-sm text-brown-600">Page {{ page }}</span>
+          <span class="text-sm text-brown-600">{{ $t('admin.pagination.page') }} {{ page }}</span>
           <button
             :disabled="users.length < limit"
             class="px-4 py-2 border border-sand-300 rounded-md text-sm font-medium text-brown-700 bg-white hover:bg-sand-50 disabled:opacity-50 disabled:cursor-not-allowed"
             @click="loadUsers(page + 1)"
           >
-            Next
+            {{ $t('admin.pagination.next') }}
           </button>
         </div>
       </div>
@@ -167,6 +175,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { apiV1 } from '@/utils/api';
 import type { User } from '@/types/auth'; // Ensure this type is updated with 'role'
 
@@ -176,6 +185,7 @@ interface Stats {
   generated_at: string;
 }
 
+const { t } = useI18n();
 const users = ref<User[]>([]);
 const stats = ref<Stats | null>(null);
 const searchQuery = ref('');
@@ -221,9 +231,7 @@ const handleSearch = () => {
 const confirmDelete = async (user: User) => {
   if (
     // eslint-disable-next-line no-alert
-    window.confirm(
-      `Are you sure you want to ban/delete user ${user.name}? This action cannot be undone.`
-    )
+    window.confirm(t('admin.confirmDelete', { name: user.name }))
   ) {
     try {
       await apiV1.delete(`/admin/users/${user.id}`);
@@ -233,7 +241,7 @@ const confirmDelete = async (user: User) => {
       loadStats();
     } catch (e) {
       // eslint-disable-next-line no-alert
-      window.alert('Failed to delete user');
+      window.alert(t('admin.deleteFailed'));
       console.error(e);
     }
   }

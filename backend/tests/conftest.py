@@ -13,6 +13,8 @@ import pytest
 
 # Disable Sentry during tests to prevent exit issues
 os.environ["SENTRY_DSN"] = ""
+# Disable Redis to prevent connection hangs
+os.environ["REDIS_URL"] = ""
 
 # Add backend directory to path so imports work
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -104,10 +106,13 @@ def _create_mock_supabase_client():
     mock.update.return_value = mock
     mock.delete.return_value = mock
     mock.eq.return_value = mock
+    mock.neq.return_value = mock
     mock.single.return_value = mock
+    mock.maybe_single.return_value = mock
     mock.order.return_value = mock
     mock.range.return_value = mock
     mock.limit.return_value = mock
+    mock.offset.return_value = mock
     mock.or_.return_value = mock
     mock.contains.return_value = mock
     mock.is_.return_value = mock
@@ -137,8 +142,8 @@ def mock_async_supabase():
     """
     Mock the async_supabase client with proper async behavior.
     """
-    from unittest.mock import patch, AsyncMock
-    
+    from unittest.mock import AsyncMock, patch
+
     with patch("utils.async_client.async_supabase") as mock:
         # Use AsyncMock for methods that are awaited
         # Default successful but empty returns
@@ -157,6 +162,7 @@ class MockUser:
         self.name = "Test User"
         self.picture = "https://example.com/avatar.jpg"
         self.bio = "Test bio"
+        self.is_pro = False
         self.created_at = "2024-01-01T00:00:00Z"
 
 

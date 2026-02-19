@@ -6,7 +6,6 @@ Handles Google OAuth 2.0 flow:
 - Exchanging auth codes for tokens via PKCE
 """
 
-
 import httpx
 from google.auth.transport import requests
 from google.oauth2 import id_token
@@ -75,8 +74,8 @@ class GoogleAuthService:
                 response = await client.post(token_url, data=data, headers=headers)
 
                 if response.status_code != 200:
-                    logger.warning("[OAuth] External exchange unsuccessful")
-                    raise ValueError("Token exchange failed")
+                    logger.warning(f"[OAuth] External exchange unsuccessful: {response.status_code} - {response.text}")
+                    raise ValueError(f"Token exchange failed: {response.text}")
 
                 token_data = response.json()
                 access_token = token_data.get("access_token")

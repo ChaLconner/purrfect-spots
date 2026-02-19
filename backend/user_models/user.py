@@ -23,6 +23,9 @@ class User(BaseModel):
     cancel_at_period_end: bool = False
     treat_balance: int = 0
     role: str = "user"
+    role_id: str | None = None
+    permissions: list[str] = []
+    banned_at: datetime | None = None
 
 
 class UserCreate(BaseModel):
@@ -58,6 +61,9 @@ class UserResponse(BaseModel):
     is_pro: bool = False
     treat_balance: int = 0
     role: str = "user"
+    role_id: str | None = None
+    permissions: list[str] = []
+    banned_at: datetime | None = None
 
 
 class LoginResponse(BaseModel):

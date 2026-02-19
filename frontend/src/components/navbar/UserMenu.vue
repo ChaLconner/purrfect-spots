@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '../../store/authStore';
 import { AuthService } from '../../services/authService';
 import { showSuccess } from '../../store/toast';
 import { isDev } from '../../utils/env';
 
+const { t } = useI18n();
 const showUserMenu = ref(false);
 const router = useRouter();
 const authStore = useAuthStore();
@@ -36,7 +38,7 @@ const logout = async () => {
   } finally {
     authStore.clearAuth();
     router.push('/');
-    showSuccess('Logged out successfully');
+    showSuccess(t('toast.loggedOut'));
     showUserMenu.value = false;
   }
 };
@@ -74,9 +76,19 @@ onUnmounted(() => {
       </div>
       <div class="dropdown-divider"></div>
       <router-link to="/profile" class="dropdown-item" @click="showUserMenu = false">
-        Profile
+        {{ $t('nav.profile') }}
       </router-link>
-      <button class="dropdown-item logout" @click="logout">Logout</button>
+      <button class="dropdown-item logout" @click="logout">{{ $t('auth.logout') }}</button>
+
+      <div v-if="authStore.isAdmin" class="dropdown-divider"></div>
+      <router-link
+        v-if="authStore.isAdmin"
+        to="/admin"
+        class="dropdown-item admin-link"
+        @click="showUserMenu = false"
+      >
+        {{ $t('nav.adminPanel') }}
+      </router-link>
     </div>
   </div>
 </template>

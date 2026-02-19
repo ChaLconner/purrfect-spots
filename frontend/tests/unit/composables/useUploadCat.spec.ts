@@ -8,6 +8,10 @@ import * as imageUtils from '@/utils/imageUtils';
 // Mock dependencies
 vi.mock('@/utils/api', () => ({
   uploadFile: vi.fn(),
+  api: {
+    get: vi.fn(),
+    post: vi.fn(),
+  },
   ApiError: class ApiError extends Error {
     type: string;
     constructor(type: string, message: string) {
@@ -140,5 +144,17 @@ describe('useUploadCat', () => {
     expect(isUploading.value).toBe(false);
     expect(error.value).toBe(null);
     expect(uploadProgress.value).toBe(0);
+  });
+
+  it('should fetch quota status', async () => {
+    const mockQuota = { used: 1, limit: 5, remaining: 4, is_pro: false };
+    // @ts-ignore
+    vi.spyOn(api.api, 'get').mockResolvedValue(mockQuota);
+
+    const { getUploadQuota } = useUploadCat();
+    const result = await getUploadQuota();
+
+    expect(api.api.get).toHaveBeenCalledWith('/api/v1/upload/quota');
+    expect(result).toEqual(mockQuota);
   });
 });

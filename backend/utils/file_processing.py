@@ -127,7 +127,18 @@ async def process_uploaded_image(
         content_type_str = actual_mime if content_match else (file.content_type or DEFAULT_CONTENT_TYPE)
 
         if optimize:
-            contents, content_type_str = optimize_image(contents, content_type_str, max_dimension=max_dimension)
+            # Offload CPU-bound image optimization to thread pool
+            import asyncio
+            loop = asyncio.get_running_loop()
+            contents, content_type_str = await loop.run_in_executor(
+                None, 
+                optimize_image, 
+                contents, 
+                content_type_str, 
+                max_dimension, 
+                85, # quality default
+                None # target_format default
+            )
 
         # Get safe file extension based on final content type
         file_extension = get_safe_file_extension(file.filename or "", content_type_str)

@@ -3,11 +3,6 @@
     <!-- Map Container with 3D Frame -->
     <div class="map-frame">
       <div class="map-container">
-        <!-- Search Box Overlay (Mobile/Tablet accessibility) -->
-        <div class="absolute top-4 left-4 right-4 z-30 lg:hidden">
-          <SearchBox />
-        </div>
-
         <!-- Initial Loading State (Progressive) -->
         <transition
           enter-active-class="transition-opacity duration-300"
@@ -19,7 +14,7 @@
             v-if="isInitialLoading"
             class="absolute inset-0 flex flex-col items-center justify-center bg-[#e8f0e6] z-10 rounded-xl"
           >
-            <GhibliLoader text="Loading map..." />
+            <GhibliLoader :text="$t('map.loadingMap')" />
           </div>
         </transition>
 
@@ -34,7 +29,7 @@
             v-if="isLoading && !isInitialLoading"
             class="absolute inset-0 flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm z-20 rounded-xl"
           >
-            <GhibliLoader text="Finding cute cats..." />
+            <GhibliLoader :text="$t('map.findingCats')" />
           </div>
         </transition>
 
@@ -63,12 +58,19 @@
             class="absolute top-20 lg:top-6 left-1/2 transform -translate-x-1/2 z-10"
           >
             <div class="search-results-badge">
-              <span class="badge-text">
-                Found <strong>{{ displayedLocations.length }}</strong> cats for "<span
-                  class="search-term"
-                >{{ searchQuery }}</span>"
-              </span>
-              <button class="clear-search-btn" aria-label="Clear search" @click="clearSearch">
+              <i18n-t keypath="map.foundCats" tag="span" class="badge-text">
+                <template #count>
+                  <strong>{{ displayedLocations.length }}</strong>
+                </template>
+                <template #query>
+                  <span class="search-term">{{ searchQuery }}</span>
+                </template>
+              </i18n-t>
+              <button
+                class="clear-search-btn"
+                :aria-label="$t('map.clearSearch')"
+                @click="clearSearch"
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   class="w-4 h-4"
@@ -102,12 +104,13 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, nextTick, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { GalleryService } from '../services/galleryService';
 import { showError } from '../store/toast';
 import GhibliLoader from '@/components/ui/GhibliLoader.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import CatDetailModal from '@/components/map/CatDetailModal.vue';
-import SearchBox from '@/components/navbar/SearchBox.vue';
+
 import { loadGoogleMaps, isGoogleMapsLoaded } from '../utils/googleMapsLoader';
 import { getEnvVar } from '../utils/env';
 import { FALLBACK_LOCATION, MAP_CONFIG, EXTERNAL_URLS } from '../utils/constants';
@@ -122,6 +125,7 @@ import { useSeo } from '../composables/useSeo';
 const route = useRoute();
 const router = useRouter();
 const catsStore = useCatsStore();
+const { t } = useI18n();
 
 // State
 const isLoading = ref(false);
@@ -197,7 +201,7 @@ const initializeMap = async () => {
         version: 'weekly',
       });
     } catch (err: unknown) {
-      error.value = (err as Error).message;
+      error.value = t('map.errorInitializing', { message: (err as Error).message });
       showError(error.value);
       isInitialLoading.value = false;
       return;
@@ -259,7 +263,7 @@ const initializeMap = async () => {
     });
   } catch (err: unknown) {
     const message = (err as Error).message;
-    error.value = `Failed to initialize map: ${message}`;
+    error.value = t('map.errorInitializing', { message });
     isInitialLoading.value = false;
   }
 };
@@ -282,7 +286,7 @@ const loadCatLocations = async () => {
     syncStateFromUrl();
   } catch (err: unknown) {
     // Error handling
-    const msg = (err as Error).message || 'Failed to load locations';
+    const msg = t('map.errorLoadingLocations');
     error.value = msg;
     catsStore.setError(msg);
   } finally {
@@ -399,19 +403,48 @@ watch(
   }
 );
 
-const syncStateFromUrl = () => {
+const syncStateFromUrl = async () => {
   const imageId = route.query.image as string;
   if (!imageId) {
     selectedCat.value = null;
     return;
   }
 
-  const foundCat = displayedLocations.value.find((loc) => loc.id.toString() === imageId);
-  if (foundCat) {
-    selectedCat.value = foundCat;
-    if (map.value) {
-      map.value.panTo({ lat: foundCat.latitude, lng: foundCat.longitude });
-      if (map.value.getZoom()! < 15) map.value.setZoom(15);
+  // 1. Try to find in currently displayed locations (fastest) for immediate panning/preview
+  let found = displayedLocations.value.find((loc) => loc.id.toString() === imageId);
+
+  // 2. If present, set it immediately (optimistic UI)
+  if (found) {
+    selectedCat.value = found;
+  }
+
+  // 3. Fetch canonical fresh details (for liked status, full description, etc.)
+  // This is crucial because map markers are lightweight and cached.
+  try {
+    const fullCat = await GalleryService.getPhotoById(imageId);
+
+    // Update selectedCat with full data
+    if (fullCat) {
+      selectedCat.value = fullCat;
+      found = fullCat; // Use full details for panning/validation
+    }
+  } catch (err) {
+    console.warn(`Could not fetch details for cat ${imageId}:`, err);
+    // If we failed to fetch AND confirm existence locally, clear selection
+    if (!found) {
+      const q = { ...route.query };
+      delete q.image;
+      router.replace({ query: q });
+      return;
+    }
+  }
+
+  // 4. Pan to location if found
+  if (found && map.value) {
+    map.value.panTo({ lat: found.latitude, lng: found.longitude });
+    // Only zoom in if we're zoomed out too far
+    if (map.value.getZoom()! < 15) {
+      map.value.setZoom(15);
     }
   }
 };
@@ -437,8 +470,8 @@ const openDirections = (cat: CatLocation) => {
 onMounted(() => {
   // Set SEO meta tags
   setMetaTags({
-    title: 'Cat Map | Purrfect Spots',
-    description: 'Explore cat sightings on an interactive map. Find cat-friendly spots near you.',
+    title: `${t('map.metaTitle')} | Purrfect Spots`,
+    description: t('map.metaDescription'),
     type: 'website',
   });
 

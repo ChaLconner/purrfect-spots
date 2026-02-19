@@ -8,9 +8,11 @@ class CreateCheckoutRequest(BaseModel):
     success_url: str
     cancel_url: str
 
+
 class CheckoutSessionResponse(BaseModel):
     checkout_url: str
     session_id: str
+
 
 class SubscriptionStatus(BaseModel):
     is_pro: bool
@@ -19,8 +21,10 @@ class SubscriptionStatus(BaseModel):
     stripe_customer_id: str | None = None
     treat_balance: int = 0
 
+
 class CreatePortalRequest(BaseModel):
     return_url: str
+
 
 class PortalResponse(BaseModel):
     url: str

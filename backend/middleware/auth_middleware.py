@@ -9,14 +9,17 @@ import httpx
 import jwt
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from supabase import Client
+from supabase import AClient
 
 from config import config
-from dependencies import get_supabase_admin_client, get_supabase_client
 from logger import logger
 from services.token_service import get_token_service
 from user_models.user import User
 from utils.auth_utils import decode_token
+from utils.supabase_client import (
+    get_async_supabase_admin_client,
+    get_async_supabase_client,
+)
 
 security = HTTPBearer(auto_error=False)
 
@@ -99,7 +102,7 @@ async def _is_token_revoked(jti: str) -> bool:
         return True
 
 
-def _get_user_from_payload(payload: dict, source: str) -> User:
+async def _get_user_from_payload(payload: dict, source: str) -> User:
     """Helper to convert JWT payload to User object"""
     user_id = payload.get("sub") or payload.get("user_id")
     if not user_id:
@@ -107,10 +110,31 @@ def _get_user_from_payload(payload: dict, source: str) -> User:
 
     # Try to get user from database (bypassing RLS)
     try:
-        supabase_admin = get_supabase_admin_client()
-        result = supabase_admin.table("users").select("*").eq("id", user_id).single().execute()
-        if result.data:
+        from utils.supabase_client import get_async_supabase_admin_client
+        supabase_admin = await get_async_supabase_admin_client()
+        # Fetch user with role and permissions
+        query = "*, roles(name, role_permissions(permissions(code)))"
+        result = await supabase_admin.table("users").select(query).eq("id", user_id).maybe_single().execute()
+
+        if result and hasattr(result, "data") and result.data:
+
             data = result.data
+
+            # Extract permissions from nested structure
+            permissions = []
+            role_name = data.get("role", "user")  # Default to legacy column
+            
+            role_data = data.get("roles")
+            if role_data and isinstance(role_data, dict):
+                if role_data.get("name"):
+                    role_name = role_data.get("name")
+                
+                rps = role_data.get("role_permissions", [])
+                for rp in rps:
+                    perm = rp.get("permissions")
+                    if perm and "code" in perm:
+                        permissions.append(perm["code"])
+
             return User(
                 id=data["id"],
                 username=data.get("username"),
@@ -123,17 +147,24 @@ def _get_user_from_payload(payload: dict, source: str) -> User:
                 subscription_end_date=data.get("subscription_end_date"),
                 cancel_at_period_end=data.get("cancel_at_period_end", False),
                 treat_balance=data.get("treat_balance", 0),
-                role=data.get("role", "user"),
+                role=role_name,
+                role_id=data.get("role_id"),
+                permissions=permissions,
                 created_at=data.get("created_at"),
                 google_id=data.get("google_id"),
             )
-    except Exception:
+    except Exception as e:
         # Fallback to payload data if DB lookup fails
-        logger.warning("Failed to fetch user from DB in middleware")
+        import traceback
+        logger.error(f"Failed to fetch user from DB in middleware: {e}\nTraceback: {traceback.format_exc()}")
+        logger.warning(f"Failed to fetch user from DB in middleware: {e}")
 
     # Common extraction for both sources
     iat = payload.get("iat")
     created_at = datetime.fromtimestamp(iat, timezone.utc) if isinstance(iat, (int, float)) else None
+
+    # Extract permissions from payload if available
+    permissions = payload.get("permissions", [])
 
     # Construct User from payload
     if source == "supabase":
@@ -145,7 +176,10 @@ def _get_user_from_payload(payload: dict, source: str) -> User:
             picture=user_metadata.get("avatar_url", user_metadata.get("picture", "")),
             bio=None,
             created_at=created_at,
-            google_id=user_metadata.get("provider_id") if payload.get("app_metadata", {}).get("provider") == "google" else None,
+            google_id=user_metadata.get("provider_id")
+            if payload.get("app_metadata", {}).get("provider") == "google"
+            else None,
+            permissions=permissions,
         )
     # custom
     return User(
@@ -156,16 +190,33 @@ def _get_user_from_payload(payload: dict, source: str) -> User:
         bio=payload.get("bio"),
         created_at=created_at,
         google_id=payload.get("google_id"),
+        permissions=permissions,
+        role=payload.get("role", "user"),
     )
 
 
-def _verify_via_supabase_api(token: str, supabase: Client) -> dict | None:
+def require_permission(permission_code: str):
+    """Dependency factory to check for specific permission"""
+
+    async def permission_checker(user: User = Depends(get_current_user)) -> User:
+        # 1. Direct permission check
+        if permission_code in user.permissions:
+            return user
+
+        # 2. General admin permission or role check
+        if "admin_access" in user.permissions or user.role.lower() in ("admin", "super_admin"):
+            return user
+
+        raise HTTPException(status_code=403, detail=f"Insufficient permissions. Required: {permission_code}")
+
+    return permission_checker
+
+
+async def _verify_via_supabase_api(token: str, supabase: AClient) -> dict | None:
     """Attempt direct verification via Supabase Auth API"""
     try:
         logger.debug("Attempting direct Supabase Auth verification...")
-        # Note: This is a blocking call in some Supabase clients, but usually fast enough
-        # If strictly async is needed, this would need a wrapper
-        user_res = supabase.auth.get_user(token)
+        user_res = await supabase.auth.get_user(token)
         if user_res and user_res.user:
             supabase_user = user_res.user
             logger.info("Authentication verified via direct Supabase Auth API")
@@ -182,7 +233,7 @@ def _verify_via_supabase_api(token: str, supabase: Client) -> dict | None:
     return None
 
 
-async def _attempt_token_decoding(token: str, supabase: Client | None) -> tuple[dict, str]:
+async def _attempt_token_decoding(token: str, supabase: AClient | None) -> tuple[dict, str]:
     """Try multiple strategies to key decode the token"""
     if not token:
         logger.warning("Authentication failed: No token provided in credentials")
@@ -202,7 +253,7 @@ async def _attempt_token_decoding(token: str, supabase: Client | None) -> tuple[
         # decode_token handles both config.SUPABASE_KEY and config.JWT_SECRET
         payload = decode_token(token)
         logger.info("Token decoded successfully using verify_token utility")
-        
+
         # Determine source - if it has app_metadata it's likely Supabase
         source = "supabase" if "app_metadata" in payload else "custom"
         return payload, source
@@ -213,7 +264,7 @@ async def _attempt_token_decoding(token: str, supabase: Client | None) -> tuple[
 
     # 3. Try Direct API (Final Fallback)
     if supabase:
-        api_payload = _verify_via_supabase_api(token, supabase)
+        api_payload = await _verify_via_supabase_api(token, supabase)
         if api_payload:
             logger.info("Token verified via direct Supabase Auth API")
             return api_payload, "supabase"
@@ -245,7 +296,7 @@ async def _validate_token_security(payload: dict) -> None:
             logger.error("Failed to check user invalidation status")
 
 
-async def _verify_and_decode_token(token: str, supabase: Client | None = None) -> tuple[dict, str]:
+async def _verify_and_decode_token(token: str, supabase: AClient | None = None) -> tuple[dict, str]:
     """Helper to verify and decode token, trying Supabase first then custom"""
     try:
         payload, source = await _attempt_token_decoding(token, supabase)
@@ -263,7 +314,7 @@ async def _verify_and_decode_token(token: str, supabase: Client | None = None) -
 
 async def get_current_user_from_credentials(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
-    supabase: Client = Depends(get_supabase_client),
+    supabase: AClient = Depends(get_async_supabase_client),
 ) -> User:
     """Get current authenticated user using Supabase Auth"""
     if not credentials:
@@ -276,7 +327,7 @@ async def get_current_user_from_credentials(
         raise HTTPException(status_code=401, detail="Authentication failed: Empty token")
 
     payload, source = await _verify_and_decode_token(token, supabase)
-    return _get_user_from_payload(payload, source)
+    return await _get_user_from_payload(payload, source)
 
 
 async def get_current_user(request: Request) -> User:
@@ -287,12 +338,12 @@ async def get_current_user(request: Request) -> User:
 
     token = auth_header.split(" ")[1]
     payload, source = await _verify_and_decode_token(token)
-    return _get_user_from_payload(payload, source)
+    return await _get_user_from_payload(payload, source)
 
 
 async def get_current_user_optional(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
-    supabase: Client = Depends(get_supabase_client),
+    supabase: AClient = Depends(get_async_supabase_client),
 ) -> User | None:
     """Get current user if authenticated, otherwise return None"""
     if not credentials:
@@ -310,5 +361,6 @@ async def get_current_user_from_header(request: Request) -> dict:
         raise HTTPException(status_code=401, detail="Missing or invalid token")
 
     token = auth_header.split(" ")[1]
-    payload, _ = await _verify_and_decode_token(token, get_supabase_client())
+    supabase = await get_async_supabase_client()
+    payload, _ = await _verify_and_decode_token(token, supabase)
     return payload

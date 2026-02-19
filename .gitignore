@@ -1,4 +1,8 @@
-﻿# OS & IDE
+﻿# ==========================================
+# Purrfect Spots - Comprehensive Gitignore
+# ==========================================
+
+# --- OS & IDE ---
 .DS_Store
 Thumbs.db
 ehthumbs.db
@@ -11,8 +15,18 @@ ehthumbs.db
 .sonar/
 .kilocode/
 
-# Dependencies & Python
-node_modules/
+# --- Environment & Secrets (CRITICAL) ---
+.env
+.env.*
+!.env.example
+backend/keys/
+# Subdirectory envs
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+
+# --- Python (Backend) ---
 __pycache__/
 *.py[cod]
 *$py.class
@@ -20,11 +34,6 @@ __pycache__/
 .venv/
 venv/
 env/
-*.egg-info/
-.eggs/
-dist/
-build/
-wheels/
 .Python
 lib/
 lib64/
@@ -32,57 +41,54 @@ parts/
 sdist/
 var/
 develop-eggs/
-
-# Logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# Environment & Secrets (Keep .env.example)
-.env
-.env.*
-!.env.example
-backend/keys/
-
-# Testing & Coverage
-coverage/
-htmlcov/
-.coverage
-.coverage.*
+*.egg-info/
+.eggs/
+dist/
+build/
+wheels/
+.mypy_cache/
 .pytest_cache/
 .ruff_cache/
-.mypy_cache/
-test-results/
-playwright-report/
+.coverage
+.coverage.*
+htmlcov/
+
+# --- Node/Vue (Frontend) ---
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+frontend/test-results/
+frontend/playwright-report/
 .nyc_output/
-trivy-results.sarif
+playwright-report/
+test-results/
 
-# Build Output
-dist/
-build-reports/
-.vercel/
-
-# Temporary Files
-*.tmp
-*.temp
-
-# Local Review
+# --- Logs & Junk Files ---
+*.log
+debug.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+# Project specific junk
+frontend/build_log*.txt
+frontend/lint_*.txt
+frontend/type_check.log
 lint_output.txt
-docs/archive/
-# Debug & Junk
 *_errors.txt
 *_output.txt
 test_out.txt
-type_check.log
-debug.log
-*_report.txt
-*_results.txt
 coverage_output.txt
-backend/dist/
-frontend/coverage/
 
-task_updated.md
-PRODUCTION_GUIDE.md
-env_setup_instructions.md
+# --- Build Output & Other ---
+dist/
+backend/dist/
+frontend/dist/
+build-reports/
+.vercel/
+trivy-results.sarif
+*.tmp
+*.temp
+
+# --- Local Review Archives ---
+docs/archive/

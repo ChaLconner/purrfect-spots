@@ -8,7 +8,7 @@
           :size-dependencies="[item.images.length, windowWidth]"
           :data-index="index"
         >
-          <div class="gallery-grid" role="grid" aria-label="Cat photo gallery chunk">
+          <div class="gallery-grid" role="grid" :aria-label="t('galleryPage.aria.galleryChunk')">
             <button
               v-for="(image, subIndex) in item.images"
               :key="image.id"
@@ -19,7 +19,11 @@
                 { 'item-loaded': loadedImages[image.id] },
               ]"
               :style="{ 'animation-delay': `${(subIndex % 10) * 0.05}s` }"
-              :aria-label="`View ${image.location_name || 'Cat'}`"
+              :aria-label="
+                t('galleryPage.aria.viewCat', {
+                  location: image.location_name || t('galleryPage.modal.aCat'),
+                })
+              "
               @click="$emit('open-modal', image, item.index + subIndex)"
             >
               <!-- Glass-framed Image Card -->
@@ -42,12 +46,16 @@
                 >
                   <button
                     class="treat-item-btn group absolute bottom-2 right-2 transition-all z-20"
-                    title="Give a Treat!"
-                    aria-label="Give a treat to this cat"
+                    :title="t('galleryPage.modal.giveTreats')"
+                    :aria-label="t('galleryPage.aria.giveTreat')"
                     @click.stop="handleGiveTreat(image)"
                   >
                     <div class="treat-btn-inner">
-                      <img src="/give-treat.png" alt="Treat" class="w-12 h-12 object-contain" />
+                      <img
+                        src="/give-treat.png"
+                        :alt="t('profile.treats')"
+                        class="w-12 h-12 object-contain"
+                      />
                     </div>
                   </button>
                 </div>
@@ -59,7 +67,11 @@
                     :src="image.image_url"
                     :srcset="generateSrcSet(image.image_url)"
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                    :alt="image.location_name || 'A cat'"
+                    :alt="
+                      image.location_name
+                        ? t('galleryPage.modal.aCatAt', { location: image.location_name })
+                        : t('galleryPage.modal.aCat')
+                    "
                     class="gallery-image shadow-md"
                     :class="{ 'image-visible': loadedImages[image.id] }"
                     @load="handleImageLoad(image.id)"
@@ -100,6 +112,9 @@ import { useToastStore, useAuthStore } from '@/store';
 import { IMAGE_CONFIG, GALLERY_CONFIG } from '@/utils/constants';
 import GhibliLoader from '@/components/ui/GhibliLoader.vue';
 import type { CatLocation } from '@/types/api';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   images: CatLocation[];
@@ -222,8 +237,8 @@ async function handleGiveTreat(image: CatLocation): Promise<void> {
 
   if (!authStore.isAuthenticated) {
     toastStore.addToast({
-      title: 'Sign in required',
-      message: 'Please sign in to give treats to cats!',
+      title: t('auth.signInRequired'),
+      message: t('galleryPage.modal.signInToTreat'),
       type: 'warning',
     });
     return;
@@ -233,8 +248,8 @@ async function handleGiveTreat(image: CatLocation): Promise<void> {
   try {
     await subscriptionStore.giveTreat(image.id, 1);
     toastStore.addToast({
-      title: 'Treat Given!',
-      message: 'You gave 1 treat',
+      title: t('profile.treatGiven'),
+      message: t('galleryPage.modal.treatsGiven', { amount: 1 }),
       type: 'success',
     });
   } catch (e: unknown) {
@@ -244,7 +259,7 @@ async function handleGiveTreat(image: CatLocation): Promise<void> {
         : (e as { response?: { data?: { detail?: string } } }).response?.data?.detail ||
           'Failed to give treat';
     toastStore.addToast({
-      title: 'Failed to give treat',
+      title: t('galleryPage.modal.treatFailed'),
       message: msg,
       type: 'error',
     });

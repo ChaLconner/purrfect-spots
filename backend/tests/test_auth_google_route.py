@@ -30,7 +30,7 @@ class TestGoogleAuthRoutes:
         from types import SimpleNamespace
 
         return SimpleNamespace(
-            id="user123",
+            id="00000000-0000-4000-a000-000000000123",
             email="test@example.com",
             name="Test User",
             picture="pic.jpg",
@@ -107,7 +107,7 @@ class TestGoogleAuthRoutes:
     async def test_sync_user_data(self, client):
         """Test user sync endpoint"""
         mock_jwt_payload = {
-            "sub": "user123",
+            "sub": "00000000-0000-4000-a000-000000000123",
             "email": "test@example.com",
             "user_metadata": {"full_name": "Test User", "avatar_url": "p.jpg"},
             "app_metadata": {"provider": "google"},
@@ -115,7 +115,7 @@ class TestGoogleAuthRoutes:
 
         mock_supabase_admin = MagicMock()
         mock_res = MagicMock()
-        mock_res.data = [{"id": "user123"}]
+        mock_res.data = [{"id": "00000000-0000-4000-a000-000000000123"}]
         mock_supabase_admin.table().upsert().execute.return_value = mock_res
 
         with patch("routes.auth.get_supabase_admin_client", return_value=mock_supabase_admin):

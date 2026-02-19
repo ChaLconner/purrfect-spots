@@ -263,7 +263,8 @@ export const getImageDimensions = (file: File): Promise<{ width: number; height:
 export const validateImageFile = (
   file: File,
   maxSizeMB: number = 10,
-  allowedTypes: string[] = ['image/jpeg', 'image/png', 'image/webp']
+  allowedTypes: string[] = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+
 ): { valid: boolean; error?: string } => {
   // Check file type
   if (!allowedTypes.includes(file.type)) {

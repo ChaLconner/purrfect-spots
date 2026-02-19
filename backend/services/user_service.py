@@ -1,139 +1,98 @@
-"""
-User management service for CRUD operations on user profiles
+from typing import Any, cast, Optional
 
-Handles:
-- User creation (with password)
-- User retrieval (by ID, email)
-- User profile updates
-- Email confirmation flow
-"""
+from supabase import AClient
 
-
-from typing import Any, cast
-
-from supabase import Client
-
-from dependencies import get_supabase_admin_client
 from exceptions import ConflictError, ExternalServiceError, PurrfectSpotsException
 from logger import logger
 from services.email_service import email_service
 from user_models.user import User
 from utils.datetime_utils import utc_now_iso
+from utils.supabase_client import get_async_supabase_admin_client, get_async_supabase_client
 
 ERROR_FAILED_TO_CREATE_USER = "Failed to create user"
 ERROR_EMAIL_ALREADY_REGISTERED = "Email already registered"
 
 
 class UserService:
-    """Service for user-related operations"""
+    """Service for user-related operations using Async Supabase Client"""
 
     SERVICE_SUPABASE_AUTH = "Supabase Auth"
+    _cached_user_role_id: Optional[str] = None
 
-    def __init__(self, supabase_client: Client) -> None:
+    def __init__(self, supabase_client: AClient, supabase_admin: Optional[AClient] = None) -> None:
         self.supabase = supabase_client
-        self.supabase_admin = get_supabase_admin_client()
+        self.supabase_admin = supabase_admin
 
-    def get_user_by_id(self, user_id: str) -> User | None:
-        """Get user by ID from database"""
+    async def _get_admin_client(self) -> AClient:
+        if self.supabase_admin:
+            return self.supabase_admin
+        return await get_async_supabase_admin_client()
+
+    async def _get_user_role_id(self) -> str | None:
+        """Get the ID of the 'user' role from the roles table (Async)"""
+        if UserService._cached_user_role_id:
+            return UserService._cached_user_role_id
+
         try:
-            result = self.supabase_admin.table("users").select("*").eq("id", user_id).execute()
+            admin = await self._get_admin_client()
+            res = await admin.table("roles").select("id").eq("name", "user").execute()
+            if res.data:
+                UserService._cached_user_role_id = res.data[0]["id"]
+                return UserService._cached_user_role_id
+        except Exception as e:
+            logger.warning("Failed to fetch default user role ID: %s", e)
+        return None
+
+    def _map_db_user_to_model(self, data: dict[str, Any]) -> User:
+        """Map DB result with nested role/permissions to User model"""
+        permissions: list[str] = []
+
+        role_data = data.get("roles")
+        if role_data:
+            if isinstance(role_data, dict):
+                rps = role_data.get("role_permissions", [])
+                for rp in rps:
+                    perm = rp.get("permissions")
+                    if perm and "code" in perm:
+                        permissions.append(perm["code"])
+
+        user_fields = data.copy()
+        if isinstance(role_data, dict) and "name" in role_data:
+            user_fields["role"] = role_data["name"]
+
+        if "roles" in user_fields:
+            del user_fields["roles"]
+
+        return User(**user_fields, permissions=permissions)
+
+    async def get_user_by_id(self, user_id: str) -> User | None:
+        """Get user by ID from database with Role and Permissions (Async)"""
+        try:
+            query = "*, roles(name, role_permissions(permissions(code)))"
+            admin = await self._get_admin_client()
+            result = await admin.table("users").select(query).eq("id", user_id).execute()
             if result.data:
-                return User(**result.data[0])
+                return self._map_db_user_to_model(result.data[0])
             return None
         except Exception as e:
             logger.debug("Failed to retrieve profile by ID: %s", e)
             return None
 
-    def get_user_by_email(self, email: str) -> dict[str, Any] | None:
-        """Get user by email from database"""
+    async def get_user_by_email(self, email: str) -> dict[str, Any] | None:
+        """Get user by email from database (Async)"""
         try:
-            result = self.supabase_admin.table("users").select("*").eq("email", email).single().execute()
+            admin = await self._get_admin_client()
+            result = await admin.table("users").select("*").eq("email", email).maybe_single().execute()
             return result.data if result.data else None
         except Exception as e:
             logger.debug("Failed to retrieve profile by email: %s", e)
             return None
 
-    def get_user_by_username(self, username: str) -> User | None:
-        """Get user by username from database"""
+    async def create_unverified_user(self, email: str, password: str, name: str) -> dict[str, Any]:
+        """Create a new user without sending a confirmation email (Async)"""
         try:
-            result = self.supabase_admin.table("users").select("*").eq("username", username).single().execute()
-            if result.data:
-                return User(**result.data)
-            return None
-        except Exception as e:
-            logger.debug("Failed to retrieve profile by username: %s", e)
-            return None
-
-    def create_user_with_password(self, email: str, password: str, name: str) -> dict[str, Any]:
-        """Create new user and send confirmation email (Manual Flow via Admin)"""
-        try:
-            # 1. Generate Signup Link (Creates user if not exists)
-            # We use generate_link to get the URL without sending via Supabase SMTP which is failing
-            # We use generate_link to get the URL without sending via Supabase SMTP which is failing
-
-            params = {
-                "type": "signup",
-                "email": email,
-                "password": password,
-                "options": {
-                    "data": {"name": name, "full_name": name},
-                },
-            }
-
-            # This returns a UserResponse object from gotrue-py
-            # Structure: res.user (User), res.properties.action_link (str)
-            res = self.supabase_admin.auth.admin.generate_link(cast(Any, params))
-
-            if not res or not res.user:
-                raise ExternalServiceError(ERROR_FAILED_TO_CREATE_USER, service=self.SERVICE_SUPABASE_AUTH)
-
-            user = res.user
-            # Extract action_link safely
-            action_link = getattr(res.properties, "action_link", None) if hasattr(res, "properties") else None
-
-            if not action_link:
-                # Fallback or error?
-                # If no link, we can't verify.
-                logger.error("No action_link returned from generate_link")
-                raise ExternalServiceError("Failed to generate confirmation link", service=self.SERVICE_SUPABASE_AUTH)
-
-            # 2. Send Email via our custom EmailService
-            sent = email_service.send_confirmation_email(email, action_link)
-
-            if not sent:
-                logger.error("Failed to send custom confirmation email")
-                # Proceeding anyway, but user might be stuck.
-
-            return {
-                "id": user.id,
-                "email": user.email,
-                "name": name,
-                "created_at": user.created_at,
-                "picture": "",
-                "bio": None,
-                "verification_required": True,
-            }
-
-        except Exception as e:
-            # Clean up error message
-            msg = str(e)
-
-            if "already registered" in msg.lower():
-                raise ConflictError(ERROR_EMAIL_ALREADY_REGISTERED)
-            raise PurrfectSpotsException(f"Failed to create user: {msg}")
-
-    def create_user(self, email: str, password: str, name: str) -> dict[str, Any]:
-        """Alias for create_user_with_password"""
-        return self.create_user_with_password(email, password, name)
-
-    def create_unverified_user(self, email: str, password: str, name: str) -> dict[str, Any]:
-        """
-        Create a new user without sending a confirmation email automatically.
-        Used for the OTP flow where verification is handled separately.
-        """
-        try:
-            # Create user via Supabase Admin API with email_confirm=False
-            res = self.supabase_admin.auth.admin.create_user(
+            admin = await self._get_admin_client()
+            res = await admin.auth.admin.create_user(
                 {
                     "email": email,
                     "password": password,
@@ -146,7 +105,6 @@ class UserService:
                 raise ExternalServiceError("Failed to create user", service=self.SERVICE_SUPABASE_AUTH)
 
             user = res.user
-
             return {
                 "id": user.id,
                 "email": user.email,
@@ -156,23 +114,17 @@ class UserService:
                 "bio": None,
                 "verification_required": True,
             }
-
         except Exception as e:
-            # Clean up error message
             msg = str(e)
-
-            if "already registered" in msg.lower() or "already been registered" in msg.lower():
-                raise ConflictError(ERROR_EMAIL_ALREADY_REGISTERED)
-            if "unique constraint" in msg.lower():
+            if any(term in msg.lower() for term in ["already registered", "unique constraint"]):
                 raise ConflictError(ERROR_EMAIL_ALREADY_REGISTERED)
             logger.error("Failed to create unverified account: %s", msg)
             raise PurrfectSpotsException(ERROR_FAILED_TO_CREATE_USER)
 
-    def create_or_get_user(self, user_data: dict[str, Any]) -> User:
-        """Create new user or get existing user from database (for OAuth)"""
+    async def create_or_get_user(self, user_data: dict[str, Any]) -> User:
+        """Create new user or get existing user from database for OAuth (Async)"""
         try:
             user_id = user_data.get("id") or user_data.get("sub")
-
             if not user_id:
                 raise ValueError("Missing user_id (sub) in user_data")
 
@@ -192,21 +144,34 @@ class UserService:
                 "updated_at": utc_now_iso(),
             }
 
-            # Use admin client for user creation (bypass RLS)
-            result = self.supabase_admin.table("users").upsert(user_record, on_conflict="id").execute()
+            admin = await self._get_admin_client()
+            existing_check = await admin.table("users").select("role_id").eq("id", user_id).execute()
+            if not existing_check.data or not existing_check.data[0].get("role_id"):
+                user_record["role_id"] = await self._get_user_role_id()
 
-            return User(**result.data[0])
-
+            await admin.table("users").upsert(user_record, on_conflict="id").execute()
+            
+            user = await self.get_user_by_id(user_id)
+            if not user:
+                raise ExternalServiceError("Failed to retrieve user after creation", service="Supabase Database")
+            return user
         except Exception as e:
             raise ExternalServiceError(f"Database error: {e!s}", service="Supabase Database")
 
-    def authenticate_user(self, email: str, password: str) -> dict[str, Any] | None:
-        """Authenticate user using Supabase Auth"""
+    async def authenticate_user(self, email: str, password: str) -> dict[str, Any] | None:
+        """Authenticate user using Supabase Auth (Async)"""
         try:
-            res = self.supabase.auth.sign_in_with_password({"email": email, "password": password})
-
+            res = await self.supabase.auth.sign_in_with_password({"email": email, "password": password})
             if res.user and res.session:
-                # Return dict with user and tokens
+                user = await self.get_user_by_id(res.user.id)
+                if user:
+                    user_dict = user.model_dump()
+                    user_dict.update({
+                        "access_token": res.session.access_token,
+                        "refresh_token": res.session.refresh_token,
+                    })
+                    return user_dict
+
                 return {
                     "id": res.user.id,
                     "email": res.user.email,
@@ -215,6 +180,8 @@ class UserService:
                     "access_token": res.session.access_token,
                     "refresh_token": res.session.refresh_token,
                     "created_at": res.user.created_at,
+                    "permissions": [],
+                    "role": "user",
                 }
             return None
         except Exception as e:
@@ -224,35 +191,13 @@ class UserService:
     async def update_user_profile(
         self, user_id: str, update_data: dict[str, Any], jwt_token: str | None = None
     ) -> dict[str, Any]:
-        """Update user profile"""
-        from utils.async_client import async_supabase
+        """Update user profile (Async)"""
         try:
-            # Use async client if token is provided (preferred for RLS)
-            if jwt_token:
-                # async_supabase.update returns List[Dict]
-                result = await async_supabase.update(
-                    table="users",
-                    data=update_data,
-                    filters={"id": f"eq.{user_id}"},
-                    jwt_token=jwt_token
-                )
-                if not result:
-                    raise ValueError("User not found or update failed")
-                return result[0]
-            else:
-                # Fallback to sync admin client
-                # Note: This runs synchronously, blocking the loop if not threaded.
-                # Ideally, we should always use token.
-                logger.warning("Updating profile without JWT token (using admin client)")
-                from starlette.concurrency import run_in_threadpool
-                res = await run_in_threadpool(
-                    lambda: self.supabase_admin.table("users").update(update_data).eq("id", user_id).execute()
-                )
-                if not res.data:
-                    raise ValueError("User not found")
-                return cast(dict[str, Any], res.data[0])
-
+            from config import config
+            admin = await self._get_admin_client()
+            result = await admin.table("users").update(update_data).eq("id", user_id).execute()
+            if not result.data:
+                raise ValueError("User not found or update failed")
+            return result.data[0]
         except Exception as e:
             raise PurrfectSpotsException(f"Failed to update profile: {e!s}")
-
-

@@ -23,20 +23,21 @@ from typing import Any, Generator, TypeVar
 F = TypeVar("F", bound=Callable[..., Any])
 
 
-from pythonjsonlogger import jsonlogger
+from pythonjsonlogger import json as jsonlogger
 
 
 class CustomJsonFormatter(jsonlogger.JsonFormatter):
     """
     JSON formatter with custom field mappings for production.
     """
+
     def add_fields(self, log_record: dict[str, Any], record: logging.LogRecord, message_dict: dict[str, Any]) -> None:
         super().add_fields(log_record, record, message_dict)
-        
+
         # Add timestamp if not present
         if not log_record.get("timestamp"):
             log_record["timestamp"] = datetime.now(UTC).isoformat()
-            
+
         # Standardize level
         if log_record.get("level"):
             log_record["level"] = log_record["level"].upper()
@@ -123,7 +124,7 @@ def setup_logger(name: str = "purrfect_spots") -> logging.Logger:
         is_production = os.getenv("ENVIRONMENT", "development").lower() == "production"
 
         if is_production:
-            handler.setFormatter(CustomJsonFormatter('%(timestamp)s %(level)s %(name)s %(message)s'))
+            handler.setFormatter(CustomJsonFormatter("%(timestamp)s %(level)s %(name)s %(message)s"))
         else:
             handler.setFormatter(ColoredFormatter())
 
@@ -135,7 +136,7 @@ def setup_logger(name: str = "purrfect_spots") -> logging.Logger:
         if not is_production:
             file_handler = logging.FileHandler("debug.log")
             file_handler.setLevel(logging.DEBUG)
-            file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+            file_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
             logger.addHandler(file_handler)
 
     return logger

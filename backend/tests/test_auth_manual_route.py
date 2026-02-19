@@ -15,9 +15,9 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from user_models.user import User
 # Import routes
 from routes.auth import LoginRequest, RegisterInput, get_auth_service, router
+from user_models.user import User
 
 
 @pytest.fixture
@@ -367,7 +367,10 @@ class TestAuthMeEndpoint:
         """Test getting current user info"""
         with patch("routes.auth.get_current_user") as mock_user:
             from unittest.mock import AsyncMock
-            mock_user.side_effect = AsyncMock(return_value=MagicMock(id="test-id", email="test@example.com", name="Test User"))
+
+            mock_user.side_effect = AsyncMock(
+                return_value=MagicMock(id="test-id", email="test@example.com", name="Test User")
+            )
 
             # This test would need proper auth header setup
             # For now we just verify the endpoint exists

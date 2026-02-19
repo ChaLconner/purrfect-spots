@@ -145,11 +145,7 @@ watch(
 function handleClick() {
   // Check authentication first
   if (!authStore.isAuthenticated) {
-    toastStore.addToast({
-      title: 'Want to like this?',
-      message: 'Sign in to interact with users and collect your favorite spots!',
-      type: 'info',
-    });
+    toastStore.showInfo('Please log in to perform this action.');
     return;
   }
 
@@ -227,30 +223,17 @@ async function sendToggleLike() {
       // Show error toast
       const error = e as { response?: { status?: number; data?: { detail?: string } } };
       if (error.response?.status === 404) {
-        toastStore.addToast({
-          title: 'Ghost Cat?',
-          message: 'This photo seems to have disappeared like a ninja.',
-          type: 'error',
-        });
+        toastStore.showError('This photo seems to have disappeared like a ninja.', 'Ghost Cat?');
       } else if (error.response?.status === 429) {
         // For rate limits, we should technically revert.
-        toastStore.addToast({
-          title: 'Slow Down!',
-          message: 'Too many likes too fast! Take a breath. 🐱',
-          type: 'warning',
-        });
+        toastStore.showWarning('Too many likes too fast! Take a breath. 🐱', 'Slow Down!');
       } else if (error.response?.status === 503) {
-        toastStore.addToast({
-          title: 'Cat Nap in Progress',
-          message: 'Our servers are taking a short break. Try again soon!',
-          type: 'warning',
-        });
+        toastStore.showWarning(
+          'Our servers are taking a short break. Try again soon!',
+          'Cat Nap in Progress'
+        );
       } else {
-        toastStore.addToast({
-          title: 'Hairball Error',
-          message: 'Something went wrong. Please try liking again.',
-          type: 'error',
-        });
+        toastStore.showError('Something went wrong. Please try liking again.', 'Hairball Error');
       }
     }
     console.error('Toggle like error:', e);

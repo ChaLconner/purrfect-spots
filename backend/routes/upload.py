@@ -12,12 +12,14 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.responses import JSONResponse
 
 from config import config
-from dependencies import get_supabase_admin_client, get_supabase_client
+from dependencies import get_gallery_service, get_quota_service
 from exceptions import ExternalServiceError
 from limiter import limiter
 from logger import logger
 from middleware.auth_middleware import get_current_user
 from services.cat_detection_service import CatDetectionService, cat_detection_service
+from services.gallery_service import GalleryService
+from services.quota_service import QuotaService
 from services.storage_service import StorageService, storage_service
 from utils.cache import invalidate_gallery_cache, invalidate_tags_cache
 from utils.file_processing import process_uploaded_image, validate_coordinates, validate_location_data
@@ -98,12 +100,16 @@ def validate_cat_detection_data(cat_data: dict) -> bool:
 
 
 async def _perform_server_side_detection(
-    file: UploadFile, detection_service: CatDetectionService, user_id: str, client_cat_data: dict | None
+    file: UploadFile | bytes, detection_service: CatDetectionService, user_id: str, client_cat_data: dict | None
 ) -> dict[str, Any]:
     """Run server-side cat detection and validate results"""
     # CRITICAL SECURITY FIX: Always perform server-side detection
-    await file.seek(0)
-    detection_result = detection_service.detect_cats(file)
+    
+    # If file is UploadFile (legacy/fallback), reset cursor. If bytes, use directly.
+    if isinstance(file, UploadFile):
+        await file.seek(0)
+    
+    detection_result = await detection_service.detect_cats(file)
 
     # Log discrepancy if client said "has_cats" but server says "no"
     if client_cat_data and client_cat_data.get("has_cats") and not detection_result.get("has_cats"):
@@ -141,31 +147,13 @@ async def _perform_server_side_detection(
     }
 
 
-def _save_photo_to_db(supabase_admin: Any, photo_data: dict[str, Any], user_id: str, image_url: str, storage_service: StorageService) -> dict[str, Any]:
-    """Save photo metadata to database with rollback support"""
-    from typing import cast
-    try:
-        result = supabase_admin.table("cat_photos").insert(photo_data).execute()
-
-        if not result.data:
-            from exceptions import ExternalServiceError
-
-            raise ExternalServiceError("Database insert returned no data", service="Supabase")
-
-        return cast(dict[str, Any], result.data[0])
-
-    except Exception as db_error:
-        # Rollback: Delete file from S3 if DB insert fails
-        logger.error("Database insert failed: %s. Rolling back S3 upload.", db_error)
-        storage_service.delete_file(image_url)
-
-        log_security_event(
-            "upload_transaction_rollback",
-            user_id=user_id,
-            details={"error": str(db_error)[:200], "image_url": image_url},
-            severity="ERROR",
-        )
-        raise HTTPException(status_code=500, detail="Failed to save cat photo")
+@router.get("/quota")
+async def get_upload_quota(
+    current_user: Any = Depends(get_current_user),
+    quota_service: QuotaService = Depends(get_quota_service),
+) -> dict[str, Any]:
+    """Get current user's upload quota status."""
+    return await quota_service.get_user_quota_status(str(current_user.id), current_user.is_pro)
 
 
 @router.post("/cat")
@@ -180,9 +168,10 @@ async def upload_cat_photo(
     tags: str | None = Form(None),
     cat_detection_data: str | None = Form(None),
     current_user: Any = Depends(get_current_user),
-    supabase: Any = Depends(get_supabase_client),
+    gallery_service: GalleryService = Depends(get_gallery_service),
     detection_service: CatDetectionService = Depends(get_cat_detection_service),
     storage_service: StorageService = Depends(get_storage_service),
+    quota_service: QuotaService = Depends(get_quota_service),
 ) -> JSONResponse:
     """
     Upload cat photo with location information.
@@ -208,6 +197,12 @@ async def upload_cat_photo(
             },
         )
 
+        # Check Quota (Atomic Check & Increment)
+        allowed = await quota_service.check_and_increment(user_id, current_user.is_pro)
+        if not allowed:
+            log_security_event("quota_exceeded", user_id=user_id, severity="WARNING")
+            raise HTTPException(status_code=429, detail="Daily upload limit reached. Upgrade to Pro for more uploads.")
+
         # Process and validate the uploaded image with optimization and security checks
         contents, content_type, file_extension = await process_uploaded_image(
             file,
@@ -217,7 +212,7 @@ async def upload_cat_photo(
             user_id=user_id,
         )
 
-        # Parse client-side cat detection data (logging/debugging only)
+        # Parse client side cat detection data (logging/debugging only)
         client_cat_data = None
         if cat_detection_data:
             try:
@@ -226,8 +221,9 @@ async def upload_cat_photo(
             except json.JSONDecodeError:
                 logger.warning("Failed to parse client detection data: %s", cat_detection_data)
 
-        # Perform server-side detection
-        cat_data = await _perform_server_side_detection(file, detection_service, user_id, client_cat_data)
+        # Perform server-side detection using OPTIMIZED content (smaller, standard format)
+        # This prevents issues with large files or unsupported formats (like HEIC) failing in Vision API
+        cat_data = await _perform_server_side_detection(contents, detection_service, user_id, client_cat_data)
 
         # Use shared validation utilities for coordinates and location text
         latitude, longitude = validate_coordinates(lat, lng)
@@ -242,7 +238,7 @@ async def upload_cat_photo(
 
         # Upload optimized file to S3
         try:
-            image_url = storage_service.upload_file(
+            image_url = await storage_service.upload_file(
                 file_content=contents,
                 content_type=content_type,
                 file_extension=file_extension,
@@ -271,9 +267,20 @@ async def upload_cat_photo(
             "uploaded_at": datetime.now().isoformat(),
         }
 
-        # Use admin client to bypass RLS
-        supabase_admin = get_supabase_admin_client()
-        created_photo = _save_photo_to_db(supabase_admin, photo_data, user_id, image_url, storage_service)
+        try:
+            created_photo = await gallery_service.save_photo(photo_data)
+        except Exception as db_error:
+            # Rollback: Delete file from S3 if DB insert fails
+            logger.error("Database insert failed: %s. Rolling back S3 upload.", db_error)
+            await storage_service.delete_file(image_url)
+
+            log_security_event(
+                "upload_transaction_rollback",
+                user_id=user_id,
+                details={"error": str(db_error)[:200], "image_url": image_url},
+                severity="ERROR",
+            )
+            raise HTTPException(status_code=500, detail="Failed to save cat photo")
 
         # Invalidate gallery and tags cache after new upload
         await invalidate_gallery_cache()
@@ -334,3 +341,5 @@ async def test_upload_endpoint() -> dict[str, Any]:
         "message": "Upload endpoint is working!",
         "timestamp": datetime.now().isoformat(),
     }
+
+

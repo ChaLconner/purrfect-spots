@@ -9,6 +9,18 @@ import MapIcon from '../icons/map.vue';
 import Upload from '../icons/upload.vue';
 import Gallery from '../icons/gallery.vue';
 
+import { useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
+import { useAuthStore } from '../../store/authStore';
+import { AuthService } from '../../services/authService';
+import { showSuccess } from '../../store/toast';
+import { isDev } from '../../utils/env';
+import SearchBox from './SearchBox.vue';
+import MapIcon from '../icons/map.vue';
+import Upload from '../icons/upload.vue';
+import Gallery from '../icons/gallery.vue';
+
+const { t } = useI18n();
 const menuOpen = defineModel<boolean>('menuOpen', { default: false });
 const router = useRouter();
 const authStore = useAuthStore();
@@ -23,7 +35,10 @@ const logout = async () => {
   } finally {
     authStore.clearAuth();
     router.push('/');
-    showSuccess('Logged out successfully');
+    authStore.clearAuth();
+    router.push('/');
+    showSuccess(t('toast.loggedOut'));
+    menuOpen.value = false;
     menuOpen.value = false;
   }
 };
@@ -49,17 +64,17 @@ const closeMenu = () => {
     <div class="mobile-nav-links">
       <router-link to="/map" class="mobile-nav-link" @click="closeMenu">
         <MapIcon class="nav-icon" />
-        <span>Map</span>
+        <span>{{ $t('nav.map') }}</span>
       </router-link>
 
       <router-link to="/upload" class="mobile-nav-link" @click="closeMenu">
         <Upload class="nav-icon" />
-        <span>Upload</span>
+        <span>{{ $t('nav.upload') }}</span>
       </router-link>
 
       <router-link to="/gallery" class="mobile-nav-link" @click="closeMenu">
         <Gallery class="nav-icon" />
-        <span>Gallery</span>
+        <span>{{ $t('nav.gallery') }}</span>
       </router-link>
 
       <router-link
@@ -68,11 +83,11 @@ const closeMenu = () => {
         class="mobile-nav-link login"
         @click="closeMenu"
       >
-        <span>Login</span>
+        <span>{{ $t('auth.login') }}</span>
       </router-link>
 
       <button v-else class="mobile-nav-link logout" @click="logout">
-        <span>Logout</span>
+        <span>{{ $t('auth.logout') }}</span>
       </button>
     </div>
   </nav>

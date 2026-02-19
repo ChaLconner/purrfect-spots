@@ -197,49 +197,132 @@ class EmailService:
             logger.debug(f"EMAIL SEND FAILED - OTP CODE: {otp_code} for {to_email}")
             return False
 
-    def send_password_changed_email(self, to_email: str) -> bool:
+    def send_ban_notification(self, to_email: str, reason: str) -> bool:
         """
-        Send notification that password has been changed
+        Send notification that account has been banned
         """
         if not self.smtp_user or not self.smtp_password:
-            logger.warning("SMTP credentials not set. Skipping password change notification.")
+            logger.warning("SMTP credentials not set. Skipping ban notification.")
+            logger.debug(f"BAN NOTIFICATION to {to_email}. Reason: {reason}")
             return True
 
         try:
             msg = MIMEMultipart()
             msg["From"] = self.sender_email
             msg["To"] = to_email
-            msg["Subject"] = "Your Password Has Been Changed - Purrfect Spots"
+            msg["Subject"] = "Important Notice Regarding Your Account - Purrfect Spots"
 
-            body = """
+            body = f"""
             <html>
               <body style="font-family: Arial, sans-serif; color: #333;">
                 <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                    <h2 style="color: #7FB7A4;">Purrfect Spots</h2>
+                    <h2 style="color: #d9534f;">Account Status Update</h2>
                     <p>Hello,</p>
-                    <p>This is a confirmation that the password for your Purrfect Spots account has been successfully changed.</p>
-                    <p><b>If you did not make this change, please contact our support team immediately or reset your password.</b></p>
+                    <p>We are writing to inform you that your Purrfect Spots account has been suspended due to a violation of our Terms of Service.</p>
+                    <div style="background-color: #f2dede; padding: 15px; border-radius: 5px; margin: 20px 0; color: #a94442;">
+                        <strong>Reason:</strong> {reason}
+                    </div>
+                    <p>As a result, you will no longer be able to log in or access your data. If you believe this was a mistake, please contact our support team.</p>
                     <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
                     <p style="font-size: 0.8em; color: #999;">This is an automated security notification.</p>
                 </div>
               </body>
             </html>
             """
-
             msg.attach(MIMEText(body, "html"))
+            # server logic...
+            self._send(msg)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send ban notification: {e}")
+            return False
 
-            server = smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=10)
-            server.starttls()
-            server.login(self.smtp_user, self.smtp_password)
-            server.send_message(msg)
-            server.quit()
-
-            logger.info(f"Password change notification sent to {to_email}")
+    def send_content_removal_notification(self, to_email: str, content_type: str, reason: str) -> bool:
+        """
+        Send notification that content has been removed
+        """
+        if not self.smtp_user or not self.smtp_password:
+            logger.warning("SMTP credentials not set. Skipping content removal notification.")
+            logger.debug(f"CONTENT REMOVAL to {to_email}. Type: {content_type}, Reason: {reason}")
             return True
 
+        try:
+            msg = MIMEMultipart()
+            msg["From"] = self.sender_email
+            msg["To"] = to_email
+            msg["Subject"] = "Content Removal Notice - Purrfect Spots"
+
+            body = f"""
+            <html>
+              <body style="font-family: Arial, sans-serif; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                    <h2 style="color: #f0ad4e;">Moderation Notice</h2>
+                    <p>Hello,</p>
+                    <p>One of your {content_type} items has been removed by our moderation team for violating our community guidelines.</p>
+                    <div style="background-color: #fcf8e3; padding: 15px; border-radius: 5px; margin: 20px 0; color: #8a6d3b;">
+                        <strong>Action taken:</strong> Content Removal<br>
+                        <strong>Reason:</strong> {reason}
+                    </div>
+                    <p>Please review our guidelines to ensure future posts comply with our community standards.</p>
+                    <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                    <p style="font-size: 0.8em; color: #999;">This is an automated notification.</p>
+                </div>
+              </body>
+            </html>
+            """
+            msg.attach(MIMEText(body, "html"))
+            self._send(msg)
+            return True
         except Exception as e:
-            logger.error(f"Failed to send password change notification: {e!s}")
+            logger.error(f"Failed to send content removal notification: {e}")
             return False
+
+    def send_account_deletion_notification(self, to_email: str, reason: str) -> bool:
+        """
+        Send notification that account has been permanently deleted
+        """
+        if not self.smtp_user or not self.smtp_password:
+            logger.warning("SMTP credentials not set. Skipping account deletion notification.")
+            logger.debug(f"DELETION NOTIFICATION to {to_email}. Reason: {reason}")
+            return True
+
+        try:
+            msg = MIMEMultipart()
+            msg["From"] = self.sender_email
+            msg["To"] = to_email
+            msg["Subject"] = "Account Deleted - Purrfect Spots"
+
+            body = f"""
+            <html>
+              <body style="font-family: Arial, sans-serif; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                    <h2 style="color: #666;">Account Deleted</h2>
+                    <p>Hello,</p>
+                    <p>We are writing to confirm that your Purrfect Spots account has been permanently deleted.</p>
+                    <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0; color: #666;">
+                        <strong>Reason:</strong> {reason}
+                    </div>
+                    <p>All your data has been removed from our systems in accordance with our retention policy.</p>
+                    <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                    <p style="font-size: 0.8em; color: #999;">This is an automated notification.</p>
+                </div>
+              </body>
+            </html>
+            """
+            msg.attach(MIMEText(body, "html"))
+            self._send(msg)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send account deletion notification: {e}")
+            return False
+
+    def _send(self, msg: MIMEMultipart) -> None:
+        """Helper to send SMTP message."""
+        server = smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=10)
+        server.starttls()
+        server.login(self.smtp_user, self.smtp_password)
+        server.send_message(msg)
+        server.quit()
 
 
 email_service = EmailService()

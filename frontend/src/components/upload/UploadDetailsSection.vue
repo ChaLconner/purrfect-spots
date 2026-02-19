@@ -2,7 +2,7 @@
   <div class="space-y-6">
     <div class="flex items-baseline justify-between border-b border-stone-200 pb-4">
       <h2 class="text-2xl font-heading font-bold text-brown flex items-center">
-        02. Details
+        {{ t('upload.detailsSection.title') }}
         <svg
           v-if="!isAuthenticated"
           xmlns="http://www.w3.org/2000/svg"
@@ -20,7 +20,9 @@
           />
         </svg>
       </h2>
-      <span class="text-sm font-medium text-stone-500 uppercase tracking-widest">Info</span>
+      <span class="text-sm font-medium text-stone-500 uppercase tracking-widest">{{
+        t('upload.detailsSection.info')
+      }}</span>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -28,15 +30,15 @@
         <label
           for="place-name"
           class="block text-xs font-bold text-brown-light uppercase tracking-wider pl-1"
-        >Name of Place</label>
-        <input
+        >{{ t('upload.detailsSection.nameOfPlace') }}</label>
+        <BaseInput
           id="place-name"
-          :value="locationName"
+          :model-value="locationName"
           type="text"
-          placeholder="e.g. Sunny Window Bench"
-          class="w-full px-4 py-3 bg-white/70 border-2 border-stone-200 rounded-xl focus:outline-none focus:border-terracotta focus:ring-4 focus:ring-terracotta/10 transition-all font-medium text-brown placeholder-stone-500"
+          :placeholder="t('upload.detailsSection.namePlaceholder')"
           required
-          @input="$emit('update:locationName', ($event.target as HTMLInputElement).value)"
+          class="bg-white/70 border-stone-200"
+          @update:model-value="$emit('update:locationName', $event as string)"
           @focus="$emit('focus-auth', $event)"
         />
       </div>
@@ -45,12 +47,12 @@
         <label
           for="place-description"
           class="block text-xs font-bold text-brown-light uppercase tracking-wider pl-1"
-        >Description</label>
+        >{{ t('upload.detailsSection.description') }}</label>
         <textarea
           id="place-description"
           :value="description"
           rows="1"
-          placeholder="What makes this spot special?"
+          :placeholder="t('upload.detailsSection.descriptionPlaceholder')"
           class="w-full px-4 py-3 bg-white/70 border-2 border-stone-200 rounded-xl focus:outline-none focus:border-terracotta focus:ring-4 focus:ring-terracotta/10 transition-all font-medium text-brown placeholder-stone-500 min-h-[52px]"
           @input="$emit('update:description', ($event.target as HTMLTextAreaElement).value)"
           @focus="$emit('focus-auth', $event)"
@@ -61,11 +63,11 @@
         <label
           for="tags-input"
           class="block text-xs font-bold text-brown-light uppercase tracking-wider pl-1"
-        >Tags (Optional)</label>
+        >{{ t('upload.detailsSection.tagsOptional') }}</label>
         <TagsInput
           id="tags-input"
           :model-value="tags"
-          placeholder="Add tag (press Enter)"
+          :placeholder="t('upload.detailsSection.tagsPlaceholder')"
           :max-tags="20"
           :max-tag-length="50"
           :disabled="!isAuthenticated"
@@ -79,6 +81,10 @@
 
 <script setup lang="ts">
 import TagsInput from '@/components/ui/TagsInput.vue';
+import { BaseInput } from '@/components/ui';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 defineProps<{
   locationName: string;

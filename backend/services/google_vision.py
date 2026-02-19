@@ -1,4 +1,6 @@
+import asyncio
 import concurrent.futures
+import hashlib
 import json
 import os
 from typing import Any, List, Optional
@@ -6,6 +8,7 @@ from typing import Any, List, Optional
 from fastapi import HTTPException, UploadFile
 
 from logger import logger
+from utils.supabase_client import get_async_supabase_admin_client
 
 try:
     from unittest.mock import MagicMock, patch
@@ -135,18 +138,58 @@ class GoogleVisionService:
 
         return content, filename
 
-    def detect_cats(self, image_input: UploadFile | bytes) -> dict:
-        """Detect cats in image using Google Vision API"""
+    def _calculate_image_hash(self, content: bytes) -> str:
+        """Calculate SHA-256 hash of image content."""
+        return hashlib.sha256(content).hexdigest()
+
+    async def _get_cached_result(self, image_hash: str) -> Optional[dict]:
+        """Try to retrieve cached analysis result. (Async)"""
+        try:
+            client = await get_async_supabase_admin_client()
+            response = await client.table("vision_analysis_cache") \
+                .select("response") \
+                .eq("image_hash", image_hash) \
+                .maybe_single() \
+                .execute()
+            if response and hasattr(response, "data") and response.data:
+                logger.info(f"Vision API Cache Hit: {image_hash[:8]}...")
+                return response.data["response"]
+        except Exception as e:
+            logger.warning(f"Cache lookup failed: {e}")
+        return None
+
+    async def _cache_result(self, image_hash: str, result: dict) -> None:
+        """Cache analysis result. (Async)"""
+        try:
+            client = await get_async_supabase_admin_client()
+            await client.table("vision_analysis_cache").upsert({"image_hash": image_hash, "response": result}).execute()
+            logger.debug(f"Cached vision result for {image_hash[:8]}...")
+        except Exception as e:
+            logger.warning(f"Cache write failed: {e}")
+
+    async def detect_cats(self, image_input: UploadFile | bytes) -> dict:
+        """Detect cats in image using Google Vision API (Async)"""
         try:
             content, _ = self._process_image_content(image_input)
+            # 1. Check Cache
+            image_hash = self._calculate_image_hash(content)
+            cached_result = await self._get_cached_result(image_hash)
+            if cached_result:
+                return cached_result
+
             if not self.is_initialized or not self.client:
                 return self._fallback_cat_detection()
 
-            label_response, object_response = self._get_vision_api_responses(content)
+            label_response, object_response = await self._get_vision_api_responses(content)
             if not label_response or not object_response:
                 return self._fallback_cat_detection(error="Vision API failed")
 
-            return self._process_vision_responses(label_response, object_response)
+            result = self._process_vision_responses(label_response, object_response)
+
+            # 2. Store in Cache
+            await self._cache_result(image_hash, result)
+
+            return result
 
         except Exception as e:
             logger.error(f"Google Vision detection failed: {e!s}")
@@ -273,8 +316,8 @@ class GoogleVisionService:
         logger.info(f"Cat detection success: {result['cat_count']} cats, {confidence}% confidence")
         return result
 
-    def _get_vision_api_responses(self, content: bytes) -> tuple[Any, Any] | tuple[None, None]:
-        """Execute Vision API calls with timeout."""
+    async def _get_vision_api_responses(self, content: bytes) -> tuple[Any, Any] | tuple[None, None]:
+        """Execute Vision API calls with timeout (Async/Non-blocking)."""
         VISION_API_TIMEOUT = 10
         image = vision.Image(content=content)
 
@@ -284,17 +327,25 @@ class GoogleVisionService:
 
         # Use local client reference for thread safety and type narrowing
         client = self.client
+        loop = asyncio.get_running_loop()
 
         try:
-            # Using 5 workers for better concurrency of AI calls
-            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-                future = executor.submit(
-                    lambda: (
-                        client.label_detection(image=image),
-                        client.object_localization(image=image),
-                    )
-                )
-                return future.result(timeout=VISION_API_TIMEOUT)
+            # Execute both calls in parallel using the default thread pool executor
+            # This ensures the main event loop is not blocked
+            label_task = loop.run_in_executor(None, lambda: client.label_detection(image=image))
+            object_task = loop.run_in_executor(None, lambda: client.object_localization(image=image))
+            
+            # Wait for both with a timeout
+            results = await asyncio.wait_for(
+                asyncio.gather(label_task, object_task), 
+                timeout=VISION_API_TIMEOUT
+            )
+            
+            return results[0], results[1]
+            
+        except asyncio.TimeoutError:
+            logger.warning("Vision API call timed out")
+            return None, None
         except Exception as api_error:
             logger.warning(f"Vision API call failed: {api_error}")
             return None, None
@@ -326,6 +377,7 @@ class GoogleVisionService:
         if isinstance(image_input, bytes):
             return image_input
         from typing import cast
+
         res = image_input.file.read()
         image_input.file.seek(0)
         return cast(bytes, res)
@@ -337,7 +389,9 @@ class GoogleVisionService:
         cat_keywords = list(set(self.CAT_LABEL_KEYWORDS + ["kitty"]))
         return any(k in filename for k in cat_keywords)
 
-    def _create_fallback_result(self, has_cats: bool, confidence: float, width: int, height: int, format_name: str, error: Optional[str]) -> dict:
+    def _create_fallback_result(
+        self, has_cats: bool, confidence: float, width: int, height: int, format_name: str, error: Optional[str]
+    ) -> dict:
         return {
             "has_cats": has_cats,
             "cat_count": 1 if has_cats else 0,
@@ -368,10 +422,10 @@ class GoogleVisionService:
             "emergency_fallback": True,
         }
 
-    def analyze_cat_spot_suitability(self, image_input: UploadFile | bytes) -> dict:
-        """Analyze if location is suitable for cats using Vision API labels"""
+    async def analyze_cat_spot_suitability(self, image_input: UploadFile | bytes) -> dict:
+        """Analyze if location is suitable for cats using Vision API labels (Async)"""
         try:
-            vision_result = self.detect_cats(image_input)
+            vision_result = await self.detect_cats(image_input)
             labels = vision_result.get("labels", [])
             has_cats = vision_result.get("has_cats", False)
 
@@ -440,7 +494,9 @@ class GoogleVisionService:
             return "Public park"
         return None
 
-    def _check_street_environment(self, labels: List[str], safety: dict, cons: List[str], recs: List[str]) -> str | None:
+    def _check_street_environment(
+        self, labels: List[str], safety: dict, cons: List[str], recs: List[str]
+    ) -> str | None:
         if any(label in labels for label in ["street", "road", "traffic", "car"]):
             safety["safe_from_traffic"] = False
             cons.extend(["Near traffic roads", "Potential danger from vehicles"])

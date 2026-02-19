@@ -1,4 +1,3 @@
-
 from typing import Any, Dict, List, Optional, cast
 
 import httpx
@@ -23,12 +22,14 @@ class AsyncSupabaseClient:
         }
         self.timeout = httpx.Timeout(10.0, connect=5.0)
 
-    async def rpc(self, function_name: str, params: Optional[Dict[str, Any]] = None, jwt_token: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def rpc(
+        self, function_name: str, params: Optional[Dict[str, Any]] = None, jwt_token: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """
         Execute a Postgres function (RPC) asynchronously.
         """
         url = f"{self.base_url}/rpc/{function_name}"
-        
+
         headers = self.headers.copy()
         if jwt_token:
             headers["Authorization"] = f"Bearer {jwt_token}"
@@ -39,31 +40,45 @@ class AsyncSupabaseClient:
                 response.raise_for_status()
                 return cast(List[Dict[str, Any]], response.json())
             except httpx.HTTPStatusError as e:
-                logger.error(f"Async RPC {function_name} failed: {e.response.text}")
+                is_auth_error = e.response.status_code in (401, 403)
+                log_func = logger.warning if is_auth_error else logger.error
+                log_func(f"Async RPC {function_name} failed ({e.response.status_code}): {e.response.text}")
                 raise
             except Exception as e:
                 logger.error(f"Async RPC {function_name} error: {type(e).__name__}: {str(e)}")
                 raise
 
-    async def select(self, table: str, columns: str = "*", order: Optional[str] = None, 
-                     limit: Optional[int] = None, offset: Optional[int] = None, 
-                     filters: Optional[Dict[str, str]] = None, jwt_token: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def select(
+        self,
+        table: str,
+        columns: str = "*",
+        order: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        filters: Optional[Dict[str, str]] = None,
+        jwt_token: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
         """
         Execute a SELECT query asynchronously.
         Very basic implementation for common use cases.
         """
         url = f"{self.base_url}/{table}"
-        params = {"select": columns}
-        
+        # Use list of tuples (or dict items) to support duplicate keys in filters
+        # e.g. ?latitude=gte.10&latitude=lte.20
+        params: List[tuple[str, str]] = [("select", columns)]
+
         if order:
-            params["order"] = order
+            params.append(("order", order))
         if limit is not None:
-            params["limit"] = str(limit)
+            params.append(("limit", str(limit)))
         if offset is not None:
-            params["offset"] = str(offset)
-            
+            params.append(("offset", str(offset)))
+
         if filters:
-            params.update(filters)
+            if isinstance(filters, dict):
+                params.extend(filters.items())
+            elif isinstance(filters, list):
+                params.extend(filters)
 
         headers = self.headers.copy()
         if jwt_token:
@@ -75,7 +90,9 @@ class AsyncSupabaseClient:
                 response.raise_for_status()
                 return cast(List[Dict[str, Any]], response.json())
             except httpx.HTTPStatusError as e:
-                logger.error(f"Async SELECT {table} failed: {e.response.text}")
+                is_auth_error = e.response.status_code in (401, 403)
+                log_func = logger.warning if is_auth_error else logger.error
+                log_func(f"Async SELECT {table} failed ({e.response.status_code}): {e.response.text}")
                 raise
             except Exception as e:
                 logger.error(f"Async SELECT {table} error: {str(e)}")
@@ -87,13 +104,13 @@ class AsyncSupabaseClient:
         Uses PostGrest 'Prefer: count=exact' header if possible, or HEAD request.
         """
         url = f"{self.base_url}/{table}"
-        
+
         headers = self.headers.copy()
         headers["Prefer"] = "count=exact"
         if jwt_token:
             headers["Authorization"] = f"Bearer {jwt_token}"
 
-        params = {"select": "id", "limit": "1"} # Minimal data transfer
+        params = {"select": "id", "limit": "1"}  # Minimal data transfer
         if filters:
             params.update(filters)
 
@@ -102,7 +119,7 @@ class AsyncSupabaseClient:
                 # HEAD is even more efficient for just getting headers
                 response = await client.head(url, headers=headers, params=params)
                 response.raise_for_status()
-                
+
                 # Extract from Content-Range header: "0-0/123" -> 123
                 content_range = response.headers.get("Content-Range")
                 if content_range and "/" in content_range:
@@ -114,7 +131,8 @@ class AsyncSupabaseClient:
                 try:
                     res = await self.select(table, columns="id", filters=filters, jwt_token=jwt_token)
                     return len(res)
-                except:
+                except Exception as fallback_err:
+                    logger.warning(f"Async COUNT {table} fallback also failed: {fallback_err}")
                     return 0
 
     async def insert(self, table: str, data: Dict[str, Any], jwt_token: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -123,9 +141,9 @@ class AsyncSupabaseClient:
         Returns the inserted record(s).
         """
         url = f"{self.base_url}/{table}"
-        
+
         headers = self.headers.copy()
-        headers["Prefer"] = "return=representation" # Ensure we get data back
+        headers["Prefer"] = "return=representation"  # Ensure we get data back
         if jwt_token:
             headers["Authorization"] = f"Bearer {jwt_token}"
 
@@ -135,18 +153,22 @@ class AsyncSupabaseClient:
                 response.raise_for_status()
                 return cast(List[Dict[str, Any]], response.json())
             except httpx.HTTPStatusError as e:
-                logger.error(f"Async INSERT {table} failed: {e.response.text}")
+                is_auth_error = e.response.status_code in (401, 403)
+                log_func = logger.warning if is_auth_error else logger.error
+                log_func(f"Async INSERT {table} failed ({e.response.status_code}): {e.response.text}")
                 raise
             except Exception as e:
                 logger.error(f"Async INSERT {table} error: {str(e)}")
                 raise
 
-    async def delete(self, table: str, filters: Dict[str, str], jwt_token: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def delete(
+        self, table: str, filters: Dict[str, str], jwt_token: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """
         Execute a DELETE query asynchronously.
         """
         url = f"{self.base_url}/{table}"
-        
+
         headers = self.headers.copy()
         if jwt_token:
             headers["Authorization"] = f"Bearer {jwt_token}"
@@ -161,29 +183,33 @@ class AsyncSupabaseClient:
                 # DELETE might return 204 No Content if Prefer: return=representation is not set
                 # But our default header has it.
                 if response.status_code == 204:
-                     return []
+                    return []
                 return cast(List[Dict[str, Any]], response.json())
             except httpx.HTTPStatusError as e:
-                logger.error(f"Async DELETE {table} failed: {e.response.text}")
+                is_auth_error = e.response.status_code in (401, 403)
+                log_func = logger.warning if is_auth_error else logger.error
+                log_func(f"Async DELETE {table} failed ({e.response.status_code}): {e.response.text}")
                 raise
             except Exception as e:
                 logger.error(f"Async DELETE {table} error: {str(e)}")
                 raise
 
-    async def update(self, table: str, data: Dict[str, Any], filters: Dict[str, str], jwt_token: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def update(
+        self, table: str, data: Dict[str, Any], filters: Dict[str, str], jwt_token: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """
         Execute an UPDATE query asynchronously.
         Returns the updated record(s).
         """
         url = f"{self.base_url}/{table}"
-        
+
         headers = self.headers.copy()
         headers["Prefer"] = "return=representation"
         if jwt_token:
             headers["Authorization"] = f"Bearer {jwt_token}"
 
         if not filters:
-             raise ValueError("Update requires filters to be safe")
+            raise ValueError("Update requires filters to be safe")
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             try:
@@ -191,11 +217,14 @@ class AsyncSupabaseClient:
                 response.raise_for_status()
                 return cast(List[Dict[str, Any]], response.json())
             except httpx.HTTPStatusError as e:
-                logger.error(f"Async UPDATE {table} failed: {e.response.text}")
+                is_auth_error = e.response.status_code in (401, 403)
+                log_func = logger.warning if is_auth_error else logger.error
+                log_func(f"Async UPDATE {table} failed ({e.response.status_code}): {e.response.text}")
                 raise
             except Exception as e:
                 logger.error(f"Async UPDATE {table} error: {str(e)}")
                 raise
+
 
 # Singleton instance
 async_supabase = AsyncSupabaseClient()

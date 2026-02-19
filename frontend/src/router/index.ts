@@ -85,9 +85,35 @@ const routes = [
   },
   {
     path: '/admin',
-    name: 'AdminDashboard',
-    component: () => import('@/views/AdminDashboard.vue'),
+    component: () => import('@/views/admin/AdminLayout.vue'),
     meta: { requiresAuth: true, requiresAdmin: true },
+    children: [
+      {
+        path: '',
+        name: 'AdminDashboard',
+        component: () => import('@/views/admin/AdminDashboard.vue'),
+      },
+      {
+        path: 'users',
+        name: 'AdminUsers',
+        component: () => import('@/views/admin/AdminUsers.vue'),
+      },
+      {
+        path: 'photos',
+        name: 'AdminPhotos',
+        component: () => import('@/views/admin/AdminPhotos.vue'),
+      },
+      {
+        path: 'reports',
+        name: 'AdminReports',
+        component: () => import('@/views/admin/AdminReports.vue'),
+      },
+      {
+        path: 'audit-logs',
+        name: 'AdminAuditLogs',
+        component: () => import('@/views/admin/AdminAuditLogs.vue'),
+      },
+    ],
   },
   {
     path: '/privacy-policy',
@@ -138,17 +164,28 @@ router.beforeEach(async (to) => {
       return { name: 'Login' };
     }
 
-    // 3. Admin Role Check
-    if (to.meta.requiresAdmin && auth.user?.role !== 'admin') {
-      // Redirect non-admins to home or 403 page
-      return { name: 'Home' };
+    // 3. Admin Access Guard
+    if (to.meta.requiresAdmin && !auth.isAdmin) {
+      // Security: Redirect users without admin access to 404
+      return {
+        name: 'NotFound',
+        params: { pathMatch: to.path.substring(1).split('/') },
+        query: to.query,
+        hash: to.hash,
+      };
     }
-  } else if (
-    (to.name === 'Login' || to.name === 'Register' || to.name === 'Auth') &&
-    useAuthStore().isUserReady
-  ) {
-    // If user is already logged in and has complete profile, redirect to upload
-    return { name: 'Upload' };
+  } else {
+    // Check if user is already logged in and trying to access auth pages
+    const authStore = useAuthStore();
+    if (
+      (to.name === 'Login' || to.name === 'Register' || to.name === 'Auth') &&
+      authStore.isUserReady
+    ) {
+      if (authStore.isAdmin) {
+        return { path: '/admin' };
+      }
+      return { path: '/' };
+    }
   }
 
   return true;

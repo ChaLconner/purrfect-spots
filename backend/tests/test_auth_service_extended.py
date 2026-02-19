@@ -56,11 +56,11 @@ class TestAuthServiceExtended:
                 auth_service.verify_google_token("token")
 
     def test_create_and_verify_access_token(self, auth_service):
-        token = auth_service.create_access_token("user123", {"email": "t@t.com"})
+        token = auth_service.create_access_token("00000000-0000-4000-a000-000000000123", {"email": "t@t.com"})
         assert token is not None
 
         user_id = auth_service.verify_access_token(token)
-        assert user_id == "user123"
+        assert user_id == "00000000-0000-4000-a000-000000000123"
 
     @pytest.mark.asyncio
     async def test_create_and_verify_refresh_token(self, auth_service, mock_supabase):
@@ -69,14 +69,16 @@ class TestAuthServiceExtended:
         auth_service._check_user_invalidated = AsyncMock(return_value=False)
 
         # Create token with fingerprint
-        token = auth_service.create_refresh_token("user123", ip="1.2.3.4", user_agent="Mozilla")
+        token = auth_service.create_refresh_token(
+            "00000000-0000-4000-a000-000000000123", ip="1.2.3.4", user_agent="Mozilla"
+        )
 
         assert token is not None
 
         # Verify with matching fingerprint - await added
         payload = await auth_service.verify_refresh_token(token, ip="1.2.3.4", user_agent="Mozilla")
         assert payload is not None
-        assert payload["user_id"] == "user123"
+        assert payload["user_id"] == "00000000-0000-4000-a000-000000000123"
 
         # Verify with mismatching fingerprint - await added
         payload_mismatch = await auth_service.verify_refresh_token(token, ip="9.9.9.9", user_agent="Bot")
@@ -212,26 +214,30 @@ class TestAuthServiceExtended:
                 "picture": "pic",
             }
 
-            # Mock DB logic: find existing user fail, upsert success
-            mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
-                data=[]
+            # Mock DB logic:
+            # 1. find existing user (Google ID check) -> return empty
+            # 2. Refetch full user after upsert -> return user data
+            mock_res_empty = MagicMock(data=[])
+            mock_res_user = MagicMock(
+                data=[
+                    {
+                        "id": "new_uid",
+                        "email": "t@gmail.com",
+                        "name": "Tester",
+                        "picture": "pic",
+                        "created_at": "2024-01-01T00:00:00Z",
+                        "role": "user",
+                    }
+                ]
             )
 
-            # Mock create_or_get_user (we can patch the internal call or let it run mocked DB)
-            # Let's let it run but mock DB upsert
-
-            # The code calls:
-            # self.supabase_admin.table("users").upsert(...)
-            mock_upsert_res = MagicMock()
-            mock_upsert_res.data = [
-                {
-                    "id": "new_uid",
-                    "email": "t@gmail.com",
-                    "name": "Tester",
-                    "picture": "pic",
-                    "created_at": "2024-01-01T00:00:00Z",
-                }
+            mock_supabase.table.return_value.select.return_value.eq.return_value.execute.side_effect = [
+                mock_res_empty,  # Initial check
+                mock_res_user,  # Final refetch
             ]
+
+            mock_upsert_res = MagicMock()
+            mock_upsert_res.data = mock_res_user.data
             mock_supabase.table.return_value.upsert.return_value.execute.return_value = mock_upsert_res
 
             # Also create_or_get_user calls upsert.

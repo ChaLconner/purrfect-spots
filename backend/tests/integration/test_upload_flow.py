@@ -146,7 +146,9 @@ class TestUploadFlowIntegration:
         app.dependency_overrides[get_supabase_client] = lambda: mock_client
         app.dependency_overrides[get_cat_detection_service] = lambda: mock_detection_service
         app.dependency_overrides[get_storage_service] = lambda: mock_storage_service
-        app.dependency_overrides[get_current_user] = lambda: MagicMock(id=self.TEST_USER_ID, user_id=self.TEST_USER_ID, email=self.TEST_EMAIL)
+        app.dependency_overrides[get_current_user] = lambda: MagicMock(
+            id=self.TEST_USER_ID, user_id=self.TEST_USER_ID, email=self.TEST_EMAIL
+        )
 
         with (
             patch("routes.upload.get_supabase_admin_client") as mock_get_admin,
@@ -188,24 +190,26 @@ class TestGalleryFlowIntegration:
         """Test: Gallery returns paginated photos"""
         # Mock Service
         mock_service = MagicMock()
-        mock_service.get_all_photos = AsyncMock(return_value={
-            "data": [
-                {
-                    "id": "photo-1",
-                    "image_url": "https://s3.example.com/cat1.jpg",
-                    "location_name": "Park",
-                    "latitude": 13.75,
-                    "longitude": 100.50,
-                    "tags": [],
-                    "description": "A cat",
-                    "uploaded_at": "2024-01-01",
-                }
-            ],
-            "total": 1,
-            "limit": 20,
-            "offset": 0,
-            "has_more": False,
-        })
+        mock_service.get_all_photos = AsyncMock(
+            return_value={
+                "data": [
+                    {
+                        "id": "photo-1",
+                        "image_url": "https://s3.example.com/cat1.jpg",
+                        "location_name": "Park",
+                        "latitude": 13.75,
+                        "longitude": 100.50,
+                        "tags": [],
+                        "description": "A cat",
+                        "uploaded_at": "2024-01-01",
+                    }
+                ],
+                "total": 1,
+                "limit": 20,
+                "offset": 0,
+                "has_more": False,
+            }
+        )
 
         # Override dependency
         from main import app

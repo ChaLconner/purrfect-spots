@@ -18,11 +18,25 @@ export function useUploadCat(): {
     },
     catDetectionData?: Record<string, unknown>
   ) => Promise<unknown | null>;
+  getUploadQuota: () => Promise<{ used: number; limit: number; remaining: number; is_pro: boolean } | null>;
   resetState: () => void;
 } {
   const isUploading = ref(false);
   const error = ref<string | null>(null);
   const uploadProgress = ref(0);
+
+  // Get current quota status
+  const getUploadQuota = async () => {
+    try {
+      // Lazy import api to avoid circular dependencies if any
+      const { api } = await import('../utils/api');
+      const response = await api.get<{ used: number; limit: number; remaining: number; is_pro: boolean }>('/api/v1/upload/quota');
+      return response;
+    } catch (err) {
+      console.error('Failed to fetch quota:', err);
+      return null;
+    }
+  };
 
   // Upload cat photo with optimization
   const uploadCatPhoto = async (
@@ -133,6 +147,7 @@ export function useUploadCat(): {
     error,
     uploadProgress,
     uploadCatPhoto,
+    getUploadQuota,
     resetState,
   };
 }

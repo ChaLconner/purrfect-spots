@@ -95,7 +95,7 @@ class TestAuthService:
                 with patch("services.auth_service.email_service"):
                     # Mock admin client
                     auth_service.supabase_admin.auth.admin.update_user_by_id = MagicMock()
-                    
+
                     # Mock successful authentication for current password check
                     mock_user_service.authenticate_user.return_value = {"id": user_id}
 

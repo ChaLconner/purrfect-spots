@@ -18,10 +18,10 @@ from logger import logger
 class RateLimiter:
     """
     Simple in-memory sliding window rate limiter.
-    
+
     Usage:
         limiter = RateLimiter(max_requests=5, window_seconds=10)
-        
+
         if not await limiter.is_allowed("user123:like"):
             raise HTTPException(429, "Too many requests")
     """
@@ -36,7 +36,7 @@ class RateLimiter:
     async def is_allowed(self, key: str) -> bool:
         """
         Check if a request is allowed for the given key.
-        
+
         Uses a fixed window counter that resets after window_seconds.
         Returns True if allowed, False if rate limited.
         """
@@ -61,10 +61,7 @@ class RateLimiter:
         """Remove expired entries to prevent memory leaks. Call periodically."""
         async with self._lock:
             now = time.monotonic()
-            expired_keys = [
-                k for k, (_, start) in self._windows.items()
-                if now - start >= self.window_seconds * 2
-            ]
+            expired_keys = [k for k, (_, start) in self._windows.items() if now - start >= self.window_seconds * 2]
             for k in expired_keys:
                 del self._windows[k]
 

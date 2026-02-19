@@ -19,8 +19,9 @@ class TestGalleryService:
         import importlib
 
         import services.gallery_service
+
         importlib.reload(services.gallery_service)
-        
+
         # Patch at the dependencies module level
         with patch("dependencies.get_supabase_admin_client", return_value=mock_supabase_admin):
             service = GalleryService(mock_supabase)
@@ -166,12 +167,15 @@ class TestGalleryService:
 
     async def test_get_all_photos_error_handling(self, gallery_service, mock_supabase):
         """Test error handling in get_all_photos"""
-        mock_supabase.execute.side_effect = Exception("Database error")
+        with patch("utils.async_client.async_supabase") as mock_async_client:
+            # Force both primary and fallback to fail
+            mock_async_client.rpc = AsyncMock(side_effect=Exception("Database error"))
+            mock_async_client.select = AsyncMock(side_effect=Exception("Fallback error"))
 
-        with pytest.raises(Exception) as excinfo:
-            await gallery_service.get_all_photos()
+            with pytest.raises(Exception) as excinfo:
+                await gallery_service.get_all_photos()
 
-        assert "Failed to fetch gallery images" in str(excinfo.value)
+            assert "Failed to fetch gallery images" in str(excinfo.value)
 
     async def test_get_all_photos_with_token(self, gallery_service, mock_supabase):
         """Test getting photos with JWT token propagation to async client"""
@@ -179,10 +183,10 @@ class TestGalleryService:
         with patch("utils.async_client.async_supabase") as mock_async_client:
             # Setup mock return value - MUST be AsyncMock for await
             mock_async_client.rpc = AsyncMock(return_value=[{"id": "1", "url": "test.jpg"}])
-            
+
             # Call with token
             result = await gallery_service.get_all_photos(limit=10, jwt_token="test-token")
-            
+
             # Verify rpc was called with token
             mock_async_client.rpc.assert_called_once()
             call_args = mock_async_client.rpc.call_args
@@ -199,4 +203,3 @@ class TestGalleryService:
 
         # ExternalServiceError from _ilike_search contains this message
         assert "Database error during photo retrieval" in str(excinfo.value)
-

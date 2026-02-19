@@ -47,13 +47,15 @@ class TestGalleryRoutes:
     def test_get_gallery_empty(self, client):
         """Test gallery endpoint returns empty list when no photos exist"""
         mock_service = MagicMock()
-        mock_service.get_all_photos = AsyncMock(return_value={
-            "data": [],
-            "total": 0,
-            "limit": 20,
-            "offset": 0,
-            "has_more": False,
-        })
+        mock_service.get_all_photos = AsyncMock(
+            return_value={
+                "data": [],
+                "total": 0,
+                "limit": 20,
+                "offset": 0,
+                "has_more": False,
+            }
+        )
 
         app.dependency_overrides[get_gallery_service] = lambda: mock_service
 
@@ -69,13 +71,15 @@ class TestGalleryRoutes:
     def test_get_gallery_with_data(self, client, mock_cat_photo):
         """Test gallery endpoint returns correct data format"""
         mock_service = MagicMock()
-        mock_service.get_all_photos = AsyncMock(return_value={
-            "data": [mock_cat_photo],
-            "total": 1,
-            "limit": 20,
-            "offset": 0,
-            "has_more": False,
-        })
+        mock_service.get_all_photos = AsyncMock(
+            return_value={
+                "data": [mock_cat_photo],
+                "total": 1,
+                "limit": 20,
+                "offset": 0,
+                "has_more": False,
+            }
+        )
 
         app.dependency_overrides[get_gallery_service] = lambda: mock_service
 
@@ -92,13 +96,15 @@ class TestGalleryRoutes:
     def test_get_gallery_pagination(self, client, mock_cat_photo):
         """Test gallery endpoint pagination parameters"""
         mock_service = MagicMock()
-        mock_service.get_all_photos = AsyncMock(return_value={
-            "data": [mock_cat_photo],
-            "total": 50,
-            "limit": 10,
-            "offset": 20,
-            "has_more": True,
-        })
+        mock_service.get_all_photos = AsyncMock(
+            return_value={
+                "data": [mock_cat_photo],
+                "total": 50,
+                "limit": 10,
+                "offset": 20,
+                "has_more": True,
+            }
+        )
 
         app.dependency_overrides[get_gallery_service] = lambda: mock_service
 
@@ -115,13 +121,15 @@ class TestGalleryRoutes:
     def test_get_gallery_by_page(self, client, mock_cat_photo):
         """Test gallery endpoint with page parameter"""
         mock_service = MagicMock()
-        mock_service.get_all_photos = AsyncMock(return_value={
-            "data": [mock_cat_photo],
-            "total": 50,
-            "limit": 10,
-            "offset": 10,
-            "has_more": True,
-        })
+        mock_service.get_all_photos = AsyncMock(
+            return_value={
+                "data": [mock_cat_photo],
+                "total": 50,
+                "limit": 10,
+                "offset": 10,
+                "has_more": True,
+            }
+        )
 
         app.dependency_overrides[get_gallery_service] = lambda: mock_service
 
@@ -205,10 +213,12 @@ class TestGalleryRoutes:
     def test_get_popular_tags(self, client):
         """Test popular tags endpoint"""
         mock_service = MagicMock()
-        mock_service.get_popular_tags = AsyncMock(return_value=[
-            {"tag": "cute", "count": 10},
-            {"tag": "orange", "count": 8},
-        ])
+        mock_service.get_popular_tags = AsyncMock(
+            return_value=[
+                {"tag": "cute", "count": 10},
+                {"tag": "orange", "count": 8},
+            ]
+        )
 
         app.dependency_overrides[get_gallery_service] = lambda: mock_service
 
@@ -242,13 +252,15 @@ class TestAPIVersioning:
     def test_v1_gallery_endpoint(self, client):
         """Test that /api/v1/gallery works"""
         mock_service = MagicMock()
-        mock_service.get_all_photos = AsyncMock(return_value={
-            "data": [],
-            "total": 0,
-            "limit": 20,
-            "offset": 0,
-            "has_more": False,
-        })
+        mock_service.get_all_photos = AsyncMock(
+            return_value={
+                "data": [],
+                "total": 0,
+                "limit": 20,
+                "offset": 0,
+                "has_more": False,
+            }
+        )
 
         app.dependency_overrides[get_gallery_service] = lambda: mock_service
 

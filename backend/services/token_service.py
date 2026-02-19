@@ -15,44 +15,34 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import redis.asyncio as aioredis
 
-from dependencies import get_supabase_admin_client
+from supabase import AClient
 from logger import logger
 from utils.datetime_utils import utc_now_iso
+from utils.supabase_client import get_async_supabase_admin_client
 
 
 class TokenService:
     """
-    Manages JWT token lifecycle with blacklisting support.
-
-    Uses Redis if available for distributed deployments,
-    falls back to in-memory storage for single-instance deployments.
-    Also syncs with Supabase DB for persistence.
-
-    Security features:
-    - Tokens are hashed before storage (never store raw tokens)
-    - TTL-based expiration (automatic cleanup)
-    - User-level invalidation support
+    Manages JWT token lifecycle with blacklisting support. (Async)
     """
 
-    def __init__(self, redis_client: "aioredis.Redis | None" = None) -> None:
+    def __init__(self, redis_client: "aioredis.Redis | None" = None, supabase_client: AClient | None = None) -> None:
         """
         Initialize token service.
-
-        Args:
-            redis_client: Optional async Redis client
         """
         self.redis = redis_client
         self._memory_blacklist: dict[str, datetime] = {}  # Fallback storage
         self.default_ttl = 3600 * 24 * 7  # 7 days
+        self.supabase_admin = supabase_client
 
-        # We use admin client for blacklist operations to ensure we can write
-        self.supabase_admin = get_supabase_admin_client()
+    async def _get_admin_client(self) -> AClient:
+        """Lazy load admin client if not provided"""
+        if self.supabase_admin is None:
+            self.supabase_admin = await get_async_supabase_admin_client()
+        return self.supabase_admin
 
     def _hash_token(self, token: str) -> str:
-        """
-        Hash token for secure storage.
-        Never store raw tokens - use hash for lookup.
-        """
+        """Hash token for secure storage."""
         return hashlib.sha256(token.encode()).hexdigest()
 
     async def blacklist_token(
@@ -65,18 +55,7 @@ class TokenService:
         expires_at: datetime | None = None,
     ) -> bool:
         """
-        Add token to blacklist.
-
-        Args:
-            token: JWT token string (optional if jti provided, but preferred for hashing)
-            reason: Reason for blacklisting
-            ttl_seconds: TTL for fast cache
-            user_id: Owner user ID (for DB logging)
-            jti: Token ID (for DB logging)
-            expires_at: Token expiration time
-
-        Returns:
-            True if successfully blacklisted
+        Add token to blacklist. (Async)
         """
         # 1. Calculate derivatives
         token_hash = self._hash_token(token) if token else (jti or "unknown")
@@ -98,15 +77,10 @@ class TokenService:
             self._cleanup_memory_blacklist()
 
         # 3. Persist to Database (Supabase) if we have enough info
-        # This allows other unrelated instances/workers to respect the blacklist eventually,
-        # and provides audit trail.
         if jti and user_id and expires_at:
             try:
-                # Run sync in case this is called from async context
-                # Note: supabase-py client is synchronous mostly, but can be wrapped.
-                # Here we assume standard synchronous client usage for DB.
-                # Ideally, we should offload this if high throughput, but for logout it's fine.
-                self.supabase_admin.table("token_blacklist").insert(
+                admin_client = await self._get_admin_client()
+                await admin_client.table("token_blacklist").insert(
                     {
                         "token_jti": jti,
                         "user_id": user_id,
@@ -116,8 +90,6 @@ class TokenService:
                 ).execute()
             except Exception as e:
                 logger.error(f"Failed to persist blacklist to DB: {e}")
-                # We don't return False here because the cache write succeeded,
-                # so the token IS effectively blacklisted for this instance.
 
         return True
 
@@ -141,28 +113,27 @@ class TokenService:
             del self._memory_blacklist[token_hash]
         return False
 
-    def _check_db_blacklist(self, jti: str | None, token_hash: str) -> bool:
-        """Check database blacklist (Source of Truth)."""
+    async def _check_db_blacklist(self, jti: str | None, token_hash: str) -> bool:
+        """Check database blacklist (Async-safe)."""
         is_production = os.getenv("ENVIRONMENT", "development").lower() == "production"
         if not is_production:
             return False
 
         try:
-            result = (
-                self.supabase_admin.table("token_blacklist")
-                .select("*")
-                .eq("token_jti", jti if jti else token_hash)
+            admin_client = await self._get_admin_client()
+            result = await admin_client.table("token_blacklist") \
+                .select("*") \
+                .eq("token_jti", jti if jti else token_hash) \
                 .execute()
-            )  # type: ignore[attr-defined]
-            if result.data and len(result.data) > 0:  # type: ignore[attr-defined]
+            
+            if result.data and len(result.data) > 0:
                 # Check if token is still valid (not expired)
-                for entry in result.data:  # type: ignore[attr-defined]
+                for entry in result.data:
                     expires_at = datetime.fromisoformat(entry["expires_at"].replace("Z", "+00:00"))
                     if datetime.now(timezone.utc) < expires_at:
                         return True
         except Exception as e:
             logger.warning(f"Database check failed: {e}")
-            # SECURITY: On DB check failure, we should fail closed for production
             if is_production:
                 logger.error("Database check failed - blocking token for security")
                 return True
@@ -170,11 +141,7 @@ class TokenService:
 
     async def is_blacklisted(self, token: str | None = None, jti: str | None = None) -> bool:
         """
-        Check if token is blacklisted.
-
-        Priority:
-        1. Check Redis/Memory (Fastest)
-        2. Check Database (Source of Truth for persistence)
+        Check if token is blacklisted. (Async)
         """
         token_hash = self._hash_token(token) if token else jti
         if not token_hash:
@@ -188,16 +155,14 @@ class TokenService:
         if self._check_memory_blacklist(token_hash):
             return True
 
-        # 3. SECURITY: Check Database as source of truth for security-critical operations
-        if self._check_db_blacklist(jti, token_hash):
+        # 3. SECURITY: Check Database as source of truth
+        if await self._check_db_blacklist(jti, token_hash):
             return True
 
         return False
 
     async def blacklist_all_user_tokens(self, user_id: str, reason: str = "security_event") -> int:
-        """
-        Invalidate all tokens for a user.
-        """
+        """Invalidate all tokens for a user."""
         if self.redis:
             try:
                 key = f"user_invalidated:{user_id}"
@@ -210,16 +175,13 @@ class TokenService:
         return 0
 
     async def is_user_invalidated(self, user_id: str, token_issued_at: datetime) -> bool:
-        """
-        Check if user's tokens have been globally invalidated.
-        """
+        """Check if user's tokens have been globally invalidated."""
         if self.redis:
             try:
                 key = f"user_invalidated:{user_id}"
                 invalidated_at_str = await self.redis.get(key)
                 if invalidated_at_str:
                     invalidated_at = datetime.fromisoformat(invalidated_at_str.decode())
-                    # Ensure timezone awareness
                     if invalidated_at.tzinfo is None:
                         invalidated_at = invalidated_at.replace(tzinfo=timezone.utc)
                     if token_issued_at.tzinfo is None:
@@ -244,10 +206,7 @@ _token_service: TokenService | None = None
 
 
 async def get_token_service() -> TokenService:
-    """
-    Get or create token service singleton.
-    Lazily initializes Redis connection if REDIS_URL is configured.
-    """
+    """Get or create token service (Async dependency)"""
     global _token_service
 
     if _token_service is None:
@@ -257,7 +216,6 @@ async def get_token_service() -> TokenService:
         if redis_url:
             try:
                 import redis.asyncio as aioredis
-
                 redis_client = aioredis.from_url(redis_url, encoding="utf-8", decode_responses=False)
                 await redis_client.ping()
                 logger.info("Token service initialized with Redis")
@@ -265,26 +223,9 @@ async def get_token_service() -> TokenService:
                 logger.warning(f"Could not connect to Redis: {e}")
                 redis_client = None
 
+        # Admin client will be lazily loaded
         _token_service = TokenService(redis_client)
         if not redis_client:
             logger.info("Token service initialized with in-memory storage")
 
-    return _token_service
-
-
-def get_token_service_sync() -> TokenService:
-    """Sync accessor for non-async contexts (careful with async methods)"""
-    global _token_service
-    # Same initialization logic but without async ping
-    if _token_service is None:
-        redis_client = None
-        redis_url = os.getenv("REDIS_URL")
-        if redis_url:
-            try:
-                import redis.asyncio as aioredis
-
-                redis_client = aioredis.from_url(redis_url, encoding="utf-8", decode_responses=False)
-            except Exception as e:
-                logger.warning(f"Could not connect to Redis (sync): {e}")
-        _token_service = TokenService(redis_client)
     return _token_service

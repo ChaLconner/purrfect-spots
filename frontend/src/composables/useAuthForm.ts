@@ -1,4 +1,4 @@
-import { reactive, ref } from 'vue';
+import { reactive, ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/store/authStore';
 import { AuthService } from '@/services/authService';
@@ -11,7 +11,9 @@ export function useAuthForm(initialMode: 'login' | 'register' = 'login') {
   const authStore = useAuthStore();
 
   const isLogin = ref(initialMode === 'login');
-  const isLoading = ref(false);
+  const isEmailLoading = ref(false);
+  const isGoogleLoading = ref(false);
+  const isLoading = computed(() => isEmailLoading.value || isGoogleLoading.value);
   const showPassword = ref(false);
 
   const form = reactive({
@@ -24,28 +26,50 @@ export function useAuthForm(initialMode: 'login' | 'register' = 'login') {
     isLogin.value = !isLogin.value;
   };
 
+  const formErrors = reactive({
+    email: '',
+    password: '',
+    name: '',
+  });
+
+  const clearErrors = () => {
+    formErrors.email = '';
+    formErrors.password = '';
+    formErrors.name = '';
+  };
+
   const validateForm = (): boolean => {
-    const fields = isLogin.value
-      ? [form.email, form.password]
-      : [form.name, form.email, form.password];
+    clearErrors();
+    let isValid = true;
 
-    if (fields.some((f) => !f?.trim())) {
-      showError('Please fill in all fields');
-      return false;
+    if (!form.email?.trim()) {
+      formErrors.email = 'Email is required';
+      isValid = false;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      formErrors.email = 'Invalid email format';
+      isValid = false;
     }
 
-    if (!isLogin.value && form.password.length < 8) {
-      showError('Password must be at least 8 characters');
-      return false;
+    if (!form.password?.trim()) {
+      formErrors.password = 'Password is required';
+      isValid = false;
+    } else if (!isLogin.value && form.password.length < 8) {
+      formErrors.password = 'Password must be at least 8 characters';
+      isValid = false;
     }
 
-    return true;
+    if (!isLogin.value && !form.name?.trim()) {
+      formErrors.name = 'Full name is required';
+      isValid = false;
+    }
+
+    return isValid;
   };
 
   const handleSubmit = async () => {
     if (!validateForm()) return;
 
-    isLoading.value = true;
+    isEmailLoading.value = true;
 
     try {
       let data;
@@ -90,12 +114,12 @@ export function useAuthForm(initialMode: 'login' | 'register' = 'login') {
 
       showError(message, 'Authentication Failed');
     } finally {
-      isLoading.value = false;
+      isEmailLoading.value = false;
     }
   };
 
   const handleGoogleLogin = async () => {
-    isLoading.value = true;
+    isGoogleLoading.value = true;
 
     try {
       const googleClientId = getEnvVar('VITE_GOOGLE_CLIENT_ID');
@@ -116,15 +140,21 @@ export function useAuthForm(initialMode: 'login' | 'register' = 'login') {
       let message = err instanceof Error ? err.message : 'Google sign-in failed';
       if (message.includes('status code')) message = 'Unable to connect to Google service.';
       showError(message, 'Google Login Error');
-      isLoading.value = false;
+    } finally {
+      // Note: If redirecting, isLoading might not be relevant but it's good practice
+      // in case the error handler or pre-redirect logic takes time.
+      isGoogleLoading.value = false;
     }
   };
 
   return {
     isLogin,
     isLoading,
+    isEmailLoading,
+    isGoogleLoading,
     showPassword,
     form,
+    formErrors,
     toggleMode,
     handleSubmit,
     handleGoogleLogin,

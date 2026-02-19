@@ -15,9 +15,9 @@ from dotenv import load_dotenv
 backend_dir = Path(__file__).parent
 env_path = backend_dir / ".env"
 if env_path.exists():
-    load_dotenv(env_path)
+    load_dotenv(env_path, override=True)
 else:
-    load_dotenv()
+    load_dotenv(override=True)
 
 
 class ConfigurationError(Exception):
@@ -182,6 +182,12 @@ class Config:
     UPLOAD_MAX_DIMENSION = int(os.getenv("UPLOAD_MAX_DIMENSION", "1920"))
     UPLOAD_ALLOWED_EXTENSIONS = os.getenv("UPLOAD_ALLOWED_EXTENSIONS", "jpg,jpeg,png,gif,webp").split(",")
     UPLOAD_RATE_LIMIT = os.getenv("UPLOAD_RATE_LIMIT", "5/minute")
+    
+    # ==========================================
+    # Quota Configuration
+    # ==========================================
+    QUOTA_FREE_LIMIT = int(os.getenv("QUOTA_FREE_LIMIT", "3"))
+    QUOTA_PRO_LIMIT = int(os.getenv("QUOTA_PRO_LIMIT", "50"))
 
     # ==========================================
     # Gallery/Pagination Configuration
@@ -284,11 +290,7 @@ class Config:
             allowed.append(frontend_url)
 
         # Force add production frontend URL (Hardcoded safety net)
-        prod_urls = [
-            "https://purrfect-spots.vercel.app",
-            "https://purrfectspots.xyz",
-            "https://www.purrfectspots.xyz"
-        ]
+        prod_urls = ["https://purrfect-spots.vercel.app", "https://purrfectspots.xyz", "https://www.purrfectspots.xyz"]
         for url in prod_urls:
             if url not in allowed:
                 allowed.append(url)

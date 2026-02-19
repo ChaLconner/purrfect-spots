@@ -5,6 +5,7 @@
  * Modal for editing user profile with avatar upload and password change.
  */
 import { ref, reactive, watch, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { ProfileService } from '@/services/profileService';
 import { showError, showSuccess } from '@/store/toast';
 import { useFocusTrap, announce } from '@/composables/useAccessibility';
@@ -20,6 +21,7 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+const { t } = useI18n();
 
 const emit = defineEmits<{
   (e: 'close'): void;
@@ -35,7 +37,7 @@ const showPasswords = ref(false); // Toggle for password visibility
 
 const passwordRequirements = computed(() => {
   const p = passwordForm.new;
-  return [{ label: 'Min 8 characters', met: p.length >= 8 }];
+  return [{ label: t('auth.passwordMinLength'), met: p.length >= 8 }];
 });
 
 const editForm = reactive({
@@ -65,7 +67,7 @@ watch(
       editForm.username = props.initialUsername || '';
       editForm.bio = props.initialBio;
       editForm.picture = props.initialPicture;
-      announce('Edit profile dialog opened');
+      announce(t('profile.accessibility.editProfileOpened'));
     }
   }
 );
@@ -93,7 +95,7 @@ const handleFileSelect = async (event: Event) => {
     const file = target.files[0];
 
     if (!file.type.startsWith('image/')) {
-      showError('Please upload an image file');
+      showError(t('profile.uploadImageError'));
       return;
     }
 
@@ -101,9 +103,9 @@ const handleFileSelect = async (event: Event) => {
     try {
       const imageUrl = await ProfileService.uploadProfilePicture(file);
       editForm.picture = imageUrl;
-      announce('Profile photo uploaded successfully');
+      announce(t('profile.photoUploadedSuccess'));
     } catch {
-      showError('Failed to upload photo');
+      showError(t('profile.photoUploadFailed'));
     } finally {
       isUploading.value = false;
     }
@@ -112,12 +114,12 @@ const handleFileSelect = async (event: Event) => {
 
 const updatePassword = async () => {
   if (passwordForm.new !== passwordForm.confirm) {
-    showError('New passwords do not match');
+    showError(t('auth.passwordsDoNotMatch'));
     return;
   }
 
   if (passwordForm.new.length < 8) {
-    showError('Password must be at least 8 characters');
+    showError(t('auth.passwordTooShort'));
     return;
   }
 
@@ -127,8 +129,8 @@ const updatePassword = async () => {
       current_password: passwordForm.current,
       new_password: passwordForm.new,
     });
-    showSuccess('Password updated successfully');
-    announce('Password updated successfully');
+    showSuccess(t('profile.passwordUpdated'));
+    announce(t('profile.passwordUpdated'));
 
     // Reset password form
     passwordForm.current = '';
@@ -136,8 +138,8 @@ const updatePassword = async () => {
     passwordForm.confirm = '';
     showPasswordSection.value = false;
   } catch (err: unknown) {
-    let message = err instanceof Error ? err.message : 'Failed to update password';
-    if (message.includes('status code')) message = 'Unable to update password. Please try again.';
+    let message = err instanceof Error ? err.message : t('profile.passwordUpdateFailed');
+    if (message.includes('status code')) message = t('profile.passwordUpdateFailed');
     showError(message);
   } finally {
     isUpdatingPassword.value = false;
@@ -210,7 +212,7 @@ const handleKeydown = (event: KeyboardEvent) => {
               id="edit-profile-title"
               class="text-2xl sm:text-3xl font-heading font-bold mb-4 sm:mb-6 md:mb-8 text-brown text-center"
             >
-              Edit Profile
+              {{ t('profile.editProfile') }}
             </h2>
 
             <form
@@ -229,7 +231,7 @@ const handleKeydown = (event: KeyboardEvent) => {
                   <div
                     class="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                   >
-                    <span class="text-white text-sm font-bold">Change Photo</span>
+                    <span class="text-white text-sm font-bold">{{ t('profile.changePhoto') }}</span>
                   </div>
                   <div
                     v-if="isUploading"
@@ -249,7 +251,7 @@ const handleKeydown = (event: KeyboardEvent) => {
                   @change="handleFileSelect"
                 />
                 <p class="text-[10px] sm:text-xs text-brown-light mt-1.5 sm:mt-2">
-                  Click to upload new picture
+                  {{ t('profile.clickToUpload') }}
                 </p>
               </div>
 
@@ -258,14 +260,14 @@ const handleKeydown = (event: KeyboardEvent) => {
                   for="profile-name"
                   class="block text-xs font-bold text-brown-light mb-2 uppercase tracking-widest pl-1"
                 >
-                  Name
+                  {{ t('profile.name') }}
                 </label>
                 <input
                   id="profile-name"
                   v-model="editForm.name"
                   type="text"
                   class="w-full px-4 sm:px-5 py-2.5 sm:py-3 md:py-3.5 bg-white/60 border-2 border-stone-200 rounded-xl sm:rounded-2xl focus:outline-none focus:border-terracotta focus:bg-white focus:ring-4 focus:ring-terracotta/10 transition-all duration-300 text-sm sm:text-base text-brown font-medium placeholder-stone-400"
-                  placeholder="Your name"
+                  :placeholder="t('profile.namePlaceholder')"
                   autocomplete="name"
                   required
                 />
@@ -276,20 +278,22 @@ const handleKeydown = (event: KeyboardEvent) => {
                   for="profile-username"
                   class="block text-xs font-bold text-brown-light mb-2 uppercase tracking-widest pl-1"
                 >
-                  Username
+                  {{ t('profile.username') }}
                 </label>
                 <input
                   id="profile-username"
                   v-model="editForm.username"
                   type="text"
                   class="w-full px-4 sm:px-5 py-2.5 sm:py-3 md:py-3.5 bg-white/60 border-2 border-stone-200 rounded-xl sm:rounded-2xl focus:outline-none focus:border-terracotta focus:bg-white focus:ring-4 focus:ring-terracotta/10 transition-all duration-300 text-sm sm:text-base text-brown font-medium placeholder-stone-400"
-                  placeholder="Unique username"
+                  :placeholder="t('profile.usernamePlaceholder')"
                   autocomplete="username"
                   pattern="^[a-zA-Z0-9_]+$"
-                  title="Username can only contain letters, numbers, and underscores"
+                  :title="t('profile.usernamePlaceholder')"
                 />
                 <p class="text-[10px] text-stone-400 mt-1 pl-1">
-                  Public profile link: /profile/{{ editForm.username || 'username' }}
+                  {{ t('profile.publicProfileLink') }} /profile/{{
+                    editForm.username || 'username'
+                  }}
                 </p>
               </div>
 
@@ -298,14 +302,14 @@ const handleKeydown = (event: KeyboardEvent) => {
                   for="profile-bio"
                   class="block text-xs font-bold text-brown-light mb-2 uppercase tracking-widest pl-1"
                 >
-                  Bio
+                  {{ t('profile.bio') }}
                 </label>
                 <textarea
                   id="profile-bio"
                   v-model="editForm.bio"
                   class="w-full px-4 sm:px-5 py-2.5 sm:py-3 md:py-3.5 bg-white/60 border-2 border-stone-200 rounded-xl sm:rounded-2xl focus:outline-none focus:border-terracotta focus:bg-white focus:ring-4 focus:ring-terracotta/10 transition-all duration-300 text-sm sm:text-base text-brown font-medium resize-none placeholder-stone-400"
                   rows="3"
-                  placeholder="Tell us a bit about yourself..."
+                  :placeholder="t('profile.bioPlaceholder')"
                 ></textarea>
               </div>
 
@@ -318,7 +322,7 @@ const handleKeydown = (event: KeyboardEvent) => {
                   @click="showPasswordSection = !showPasswordSection"
                 >
                   <span class="mr-2">{{ showPasswordSection ? '−' : '+' }}</span>
-                  Change Password
+                  {{ t('profile.changePassword') }}
                 </button>
 
                 <div
@@ -330,8 +334,7 @@ const handleKeydown = (event: KeyboardEvent) => {
                     class="bg-amber-50/80 border-l-4 border-amber-400 p-4 rounded-r-xl shadow-sm"
                   >
                     <p class="text-amber-900 text-sm font-medium leading-relaxed">
-                      This account is linked with a social provider (Google/Facebook). Please manage
-                      your password through your social account settings.
+                      {{ t('profile.socialAccountMessage') }}
                     </p>
                   </div>
 
@@ -341,7 +344,7 @@ const handleKeydown = (event: KeyboardEvent) => {
                         for="current-password"
                         class="block text-xs font-bold text-brown-light mb-1 uppercase tracking-wider"
                       >
-                        Current Password
+                        {{ t('profile.currentPassword') }}
                       </label>
                       <div class="relative">
                         <input
@@ -401,7 +404,7 @@ const handleKeydown = (event: KeyboardEvent) => {
                         for="new-password"
                         class="block text-xs font-bold text-brown-light mb-1 uppercase tracking-wider"
                       >
-                        New Password
+                        {{ t('auth.newPassword') }}
                       </label>
                       <div class="relative">
                         <input
@@ -436,7 +439,7 @@ const handleKeydown = (event: KeyboardEvent) => {
                         for="confirm-password"
                         class="block text-xs font-bold text-brown-light mb-1 uppercase tracking-wider"
                       >
-                        Confirm New Password
+                        {{ t('auth.confirmPassword') }}
                       </label>
                       <input
                         id="confirm-password"
@@ -453,14 +456,16 @@ const handleKeydown = (event: KeyboardEvent) => {
                         type="button"
                         :disabled="
                           isUpdatingPassword ||
-                            !passwordForm.current ||
-                            !passwordForm.new ||
-                            !passwordForm.confirm
+                          !passwordForm.current ||
+                          !passwordForm.new ||
+                          !passwordForm.confirm
                         "
                         class="px-5 py-2.5 bg-[#C07040] text-white rounded-lg sm:rounded-xl text-sm font-bold hover:bg-[#A05030] shadow-md transition-all disabled:opacity-50 disabled:shadow-none cursor-pointer disabled:cursor-not-allowed"
                         @click="updatePassword"
                       >
-                        {{ isUpdatingPassword ? 'Updating...' : 'Update Password' }}
+                        {{
+                          isUpdatingPassword ? t('common.updating') : t('profile.updatePassword')
+                        }}
                       </button>
                     </div>
                   </template>
@@ -478,14 +483,14 @@ const handleKeydown = (event: KeyboardEvent) => {
               class="px-4 sm:px-5 md:px-6 py-2 sm:py-2.5 md:py-3 text-sm sm:text-base text-brown-dark hover:text-black font-heading font-bold transition-colors cursor-pointer"
               @click="handleClose"
             >
-              Cancel
+              {{ t('common.cancel') }}
             </button>
             <button
               type="submit"
               form="edit-profile-form"
               class="px-5 sm:px-6 md:px-8 py-2 sm:py-2.5 md:py-3 text-sm sm:text-base bg-[#C07040] hover:bg-[#A05030] text-white rounded-lg sm:rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-300 cursor-pointer font-heading font-extrabold tracking-wide"
             >
-              Save Profile
+              {{ t('profile.saveProfile') }}
             </button>
           </div>
         </div>

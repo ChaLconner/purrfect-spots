@@ -30,7 +30,10 @@
 
     <!-- Dropdown -->
     <Transition name="ghibli-pop">
-      <div v-if="isOpen" class="absolute right-0 mt-3 w-80 ghibli-dropdown overflow-hidden z-50">
+      <div
+        v-if="isOpen"
+        class="absolute right-0 mt-3 w-80 max-w-[calc(100vw-2rem)] ghibli-dropdown overflow-hidden z-50"
+      >
         <div class="dropdown-header flex justify-between items-center px-4 py-3">
           <h3 class="font-heading font-extrabold text-brown text-sm tracking-wide">
             Notifications
@@ -222,16 +225,22 @@ onUnmounted(() => {
 
 .notification-badge {
   transform: translate(25%, -25%);
-  animation: badge-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  animation: badge-pulse 2s infinite;
   z-index: 2;
 }
 
-@keyframes badge-pop {
-  from {
-    transform: translate(25%, -25%) scale(0);
-  }
-  to {
+@keyframes badge-pulse {
+  0% {
     transform: translate(25%, -25%) scale(1);
+    box-shadow: 0 0 0 0 rgba(214, 122, 79, 0.7);
+  }
+  70% {
+    transform: translate(25%, -25%) scale(1.1);
+    box-shadow: 0 0 0 6px rgba(214, 122, 79, 0);
+  }
+  100% {
+    transform: translate(25%, -25%) scale(1);
+    box-shadow: 0 0 0 0 rgba(214, 122, 79, 0);
   }
 }
 

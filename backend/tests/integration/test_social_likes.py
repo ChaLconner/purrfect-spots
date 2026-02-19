@@ -12,9 +12,9 @@ load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
+
 @pytest.mark.skipif(
-    not SUPABASE_URL or not SUPABASE_SERVICE_KEY,
-    reason="Supabase credentials not found in environment"
+    not SUPABASE_URL or not SUPABASE_SERVICE_KEY, reason="Supabase credentials not found in environment"
 )
 class TestSocialLikesIntegration:
     """Integration tests for social features (likes) using real database"""
@@ -32,15 +32,11 @@ class TestSocialLikesIntegration:
         users = supabase.auth.admin.list_users()
         if users and len(users) > 0:
             return users[0]
-        
+
         # If no user, create one
         email = f"test_{uuid.uuid4()}@example.com"
         password = "testpassword123"
-        user = supabase.auth.admin.create_user({
-            "email": email,
-            "password": password,
-            "email_confirm": True
-        })
+        user = supabase.auth.admin.create_user({"email": email, "password": password, "email_confirm": True})
         return user
 
     @pytest.fixture(scope="class")
@@ -48,9 +44,9 @@ class TestSocialLikesIntegration:
         """Create a test photo record"""
         photo_id = str(uuid.uuid4())
         user_id = test_user.id
-        
+
         print(f"Creating test photo {photo_id} for user {user_id}")
-        
+
         # Insert directly into cat_photos
         # Note: We need to ensure minimal required fields are present
         data = {
@@ -61,14 +57,14 @@ class TestSocialLikesIntegration:
             "latitude": 0.0,
             "longitude": 0.0,
             "description": "Integration test photo",
-            "likes_count": 0 # Explicitly start at 0
+            "likes_count": 0,  # Explicitly start at 0
         }
-        
+
         res = supabase.table("cat_photos").insert(data).execute()
         created_photo = res.data[0]
-        
+
         yield created_photo
-        
+
         # Cleanup
         print(f"Cleaning up test photo {photo_id}")
         supabase.table("cat_photos").delete().eq("id", photo_id).execute()
@@ -95,7 +91,7 @@ class TestSocialLikesIntegration:
         # 2. Toggle Like (Like)
         # Call the RPC function directly
         ret = supabase.rpc("toggle_photo_like", {"p_user_id": user_id, "p_photo_id": photo_id}).execute()
-        
+
         # Check RPC return
         assert len(ret.data) > 0, "RPC should return data"
         result = ret.data[0]
@@ -112,7 +108,7 @@ class TestSocialLikesIntegration:
 
         # 4. Toggle Like again (Unlike)
         ret = supabase.rpc("toggle_photo_like", {"p_user_id": user_id, "p_photo_id": photo_id}).execute()
-        
+
         # Check RPC return
         assert len(ret.data) > 0
         result = ret.data[0]
@@ -134,7 +130,8 @@ class TestSocialLikesIntegration:
         # Expect an error
         with pytest.raises(Exception) as excinfo:
             supabase.rpc("toggle_photo_like", {"p_user_id": user_id, "p_photo_id": fake_photo_id}).execute()
-        
+
         # Supabase-py raises postgrest.exceptions.APIError, but generic Exception catch works
-        assert "Photo not found" in str(excinfo.value) or "P0002" in str(excinfo.value), \
+        assert "Photo not found" in str(excinfo.value) or "P0002" in str(excinfo.value), (
             f"Should raise Photo not found error, got: {str(excinfo.value)}"
+        )

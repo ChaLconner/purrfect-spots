@@ -12,8 +12,15 @@ import { ErrorBoundary } from './components/ui';
 import { useStructuredData } from './composables/useStructuredData';
 
 import { useWebVitals } from './composables/usePerformance';
+import { computed } from 'vue';
+import { useRoute } from 'vue-router';
 
 const { isOnline } = useNetwork();
+const route = useRoute();
+
+const showNav = computed(() => {
+  return !route.path.startsWith('/admin');
+});
 const errorCount = ref(0);
 const MAX_ERRORS_BEFORE_REFRESH = 5;
 
@@ -126,7 +133,7 @@ onErrorCaptured((err, instance, info) => {
 <template>
   <div class="flex flex-col min-h-screen relative">
     <div class="ghibli-texture-overlay"></div>
-    <NavBar />
+    <NavBar v-if="showNav" />
 
     <!-- Offline Indicator -->
     <div
@@ -150,6 +157,6 @@ onErrorCaptured((err, instance, info) => {
       </ErrorBoundary>
     </main>
 
-    <BottomNav />
+    <BottomNav v-if="showNav" />
   </div>
 </template>

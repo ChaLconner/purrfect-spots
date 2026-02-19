@@ -2,7 +2,7 @@
   <div class="space-y-6">
     <div class="flex items-baseline justify-between border-b border-stone-200 pb-4">
       <h2 class="text-2xl font-heading font-bold text-brown flex items-center">
-        03. Location
+        {{ t('upload.locationSection.title') }}
         <svg
           v-if="!isAuthenticated"
           xmlns="http://www.w3.org/2000/svg"
@@ -27,7 +27,11 @@
           class="text-xs font-bold uppercase tracking-wider text-terracotta hover:text-terracotta-dark transition-colors disabled:opacity-50 cursor-pointer"
           @click="$emit('get-location')"
         >
-          {{ gettingLocation ? 'Locating...' : 'Use My Location' }}
+          {{
+            gettingLocation
+              ? t('upload.locationSection.locating')
+              : t('upload.locationSection.useMyLocation')
+          }}
         </button>
       </div>
     </div>
@@ -41,7 +45,7 @@
       <div
         v-if="!isAuthenticated"
         class="absolute inset-0 z-10 cursor-pointer bg-transparent"
-        title="Login to use map"
+        :title="t('upload.locationSection.loginToUseMap')"
         @click="$emit('check-auth')"
       ></div>
 
@@ -73,15 +77,19 @@
               d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
             />
           </svg>
-          Tap or click on map to pin location
+          {{ t('upload.locationSection.tapToPin') }}
         </span>
-        <span v-else> Drag marker to pinpoint exact location </span>
+        <span v-else> {{ t('upload.locationSection.dragMarker') }} </span>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
+
 withDefaults(
   defineProps<{
     mapId?: string;

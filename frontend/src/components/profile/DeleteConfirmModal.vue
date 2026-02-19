@@ -1,8 +1,12 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
+
 defineProps<{
   isOpen: boolean;
   isDeleting: boolean;
 }>();
+
+const { t } = useI18n();
 
 defineEmits<{
   close: [];
@@ -33,10 +37,10 @@ defineEmits<{
         />
       </svg>
       <h3 class="text-lg sm:text-xl font-heading font-bold text-brown mb-1.5 sm:mb-2">
-        Delete this memory?
+        {{ t('profile.deleteMemoryTitle') }}
       </h3>
       <p class="text-stone-500 mb-4 sm:mb-6 text-sm sm:text-base">
-        This action cannot be undone. The photo will be permanently removed from your gallery.
+        {{ t('profile.deleteMemoryMessage') }}
       </p>
 
       <div class="flex justify-center gap-2 sm:gap-3">
@@ -44,14 +48,14 @@ defineEmits<{
           class="px-4 sm:px-5 py-2 text-stone-500 hover:bg-stone-50 rounded-lg font-medium transition-colors cursor-pointer text-sm sm:text-base"
           @click="$emit('close')"
         >
-          Keep it
+          {{ t('common.keepIt') }}
         </button>
         <button
           :disabled="isDeleting"
           class="px-4 sm:px-5 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg shadow-md font-bold transition-all disabled:opacity-50 cursor-pointer text-sm sm:text-base"
           @click="$emit('confirm')"
         >
-          {{ isDeleting ? 'Deleting...' : 'Yes, Delete' }}
+          {{ isDeleting ? t('common.deleting') : t('common.yesDelete') }}
         </button>
       </div>
     </div>

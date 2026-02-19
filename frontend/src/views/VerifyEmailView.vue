@@ -7,9 +7,9 @@
     <div class="verify-card">
       <!-- Header (No Icon) -->
       <div class="verify-header">
-        <h1 class="verify-title">Verify Your Email</h1>
+        <h1 class="verify-title">{{ t('auth.verifyEmail.title') }}</h1>
         <p class="verify-subtitle">
-          We sent a 6-digit code to<br />
+          {{ t('auth.verifyEmail.subtitle') }}<br />
           <strong class="email-display">{{ email }}</strong>
         </p>
       </div>
@@ -63,21 +63,23 @@
         @click="handleVerify"
       >
         <span v-if="isLoading" class="loading-spinner"></span>
-        {{ isLoading ? 'Verifying...' : 'Verify Email' }}
+        {{ isLoading ? t('auth.verifyEmail.verifying') : t('auth.verifyEmail.verify') }}
       </button>
 
       <!-- Resend Section -->
       <div class="resend-section">
-        <p class="resend-text">Didn't receive the code?</p>
+        <p class="resend-text">{{ t('auth.verifyEmail.didNotReceive') }}</p>
         <button
           v-if="resendCooldown === 0"
           class="resend-btn"
           :disabled="isResending"
           @click="handleResend"
         >
-          {{ isResending ? 'Sending...' : 'Resend Code' }}
+          {{ isResending ? t('auth.verifyEmail.resending') : t('auth.verifyEmail.resend') }}
         </button>
-        <span v-else class="cooldown-text"> Resend available in {{ resendCooldown }}s </span>
+        <span v-else class="cooldown-text">
+          {{ t('auth.verifyEmail.resendAvailable', { seconds: resendCooldown }) }}
+        </span>
       </div>
 
       <!-- Back to Login -->
@@ -97,7 +99,7 @@
               d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
             />
           </svg>
-          Back to Login
+          {{ t('auth.verifyEmail.backToLogin') }}
         </router-link>
       </div>
     </div>
@@ -107,6 +109,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '../store/authStore';
 import { showSuccess, showError } from '../store/toast';
 import { AuthService } from '../services/authService';
@@ -114,6 +117,7 @@ import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 
 const router = useRouter();
 const route = useRoute();
+const { t } = useI18n();
 const authStore = useAuthStore();
 
 // State
@@ -217,7 +221,7 @@ const handleVerify = async (): Promise<void> => {
 
     if (response.access_token && response.user) {
       authStore.setAuth(response);
-      showSuccess('Email verified successfully!', 'Welcome');
+      showSuccess(t('auth.verifyEmail.successMessage'), t('auth.verifyEmail.successTitle'));
 
       let redirectPath = sessionStorage.getItem('redirectAfterAuth') || '/upload';
       sessionStorage.removeItem('redirectAfterAuth');
@@ -232,7 +236,7 @@ const handleVerify = async (): Promise<void> => {
     }
   } catch (err: unknown) {
     hasError.value = true;
-    const message = err instanceof Error ? err.message : 'Verification failed';
+    const message = err instanceof Error ? err.message : t('auth.verifyEmail.verificationFailed');
     errorMessage.value = message;
 
     // Clear inputs on error
@@ -252,11 +256,11 @@ const handleResend = async (): Promise<void> => {
 
   try {
     await AuthService.resendOtp(email.value);
-    showSuccess('Verification code sent!', 'Check your email');
+    showSuccess(t('auth.verifyEmail.codeSentMessage'), t('auth.verifyEmail.codeSentTitle'));
     startCooldown(60);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Failed to resend code';
-    showError(message, 'Resend Failed');
+    const message = err instanceof Error ? err.message : t('auth.verifyEmail.resendFailedMessage');
+    showError(message, t('auth.verifyEmail.resendFailedTitle'));
   } finally {
     isResending.value = false;
   }

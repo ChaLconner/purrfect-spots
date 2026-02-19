@@ -3,7 +3,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from supabase import Client
 
-from dependencies import get_supabase_admin_client
+from dependencies import get_subscription_service
 from logger import logger
 from middleware.auth_middleware import get_current_user_from_credentials
 from schemas.subscription import (
@@ -18,9 +18,6 @@ from user_models.user import User
 
 router = APIRouter(prefix="/subscription", tags=["Subscription"])
 
-def get_subscription_service(supabase: Client = Depends(get_supabase_admin_client)) -> SubscriptionService:
-    # Use admin client to ensure we can update user subscription status securely
-    return SubscriptionService(supabase)
 
 @router.post("/checkout", response_model=CheckoutSessionResponse)
 async def create_checkout_session(
@@ -38,11 +35,12 @@ async def create_checkout_session(
             price_id=checkout_req.price_id,
             success_url=checkout_req.success_url,
             cancel_url=checkout_req.cancel_url,
-            stripe_customer_id=current_user.stripe_customer_id
+            stripe_customer_id=current_user.stripe_customer_id,
         )
     except Exception as e:
         logger.error(f"Checkout creation failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to create checkout session")
+
 
 @router.post("/webhook")
 async def stripe_webhook(
@@ -55,7 +53,7 @@ async def stripe_webhook(
     """
     if not stripe_signature:
         raise HTTPException(status_code=400, detail="Missing Stripe Signature")
-    
+
     payload = await request.body()
     try:
         await subscription_service.handle_webhook(payload, stripe_signature)
@@ -64,8 +62,9 @@ async def stripe_webhook(
     except Exception as e:
         logger.error("Webhook processing failed: %s", e)
         raise HTTPException(status_code=400, detail="Webhook processing failed")
-    
+
     return {"status": "success"}
+
 
 @router.get("/status", response_model=SubscriptionStatus)
 async def get_subscription_status(
@@ -76,6 +75,7 @@ async def get_subscription_status(
     Get current user's subscription status
     """
     return await subscription_service.get_subscription_status(current_user.id)
+
 
 @router.post("/cancel")
 async def cancel_subscription(
@@ -93,6 +93,7 @@ async def cancel_subscription(
     except Exception as e:
         logger.error(f"Cancellation failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to cancel subscription")
+
 
 @router.post("/portal", response_model=PortalResponse)
 async def create_portal_session(

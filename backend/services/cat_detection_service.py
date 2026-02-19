@@ -41,9 +41,9 @@ class CatDetectionService:
                 raise HTTPException(status_code=400, detail="Invalid image file format")
             raise HTTPException(status_code=400, detail=f"Image processing failed: {e!s}")
 
-    def detect_cats(self, file: UploadFile | bytes) -> dict[str, Any]:
+    async def detect_cats(self, file: UploadFile | bytes) -> dict[str, Any]:
         """
-        Detect cats in image using Google Cloud Vision API
+        Detect cats in image using Google Cloud Vision API (Async)
 
         Args:
             file: UploadFile object or raw bytes
@@ -53,7 +53,7 @@ class CatDetectionService:
         """
         try:
             # Use Google Vision API to detect cats
-            vision_result = self.vision_service.detect_cats(file)
+            vision_result = await self.vision_service.detect_cats(file)
 
             # Convert Vision API result to our expected format
             cats_detected = []
@@ -89,13 +89,13 @@ class CatDetectionService:
                 "reasoning": vision_result.get("reasoning", "Cannot analyze"),
             }
 
-
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Cat detection failed: {e!s}")
+            logger.error(f"Cat detection failed: {e}")
+            raise HTTPException(status_code=500, detail="Cat detection failed. Please try again.")
 
-    def analyze_cat_spot_suitability(self, file: UploadFile | bytes) -> dict[str, Any]:
+    async def analyze_cat_spot_suitability(self, file: UploadFile | bytes) -> dict[str, Any]:
         """
-        Analyze spot suitability for cats using Google Cloud Vision
+        Analyze spot suitability for cats using Google Cloud Vision (Async)
 
         Args:
             file: UploadFile object or raw bytes
@@ -105,7 +105,7 @@ class CatDetectionService:
         """
         try:
             # Use Google Vision API to analyze spot suitability
-            return self.vision_service.analyze_cat_spot_suitability(file)
+            return await self.vision_service.analyze_cat_spot_suitability(file)
 
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Spot analysis failed: {e!s}")
@@ -113,3 +113,8 @@ class CatDetectionService:
 
 # Singleton instance
 cat_detection_service = CatDetectionService()
+
+
+def get_cat_detection_service() -> CatDetectionService:
+    """Get service instance"""
+    return cat_detection_service

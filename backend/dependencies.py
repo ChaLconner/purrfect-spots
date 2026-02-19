@@ -3,11 +3,59 @@ from typing import Optional
 from fastapi import Depends, Header, HTTPException
 
 from logger import logger
+from middleware.auth_middleware import get_current_user
 from utils.auth_utils import decode_token
-from utils.supabase_client import get_supabase_admin_client, get_supabase_client
+from utils.supabase_client import (
+    get_async_supabase_admin_client,
+    get_async_supabase_client,
+)
 
-# Re-export for compatibility
-__all__ = ["get_supabase_client", "get_supabase_admin_client", "get_current_user_from_token", "get_current_admin_user", "get_current_token"]
+__all__ = [
+    "get_async_supabase_client",
+    "get_async_supabase_admin_client",
+    "get_current_user_from_token",
+    "get_current_admin_user",
+    "get_current_token",
+    "get_current_user",
+    "get_user_service",
+    "get_auth_service",
+    "get_gallery_service",
+    "get_admin_gallery_service",
+    "get_notification_service",
+    "get_email_service",
+    "get_quota_service",
+    "get_social_service",
+    "get_subscription_service",
+    "get_treats_service",
+    "get_report_service",
+    "get_seo_service",
+]
+
+
+async def get_user_service() -> "UserService":
+    from services.user_service import UserService
+    return UserService(
+        supabase_client=await get_async_supabase_client(),
+        supabase_admin=await get_async_supabase_admin_client()
+    )
+
+
+async def get_auth_service() -> "AuthService":
+    from services.auth_service import AuthService
+    return AuthService(
+        supabase_client=await get_async_supabase_client(),
+        supabase_admin=await get_async_supabase_admin_client()
+    )
+
+
+async def get_gallery_service() -> "GalleryService":
+    from services.gallery_service import GalleryService
+    return GalleryService(await get_async_supabase_client())
+
+
+async def get_admin_gallery_service() -> "GalleryService":
+    from services.gallery_service import GalleryService
+    return GalleryService(await get_async_supabase_admin_client())
 
 
 def get_current_user_from_token(authorization: Optional[str] = Header(None)) -> dict:
@@ -34,6 +82,7 @@ def get_current_user_from_token(authorization: Optional[str] = Header(None)) -> 
         logger.error(f"Unexpected token validation error: {type(e).__name__}")
         raise HTTPException(status_code=401, detail="Invalid token")
 
+
 def get_current_token(authorization: Optional[str] = Header(None)) -> Optional[str]:
     """
     Extract the JWT token string from the Authorization header.
@@ -51,7 +100,7 @@ def get_current_token(authorization: Optional[str] = Header(None)) -> Optional[s
         return None
 
 
-def get_current_admin_user(user: dict = Depends(get_current_user_from_token)) -> dict:
+async def get_current_admin_user(user: dict = Depends(get_current_user_from_token)) -> dict:
     """
     Dependency to check if current user is an admin.
     """
@@ -64,13 +113,57 @@ def get_current_admin_user(user: dict = Depends(get_current_user_from_token)) ->
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid user token")
 
-    client = get_supabase_admin_client()
     try:
-        # Check role in DB
-        res = client.table("users").select("role").eq("id", user_id).single().execute()
+        # Check role in DB asynchronously
+        from utils.supabase_client import get_async_supabase_admin_client
+        client = await get_async_supabase_admin_client()
+        res = await client.table("users").select("role").eq("id", user_id).single().execute()
+        
         if not res.data or res.data.get("role") != "admin":
             raise HTTPException(status_code=403, detail="Admin privileges required")
         return user
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Admin check failed: {e}")
         raise HTTPException(status_code=403, detail="Admin privileges required")
+
+
+async def get_notification_service() -> "NotificationService":
+    from services.notification_service import NotificationService
+    return NotificationService(await get_async_supabase_admin_client())
+
+
+async def get_email_service():
+    from services.email_service import email_service
+    return email_service
+
+
+async def get_quota_service() -> "QuotaService":
+    from services.quota_service import QuotaService
+    return QuotaService(await get_async_supabase_admin_client())
+
+
+async def get_social_service() -> "SocialService":
+    from services.social_service import SocialService
+    return SocialService(await get_async_supabase_admin_client())
+
+
+async def get_subscription_service() -> "SubscriptionService":
+    from services.subscription_service import SubscriptionService
+    return SubscriptionService(await get_async_supabase_client())
+
+
+async def get_treats_service() -> "TreatsService":
+    from services.treats_service import TreatsService
+    return TreatsService(await get_async_supabase_admin_client())
+
+
+async def get_report_service() -> "ReportService":
+    from services.report_service import ReportService
+    return ReportService(await get_async_supabase_admin_client())
+
+
+async def get_seo_service() -> "SeoService":
+    from services.seo_service import SeoService
+    return SeoService(await get_async_supabase_client())

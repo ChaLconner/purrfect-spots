@@ -10,6 +10,7 @@ import {
   handleError,
   handleVueError,
 } from './utils/browserExtensionHandler';
+import i18n from './i18n';
 
 // ========== Sentry Initialization ==========
 // Only initialize in production or if explicitly enabled
@@ -118,6 +119,7 @@ app.config.errorHandler = (err, _instance, info) => {
 };
 
 app.use(router);
+app.use(i18n);
 app.mount('#app');
 
 // Web Vitals tracking is handled below

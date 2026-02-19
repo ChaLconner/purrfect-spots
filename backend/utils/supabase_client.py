@@ -1,4 +1,5 @@
-from supabase import Client, create_client
+from supabase import Client, create_client, acreate_client, AClient
+from typing import Optional
 
 from config import config
 from logger import logger
@@ -12,7 +13,7 @@ if not supabase_url:
 if not supabase_key:
     raise ValueError("SUPABASE_KEY must be set in environment variables")
 
-# Public client
+# Synchronous clients (for legacy support and small tasks)
 supabase: Client = create_client(supabase_url, supabase_key)
 
 # Admin client
@@ -26,10 +27,33 @@ else:
 
 
 def get_supabase_client() -> Client:
-    """Get Supabase client instance"""
+    """Get synchronous Supabase client instance"""
     return supabase
 
 
 def get_supabase_admin_client() -> Client:
-    """Get Supabase admin client instance (bypasses RLS)"""
+    """Get synchronous Supabase admin client instance (bypasses RLS)"""
     return supabase_admin or supabase
+
+
+# --- Async Clients ---
+
+_async_supabase: Optional[AClient] = None
+_async_supabase_admin: Optional[AClient] = None
+
+
+async def get_async_supabase_client() -> AClient:
+    """Get high-performance async Supabase client"""
+    global _async_supabase
+    if _async_supabase is None:
+        _async_supabase = await acreate_client(supabase_url, supabase_key)
+    return _async_supabase
+
+
+async def get_async_supabase_admin_client() -> AClient:
+    """Get high-performance async Supabase admin client (bypasses RLS)"""
+    global _async_supabase_admin
+    if _async_supabase_admin is None:
+        service_key = config.SUPABASE_SERVICE_KEY or config.SUPABASE_KEY
+        _async_supabase_admin = await acreate_client(supabase_url, service_key)
+    return _async_supabase_admin

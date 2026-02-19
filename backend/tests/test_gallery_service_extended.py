@@ -6,6 +6,16 @@ from services.gallery_service import GalleryService
 
 
 @pytest.mark.asyncio
+@pytest.fixture(autouse=True)
+async def clear_test_cache():
+    """Clear the cache before each test to prevent cross-test contamination"""
+    from utils.cache import memory_cache
+
+    memory_cache.clear()
+    yield
+    memory_cache.clear()
+
+
 class TestGalleryServiceExtended:
     @pytest.fixture
     def gallery_service(self, mock_supabase, mock_supabase_admin):
@@ -76,19 +86,19 @@ class TestGalleryServiceExtended:
             # But the fixture already patches SearchService class.
             # The instance `gallery_service.search_service` is a Mock (from fixture)
             # So looking at `gallery_service.search_photos` -> calls `await to_thread(search_service.search_photos)`
-            
+
             # Actually, `search_service` is ALREADY a mock from the fixture logic?
             # In fixture we did `with patch("services.search_service.SearchService._check_fulltext_support", ...)`
             # We did NOT patch the entire class in the FINAL version of fixture.
             # So `gallery_service.search_service` is a REAL `SearchService` instance (with patched `_check_fulltext_support`).
-            
+
             # So `patch.object(gallery_service.search_service, "_fulltext_search", side_effect=Exception("FT fail"))` is better.
             pass
 
         # Since we use real SearchService (mostly), we can patch its method.
-        # But wait, `search_photos` runs in `to_thread`. Patching might be tricky across threads if not carefully done? 
+        # But wait, `search_photos` runs in `to_thread`. Patching might be tricky across threads if not carefully done?
         # Usually `patch` works fine.
-        
+
         with patch.object(gallery_service.search_service, "_fulltext_search", side_effect=Exception("FT fail")):
             mock_supabase.or_.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
                 data=[{"id": "3"}]

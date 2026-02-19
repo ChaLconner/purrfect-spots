@@ -44,9 +44,7 @@
           @error="handleAvatarError(comment.id)"
         />
         <div class="flex-1">
-          <div
-            class="bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-sm border border-white/50 relative"
-          >
+          <BaseCard variant="glass" padding="sm" class="relative rounded-2xl bg-white/80">
             <div class="flex justify-between items-baseline mb-1">
               <span class="font-bold text-sm text-brown">{{
                 comment.user_name || 'Anonymous'
@@ -56,11 +54,12 @@
               }}</span>
             </div>
             <div v-if="editingId === comment.id" class="mt-2">
-              <textarea
+              <BaseInput
                 v-model="editContent"
-                class="w-full bg-white border-2 border-sage/30 rounded-xl p-3 text-sm focus:ring-4 focus:ring-sage/10 focus:border-sage outline-none resize-none transition-all"
-                rows="2"
-              ></textarea>
+                is-textarea
+                :rows="2"
+                class="bg-white border-sage/30"
+              />
               <div class="flex justify-end gap-2 mt-2">
                 <button
                   class="text-[11px] font-bold text-gray-400 hover:text-gray-600 px-2 py-1"
@@ -127,7 +126,7 @@
                 </svg>
               </button>
             </div>
-          </div>
+          </BaseCard>
         </div>
       </div>
 
@@ -146,28 +145,26 @@
     <div v-if="isAuthenticated" class="mt-6 border-t border-cream-dark/50 pt-6">
       <div class="flex gap-3 items-start">
         <div class="flex-1 relative">
-          <textarea
+          <BaseInput
             v-model="newComment"
+            is-textarea
             placeholder="Write a comment..."
-            class="w-full bg-white/60 border-2 border-cream-dark/50 rounded-2xl p-4 text-sm focus:ring-4 focus:ring-sage/10 focus:border-sage outline-none resize-none transition-all placeholder:text-brown-light/50"
-            rows="3"
+            :rows="3"
             :disabled="isSubmitting"
             @keydown.ctrl.enter="postComment"
-          ></textarea>
+          />
         </div>
       </div>
       <div class="flex justify-end mt-3">
-        <button
-          class="btn-ghibli btn-ghibli-primary px-8"
+        <BaseButton
+          variant="ghibli-primary"
+          class="px-8"
           :disabled="!newComment.trim() || isSubmitting"
+          :loading="isSubmitting"
           @click="postComment"
         >
-          <span
-            v-if="isSubmitting"
-            class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"
-          ></span>
           {{ isSubmitting ? 'Posting...' : 'Post Comment' }}
-        </button>
+        </BaseButton>
       </div>
     </div>
     <div
@@ -186,6 +183,7 @@ import { ref, onMounted, computed } from 'vue';
 import { SocialService, type Comment } from '@/services/socialService';
 import { useAuthStore } from '@/store';
 import { useToastStore } from '@/store';
+import { BaseButton, BaseCard, BaseInput } from '@/components/ui';
 import { EXTERNAL_URLS } from '@/utils/constants';
 
 const props = defineProps<{

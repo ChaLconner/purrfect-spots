@@ -8,10 +8,9 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel
 
 from config import config
-from dependencies import get_supabase_admin_client, get_supabase_client
+from dependencies import get_auth_service
 from limiter import auth_limiter as limiter
 from logger import logger
 from middleware.auth_middleware import get_current_user, get_current_user_from_header
@@ -38,12 +37,7 @@ from utils.security import log_security_event, sanitize_text
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-
-
-
-# --- Dependency ---
-def get_auth_service() -> AuthService:
-    return AuthService(get_supabase_client())
+# AuthService is now imported from dependencies
 
 
 # ==========================================
@@ -67,7 +61,7 @@ async def register(
         sanitized_name = sanitize_text(data.name.strip(), max_length=100)
 
         try:
-            auth_service.create_user_with_password(data.email, data.password, sanitized_name)
+            await auth_service.create_user_with_password(data.email, data.password, sanitized_name)
         except Exception as e:
             logger.error("Registration processing error")
             error_msg = str(e)
@@ -130,13 +124,13 @@ async def verify_otp(
             raise HTTPException(status_code=400, detail=result["error"])
 
         # OTP verified - confirm user email in Supabase
-        email_confirmed = auth_service.confirm_user_email(req.email)
+        email_confirmed = await auth_service.confirm_user_email(req.email)
         if not email_confirmed:
             logger.error("Failed to confirm email after OTP verification: %s", req.email)
             raise HTTPException(status_code=500, detail="Email verification failed. Please try again.")
 
         # Get user data and create session
-        user_data = auth_service.get_user_by_email_unverified(req.email)
+        user_data = await auth_service.get_user_by_email_unverified(req.email)
         if not user_data:
             raise HTTPException(status_code=404, detail="User not found")
 
@@ -197,7 +191,7 @@ async def login(
 ) -> LoginResponse:
     """Login with email and password via Supabase Auth"""
     try:
-        user_data = auth_service.authenticate_user(req.email, req.password)
+        user_data = await auth_service.authenticate_user(req.email, req.password)
         if not user_data:
             log_security_event("login_failed_invalid_credentials", details={"email": req.email}, severity="WARNING")
             raise HTTPException(status_code=401, detail="Invalid email or password.")
@@ -234,9 +228,9 @@ async def refresh_token(
         return {"access_token": None, "token_type": None, "message": "Session expired"}
 
     user_id = payload["user_id"]
-    
+
     # Fetch user data FIRST to maintain role and permissions
-    user_obj = auth_service.get_user_by_id(user_id)
+    user_obj = await auth_service.get_user_by_id(user_id)
     if not user_obj:
         response.delete_cookie("refresh_token")
         return {"access_token": None, "token_type": None, "message": "User not found"}
@@ -247,7 +241,7 @@ async def refresh_token(
     if old_jti and old_exp:
         await auth_service.revoke_token(old_jti, user_id, datetime.fromtimestamp(old_exp, timezone.utc))
 
-    new_access_token = auth_service.create_access_token(user_id, role=user_obj.role)
+    new_access_token = auth_service.create_access_token(user_id, role=user_obj.role, permissions=user_obj.permissions)
     new_refresh_token = auth_service.create_refresh_token(user_id, ip, ua)
 
     set_refresh_cookie(response, new_refresh_token)
@@ -255,13 +249,16 @@ async def refresh_token(
     # Convert to safe response format (exclude password_hash)
     user_response = UserResponse(
         id=user_obj.id,
-            email=user_obj.email,
-            name=user_obj.name,
-            picture=user_obj.picture,
-            bio=user_obj.bio,
-            created_at=user_obj.created_at,
-            google_id=user_obj.google_id,
-        )
+        email=user_obj.email,
+        name=user_obj.name,
+        picture=user_obj.picture,
+        bio=user_obj.bio,
+        created_at=user_obj.created_at,
+        google_id=user_obj.google_id,
+        role=user_obj.role,
+        role_id=user_obj.role_id,
+        permissions=user_obj.permissions,
+    )
 
     return {"access_token": new_access_token, "token_type": "bearer", "user": user_response}
 
@@ -296,7 +293,7 @@ async def forgot_password(
 ) -> dict:
     """Request password reset (via Supabase Auth)"""
     try:
-        auth_service.create_password_reset_token(req.email)
+        await auth_service.create_password_reset_token(req.email)
         return {"message": "If this email is registered, you will receive password reset instructions."}
     except Exception:
         logger.error("Forgot password processing failed")
@@ -334,8 +331,8 @@ async def exchange_session(
     Validates the Supabase token and issues our own secure HttpOnly cookies.
     """
     try:
-        # 1. Verify Supabase Token
-        user = auth_service.supabase.auth.get_user(req.access_token)
+        # 1. Verify Supabase Token (Async)
+        user = await auth_service.supabase.auth.get_user(req.access_token)
         if not user or not user.user:
             raise HTTPException(status_code=401, detail="Invalid Supabase session")
 
@@ -344,7 +341,7 @@ async def exchange_session(
         # ... (rest of function body remains conceptually same, just adding type hints)
 
         # 2. Get User Profile (to ensure we have name/picture)
-        db_user = auth_service.get_user_by_id(user_id)
+        db_user = await auth_service.get_user_by_id(user_id)
 
         name = db_user.name if db_user else user.user.user_metadata.get("name", "")
         picture = db_user.picture if db_user else user.user.user_metadata.get("avatar_url", "")
@@ -358,6 +355,9 @@ async def exchange_session(
             "picture": picture,
             "bio": db_user.bio if db_user else None,
             "created_at": db_user.created_at if db_user else datetime.now(timezone.utc),
+            "role": db_user.role if db_user else "user",
+            "role_id": db_user.role_id if db_user else None,
+            "permissions": db_user.permissions if db_user else [],
         }
 
         return create_login_response(auth_service, user_data, request, response)
@@ -439,7 +439,7 @@ async def google_login(
     """Login with Google OAuth token"""
     try:
         user_data = auth_service.verify_google_token(token_data.token)
-        user = auth_service.create_or_get_user(user_data)
+        user = await auth_service.create_or_get_user(user_data)
 
         return create_login_response(auth_service, user, request, response)
 
@@ -557,8 +557,9 @@ async def sync_user_data(user: dict = Depends(get_current_user_from_header)) -> 
         }
 
         # Use admin client to ensure we can update users table
-        supabase_admin = get_supabase_admin_client()
-        res = supabase_admin.table("users").upsert(data, on_conflict="id").execute()
+        from dependencies import get_async_supabase_admin_client
+        supabase_admin = await get_async_supabase_admin_client()
+        res = await supabase_admin.table("users").upsert(data, on_conflict="id").execute()
         return {"message": "User synced", "data": res.data if hasattr(res, "data") else data}
 
     except Exception as e:

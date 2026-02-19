@@ -1,13 +1,13 @@
 import datetime
 from typing import List
 
-from supabase import Client
+from supabase import AClient
 
 from utils.cache import cache
 
 
 class SeoService:
-    def __init__(self, supabase_client: Client) -> None:
+    def __init__(self, supabase_client: AClient) -> None:
         self.supabase = supabase_client
         self.base_url = "https://purrfectspots.xyz"
 
@@ -37,9 +37,9 @@ class SeoService:
         # Build XML
         xml = ['<?xml version="1.0" encoding="UTF-8"?>']
         xml.append('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">')
-        
+
         today = datetime.date.today().isoformat()
-        
+
         for loc, priority in urls:
             xml.append("  <url>")
             xml.append(f"    <loc>{loc}</loc>")
@@ -47,15 +47,21 @@ class SeoService:
             xml.append("    <changefreq>daily</changefreq>")
             xml.append(f"    <priority>{priority}</priority>")
             xml.append("  </url>")
-            
-        xml.append('</urlset>')
-        
+
+        xml.append("</urlset>")
+
         return "\n".join(xml)
 
     async def _get_all_photo_ids(self) -> List[str]:
         try:
             # Fetch visible photos, limit to most recent 1000 to avoid huge sitemap
-            res = self.supabase.table("cat_photos").select("id").is_("deleted_at", "null").order("uploaded_at", desc=True).limit(1000).execute()
+            res = await self.supabase.table("cat_photos") \
+                .select("id") \
+                .is_("deleted_at", "null") \
+                .order("uploaded_at", desc=True) \
+                .limit(1000) \
+                .execute()
+                
             return [row["id"] for row in res.data]
         except Exception as e:
             print(f"Sitemap photo fetch error: {e}")
@@ -64,7 +70,7 @@ class SeoService:
     async def _get_all_user_ids(self) -> List[str]:
         try:
             # Fetch active users
-            res = self.supabase.table("users").select("id").limit(1000).execute()
+            res = await self.supabase.table("users").select("id").limit(1000).execute()
             return [row["id"] for row in res.data]
         except Exception as e:
             print(f"Sitemap user fetch error: {e}")

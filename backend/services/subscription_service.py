@@ -1,10 +1,10 @@
 import os
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any, Dict, cast
 
 import stripe
 from starlette.concurrency import run_in_threadpool
-from supabase import Client
+from supabase import AClient
 
 from logger import logger
 from services.treats_service import TreatsService
@@ -14,7 +14,7 @@ stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 
 class SubscriptionService:
-    def __init__(self, supabase_client: Client) -> None:
+    def __init__(self, supabase_client: AClient) -> None:
         self.supabase = supabase_client
         self.treats_service = TreatsService(supabase_client)
 
@@ -23,27 +23,18 @@ class SubscriptionService:
     async def _get_or_create_stripe_customer(
         self, user_id: str, email: str, existing_customer_id: str | None = None
     ) -> str:
-        """Resolve or create a Stripe Customer ID for the given user.
-
-        Checks in order:
-        1. Provided customer_id argument
-        2. Database lookup
-        3. Create new customer via Stripe API
-        """
+        """Resolve or create a Stripe Customer ID for the given user."""
         if existing_customer_id:
             return existing_customer_id
 
-        # DB lookup (sync call → threadpool)
-        user_res = await run_in_threadpool(
-            lambda: self.supabase.table("users")
-            .select("stripe_customer_id")
-            .eq("id", user_id)
-            .single()
+        user_res = await self.supabase.table("users") \
+            .select("stripe_customer_id") \
+            .eq("id", user_id) \
+            .maybe_single() \
             .execute()
-        )
+            
         db_customer_id = user_res.data.get("stripe_customer_id") if user_res.data else None
         if db_customer_id:
-            from typing import cast
             return cast(str, db_customer_id)
 
         # Create in Stripe (sync SDK → threadpool)
@@ -55,12 +46,11 @@ class SubscriptionService:
         customer_id: str = customer.id
 
         # Persist back to DB
-        await run_in_threadpool(
-            lambda: self.supabase.table("users")
-            .update({"stripe_customer_id": customer_id})
-            .eq("id", user_id)
+        await self.supabase.table("users") \
+            .update({"stripe_customer_id": customer_id}) \
+            .eq("id", user_id) \
             .execute()
-        )
+            
         return customer_id
 
     # ── Checkout ─────────────────────────────────────────────────────
@@ -76,9 +66,7 @@ class SubscriptionService:
     ) -> Dict[str, str]:
         """Creates a Stripe Checkout Session for a subscription."""
         try:
-            customer_id = await self._get_or_create_stripe_customer(
-                user_id, email, stripe_customer_id
-            )
+            customer_id = await self._get_or_create_stripe_customer(user_id, email, stripe_customer_id)
 
             checkout_session = await run_in_threadpool(
                 stripe.checkout.Session.create,
@@ -146,13 +134,11 @@ class SubscriptionService:
             # Fallback: resolve via customer_id
             customer_id = session.get("customer")
             if customer_id:
-                res = await run_in_threadpool(
-                    lambda: self.supabase.table("users")
-                    .select("id")
-                    .eq("stripe_customer_id", customer_id)
-                    .single()
+                res = await self.supabase.table("users") \
+                    .select("id") \
+                    .eq("stripe_customer_id", customer_id) \
+                    .maybe_single() \
                     .execute()
-                )
                 if res.data:
                     user_id = res.data["id"]
 
@@ -171,21 +157,20 @@ class SubscriptionService:
         # Retrieve subscription details (sync SDK → threadpool)
         sub = await run_in_threadpool(stripe.Subscription.retrieve, subscription_id)
         current_period_end = datetime.fromtimestamp(
-            sub.current_period_end, timezone.utc  # type: ignore[arg-type]
+            sub.current_period_end,
+            timezone.utc,  # type: ignore[arg-type]
         )
 
-        await run_in_threadpool(
-            lambda: self.supabase.table("users")
+        await self.supabase.table("users") \
             .update(
                 {
                     "is_pro": True,
                     "subscription_end_date": current_period_end.isoformat(),
                     "cancel_at_period_end": sub.cancel_at_period_end,
                 }
-            )
-            .eq("id", user_id)
+            ) \
+            .eq("id", user_id) \
             .execute()
-        )
         logger.info("Subscription activated for user %s", user_id)
 
     async def _handle_payment_session_completed(self, session: Dict[str, Any]) -> None:
@@ -203,18 +188,16 @@ class SubscriptionService:
             logger.warning("subscription.deleted missing customer_id")
             return
 
-        await run_in_threadpool(
-            lambda: self.supabase.table("users")
+        await self.supabase.table("users") \
             .update(
                 {
                     "is_pro": False,
                     "subscription_end_date": None,
                     "cancel_at_period_end": False,
                 }
-            )
-            .eq("stripe_customer_id", customer_id)
+            ) \
+            .eq("stripe_customer_id", customer_id) \
             .execute()
-        )
         logger.info("Subscription deleted for customer %s", customer_id)
 
     async def _handle_subscription_updated(self, subscription: Dict[str, Any]) -> None:
@@ -235,46 +218,43 @@ class SubscriptionService:
 
         current_period_end = datetime.fromtimestamp(raw_period_end, timezone.utc)
 
-        await run_in_threadpool(
-            lambda: self.supabase.table("users")
+        await self.supabase.table("users") \
             .update(
                 {
                     "cancel_at_period_end": cancel_at_period_end,
                     "subscription_end_date": current_period_end.isoformat(),
                 }
-            )
-            .eq("stripe_customer_id", customer_id)
+            ) \
+            .eq("stripe_customer_id", customer_id) \
             .execute()
-        )
 
     # ── Query helpers ────────────────────────────────────────────────
 
     async def get_subscription_status(self, user_id: str) -> Dict[str, Any]:
-        res = await run_in_threadpool(
-            lambda: self.supabase.table("users")
-            .select(
-                "is_pro, subscription_end_date, stripe_customer_id, "
-                "cancel_at_period_end, treat_balance"
-            )
-            .eq("id", user_id)
-            .single()
+        res = await self.supabase.table("users") \
+            .select("is_pro, subscription_end_date, stripe_customer_id, cancel_at_period_end, treat_balance") \
+            .eq("id", user_id) \
+            .maybe_single() \
             .execute()
+            
+        return (
+            res.data
+            if res.data
+            else {
+                "is_pro": False,
+                "cancel_at_period_end": False,
+                "treat_balance": 0,
+            }
         )
-        return res.data if res.data else {
-            "is_pro": False,
-            "cancel_at_period_end": False,
-            "treat_balance": 0,
-        }
 
     async def create_portal_session(self, user_id: str, return_url: str) -> str:
         """Create a Stripe Customer Portal session."""
-        res = await run_in_threadpool(
-            lambda: self.supabase.table("users")
-            .select("stripe_customer_id")
-            .eq("id", user_id)
-            .single()
+        res = await self.supabase.table("users") \
+            .select("stripe_customer_id") \
+            .eq("id", user_id) \
+            .maybe_single() \
             .execute()
-        )
+            
         if not res.data:
             raise ValueError("User not found")
 
@@ -291,13 +271,12 @@ class SubscriptionService:
 
     async def cancel_subscription(self, user_id: str) -> None:
         """Cancel active subscriptions (set to cancel at period end)."""
-        res = await run_in_threadpool(
-            lambda: self.supabase.table("users")
-            .select("stripe_customer_id")
-            .eq("id", user_id)
-            .single()
+        res = await self.supabase.table("users") \
+            .select("stripe_customer_id") \
+            .eq("id", user_id) \
+            .maybe_single() \
             .execute()
-        )
+            
         if not res.data:
             raise ValueError("User not found")
 
@@ -305,14 +284,10 @@ class SubscriptionService:
         if not customer_id:
             raise ValueError("No subscription found")
 
-        subscriptions = await run_in_threadpool(
-            stripe.Subscription.list, customer=customer_id, status="active"
-        )
+        subscriptions = await run_in_threadpool(stripe.Subscription.list, customer=customer_id, status="active")
         if not subscriptions.data:
             raise ValueError("No active subscription to cancel")
 
         # Cancel only the first/active subscription
         for sub in subscriptions.data:
-            await run_in_threadpool(
-                stripe.Subscription.modify, sub.id, cancel_at_period_end=True
-            )
+            await run_in_threadpool(stripe.Subscription.modify, sub.id, cancel_at_period_end=True)

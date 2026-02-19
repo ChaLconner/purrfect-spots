@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller';
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
 import ErrorState from '@/components/ui/ErrorState.vue';
@@ -14,6 +15,8 @@ const props = defineProps<{
   isOwnProfile?: boolean;
   userName?: string;
 }>();
+
+const { t, locale } = useI18n();
 
 defineEmits<{
   (e: 'open-image', upload: CatLocation): void;
@@ -60,7 +63,11 @@ const rows = computed(() => {
       <h2
         class="text-xl sm:text-2xl font-heading font-bold text-brown text-center md:text-left pl-2 mb-3 sm:mb-4 border-l-4 border-terracotta"
       >
-        {{ isOwnProfile ? 'My Collection' : `${userName || 'User'}'s Collection` }}
+        {{
+          isOwnProfile
+            ? t('profile.myCollection')
+            : t('profile.userCollection', { name: userName || t('profile.unknownUser') })
+        }}
       </h2>
     </div>
 
@@ -68,7 +75,7 @@ const rows = computed(() => {
     <div class="min-h-[300px]">
       <!-- Loading State -->
       <div v-if="isLoading" class="flex flex-col justify-center items-center py-20">
-        <GhibliLoader text="Gathering memories..." />
+        <GhibliLoader :text="t('profile.gatheringMemories')" />
       </div>
 
       <!-- Error State -->
@@ -77,10 +84,10 @@ const rows = computed(() => {
       <!-- No Uploads State -->
       <EmptyState
         v-else-if="uploads.length === 0"
-        title="Welcome Home!"
-        message="Your gallery is looking a bit quiet."
-        sub-message="Help us find all the purrfect spots around town! Start your journey by sharing your first cat discovery."
-        :action-text="isOwnProfile ? 'Share Your First Spot' : undefined"
+        :title="t('profile.welcomeHome')"
+        :message="t('profile.emptyGalleryMessage')"
+        :sub-message="t('profile.emptyGallerySubMessage')"
+        :action-text="isOwnProfile ? t('profile.shareFirstSpot') : undefined"
         :action-link="isOwnProfile ? '/upload' : undefined"
       />
 
@@ -113,7 +120,7 @@ const rows = computed(() => {
                 <!-- Image with Hover Zoom -->
                 <img
                   :src="upload.image_url"
-                  :alt="upload.description || 'A cat'"
+                  :alt="upload.description || t('galleryPage.modal.aCat')"
                   class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   loading="lazy"
                 />
@@ -125,12 +132,12 @@ const rows = computed(() => {
                   <p
                     class="text-white font-heading font-bold text-sm truncate filter drop-shadow-md transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300"
                   >
-                    {{ upload.location_name || 'Mystery Spot' }}
+                    {{ upload.location_name || t('profile.mysterySpot') }}
                   </p>
                   <p
                     class="text-white/80 text-xs truncate filter drop-shadow-md transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300 delay-75"
                   >
-                    {{ new Date(upload.uploaded_at).toLocaleDateString() }}
+                    {{ new Date(upload.uploaded_at).toLocaleDateString(locale) }}
                   </p>
                 </div>
               </button>

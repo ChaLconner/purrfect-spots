@@ -9,7 +9,7 @@
       <div class="gallery-mint-container p-0 min-h-[600px] w-full relative z-[5]">
         <!-- Loading state -->
         <output v-if="loading" class="loading-container" aria-live="polite">
-          <GhibliLoader text="Finding cute cats..." />
+          <GhibliLoader :text="$t('galleryPage.loading')" />
         </output>
 
         <!-- Error state -->
@@ -18,10 +18,10 @@
         <!-- Empty state -->
         <EmptyState
           v-else-if="visibleImages.length === 0"
-          title="A Quiet Spot"
-          message="No photos have been discovered here yet."
-          sub-message="Be the first to share a moment in this collection."
-          action-text="Upload Photo"
+          :title="$t('galleryPage.empty.title')"
+          :message="$t('galleryPage.empty.message')"
+          :sub-message="$t('galleryPage.empty.subMessage')"
+          :action-text="$t('galleryPage.empty.action')"
           action-link="/upload"
         />
 
@@ -51,6 +51,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, watch, onErrorCaptured, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { GalleryService } from '@/services/galleryService';
 import { isDev } from '@/utils/env';
@@ -69,6 +70,7 @@ import { useSeo } from '@/composables/useSeo';
 
 // SEO
 const { setMetaTags, resetMetaTags } = useSeo();
+const { t } = useI18n();
 
 const props = defineProps<{
   id?: string;
@@ -125,9 +127,8 @@ onMounted(() => {
 
   // Set SEO meta tags
   setMetaTags({
-    title: 'Gallery | Purrfect Spots',
-    description:
-      'Browse our collection of adorable cat photos from around the world. Find your favorite feline friends and discover cat-friendly locations.',
+    title: `${t('galleryPage.seo.title')} | Purrfect Spots`,
+    description: t('galleryPage.seo.description'),
     type: 'website',
   });
 });
@@ -209,9 +210,8 @@ async function syncStateFromUrl() {
 
     // Reset to general Gallery SEO
     setMetaTags({
-      title: 'Gallery | Purrfect Spots',
-      description:
-        'Browse our collection of adorable cat photos from around the world. Find your favorite feline friends and discover cat-friendly locations.',
+      title: `${t('galleryPage.seo.title')} | Purrfect Spots`,
+      description: t('galleryPage.seo.description'),
       type: 'website',
     });
     return;
@@ -245,9 +245,8 @@ watch(
     if (image) {
       const title = image.location_name
         ? `${image.location_name} | Purrfect Spots`
-        : 'A Cute Cat | Purrfect Spots';
-      const description =
-        image.description || 'Check out this adorable cat I found on Purrfect Spots!';
+        : `${t('galleryPage.seo.defaultTitle')} | Purrfect Spots`;
+      const description = image.description || t('galleryPage.seo.defaultImageDescription');
       // Use efficient image URL for sharing if possible, or fallback
       const imageUrl = image.image_url;
 
@@ -460,9 +459,8 @@ onMounted(() => {
 
   // Set SEO meta tags
   setMetaTags({
-    title: 'Gallery | Purrfect Spots',
-    description:
-      'Browse our collection of adorable cat photos from around the world. Find your favorite feline friends and discover cat-friendly locations.',
+    title: `${t('galleryPage.seo.title')} | Purrfect Spots`,
+    description: t('galleryPage.seo.description'),
     type: 'website',
   });
 });

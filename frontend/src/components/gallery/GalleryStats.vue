@@ -2,19 +2,25 @@
   <output class="gallery-stats-container" aria-live="polite">
     <div class="stats-pill">
       <div class="stat-item">
-        <output class="stat-value" aria-label="Total photos">{{ totalCount }}</output>
-        <span class="stat-label">{{ totalCount === 1 ? 'photo' : 'photos' }}</span>
+        <output class="stat-value" :aria-label="t('galleryPage.stats.totalPhotos')">{{
+          totalCount
+        }}</output>
+        <span class="stat-label">{{ t('galleryPage.stats.photo', totalCount) }}</span>
       </div>
       <div v-if="totalCount !== visibleCount" class="separator" aria-hidden="true"></div>
       <div v-if="totalCount !== visibleCount" class="stat-item">
         <output class="stat-value">{{ visibleCount }}</output>
-        <span class="stat-label">showing</span>
+        <span class="stat-label">{{ t('galleryPage.stats.showing') }}</span>
       </div>
     </div>
   </output>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
+
 defineProps<{
   totalCount: number;
   visibleCount: number;

@@ -1,17 +1,19 @@
-
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from httpx import ASGITransport, AsyncClient
+
 from main import app
 from middleware.auth_middleware import get_current_user_from_credentials
 from routes.profile import get_admin_gallery_service, get_auth_service, get_storage_service
+
 
 @pytest.fixture
 async def client():
     """Create test client using AsyncClient"""
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
+
 
 class TestProfileRoute:
     @pytest.fixture

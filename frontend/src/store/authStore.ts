@@ -6,12 +6,13 @@
  */
 import { defineStore } from 'pinia';
 import { ref, computed, watch } from 'vue';
-import type { User, LoginResponse } from '../types/auth';
-import { ProfileService } from '../services/profileService';
 import { supabase } from '../lib/supabase';
+import { PERMISSIONS } from '../constants/permissions';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 import { apiV1, setAccessToken, setAuthCallbacks } from '../utils/api';
+import { ProfileService } from '../services/profileService';
+
 
 // Module-level helper to update API header - avoids recreation on every store access
 function updateApiHeader(accessToken: string | null): void {
@@ -31,7 +32,7 @@ function sanitizeUserForCache(userData: User | null): Partial<User> | null {
   if (!userData) return null;
   // Omit sensitive/volatile fields that should only be trusted from the verified token/API
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { role, stripe_customer_id, treat_balance, ...safeData } = userData;
+  const { stripe_customer_id, treat_balance, ...safeData } = userData;
   return safeData;
 }
 
@@ -68,6 +69,20 @@ export const useAuthStore = defineStore('auth', () => {
   const userAvatar = computed(() => {
     return user.value?.picture || '/default-avatar.svg';
   });
+
+  const isAdmin = computed(() => {
+    // Primary check: permission-based
+    if (hasPermission(PERMISSIONS.ACCESS_ADMIN)) return true;
+    if (hasPermission(PERMISSIONS.USERS_READ)) return true;
+
+    // Fallback: legacy role-based (during transition)
+    const r = user.value?.role?.toLowerCase();
+    return r === 'admin' || r === 'super_admin';
+  });
+
+  function hasPermission(permission: string): boolean {
+    return user.value?.permissions?.includes(permission) || false;
+  }
 
   // ========== Actions ==========
 
@@ -221,6 +236,8 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+
+
   /**
    * Update user profile data
    */
@@ -310,6 +327,8 @@ export const useAuthStore = defineStore('auth', () => {
     isUserReady,
     userDisplayName,
     userAvatar,
+    isAdmin,
+    hasPermission,
 
     // Actions
     initializeAuth,

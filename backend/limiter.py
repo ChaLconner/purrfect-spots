@@ -8,7 +8,6 @@ Features:
 - Different rate limits for different endpoint types
 """
 
-
 import jwt
 from fastapi import Request
 from slowapi import Limiter
@@ -62,14 +61,14 @@ def test_redis_connection(redis_url: str) -> bool:
 
         if redis_url.startswith("rediss://"):
             client = redis.from_url(
-                redis_url, 
-                socket_connect_timeout=10, 
+                redis_url,
+                socket_connect_timeout=10,
                 socket_timeout=10,
-                ssl_cert_reqs=None  # Mitigate WinError 10054 with Upstash
+                ssl_cert_reqs=None,  # Mitigate WinError 10054 with Upstash
             )
         else:
             client = redis.from_url(redis_url, socket_connect_timeout=5)
-        
+
         client.ping()
         logger.info("Redis connection successful - using Redis for rate limiting")
         return True
@@ -175,12 +174,32 @@ except Exception as e:
 
 # ========== Rate Limiters ==========
 
+# Prepare storage options for Redis to handle timeouts and connection drops gracefully
+# This is especially important for Upstash which may close idle connections
+_storage_options = {}
+if _storage_uri and _storage_uri.startswith("rediss://"):
+    _storage_options = {
+        "socket_connect_timeout": 5,
+        "socket_timeout": 5,
+        "health_check_interval": 30,  # Check connection health every 30s to detect closed contentions
+        "ssl_cert_reqs": None,  # Mitigate WinError 10054 with Upstash
+    }
+elif _storage_uri and _storage_uri.startswith("redis://"):
+    _storage_options = {
+        "socket_connect_timeout": 5,
+        "socket_timeout": 5,
+        "health_check_interval": 30,
+    }
+
 # Standard rate limiter for general API endpoints
 limiter = Limiter(
     key_func=get_user_id_from_request,
     default_limits=[config.RATE_LIMIT_API_DEFAULT],
     storage_uri=_storage_uri,
+    storage_options=_storage_options,
     strategy="fixed-window",
+    swallow_errors=True,  # Prevent 500 errors if Redis is down
+    in_memory_fallback_enabled=True,  # Fallback to memory if Redis fails
 )
 
 # Strict rate limiter for resource-intensive endpoints (cat detection, uploads)
@@ -188,7 +207,10 @@ strict_limiter = Limiter(
     key_func=get_user_id_from_request,
     default_limits=["5/minute"],
     storage_uri=_storage_uri,
+    storage_options=_storage_options,
     strategy="fixed-window",
+    swallow_errors=True,
+    in_memory_fallback_enabled=True,
 )
 
 # Upload rate limiter - moderate limits for file uploads
@@ -196,7 +218,10 @@ upload_limiter = Limiter(
     key_func=get_user_id_from_request,
     default_limits=[config.UPLOAD_RATE_LIMIT],
     storage_uri=_storage_uri,
+    storage_options=_storage_options,
     strategy="fixed-window",
+    swallow_errors=True,
+    in_memory_fallback_enabled=True,
 )
 
 # Auth rate limiter - very strict for login/register attempts (brute force protection)
@@ -204,7 +229,10 @@ auth_limiter = Limiter(
     key_func=get_remote_address,  # Use IP for auth to prevent credential stuffing
     default_limits=[config.RATE_LIMIT_AUTH],
     storage_uri=_storage_uri,
+    storage_options=_storage_options,
     strategy="fixed-window",
+    swallow_errors=True,
+    in_memory_fallback_enabled=True,
 )
 
 

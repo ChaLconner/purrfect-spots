@@ -5,12 +5,14 @@ Generates, stores, and verifies 6-digit OTP codes
 
 import hashlib
 import secrets
-from datetime import timedelta
+from datetime import timedelta, datetime
+from typing import Optional
 
-from dependencies import get_supabase_admin_client
+from supabase import AClient
 from exceptions import ExternalServiceError, PurrfectSpotsException
 from logger import logger
 from utils.datetime_utils import utc_now
+from utils.supabase_client import get_async_supabase_admin_client
 
 TIMEZONE_UTC_OFFSET = "+00:00"
 
@@ -23,8 +25,8 @@ class OTPService:
     RESEND_COOLDOWN_SECONDS = 60  # Minimum time between resends
     LOCKOUT_DURATION_MINUTES = 15  # Account lockout duration after max attempts
 
-    def __init__(self) -> None:
-        self.supabase = get_supabase_admin_client()
+    def __init__(self, supabase_client: AClient) -> None:
+        self.supabase = supabase_client
 
     def _generate_otp(self) -> str:
         """Generate cryptographically secure 6-digit OTP"""
@@ -62,19 +64,15 @@ class OTPService:
                     pass
 
             # Fallback to database check
-            result = (
-                self.supabase.table("email_verifications")
-                .select("locked_until")
-                .eq("email", email)
-                .is_("verified_at", "null")
-                .order("created_at", desc=True)
-                .limit(1)
+            result = await self.supabase.table("email_verifications") \
+                .select("locked_until") \
+                .eq("email", email) \
+                .is_("verified_at", "null") \
+                .order("created_at", desc=True) \
+                .limit(1) \
                 .execute()
-            )
 
             if result.data and result.data[0].get("locked_until"):
-                from datetime import datetime
-
                 locked_until = datetime.fromisoformat(result.data[0]["locked_until"].replace("Z", TIMEZONE_UTC_OFFSET))
                 return utc_now() < locked_until
 
@@ -109,18 +107,16 @@ class OTPService:
                     pass
 
             # Fallback to database
-            result = (
-                self.supabase.table("email_verifications")
-                .select("id")
-                .eq("email", email)
-                .is_("verified_at", "null")
-                .order("created_at", desc=True)
-                .limit(1)
+            result = await self.supabase.table("email_verifications") \
+                .select("id") \
+                .eq("email", email) \
+                .is_("verified_at", "null") \
+                .order("created_at", desc=True) \
+                .limit(1) \
                 .execute()
-            )
 
             if result.data:
-                self.supabase.table("email_verifications").update({"locked_until": locked_until.isoformat()}).eq(
+                await self.supabase.table("email_verifications").update({"locked_until": locked_until.isoformat()}).eq(
                     "id", result.data[0]["id"]
                 ).execute()
                 logger.info("Email locked out in database: %s until %s", email, locked_until.isoformat())
@@ -150,36 +146,28 @@ class OTPService:
                     pass
 
             # Fallback to database
-            result = (
-                self.supabase.table("email_verifications")
-                .select("id")
-                .eq("email", email)
-                .is_("verified_at", "null")
-                .order("created_at", desc=True)
-                .limit(1)
+            result = await self.supabase.table("email_verifications") \
+                .select("id") \
+                .eq("email", email) \
+                .is_("verified_at", "null") \
+                .order("created_at", desc=True) \
+                .limit(1) \
                 .execute()
-            )
 
             if result.data:
-                self.supabase.table("email_verifications").update({"locked_until": None}).eq(
+                await self.supabase.table("email_verifications").update({"locked_until": None}).eq(
                     "id", result.data[0]["id"]
                 ).execute()
         except Exception as e:
             logger.error("Failed to clear email lockout: %s", e)
 
-    def create_otp(self, email: str) -> tuple[str, str]:
+    async def create_otp(self, email: str) -> tuple[str, str]:
         """
-        Create and store OTP for email verification
-
-        Args:
-            email: User's email address
-
-        Returns:
-            Tuple of (otp_code, expires_at_iso)
+        Create and store OTP for email verification (Async)
         """
         try:
             # Invalidate any existing OTPs for this email
-            self.invalidate_existing_otps(email)
+            await self.invalidate_existing_otps(email)
 
             # Generate new OTP
             otp = self._generate_otp()
@@ -187,8 +175,7 @@ class OTPService:
             expires_at = utc_now() + timedelta(minutes=self.OTP_EXPIRY_MINUTES)
 
             # Store in database
-            result = (
-                self.supabase.table("email_verifications")
+            result = await self.supabase.table("email_verifications") \
                 .insert(
                     {
                         "email": email.lower(),
@@ -197,9 +184,8 @@ class OTPService:
                         "max_attempts": self.MAX_ATTEMPTS,
                         "expires_at": expires_at.isoformat(),
                     }
-                )
+                ) \
                 .execute()
-            )
 
             if not result.data:
                 raise ExternalServiceError("Failed to store OTP", service="Database")
@@ -207,23 +193,13 @@ class OTPService:
             logger.info("OTP created and session initiated")
             return otp, expires_at.isoformat()
 
-        except Exception:
-            logger.error("Failed to create OTP")
+        except Exception as e:
+            logger.error("Failed to create OTP: %s", e)
             raise PurrfectSpotsException("Failed to generate verification code", error_code="INTERNAL_ERROR")
 
     async def verify_otp(self, email: str, otp: str) -> dict:
         """
-        Verify OTP code
-
-        Args:
-            email: User's email address
-            otp: 6-digit OTP code
-
-        Returns:
-            Dict with verification result:
-            - success: bool
-            - error: str (if failed)
-            - attempts_remaining: int (if failed)
+        Verify OTP code (Async)
         """
         try:
             email_lower = email.lower()
@@ -238,15 +214,13 @@ class OTPService:
                 }
 
             # Get latest OTP record for this email
-            result = (
-                self.supabase.table("email_verifications")
-                .select("*")
-                .eq("email", email_lower)
-                .is_("verified_at", "null")
-                .order("created_at", desc=True)
-                .limit(1)
+            result = await self.supabase.table("email_verifications") \
+                .select("*") \
+                .eq("email", email_lower) \
+                .is_("verified_at", "null") \
+                .order("created_at", desc=True) \
+                .limit(1) \
                 .execute()
-            )
 
             if not result.data:
                 logger.warning("No pending OTP found")
@@ -264,8 +238,6 @@ class OTPService:
             expires_at = record["expires_at"]
 
             # Check if expired
-            from datetime import datetime
-
             expiry_time = datetime.fromisoformat(expires_at.replace("Z", TIMEZONE_UTC_OFFSET))
             if utc_now() > expiry_time:
                 logger.warning("OTP expired")
@@ -291,17 +263,16 @@ class OTPService:
             if self._constant_time_compare(input_hash, stored_hash):
                 # Success - mark as verified and clear any lockout
                 await self._clear_email_lockout(email_lower)
-                self.supabase.table("email_verifications").update({"verified_at": utc_now().isoformat()}).eq(
+                await self.supabase.table("email_verifications").update({"verified_at": utc_now().isoformat()}).eq(
                     "id", record_id
                 ).execute()
 
                 logger.info("OTP verified successfully")
                 return {"success": True}
+            
             # Failed - increment attempts
             new_attempts = attempts + 1
-            self.supabase.table("email_verifications").update({"attempts": new_attempts}).eq(
-                "id", record_id
-            ).execute()
+            await self.supabase.table("email_verifications").update({"attempts": new_attempts}).eq("id", record_id).execute()
 
             remaining = max_attempts - new_attempts
             logger.warning("Invalid OTP, %s attempts remaining", remaining)
@@ -311,43 +282,36 @@ class OTPService:
                 "attempts_remaining": remaining,
             }
 
-        except Exception:
-            logger.error("OTP verification error")
+        except Exception as e:
+            logger.error("OTP verification error: %s", e)
             return {"success": False, "error": "Verification failed. Please try again.", "attempts_remaining": 0}
 
-    def invalidate_existing_otps(self, email: str) -> None:
-        """Invalidate all existing OTPs for an email"""
+    async def invalidate_existing_otps(self, email: str) -> None:
+        """Invalidate all existing OTPs for an email (Async)"""
         try:
-            self.supabase.table("email_verifications").delete().eq("email", email.lower()).is_(
+            await self.supabase.table("email_verifications").delete().eq("email", email.lower()).is_(
                 "verified_at", "null"
             ).execute()
         except Exception:
             logger.warning("Failed to invalidate existing OTPs")
 
-    def can_resend_otp(self, email: str) -> tuple[bool, int]:
+    async def can_resend_otp(self, email: str) -> tuple[bool, int]:
         """
-        Check if user can request a new OTP (cooldown check)
-
-        Returns:
-            Tuple of (can_resend, seconds_remaining)
+        Check if user can request a new OTP (cooldown check) (Async)
         """
         try:
             email_lower = email.lower()
 
             # Get latest OTP record for this email
-            result = (
-                self.supabase.table("email_verifications")
-                .select("created_at")
-                .eq("email", email_lower)
-                .order("created_at", desc=True)
-                .limit(1)
+            result = await self.supabase.table("email_verifications") \
+                .select("created_at") \
+                .eq("email", email_lower) \
+                .order("created_at", desc=True) \
+                .limit(1) \
                 .execute()
-            )
 
             if not result.data:
                 return True, 0
-
-            from datetime import datetime
 
             created_at = datetime.fromisoformat(result.data[0]["created_at"].replace("Z", TIMEZONE_UTC_OFFSET))
             elapsed = (utc_now() - created_at).total_seconds()
@@ -358,18 +322,12 @@ class OTPService:
 
             return True, 0
 
-        except RuntimeError:
+        except Exception:
             logger.warning("Resend check error")
             return True, 0  # Allow resend on error
 
 
-# Singleton instance
-_otp_service: OTPService | None = None
-
-
-def get_otp_service() -> OTPService:
-    """Get OTP service singleton"""
-    global _otp_service
-    if _otp_service is None:
-        _otp_service = OTPService()
-    return _otp_service
+async def get_otp_service() -> OTPService:
+    """Get OTP service (Async dependency)"""
+    client = await get_async_supabase_admin_client()
+    return OTPService(client)

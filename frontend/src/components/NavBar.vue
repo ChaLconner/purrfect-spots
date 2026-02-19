@@ -6,7 +6,9 @@ import { useCatsStore } from '../store';
 // Child Components
 import SearchBox from './navbar/SearchBox.vue';
 import UserMenu from './navbar/UserMenu.vue';
+import NavLink from './navbar/NavLink.vue';
 import NotificationBell from './ui/NotificationBell.vue';
+import LanguageSwitcher from './LanguageSwitcher.vue';
 
 // Icons
 import Logo from './icons/logo.vue';
@@ -15,6 +17,7 @@ import MapIcon from './icons/map.vue';
 import Upload from './icons/upload.vue';
 import Gallery from './icons/gallery.vue';
 import Trophy from './icons/trophy.vue';
+import ProfileIcon from './icons/profile.vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -37,65 +40,76 @@ const catsStore = useCatsStore();
             <Paw class="paw-icon" />
           </div>
           <div class="cat-counter-text">
-            <span class="cat-count">{{ catsStore.catCount }} cats</span>
-            <span class="cat-subtitle">spotted nearby</span>
+            <span class="cat-count">{{ catsStore.catCount }} {{ $t('cats.cats') }}</span>
+            <span class="cat-subtitle">{{ $t('cats.spottedNearby') }}</span>
           </div>
         </div>
       </div>
 
       <!-- Center Section: Search Box -->
-      <div class="center-section hidden xl:flex">
+      <div class="center-section">
         <SearchBox />
       </div>
 
       <!-- Right Section: Navigation + Login -->
       <div class="right-section">
         <!-- Desktop Nav Links -->
-        <div class="nav-links hidden xl:flex">
-          <router-link
+        <div class="nav-links hidden xl:flex items-center gap-1.5">
+          <NavLink
             to="/map"
-            class="nav-link-3d nav-link-sage"
+            variant="sage"
+            :label="$t('nav.map')"
             :class="{ active: route.path === '/map' || route.path === '/' }"
-            aria-label="Map"
           >
-            <MapIcon class="nav-icon" />
-            <span class="hidden 2xl:block">Map</span>
-          </router-link>
+            <template #icon>
+              <MapIcon class="nav-icon" />
+            </template>
+          </NavLink>
 
-          <router-link
+          <NavLink
             to="/upload"
-            class="nav-link-3d nav-link-sky"
+            variant="sky"
+            :label="$t('nav.upload')"
             :class="{ active: route.path === '/upload' }"
-            aria-label="Upload"
           >
-            <Upload class="nav-icon" />
-            <span class="hidden 2xl:block">Upload</span>
-          </router-link>
+            <template #icon>
+              <Upload class="nav-icon" />
+            </template>
+          </NavLink>
 
-          <router-link
+          <NavLink
             to="/gallery"
-            class="nav-link-3d nav-link-lavender"
+            variant="lavender"
+            :label="$t('nav.gallery')"
             :class="{ active: route.path === '/gallery' }"
-            aria-label="Gallery"
           >
-            <Gallery class="nav-icon" />
-            <span class="hidden 2xl:block">Gallery</span>
-          </router-link>
+            <template #icon>
+              <Gallery class="nav-icon" />
+            </template>
+          </NavLink>
 
-          <router-link
+          <NavLink
             to="/leaderboard"
-            class="nav-link-3d nav-link-sakura"
+            variant="sakura"
+            :label="$t('nav.leaderboard')"
             :class="{ active: route.path === '/leaderboard' }"
-            aria-label="Leaderboard"
           >
-            <Trophy class="nav-icon" />
-            <span class="hidden 2xl:block">Leaderboard</span>
-          </router-link>
+            <template #icon>
+              <Trophy class="nav-icon" />
+            </template>
+          </NavLink>
         </div>
 
+        <!-- Language Switcher (Always visible) -->
+        <LanguageSwitcher />
+
         <!-- Login Button (not authenticated) - Hidden until xl, handled by BottomNav -->
-        <div v-if="!authStore.isAuthenticated" class="hidden xl:block">
-          <router-link to="/login" class="login-btn-3d"> Login </router-link>
+        <div v-if="!authStore.isAuthenticated" class="hidden xl:flex items-center gap-2">
+          <NavLink to="/login" variant="accent" :label="$t('auth.login')">
+            <template #icon>
+              <ProfileIcon class="nav-icon" />
+            </template>
+          </NavLink>
         </div>
 
         <!-- User Menu (authenticated) -->
@@ -145,18 +159,21 @@ const catsStore = useCatsStore();
   border-radius: 1.25rem;
   border: 2px solid var(--color-btn-shade-a);
   transform-style: preserve-3d;
-  min-width: 0; /* Allow flex shrinking */
+  min-width: 0;
+  gap: 0.5rem;
 }
 
 @media (min-width: 768px) {
   .navbar-content {
     padding: 0.625rem 1rem;
+    gap: 1rem;
   }
 }
 
 @media (min-width: 1280px) {
   .navbar-content {
     padding: 0.75rem 1.5rem;
+    gap: 2rem;
   }
 }
 
@@ -181,6 +198,7 @@ const catsStore = useCatsStore();
   display: flex;
   align-items: center;
   gap: 1rem;
+  flex-shrink: 0;
 }
 
 /* 3D Brand Section */
@@ -290,261 +308,49 @@ const catsStore = useCatsStore();
 
 /* Center Section - Search */
 .center-section {
+  display: flex;
   justify-content: center;
-  width: 100%;
-  max-width: 250px;
+  flex: 1;
+  min-width: 0;
+  max-width: 480px;
+  justify-self: center;
+  padding: 0 0.5rem;
 }
 
 @media (min-width: 1280px) {
   .center-section {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 100%;
-    max-width: 240px;
-    padding: 0 0.5rem;
     z-index: 10;
-    justify-content: center;
-    display: flex;
-  }
-}
-
-@media (min-width: 1440px) {
-  .center-section {
-    max-width: 320px;
-  }
-}
-
-@media (min-width: 1600px) {
-  .center-section {
-    max-width: 400px;
-  }
-}
-
-@media (min-width: 1920px) {
-  .center-section {
-    max-width: 500px;
   }
 }
 
 /* Right Section */
 .right-section {
-  display: flex; /* Ensure flex is applied locally */
+  display: flex;
   align-items: center;
   gap: 0.5rem;
-  justify-self: end;
-  min-width: 0;
-  flex-shrink: 0; /* Prevent shrinking to avoid layout shifts */
-  z-index: 20; /* Ensure right section is clickable above search if narrow */
+  flex-shrink: 0;
+  z-index: 20;
 }
 
-.nav-links {
-  /* display: flex; Removed to respect Tailwind hidden classes */
-  align-items: center;
-  gap: 0.375rem; /* Reduced gap from 0.5rem */
+@media (min-width: 768px) {
+  .right-section {
+    gap: 1rem;
+  }
 }
 
-/* 3D Nav Link */
-.nav-link-3d {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  outline: none;
-  border: 0;
-  vertical-align: middle;
-  text-decoration: none;
-  font-size: 0.85rem;
-  color: var(--color-btn-shade-a);
-  font-weight: 600;
-  font-family: 'Zen Maru Gothic', sans-serif;
-  padding: 0.5rem 0.75rem; /* Reduced padding from 0.875rem */
-  border: 2px solid var(--color-btn-shade-a);
-  border-radius: 0.75em;
-  background: var(--color-btn-shade-e);
-  transform-style: preserve-3d;
-  transition: all 175ms cubic-bezier(0, 0, 1, 1);
-}
-
-.nav-link-3d::before {
-  position: absolute;
-  content: '';
-  width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--color-btn-shade-c);
-  border-radius: inherit;
-  box-shadow:
-    0 0 0 2px var(--color-btn-shade-b),
-    0 0.4em 0 0 var(--color-btn-shade-a);
-  transform: translate3d(0, 0.4em, -1em);
-  transition: all 175ms cubic-bezier(0, 0, 1, 1);
-}
-
-.nav-link-3d:hover {
-  background: var(--color-btn-shade-d);
-  transform: translate(0, 0.2em);
-}
-
-.nav-link-3d:hover::before {
-  transform: translate3d(0, 0.4em, -1em);
-}
-
-.nav-link-3d:active {
-  transform: translate(0em, 0.4em);
-}
-
-.nav-link-3d:active::before {
-  transform: translate3d(0, 0, -1em);
-  box-shadow:
-    0 0 0 2px var(--color-btn-shade-b),
-    0 0.1em 0 0 var(--color-btn-shade-b);
-}
-
-.nav-link-3d.active {
-  background: var(--color-btn-shade-d);
-  font-weight: 700;
-}
-
+/* Nav Icon Sizing - Hover effects handled in NavLink */
 .nav-icon {
   width: 1.1rem;
   height: 1.1rem;
-  transition: transform 0.2s ease;
   position: relative;
   z-index: 1;
 }
 
-.nav-link-3d span {
-  position: relative;
-  z-index: 1;
-}
-
-.nav-link-3d:hover .nav-icon {
-  transform: rotate(-8deg) scale(1.1);
-}
-
-/* Nav Link Color Variants */
-.nav-link-sage {
-  /* Uses default shade variables */
-}
-
-.nav-link-sky {
-  color: var(--color-btn-sky-a);
-  border-color: var(--color-btn-sky-a);
-  background: var(--color-btn-sky-e);
-}
-
-.nav-link-sky::before {
-  background: var(--color-btn-sky-c);
-  box-shadow:
-    0 0 0 2px var(--color-btn-sky-b),
-    0 0.4em 0 0 var(--color-btn-sky-a);
-}
-
-.nav-link-sky:hover,
-.nav-link-sky.active {
-  background: var(--color-btn-sky-d);
-}
-
-.nav-link-lavender {
-  color: var(--color-btn-lavender-a);
-  border-color: var(--color-btn-lavender-a);
-  background: var(--color-btn-lavender-e);
-}
-
-.nav-link-lavender::before {
-  background: var(--color-btn-lavender-c);
-  box-shadow:
-    0 0 0 2px var(--color-btn-lavender-b),
-    0 0.4em 0 0 var(--color-btn-lavender-a);
-}
-
-.nav-link-lavender:hover,
-.nav-link-lavender.active {
-  background: var(--color-btn-lavender-d);
-}
-
-.nav-link-sakura {
-  color: var(--color-btn-sakura-a);
-  border-color: var(--color-btn-sakura-a);
-  background: var(--color-btn-sakura-e);
-}
-
-.nav-link-sakura::before {
-  background: var(--color-btn-sakura-c);
-  box-shadow:
-    0 0 0 2px var(--color-btn-sakura-b),
-    0 0.4em 0 0 var(--color-btn-sakura-a);
-}
-
-.nav-link-sakura:hover,
-.nav-link-sakura.active {
-  background: var(--color-btn-sakura-d);
-}
-
-/* 3D Login Button */
-.login-btn-3d {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  outline: none;
-  border: 0;
-  vertical-align: middle;
-  text-decoration: none;
-  font-size: 0.85rem;
-  color: var(--color-btn-accent-a);
-  font-weight: 700;
-  text-transform: uppercase;
-  font-family: 'Zen Maru Gothic', sans-serif;
-  padding: 0.5rem 1.25rem;
-  border: 2px solid var(--color-btn-accent-a);
-  border-radius: 1em;
-  background: var(--color-btn-accent-e);
-  transform-style: preserve-3d;
-  transition: all 175ms cubic-bezier(0, 0, 1, 1);
-}
-
-.login-btn-3d::before {
-  position: absolute;
-  content: '';
-  width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--color-btn-accent-c);
-  border-radius: inherit;
-  box-shadow:
-    0 0 0 2px var(--color-btn-accent-b),
-    0 0.5em 0 0 var(--color-btn-accent-a);
-  transform: translate3d(0, 0.5em, -1em);
-  transition: all 175ms cubic-bezier(0, 0, 1, 1);
-}
-
-.login-btn-3d:hover {
-  background: var(--color-btn-accent-d);
-  transform: translate(0, 0.25em);
-}
-
-.login-btn-3d:hover::before {
-  transform: translate3d(0, 0.5em, -1em);
-}
-
-.login-btn-3d:active {
-  transform: translate(0em, 0.5em);
-}
-
-.login-btn-3d:active::before {
-  transform: translate3d(0, 0, -1em);
-  box-shadow:
-    0 0 0 2px var(--color-btn-accent-b),
-    0 0.15em 0 0 var(--color-btn-accent-b);
+/* Mobile Nav Visibility - Removed display: none */
+@media (max-width: 640px) {
+  .navbar-container {
+    margin: 0.5rem;
+    display: block !important;
+  }
 }
 </style>

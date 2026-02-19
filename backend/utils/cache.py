@@ -26,6 +26,7 @@ if redis_url:
     except Exception as e:
         logger.error(f"Redis connection failed: {e}")
 
+
 class JSONEncoder(json.JSONEncoder):
     def default(self, o: Any) -> Any:
         if hasattr(o, "model_dump"):
@@ -34,19 +35,22 @@ class JSONEncoder(json.JSONEncoder):
             return o.isoformat()
         return super().default(o)
 
+
 def generate_cache_key(*args: Any, **kwargs: Any) -> str:
     """Helper to generate a consistent cache key for given args/kwargs"""
     arg_str = json.dumps(
-        {"args": [str(a) for a in args], "kwargs": {k: str(v) for k, v in kwargs.items()}}, 
-        default=str, 
-        sort_keys=True
+        {"args": [str(a) for a in args], "kwargs": {k: str(v) for k, v in kwargs.items()}}, default=str, sort_keys=True
     )
     return hashlib.md5(arg_str.encode()).hexdigest()
 
-def cache(expire: int = 60, key_prefix: str = "", skip_args: int = 0) -> Callable[[Callable[..., Coroutine[Any, Any, Any]]], Callable[..., Coroutine[Any, Any, Any]]]:
+
+def cache(
+    expire: int = 60, key_prefix: str = "", skip_args: int = 0
+) -> Callable[[Callable[..., Coroutine[Any, Any, Any]]], Callable[..., Coroutine[Any, Any, Any]]]:
     """
     Cache decorator for async functions using Redis (with memory fallback).
     """
+
     def decorator(func: Callable[..., Coroutine[Any, Any, Any]]) -> Callable[..., Coroutine[Any, Any, Any]]:
         @functools.wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -68,12 +72,12 @@ def cache(expire: int = 60, key_prefix: str = "", skip_args: int = 0) -> Callabl
                     except Exception as e:
                         if "Event loop is closed" not in str(e):
                             logger.warning(f"Redis read error: {e}")
-                
+
                 if cache_key in memory_cache:
                     if is_dev:
                         logger.debug(f"Cache hit (Memory): {cache_key}")
                     return memory_cache[cache_key]
-                
+
                 if is_dev:
                     logger.debug(f"Cache miss: {cache_key}")
             except Exception as e:
@@ -91,14 +95,17 @@ def cache(expire: int = 60, key_prefix: str = "", skip_args: int = 0) -> Callabl
                     except Exception as e:
                         if "Event loop is closed" not in str(e):
                             logger.warning(f"Redis write error: {e}")
-                
+
                 memory_cache[cache_key] = result
             except Exception as e:
                 logger.warning(f"Memory cache write error: {e}")
 
             return result
+
         return wrapper
+
     return decorator
+
 
 async def clear_cache(pattern: str = "cache:*") -> None:
     """Clear cache by pattern"""
@@ -119,10 +126,11 @@ async def clear_cache(pattern: str = "cache:*") -> None:
     if redis_client:
         try:
             import asyncio
+
             try:
                 asyncio.get_running_loop()
             except RuntimeError:
-                return # No running loop
+                return  # No running loop
 
             keys = await redis_client.keys(pattern)
             if keys:
@@ -130,9 +138,11 @@ async def clear_cache(pattern: str = "cache:*") -> None:
         except Exception:
             pass
 
+
 async def invalidate_all_caches() -> None:
     """Invalidate all application caches"""
     await clear_cache("cache:*")
+
 
 # Aliases for compatibility
 cached_gallery = cache(expire=300, key_prefix="gallery", skip_args=1)
@@ -140,19 +150,24 @@ cached_tags = cache(expire=600, key_prefix="tags", skip_args=1)
 cached_leaderboard = cache(expire=300, key_prefix="leaderboard", skip_args=1)
 cached_user_photos = cache(expire=300, key_prefix="user_photos", skip_args=1)
 
+
 # Invalidation helpers
 async def invalidate_gallery_cache() -> None:
     await clear_cache("cache:gallery:*")
 
+
 async def invalidate_tags_cache() -> None:
     await clear_cache("cache:tags:*")
+
 
 async def invalidate_leaderboard_cache() -> None:
     await clear_cache("cache:leaderboard:*")
 
+
 async def invalidate_user_cache(user_id: str | None = None) -> None:
     # Always clear user_photos as user_id specific one is hard to match with hash
     await clear_cache("cache:user_photos:*")
+
 
 def get_cache_stats() -> dict[str, Any]:
     return {
@@ -162,5 +177,5 @@ def get_cache_stats() -> dict[str, Any]:
         "environment": config.ENVIRONMENT,
         "gallery": {"maxsize": 50},
         "tags": {"maxsize": 50},
-        "user_photos": {"maxsize": 50}
+        "user_photos": {"maxsize": 50},
     }

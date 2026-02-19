@@ -6,6 +6,7 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import AuthForm from '../components/AuthForm.vue';
 import { useSeo } from '../composables/useSeo';
 
@@ -17,19 +18,21 @@ const props = withDefaults(defineProps<Props>(), {
   mode: 'login',
 });
 
+const { t } = useI18n();
+
 // SEO Setup
 const { setMetaTags, resetMetaTags } = useSeo();
 const pageTitle = computed(() =>
-  props.mode === 'register' ? 'Register | Purrfect Spots' : 'Login | Purrfect Spots'
+  props.mode === 'register'
+    ? `${t('auth.register')} | Purrfect Spots`
+    : `${t('auth.login')} | Purrfect Spots`
 );
 
 onMounted(() => {
   setMetaTags({
     title: pageTitle.value,
     description:
-      props.mode === 'register'
-        ? 'Create your Purrfect Spots account to share cat photos and discover cat-friendly locations.'
-        : 'Sign in to your Purrfect Spots account to share cat photos and discover cat-friendly locations.',
+      props.mode === 'register' ? t('auth.createAccountToStart') : t('auth.signInToContinue'),
     type: 'website',
   });
 });

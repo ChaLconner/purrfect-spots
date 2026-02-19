@@ -1,9 +1,11 @@
 <template>
   <div class="text-center mb-8 relative z-10">
     <div class="mb-8">
-      <h1 class="font-heading text-4xl font-bold text-text-primary mb-2">Cat Photo Gallery</h1>
+      <h1 class="font-heading text-4xl font-bold text-text-primary mb-2">
+        {{ $t('galleryPage.header.title') }}
+      </h1>
       <p class="font-body text-base text-text-secondary font-medium max-w-xl mx-auto">
-        Discover adorable cats from around the world
+        {{ $t('galleryPage.header.subtitle') }}
       </p>
     </div>
 
@@ -33,9 +35,9 @@
           <input
             v-model="localSearchQuery"
             type="text"
-            placeholder="Search for cats..."
+            :placeholder="$t('galleryPage.header.searchPlaceholder')"
             class="w-full bg-transparent border-none outline-none font-body text-lg text-text-primary placeholder-gray-400"
-            aria-label="Search for cat photos"
+            :aria-label="$t('galleryPage.header.searchAriaLabel')"
             autocomplete="off"
             @input="handleSearchInput"
           />

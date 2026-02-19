@@ -1,6 +1,7 @@
 """
 Tests for token service
 """
+
 import os
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -40,9 +41,9 @@ class TestTokenService:
         """Test blacklisting a token with Redis enabled"""
         token = "test-token"
         token_hash = token_service._hash_token(token)
-        
+
         result = await token_service.blacklist_token(token=token, reason="test-logout", ttl_seconds=3600)
-        
+
         assert result is True
         mock_redis.setex.assert_called_once_with(f"blacklist:{token_hash}", 3600, "test-logout")
 
@@ -53,9 +54,9 @@ class TestTokenService:
             service = TokenService(None)
             token = "memory-token"
             token_hash = service._hash_token(token)
-            
+
             result = await service.blacklist_token(token=token, reason="memory-logout")
-            
+
             assert result is True
             assert token_hash in service._memory_blacklist
             assert service._memory_blacklist[token_hash] > datetime.now(timezone.utc)
@@ -67,14 +68,9 @@ class TestTokenService:
         user_id = "user-123"
         jti = "jti-123"
         expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
-        
-        result = await token_service.blacklist_token(
-            token=token, 
-            user_id=user_id, 
-            jti=jti, 
-            expires_at=expires_at
-        )
-        
+
+        result = await token_service.blacklist_token(token=token, user_id=user_id, jti=jti, expires_at=expires_at)
+
         assert result is True
         mock_supabase_admin.table.assert_called_with("token_blacklist")
         mock_supabase_admin.insert.assert_called_once()
@@ -85,9 +81,9 @@ class TestTokenService:
         token = "redis-check"
         token_hash = token_service._hash_token(token)
         mock_redis.exists.return_value = 1
-        
+
         result = await token_service.is_blacklisted(token=token)
-        
+
         assert result is True
         mock_redis.exists.assert_called_once_with(f"blacklist:{token_hash}")
 
@@ -99,7 +95,7 @@ class TestTokenService:
             token = "memory-check"
             token_hash = service._hash_token(token)
             service._memory_blacklist[token_hash] = datetime.now(timezone.utc) + timedelta(minutes=5)
-            
+
             result = await service.is_blacklisted(token=token)
             assert result is True
 
@@ -108,11 +104,11 @@ class TestTokenService:
         """Test checking blacklist status via Database in production environment"""
         token = "db-check"
         jti = "jti-check"
-        token_hash = token_service._hash_token(token)
-        
+        # token_hash = token_service._hash_token(token)
+
         # Ensure Redis check returns False
         mock_redis.exists.return_value = 0
-        
+
         with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
             mock_supabase_admin.table.return_value = mock_supabase_admin
             mock_supabase_admin.select.return_value = mock_supabase_admin
@@ -120,9 +116,9 @@ class TestTokenService:
             mock_supabase_admin.execute.return_value = MagicMock(
                 data=[{"expires_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()}]
             )
-            
+
             result = await token_service.is_blacklisted(token=token, jti=jti)
-            
+
             assert result is True
             mock_supabase_admin.table.assert_called_with("token_blacklist")
 
@@ -130,9 +126,9 @@ class TestTokenService:
     async def test_blacklist_all_user_tokens(self, token_service, mock_redis):
         """Test invalidating all user tokens"""
         user_id = "user-456"
-        
+
         result = await token_service.blacklist_all_user_tokens(user_id)
-        
+
         assert result == 1
         mock_redis.set.assert_called_once()
         assert f"user_invalidated:{user_id}" in mock_redis.set.call_args[0][0]
@@ -143,12 +139,12 @@ class TestTokenService:
         user_id = "user-456"
         invalidated_at = datetime.now(timezone.utc)
         mock_redis.get.return_value = invalidated_at.isoformat().encode()
-        
+
         # Token issued BEFORE invalidation
         token_iat = invalidated_at - timedelta(minutes=1)
         result = await token_service.is_user_invalidated(user_id, token_iat)
         assert result is True
-        
+
         # Token issued AFTER invalidation
         token_iat_new = invalidated_at + timedelta(minutes=1)
         result = await token_service.is_user_invalidated(user_id, token_iat_new)
@@ -157,18 +153,19 @@ class TestTokenService:
     @pytest.mark.asyncio
     async def test_singleton_initialization(self):
         """Test singleton lazy initialization"""
-        from services.token_service import get_token_service, _token_service
-        
+        from services.token_service import get_token_service
+
         # Reset singleton if it exists
         with patch("services.token_service._token_service", None):
             with patch.dict(os.environ, {"REDIS_URL": "redis://localhost:6379"}):
                 with patch("redis.asyncio.from_url") as mock_from_url:
                     mock_r = AsyncMock()
                     mock_from_url.return_value = mock_r
-                    
+
                     service = await get_token_service()
                     assert service is not None
                     mock_r.ping.assert_called_once()
+
     @pytest.mark.asyncio
     async def test_blacklist_token_redis_failure(self, token_service, mock_redis):
         """Test Redis failure in blacklist_token doesn't abort"""
@@ -196,10 +193,10 @@ class TestTokenService:
     async def test_is_user_invalidated_naive_dates(self, token_service, mock_redis):
         """Test is_user_invalidated with naive datetime objects"""
         user_id = "u1"
-        invalidated_at = datetime.now() # naive
+        invalidated_at = datetime.now()  # naive
         mock_redis.get.return_value = invalidated_at.isoformat().encode()
-        
-        token_iat = datetime.now() - timedelta(minutes=1) # naive
+
+        token_iat = datetime.now() - timedelta(minutes=1)  # naive
         result = await token_service.is_user_invalidated(user_id, token_iat)
         assert result is True
 
@@ -209,7 +206,7 @@ class TestTokenService:
             service = TokenService(None)
             service._memory_blacklist = {
                 "old": datetime.now(timezone.utc) - timedelta(minutes=1),
-                "new": datetime.now(timezone.utc) + timedelta(minutes=5)
+                "new": datetime.now(timezone.utc) + timedelta(minutes=5),
             }
             service._cleanup_memory_blacklist()
             assert "old" not in service._memory_blacklist
@@ -219,6 +216,7 @@ class TestTokenService:
     async def test_get_token_service_sync(self):
         """Test sync accessor for token service"""
         from services.token_service import get_token_service_sync
+
         with patch("services.token_service._token_service", None):
             service = get_token_service_sync()
             assert isinstance(service, TokenService)

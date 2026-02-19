@@ -6,6 +6,7 @@ from utils import cache
 
 pytestmark = pytest.mark.asyncio
 
+
 class TestCacheUtils:
     @pytest.fixture(autouse=True)
     async def clear_cache_fixture(self):
@@ -46,9 +47,9 @@ class TestCacheUtils:
 
         await decorated("client", "a")
         assert mock_func.call_count == 1
-        
+
         await cache.invalidate_gallery_cache()
-        
+
         await decorated("client", "a")
         assert mock_func.call_count == 2
 
@@ -80,7 +81,7 @@ class TestCacheUtils:
             decorated = cache.cached_gallery(mock_func)
 
             await decorated("client", "x")
-            assert mock_logger.debug.call_count >= 1 # Miss log
-            
+            assert mock_logger.debug.call_count >= 1  # Miss log
+
             await decorated("client", "x")
-            assert mock_logger.debug.call_count >= 2 # Hit log
+            assert mock_logger.debug.call_count >= 2  # Hit log

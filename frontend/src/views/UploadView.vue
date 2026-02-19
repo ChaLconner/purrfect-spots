@@ -6,342 +6,457 @@
       <!-- Header -->
       <div class="text-center mb-12">
         <h1 class="text-4xl md:text-5xl font-heading font-bold text-brown mb-4 tracking-tight">
-          Share a Spot
+          {{ t('upload.pageTitle') }}
         </h1>
-        <p class="text-lg text-brown-light font-body max-w-2xl mx-auto leading-relaxed">
-          Found a cozy corner where cats gather? Share it with the community and help others
-          discover these purrfect places.
+        <p class="text-lg text-brown-light font-body max-w-2xl mx-auto leading-relaxed mb-6">
+          {{ t('upload.pageSubtitle') }}
         </p>
+
+        <!-- Quota Status -->
+        <div v-if="isAuthenticated && quotaStatus" class="flex flex-col items-center gap-1.5 mb-2">
+          <div
+            class="group inline-flex items-center px-4 py-2 rounded-full bg-white/60 backdrop-blur-sm border border-brown/10 text-sm font-body text-brown-light shadow-sm hover:bg-white/80 transition-all"
+            :title="t('upload.rollingNotice')"
+          >
+            <div class="flex items-center">
+              <span class="mr-2 opacity-70">{{ t('upload.dailyQuota') }}</span>
+              <span
+                class="font-bold flex items-center"
+                :class="quotaStatus.remaining === 0 ? 'text-red-500' : 'text-terracotta'"
+              >
+                <span class="text-xs mr-1 opacity-50 font-normal">{{ t('upload.used') }}:</span>
+                {{ quotaStatus.used }} / {{ quotaStatus.limit }}
+              </span>
+            </div>
+            <span
+              v-if="!quotaStatus.is_pro"
+              class="ml-3 pl-3 border-l border-brown/20 flex items-center"
+            >
+              <router-link
+                to="/subscription"
+                class="text-terracotta hover:text-terracotta-dark font-bold flex items-center gap-1"
+              >
+                <span class="w-1.5 h-1.5 rounded-full bg-terracotta animate-pulse"></span>
+                {{ t('upload.upgradeToPro') }}
+              </router-link>
+            </span>
+          </div>
+          <span
+            class="text-[10px] text-brown/40 font-body uppercase tracking-widest flex items-center gap-1"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="w-3 h-3"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+              <path d="M3 3v5h5"></path>
+              <path d="m12 7 0 5 3 2"></path>
+            </svg>
+            {{ t('upload.rollingNotice') }}
+          </span>
+        </div>
       </div>
 
-      <!-- Main Upload Card -->
+      <!-- Main Content Card -->
       <div
-        class="bg-white/90 backdrop-blur-md rounded-3xl shadow-xl border border-white/50 overflow-hidden transition-all duration-500"
+        class="bg-white/80 backdrop-blur-md rounded-3xl shadow-xl overflow-hidden border border-white/50 relative"
       >
-        <!-- Loading / Progress State -->
-        <div
-          v-if="isUploading"
-          class="p-16 text-center flex flex-col items-center justify-center min-h-[400px]"
-        >
-          <GhibliLoader text="Uploading..." class="mb-6" />
-          <p class="text-brown-light mb-8">Saving your discovery to the map</p>
-          <div class="w-full max-w-md h-2 bg-stone-100 rounded-full overflow-hidden">
-            <div
-              class="h-full bg-terracotta transition-all duration-300 ease-out"
-              :style="{ width: `${uploadProgress}%` }"
-            ></div>
-          </div>
+        <!-- Progress Bar -->
+        <div v-if="currentStep < 4" class="h-2 bg-stone-100 w-full">
+          <div
+            class="h-full bg-gradient-to-r from-sage to-terracotta transition-all duration-500 ease-out"
+            :style="{ width: `${(currentStep / 3) * 100}%` }"
+          ></div>
         </div>
 
-        <!-- Success State -->
-        <UploadSuccess
-          v-else-if="uploadSuccess"
-          @upload-another="globalThis.location.reload()"
-          @view-map="router.push('/map')"
-        />
+        <div class="p-6 sm:p-10">
+          <ErrorBoundary>
+            <!-- Step 1: Photo Upload -->
+            <transition name="fade" mode="out-in">
+              <div v-if="currentStep === 1">
+                <UploadPhotoSection
+                  :preview-url="uploadData.previewUrl"
+                  :is-detecting-cats="isDetectingCats"
+                  :cat-detection-result="uploadData.catDetectionResult"
+                  :is-authenticated="isAuthenticated"
+                  :is-quota-full="!canUpload"
+                  @file-selected="handleFileSelected"
+                  @check-auth="handleCheckAuth"
+                />
 
-        <!-- Upload Form -->
-        <form v-else class="p-6 md:p-10 space-y-12" @submit.prevent="handleSubmit">
-          <!-- Section 1: Photo -->
-          <UploadPhotoSection
-            :preview-url="previewUrl"
-            :is-detecting-cats="isDetectingCats"
-            :cat-detection-result="catDetectionResult"
-            :is-authenticated="true"
-            @file-selected="handleFileSelected"
-            @check-auth="handleCheckAuth"
-          />
+                <div
+                  v-if="uploadData.catDetectionResult?.has_cats && !isDetectingCats"
+                  class="mt-8 flex justify-end fade-enter-active"
+                >
+                  <button
+                    class="px-6 py-2 bg-terracotta text-white font-bold rounded-xl shadow-md hover:bg-terracotta-dark transition-all transform hover:-translate-y-0.5"
+                    @click="currentStep = 2"
+                  >
+                    {{ t('common.next') }}
+                  </button>
+                </div>
+              </div>
+            </transition>
 
-          <!-- Section 2: Details -->
-          <UploadDetailsSection
-            v-model:location-name="locationName"
-            v-model:description="description"
-            v-model:tags="tags"
-            :is-authenticated="true"
-          />
+            <!-- Step 2: Details -->
+            <transition name="fade" mode="out-in">
+              <div v-if="currentStep === 2">
+                <UploadDetailsSection
+                  v-model:location-name="uploadData.locationName"
+                  v-model:description="uploadData.description"
+                  v-model:tags="uploadData.tags"
+                  :is-authenticated="isAuthenticated"
+                  @focus-auth="handleCheckAuth"
+                />
 
-          <!-- Section 3: Location -->
-          <UploadLocationSection
-            map-id="uploadMap"
-            :is-authenticated="true"
-            :getting-location="gettingLocation"
-            :has-selected-location="hasSelectedLocation"
-            @get-location="handleGetLocation"
-            @check-auth="handleCheckAuth"
-          />
+                <div class="mt-8 flex justify-between">
+                  <button
+                    class="px-6 py-2 text-stone-500 hover:text-brown font-medium transition-colors"
+                    @click="currentStep = 1"
+                  >
+                    {{ t('common.back') }}
+                  </button>
+                  <button
+                    class="px-6 py-2 bg-terracotta text-white font-bold rounded-xl shadow-md hover:bg-terracotta-dark transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                    :disabled="!isStep2Valid"
+                    @click="currentStep = 3"
+                  >
+                    {{ t('common.next') }}
+                  </button>
+                </div>
+              </div>
+            </transition>
 
-          <!-- Submit Action -->
-          <div class="pt-8">
-            <button
-              type="submit"
-              :disabled="!canSubmit"
-              class="w-full py-4 px-6 bg-gradient-to-r from-terracotta to-terracotta-dark text-white font-heading font-bold text-lg rounded-xl shadow-lg shadow-terracotta/30 hover:shadow-xl hover:shadow-terracotta/50 hover:scale-[1.02] hover:from-terracotta-dark hover:to-terracotta transition-all duration-300 disabled:bg-stone-300 disabled:bg-none disabled:text-stone-500 disabled:shadow-none disabled:cursor-not-allowed disabled:transform-none disabled:opacity-80"
-            >
-              Share This Spot
-            </button>
-          </div>
-        </form>
+            <!-- Step 3: Location -->
+            <transition name="fade" mode="out-in">
+              <div v-if="currentStep === 3">
+                <UploadLocationSection
+                  :is-authenticated="isAuthenticated"
+                  :getting-location="gettingLocation"
+                  :has-selected-location="!!uploadData.latitude"
+                  @get-location="getCurrentLocation"
+                  @check-auth="handleCheckAuth"
+                />
+
+                <div class="mt-8 flex justify-between">
+                  <button
+                    class="px-6 py-2 text-stone-500 hover:text-brown font-medium transition-colors"
+                    @click="currentStep = 2"
+                  >
+                    {{ t('common.back') }}
+                  </button>
+                  <button
+                    class="px-6 py-2 bg-terracotta text-white font-bold rounded-xl shadow-md hover:bg-terracotta-dark transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                    :disabled="!isStep3Valid || isSubmitting"
+                    @click="submitUpload"
+                  >
+                    <span v-if="isSubmitting">{{ t('common.uploading') }}...</span>
+                    <span v-else>{{ t('common.upload') }}</span>
+                  </button>
+                </div>
+
+                <!-- Upload Progress Bar -->
+                <div v-if="isSubmitting && uploadProgress > 0" class="mt-4">
+                  <div class="flex items-center justify-between text-sm text-brown-light mb-1">
+                    <span>{{ t('upload.uploadingProgress') }}</span>
+                    <span class="font-bold text-terracotta">{{ uploadProgress }}%</span>
+                  </div>
+                  <div class="h-2.5 bg-stone-100 rounded-full overflow-hidden">
+                    <div
+                      class="h-full bg-gradient-to-r from-sage to-terracotta rounded-full transition-all duration-300 ease-out"
+                      :style="{ width: `${uploadProgress}%` }"
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            </transition>
+
+            <!-- Step 4: Success -->
+            <transition name="fade" mode="out-in">
+              <UploadSuccess
+                v-if="currentStep === 4"
+                :result="uploadResult"
+                @upload-another="resetForm"
+                @view-map="router.push('/map')"
+              />
+            </transition>
+          </ErrorBoundary>
+        </div>
       </div>
     </div>
 
     <LoginRequiredModal
       :is-open="showLoginModal"
       @close="showLoginModal = false"
-      @login="handleLoginRedirect"
+      @login="handleLoginParams"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue';
+import { ref, computed, watch, nextTick, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { useUploadCat } from '../composables/useUploadCat';
-import { useLocationPicker } from '../composables/useLocationPicker';
-import { useAuthStore } from '../store/authStore';
-import { showError } from '../store/toast';
-import { catDetectionService } from '../services/catDetectionService';
-import { isDev, getEnvVar } from '../utils/env';
-import GhibliBackground from '../components/ui/GhibliBackground.vue';
-import GhibliLoader from '../components/ui/GhibliLoader.vue';
-import LoginRequiredModal from '../components/ui/LoginRequiredModal.vue';
-import UploadSuccess from '@/components/upload/UploadSuccess.vue';
+import { useI18n } from 'vue-i18n';
+import { useAuthStore } from '@/store/authStore';
+import { showError, showSuccess } from '@/store/toast';
+import { catDetectionService as CatDetectionService } from '@/services/catDetectionService';
+import { GalleryService } from '@/services/galleryService';
+import { loadGoogleMaps } from '@/utils/googleMapsLoader';
+import { getEnvVar } from '@/utils/env';
+import { useUploadCat } from '@/composables/useUploadCat';
+
+// Components
+import GhibliBackground from '@/components/ui/GhibliBackground.vue';
+import ErrorBoundary from '@/components/ui/ErrorBoundary.vue';
+import LoginRequiredModal from '@/components/ui/LoginRequiredModal.vue';
 import UploadPhotoSection from '@/components/upload/UploadPhotoSection.vue';
 import UploadDetailsSection from '@/components/upload/UploadDetailsSection.vue';
 import UploadLocationSection from '@/components/upload/UploadLocationSection.vue';
-import { useSeo } from '../composables/useSeo';
+import UploadSuccess from '@/components/upload/UploadSuccess.vue';
 
+const { t } = useI18n();
 const router = useRouter();
 const authStore = useAuthStore();
-const { setMetaTags, resetMetaTags } = useSeo();
-
-const locationName = ref('');
-const description = ref('');
-const tags = ref<string[]>([]);
-const file = ref<File | null>(null);
-const previewUrl = ref<string | null>(null);
-const uploadSuccess = ref(false);
-const isDetectingCats = ref(false);
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const catDetectionResult = ref<any>(null);
-const showDetectionResults = ref(false);
-const showLoginModal = ref(false);
-
-const googleMapsApiKey = getEnvVar('VITE_GOOGLE_MAPS_API_KEY');
-
-// Initialize Location Picker
-const {
-  latitude,
-  longitude,
-  gettingLocation,
-  hasSelectedLocation,
-  initializeMap,
-  getCurrentLocation,
-  cleanup: cleanupLocationPicker,
-} = useLocationPicker({
-  mapElementId: 'uploadMap',
-});
-
 const isAuthenticated = computed(() => authStore.isAuthenticated);
-const canSubmit = computed(
-  () =>
-    file.value &&
-    !isDetectingCats.value &&
-    catDetectionResult.value?.has_cats &&
-    hasSelectedLocation.value
-);
 
-const { uploadCatPhoto, isUploading, error, uploadProgress } = useUploadCat();
+// State
+const currentStep = ref(1);
+const isDetectingCats = ref(false);
+const isSubmitting = ref(false);
+const showLoginModal = ref(false);
+const gettingLocation = ref(false);
+const map = ref<google.maps.Map | null>(null);
+const marker = ref<google.maps.Marker | null>(null);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const uploadResult = ref<any>(null);
 
-onMounted(async () => {
-  // Set SEO meta tags
-  setMetaTags({
-    title: 'Upload | Purrfect Spots',
-    description: 'Share your cat photos and help others discover cat-friendly spots.',
-    type: 'website',
-  });
+// Placeholder for quota - ideally fetched from API
+const quotaStatus = ref<{
+  used: number;
+  limit: number;
+  remaining: number;
+  is_pro: boolean;
+} | null>(null);
 
-  if (!googleMapsApiKey) {
-    showError('Map service is unavailable. Please contact support.');
-    return;
+// Fetch real quota from API
+const refreshQuota = async () => {
+  if (isAuthenticated.value) {
+    try {
+      const quota = await getUploadQuota();
+      if (quota) {
+        quotaStatus.value = quota;
+      }
+    } catch (err) {
+      console.warn('Could not fetch upload quota:', err);
+    }
   }
-  await nextTick();
-  setTimeout(() => {
-    initializeMap();
-    // Auto-detect location on load (silent mode)
-    getCurrentLocation(true);
-  }, 100);
+};
+
+onMounted(refreshQuota);
+
+// Prevent selecting file if quota is full
+const canUpload = computed(() => {
+  if (!quotaStatus.value) return true;
+  return quotaStatus.value.remaining > 0;
 });
 
-// Cleanup on unmount
-onUnmounted(() => {
-  if (previewUrl.value) {
-    URL.revokeObjectURL(previewUrl.value);
-  }
-  cleanupLocationPicker();
-  resetMetaTags(); // Reset SEO meta tags
+const uploadData = ref({
+  file: null as File | null,
+  previewUrl: null as string | null,
+  catDetectionResult: null as any,
+  locationName: '',
+  description: '',
+  tags: [] as string[],
+  latitude: null as number | null,
+  longitude: null as number | null,
 });
 
-const checkAuth = (): boolean => {
+// Computed Validation
+const isStep2Valid = computed(() => {
+  return uploadData.value.locationName.trim().length > 0;
+});
+
+const isStep3Valid = computed(() => {
+  return uploadData.value.latitude !== null && uploadData.value.longitude !== null;
+});
+
+// Handlers
+const handleCheckAuth = () => {
   if (!isAuthenticated.value) {
     showLoginModal.value = true;
-    return false;
   }
-  return true;
 };
 
-const handleCheckAuth = (): void => {
-  checkAuth();
+const handleLoginParams = () => {
+  router.push({ path: '/login', query: { redirect: '/upload' } });
 };
 
-const handleLoginRedirect = (): void => {
-  sessionStorage.setItem('redirectAfterAuth', '/upload');
-  router.push('/login');
-};
+const handleFileSelected = async ({ file, url }: { file: File; url: string }) => {
+  uploadData.value.file = file;
+  uploadData.value.previewUrl = url;
 
-const handleAuthProtection = (e: Event): void => {
-  // Auth check removed to allow form interaction
-};
-
-const handleGetLocation = (): void => {
-  getCurrentLocation();
-};
-
-const resetImageSelection = (): void => {
-  if (previewUrl.value) {
-    URL.revokeObjectURL(previewUrl.value);
-  }
-  file.value = null;
-  previewUrl.value = null;
-  catDetectionResult.value = null;
-};
-
-// Handle file selection from component
-function handleFileSelected(payload: { file: File; url: string }): void {
-  // Cleanup old if exists
-  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
-
-  file.value = payload.file;
-  previewUrl.value = payload.url;
-
-  detectCatsInImage(payload.file);
-}
-
-async function detectCatsInImage(imageFile: File): Promise<void> {
-  if (!imageFile) return;
-
+  // Detect cats
   isDetectingCats.value = true;
-  catDetectionResult.value = null;
-  showDetectionResults.value = false;
-
   try {
-    const result = await catDetectionService.detectCats(imageFile);
+    // Simulate or call real service
+    const result = await CatDetectionService.detectCats(file);
+    uploadData.value.catDetectionResult = result;
 
-    if (!result || result.has_cats === undefined) {
-      throw new Error('Invalid response from cat detection service');
-    }
-
-    catDetectionResult.value = result;
-    showDetectionResults.value = true;
-
-    const CONFIDENCE_THRESHOLD = 60;
-
-    if (!result.has_cats || result.cat_count === 0) {
-      showError('No cats detected. Please upload a real cat photo.', 'Invalid Image');
-      resetImageSelection();
-    } else if (result.confidence < CONFIDENCE_THRESHOLD) {
-      showError('Cat detection weak. Ensure the cat is visible.', 'Low Confidence');
+    if (result.has_cats) {
+      setTimeout(() => {
+        currentStep.value = 2;
+      }, 1000);
     } else {
-      // showSuccess('Cat detected successfully!'); // Removed redundant toast
+      showError(t('upload.noCatsDetected'), 'Detection Failed');
     }
   } catch (error) {
-    if (isDev()) console.error('Cat detection error:', error);
-    // SECURITY FIX: Reset selection on error - do NOT auto-approve
-    showError(
-      'Unable to verify image. Please try again with a different photo.',
-      'Verification Failed'
-    );
-    resetImageSelection();
+    console.error(error);
+    showError(t('upload.errorVerifyCat'), t('common.error'));
   } finally {
     isDetectingCats.value = false;
   }
-}
+};
 
-async function handleSubmit(): Promise<void> {
-  if (!isAuthenticated.value || !authStore.user) {
-    sessionStorage.setItem('redirectAfterAuth', '/upload');
-    router.push('/login');
+// Map Logic
+watch(currentStep, (step) => {
+  if (step === 3) {
+    nextTick(() => initMap());
+  }
+});
+
+const initMap = async () => {
+  try {
+    await loadGoogleMaps({ apiKey: getEnvVar('VITE_GOOGLE_MAPS_API_KEY') });
+
+    const mapEl = document.getElementById('uploadMap');
+    if (!mapEl) return;
+
+    const defaultCenter = { lat: 13.7563, lng: 100.5018 }; // Bangkok default
+
+    map.value = new google.maps.Map(mapEl, {
+      center: defaultCenter,
+      zoom: 12,
+      disableDefaultUI: true,
+      clickableIcons: false,
+    });
+
+    map.value.addListener('click', (e: google.maps.MapMouseEvent) => {
+      if (e.latLng) {
+        updateLocation(e.latLng.lat(), e.latLng.lng());
+      }
+    });
+  } catch (error) {
+    showError(t('upload.errorMapLoad'), t('common.error'));
+  }
+};
+
+const updateLocation = (lat: number, lng: number) => {
+  uploadData.value.latitude = lat;
+  uploadData.value.longitude = lng;
+
+  if (marker.value) {
+    marker.value.setPosition({ lat, lng });
+  } else if (map.value) {
+    marker.value = new google.maps.Marker({
+      position: { lat, lng },
+      map: map.value,
+      animation: google.maps.Animation.DROP,
+    });
+  }
+};
+
+const getCurrentLocation = () => {
+  if (!navigator.geolocation) {
+    showError(t('upload.errorGeolocation'), t('common.error'));
     return;
   }
 
-  if (!file.value) {
-    showError('Please select an image');
-    return;
-  }
-  if (!catDetectionResult.value?.has_cats) {
-    showError('Please wait for verification');
-    return;
-  }
+  gettingLocation.value = true;
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude, longitude } = pos.coords;
+      updateLocation(latitude, longitude);
+      if (map.value) {
+        map.value.panTo({ lat: latitude, lng: longitude });
+        map.value.setZoom(15);
+      }
+      gettingLocation.value = false;
+    },
+    (err) => {
+      showError(err.message, 'Location Error');
+      gettingLocation.value = false;
+    }
+  );
+};
 
-  // Frontend validation - matches backend limits
-  const trimmedName = locationName.value.trim();
-  if (!trimmedName) {
-    showError('Please enter a location name');
-    return;
-  }
-  if (trimmedName.length < 3) {
-    showError('Location name must be at least 3 characters');
-    return;
-  }
-  if (trimmedName.length > 100) {
-    showError('Location name must be under 100 characters');
-    return;
-  }
+// Use Composable
+const { uploadCatPhoto, isUploading, uploadProgress, getUploadQuota, error } = useUploadCat();
 
-  const trimmedDescription = description.value.trim();
-  if (trimmedDescription.length > 1000) {
-    showError('Description is too long (max 1000 characters)');
+// Sync loading state for template compatibility
+watch(isUploading, (val) => {
+  isSubmitting.value = val;
+});
+
+const submitUpload = async () => {
+  if (!uploadData.value.file) return;
+
+  if (!uploadData.value.latitude || !uploadData.value.longitude) {
+    showError(t('upload.locationRequired'), 'Validation Error');
     return;
   }
-
-  const catDetectionData = {
-    has_cats: catDetectionResult.value.has_cats,
-    cat_count: catDetectionResult.value.cat_count,
-    confidence: catDetectionResult.value.confidence,
-    suitable_for_cat_spot: catDetectionResult.value.suitable_for_cat_spot,
-    cats_detected: catDetectionResult.value.cats_detected || [],
-    detection_timestamp: new Date().toISOString(),
-    requires_server_verification: catDetectionResult.value.requires_server_verification || false,
-  };
-
-  const locationData = {
-    lat: latitude.value,
-    lng: longitude.value,
-    description: trimmedDescription,
-    location_name: trimmedName,
-    tags: tags.value,
-  };
 
   try {
-    const data = await uploadCatPhoto(file.value, locationData, catDetectionData);
-    if (data) {
-      uploadSuccess.value = true;
+    const locationData = {
+      lat: uploadData.value.latitude.toString(),
+      lng: uploadData.value.longitude.toString(),
+      location_name: uploadData.value.locationName,
+      description: uploadData.value.description,
+      tags: uploadData.value.tags,
+    };
+
+    const result = await uploadCatPhoto(
+      uploadData.value.file,
+      locationData,
+      uploadData.value.catDetectionResult
+    );
+
+    if (result) {
+      uploadResult.value = result;
+      currentStep.value = 4;
+      showSuccess(t('upload.successMessage'));
+      refreshQuota(); // Refresh quota after success
+    } else {
+      // Use the specific error message from the composable if available
+      showError(error.value || t('upload.uploadFailed'), t('common.error'));
     }
-  } catch (err: unknown) {
-    if (isDev()) console.error('Upload failed:', err);
-    let msg = (err as Error).message || error.value || 'Upload failed. Please try again.';
-
-    // Sanitize technical errors
-    if (msg.includes('status code 413')) msg = 'Image is too large. Please choose a smaller file.';
-    if (msg.includes('status code')) msg = 'Server error. Please try again later.';
-
-    showError(msg);
+  } catch (err) {
+    showError(t('upload.unexpectedError'), t('common.error'));
+    console.error(err);
   }
-}
+};
+
+const resetForm = () => {
+  uploadData.value = {
+    file: null,
+    previewUrl: null,
+    catDetectionResult: null,
+    locationName: '',
+    description: '',
+    tags: [],
+    latitude: null,
+    longitude: null,
+  };
+  currentStep.value = 1;
+};
 </script>
 
 <style scoped>
-/* Blob animations restored */
-
 /* Custom scrollbar for better aesthetic in specific containers if needed */
 ::-webkit-scrollbar {
   width: 6px;
@@ -358,5 +473,15 @@ async function handleSubmit(): Promise<void> {
 * {
   scrollbar-width: thin;
   scrollbar-color: rgba(166, 93, 55, 0.2) transparent;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>

@@ -11,7 +11,10 @@ export interface User {
   treat_balance?: number;
   total_treats_received?: number;
   role?: string;
+  role_id?: string;
+  permissions?: string[];
   stripe_customer_id?: string;
+  banned_at?: string;
 }
 
 export interface LoginResponse {

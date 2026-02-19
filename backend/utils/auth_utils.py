@@ -31,29 +31,20 @@ def decode_token(token: str) -> Dict[str, Any]:
 
     errors = []
 
-    # Attempt 1: Decode with Supabase Key (HS256 usually)
-    if config.SUPABASE_KEY:
-        try:
-            # removing 'aud' check as it can vary (authenticated vs anon) unless strictly enforced
-            return jwt.decode(
-                token,
-                config.SUPABASE_KEY,
-                algorithms=["HS256"],
-                options={"verify_aud": False},
-            )
-        except jwt.ExpiredSignatureError:
-            raise ValueError("Token has expired")
-        except jwt.InvalidTokenError as e:
-            errors.append(f"Supabase key: {e}")
+    errors = []
 
-    # Attempt 2: Decode with Custom JWT Secret
+    # Decode with Custom JWT Secret (Standard)
+    # This secret must match the one used to sign the token (e.g. Supabase Project Secret)
     if config.JWT_SECRET:
         try:
-            return jwt.decode(token, config.JWT_SECRET, algorithms=["HS256"])
+            # We don't enforce audience here by default as Supabase tokens might vary
+            # or be used in contexts where audience check is handled elsewhere.
+            # However, PyJWT verifies 'aud' claim presence by default.
+            return jwt.decode(token, config.JWT_SECRET, algorithms=["HS256"], options={"verify_aud": False})
         except jwt.ExpiredSignatureError:
             raise ValueError("Token has expired")
         except jwt.InvalidTokenError as e:
-            errors.append(f"JWT secret: {e}")
+            errors.append(f"JWT secret validation failed: {e}")
 
     logger.warning(f"Failed to decode token: {errors}")
     raise ValueError("Invalid token")

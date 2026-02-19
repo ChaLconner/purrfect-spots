@@ -11,6 +11,19 @@
   --color-cream-light: #ffffff;
   --color-cream-dark: #f0e6d2;
 
+  /* Sand Palette (Warm Neutrals) */
+  --color-sand-50: #fafaf9;
+  --color-sand-100: #f5f5f4;
+  --color-sand-200: #e7e5e4;
+  --color-sand-300: #d6d3d1;
+  --color-sand-400: #a8a29e;
+  --color-sand-500: #78716c;
+  --color-sand-600: #57534e;
+  --color-sand-700: #44403c;
+  --color-sand-800: #292524;
+  --color-sand-900: #1c1917;
+  --color-sand-950: #0c0a09;
+
   --color-brown: #8b4d2d;
   --color-brown-light: #a65d37;
   --color-brown-dark: #5d321d;
@@ -22,6 +35,29 @@
   --color-terracotta: #d67a4f;
   --color-terracotta-light: #e59976;
   --color-terracotta-dark: #a65d37;
+
+  /* Terracotta Palette */
+  --color-terracotta-50: #fbf5f2;
+  --color-terracotta-100: #f7ebe6;
+  --color-terracotta-200: #eecfb9;
+  --color-terracotta-300: #e5b394;
+  --color-terracotta-400: #dd9671;
+  --color-terracotta-500: #d67a4f;
+  --color-terracotta-600: #c05f35;
+  --color-terracotta-700: #a04f2c;
+  --color-terracotta-800: #803f23;
+  --color-terracotta-900: #602f1a;
+  --color-terracotta-950: #421e10;
+
+  /* Additional UI Colors */
+  --color-cream-bg: #fffcf9;
+  --color-brown-text: #2d2420;
+  --color-brown-meta: #8c7e7a;
+  --color-location-badge: #d97757;
+  --color-date-bullet: #d6ccc2;
+  --color-sage-pill: #7a9e7e;
+  --color-sage-pill-bg: rgba(122, 158, 126, 0.1);
+  --color-sage-pill-bg-hover: rgba(122, 158, 126, 0.2);
 
   /* Semantic Aliases */
   --color-primary: #8b4d2d;
@@ -41,51 +77,52 @@
   --font-body: 'Montserrat', sans-serif;
   --font-accent: 'Zen Maru Gothic', sans-serif;
   --font-zen-maru: 'Zen Maru Gothic', sans-serif;
+  --font-nunito: 'Nunito', sans-serif;
 
   /* Shadow & Spacing (Custom tokens if needed by tailwind) */
   --shadow-premium: 0 12px 24px rgba(66, 33, 16, 0.12);
   --radius-premium: 20px;
 
   /* 3D Button Color Palette - Ghibli Theme (Sage/Cream) */
-  --color-btn-bg: #faf6ec;                    /* Cream background */
-  --color-btn-shade-a: #5b7858;               /* Sage dark - borders/text */
-  --color-btn-shade-b: #7a9b76;               /* Sage - shadows */
-  --color-btn-shade-c: #95b390;               /* Sage light - 3D base */
-  --color-btn-shade-d: #c8dbc5;               /* Light sage - hover */
-  --color-btn-shade-e: #e8f0e6;               /* Lightest sage - button bg */
+  --color-btn-bg: #faf6ec; /* Cream background */
+  --color-btn-shade-a: #5b7858; /* Sage dark - borders/text */
+  --color-btn-shade-b: #7a9b76; /* Sage - shadows */
+  --color-btn-shade-c: #95b390; /* Sage light - 3D base */
+  --color-btn-shade-d: #c8dbc5; /* Light sage - hover */
+  --color-btn-shade-e: #e8f0e6; /* Lightest sage - button bg */
 
   /* 3D Button Accent Palette - Terracotta (for Login/CTA) */
-  --color-btn-accent-a: #a65d37;              /* Terracotta dark - borders/text */
-  --color-btn-accent-b: #d67a4f;              /* Terracotta - shadows */
-  --color-btn-accent-c: #e59976;              /* Terracotta light - 3D base */
-  --color-btn-accent-d: #f0c4ae;              /* Light terracotta - hover */
-  --color-btn-accent-e: #fae8df;              /* Lightest terracotta - button bg */
+  --color-btn-accent-a: #a65d37; /* Terracotta dark - borders/text */
+  --color-btn-accent-b: #d67a4f; /* Terracotta - shadows */
+  --color-btn-accent-c: #e59976; /* Terracotta light - 3D base */
+  --color-btn-accent-d: #f0c4ae; /* Light terracotta - hover */
+  --color-btn-accent-e: #fae8df; /* Lightest terracotta - button bg */
 
   /* 3D Button Brown Palette (for special elements) */
-  --color-btn-brown-a: #5d321d;               /* Brown dark - borders/text */
-  --color-btn-brown-b: #8b4d2d;               /* Brown - shadows */
-  --color-btn-brown-c: #a65d37;               /* Brown light - 3D base */
-  --color-btn-brown-d: #d4a88a;               /* Light brown - hover */
-  --color-btn-brown-e: #f5e6db;               /* Lightest brown - button bg */
+  --color-btn-brown-a: #5d321d; /* Brown dark - borders/text */
+  --color-btn-brown-b: #8b4d2d; /* Brown - shadows */
+  --color-btn-brown-c: #a65d37; /* Brown light - 3D base */
+  --color-btn-brown-d: #d4a88a; /* Light brown - hover */
+  --color-btn-brown-e: #f5e6db; /* Lightest brown - button bg */
 
   /* 3D Button Sky Blue Palette (Ghibli Sky) */
-  --color-btn-sky-a: #2563a8;                 /* Sky dark - borders/text */
-  --color-btn-sky-b: #3b82d6;                 /* Sky - shadows */
-  --color-btn-sky-c: #60a5fa;                 /* Sky light - 3D base */
-  --color-btn-sky-d: #a5c8f7;                 /* Light sky - hover */
-  --color-btn-sky-e: #e0edfc;                 /* Lightest sky - button bg */
+  --color-btn-sky-a: #2563a8; /* Sky dark - borders/text */
+  --color-btn-sky-b: #3b82d6; /* Sky - shadows */
+  --color-btn-sky-c: #60a5fa; /* Sky light - 3D base */
+  --color-btn-sky-d: #a5c8f7; /* Light sky - hover */
+  --color-btn-sky-e: #e0edfc; /* Lightest sky - button bg */
 
   /* 3D Button Lavender Palette (Totoro Dreams) */
-  --color-btn-lavender-a: #6b5b95;            /* Lavender dark - borders/text */
-  --color-btn-lavender-b: #8b7cb5;            /* Lavender - shadows */
-  --color-btn-lavender-c: #a99cc8;            /* Lavender light - 3D base */
-  --color-btn-lavender-d: #d1c8e0;            /* Light lavender - hover */
-  --color-btn-lavender-e: #f0ecf6;            /* Lightest lavender - button bg */
+  --color-btn-lavender-a: #6b5b95; /* Lavender dark - borders/text */
+  --color-btn-lavender-b: #8b7cb5; /* Lavender - shadows */
+  --color-btn-lavender-c: #a99cc8; /* Lavender light - 3D base */
+  --color-btn-lavender-d: #d1c8e0; /* Light lavender - hover */
+  --color-btn-lavender-e: #f0ecf6; /* Lightest lavender - button bg */
 
   /* 3D Button Sakura Pink Palette (Cherry Blossom) */
-  --color-btn-sakura-a: #b55a7a;              /* Sakura dark - borders/text */
-  --color-btn-sakura-b: #d47a98;              /* Sakura - shadows */
-  --color-btn-sakura-c: #e8a0b5;              /* Sakura light - 3D base */
-  --color-btn-sakura-d: #f5c8d6;              /* Light sakura - hover */
-  --color-btn-sakura-e: #fce8ef;              /* Lightest sakura - button bg */
+  --color-btn-sakura-a: #b55a7a; /* Sakura dark - borders/text */
+  --color-btn-sakura-b: #d47a98; /* Sakura - shadows */
+  --color-btn-sakura-c: #e8a0b5; /* Sakura light - 3D base */
+  --color-btn-sakura-d: #f5c8d6; /* Light sakura - hover */
+  --color-btn-sakura-e: #fce8ef; /* Lightest sakura - button bg */
 }

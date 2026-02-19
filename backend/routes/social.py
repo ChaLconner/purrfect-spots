@@ -1,9 +1,13 @@
 from typing import Any, List
 
 from fastapi import APIRouter, Depends, HTTPException
-from supabase import Client
 
-from dependencies import get_current_token, get_supabase_admin_client
+
+from dependencies import (
+    get_current_token,
+    get_social_service,
+    get_subscription_service,
+)
 from exceptions import ExternalServiceError, NotFoundError
 from logger import logger
 from middleware.auth_middleware import get_current_user_from_credentials
@@ -16,16 +20,6 @@ from utils.rate_limiter import like_rate_limiter
 router = APIRouter(prefix="/social", tags=["Social"])
 
 
-def get_social_service(supabase: Client = Depends(get_supabase_admin_client)) -> SocialService:
-    # Use admin client to bypass RLS - user authentication is handled by middleware
-    return SocialService(supabase)
-
-
-def get_subscription_service(supabase: Client = Depends(get_supabase_admin_client)) -> SubscriptionService:
-    # Use admin client to ensure we can update user subscription status securely
-    return SubscriptionService(supabase)
-
-
 @router.post("/photos/{photo_id}/like", response_model=LikeResponse)
 async def toggle_like(
     photo_id: str,
@@ -35,7 +29,7 @@ async def toggle_like(
 ) -> dict[str, Any]:
     """
     Toggle like on a photo.
-    
+
     Uses atomic database function to prevent race conditions.
     Returns the new liked status and updated likes count.
     Rate limited to 10 requests per 10 seconds per user.

@@ -28,73 +28,99 @@ const navigateToProfile = () => {
 <template>
   <div class="fixed bottom-0 left-0 right-0 z-50 px-4 pb-4 pt-2 pointer-events-none xl:hidden">
     <nav
-      class="bg-white/90 backdrop-blur-md rounded-2xl shadow-lg border border-stone-200 pointer-events-auto max-w-md mx-auto"
+      class="backdrop-blur-md rounded-2xl shadow-lg border pointer-events-auto max-w-md mx-auto"
+      style="background: var(--color-glass-cream); border-color: var(--color-btn-shade-a)"
     >
       <div class="flex justify-around items-center px-2 py-3">
         <!-- Map -->
         <router-link
           to="/map"
-          class="nav-item"
-          :class="{ active: isActive('/map') || isActive('/') }"
-          aria-label="Map"
+          class="group flex flex-col items-center flex-1 py-1 px-2 rounded-xl transition-all duration-300 active:scale-95"
+          :class="isActive('/map') || isActive('/') ? 'active-link' : 'inactive-link'"
+          :aria-label="$t('nav.map')"
         >
-          <div class="icon-container">
+          <div
+            class="flex justify-center items-center w-10 h-10 rounded-full transition-all duration-300 icon-container"
+            :class="{
+              'active-icon': isActive('/map') || isActive('/'),
+            }"
+          >
             <MapIcon class="w-6 h-6" />
           </div>
-          <span class="text-xs font-medium mt-1">Map</span>
+          <span class="text-xs font-bold mt-1 nav-label">{{ $t('nav.map') }}</span>
         </router-link>
 
         <!-- Upload -->
         <router-link
           to="/upload"
-          class="nav-item"
-          :class="{ active: isActive('/upload') }"
-          aria-label="Upload"
+          class="group flex flex-col items-center flex-1 py-1 px-2 rounded-xl transition-all duration-300 active:scale-95"
+          :class="isActive('/upload') ? 'active-link' : 'inactive-link'"
+          :aria-label="$t('nav.upload')"
         >
-          <div class="icon-container">
+          <div
+            class="flex justify-center items-center w-10 h-10 rounded-full transition-all duration-300 icon-container"
+            :class="{
+              'active-icon': isActive('/upload'),
+            }"
+          >
             <UploadIcon class="w-6 h-6" />
           </div>
-          <span class="text-xs font-medium mt-1">Upload</span>
+          <span class="text-xs font-bold mt-1 nav-label">{{ $t('nav.upload') }}</span>
         </router-link>
 
         <!-- Gallery -->
         <router-link
           to="/gallery"
-          class="nav-item"
-          :class="{ active: isActive('/gallery') }"
-          aria-label="Gallery"
+          class="group flex flex-col items-center flex-1 py-1 px-2 rounded-xl transition-all duration-300 active:scale-95"
+          :class="isActive('/gallery') ? 'active-link' : 'inactive-link'"
+          :aria-label="$t('nav.gallery')"
         >
-          <div class="icon-container">
+          <div
+            class="flex justify-center items-center w-10 h-10 rounded-full transition-all duration-300 icon-container"
+            :class="{
+              'active-icon': isActive('/gallery'),
+            }"
+          >
             <GalleryIcon class="w-6 h-6" />
           </div>
-          <span class="text-xs font-medium mt-1">Gallery</span>
+          <span class="text-xs font-bold mt-1 nav-label">{{ $t('nav.gallery') }}</span>
         </router-link>
 
         <!-- Leaderboard -->
         <router-link
           to="/leaderboard"
-          class="nav-item"
-          :class="{ active: isActive('/leaderboard') }"
-          aria-label="Leaderboard"
+          class="group flex flex-col items-center flex-1 py-1 px-2 rounded-xl transition-all duration-300 active:scale-95"
+          :class="isActive('/leaderboard') ? 'active-link' : 'inactive-link'"
+          :aria-label="$t('nav.leaderboard')"
         >
-          <div class="icon-container">
+          <div
+            class="flex justify-center items-center w-10 h-10 rounded-full transition-all duration-300 icon-container"
+            :class="{
+              'active-icon': isActive('/leaderboard'),
+            }"
+          >
             <TrophyIcon class="w-6 h-6" />
           </div>
-          <span class="text-xs font-medium mt-1">Rank</span>
+          <span class="text-xs font-bold mt-1 nav-label">{{ $t('nav.leaderboard') }}</span>
         </router-link>
 
         <!-- Profile / Login -->
         <button
-          class="nav-item"
-          :class="{ active: isActive('/profile') || isActive('/login') }"
-          aria-label="Profile"
+          class="group flex flex-col items-center flex-1 py-1 px-2 rounded-xl transition-all duration-300 active:scale-95"
+          :class="isActive('/profile') || isActive('/login') ? 'active-link' : 'inactive-link'"
+          :aria-label="authStore.isAuthenticated ? $t('nav.profile') : $t('auth.login')"
           @click="navigateToProfile"
         >
-          <div class="icon-container">
+          <div
+            class="flex justify-center items-center w-10 h-10 rounded-full transition-all duration-300 icon-container"
+            :class="{
+              'active-icon': isActive('/profile') || isActive('/login'),
+            }"
+          >
             <ProfileIcon class="w-6 h-6" />
           </div>
-          <span class="text-xs font-medium mt-1">{{
-            authStore.isAuthenticated ? 'Profile' : 'Login'
+          <span class="text-xs font-bold mt-1 nav-label">{{
+            authStore.isAuthenticated ? $t('nav.profile') : $t('auth.login')
           }}</span>
         </button>
       </div>
@@ -103,45 +129,27 @@ const navigateToProfile = () => {
 </template>
 
 <style scoped>
-.nav-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  color: #a8a29e; /* stone-400 */
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.75rem;
-  flex: 1;
+.nav-label {
+  font-family: 'Zen Maru Gothic', sans-serif;
 }
 
-.nav-item:hover {
-  color: #78716c; /* stone-500 */
+.active-link {
+  color: var(--color-btn-shade-a);
 }
 
-.nav-item:active {
-  transform: scale(0.95);
+.inactive-link {
+  color: var(--color-btn-shade-b);
 }
 
-.nav-item.active {
-  color: #ea580c; /* orange-600 */
+.inactive-link:hover {
+  color: var(--color-btn-shade-c);
 }
 
-.nav-item.active .icon-container {
-  background-color: #fff7ed; /* orange-50 */
-  color: #ea580c;
+.active-icon {
+  background-color: var(--color-btn-shade-e);
+  color: var(--color-btn-shade-a);
   transform: translateY(-2px);
-  box-shadow:
-    0 4px 6px -1px rgba(234, 88, 12, 0.1),
-    0 2px 4px -1px rgba(234, 88, 12, 0.06);
-}
-
-.icon-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 9999px; /* rounded-full */
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--color-btn-shade-b);
 }
 </style>

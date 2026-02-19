@@ -4,7 +4,7 @@
     <div class="max-w-5xl mx-auto relative z-10">
       <!-- Profile Header -->
       <ProfileHeader
-        :name="viewedUser?.name || 'Unknown User'"
+        :name="viewedUser?.name || $t('profile.unknownUser')"
         :username="viewedUser?.username"
         :bio="viewedUser?.bio"
         :picture="viewedUser?.picture"
@@ -78,6 +78,7 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '../store/authStore';
 import { showError, showSuccess } from '../store/toast';
 import { ProfileService, type ProfileUpdateData } from '../services/profileService';
@@ -99,6 +100,7 @@ import DeleteConfirmModal from '@/components/profile/DeleteConfirmModal.vue';
 const authStore = useAuthStore();
 const router = useRouter();
 const route = useRoute();
+const { t } = useI18n();
 const { setMetaTags, resetMetaTags } = useSeo();
 
 interface Upload {
@@ -149,10 +151,7 @@ const openEditPhotoModal = (photo: Upload): void => {
   showEditPhotoModal.value = true;
 };
 
-const savePhotoChanges = async (data: {
-  location_name: string;
-  description: string;
-}): Promise<void> => {
+const savePhotoChanges = async (data: { location_name: string; description: string }) => {
   if (!photoToEdit.value) return;
   isSavingPhoto.value = true;
   try {
@@ -160,7 +159,7 @@ const savePhotoChanges = async (data: {
       location_name: data.location_name,
       description: data.description,
     });
-    showSuccess('Photo updated successfully');
+    showSuccess(t('profile.photoUpdated'));
 
     // Update local state
     const index = uploads.value.findIndex((p) => p.id === photoToEdit.value?.id);
@@ -180,7 +179,7 @@ const savePhotoChanges = async (data: {
     }
     showEditPhotoModal.value = false;
   } catch {
-    showError('Failed to update photo');
+    showError(t('profile.photoUpdateFailed'));
   } finally {
     isSavingPhoto.value = false;
   }
@@ -200,18 +199,22 @@ const executeDeletePhoto = async (): Promise<void> => {
     // Remove from local state
     uploads.value = uploads.value.filter((p) => p.id !== photoToEdit.value?.id);
 
-    showSuccess('Photo deleted successfully');
+    showSuccess(t('profile.photoDeleted'));
     showDeleteConfirm.value = false;
     closeImageModal(); // Close detail view
   } catch {
-    showError('Failed to delete photo');
+    showError(t('profile.photoDeleteFailed'));
   } finally {
     isDeletingPhoto.value = false;
   }
 };
 
 const handleGiveTreat = async (photo: Upload): Promise<void> => {
-  if (!photo || !authStore.user) return;
+  if (!photo) return;
+  if (!authStore.isAuthenticated) {
+    showError(t('profile.signInToGiveTreats'));
+    return;
+  }
   if (isSendingTreat.value) return;
 
   isSendingTreat.value = true;
@@ -219,13 +222,13 @@ const handleGiveTreat = async (photo: Upload): Promise<void> => {
 
   try {
     await subscriptionStore.giveTreat(photo.id, 1);
-    showSuccess('You gave a treat!');
+    showSuccess(t('profile.treatGiven'));
     // Backend handles the balance transaction
   } catch (err: unknown) {
     const msg =
       (err as { response?: { data?: { detail?: string } } }).response?.data?.detail ||
       (err as Error).message ||
-      'Failed to give treat';
+      t('profile.treatFailed');
     showError(msg);
   } finally {
     isSendingTreat.value = false;
@@ -244,7 +247,7 @@ const handleLogout = async (): Promise<void> => {
   try {
     await AuthService.logout();
     authStore.clearAuth();
-    showSuccess('Logged out successfully');
+    showSuccess(t('profile.loggedOut'));
     router.push('/');
   } catch (error) {
     if (isDev()) console.error('Logout error:', error);
@@ -293,15 +296,15 @@ const loadProfileData = async (): Promise<void> => {
 
     // Set SEO
     setMetaTags({
-      title: `${viewedUser.value?.name || 'User'} | Purrfect Spots`,
-      description: viewedUser.value?.bio || 'Check out this profile on Purrfect Spots',
+      title: `${viewedUser.value?.name || t('profile.unknownUser')} | Purrfect Spots`,
+      description: viewedUser.value?.bio || t('profile.defaultDescription'),
       image: viewedUser.value?.picture,
     });
   } catch (error) {
     if (isDev()) {
       console.error('Error loading profile:', error);
     }
-    uploadsError.value = 'User not found or failed to load profile.';
+    uploadsError.value = t('profile.userNotFound');
     uploads.value = [];
     viewedUser.value = null;
   } finally {
@@ -379,14 +382,17 @@ const handleSaveProfile = async (data: {
       viewedUser.value = authStore.user;
     }
 
-    showSuccess('Profile updated successfully');
+    showSuccess(t('profile.photoUpdated').replace('Photo', 'Profile'));
     showEditModal.value = false;
   } catch (error) {
     if (isDev()) {
       console.error('Error saving profile:', error);
     }
     // Handle specific errors...
-    const msg = error instanceof Error ? error.message : 'Failed to update profile';
+    const msg =
+      error instanceof Error
+        ? error.message
+        : t('profile.photoUpdateFailed').replace('photo', 'profile');
     showError(msg);
   }
 };

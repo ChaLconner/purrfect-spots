@@ -23,10 +23,13 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 
 const props = defineProps<{
   password: string;
 }>();
+
+const { t } = useI18n();
 
 const debouncedPassword = ref('');
 const isTyping = ref(false);
@@ -79,13 +82,13 @@ const strengthLabel = computed(() => {
   switch (strength.value) {
     case 1:
     case 2:
-      return 'Weak';
+      return t('passwordStrength.weak');
     case 3:
-      return 'Good';
+      return t('passwordStrength.good');
     case 4:
-      return 'Strong';
+      return t('passwordStrength.strong');
     default:
-      return 'Weak';
+      return t('passwordStrength.weak');
   }
 });
 

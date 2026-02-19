@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { SubscriptionService } from '../services/subscriptionService';
 import { TreatsService } from '../services/treatsService';
 import { useAuthStore } from './authStore';
+import type { TreatPackage } from '@/types/subscription';
 
 export const useSubscriptionStore = defineStore('subscription', () => {
   const isPro = ref(false);
@@ -20,13 +21,6 @@ export const useSubscriptionStore = defineStore('subscription', () => {
   const isLoadingBalance = ref(false);
 
   // ── Packages cache ──────────────────────────────────────────────
-  type TreatPackage = {
-    amount: number;
-    price: number;
-    name: string;
-    bonus: number;
-    price_per_treat: number;
-  };
   const treatPackages = ref<Record<string, TreatPackage>>({});
   const packagesLoaded = ref(false);
 

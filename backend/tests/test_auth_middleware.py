@@ -88,10 +88,9 @@ async def test_decode_supabase_token_success(mock_env, mock_jwks_response):
         ):
             mock_header.return_value = {"kid": "key1"}
             mock_algo.return_value = "public_key_obj"
-            mock_decode.return_value = {"sub": "user123", "aud": "authenticated"}
-
+            mock_decode.return_value = {"sub": "00000000-0000-4000-a000-000000000123", "aud": "authenticated"}
             payload = await decode_supabase_token("valid_token")
-            assert payload["sub"] == "user123"
+            assert payload["sub"] == "00000000-0000-4000-a000-000000000123"
 
 
 @pytest.mark.asyncio
@@ -124,7 +123,7 @@ async def test_decode_supabase_token_missing_kid(mock_env, mock_jwks_response):
 
 def test_get_user_from_payload_supabase_no_db(mock_env):
     payload = {
-        "sub": "user123",
+        "sub": "00000000-0000-4000-a000-000000000123",
         "email": "test@example.com",
         "user_metadata": {"full_name": "Test User", "avatar_url": "http://img.com"},
     }
@@ -134,14 +133,14 @@ def test_get_user_from_payload_supabase_no_db(mock_env):
 
     with patch.dict(sys.modules, {"dependencies": mock_deps}):
         user = _get_user_from_payload(payload, "supabase")
-        assert user.id == "user123"
+        assert user.id == "00000000-0000-4000-a000-000000000123"
         assert user.name == "Test User"
         assert user.picture == "http://img.com"
 
 
 def test_get_user_from_payload_custom(mock_env):
     payload = {
-        "sub": "user123",
+        "sub": "00000000-0000-4000-a000-000000000123",
         "name": "Custom User",
         "email": "custom@example.com",
         "picture": "http://custom.com",
@@ -152,17 +151,17 @@ def test_get_user_from_payload_custom(mock_env):
 
     with patch.dict(sys.modules, {"dependencies": mock_deps}):
         user = _get_user_from_payload(payload, "custom")
-        assert user.id == "user123"
+        assert user.id == "00000000-0000-4000-a000-000000000123"
         assert user.name == "Custom User"
 
 
 def test_get_user_from_payload_db_success(mock_env):
-    payload = {"sub": "user123"}
+    payload = {"sub": "00000000-0000-4000-a000-000000000123"}
 
     mock_sb = MagicMock()
     # Mock chain: .table().select().eq().single().execute().data
-    mock_sb.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value.data = {
-        "id": "user123",
+    mock_sb.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value.data = {
+        "id": "00000000-0000-4000-a000-000000000123",
         "email": "db@example.com",
         "name": "DB User",
         "picture": "db.jpg",
