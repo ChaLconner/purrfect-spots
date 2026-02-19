@@ -23,7 +23,7 @@ class PhotoUpdateAdmin(BaseModel):
 
 
 class BulkReportUpdate(BaseModel):
-    report_ids: List[UUID] = Field(..., min_items=1)
+    report_ids: List[UUID] = Field(..., min_length=1)
     status: str = Field(..., pattern="^(pending|resolved|dismissed)$")
     resolution_notes: Optional[str] = None
     delete_content: bool = False

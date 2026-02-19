@@ -44,5 +44,5 @@ runs:
       shell: bash
       if: inputs.install-dev-tools == 'true'
       run: |
-        pip install ruff==0.8.0 mypy==1.13.0 pytest pytest-cov pytest-xdist pytest-asyncio
+        pip install ruff mypy pytest pytest-cov pytest-xdist pytest-asyncio
         pip install types-requests types-redis types-Pillow types-bleach

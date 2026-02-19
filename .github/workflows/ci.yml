@@ -64,6 +64,7 @@ jobs:
   changes:
     name: Detect Changes
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       pull-requests: read
       contents: read
@@ -72,6 +73,9 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
       docker: ${{ steps.filter.outputs.docker }}
       ci: ${{ steps.filter.outputs.ci }}
+      # Consolidated flags for cleaner logic downstream
+      run_backend: ${{ inputs.force_full_run == true || steps.filter.outputs.backend == 'true' || steps.filter.outputs.ci == 'true' || steps.filter.outputs.api_spec == 'true' }}
+      run_frontend: ${{ inputs.force_full_run == true || steps.filter.outputs.frontend == 'true' || steps.filter.outputs.ci == 'true' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
@@ -102,12 +106,8 @@ jobs:
     name: Backend Lint and Quality
     runs-on: ubuntu-latest
     needs: changes
-    if: |
-      inputs.force_full_run == true ||
-      needs.changes.outputs.backend == 'true' || 
-      needs.changes.outputs.ci == 'true' ||
-      needs.changes.outputs.api_spec == 'true'
-    timeout-minutes: 30
+    if: needs.changes.outputs.run_backend == 'true'
+    timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
@@ -117,7 +117,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           install-deps: "true"
-          install-dev-tools: "true"
+          install-dev-tools: "false"
 
       - name: Run Ruff (Linting)
         run: |
@@ -133,13 +133,9 @@ jobs:
     name: Backend Type Check
     runs-on: ubuntu-latest
     needs: changes
-    if: |
-      inputs.force_full_run == true ||
-      needs.changes.outputs.backend == 'true' || 
-      needs.changes.outputs.ci == 'true' ||
-      needs.changes.outputs.api_spec == 'true'
+    if: needs.changes.outputs.run_backend == 'true'
     continue-on-error: true # Non-blocking - gradual type adoption
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
@@ -148,7 +144,7 @@ jobs:
         uses: ./.github/actions/setup-backend
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          install-dev-tools: "true"
+          install-dev-tools: "false"
 
       - name: Run MyPy (Type Check)
         run: |
@@ -160,12 +156,8 @@ jobs:
     name: Backend Unit Tests
     runs-on: ubuntu-latest
     needs: changes
-    if: |
-      inputs.force_full_run == true ||
-      needs.changes.outputs.backend == 'true' || 
-      needs.changes.outputs.ci == 'true' ||
-      needs.changes.outputs.api_spec == 'true'
-    timeout-minutes: 30
+    if: needs.changes.outputs.run_backend == 'true'
+    timeout-minutes: 20
     services:
       redis:
         image: redis:7-alpine
@@ -185,7 +177,7 @@ jobs:
         uses: ./.github/actions/setup-backend
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          install-dev-tools: "true"
+          install-dev-tools: "false"
 
       - name: Run tests with coverage
         env:
@@ -229,13 +221,9 @@ jobs:
     name: API Contract Check
     runs-on: ubuntu-latest
     needs: changes
-    if: |
-      inputs.force_full_run == true ||
-      needs.changes.outputs.backend == 'true' || 
-      needs.changes.outputs.ci == 'true' ||
-      needs.changes.outputs.api_spec == 'true'
+    if: needs.changes.outputs.run_backend == 'true'
     continue-on-error: true # Non-blocking - informational
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
@@ -246,7 +234,7 @@ jobs:
         uses: ./.github/actions/setup-backend
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          install-dev-tools: "true"
+          install-dev-tools: "false"
 
       - name: Check for API breaking changes
         env:
@@ -323,11 +311,8 @@ jobs:
     name: Frontend Lint & Type Check
     runs-on: ubuntu-latest
     needs: changes
-    if: |
-      inputs.force_full_run == true ||
-      needs.changes.outputs.frontend == 'true' || 
-      needs.changes.outputs.ci == 'true'
-    timeout-minutes: 30
+    if: needs.changes.outputs.run_frontend == 'true'
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
@@ -351,11 +336,8 @@ jobs:
     name: Frontend Unit Tests
     runs-on: ubuntu-latest
     needs: changes
-    if: |
-      inputs.force_full_run == true ||
-      needs.changes.outputs.frontend == 'true' || 
-      needs.changes.outputs.ci == 'true'
-    timeout-minutes: 30
+    if: needs.changes.outputs.run_frontend == 'true'
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
@@ -483,6 +465,7 @@ jobs:
   secret-scan:
     name: Secret Detection
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     continue-on-error: false # Enforced - block on leaked secrets
     steps:
       - name: Checkout code
@@ -501,6 +484,7 @@ jobs:
   sast-scan:
     name: SAST Scan (Semgrep)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       security-events: write
       contents: read
@@ -527,6 +511,7 @@ jobs:
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: github.event_name == 'pull_request'
     permissions:
       contents: read
@@ -536,7 +521,7 @@ jobs:
         uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
 
       - name: Dependency Review
-        uses: actions/dependency-review-action@v4
+        uses: actions/dependency-review-action@72eb03d02ccd075d15c1e55d5d8525b6a383d65b # v4.3.3
         with:
           fail-on-severity: critical # Only fail on critical
           allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, Python-2.0, Unlicense, 0BSD
@@ -547,12 +532,16 @@ jobs:
   quality-gate:
     name: Quality Gate
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs:
       - backend-lint
       - backend-test
+      - backend-build
       - frontend-lint
       - frontend-test
       - frontend-build
+      - security-scan
+      - dependency-review
 
     if: always()
     steps:
@@ -562,7 +551,6 @@ jobs:
           echo ""
 
           # Define check function
-          # Note: "skipped" is treated as success because change detection may skip unchanged components
           check_job() {
             local job_name="$1"
             local result="$2"
@@ -576,11 +564,8 @@ jobs:
                 echo "[WARN] $job_name: FAILED (non-blocking)"
                 return 0
               fi
-            elif [ "$result" = "skipped" ]; then
-              echo "[SKIP] $job_name: SKIPPED (no changes detected)"
-              return 0
-            elif [ "$result" = "success" ]; then
-              echo "[OK] $job_name: PASSED"
+            elif [ "$result" = "skipped" ] || [ "$result" = "success" ]; then
+              echo "[OK] $job_name: ${result^^}"
               return 0
             else
               echo "[UNKNOWN] $job_name: $result"
@@ -593,10 +578,15 @@ jobs:
           # Required checks - skipped is acceptable (means no changes detected)
           check_job "Backend Lint" "${{ needs.backend-lint.result }}" "true" || failed=1
           check_job "Backend Tests" "${{ needs.backend-test.result }}" "true" || failed=1
+          check_job "Backend Build" "${{ needs.backend-build.result }}" "true" || failed=1
           check_job "Frontend Lint" "${{ needs.frontend-lint.result }}" "true" || failed=1
           check_job "Frontend Tests" "${{ needs.frontend-test.result }}" "true" || failed=1
           check_job "Frontend Build" "${{ needs.frontend-build.result }}" "true" || failed=1
+          check_job "Security Scan" "${{ needs.security-scan.result }}" "true" || failed=1
 
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            check_job "Dependency Review" "${{ needs.dependency-review.result }}" "true" || failed=1
+          fi
 
           echo ""
           if [ $failed -eq 1 ]; then
@@ -612,6 +602,7 @@ jobs:
   build-summary:
     name: Build Summary
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs:
       - quality-gate
       - backend-build
@@ -650,10 +641,3 @@ jobs:
           echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
           echo "**Run ID:** [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
-
-# Added timeout-minutes to all jobs
-# Manually applying this change to the file content in one go is risky with replace_file_content for such a large file.
-# Strategies:
-# 1. Apply to each job block individually.
-# 2. Or, use sed/regex if possible (no).
-# I will apply to the 'backend-build' job first as it's the most likely to hang.

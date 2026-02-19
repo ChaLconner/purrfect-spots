@@ -79,6 +79,8 @@ lint_output.txt
 *_output.txt
 test_out.txt
 coverage_output.txt
+full_log.txt
+log.txt
 
 # --- Build Output & Other ---
 dist/
@@ -92,3 +94,6 @@ trivy-results.sarif
 
 # --- Local Review Archives ---
 docs/archive/
+
+.gemini/
+gha-creds-*.json

@@ -50,8 +50,9 @@ async def test_select_success(async_client):
         assert result == [{"id": 1, "name": "test"}]
         mock_get.assert_called_once()
         args, kwargs = mock_get.call_args
-        assert kwargs["params"]["select"] == "*"
-        assert kwargs["params"]["id"] == "eq.1"
+        params_dict = dict(kwargs["params"])
+        assert params_dict["select"] == "*"
+        assert params_dict["id"] == "eq.1"
 
 
 @pytest.mark.asyncio

@@ -63,6 +63,7 @@ jobs:
   prepare:
     name: Prepare Deployment
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     # Only run if CI passed (for workflow_run) or always (for workflow_dispatch)
     # Added additional check to ensure workflow_run was successful
     if: |
@@ -74,7 +75,12 @@ jobs:
       environment: ${{ steps.set-env.outputs.environment }}
       should_deploy: ${{ steps.set-env.outputs.should_deploy }}
       version: ${{ steps.version.outputs.version }}
+      start_time: ${{ steps.timer.outputs.start_time }}
     steps:
+      - name: Start Timer
+        id: timer
+        run: echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
+
       - name: Checkout code
         uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
         with:
@@ -441,8 +447,8 @@ jobs:
           echo "🚀 Deploying Backend to Vercel Production..."
 
           if [ -z "${{ secrets.VERCEL_BACKEND_PROJECT_ID }}" ]; then
-            echo "::warning::VERCEL_BACKEND_PROJECT_ID secret is missing! Skipping backend deployment."
-            exit 0
+            echo "::error::VERCEL_BACKEND_PROJECT_ID secret is missing! Cannot deploy backend to Production."
+            exit 1
           fi
 
           if [ -z "$VERCEL_ORG_ID" ]; then
@@ -539,6 +545,24 @@ jobs:
 
           # Test public endpoints (no auth required)
           curl -sf "${{ secrets.PROD_API_URL }}/api/v1/spots?limit=1" > /dev/null && echo "✅ Spots API OK" || echo "::warning::Spots API check failed"
+
+          # CORS Smoke Test (Frontend -> Backend connectivity check)
+          # Use captured URL from deployment step
+          FRONTEND_URL="${{ steps.deploy-frontend.outputs.deployment_url }}"
+          if [ -n "$FRONTEND_URL" ]; then
+            echo "Testing CORS connectivity from $FRONTEND_URL to ${{ secrets.PROD_API_URL }}..."
+            
+            # Simulated CORS preflight/request check
+            CORS_STATUS=$(curl -s -I -H "Origin: $FRONTEND_URL" -H "Access-Control-Request-Method: GET" "${{ secrets.PROD_API_URL }}/health/ready" | grep -i "Access-Control-Allow-Origin" || echo "MISSING")
+            
+            if [[ "$CORS_STATUS" == *"MISSING"* ]]; then
+               echo "::warning::⚠️ CORS headers missing! Frontend may not be able to talk to Backend."
+            else
+               echo "✅ CORS Check Passed: $CORS_STATUS"
+            fi
+          else
+            echo "::warning::Frontend URL not found, skipping CORS check."
+          fi
 
           echo "✅ Smoke tests completed!"
 
@@ -704,6 +728,7 @@ jobs:
   summary:
     name: Deployment Summary
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: [prepare, deploy-staging, deploy-production]
     if: always() && needs.prepare.outputs.should_deploy == 'true'
     steps:
@@ -742,7 +767,12 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Calculate deployment duration
-          START_TIME=$(date -d "${{ github.event.head_commit.timestamp }}" +%s 2>/dev/null || echo 0)
+          START_TIME="${{ needs.prepare.outputs.start_time }}"
+          # Fallback if start_time is missing (e.g. if we didn't run the step)
+          if [ -z "$START_TIME" ] || [ "$START_TIME" == "null" ]; then
+             START_TIME=$(date -d "${{ github.event.head_commit.timestamp }}" +%s 2>/dev/null || echo 0)
+          fi
+
           END_TIME=$(date +%s)
           DURATION=$((END_TIME - START_TIME))
           if [ $DURATION -gt 0 ]; then
