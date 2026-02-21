@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     import redis.asyncio as aioredis
 
 from supabase import AClient
+
 from logger import logger
 from utils.datetime_utils import utc_now_iso
 from utils.supabase_client import get_async_supabase_admin_client
@@ -80,14 +81,18 @@ class TokenService:
         if jti and user_id and expires_at:
             try:
                 admin_client = await self._get_admin_client()
-                await admin_client.table("token_blacklist").insert(
-                    {
-                        "token_jti": jti,
-                        "user_id": user_id,
-                        "expires_at": expires_at.isoformat(),
-                        "revoked_at": utc_now_iso(),
-                    }
-                ).execute()
+                await (
+                    admin_client.table("token_blacklist")
+                    .insert(
+                        {
+                            "token_jti": jti,
+                            "user_id": user_id,
+                            "expires_at": expires_at.isoformat(),
+                            "revoked_at": utc_now_iso(),
+                        }
+                    )
+                    .execute()
+                )
             except Exception as e:
                 logger.error(f"Failed to persist blacklist to DB: {e}")
 
@@ -121,11 +126,13 @@ class TokenService:
 
         try:
             admin_client = await self._get_admin_client()
-            result = await admin_client.table("token_blacklist") \
-                .select("*") \
-                .eq("token_jti", jti if jti else token_hash) \
+            result = (
+                await admin_client.table("token_blacklist")
+                .select("*")
+                .eq("token_jti", jti if jti else token_hash)
                 .execute()
-            
+            )
+
             if result.data and len(result.data) > 0:
                 # Check if token is still valid (not expired)
                 for entry in result.data:
@@ -216,6 +223,7 @@ async def get_token_service() -> TokenService:
         if redis_url:
             try:
                 import redis.asyncio as aioredis
+
                 redis_client = aioredis.from_url(redis_url, encoding="utf-8", decode_responses=False)
                 await redis_client.ping()
                 logger.info("Token service initialized with Redis")

@@ -27,13 +27,11 @@ class SubscriptionService:
         if existing_customer_id:
             return existing_customer_id
 
-        user_res = await self.supabase.table("users") \
-            .select("stripe_customer_id") \
-            .eq("id", user_id) \
-            .maybe_single() \
-            .execute()
-            
-        db_customer_id = user_res.data.get("stripe_customer_id") if user_res.data else None
+        user_res = (
+            await self.supabase.table("users").select("stripe_customer_id").eq("id", user_id).maybe_single().execute()
+        )
+
+        db_customer_id = res_data.get("stripe_customer_id") if (res_data := (user_res.data if user_res else None)) else None
         if db_customer_id:
             return cast(str, db_customer_id)
 
@@ -46,11 +44,8 @@ class SubscriptionService:
         customer_id: str = customer.id
 
         # Persist back to DB
-        await self.supabase.table("users") \
-            .update({"stripe_customer_id": customer_id}) \
-            .eq("id", user_id) \
-            .execute()
-            
+        await self.supabase.table("users").update({"stripe_customer_id": customer_id}).eq("id", user_id).execute()
+
         return customer_id
 
     # ── Checkout ─────────────────────────────────────────────────────
@@ -134,13 +129,16 @@ class SubscriptionService:
             # Fallback: resolve via customer_id
             customer_id = session.get("customer")
             if customer_id:
-                res = await self.supabase.table("users") \
-                    .select("id") \
-                    .eq("stripe_customer_id", customer_id) \
-                    .maybe_single() \
+                res = (
+                    await self.supabase.table("users")
+                    .select("id")
+                    .eq("stripe_customer_id", customer_id)
+                    .maybe_single()
                     .execute()
-                if res.data:
-                    user_id = res.data["id"]
+                )
+                res_data = res.data if res else None
+                if res_data:
+                    user_id = res_data["id"]
 
         if not user_id:
             logger.error(
@@ -157,20 +155,22 @@ class SubscriptionService:
         # Retrieve subscription details (sync SDK → threadpool)
         sub = await run_in_threadpool(stripe.Subscription.retrieve, subscription_id)
         current_period_end = datetime.fromtimestamp(
-            sub.current_period_end,
+            cast(Any, sub).current_period_end,
             timezone.utc,  # type: ignore[arg-type]
         )
 
-        await self.supabase.table("users") \
+        await (
+            self.supabase.table("users")
             .update(
                 {
                     "is_pro": True,
                     "subscription_end_date": current_period_end.isoformat(),
                     "cancel_at_period_end": sub.cancel_at_period_end,
                 }
-            ) \
-            .eq("id", user_id) \
+            )
+            .eq("id", user_id)
             .execute()
+        )
         logger.info("Subscription activated for user %s", user_id)
 
     async def _handle_payment_session_completed(self, session: Dict[str, Any]) -> None:
@@ -188,16 +188,18 @@ class SubscriptionService:
             logger.warning("subscription.deleted missing customer_id")
             return
 
-        await self.supabase.table("users") \
+        await (
+            self.supabase.table("users")
             .update(
                 {
                     "is_pro": False,
                     "subscription_end_date": None,
                     "cancel_at_period_end": False,
                 }
-            ) \
-            .eq("stripe_customer_id", customer_id) \
+            )
+            .eq("stripe_customer_id", customer_id)
             .execute()
+        )
         logger.info("Subscription deleted for customer %s", customer_id)
 
     async def _handle_subscription_updated(self, subscription: Dict[str, Any]) -> None:
@@ -218,28 +220,32 @@ class SubscriptionService:
 
         current_period_end = datetime.fromtimestamp(raw_period_end, timezone.utc)
 
-        await self.supabase.table("users") \
+        await (
+            self.supabase.table("users")
             .update(
                 {
                     "cancel_at_period_end": cancel_at_period_end,
                     "subscription_end_date": current_period_end.isoformat(),
                 }
-            ) \
-            .eq("stripe_customer_id", customer_id) \
+            )
+            .eq("stripe_customer_id", customer_id)
             .execute()
+        )
 
     # ── Query helpers ────────────────────────────────────────────────
 
     async def get_subscription_status(self, user_id: str) -> Dict[str, Any]:
-        res = await self.supabase.table("users") \
-            .select("is_pro, subscription_end_date, stripe_customer_id, cancel_at_period_end, treat_balance") \
-            .eq("id", user_id) \
-            .maybe_single() \
+        res = (
+            await self.supabase.table("users")
+            .select("is_pro, subscription_end_date, stripe_customer_id, cancel_at_period_end, treat_balance")
+            .eq("id", user_id)
+            .maybe_single()
             .execute()
-            
+        )
+
         return (
             res.data
-            if res.data
+            if res and res.data
             else {
                 "is_pro": False,
                 "cancel_at_period_end": False,
@@ -249,16 +255,12 @@ class SubscriptionService:
 
     async def create_portal_session(self, user_id: str, return_url: str) -> str:
         """Create a Stripe Customer Portal session."""
-        res = await self.supabase.table("users") \
-            .select("stripe_customer_id") \
-            .eq("id", user_id) \
-            .maybe_single() \
-            .execute()
-            
+        res = await self.supabase.table("users").select("stripe_customer_id").eq("id", user_id).maybe_single().execute()
+
         if not res.data:
             raise ValueError("User not found")
 
-        customer_id = res.data.get("stripe_customer_id")
+        customer_id = res.data.get("stripe_customer_id") if res and res.data else None
         if not customer_id:
             raise ValueError("No customer ID found for user")
 
@@ -271,16 +273,12 @@ class SubscriptionService:
 
     async def cancel_subscription(self, user_id: str) -> None:
         """Cancel active subscriptions (set to cancel at period end)."""
-        res = await self.supabase.table("users") \
-            .select("stripe_customer_id") \
-            .eq("id", user_id) \
-            .maybe_single() \
-            .execute()
-            
+        res = await self.supabase.table("users").select("stripe_customer_id").eq("id", user_id).maybe_single().execute()
+
         if not res.data:
             raise ValueError("User not found")
 
-        customer_id = res.data.get("stripe_customer_id")
+        customer_id = res.data.get("stripe_customer_id") if res and res.data else None
         if not customer_id:
             raise ValueError("No subscription found")
 

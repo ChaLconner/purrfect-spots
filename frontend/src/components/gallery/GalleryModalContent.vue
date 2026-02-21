@@ -149,7 +149,7 @@ function openDirections(): void {
 
 <template>
   <div
-    class="flex flex-col flex-1 bg-cream-bg p-6 sm:p-8 min-[900px]:py-10 min-[900px]:px-8 overflow-hidden relative z-10 max-sm:rounded-none max-sm:mt-0 max-sm:shadow-none sm:mt-0 sm:rounded-none sm:shadow-none"
+    class="flex flex-col bg-cream-bg p-5 sm:p-6 min-[900px]:py-6 min-[900px]:px-6 overflow-hidden overflow-x-hidden relative z-10 max-sm:rounded-none max-sm:mt-0 max-sm:shadow-none sm:mt-0 sm:rounded-none sm:shadow-none min-w-0 w-full"
   >
     <!-- Mobile Drag Handle Visual -->
     <div class="block sm:hidden w-full flex justify-center pb-2">
@@ -157,18 +157,18 @@ function openDirections(): void {
     </div>
 
     <!-- Header -->
-    <div class="flex justify-between items-start mb-5">
-      <div class="flex-1">
+    <div class="flex justify-between items-start mb-5 gap-4">
+      <div class="flex-1 min-w-0">
         <h3
           id="modal-title"
-          class="font-nunito text-2xl sm:text-[1.75rem] font-extrabold text-brown-text leading-tight mb-2 break-words"
+          class="font-nunito text-2xl sm:text-[1.5rem] font-extrabold text-brown-text leading-tight mb-2 break-words"
         >
           {{ $t('galleryPage.modal.catDetails') }}
         </h3>
-        <div class="text-sm text-brown-meta flex items-center gap-4 flex-wrap">
+        <div class="text-sm text-brown-meta flex flex-col gap-1.5 mt-1">
           <button
             v-if="image?.location_name"
-            class="text-location-badge font-bold text-sm transition-all duration-200 hover:text-terracotta-dark flex items-center group"
+            class="text-location-badge font-bold text-sm transition-all duration-300 hover:text-terracotta-dark flex items-center group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 rounded-md px-1 -mx-1 text-left"
             :title="$t('galleryPage.modal.openInMaps')"
             @click="openDirections"
           >
@@ -179,26 +179,24 @@ function openDirections(): void {
               fill="none"
               stroke="currentColor"
               stroke-width="2.5"
-              class="mr-1.5 group-hover:scale-110 transition-transform"
+              class="mr-1.5 flex-shrink-0 group-hover:scale-110 transition-transform duration-300"
             >
               <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
               <circle cx="12" cy="10" r="3" />
             </svg>
-            {{ image.location_name }}
+            <span class="truncate">{{ image.location_name }}</span>
           </button>
-          <span
-            v-if="dateFormatted"
-            class="font-normal relative pl-4 before:content-['•'] before:absolute before:left-0 before:text-date-bullet"
-            >{{ dateFormatted }}</span
-          >
+          <span v-if="dateFormatted" class="font-normal text-date-bullet whitespace-nowrap">{{
+            dateFormatted
+          }}</span>
         </div>
 
         <!-- Tags moved to header -->
-        <div v-if="imageTags.length > 0" class="flex flex-wrap gap-2 mt-3">
+        <div v-if="imageTags.length > 0" class="flex flex-wrap gap-2 mt-4">
           <button
             v-for="tag in imageTags"
             :key="tag"
-            class="text-xs font-semibold text-sage-pill bg-sage-pill-bg px-2.5 py-1 rounded-full cursor-pointer transition-all duration-200 hover:bg-sage-pill-bg-hover hover:-translate-y-px"
+            class="text-xs font-semibold text-sage-pill bg-sage-pill-bg px-3 py-1.5 rounded-full cursor-pointer transition-all duration-300 hover:bg-sage-pill-bg-hover hover:-translate-y-0.5 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-pill focus-visible:ring-offset-2 active:scale-95"
             @click="searchByTag(tag)"
           >
             #{{ tag }}
@@ -208,7 +206,7 @@ function openDirections(): void {
 
       <div class="flex items-center gap-2">
         <button
-          class="w-10 h-10 rounded-full flex items-center justify-center text-brown-meta bg-transparent transition-all duration-200 cursor-pointer hover:bg-brown-text/5 hover:text-brown-text hover:text-red-500 hover:bg-red-50"
+          class="w-10 h-10 rounded-full flex items-center justify-center text-brown-meta bg-transparent transition-all duration-300 cursor-pointer hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 active:scale-95"
           :title="$t('galleryPage.modal.reportContent')"
           @click="isReportOpen = true"
         >
@@ -228,7 +226,7 @@ function openDirections(): void {
           </svg>
         </button>
         <button
-          class="w-10 h-10 rounded-full flex items-center justify-center text-brown-meta bg-transparent transition-all duration-200 cursor-pointer hover:bg-brown-text/5 hover:text-brown-text max-[899px]:hidden"
+          class="w-10 h-10 rounded-full flex items-center justify-center text-brown-meta bg-transparent transition-all duration-300 cursor-pointer hover:bg-brown-text/10 hover:text-brown-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brown-text active:scale-95 max-[899px]:hidden"
           :aria-label="$t('galleryPage.modal.close')"
           @click="$emit('close')"
         >
@@ -247,12 +245,14 @@ function openDirections(): void {
       </div>
     </div>
 
-    <!-- Body -->
-    <div class="overflow-y-auto flex-1 pr-2 sm:pr-0 scrollbar-thin md:custom-scrollbar">
+    <!-- Body: scrollable area -->
+    <div
+      class="overflow-y-auto overflow-x-hidden flex-1 -mr-2 pr-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-brown/25 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-brown/45"
+    >
       <div class="mb-6">
         <p
           v-if="cleanDescription"
-          class="text-base leading-relaxed text-[#5c504a] whitespace-pre-wrap"
+          class="text-base leading-[1.7] tracking-[0.01em] text-[#5c504a] whitespace-pre-wrap transition-opacity duration-300"
         >
           {{ cleanDescription }}
         </p>
@@ -289,11 +289,11 @@ function openDirections(): void {
                 <button
                   v-for="amt in [1, 5, 10, 50]"
                   :key="amt"
-                  class="w-8 h-8 sm:w-8 sm:h-8 flex items-center justify-center text-[11px] sm:text-xs font-bold rounded-full transition-all duration-200"
+                  class="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center text-[11px] sm:text-xs font-bold rounded-full transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 active:scale-95"
                   :class="
                     selectedAmount === amt
-                      ? 'bg-white text-terracotta shadow-sm scale-105 ring-1 ring-black/5'
-                      : 'text-brown/40 hover:text-brown hover:bg-white/50'
+                      ? 'bg-white text-terracotta shadow-md scale-105 ring-1 ring-black/5'
+                      : 'text-brown/50 hover:text-brown hover:bg-white/60 hover:scale-105'
                   "
                   @click="selectedAmount = amt"
                 >
@@ -303,7 +303,7 @@ function openDirections(): void {
 
               <!-- Action Button -->
               <button
-                class="flex-1 max-w-[140px] sm:max-w-[160px] h-9 bg-terracotta hover:bg-terracotta-dark text-white font-bold rounded-full shadow-sm hover:shadow-md shadow-terracotta/20 active:scale-95 transition-all flex items-center justify-center group"
+                class="flex-1 max-w-[140px] sm:max-w-[160px] h-9 sm:h-10 bg-terracotta hover:bg-terracotta-dark text-white font-bold rounded-full shadow-sm hover:shadow-md hover:shadow-terracotta/30 active:scale-95 transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 flex items-center justify-center group"
                 :disabled="isSendingTreat"
                 @click="handleGiveTreat"
               >

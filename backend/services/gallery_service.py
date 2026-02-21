@@ -8,8 +8,9 @@ Features:
 - Tag filtering and popular tags
 """
 
-from typing import TYPE_CHECKING, Any, Counter
+from typing import TYPE_CHECKING, Any, Counter, cast
 
+from postgrest.types import CountMethod
 from supabase import AClient
 
 from logger import logger
@@ -66,7 +67,7 @@ class GalleryService:
             logger.info(f"Fetching gallery photos: limit={limit}, offset={offset}, user_id={user_id}")
 
             data = []
-            
+
             # Primary: Try official async RPC
             rpc_params: dict[str, Any] = {"p_limit": limit, "p_offset": offset}
             if user_id:
@@ -78,7 +79,13 @@ class GalleryService:
             except Exception as rpc_error:
                 logger.warning(f"Async RPC failed, falling back to direct query: {rpc_error}")
                 # Try direct query
-                query = self.supabase.table("cat_photos").select("*").is_("deleted_at", "null").order("uploaded_at", desc=True).range(offset, offset + limit - 1)
+                query = (
+                    self.supabase.table("cat_photos")
+                    .select("*")
+                    .is_("deleted_at", "null")
+                    .order("uploaded_at", desc=True)
+                    .range(offset, offset + limit - 1)
+                )
                 res = await query.execute()
                 data = res.data or []
 
@@ -94,7 +101,12 @@ class GalleryService:
             # Get total count
             if include_total:
                 try:
-                    res = await self.supabase.table("cat_photos").select("id", count="exact").is_("deleted_at", "null").execute()
+                    res = (
+                        await self.supabase.table("cat_photos")
+                        .select("id", count=CountMethod.exact)
+                        .is_("deleted_at", "null")
+                        .execute()
+                    )
                     total = res.count or 0
                 except Exception as e:
                     logger.error(f"Count fetch failed: {e}")
@@ -120,7 +132,14 @@ class GalleryService:
         Cached for 5 minutes to reduce database load.
         """
         try:
-            res = await self.supabase.table("cat_photos").select("*").is_("deleted_at", "null").order("uploaded_at", desc=True).limit(limit).execute()
+            res = (
+                await self.supabase.table("cat_photos")
+                .select("*")
+                .is_("deleted_at", "null")
+                .order("uploaded_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
             return res.data or []
         except Exception as e:
             from exceptions import ExternalServiceError
@@ -134,7 +153,14 @@ class GalleryService:
         Selects only essential fields.
         """
         try:
-            res = await self.supabase.table("cat_photos").select("id,latitude,longitude,location_name,image_url,user_id").is_("deleted_at", "null").order("uploaded_at", desc=True).limit(2000).execute()
+            res = (
+                await self.supabase.table("cat_photos")
+                .select("id,latitude,longitude,location_name,image_url,user_id")
+                .is_("deleted_at", "null")
+                .order("uploaded_at", desc=True)
+                .limit(2000)
+                .execute()
+            )
             data = res.data or []
             # Optimize thumbnails for map markers (very small)
             for photo in data:
@@ -189,7 +215,14 @@ class GalleryService:
     async def _get_popular_tags_impl(supabase_client: AClient, limit: int) -> list[dict[str, Any]]:
         """Internal cached implementation for popular tags."""
         try:
-            res = await supabase_client.table("cat_photos").select("tags").not_.is_("tags", "null").is_("deleted_at", "null").limit(1000).execute()
+            res = (
+                await supabase_client.table("cat_photos")
+                .select("tags")
+                .not_.is_("tags", "null")
+                .is_("deleted_at", "null")
+                .limit(1000)
+                .execute()
+            )
             data = res.data or []
 
             if not data:
@@ -224,7 +257,14 @@ class GalleryService:
     async def get_user_photos(self, user_id: str) -> list[dict[str, Any]]:
         """Get all photos uploaded by a specific user (Cached for 5m)"""
         try:
-            res = await self.supabase.table("cat_photos").select("*").eq("user_id", user_id).is_("deleted_at", "null").order("uploaded_at", desc=True).execute()
+            res = (
+                await self.supabase.table("cat_photos")
+                .select("*")
+                .eq("user_id", user_id)
+                .is_("deleted_at", "null")
+                .order("uploaded_at", desc=True)
+                .execute()
+            )
             data = res.data or []
             return self._process_photos(data)
         except Exception as e:
@@ -313,7 +353,14 @@ class GalleryService:
     async def get_photo_by_id(self, photo_id: str) -> dict[str, Any] | None:
         """Get a specific photo by ID."""
         try:
-            res = await self.supabase.table("cat_photos").select("*").eq("id", photo_id).is_("deleted_at", "null").limit(1).execute()
+            res = (
+                await self.supabase.table("cat_photos")
+                .select("*")
+                .eq("id", photo_id)
+                .is_("deleted_at", "null")
+                .limit(1)
+                .execute()
+            )
             data = res.data or []
             return data[0] if data else None
         except Exception as e:
@@ -333,8 +380,9 @@ class GalleryService:
 
         try:
             from utils.supabase_client import get_async_supabase_admin_client
+
             photo_ids = [p["id"] for p in photos]
-            
+
             # Use service role client to bypass RLS
             admin_client = await get_async_supabase_admin_client()
             res = await (
@@ -361,7 +409,14 @@ class GalleryService:
         Returns the photo data if owned, None otherwise.
         """
         try:
-            res = await self.supabase.table("cat_photos").select("id,user_id,image_url").eq("id", photo_id).is_("deleted_at", "null").limit(1).execute()
+            res = (
+                await self.supabase.table("cat_photos")
+                .select("id,user_id,image_url")
+                .eq("id", photo_id)
+                .is_("deleted_at", "null")
+                .limit(1)
+                .execute()
+            )
             data = res.data or []
             photo = data[0] if data else None
 
@@ -385,13 +440,14 @@ class GalleryService:
         try:
             logger.info("Starting background deletion for photo %s", photo_id)
 
-            # 1. Delete from Storage (S3)
-            if image_url:
-                await storage_service.delete_file(image_url)
+            # 1. Skip Delete from Storage (S3) for soft delete
+            # if image_url:
+            #     await storage_service.delete_file(image_url)
 
-            # 2. Delete from Database
+            # 2. Soft Delete from Database
             admin_client = await self.supabase_admin
-            await admin_client.table("cat_photos").delete().eq("id", photo_id).execute()
+            import datetime
+            await admin_client.table("cat_photos").update({"deleted_at": datetime.datetime.now().isoformat()}).eq("id", photo_id).execute()
 
             # 3. Invalidate Caches
             from utils.cache import invalidate_gallery_cache, invalidate_tags_cache
@@ -425,7 +481,7 @@ class GalleryService:
 
                 raise ExternalServiceError("Database insert returned no data", service="Supabase")
 
-            return result.data[0]
+            return cast(dict[str, Any], result.data[0])
         except Exception as e:
             logger.error(f"Failed to save photo to database: {e}")
             raise e

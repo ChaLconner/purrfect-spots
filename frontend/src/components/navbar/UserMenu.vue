@@ -53,38 +53,62 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="user-menu-container">
+  <div class="relative user-menu-container">
     <button
-      class="user-btn"
+      class="group relative flex items-center justify-center h-10 w-10 p-[0.15rem] bg-btn-shade-e border-2 border-btn-shade-a rounded-full cursor-pointer shrink-0 transition-all duration-[150ms] ease-out hover:bg-btn-shade-d hover:translate-y-[0.1rem] active:translate-y-[0.25rem]"
+      style="transform-style: preserve-3d; will-change: transform"
       :aria-expanded="showUserMenu"
       aria-label="User menu"
       @click="showUserMenu = !showUserMenu"
     >
+      <span
+        class="absolute inset-0 bg-btn-shade-c rounded-[inherit] shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.2rem_0_0_var(--color-btn-shade-a)] transition-all duration-[150ms] ease-out -z-10 group-hover:translate-y-[0.15rem] group-active:translate-y-0 group-active:translate-z-[-1em] group-active:shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.1em_0_0_var(--color-btn-shade-b)]"
+        style="transform: translate3d(0, 0.2rem, -1em); will-change: transform"
+      ></span>
       <img
         :src="authStore.user?.picture || '/default-avatar.svg'"
         :alt="authStore.user?.name || 'User'"
-        class="user-avatar"
+        class="relative z-10 w-full h-full rounded-full object-cover border-2 border-btn-shade-a shadow-[0_2px_4px_rgba(106,163,137,0.2)] shrink-0"
         @error="handleImageError"
       />
     </button>
 
     <!-- Dropdown Menu -->
-    <div v-if="showUserMenu" class="user-dropdown" @click.stop>
-      <div class="dropdown-header">
-        <p class="dropdown-name">{{ authStore.user?.name }}</p>
-        <p class="dropdown-email">{{ authStore.user?.email }}</p>
+    <div
+      v-if="showUserMenu"
+      class="absolute top-[calc(100%+0.75rem)] right-0 min-w-[210px] bg-btn-shade-e border-2 border-btn-shade-a rounded-2xl shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.5em_0_0_var(--color-btn-shade-a)] overflow-hidden z-[100] origin-top-right animate-[ghibli-pop_0.3s_cubic-bezier(0.34,1.56,0.64,1)]"
+      @click.stop
+    >
+      <div class="px-4 py-3.5 bg-btn-shade-d">
+        <p class="m-0 font-accent text-sm font-semibold text-btn-shade-a">
+          {{ authStore.user?.name }}
+        </p>
+        <p
+          class="m-0 mt-0.5 font-accent text-[0.7rem] text-btn-shade-b overflow-hidden text-ellipsis"
+        >
+          {{ authStore.user?.email }}
+        </p>
       </div>
-      <div class="dropdown-divider"></div>
-      <router-link to="/profile" class="dropdown-item" @click="showUserMenu = false">
+      <div class="h-[2px] bg-btn-shade-b"></div>
+      <router-link
+        to="/profile"
+        class="block w-full px-4 py-3 font-accent text-[0.85rem] font-semibold text-btn-shade-a text-left bg-transparent border-none cursor-pointer transition-all duration-[175ms] ease-in-out hover:bg-btn-shade-d hover:translate-x-1"
+        @click="showUserMenu = false"
+      >
         {{ $t('nav.profile') }}
       </router-link>
-      <button class="dropdown-item logout" @click="logout">{{ $t('auth.logout') }}</button>
+      <button
+        class="block w-full px-4 py-3 font-accent text-[0.85rem] font-semibold text-left bg-transparent border-none cursor-pointer transition-all duration-[175ms] ease-in-out hover:translate-x-1 text-[#dc4a4a] hover:bg-[#ffeeee]"
+        @click="logout"
+      >
+        {{ $t('auth.logout') }}
+      </button>
 
-      <div v-if="authStore.isAdmin" class="dropdown-divider"></div>
+      <div v-if="authStore.isAdmin" class="h-[2px] bg-btn-shade-b"></div>
       <router-link
         v-if="authStore.isAdmin"
         to="/admin"
-        class="dropdown-item admin-link"
+        class="block w-full px-4 py-3 font-accent text-[0.85rem] font-semibold text-btn-shade-a text-left bg-transparent border-none cursor-pointer transition-all duration-[175ms] ease-in-out hover:bg-btn-shade-d hover:translate-x-1"
         @click="showUserMenu = false"
       >
         {{ $t('nav.adminPanel') }}
@@ -92,162 +116,3 @@ onUnmounted(() => {
     </div>
   </div>
 </template>
-
-<style scoped>
-.user-menu-container {
-  position: relative;
-}
-
-/* 3D User Button */
-.user-btn {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 2.5rem;
-  width: 2.5rem;
-  padding: 0.15rem;
-  background: var(--color-btn-shade-e);
-  border: 2px solid var(--color-btn-shade-a);
-  border-radius: 50%;
-  cursor: pointer;
-  transition: all 175ms cubic-bezier(0, 0, 1, 1);
-  flex-shrink: 0;
-  transform-style: preserve-3d;
-}
-
-.user-btn::before {
-  position: absolute;
-  content: '';
-  width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
-  background: var(--color-btn-shade-c);
-  border-radius: inherit;
-  box-shadow:
-    0 0 0 2px var(--color-btn-shade-b),
-    0 0.3em 0 0 var(--color-btn-shade-a);
-  transform: translate3d(0, 0.3em, -1em);
-  transition: all 175ms cubic-bezier(0, 0, 1, 1);
-}
-
-.user-btn:hover {
-  background: var(--color-btn-shade-d);
-  transform: translate(0, 0.15em);
-}
-
-.user-btn:hover::before {
-  transform: translate3d(0, 0.3em, -1em);
-}
-
-.user-btn:active {
-  transform: translate(0, 0.3em);
-}
-
-.user-btn:active::before {
-  transform: translate3d(0, 0, -1em);
-  box-shadow:
-    0 0 0 2px var(--color-btn-shade-b),
-    0 0.1em 0 0 var(--color-btn-shade-b);
-}
-
-.user-avatar {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid var(--color-btn-shade-a);
-  box-shadow: 0 2px 4px rgba(106, 163, 137, 0.2);
-  flex-shrink: 0;
-  position: relative;
-  z-index: 1;
-}
-
-/* 3D Themed Dropdown */
-.user-dropdown {
-  position: absolute;
-  top: calc(100% + 0.75rem);
-  right: 0;
-  min-width: 210px;
-  background: var(--color-btn-shade-e);
-  border: 2px solid var(--color-btn-shade-a);
-  border-radius: 1rem;
-  box-shadow:
-    0 0 0 2px var(--color-btn-shade-b),
-    0 0.5em 0 0 var(--color-btn-shade-a);
-  overflow: hidden;
-  z-index: 100;
-  transform-origin: top right;
-  animation: ghibli-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-@keyframes ghibli-pop {
-  from {
-    opacity: 0;
-    transform: scale(0.9) translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-.dropdown-header {
-  padding: 0.875rem 1rem;
-  background: var(--color-btn-shade-d);
-}
-
-.dropdown-name {
-  font-family: 'Zen Maru Gothic', sans-serif;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--color-btn-shade-a);
-  margin: 0;
-}
-
-.dropdown-email {
-  font-family: 'Zen Maru Gothic', sans-serif;
-  font-size: 0.7rem;
-  color: var(--color-btn-shade-b);
-  margin: 0.125rem 0 0 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.dropdown-divider {
-  height: 2px;
-  background: var(--color-btn-shade-b);
-}
-
-/* 3D Dropdown Items */
-.dropdown-item {
-  position: relative;
-  display: block;
-  width: 100%;
-  padding: 0.75rem 1rem;
-  font-family: 'Zen Maru Gothic', sans-serif;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--color-btn-shade-a);
-  text-decoration: none;
-  text-align: left;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: all 175ms ease;
-}
-
-.dropdown-item:hover {
-  background: var(--color-btn-shade-d);
-  transform: translateX(4px);
-}
-
-.dropdown-item.logout {
-  color: #dc4a4a;
-}
-
-.dropdown-item.logout:hover {
-  background: #ffeeee;
-}
-</style>

@@ -70,8 +70,8 @@ async def register(
             raise HTTPException(status_code=400, detail=error_msg)
 
         # Generate and send OTP
-        otp_service = get_otp_service()
-        otp_code, _ = otp_service.create_otp(data.email)
+        otp_service = await get_otp_service()
+        otp_code, _ = await otp_service.create_otp(data.email)
 
         # Send OTP via email
         email_sent = email_service.send_otp_email(data.email, otp_code)
@@ -108,7 +108,7 @@ async def verify_otp(
 ) -> LoginResponse | dict:
     """Verify email using 6-digit OTP code"""
     try:
-        otp_service = get_otp_service()
+        otp_service = await get_otp_service()
         result = await otp_service.verify_otp(req.email, req.otp)
 
         if not result["success"]:
@@ -152,17 +152,17 @@ async def resend_otp(
 ) -> dict:
     """Resend verification OTP code"""
     try:
-        otp_service = get_otp_service()
+        otp_service = await get_otp_service()
 
         # Check cooldown
-        can_resend, seconds_remaining = otp_service.can_resend_otp(req.email)
+        can_resend, seconds_remaining = await otp_service.can_resend_otp(req.email)
         if not can_resend:
             raise HTTPException(
                 status_code=429, detail=f"Please wait {seconds_remaining} seconds before requesting a new code."
             )
 
         # Generate new OTP
-        otp_code, expires_at = otp_service.create_otp(req.email)
+        otp_code, expires_at = await otp_service.create_otp(req.email)
 
         # Send OTP via email
         email_sent = email_service.send_otp_email(req.email, otp_code)
@@ -558,6 +558,7 @@ async def sync_user_data(user: dict = Depends(get_current_user_from_header)) -> 
 
         # Use admin client to ensure we can update users table
         from dependencies import get_async_supabase_admin_client
+
         supabase_admin = await get_async_supabase_admin_client()
         res = await supabase_admin.table("users").upsert(data, on_conflict="id").execute()
         return {"message": "User synced", "data": res.data if hasattr(res, "data") else data}

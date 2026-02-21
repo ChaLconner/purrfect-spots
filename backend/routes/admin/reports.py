@@ -1,7 +1,8 @@
 from datetime import datetime
-from typing import Any, List, Optional, cast
+from typing import Any, Optional, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from postgrest.types import CountMethod
 
 from dependencies import (
     get_admin_gallery_service,
@@ -9,21 +10,23 @@ from dependencies import (
     get_email_service,
     get_notification_service,
 )
+from limiter import limiter
 from logger import logger
+from middleware.auth_middleware import require_permission
 from schemas.admin_schemas import BulkReportUpdate
 from services.email_service import EmailService
 from services.gallery_service import GalleryService
 from services.notification_service import NotificationService
 from services.storage_service import storage_service
-from middleware.auth_middleware import require_permission
 from user_models.user import User
-from limiter import limiter
 
 router = APIRouter()
 
 # Helper to validate UUID (duplicated for now, could move to shared utils)
 import re
+
 _UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
+
 
 def _validate_uuid(value: str, label: str = "ID") -> None:
     if not _UUID_RE.match(value):
@@ -48,7 +51,7 @@ async def list_reports(
         admin_client = await get_async_supabase_admin_client()
         query = (
             admin_client.table("reports")
-            .select("*, reporter:users!reporter_id(email), photo:cat_photos(image_url, location_name)", count="exact")
+            .select("*, reporter:users!reporter_id(email), photo:cat_photos(image_url, location_name)", count=CountMethod.exact)
             .range(offset, offset + limit - 1)
             .order("created_at", desc=True)
         )
@@ -65,10 +68,7 @@ async def list_reports(
             query = query.eq("reporter_id", reporter_id)
 
         result = await query.execute()
-        return {
-            "data": result.data,
-            "total": result.count
-        }
+        return {"data": result.data, "total": result.count}
     except Exception as e:
         logger.error(f"Failed to list reports: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch reports: {e}")
@@ -97,9 +97,9 @@ async def update_report(
             report_check = await admin_client.table("reports").select("photo_id").eq("id", report_id).single().execute()
             if not report_check.data:
                 raise HTTPException(status_code=404, detail="Report not found")
-            
+
             photo_id = report_check.data.get("photo_id")
-            
+
             if photo_id:
                 photo_check = (
                     await admin_client.table("cat_photos")
@@ -108,10 +108,10 @@ async def update_report(
                     .single()
                     .execute()
                 )
-                
+
                 if photo_check.data:
                     photo_data = photo_check.data
-                    
+
                     # Schedule deletion
                     background_tasks.add_task(
                         gallery_service.process_photo_deletion,
@@ -132,8 +132,14 @@ async def update_report(
                             resource_id=photo_id,
                             resource_type="photo",
                         )
-                        
-                        user_check = await admin_client.table("users").select("email").eq("id", photo_data.get("user_id")).single().execute()
+
+                        user_check = (
+                            await admin_client.table("users")
+                            .select("email")
+                            .eq("id", photo_data.get("user_id"))
+                            .single()
+                            .execute()
+                        )
                         if user_check.data and user_check.data.get("email"):
                             background_tasks.add_task(
                                 email_service.send_content_removal_notification,
@@ -141,15 +147,21 @@ async def update_report(
                                 content_type="photo",
                                 reason="Violation of Community Guidelines",
                             )
-                    
-                    await admin_client.table("audit_logs").insert({
-                        "user_id": current_admin.id,
-                        "action": "DELETE_PHOTO_VIA_REPORT",
-                        "resource": "photos",
-                        "changes": {"photo_id": photo_id, "report_id": report_id},
-                        "ip_address": request.client.host if request.client else "unknown",
-                        "user_agent": "system"
-                    }).execute()
+
+                    await (
+                        admin_client.table("audit_logs")
+                        .insert(
+                            {
+                                "user_id": current_admin.id,
+                                "action": "DELETE_PHOTO_VIA_REPORT",
+                                "resource": "photos",
+                                "changes": {"photo_id": photo_id, "report_id": report_id},
+                                "ip_address": request.client.host if request.client else "unknown",
+                                "user_agent": "system",
+                            }
+                        )
+                        .execute()
+                    )
 
         # Update report status
         result = (
@@ -183,7 +195,7 @@ async def update_report(
                 notification_service.create_notification,
                 user_id=report.get("reporter_id"),
                 type="system",
-                title="Report Update", 
+                title="Report Update",
                 message=message,
                 resource_id=report_id,
                 resource_type="report",
@@ -210,7 +222,7 @@ async def bulk_update_reports(
     try:
         admin_client = await get_async_supabase_admin_client()
         report_ids_str = [str(uid) for uid in bulk_data.report_ids]
-        
+
         if bulk_data.delete_content:
             reports_data = (
                 await admin_client.table("reports")
@@ -226,7 +238,7 @@ async def bulk_update_reports(
                 if photo and photo.get("id") and photo.get("id") not in processed_photos:
                     photo_id = photo.get("id")
                     processed_photos.add(photo_id)
-                    
+
                     background_tasks.add_task(
                         gallery_service.process_photo_deletion,
                         photo_id=photo_id,
@@ -246,14 +258,20 @@ async def bulk_update_reports(
                             resource_type="photo",
                         )
 
-                    await admin_client.table("audit_logs").insert({
-                        "user_id": current_admin.id,
-                        "action": "DELETE_PHOTO_VIA_BULK_REPORT",
-                        "resource": "photos",
-                        "changes": {"photo_id": photo_id, "report_id": report.get("id")},
-                        "ip_address": request.client.host if request.client else "unknown",
-                        "user_agent": "system"
-                    }).execute()
+                    await (
+                        admin_client.table("audit_logs")
+                        .insert(
+                            {
+                                "user_id": current_admin.id,
+                                "action": "DELETE_PHOTO_VIA_BULK_REPORT",
+                                "resource": "photos",
+                                "changes": {"photo_id": photo_id, "report_id": report.get("id")},
+                                "ip_address": request.client.host if request.client else "unknown",
+                                "user_agent": "system",
+                            }
+                        )
+                        .execute()
+                    )
 
         result = (
             await admin_client.table("reports")
@@ -270,7 +288,7 @@ async def bulk_update_reports(
         )
 
         updated_reports = result.data if result.data else []
-        
+
         reporters_processed = set()
         for report in updated_reports:
             reporter_id = report.get("reporter_id")
@@ -287,10 +305,7 @@ async def bulk_update_reports(
                     resource_type="report",
                 )
 
-        return {
-            "message": f"Successfully updated {len(updated_reports)} reports",
-            "count": len(updated_reports)
-        }
+        return {"message": f"Successfully updated {len(updated_reports)} reports", "count": len(updated_reports)}
     except Exception as e:
         logger.error(f"Failed to bulk update reports: {e}")
         raise HTTPException(status_code=500, detail="Failed to bulk update reports")

@@ -29,9 +29,9 @@ def decode_token(token: str) -> Dict[str, Any]:
     if not token:
         raise ValueError("Token is missing")
 
-    errors = []
+    errors: list[str] = []
 
-    errors = []
+
 
     # Decode with Custom JWT Secret (Standard)
     # This secret must match the one used to sign the token (e.g. Supabase Project Secret)

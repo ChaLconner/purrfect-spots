@@ -11,11 +11,11 @@ inputs:
     required: false
     default: 'true'
 
-runs:
-  using: "composite"
-  steps:
+  runs:
+    using: "composite"
+    steps:
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.2.0
       with:
         node-version: ${{ inputs.node-version }}
         cache: 'npm'

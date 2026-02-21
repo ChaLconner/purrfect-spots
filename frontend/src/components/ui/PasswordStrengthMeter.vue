@@ -1,20 +1,29 @@
 <template>
-  <transition name="slide-fade">
-    <div v-if="isVisible" class="password-strength-meter">
-      <div class="strength-bars">
+  <transition
+    enter-active-class="transition-all duration-500 ease-out overflow-hidden"
+    leave-active-class="transition-all duration-300 ease-[cubic-bezier(1,0.5,0.8,1)] overflow-hidden"
+    enter-from-class="opacity-0 -translate-y-1 max-h-0 !mt-0"
+    enter-to-class="opacity-100 max-h-[50px] mt-2 translate-y-0"
+    leave-from-class="opacity-100 max-h-[50px] mt-2 translate-y-0"
+    leave-to-class="opacity-0 -translate-y-1 max-h-0 !mt-0"
+  >
+    <div v-if="isVisible" class="mt-2 w-full">
+      <div class="flex gap-1 h-1 mb-1">
         <div
           v-for="i in 4"
           :key="i"
-          class="bar"
+          class="flex-1 rounded-sm bg-black/10 transition-colors duration-300 ease-in-out"
           :class="{
-            filled: strength >= i,
-            weak: strength <= 2 && strength >= i,
-            medium: strength === 3 && strength >= i,
-            strong: strength === 4 && strength >= i,
+            'bg-[#f6c1b1]': strength <= 2 && strength >= i,
+            'bg-[#ebc968]': strength === 3 && strength >= i,
+            'bg-[#7fb7a4]': strength === 4 && strength >= i,
           }"
         ></div>
       </div>
-      <p class="strength-label" :class="labelColorClass">
+      <p
+        class="font-sans text-xs font-medium text-right transition-colors duration-300 ease-in-out"
+        :class="labelColorClass"
+      >
         {{ strengthLabel }}
       </p>
     </div>
@@ -96,91 +105,13 @@ const labelColorClass = computed(() => {
   switch (strength.value) {
     case 1:
     case 2:
-      return 'text-terracotta';
+      return 'text-[#c97b49]';
     case 3:
-      return 'text-yellow-600';
+      return 'text-[#d9a030]';
     case 4:
-      return 'text-sage-dark';
+      return 'text-[#5a7558]';
     default:
       return 'text-gray-400';
   }
 });
 </script>
-
-<style scoped>
-.password-strength-meter {
-  margin-top: 0.5rem;
-  width: 100%;
-}
-
-.strength-bars {
-  display: flex;
-  gap: 4px;
-  height: 4px;
-  margin-bottom: 4px;
-}
-
-.bar {
-  flex: 1;
-  border-radius: 2px;
-  background-color: rgba(0, 0, 0, 0.1); /* Base empty color */
-  transition: all 0.3s ease;
-}
-
-.bar.filled.weak {
-  background-color: #f6c1b1; /* Terracotta Light */
-}
-
-.bar.filled.medium {
-  background-color: #ebc968; /* Golden/Yellowish */
-}
-
-.bar.filled.strong {
-  background-color: #7fb7a4; /* Sage */
-}
-
-.strength-label {
-  font-family: 'Inter', sans-serif;
-  font-size: 0.75rem;
-  font-weight: 500;
-  text-align: right;
-  transition: color 0.3s ease;
-}
-
-.text-terracotta {
-  color: #c97b49;
-}
-.text-sage-dark {
-  color: #5a7558;
-}
-.text-yellow-600 {
-  color: #d9a030;
-}
-.text-gray-400 {
-  color: #9ca3af;
-}
-
-/* Transition Styles */
-.slide-fade-enter-active {
-  transition: all 0.5s ease-out;
-}
-
-.slide-fade-leave-active {
-  transition: all 0.3s cubic-bezier(1, 0.5, 0.8, 1);
-}
-
-.slide-fade-enter-from,
-.slide-fade-leave-to {
-  transform: translateY(-5px);
-  opacity: 0;
-  max-height: 0;
-  margin-top: 0;
-}
-
-.slide-fade-enter-to,
-.slide-fade-leave-from {
-  opacity: 1;
-  max-height: 50px; /* Approximate height */
-  margin-top: 0.5rem;
-}
-</style>

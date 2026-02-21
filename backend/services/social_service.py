@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, cast
 
 from supabase import AClient
 
@@ -19,14 +19,11 @@ class SocialService:
         """
         try:
             from utils.supabase_client import get_async_supabase_admin_client
-            
+
             # Use admin client to bypass RLS/JWT issues with RPC
             admin_client = await get_async_supabase_admin_client()
-            
-            res = await admin_client.rpc(
-                "toggle_photo_like", 
-                {"p_user_id": user_id, "p_photo_id": photo_id}
-            ).execute()
+
+            res = await admin_client.rpc("toggle_photo_like", {"p_user_id": user_id, "p_photo_id": photo_id}).execute()
 
             data = res.data
             if not data or len(data) == 0:
@@ -63,12 +60,14 @@ class SocialService:
         from utils.supabase_client import get_async_supabase_admin_client
 
         # Validate photo exists first
-        res = await self.supabase.table("cat_photos") \
-            .select("id, user_id") \
-            .eq("id", photo_id) \
-            .is_("deleted_at", "null") \
-            .limit(1) \
+        res = (
+            await self.supabase.table("cat_photos")
+            .select("id, user_id")
+            .eq("id", photo_id)
+            .is_("deleted_at", "null")
+            .limit(1)
             .execute()
+        )
 
         if not res.data:
             raise NotFoundError(message="Photo not found", resource_type="photo", resource_id=photo_id)
@@ -77,9 +76,11 @@ class SocialService:
 
         # Insert comment using service role client
         admin_client = await get_async_supabase_admin_client()
-        res = await admin_client.table("photo_comments").insert(
-            {"user_id": user_id, "photo_id": photo_id, "content": content}
-        ).execute()
+        res = (
+            await admin_client.table("photo_comments")
+            .insert({"user_id": user_id, "photo_id": photo_id, "content": content})
+            .execute()
+        )
 
         if not res.data:
             raise ExternalServiceError("Failed to create comment", service="Supabase")
@@ -87,11 +88,7 @@ class SocialService:
         comment = res.data[0]
 
         # Enrichment
-        user_res = await self.supabase.table("users") \
-            .select("name, picture") \
-            .eq("id", user_id) \
-            .limit(1) \
-            .execute()
+        user_res = await self.supabase.table("users").select("name, picture").eq("id", user_id).limit(1).execute()
 
         user_name = "Someone"
         if user_res.data:
@@ -118,12 +115,14 @@ class SocialService:
 
     async def get_comments(self, photo_id: str, limit: int = 50) -> List[Dict[str, Any]]:
         """Get comments for a photo."""
-        res = await self.supabase.table("photo_comments") \
-            .select("*, users(name, picture)") \
-            .eq("photo_id", photo_id) \
-            .order("created_at", desc=False) \
-            .limit(limit) \
+        res = (
+            await self.supabase.table("photo_comments")
+            .select("*, users(name, picture)")
+            .eq("photo_id", photo_id)
+            .order("created_at", desc=False)
+            .limit(limit)
             .execute()
+        )
 
         data = res.data or []
         comments = []
@@ -144,10 +143,6 @@ class SocialService:
 
         # Delete using admin client to ensure success or check ownership
         admin_client = await get_async_supabase_admin_client()
-        res = await admin_client.table("photo_comments") \
-            .delete() \
-            .eq("id", comment_id) \
-            .eq("user_id", user_id) \
-            .execute()
-            
+        res = await admin_client.table("photo_comments").delete().eq("id", comment_id).eq("user_id", user_id).execute()
+
         return len(res.data) > 0

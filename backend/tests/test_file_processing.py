@@ -21,6 +21,12 @@ class TestProcessUploadedImage:
             mock_file.content_type = content_type
             mock_file.read = AsyncMock(return_value=content)
             mock_file.seek = AsyncMock()
+            
+            # Setup file.file for streaming upload logic
+            mock_inner_file = MagicMock()
+            mock_inner_file.tell.return_value = len(content)
+            mock_file.file = mock_inner_file
+            
             return mock_file
 
         return _create
@@ -44,9 +50,9 @@ class TestProcessUploadedImage:
                             contents,
                             content_type,
                             extension,
-                        ) = await process_uploaded_image(mock_file)
+                        ) = await process_uploaded_image(mock_file, optimize=False)
 
-                        assert contents == sample_image_bytes
+                        assert contents == mock_file.file
                         assert content_type == "image/jpeg"
                         assert extension == "jpg"
 

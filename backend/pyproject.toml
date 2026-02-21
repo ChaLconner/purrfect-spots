@@ -100,12 +100,6 @@ module = [
 ]
 ignore_missing_imports = true
 
-[[tool.mypy.overrides]]
-module = "tests.*"
-disallow_untyped_defs = false
-check_untyped_defs = false
-
-
 
 [tool.bandit]
 exclude_dirs = ["tests", ".venv", "__pycache__"]

@@ -1,7 +1,8 @@
 import re
-from typing import Any, List, Optional, cast
+from typing import Any, Optional, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from postgrest.types import CountMethod
 
 from dependencies import (
     get_admin_gallery_service,
@@ -9,15 +10,15 @@ from dependencies import (
     get_email_service,
     get_notification_service,
 )
+from limiter import limiter
 from logger import logger
+from middleware.auth_middleware import require_permission
 from schemas.admin_schemas import PhotoUpdateAdmin
 from services.email_service import EmailService
 from services.gallery_service import GalleryService
 from services.notification_service import NotificationService
 from services.storage_service import storage_service
-from middleware.auth_middleware import require_permission
 from user_models.user import User
-from limiter import limiter
 
 router = APIRouter()
 
@@ -25,6 +26,7 @@ _UUID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
     re.IGNORECASE,
 )
+
 
 def _validate_uuid(value: str, label: str = "ID") -> None:
     if not _UUID_RE.match(value):
@@ -49,7 +51,7 @@ async def list_photos(
         admin_client = await get_async_supabase_admin_client()
         query = (
             admin_client.table("cat_photos")
-            .select("*, users!cat_photos_user_id_fkey(email, name)", count="exact")
+            .select("*, users!cat_photos_user_id_fkey(email, name)", count=CountMethod.exact)
             .range(offset, offset + limit - 1)
             .order("uploaded_at", desc=True)
         )
@@ -60,10 +62,7 @@ async def list_photos(
         # Future: Filter by reported status
 
         result = await query.execute()
-        return {
-            "data": result.data,
-            "total": result.count
-        }
+        return {"data": result.data, "total": result.count}
     except Exception as e:
         error_details = getattr(e, "details", "No details")
         error_hint = getattr(e, "hint", "No hint")
@@ -128,11 +127,7 @@ async def delete_photo_admin(
 
             # Email Notification
             user_check = (
-                await admin_client.table("users")
-                .select("email")
-                .eq("id", photo_data.get("user_id"))
-                .single()
-                .execute()
+                await admin_client.table("users").select("email").eq("id", photo_data.get("user_id")).single().execute()
             )
             if user_check.data and user_check.data.get("email"):
                 background_tasks.add_task(
@@ -143,16 +138,20 @@ async def delete_photo_admin(
                 )
 
         # 3. Log Audit Log
-        await admin_client.table("audit_logs").insert(
-            {
-                "user_id": current_admin.id,
-                "action": "DELETE_PHOTO",
-                "resource": "photos",
-                "changes": {"photo_id": photo_id, "owner_id": photo_data.get("user_id")},
-                "ip_address": request.client.host if request.client else "unknown",
-                "user_agent": request.headers.get("user-agent", "unknown"),
-            }
-        ).execute()
+        await (
+            admin_client.table("audit_logs")
+            .insert(
+                {
+                    "user_id": current_admin.id,
+                    "action": "DELETE_PHOTO",
+                    "resource": "photos",
+                    "changes": {"photo_id": photo_id, "owner_id": photo_data.get("user_id")},
+                    "ip_address": request.client.host if request.client else "unknown",
+                    "user_agent": request.headers.get("user-agent", "unknown"),
+                }
+            )
+            .execute()
+        )
 
         return {"message": f"Photo {photo_id} deletion scheduled"}
 

@@ -1,7 +1,6 @@
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from supabase import Client
 
 from dependencies import get_subscription_service
 from logger import logger

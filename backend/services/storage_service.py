@@ -1,5 +1,6 @@
 import asyncio
 import os
+import typing
 import uuid
 
 import boto3
@@ -34,7 +35,7 @@ class StorageService:
 
     async def upload_file(
         self,
-        file_content: bytes,
+        file_content: typing.Any,
         content_type: str,
         file_extension: str = "jpg",
         folder: str = "upload",
@@ -55,7 +56,7 @@ class StorageService:
 
     def _upload_file_sync(
         self,
-        file_content: bytes,
+        file_content: typing.Any,
         content_type: str,
         file_extension: str,
         folder: str,

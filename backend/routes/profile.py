@@ -3,18 +3,17 @@ User profile management routes
 """
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Response, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Path, Response, UploadFile
 from starlette.requests import Request
+
 from config import config
 from dependencies import (
     get_admin_gallery_service,
+    get_async_supabase_admin_client,
     get_auth_service,
     get_current_token,
-    get_gallery_service,
-    get_user_service,
-    get_async_supabase_admin_client,
 )
 from limiter import auth_limiter
 from logger import logger
@@ -31,7 +30,6 @@ router = APIRouter(prefix="/profile", tags=["Profile"])
 from schemas.profile import ChangePasswordRequest, ProfileUpdateRequest, UpdatePhotoRequest
 from services.auth_service import AuthService
 from services.gallery_service import GalleryService
-
 
 # Services are now imported from dependencies
 
@@ -154,38 +152,54 @@ async def get_profile(
 # GalleryService is imported from dependencies
 
 
+UsernameOrIdPath = Annotated[
+    str, 
+    Path(
+        min_length=3, 
+        max_length=50, 
+        pattern=r"^[a-zA-Z0-9_\-]+$", 
+        description="User UUID or Username endpoint identifier"
+    )
+]
+
+from uuid import UUID
+
+PhotoIdPath = Annotated[UUID, Path(title="The ID of the photo", description="Must be a valid UUID")]
+
+async def resolve_user_by_identifier(
+    identifier: UsernameOrIdPath,
+    auth_service: AuthService = Depends(get_auth_service)
+) -> Any:  # Assuming User object is returned
+    import uuid
+    try:
+        is_uuid = bool(uuid.UUID(identifier))
+    except ValueError:
+        is_uuid = False
+
+    user = None
+    if is_uuid:
+        user = await auth_service.get_user_by_id(identifier)
+
+    # If not found by ID or not a UUID, try by username
+    if not user:
+        user = await auth_service.user_service.get_user_by_username(identifier)
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    return user
+
+
 @router.get("/public/{identifier}")
 async def get_public_profile(
-    identifier: str,
     response: Response,
-    auth_service: AuthService = Depends(get_auth_service),
+    user: Any = Depends(resolve_user_by_identifier),
 ) -> dict[str, Any]:
     """
     Get public user profile by ID or username
     """
     response.headers["Cache-Control"] = "public, max-age=60"
     try:
-        # Check if identifier looks like a UUID
-        is_uuid = False
-        try:
-            import uuid
-
-            uuid.UUID(identifier)
-            is_uuid = True
-        except ValueError:
-            is_uuid = False
-
-        user = None
-        if is_uuid:
-            user = await auth_service.get_user_by_id(identifier)
-
-        # If not found by ID or not a UUID, try by username
-        if not user:
-            user = await auth_service.user_service.get_user_by_username(identifier)
-
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-
         return {
             "id": user.id,
             "name": user.name,
@@ -196,40 +210,25 @@ async def get_public_profile(
             # Don't expose email or other sensitive data
         }
 
+    except HTTPException:
+        raise
     except Exception:
-        logger.error(f"Failed to get public profile for {identifier}")
-        raise HTTPException(status_code=404, detail="User not found")
+        logger.error(f"Failed to get public profile for {user.id}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve user profile")
 
 
 @router.get("/public/{identifier}/uploads")
 async def get_public_user_uploads(
-    identifier: str,
     response: Response,
+    user: Any = Depends(resolve_user_by_identifier),
     gallery_service: GalleryService = Depends(get_admin_gallery_service),
-    auth_service: AuthService = Depends(get_auth_service),
 ) -> dict[str, Any]:
     """
     Get public uploads by user_id or username
     """
     response.headers["Cache-Control"] = "public, max-age=60"
     try:
-        # Resolve identifier to user_id
-        is_uuid = False
-        try:
-            import uuid
-
-            uuid.UUID(identifier)
-            is_uuid = True
-        except ValueError:
-            is_uuid = False
-
-        user_id = identifier
-        if not is_uuid:
-            user = await auth_service.user_service.get_user_by_username(identifier)
-            if not user:
-                raise HTTPException(status_code=404, detail="User not found")
-            user_id = user.id
-
+        user_id = user.id
         photos = await gallery_service.get_user_photos(user_id)
 
         # Format data
@@ -303,7 +302,7 @@ async def upload_profile_picture(
         )
 
         # Upload to Storage
-        image_url = storage_service.upload_file(
+        image_url = await storage_service.upload_file(
             file_content=contents,
             content_type=content_type,
             file_extension=file_extension,
@@ -370,15 +369,16 @@ async def change_password(
 
 @router.put("/uploads/{photo_id}")
 async def update_user_photo(
-    photo_id: str,
+    photo_id: PhotoIdPath,
     update_data: UpdatePhotoRequest,
     current_user: User = Depends(get_current_user_from_credentials),
     gallery_service: GalleryService = Depends(get_admin_gallery_service),
 ) -> dict[str, str]:
     """Update a user's upload photo details (description, etc)"""
+    photo_id_str = str(photo_id)
     try:
         # 1. Check ownership
-        photo = await gallery_service.get_photo_by_id(photo_id)
+        photo = await gallery_service.get_photo_by_id(photo_id_str)
         if not photo:
             raise HTTPException(status_code=404, detail="Photo not found")
 
@@ -388,7 +388,7 @@ async def update_user_photo(
             log_security_event(
                 "unauthorized_update_attempt",
                 user_id=current_user.id,
-                details={"photo_id": photo_id, "owner": photo["user_id"]},
+                details={"photo_id": photo_id_str, "owner": photo["user_id"]},
                 severity="WARNING",
             )
             raise HTTPException(status_code=403, detail="Not authorized to update this photo")
@@ -410,7 +410,7 @@ async def update_user_photo(
         # 3. Update
         # Use admin service because we already verified ownership
         admin_supabase = await get_async_supabase_admin_client()
-        await admin_supabase.table("cat_photos").update(valid_updates).eq("id", photo_id).execute()
+        await admin_supabase.table("cat_photos").update(valid_updates).eq("id", photo_id_str).execute()
 
         # Invalidate cache to ensure updates are reflected immediately
         await invalidate_gallery_cache()
@@ -420,7 +420,7 @@ async def update_user_photo(
         log_security_event(
             "photo_updated",
             user_id=current_user.id,
-            details={"photo_id": photo_id, "updates": list(valid_updates.keys())},
+            details={"photo_id": photo_id_str, "updates": list(valid_updates.keys())},
         )
 
         return {"message": "Photo updated successfully"}
@@ -428,29 +428,30 @@ async def update_user_photo(
     except HTTPException:
         raise
     except Exception:
-        logger.error("Failed to update photo %s", photo_id)
+        logger.error("Failed to update photo %s", photo_id_str)
         raise HTTPException(status_code=500, detail="Failed to update photo")
 
 
 @router.delete("/uploads/{photo_id}", status_code=202)
 async def delete_user_photo(
-    photo_id: str,
+    photo_id: PhotoIdPath,
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user_from_credentials),
     gallery_service: GalleryService = Depends(get_admin_gallery_service),
     storage_service: StorageService = Depends(get_storage_service),
 ) -> dict[str, str]:
     """Delete a user's uploaded photo with background processing"""
+    photo_id_str = str(photo_id)
     try:
         # 1. Check ownership using service method
-        photo = await gallery_service.verify_photo_ownership(photo_id, current_user.id)
+        photo = await gallery_service.verify_photo_ownership(photo_id_str, current_user.id)
         if not photo:
             raise HTTPException(status_code=404, detail="Photo not found or access denied")
 
         # 2. Schedule background deletion (same as gallery route)
         background_tasks.add_task(
             gallery_service.process_photo_deletion,
-            photo_id=photo_id,
+            photo_id=photo_id_str,
             image_url=photo.get("image_url") or "",
             user_id=current_user.id,
             storage_service=storage_service,
@@ -461,5 +462,5 @@ async def delete_user_photo(
     except HTTPException:
         raise
     except Exception:
-        logger.error("Failed to delete photo %s", photo_id)
+        logger.error("Failed to delete photo %s", photo_id_str)
         raise HTTPException(status_code=500, detail="Failed to delete photo")

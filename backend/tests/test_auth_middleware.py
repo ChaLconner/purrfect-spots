@@ -2,7 +2,6 @@
 # These are not real credentials/URLs; they are used only for unit testing authentication
 
 import os
-import sys
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -121,24 +120,23 @@ async def test_decode_supabase_token_missing_kid(mock_env, mock_jwks_response):
 # --- Tests for _get_user_from_payload ---
 
 
-def test_get_user_from_payload_supabase_no_db(mock_env):
+@pytest.mark.asyncio
+async def test_get_user_from_payload_supabase_no_db(mock_env):
     payload = {
         "sub": "00000000-0000-4000-a000-000000000123",
         "email": "test@example.com",
         "user_metadata": {"full_name": "Test User", "avatar_url": "http://img.com"},
     }
 
-    mock_deps = MagicMock()
-    mock_deps.get_supabase_admin_client.side_effect = Exception("DB error")
-
-    with patch.dict(sys.modules, {"dependencies": mock_deps}):
-        user = _get_user_from_payload(payload, "supabase")
+    with patch("utils.supabase_client.get_async_supabase_admin_client", side_effect=Exception("DB error")):
+        user = await _get_user_from_payload(payload, "supabase")
         assert user.id == "00000000-0000-4000-a000-000000000123"
         assert user.name == "Test User"
         assert user.picture == "http://img.com"
 
 
-def test_get_user_from_payload_custom(mock_env):
+@pytest.mark.asyncio
+async def test_get_user_from_payload_custom(mock_env):
     payload = {
         "sub": "00000000-0000-4000-a000-000000000123",
         "name": "Custom User",
@@ -146,31 +144,35 @@ def test_get_user_from_payload_custom(mock_env):
         "picture": "http://custom.com",
         "iat": 123456,
     }
-    mock_deps = MagicMock()
-    mock_deps.get_supabase_admin_client.side_effect = Exception("DB error")
 
-    with patch.dict(sys.modules, {"dependencies": mock_deps}):
-        user = _get_user_from_payload(payload, "custom")
+    with patch("utils.supabase_client.get_async_supabase_admin_client", side_effect=Exception("DB error")):
+        user = await _get_user_from_payload(payload, "custom")
         assert user.id == "00000000-0000-4000-a000-000000000123"
         assert user.name == "Custom User"
 
 
-def test_get_user_from_payload_db_success(mock_env):
+@pytest.mark.asyncio
+async def test_get_user_from_payload_db_success(mock_env):
     payload = {"sub": "00000000-0000-4000-a000-000000000123"}
 
     mock_sb = MagicMock()
     # Mock chain: .table().select().eq().single().execute().data
-    mock_sb.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value.data = {
-        "id": "00000000-0000-4000-a000-000000000123",
-        "email": "db@example.com",
-        "name": "DB User",
-        "picture": "db.jpg",
-        "bio": "Hello",
-        "created_at": None,
-    }
+    mock_sb.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute = AsyncMock(
+        return_value=MagicMock(
+            data={
+                "id": "00000000-0000-4000-a000-000000000123",
+                "email": "db@example.com",
+                "name": "DB User",
+                "picture": "db.jpg",
+                "bio": "Hello",
+                "created_at": None,
+            }
+        )
+    )
 
-    with patch("middleware.auth_middleware.get_supabase_admin_client", return_value=mock_sb):
-        user = _get_user_from_payload(payload, "supabase")
+    with patch("utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
+        mock_get_admin.return_value = mock_sb
+        user = await _get_user_from_payload(payload, "supabase")
         assert user.email == "db@example.com"
         assert user.bio == "Hello"
 

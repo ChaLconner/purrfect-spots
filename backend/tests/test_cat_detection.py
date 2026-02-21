@@ -3,7 +3,7 @@ Tests for cat detection service
 """
 
 import io
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -35,72 +35,76 @@ class TestCatDetectionService:
         mock_file.seek = MagicMock()
         return mock_file
 
-    def test_detect_cats_with_cats(self, detection_service, mock_upload_file):
+    async def test_detect_cats_with_cats(self, detection_service, mock_upload_file):
         """Test cat detection when cats are present"""
-        # Mock the vision service response
-        detection_service.vision_service.detect_cats.return_value = {
-            "has_cats": True,
-            "cat_count": 2,
-            "confidence": 95,
-            "cat_objects": [
-                {"name": "cat", "score": 0.95},
-                {"name": "cat", "score": 0.88},
-            ],
-            "cat_labels": [],
-            "image_quality": "Good",
-            "reasoning": "Clear image with visible cats",
-        }
+        detection_service.vision_service.detect_cats = AsyncMock(
+            return_value={
+                "has_cats": True,
+                "cat_count": 2,
+                "confidence": 95,
+                "cat_objects": [
+                    {"name": "cat", "score": 0.95},
+                    {"name": "cat", "score": 0.88},
+                ],
+                "cat_labels": [],
+                "image_quality": "Good",
+                "reasoning": "Clear image with visible cats",
+            }
+        )
 
-        result = detection_service.detect_cats(mock_upload_file)
+        result = await detection_service.detect_cats(mock_upload_file)
 
         assert result["has_cats"] is True
         assert result["cat_count"] == 2
         assert result["confidence"] >= 90
 
-    def test_detect_cats_no_cats(self, detection_service, mock_upload_file):
+    async def test_detect_cats_no_cats(self, detection_service, mock_upload_file):
         """Test cat detection when no cats are present"""
-        detection_service.vision_service.detect_cats.return_value = {
-            "has_cats": False,
-            "cat_count": 0,
-            "confidence": 0,
-            "cat_objects": [],
-            "cat_labels": [],
-            "image_quality": "Good",
-            "reasoning": "No cats detected in image",
-        }
+        detection_service.vision_service.detect_cats = AsyncMock(
+            return_value={
+                "has_cats": False,
+                "cat_count": 0,
+                "confidence": 0,
+                "cat_objects": [],
+                "cat_labels": [],
+                "image_quality": "Good",
+                "reasoning": "No cats detected in image",
+            }
+        )
 
-        result = detection_service.detect_cats(mock_upload_file)
+        result = await detection_service.detect_cats(mock_upload_file)
 
         assert result["has_cats"] is False
         assert result["cat_count"] == 0
 
-    def test_analyze_cat_spot_suitability(self, detection_service, mock_upload_file):
+    async def test_analyze_cat_spot_suitability(self, detection_service, mock_upload_file):
         """Test spot analysis for suitable location"""
-        detection_service.vision_service.analyze_cat_spot_suitability.return_value = {
-            "suitability_score": 85,
-            "environment_type": "park",
-            "pros": ["Shaded area", "Near water"],
-            "cons": ["Near road"],
-            "recommendations": ["Add shelter"],
-            "best_times": ["Morning", "Evening"],
-        }
+        detection_service.vision_service.analyze_cat_spot_suitability = AsyncMock(
+            return_value={
+                "suitability_score": 85,
+                "environment_type": "park",
+                "pros": ["Shaded area", "Near water"],
+                "cons": ["Near road"],
+                "recommendations": ["Add shelter"],
+                "best_times": ["Morning", "Evening"],
+            }
+        )
 
-        result = detection_service.analyze_cat_spot_suitability(mock_upload_file)
+        result = await detection_service.analyze_cat_spot_suitability(mock_upload_file)
 
         assert result["suitability_score"] >= 80
         assert result["environment_type"] == "park"
 
-    def test_detect_cats_error_handling(self, detection_service, mock_upload_file):
+    async def test_detect_cats_error_handling(self, detection_service, mock_upload_file):
         """Test error handling in cat detection"""
-        from fastapi import HTTPException
+        detection_service.vision_service.detect_cats = AsyncMock(side_effect=Exception("Vision API error"))
 
-        detection_service.vision_service.detect_cats.side_effect = Exception("Vision API error")
+        result = await detection_service.detect_cats(mock_upload_file)
 
-        with pytest.raises(HTTPException) as excinfo:
-            detection_service.detect_cats(mock_upload_file)
-
-        assert excinfo.value.status_code == 500
-        assert "Cat detection failed" in excinfo.value.detail
+        assert result["fallback_active"] is True
+        assert result["has_cats"] is True
+        assert result["confidence"] == 0
+        assert "Fallback mode active" in result["reasoning"]
 
     def test_prepare_image(self, detection_service):
         """Test image preparation"""

@@ -64,6 +64,49 @@ except ImportError:
     sys.modules["limiter"].limiter.limit = lambda x: lambda f: f  # Mock decorator
 
 
+# Mock mcp module if it causes issues (e.g. issues with anyio on windows)
+# Force mock mcp module to prevent import hangs during tests
+mock_mcp = MagicMock()
+sys.modules["mcp"] = mock_mcp
+sys.modules["mcp.server"] = MagicMock()
+sys.modules["mcp.server.lowlevel"] = MagicMock()
+sys.modules["mcp.server.fastmcp"] = MagicMock()
+
+# Mock sentry_sdk.integrations.mcp to prevent "MCP SDK not installed" error in main.py
+mock_sentry_mcp = MagicMock()
+
+try:
+    from sentry_sdk.integrations import Integration
+
+    class MockMCPIntegration(Integration):
+        identifier = "mcp"
+
+        @staticmethod
+        def setup_once(*args, **kwargs):
+            pass
+
+        def __init__(self, *args, **kwargs):
+            pass
+except ImportError:
+
+    class MockMCPIntegration:
+        identifier = "mcp"
+
+        @staticmethod
+        def setup_once(*args, **kwargs):
+            pass
+
+        def setup_once_with_options(self, *args, **kwargs):
+            pass
+
+        def __init__(self, *args, **kwargs):
+            pass
+
+
+mock_sentry_mcp.MCPIntegration = MockMCPIntegration
+sys.modules["sentry_sdk.integrations.mcp"] = mock_sentry_mcp
+
+
 # Disable rate limiting for all tests
 @pytest.fixture(autouse=True)
 def disable_rate_limit():
@@ -121,7 +164,9 @@ def _create_mock_supabase_client():
     mock.text_search.return_value = mock
     mock.rpc.return_value = mock
     mock.not_.is_.return_value = mock  # Handling .not_.is_ chain
-    mock.execute.return_value = MagicMock(data=[], count=0)
+    from unittest.mock import AsyncMock
+
+    mock.execute = AsyncMock(return_value=MagicMock(data=[], count=0))
     return mock
 
 

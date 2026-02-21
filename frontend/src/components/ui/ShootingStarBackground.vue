@@ -1,6 +1,11 @@
 <template>
-  <div class="shooting-stars-container fixed inset-0 pointer-events-none overflow-hidden z-0">
-    <div v-for="n in starCount" :key="n" class="shooting-star" :style="getStarStyle(n)"></div>
+  <div class="fixed inset-0 pointer-events-none overflow-hidden z-0">
+    <div
+      v-for="n in starCount"
+      :key="n"
+      class="absolute w-[150px] h-[3px] bg-[linear-gradient(90deg,rgba(255,255,255,0),#ffffff)] drop-shadow-[0_0_6px_rgba(255,255,255,0.8)] rotate-45 opacity-0 animate-[shoot_ease-out_infinite]"
+      :style="getStarStyle(n)"
+    ></div>
   </div>
 </template>
 
@@ -23,34 +28,3 @@ const getStarStyle = (_n: number): Record<string, string> => {
   };
 };
 </script>
-
-<style scoped>
-.shooting-star {
-  position: absolute;
-  width: 150px; /* Longer tail */
-  height: 3px; /* Thicker */
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0), #ffffff); /* Solid white head */
-  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.8)); /* Stronger glow */
-  transform: rotate(45deg);
-  opacity: 0;
-  animation-name: shoot;
-  animation-timing-function: ease-out;
-  animation-iteration-count: infinite;
-}
-
-/* 
-  Animation:
-  Start: top-left area
-  End: bottom-right area (further travel)
-*/
-@keyframes shoot {
-  0% {
-    transform: translateX(0) translateY(0) rotate(45deg);
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(500px) translateY(500px) rotate(45deg); /* Longer travel */
-    opacity: 0;
-  }
-}
-</style>

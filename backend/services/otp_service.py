@@ -5,10 +5,10 @@ Generates, stores, and verifies 6-digit OTP codes
 
 import hashlib
 import secrets
-from datetime import timedelta, datetime
-from typing import Optional
+from datetime import datetime, timedelta
 
 from supabase import AClient
+
 from exceptions import ExternalServiceError, PurrfectSpotsException
 from logger import logger
 from utils.datetime_utils import utc_now
@@ -64,13 +64,15 @@ class OTPService:
                     pass
 
             # Fallback to database check
-            result = await self.supabase.table("email_verifications") \
-                .select("locked_until") \
-                .eq("email", email) \
-                .is_("verified_at", "null") \
-                .order("created_at", desc=True) \
-                .limit(1) \
+            result = (
+                await self.supabase.table("email_verifications")
+                .select("locked_until")
+                .eq("email", email)
+                .is_("verified_at", "null")
+                .order("created_at", desc=True)
+                .limit(1)
                 .execute()
+            )
 
             if result.data and result.data[0].get("locked_until"):
                 locked_until = datetime.fromisoformat(result.data[0]["locked_until"].replace("Z", TIMEZONE_UTC_OFFSET))
@@ -107,18 +109,23 @@ class OTPService:
                     pass
 
             # Fallback to database
-            result = await self.supabase.table("email_verifications") \
-                .select("id") \
-                .eq("email", email) \
-                .is_("verified_at", "null") \
-                .order("created_at", desc=True) \
-                .limit(1) \
+            result = (
+                await self.supabase.table("email_verifications")
+                .select("id")
+                .eq("email", email)
+                .is_("verified_at", "null")
+                .order("created_at", desc=True)
+                .limit(1)
                 .execute()
+            )
 
             if result.data:
-                await self.supabase.table("email_verifications").update({"locked_until": locked_until.isoformat()}).eq(
-                    "id", result.data[0]["id"]
-                ).execute()
+                await (
+                    self.supabase.table("email_verifications")
+                    .update({"locked_until": locked_until.isoformat()})
+                    .eq("id", result.data[0]["id"])
+                    .execute()
+                )
                 logger.info("Email locked out in database: %s until %s", email, locked_until.isoformat())
         except Exception as e:
             logger.error("Failed to lock out email: %s", e)
@@ -146,18 +153,23 @@ class OTPService:
                     pass
 
             # Fallback to database
-            result = await self.supabase.table("email_verifications") \
-                .select("id") \
-                .eq("email", email) \
-                .is_("verified_at", "null") \
-                .order("created_at", desc=True) \
-                .limit(1) \
+            result = (
+                await self.supabase.table("email_verifications")
+                .select("id")
+                .eq("email", email)
+                .is_("verified_at", "null")
+                .order("created_at", desc=True)
+                .limit(1)
                 .execute()
+            )
 
             if result.data:
-                await self.supabase.table("email_verifications").update({"locked_until": None}).eq(
-                    "id", result.data[0]["id"]
-                ).execute()
+                await (
+                    self.supabase.table("email_verifications")
+                    .update({"locked_until": None})
+                    .eq("id", result.data[0]["id"])
+                    .execute()
+                )
         except Exception as e:
             logger.error("Failed to clear email lockout: %s", e)
 
@@ -175,7 +187,8 @@ class OTPService:
             expires_at = utc_now() + timedelta(minutes=self.OTP_EXPIRY_MINUTES)
 
             # Store in database
-            result = await self.supabase.table("email_verifications") \
+            result = (
+                await self.supabase.table("email_verifications")
                 .insert(
                     {
                         "email": email.lower(),
@@ -184,8 +197,9 @@ class OTPService:
                         "max_attempts": self.MAX_ATTEMPTS,
                         "expires_at": expires_at.isoformat(),
                     }
-                ) \
+                )
                 .execute()
+            )
 
             if not result.data:
                 raise ExternalServiceError("Failed to store OTP", service="Database")
@@ -214,13 +228,15 @@ class OTPService:
                 }
 
             # Get latest OTP record for this email
-            result = await self.supabase.table("email_verifications") \
-                .select("*") \
-                .eq("email", email_lower) \
-                .is_("verified_at", "null") \
-                .order("created_at", desc=True) \
-                .limit(1) \
+            result = (
+                await self.supabase.table("email_verifications")
+                .select("*")
+                .eq("email", email_lower)
+                .is_("verified_at", "null")
+                .order("created_at", desc=True)
+                .limit(1)
                 .execute()
+            )
 
             if not result.data:
                 logger.warning("No pending OTP found")
@@ -263,16 +279,24 @@ class OTPService:
             if self._constant_time_compare(input_hash, stored_hash):
                 # Success - mark as verified and clear any lockout
                 await self._clear_email_lockout(email_lower)
-                await self.supabase.table("email_verifications").update({"verified_at": utc_now().isoformat()}).eq(
-                    "id", record_id
-                ).execute()
+                await (
+                    self.supabase.table("email_verifications")
+                    .update({"verified_at": utc_now().isoformat()})
+                    .eq("id", record_id)
+                    .execute()
+                )
 
                 logger.info("OTP verified successfully")
                 return {"success": True}
-            
+
             # Failed - increment attempts
             new_attempts = attempts + 1
-            await self.supabase.table("email_verifications").update({"attempts": new_attempts}).eq("id", record_id).execute()
+            await (
+                self.supabase.table("email_verifications")
+                .update({"attempts": new_attempts})
+                .eq("id", record_id)
+                .execute()
+            )
 
             remaining = max_attempts - new_attempts
             logger.warning("Invalid OTP, %s attempts remaining", remaining)
@@ -289,9 +313,13 @@ class OTPService:
     async def invalidate_existing_otps(self, email: str) -> None:
         """Invalidate all existing OTPs for an email (Async)"""
         try:
-            await self.supabase.table("email_verifications").delete().eq("email", email.lower()).is_(
-                "verified_at", "null"
-            ).execute()
+            await (
+                self.supabase.table("email_verifications")
+                .delete()
+                .eq("email", email.lower())
+                .is_("verified_at", "null")
+                .execute()
+            )
         except Exception:
             logger.warning("Failed to invalidate existing OTPs")
 
@@ -303,12 +331,14 @@ class OTPService:
             email_lower = email.lower()
 
             # Get latest OTP record for this email
-            result = await self.supabase.table("email_verifications") \
-                .select("created_at") \
-                .eq("email", email_lower) \
-                .order("created_at", desc=True) \
-                .limit(1) \
+            result = (
+                await self.supabase.table("email_verifications")
+                .select("created_at")
+                .eq("email", email_lower)
+                .order("created_at", desc=True)
+                .limit(1)
                 .execute()
+            )
 
             if not result.data:
                 return True, 0

@@ -46,6 +46,7 @@ jobs:
     # For PRs: only if not from a fork
     # For issues: only on open/reopen
     # For comments: only if user types @gemini-cli and is OWNER/MEMBER/COLLABORATOR
+    # SECURITY: Additional validation to prevent abuse
     if: |-
       (
         github.event_name == 'pull_request' &&
@@ -115,10 +116,19 @@ jobs:
         env:
           GITHUB_TOKEN: '${{ steps.mint_identity_token.outputs.token || secrets.GITHUB_TOKEN || github.token }}'
           ISSUE_NUMBER: '${{ github.event.pull_request.number || github.event.issue.number }}'
-          MESSAGE: |-
-            🤖 Hi @${{ github.actor }}, I've received your request, and I'm working on it now! You can track my progress [in the logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more details.
+          # SECURITY: Sanitize github.actor to prevent injection attacks
+          ACTOR: '${{ github.actor }}'
           REPOSITORY: '${{ github.repository }}'
         run: |-
+          # Validate and sanitize ACTOR to prevent injection
+          if [[ ! "$ACTOR" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+            echo "::error::Invalid actor format detected"
+            exit 1
+          fi
+          
+          # Construct message with validated actor
+          MESSAGE="🤖 Hi @${ACTOR}, I've received your request, and I'm working on it now! You can track my progress [in the logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more details."
+          
           gh issue comment "${ISSUE_NUMBER}" \
             --body "${MESSAGE}" \
             --repo "${REPOSITORY}"
@@ -135,7 +145,12 @@ jobs:
       pull-requests: 'write'
     with:
       additional_context: '${{ needs.dispatch.outputs.additional_context }}'
-    secrets: 'inherit'
+    # SECURITY: Only pass specific secrets instead of inheriting all
+    secrets:
+      GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+      APP_PRIVATE_KEY: '${{ secrets.APP_PRIVATE_KEY }}'
+      GEMINI_API_KEY: '${{ secrets.GEMINI_API_KEY }}'
+      GOOGLE_API_KEY: '${{ secrets.GOOGLE_API_KEY }}'
 
   triage:
     needs: 'dispatch'
@@ -149,7 +164,12 @@ jobs:
       pull-requests: 'write'
     with:
       additional_context: '${{ needs.dispatch.outputs.additional_context }}'
-    secrets: 'inherit'
+    # SECURITY: Only pass specific secrets instead of inheriting all
+    secrets:
+      GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+      APP_PRIVATE_KEY: '${{ secrets.APP_PRIVATE_KEY }}'
+      GEMINI_API_KEY: '${{ secrets.GEMINI_API_KEY }}'
+      GOOGLE_API_KEY: '${{ secrets.GOOGLE_API_KEY }}'
 
   invoke:
     needs: 'dispatch'
@@ -163,7 +183,12 @@ jobs:
       pull-requests: 'write'
     with:
       additional_context: '${{ needs.dispatch.outputs.additional_context }}'
-    secrets: 'inherit'
+    # SECURITY: Only pass specific secrets instead of inheriting all
+    secrets:
+      GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+      APP_PRIVATE_KEY: '${{ secrets.APP_PRIVATE_KEY }}'
+      GEMINI_API_KEY: '${{ secrets.GEMINI_API_KEY }}'
+      GOOGLE_API_KEY: '${{ secrets.GOOGLE_API_KEY }}'
 
   fallthrough:
     needs:
@@ -195,10 +220,19 @@ jobs:
         env:
           GITHUB_TOKEN: '${{ steps.mint_identity_token.outputs.token || secrets.GITHUB_TOKEN || github.token }}'
           ISSUE_NUMBER: '${{ github.event.pull_request.number || github.event.issue.number }}'
-          MESSAGE: |-
-            🤖 I'm sorry @${{ github.actor }}, but I was unable to process your request. Please [see the logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more details.
+          # SECURITY: Sanitize github.actor to prevent injection attacks
+          ACTOR: '${{ github.actor }}'
           REPOSITORY: '${{ github.repository }}'
         run: |-
+          # Validate and sanitize ACTOR to prevent injection
+          if [[ ! "$ACTOR" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+            echo "::error::Invalid actor format detected"
+            exit 1
+          fi
+          
+          # Construct message with validated actor
+          MESSAGE="🤖 I'm sorry @${ACTOR}, but I was unable to process your request. Please [see the logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for more details."
+          
           gh issue comment "${ISSUE_NUMBER}" \
             --body "${MESSAGE}" \
             --repo "${REPOSITORY}"

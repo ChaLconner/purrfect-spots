@@ -95,11 +95,14 @@ class NotificationService:
 
     async def get_notifications(self, user_id: str, limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]:
         """Get user notifications with actor details."""
+        from datetime import datetime, timedelta, timezone
+        thirty_days_ago = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
 
         res = await (
             self.supabase.table("notifications")
             .select("*, actor:users!actor_id(name, picture)")
             .eq("user_id", user_id)
+            .gte("created_at", thirty_days_ago)
             .order("created_at", desc=True)
             .limit(limit)
             .offset(offset)
@@ -119,13 +122,33 @@ class NotificationService:
     async def mark_as_read(self, user_id: str, notification_id: str) -> None:
         """Mark single notification as read."""
 
-        await self.supabase.table("notifications").update({"is_read": True}).eq("id", notification_id).eq(
-            "user_id", user_id
-        ).execute()
+        await (
+            self.supabase.table("notifications")
+            .update({"is_read": True})
+            .eq("id", notification_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
 
     async def mark_all_as_read(self, user_id: str) -> None:
         """Mark all notifications as read."""
 
-        await self.supabase.table("notifications").update({"is_read": True}).eq("user_id", user_id).eq(
-            "is_read", False
-        ).execute()
+        await (
+            self.supabase.table("notifications")
+            .update({"is_read": True})
+            .eq("user_id", user_id)
+            .eq("is_read", False)
+            .execute()
+        )
+
+    async def cleanup_old_notifications(self, days: int = 30) -> None:
+        """Delete notifications older than specified days."""
+        from datetime import datetime, timedelta, timezone
+        cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        
+        try:
+            res = await self.supabase.table("notifications").delete().lt("created_at", cutoff_date).execute()
+            deleted_count = len(res.data) if res.data else 0
+            logger.info(f"Successfully cleaned up {deleted_count} notifications older than {days} days")
+        except Exception as e:
+            logger.error(f"Failed to clean up old notifications: {e}")

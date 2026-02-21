@@ -2,18 +2,15 @@ from typing import Any, List
 
 from fastapi import APIRouter, Depends, HTTPException
 
-
 from dependencies import (
     get_current_token,
     get_social_service,
-    get_subscription_service,
 )
 from exceptions import ExternalServiceError, NotFoundError
 from logger import logger
 from middleware.auth_middleware import get_current_user_from_credentials
 from schemas.social import CommentCreate, CommentResponse, LikeResponse
 from services.social_service import SocialService
-from services.subscription_service import SubscriptionService
 from user_models.user import User
 from utils.rate_limiter import like_rate_limiter
 

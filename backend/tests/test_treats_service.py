@@ -7,7 +7,15 @@ from services.treats_service import TreatsService
 
 @pytest.fixture
 def treats_service():
+    from unittest.mock import AsyncMock
+
     mock_supabase = MagicMock()
+    # Mock chain: .table().select().eq().single().execute()
+    mock_supabase.table.return_value.select.return_value.eq.return_value.single.return_value.execute = AsyncMock()
+    mock_supabase.table.return_value.select.return_value.or_.return_value.order.return_value.limit.return_value.execute = AsyncMock()
+    mock_supabase.table.return_value.select.return_value.eq.return_value.execute = AsyncMock()
+    mock_supabase.rpc.return_value.execute = AsyncMock()
+
     service = TreatsService(mock_supabase)
     service.notification_service = MagicMock()
     service.notification_service.create_notification = AsyncMock()
@@ -17,50 +25,49 @@ def treats_service():
 @pytest.mark.asyncio
 async def test_give_treat_success_with_to_user_id(treats_service):
     """Test give_treat when RPC returns to_user_id (optimized path)."""
-    with (
-        patch("utils.async_client.async_supabase") as mock_async,
-        patch("services.treats_service.run_in_threadpool") as mock_run_in_threadpool,
-    ):  # Mock threadpool if used for other calls
-        # Configure RPC return
-        mock_async.rpc = AsyncMock(
-            return_value=[{"success": True, "new_balance": 90, "to_user_id": "22222222-2222-4222-a222-222222222222"}]
+    admin_mock = MagicMock()
+    # Configure RPC return
+    admin_mock.rpc.return_value.execute = AsyncMock(
+        return_value=MagicMock(
+            data=[{"success": True, "new_balance": 90, "to_user_id": "22222222-2222-4222-a222-222222222222"}]
         )
+    )
 
-        # Mock actor name query (still uses run_in_threadpool + sync client in _send_treat_notification)
-        # We need to mock the sync client for the notification part
+    with patch("utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
+        mock_get_admin.return_value = admin_mock
+
+        # Mock actor name query
         mock_user_query = MagicMock()
         mock_user_query.data = {"name": "Test User"}
         treats_service.supabase.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_user_query
 
-        # Mock run_in_threadpool to execute the lambda passed to it
-        # Note: _send_treat_notification calls run_in_threadpool(lambda: ...)
-        async def side_effect(func):
-            return func()
-
-        mock_run_in_threadpool.side_effect = side_effect
-
-        res = await treats_service.give_treat("11111111-1111-4111-a111-111111111111", "photo123", 10, jwt_token="token")
+        res = await treats_service.give_treat(
+            "11111111-1111-4111-a111-111111111111", "00000000-0000-4000-b000-000000000123", 10, jwt_token="token"
+        )
 
         assert res["success"] is True
         assert res["new_balance"] == 90
 
-        mock_async.rpc.assert_called_with(
+        admin_mock.rpc.assert_called_with(
             "give_treat_atomic",
-            {"p_from_user_id": "11111111-1111-4111-a111-111111111111", "p_photo_id": "photo123", "p_amount": 10},
-            jwt_token="token",
+            {
+                "p_from_user_id": "11111111-1111-4111-a111-111111111111",
+                "p_photo_id": "00000000-0000-4000-b000-000000000123",
+                "p_amount": 10,
+            },
         )
 
 
 @pytest.mark.asyncio
 async def test_give_treat_success_fallback_notification(treats_service):
     """Test give_treat when RPC doesn't return to_user_id (fallback path)."""
-    with (
-        patch("utils.async_client.async_supabase") as mock_async,
-        patch("services.treats_service.run_in_threadpool") as mock_run_in_threadpool,
-    ):
-        mock_async.rpc = AsyncMock(return_value=[{"success": True, "new_balance": 90}])
+    admin_mock = MagicMock()
+    admin_mock.rpc.return_value.execute = AsyncMock(return_value=MagicMock(data=[{"success": True, "new_balance": 90}]))
 
-        # Mock chain for fallback queries (sync client)
+    with patch("utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
+        mock_get_admin.return_value = admin_mock
+
+        # Mock chain for fallback queries
         mock_photo_query = MagicMock()
         mock_photo_query.data = {"user_id": "22222222-2222-4222-a222-222222222222"}
 
@@ -69,6 +76,7 @@ async def test_give_treat_success_fallback_notification(treats_service):
 
         def table_side_effect(table_name):
             mock_chain = MagicMock()
+            mock_chain.select.return_value.eq.return_value.single.return_value.execute = AsyncMock()
             if table_name == "cat_photos":
                 mock_chain.select.return_value.eq.return_value.single.return_value.execute.return_value = (
                     mock_photo_query
@@ -81,13 +89,9 @@ async def test_give_treat_success_fallback_notification(treats_service):
 
         treats_service.supabase.table.side_effect = table_side_effect
 
-        # Mock run_in_threadpool to execute
-        async def side_effect(func):
-            return func()
-
-        mock_run_in_threadpool.side_effect = side_effect
-
-        res = await treats_service.give_treat("11111111-1111-4111-a111-111111111111", "photo123", 10, jwt_token="token")
+        res = await treats_service.give_treat(
+            "11111111-1111-4111-a111-111111111111", "00000000-0000-4000-b000-000000000123", 10, jwt_token="token"
+        )
 
         assert res["success"] is True
 
@@ -95,11 +99,18 @@ async def test_give_treat_success_fallback_notification(treats_service):
 @pytest.mark.asyncio
 async def test_give_treat_failure(treats_service):
     """Test give_treat with insufficient balance."""
-    with patch("utils.async_client.async_supabase") as mock_async:
-        mock_async.rpc = AsyncMock(return_value=[{"success": False, "error": "Insufficient treats"}])
+    admin_mock = MagicMock()
+    admin_mock.rpc.return_value.execute = AsyncMock(
+        return_value=MagicMock(data=[{"success": False, "error": "Insufficient treats"}])
+    )
+
+    with patch("utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
+        mock_get_admin.return_value = admin_mock
 
         with pytest.raises(ValueError, match="Insufficient treats"):
-            await treats_service.give_treat("11111111-1111-4111-a111-111111111111", "photo123", 10)
+            await treats_service.give_treat(
+                "11111111-1111-4111-a111-111111111111", "00000000-0000-4000-b000-000000000123", 10
+            )
 
 
 # Tests for other methods that still use sync client don't need async_supabase patching
@@ -124,6 +135,9 @@ async def test_get_balance(treats_service):
 
     def side_effect(table_name):
         mock_chain = MagicMock()
+        mock_chain.select.return_value.eq.return_value.single.return_value.execute = AsyncMock()
+        mock_chain.select.return_value.or_.return_value.order.return_value.limit.return_value.execute = AsyncMock()
+
         if table_name == "users":
             mock_chain.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_user
         elif table_name == "treats_transactions":

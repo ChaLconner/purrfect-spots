@@ -27,37 +27,47 @@ const handleSubmit = () => {
 </script>
 
 <template>
-  <form class="auth-form" novalidate @submit.prevent="handleSubmit">
+  <form class="flex flex-col gap-5" novalidate @submit.prevent="handleSubmit">
     <!-- Email Field -->
-    <div class="form-group">
-      <label for="email" class="form-label"> Email </label>
-      <div class="input-wrapper">
+    <div class="flex flex-col gap-2">
+      <label
+        for="email"
+        class="flex items-center gap-2 font-['Nunito'] text-[0.9rem] font-semibold text-[#5a4632]"
+      >
+        Email
+      </label>
+      <div class="relative">
         <input
           id="email"
           v-model="form.email"
           type="email"
           required
           placeholder="your@email.com"
-          class="form-input"
+          class="w-full py-4 px-5 font-sans text-base text-[#5a4632] bg-white/70 border-2 border-[rgba(127,183,164,0.2)] rounded-2xl outline-none transition-all duration-300 placeholder:text-[#6b6b6b] focus:bg-white/95 focus:border-[#7fb7a4] focus:shadow-[0_0_0_4px_rgba(127,183,164,0.15)] hover:not:focus:border-[rgba(127,183,164,0.4)]"
         />
       </div>
     </div>
 
     <!-- Password Field -->
-    <div class="form-group">
-      <label for="password" class="form-label"> Password </label>
-      <div class="input-wrapper">
+    <div class="flex flex-col gap-2">
+      <label
+        for="password"
+        class="flex items-center gap-2 font-['Nunito'] text-[0.9rem] font-semibold text-[#5a4632]"
+      >
+        Password
+      </label>
+      <div class="relative">
         <input
           id="password"
           v-model="form.password"
           :type="showPassword ? 'text' : 'password'"
           required
           placeholder="••••••••"
-          class="form-input password-input"
+          class="w-full py-4 px-5 pr-12 font-sans text-base text-[#5a4632] bg-white/70 border-2 border-[rgba(127,183,164,0.2)] rounded-2xl outline-none transition-all duration-300 placeholder:text-[#6b6b6b] focus:bg-white/95 focus:border-[#7fb7a4] focus:shadow-[0_0_0_4px_rgba(127,183,164,0.15)] hover:not:focus:border-[rgba(127,183,164,0.4)]"
         />
         <button
           type="button"
-          class="password-toggle-btn"
+          class="absolute right-4 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer p-0 flex items-center justify-center text-[#a0a0a0] transition-colors duration-300 hover:text-[#7fb7a4]"
           :aria-label="showPassword ? 'Hide password' : 'Show password'"
           @click="showPassword = !showPassword"
         >
@@ -69,7 +79,7 @@ const handleSubmit = () => {
             viewBox="0 0 24 24"
             stroke-width="1.5"
             stroke="currentColor"
-            class="eye-icon"
+            class="w-5 h-5"
           >
             <path
               stroke-linecap="round"
@@ -90,7 +100,7 @@ const handleSubmit = () => {
             viewBox="0 0 24 24"
             stroke-width="1.5"
             stroke="currentColor"
-            class="eye-icon"
+            class="w-5 h-5"
           >
             <path
               stroke-linecap="round"
@@ -102,206 +112,57 @@ const handleSubmit = () => {
       </div>
 
       <!-- Password Strength Meter (Register only) -->
-      <transition name="fade">
+      <transition
+        enter-active-class="transition-all duration-300 ease-out"
+        leave-active-class="transition-all duration-300 ease-out"
+        enter-from-class="opacity-0 -translate-y-1"
+        leave-to-class="opacity-0 -translate-y-1"
+      >
         <PasswordStrengthMeter v-if="!props.isLogin" :password="form.password" />
       </transition>
 
-      <p v-if="!props.isLogin" class="form-hint">Must be at least 8 characters</p>
-      <div v-if="props.isLogin" class="forgot-password-link">
-        <router-link to="/forgot-password">Forgot Password?</router-link>
+      <p v-if="!props.isLogin" class="font-sans text-[0.8rem] text-[#7d7d7d] mt-1 ml-2">
+        Must be at least 8 characters
+      </p>
+      <div v-if="props.isLogin" class="text-right mt-1">
+        <router-link
+          to="/forgot-password"
+          class="font-sans text-[0.85rem] text-[#7fb7a4] no-underline font-medium hover:underline"
+        >
+          Forgot Password?
+        </router-link>
       </div>
     </div>
 
     <!-- Full Name Field (Sign Up only) -->
-    <div v-if="!props.isLogin" class="form-group">
-      <label for="name" class="form-label"> Full Name </label>
-      <div class="input-wrapper">
+    <div v-if="!props.isLogin" class="flex flex-col gap-2">
+      <label
+        for="name"
+        class="flex items-center gap-2 font-['Nunito'] text-[0.9rem] font-semibold text-[#5a4632]"
+      >
+        Full Name
+      </label>
+      <div class="relative">
         <input
           id="name"
           v-model="form.name"
           type="text"
           required
           placeholder="Your name"
-          class="form-input"
+          class="w-full py-4 px-5 font-sans text-base text-[#5a4632] bg-white/70 border-2 border-[rgba(127,183,164,0.2)] rounded-2xl outline-none transition-all duration-300 placeholder:text-[#6b6b6b] focus:bg-white/95 focus:border-[#7fb7a4] focus:shadow-[0_0_0_4px_rgba(127,183,164,0.15)] hover:not:focus:border-[rgba(127,183,164,0.4)]"
         />
       </div>
     </div>
 
-    <button :disabled="isLoading" class="submit-btn">
-      <span v-if="isLoading" class="loading-spinner"></span>
+    <button
+      :disabled="isLoading"
+      class="flex items-center justify-center gap-3 w-full py-4 px-8 mt-2 font-['Nunito'] text-[1.1rem] font-bold text-white bg-gradient-to-br from-[#7fb7a4] to-[#6da491] border-none rounded-2xl cursor-pointer transition-all duration-300 shadow-[0_4px_15px_rgba(127,183,164,0.4)] hover:not:disabled:-translate-y-0.5 hover:not:disabled:shadow-[0_8px_25px_rgba(127,183,164,0.5)] active:not:disabled:translate-y-0 disabled:opacity-70 disabled:cursor-not-allowed"
+    >
+      <span
+        v-if="isLoading"
+        class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-[spin_0.8s_linear_infinite]"
+      ></span>
       {{ isLoading ? 'Loading...' : props.isLogin ? 'Sign In' : 'Create Account' }}
     </button>
   </form>
 </template>
-
-<style scoped>
-.auth-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.form-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-family: 'Nunito', sans-serif;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #5a4632;
-}
-
-.form-hint {
-  font-family: 'Inter', sans-serif;
-  font-size: 0.8rem;
-  color: #7d7d7d;
-  margin-top: 0.25rem;
-  margin-left: 0.5rem;
-}
-
-.input-wrapper {
-  position: relative;
-}
-
-.form-input {
-  width: 100%;
-  padding: 1rem 1.25rem;
-  font-family: 'Inter', sans-serif;
-  font-size: 1rem;
-  color: #5a4632;
-  background: rgba(255, 255, 255, 0.7);
-  border: 2px solid rgba(127, 183, 164, 0.2);
-  border-radius: 1rem;
-  outline: none;
-  transition: all 0.3s ease;
-}
-
-.form-input::placeholder {
-  color: #6b6b6b;
-}
-
-.form-input:focus {
-  background: rgba(255, 255, 255, 0.95);
-  border-color: #7fb7a4;
-  box-shadow: 0 0 0 4px rgba(127, 183, 164, 0.15);
-}
-
-.form-input:hover:not(:focus) {
-  border-color: rgba(127, 183, 164, 0.4);
-}
-
-.password-input {
-  padding-right: 3rem;
-}
-
-.password-toggle-btn {
-  position: absolute;
-  right: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #a0a0a0;
-  transition: color 0.3s ease;
-}
-
-.password-toggle-btn:hover {
-  color: #7fb7a4;
-}
-
-.eye-icon {
-  width: 1.25rem;
-  height: 1.25rem;
-}
-
-.forgot-password-link {
-  text-align: right;
-  margin-top: 0.25rem;
-}
-
-.forgot-password-link a {
-  font-family: 'Inter', sans-serif;
-  font-size: 0.85rem;
-  color: #7fb7a4;
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.forgot-password-link a:hover {
-  text-decoration: underline;
-}
-
-.submit-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  width: 100%;
-  padding: 1rem 2rem;
-  margin-top: 0.5rem;
-  font-family: 'Nunito', sans-serif;
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: white;
-  background: linear-gradient(135deg, #7fb7a4 0%, #6da491 100%);
-  border: none;
-  border-radius: 1rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(127, 183, 164, 0.4);
-}
-
-.submit-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(127, 183, 164, 0.5);
-}
-
-.submit-btn:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.submit-btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.loading-spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* Animations */
-.fade-enter-active,
-.fade-leave-active {
-  transition:
-    opacity 0.3s ease,
-    transform 0.3s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-  transform: translateY(-5px);
-}
-</style>

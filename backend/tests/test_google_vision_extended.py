@@ -2,7 +2,7 @@
 # These are not security-sensitive in test context; they are mock paths only
 
 import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -41,7 +41,8 @@ class TestGoogleVisionServiceExtended:
             service = GoogleVisionService()
             assert service.is_initialized is False
 
-    def test_detect_cats_success(self, mock_vision_client):
+    @pytest.mark.asyncio
+    async def test_detect_cats_success(self, mock_vision_client):
         # Mock vision response
         mock_response = MagicMock()
         mock_response.error.message = None
@@ -71,11 +72,12 @@ class TestGoogleVisionServiceExtended:
                 service.client = mock_vision_client
                 service.is_initialized = True
 
-                result = service.detect_cats(mock_file)
+                result = await service.detect_cats(mock_file)
                 assert result["has_cats"] is True
                 assert result["confidence"] > 90
 
-    def test_fallback_cat_detection(self):
+    @pytest.mark.asyncio
+    async def test_fallback_cat_detection(self):
         """Test fallback detection mode - SECURITY: fallback rejects images (has_cats=False)"""
         mock_file = MagicMock()
         mock_file.filename = "kitty.jpg"
@@ -85,18 +87,19 @@ class TestGoogleVisionServiceExtended:
         with patch("services.google_vision.VISION_AVAILABLE", False):
             service = GoogleVisionService()
 
-            result = service.detect_cats(mock_file)
+            result = await service.detect_cats(mock_file)
             # SECURITY: Fallback mode now rejects images to prevent bypass
             assert result["has_cats"] is False, f"Result: {result}"
             assert "Cat verification service unavailable" in result["reasoning"]
             assert result.get("fallback_mode") is True
 
-    def test_analyze_suitability(self, mock_vision_client):
+    @pytest.mark.asyncio
+    async def test_analyze_suitability(self, mock_vision_client):
         # Setup detect_cats to return specific result
         service = GoogleVisionService()
-        service.detect_cats = MagicMock(return_value={"has_cats": True, "labels": ["park", "tree", "grass"]})
+        service.detect_cats = AsyncMock(return_value={"has_cats": True, "labels": ["park", "tree", "grass"]})
 
-        result = service.analyze_cat_spot_suitability(MagicMock())
+        result = await service.analyze_cat_spot_suitability(MagicMock())
         # Note: _check_park_environment() returns a string but doesn't assign it to env_type
         # The env_type stays as "Cannot be identified" unless we fix the source code
         # For now, test what the code actually returns

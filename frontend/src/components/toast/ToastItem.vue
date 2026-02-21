@@ -64,7 +64,7 @@ const styles = computed(() => {
 
 <template>
   <div
-    class="pointer-events-auto w-full max-w-sm rounded-3xl shadow-xl overflow-hidden transition-all duration-500 cubic-bezier(0.68, -0.55, 0.265, 1.55)"
+    class="pointer-events-auto w-full max-w-sm rounded-[1.5rem] shadow-xl overflow-hidden transition-all duration-500 cubic-bezier(0.68, -0.55, 0.265, 1.55)"
     :class="[
       styles.wrapper,
       isVisible
@@ -82,28 +82,41 @@ const styles = computed(() => {
         "
       ></div>
 
-      <div class="flex-1">
+      <div class="flex-1 relative z-10">
         <p
           v-if="toast.title"
           class="text-sm font-bold tracking-wide"
-          :style="{ color: styles.titleColor }"
+          :class="[
+            toast.type === 'success'
+              ? 'text-[#2F3E2F]'
+              : toast.type === 'error'
+                ? 'text-[#5C2B2B]'
+                : toast.type === 'warning'
+                  ? 'text-[#5C3A2B]'
+                  : 'text-[#3A4439]',
+          ]"
         >
           {{ toast.title }}
         </p>
-        <p class="text-sm mt-0.5 text-brown-dark opacity-80 font-medium leading-relaxed">
+        <p class="text-xs mt-0.5 text-brown-dark opacity-80 font-medium leading-relaxed">
           {{ toast.message }}
         </p>
       </div>
 
-      <div class="ml-4 flex items-center shrink-0 space-x-2">
+      <div class="ml-4 flex items-center shrink-0 space-x-2 relative z-10">
         <!-- Action Button -->
         <button
           v-if="toast.action"
-          class="px-3 py-1 text-xs font-bold rounded-full transition-all duration-200 hover:brightness-95 active:scale-95 shadow-sm"
-          :style="{
-            backgroundColor: styles.iconColor,
-            color: '#fff',
-          }"
+          class="px-3 py-1 text-[10px] font-bold rounded-full transition-all duration-200 hover:brightness-95 active:scale-95 shadow-sm text-white"
+          :class="[
+            toast.type === 'success'
+              ? 'bg-[#6D8B6A]'
+              : toast.type === 'error'
+                ? 'bg-[#C75B5B]'
+                : toast.type === 'warning'
+                  ? 'bg-[#C97B49]'
+                  : 'bg-[#95A792]',
+          ]"
           @click="toast.action.onClick"
         >
           {{ toast.action.label }}
@@ -125,7 +138,3 @@ const styles = computed(() => {
     </div>
   </div>
 </template>
-
-<style scoped>
-/* Optional: Adding more specific styles if needed */
-</style>

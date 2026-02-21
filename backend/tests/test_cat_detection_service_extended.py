@@ -13,7 +13,11 @@ class TestCatDetectionServiceExtended:
 
     @pytest.fixture
     def mock_vision_service(self):
+        from unittest.mock import AsyncMock
+
         with patch("services.google_vision.GoogleVisionService") as mock:
+            mock.return_value.detect_cats = AsyncMock()
+            mock.return_value.analyze_cat_spot_suitability = AsyncMock()
             yield mock.return_value
 
     @pytest.fixture
@@ -64,7 +68,7 @@ class TestCatDetectionServiceExtended:
         }
         mock_vision_service.detect_cats.return_value = mock_vision_result
 
-        result = service.detect_cats(mock_upload_file)
+        result = await service.detect_cats(mock_upload_file)
 
         assert result["has_cats"] is True
         assert result["confidence"] == 95
@@ -85,7 +89,7 @@ class TestCatDetectionServiceExtended:
         }
         mock_vision_service.detect_cats.return_value = mock_vision_result
 
-        result = service.detect_cats(mock_upload_file)
+        result = await service.detect_cats(mock_upload_file)
 
         assert result["has_cats"] is True
         assert len(result["cats_detected"]) == 1
@@ -95,18 +99,19 @@ class TestCatDetectionServiceExtended:
     async def test_detect_cats_error(self, service, mock_vision_service, mock_upload_file):
         mock_vision_service.detect_cats.side_effect = Exception("Vision API Error")
 
-        with pytest.raises(HTTPException) as excinfo:
-            service.detect_cats(mock_upload_file)
+        result = await service.detect_cats(mock_upload_file)
 
-        assert excinfo.value.status_code == 500
-        assert "Cat detection failed" in excinfo.value.detail
+        assert result["fallback_active"] is True
+        assert result["has_cats"] is True
+        assert result["confidence"] == 0
+        assert "Fallback mode active" in result["reasoning"]
 
     @pytest.mark.asyncio
     async def test_analyze_spot_suitability(self, service, mock_vision_service, mock_upload_file):
         mock_result = {"suitability_score": 80}
         mock_vision_service.analyze_cat_spot_suitability.return_value = mock_result
 
-        result = service.analyze_cat_spot_suitability(mock_upload_file)
+        result = await service.analyze_cat_spot_suitability(mock_upload_file)
         assert result == mock_result
 
     @pytest.mark.asyncio
@@ -114,6 +119,6 @@ class TestCatDetectionServiceExtended:
         mock_vision_service.analyze_cat_spot_suitability.side_effect = Exception("Analysis Error")
 
         with pytest.raises(HTTPException) as excinfo:
-            service.analyze_cat_spot_suitability(mock_upload_file)
+            await service.analyze_cat_spot_suitability(mock_upload_file)
 
         assert excinfo.value.status_code == 500

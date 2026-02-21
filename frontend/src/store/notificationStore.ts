@@ -11,14 +11,44 @@ export const useNotificationStore = defineStore('notifications', () => {
     const unreadCount = computed(() => notifications.value.filter(n => !n.is_read).length);
     const authStore = useAuthStore();
     let subscription: RealtimeChannel | null = null;
+    
+    // Pagination states
+    const isLoadingMore = ref(false);
+    const hasMore = ref(true);
+    const limit = 15;
 
     async function fetchNotifications() {
         if (!authStore.isAuthenticated) return;
         try {
-            const data = await NotificationService.getNotifications();
+            hasMore.value = true;
+            isLoadingMore.value = false;
+            const data = await NotificationService.getNotifications(limit, 0);
             notifications.value = data;
+            if (data.length < limit) hasMore.value = false;
         } catch (e) {
             console.error("Failed to fetch notifications", e);
+        }
+    }
+
+    async function fetchMoreNotifications() {
+        if (!authStore.isAuthenticated || isLoadingMore.value || !hasMore.value) return;
+        isLoadingMore.value = true;
+        try {
+            const currentOffset = notifications.value.length;
+            const data = await NotificationService.getNotifications(limit, currentOffset);
+            if (data.length > 0) {
+                // Filter out duplicates just in case new notifications arrived in between
+                const newIds = new Set(data.map(n => n.id));
+                const existingNotifications = notifications.value.filter(n => !newIds.has(n.id));
+                notifications.value = [...existingNotifications, ...data];
+            }
+            if (data.length < limit) {
+                hasMore.value = false;
+            }
+        } catch (e) {
+            console.error("Failed to fetch more notifications", e);
+        } finally {
+            isLoadingMore.value = false;
         }
     }
 
@@ -85,7 +115,10 @@ export const useNotificationStore = defineStore('notifications', () => {
     return {
         notifications,
         unreadCount,
+        isLoadingMore,
+        hasMore,
         fetchNotifications,
+        fetchMoreNotifications,
         markRead,
         markAllRead,
         subscribeToNotifications,

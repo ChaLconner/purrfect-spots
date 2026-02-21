@@ -1,5 +1,6 @@
-from supabase import Client, create_client, acreate_client, AClient
 from typing import Optional
+
+from supabase import AClient, Client, acreate_client, create_client
 
 from config import config
 from logger import logger

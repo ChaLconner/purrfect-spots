@@ -316,8 +316,49 @@ class EmailService:
             logger.error(f"Failed to send account deletion notification: {e}")
             return False
 
+    def send_password_changed_email(self, to_email: str) -> bool:
+        """
+        Send notification that password has been changed
+        """
+        if not self.smtp_user or not self.smtp_password:
+            logger.warning("SMTP credentials not set. Skipping password change notification.")
+            logger.debug(f"PASSWORD CHANGED NOTIFICATION to {to_email}")
+            return True
+
+        try:
+            msg = MIMEMultipart()
+            msg["From"] = self.sender_email
+            msg["To"] = to_email
+            msg["Subject"] = "Your Password Has Been Changed - Purrfect Spots"
+
+            body = """
+            <html>
+              <body style="font-family: Arial, sans-serif; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                    <h2 style="color: #5bc0de;">Security Update</h2>
+                    <p>Hello,</p>
+                    <p>This is a confirmation that the password for your Purrfect Spots account was recently changed.</p>
+                    <p>If you did this, you can safely ignore this email.</p>
+                    <div style="background-color: #d9edf7; padding: 15px; border-radius: 5px; margin: 20px 0; color: #31708f;">
+                        <strong>Security Notice:</strong> If you did NOT change your password, please contact our support team immediately or use the password reset feature to secure your account.
+                    </div>
+                    <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                    <p style="font-size: 0.8em; color: #999;">This is an automated security notification.</p>
+                </div>
+              </body>
+            </html>
+            """
+            msg.attach(MIMEText(body, "html"))
+            self._send(msg)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send password change notification: {e}")
+            return False
+
     def _send(self, msg: MIMEMultipart) -> None:
         """Helper to send SMTP message."""
+        if not self.smtp_user or not self.smtp_password:
+            raise ValueError("SMTP credentials not set")
         server = smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=10)
         server.starttls()
         server.login(self.smtp_user, self.smtp_password)

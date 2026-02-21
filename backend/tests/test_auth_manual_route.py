@@ -37,10 +37,31 @@ async def client(app):
 
 @pytest.fixture
 def mock_auth_service(app):
-    """Mock AuthService using dependency overrides"""
-    service = MagicMock()
-    app.dependency_overrides[get_auth_service] = lambda: service
-    yield service
+    """Mock AuthService and OTPService using dependency overrides"""
+    from unittest.mock import AsyncMock
+
+    from routes.auth import get_otp_service
+
+    auth_service = MagicMock()
+    # Configure async methods
+    auth_service.get_user_by_email = AsyncMock()
+    auth_service.create_user_with_password = AsyncMock()
+    auth_service.authenticate_user = AsyncMock()
+    auth_service.get_user_by_id = AsyncMock()
+    auth_service.verify_refresh_token = AsyncMock()
+    auth_service.revoke_token = AsyncMock()
+    auth_service.reset_password = AsyncMock()
+    auth_service.create_password_reset_token = AsyncMock()
+
+    app.dependency_overrides[get_auth_service] = lambda: auth_service
+
+    otp_service = AsyncMock()
+    otp_service.create_otp = AsyncMock(return_value=("123456", datetime.now()))
+    otp_service.verify_otp = AsyncMock(return_value=True)
+    otp_service.can_resend_otp = AsyncMock(return_value=(True, 0))
+    app.dependency_overrides[get_otp_service] = lambda: otp_service
+
+    yield auth_service
     # Clean up
     app.dependency_overrides = {}
 

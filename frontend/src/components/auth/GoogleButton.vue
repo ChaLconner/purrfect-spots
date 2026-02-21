@@ -34,8 +34,13 @@ const handleGoogleLogin = async () => {
 </script>
 
 <template>
-  <button :disabled="isLoading" type="button" class="google-btn" @click="handleGoogleLogin">
-    <svg class="google-icon" viewBox="0 0 24 24">
+  <button
+    :disabled="isLoading"
+    type="button"
+    class="flex items-center justify-center gap-3 w-full py-[0.9rem] px-6 font-['Nunito'] text-base font-semibold text-[#5a4632] bg-white/90 border-2 border-[rgba(127,183,164,0.2)] rounded-2xl cursor-pointer transition-all duration-300 hover:not:disabled:bg-white hover:not:disabled:border-[rgba(127,183,164,0.4)] hover:not:disabled:shadow-[0_4px_12px_rgba(0,0,0,0.08)] disabled:opacity-60 disabled:cursor-not-allowed"
+    @click="handleGoogleLogin"
+  >
+    <svg class="w-5 h-5" viewBox="0 0 24 24">
       <path
         fill="#4285F4"
         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -56,39 +61,3 @@ const handleGoogleLogin = async () => {
     {{ isLoading ? 'Connecting...' : 'Google' }}
   </button>
 </template>
-
-<style scoped>
-.google-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  width: 100%;
-  padding: 0.9rem 1.5rem;
-  font-family: 'Nunito', sans-serif;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #5a4632;
-  background: rgba(255, 255, 255, 0.9);
-  border: 2px solid rgba(127, 183, 164, 0.2);
-  border-radius: 1rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.google-btn:hover:not(:disabled) {
-  background: white;
-  border-color: rgba(127, 183, 164, 0.4);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-.google-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.google-icon {
-  width: 20px;
-  height: 20px;
-}
-</style>

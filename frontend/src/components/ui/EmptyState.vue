@@ -2,99 +2,15 @@
   <div
     class="min-h-[400px] flex flex-col items-center justify-center p-8 text-center animate-fadeIn"
   >
-    <!-- Animated Glow Background -->
     <div class="relative mb-10">
       <div
         class="absolute inset-0 bg-white/40 blur-[80px] rounded-full transform scale-150 animate-pulse"
-        style="animation-duration: 4s"
       ></div>
       <h3
         class="relative text-4xl md:text-6xl font-bold text-terracotta drop-shadow-sm font-serif tracking-wide mb-3"
       >
-        <span class="whitespace-pre-line">{{ title }}</span>
+        <span class="whitespace-pre-line">Title</span>
       </h3>
     </div>
-
-    <!-- Messages -->
-    <div class="space-y-4 mb-12 relative z-10 max-w-2xl">
-      <p class="text-[#5A4A3A] text-2xl md:text-3xl font-heading font-bold tracking-tight mb-2">
-        {{ message }}
-      </p>
-      <p
-        v-if="subMessage"
-        class="text-[#5A4A3A]/80 text-lg md:text-xl font-body font-medium leading-relaxed max-w-xl mx-auto italic"
-      >
-        {{ subMessage }}
-      </p>
-    </div>
-
-    <!-- Action Button -->
-    <template v-if="actionText">
-      <router-link
-        v-if="actionLink"
-        :to="actionLink"
-        class="group relative inline-flex items-center justify-center px-10 py-4 overflow-hidden bg-white hover:bg-[#FFFDF5] text-[#8B7355] hover:text-[#5A4A3A] rounded-full transition-all duration-500 shadow-md hover:shadow-xl hover:shadow-white/40 transform hover:-translate-y-1 z-10"
-      >
-        <span
-          class="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/50 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out"
-        ></span>
-        <span class="relative font-bold text-lg tracking-wider">{{ actionText }}</span>
-      </router-link>
-
-      <button
-        v-else
-        class="group relative inline-flex items-center justify-center px-10 py-4 overflow-hidden bg-white hover:bg-[#FFFDF5] text-[#8B7355] hover:text-[#5A4A3A] rounded-full transition-all duration-500 shadow-md hover:shadow-xl hover:shadow-white/40 transform hover:-translate-y-1 z-10 cursor-pointer"
-        @click="$emit('action')"
-      >
-        <span
-          class="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/50 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out"
-        ></span>
-        <span class="relative font-bold text-lg tracking-wider">{{ actionText }}</span>
-      </button>
-    </template>
   </div>
 </template>
-
-<script setup lang="ts">
-defineProps({
-  title: {
-    type: String,
-    default: 'A Quiet Spot',
-  },
-  message: {
-    type: String,
-    default: 'No items found.',
-  },
-  subMessage: {
-    type: String,
-    default: '',
-  },
-  actionText: {
-    type: String,
-    default: '',
-  },
-  actionLink: {
-    type: String,
-    default: '',
-  },
-});
-
-defineEmits(['action']);
-</script>
-
-<style scoped>
-.animate-fadeIn {
-  animation: fadeIn 0.5s ease-out forwards;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-</style>

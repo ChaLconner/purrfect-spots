@@ -19,30 +19,33 @@ runs:
   using: "composite"
   steps:
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@0b93645e9fea7318ecaed2b740d41e6f2750c88f # v5.3.0
       with:
         python-version: ${{ inputs.python-version }}
         cache: "pip"
-        cache-dependency-path: backend/requirements.txt
+        cache-dependency-path: |
+          backend/requirements.txt
+          backend/pyproject.toml
 
     - name: Install system dependencies
       shell: bash
       if: inputs.install-deps == 'true'
       run: |
-        sudo apt-get update
-        sudo apt-get install -y libmagic1
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq libmagic1
 
     - name: Install Python dependencies
       shell: bash
       if: inputs.install-deps == 'true'
       run: |
         cd backend
-        pip install --upgrade pip
-        pip install -r requirements.txt
+        # Use pip with --prefer-binary for faster installation
+        pip install --upgrade pip --prefer-binary
+        pip install -r requirements.txt --prefer-binary
 
     - name: Install Development Tools
       shell: bash
       if: inputs.install-dev-tools == 'true'
       run: |
-        pip install ruff mypy pytest pytest-cov pytest-xdist pytest-asyncio
-        pip install types-requests types-redis types-Pillow types-bleach
+        pip install ruff mypy pytest pytest-cov pytest-xdist pytest-asyncio --prefer-binary
+        pip install types-requests types-redis types-Pillow types-bleach --prefer-binary

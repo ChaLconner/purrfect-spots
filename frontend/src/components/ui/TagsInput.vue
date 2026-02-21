@@ -1,15 +1,30 @@
 <template>
-  <div class="tags-input-container">
+  <div class="w-full">
     <!-- Tags Display -->
-    <div class="tags-wrapper">
-      <TransitionGroup name="tag">
-        <span v-for="(tag, index) in modelValue" :key="tag" class="tag-chip">
-          <span class="tag-text">#{{ tag }}</span>
+    <div
+      class="flex flex-wrap items-center gap-2 py-3 px-4 sm:py-2 sm:px-3 bg-white/70 border-2 border-stone-200 rounded-xl min-h-[52px] transition-all duration-200 cursor-text focus-within:border-[#c1714f] focus-within:ring-4 focus-within:ring-[#c1714f]/10"
+      @click="focusInput"
+    >
+      <TransitionGroup
+        enter-active-class="transition-all duration-200 ease-out"
+        enter-from-class="opacity-0 scale-[0.8]"
+        enter-to-class="opacity-100 scale-100"
+        leave-active-class="transition-all duration-200 ease-out absolute"
+        leave-from-class="opacity-100 scale-100"
+        leave-to-class="opacity-0 scale-[0.8]"
+        move-class="transition-transform duration-200 ease-out"
+      >
+        <span
+          v-for="(tag, index) in modelValue"
+          :key="tag"
+          class="inline-flex items-center gap-1 py-1 pl-3 pr-2 bg-gradient-to-br from-[#c1714f] to-[#a65d37] text-white rounded-full text-sm font-medium whitespace-nowrap sm:text-[0.8rem] sm:py-0.5 sm:pl-2.5 sm:pr-1.5 shadow-sm"
+        >
+          <span class="max-w-[150px] sm:max-w-[100px] overflow-hidden text-ellipsis">#{{ tag }}</span>
           <button
             type="button"
-            class="tag-remove"
+            class="flex items-center justify-center w-5 h-5 p-0 bg-white/20 border-none rounded-full cursor-pointer transition-all duration-150 text-white hover:bg-white/40 hover:scale-110 focus:outline-none"
             aria-label="Remove tag"
-            @click="removeTag(index)"
+            @click.stop="removeTag(index)"
           >
             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -31,7 +46,7 @@
         type="text"
         :placeholder="modelValue.length >= maxTags ? 'Max tags reached' : placeholder"
         :disabled="modelValue.length >= maxTags || disabled"
-        class="tag-input"
+        class="flex-1 min-w-[120px] py-1 border-none bg-transparent text-sm font-medium text-stone-600 outline-none placeholder:text-stone-500 disabled:cursor-not-allowed"
         @keydown.enter.prevent="addTag"
         @keydown="handleInputKeydown"
         @keydown.backspace="handleBackspace"
@@ -41,11 +56,14 @@
     </div>
 
     <!-- Helper Text -->
-    <div class="tags-helper">
-      <span class="tags-count" :class="{ 'at-limit': modelValue.length >= maxTags }">
+    <div class="flex justify-between items-center mt-2 px-1 text-xs">
+      <span
+        class="transition-colors duration-200"
+        :class="modelValue.length >= maxTags ? 'text-[#c1714f] font-semibold' : 'text-stone-500'"
+      >
         {{ modelValue.length }}/{{ maxTags }} tags
       </span>
-      <span v-if="inputValue && inputValue.length > maxTagLength" class="tag-warning">
+      <span v-if="inputValue && inputValue.length > maxTagLength" class="text-red-600 font-medium">
         Tag too long (max {{ maxTagLength }} chars)
       </span>
     </div>
@@ -144,159 +162,3 @@ const focusInput = (): void => {
 // Expose focus method
 defineExpose({ focus: focusInput });
 </script>
-
-<style scoped>
-.tags-input-container {
-  width: 100%;
-}
-
-.tags-wrapper {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  background: rgba(255, 255, 255, 0.7);
-  border: 2px solid #e7e5e4;
-  border-radius: 0.75rem;
-  min-height: 52px;
-  transition: all 0.2s ease;
-  cursor: text;
-}
-
-.tags-wrapper:focus-within {
-  border-color: #c1714f;
-  box-shadow: 0 0 0 4px rgba(193, 113, 79, 0.1);
-}
-
-.tag-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.5rem 0.25rem 0.75rem;
-  background: linear-gradient(135deg, #c1714f 0%, #a65d37 100%);
-  color: white;
-  border-radius: 9999px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  white-space: nowrap;
-  animation: tag-enter 0.2s ease;
-}
-
-.tag-text {
-  max-width: 150px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.tag-remove {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.25rem;
-  height: 1.25rem;
-  padding: 0;
-  background: rgba(255, 255, 255, 0.2);
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  color: white;
-}
-
-.tag-remove:hover {
-  background: rgba(255, 255, 255, 0.4);
-  transform: scale(1.1);
-}
-
-.tag-input {
-  flex: 1;
-  min-width: 120px;
-  padding: 0.25rem 0;
-  border: none;
-  background: transparent;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #57534e;
-  outline: none;
-}
-
-.tag-input::placeholder {
-  color: #6b7280;
-}
-
-.tag-input:disabled {
-  cursor: not-allowed;
-}
-
-.tags-helper {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 0.5rem;
-  padding: 0 0.25rem;
-  font-size: 0.75rem;
-}
-
-.tags-count {
-  color: #6b7280;
-  transition: color 0.2s ease;
-}
-
-.tags-count.at-limit {
-  color: #c1714f;
-  font-weight: 600;
-}
-
-.tag-warning {
-  color: #dc2626;
-  font-weight: 500;
-}
-
-/* Transition animations */
-.tag-enter-active,
-.tag-leave-active {
-  transition: all 0.2s ease;
-}
-
-.tag-enter-from {
-  opacity: 0;
-  transform: scale(0.8);
-}
-
-.tag-leave-to {
-  opacity: 0;
-  transform: scale(0.8);
-}
-
-.tag-move {
-  transition: transform 0.2s ease;
-}
-
-@keyframes tag-enter {
-  from {
-    opacity: 0;
-    transform: scale(0.8);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* Mobile adjustments */
-@media (max-width: 640px) {
-  .tags-wrapper {
-    padding: 0.5rem 0.75rem;
-  }
-
-  .tag-chip {
-    font-size: 0.8rem;
-    padding: 0.2rem 0.4rem 0.2rem 0.6rem;
-  }
-
-  .tag-text {
-    max-width: 100px;
-  }
-}
-</style>

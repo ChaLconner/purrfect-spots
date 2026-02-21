@@ -1,6 +1,6 @@
 import os
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import stripe
 from starlette.concurrency import run_in_threadpool
@@ -32,17 +32,17 @@ class TreatsService:
         """Give treats to a photo owner (fully atomic via DB RPC)."""
         try:
             from utils.supabase_client import get_async_supabase_admin_client
-            
+
             # Use admin client to bypass RLS/JWT issues
             admin_client = await get_async_supabase_admin_client()
-            
+
             res = await admin_client.rpc(
                 "give_treat_atomic",
                 {
                     "p_from_user_id": from_user_id,
                     "p_photo_id": photo_id,
                     "p_amount": amount,
-                }
+                },
             ).execute()
 
             if not res.data or len(res.data) == 0:
@@ -75,12 +75,8 @@ class TreatsService:
     async def _send_treat_notification(self, from_user_id: str, to_user_id: str, photo_id: str, amount: int) -> None:
         """Send notification when treats are given."""
         try:
-            actor_res = await self.supabase.table("users") \
-                .select("name") \
-                .eq("id", from_user_id) \
-                .single() \
-                .execute()
-            
+            actor_res = await self.supabase.table("users").select("name").eq("id", from_user_id).single().execute()
+
             actor_name = actor_res.data.get("name") if actor_res.data else "Someone"
 
             await self.notification_service.create_notification(
@@ -98,12 +94,8 @@ class TreatsService:
     async def _send_treat_notification_fallback(self, from_user_id: str, photo_id: str, amount: int) -> None:
         """Fallback notification path when to_user_id not returned by RPC."""
         try:
-            photo_res = await self.supabase.table("cat_photos") \
-                .select("user_id") \
-                .eq("id", photo_id) \
-                .single() \
-                .execute()
-                
+            photo_res = await self.supabase.table("cat_photos").select("user_id").eq("id", photo_id).single().execute()
+
             if photo_res.data:
                 to_user_id = photo_res.data["user_id"]
                 await self._send_treat_notification(from_user_id, to_user_id, photo_id, amount)
@@ -143,12 +135,14 @@ class TreatsService:
                 session_params["customer"] = stripe_customer_id
             else:
                 # Try to find existing customer
-                user_res = await self.supabase.table("users") \
-                    .select("stripe_customer_id") \
-                    .eq("id", user_id) \
-                    .maybe_single() \
+                user_res = (
+                    await self.supabase.table("users")
+                    .select("stripe_customer_id")
+                    .eq("id", user_id)
+                    .maybe_single()
                     .execute()
-                    
+                )
+
                 db_customer_id = user_res.data.get("stripe_customer_id") if user_res.data else None
                 if db_customer_id:
                     session_params["customer"] = db_customer_id
@@ -165,20 +159,18 @@ class TreatsService:
     # ── Balance & Transactions ───────────────────────────────────────
 
     async def get_balance(self, user_id: str) -> Dict[str, Any]:
-        user_res = await self.supabase.table("users") \
-            .select("treat_balance") \
-            .eq("id", user_id) \
-            .single() \
-            .execute()
-            
+        user_res = await self.supabase.table("users").select("treat_balance").eq("id", user_id).single().execute()
+
         balance = user_res.data["treat_balance"] if user_res.data else 0
 
-        trans_res = await self.supabase.table("treats_transactions") \
-            .select("*") \
-            .or_(f"from_user_id.eq.{user_id},to_user_id.eq.{user_id}") \
-            .order("created_at", desc=True) \
-            .limit(10) \
+        trans_res = (
+            await self.supabase.table("treats_transactions")
+            .select("*")
+            .or_(f"from_user_id.eq.{user_id},to_user_id.eq.{user_id}")
+            .order("created_at", desc=True)
+            .limit(10)
             .execute()
+        )
 
         return {
             "balance": balance,
@@ -202,11 +194,13 @@ class TreatsService:
             return []
 
     async def _get_leaderboard_fallback(self) -> List[Dict[str, Any]]:
-        res = await self.supabase.table("users") \
-            .select("id, name, username, picture, total_treats_received") \
-            .order("total_treats_received", desc=True) \
-            .limit(10) \
+        res = (
+            await self.supabase.table("users")
+            .select("id, name, username, picture, total_treats_received")
+            .order("total_treats_received", desc=True)
+            .limit(10)
             .execute()
+        )
         return res.data or []
 
     # ── Packages (cached) ────────────────────────────────────────────
@@ -252,13 +246,15 @@ class TreatsService:
 
         # Direct DB fallback (in case cache is stale)
         try:
-            res = await self.supabase.table("treat_packages") \
-                .select("*") \
-                .eq("id", package_id) \
-                .eq("is_active", True) \
-                .maybe_single() \
+            res = (
+                await self.supabase.table("treat_packages")
+                .select("*")
+                .eq("id", package_id)
+                .eq("is_active", True)
+                .maybe_single()
                 .execute()
-                
+            )
+
             if res.data:
                 return {
                     "amount": res.data["amount"],

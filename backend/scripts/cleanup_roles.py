@@ -6,27 +6,29 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils.supabase_client import get_supabase_admin_client
 
+
 async def cleanup_roles():
     admin = get_supabase_admin_client()
-    
+
     # 1. Fetch all roles
     roles_res = admin.table("roles").select("*").execute()
     all_roles = roles_res.data
     print(f"Found {len(all_roles)} roles.")
-    
+
     # Map roles by normalized name
     role_map = {}
     for r in all_roles:
         norm_name = r["name"].lower().replace(" ", "_")
-        if norm_name == "super_admin": norm_name = "admin" # Normalize admin
-        
+        if norm_name == "super_admin":
+            norm_name = "admin"  # Normalize admin
+
         if norm_name not in role_map:
             role_map[norm_name] = []
         role_map[norm_name].append(r)
 
     # 2. Pick survivors and migrate users
-    survivors = {} # name -> role_obj
-    
+    survivors = {}  # name -> role_obj
+
     # Ensure we have 'admin' and 'user' survivors
     for name in ["admin", "user"]:
         # Find any role that matches this name (or super_admin for admin)
@@ -45,11 +47,11 @@ async def cleanup_roles():
         if not options:
             print(f"Mandatory role '{name}' not found. Creating it later or pick any.")
             continue
-            
+
         survivor = options[0]
         survivors[name] = survivor
         print(f"Survivor for {name}: {survivor['name']} ({survivor['id']})")
-        
+
         # Migrate all users from other options to this survivor
         for other in options[1:]:
             print(f"Migrating users from {other['name']} to survivor {survivor['name']}")
@@ -80,6 +82,7 @@ async def cleanup_roles():
             admin.table("roles").update({"name": name}).eq("id", survivor["id"]).execute()
 
     print("Cleanup successful!")
+
 
 if __name__ == "__main__":
     asyncio.run(cleanup_roles())

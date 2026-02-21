@@ -1,5 +1,4 @@
 import asyncio
-import concurrent.futures
 import hashlib
 import json
 import os
@@ -146,11 +145,13 @@ class GoogleVisionService:
         """Try to retrieve cached analysis result. (Async)"""
         try:
             client = await get_async_supabase_admin_client()
-            response = await client.table("vision_analysis_cache") \
-                .select("response") \
-                .eq("image_hash", image_hash) \
-                .maybe_single() \
+            response = (
+                await client.table("vision_analysis_cache")
+                .select("response")
+                .eq("image_hash", image_hash)
+                .maybe_single()
                 .execute()
+            )
             if response and hasattr(response, "data") and response.data:
                 logger.info(f"Vision API Cache Hit: {image_hash[:8]}...")
                 return response.data["response"]
@@ -334,15 +335,12 @@ class GoogleVisionService:
             # This ensures the main event loop is not blocked
             label_task = loop.run_in_executor(None, lambda: client.label_detection(image=image))
             object_task = loop.run_in_executor(None, lambda: client.object_localization(image=image))
-            
+
             # Wait for both with a timeout
-            results = await asyncio.wait_for(
-                asyncio.gather(label_task, object_task), 
-                timeout=VISION_API_TIMEOUT
-            )
-            
+            results = await asyncio.wait_for(asyncio.gather(label_task, object_task), timeout=VISION_API_TIMEOUT)
+
             return results[0], results[1]
-            
+
         except asyncio.TimeoutError:
             logger.warning("Vision API call timed out")
             return None, None

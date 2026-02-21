@@ -1,7 +1,7 @@
 /// <reference types="google.maps" />
 import { shallowRef, watch, type Ref, onUnmounted } from 'vue';
 import type { CatLocation } from '../types/api';
-import { MarkerClusterer } from '@googlemaps/markerclusterer';
+import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markerclusterer';
 
 // Type for google maps objects (since we load them dynamically)
 type GoogleMap = google.maps.Map;
@@ -19,6 +19,7 @@ export function useMapMarkers(map: Ref<GoogleMap | null>) {
 
   // Clusterer Options
   const clustererOptions = {
+    algorithm: new SuperClusterAlgorithm({ radius: 60, maxZoom: 16 }),
     renderer: {
       render: ({ count, position }: { count: number; position: google.maps.LatLng }) => {
         return new google.maps.Marker({

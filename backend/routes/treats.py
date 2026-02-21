@@ -1,7 +1,6 @@
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from supabase import Client
 
 from config import config
 from dependencies import get_current_token, get_treats_service

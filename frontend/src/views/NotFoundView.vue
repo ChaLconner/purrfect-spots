@@ -12,6 +12,5 @@
 </template>
 
 <script setup lang="ts">
-import { useI18n } from 'vue-i18n';
-const { t } = useI18n(); // make t available in template if needed, though $t works globally usually with i18n plugin
+// No script logic needed
 </script>

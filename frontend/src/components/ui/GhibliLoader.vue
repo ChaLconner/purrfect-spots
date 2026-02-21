@@ -1,23 +1,44 @@
 <template>
-  <div class="ghibli-loader-container">
-    <div class="sprites-group">
-      <!-- Sprite 1: The Bouncer -->
-      <div class="soot-sprite sprite-1">
-        <div class="eyes left"></div>
-        <div class="eyes right"></div>
+  <div class="flex flex-col items-center justify-center p-8">
+    <div class="flex items-end gap-6 h-[60px] scale-125 transform">
+      <!-- Sprite 1: Large Bouncer -->
+      <div
+        class="relative w-[50px] h-[50px] bg-[#2a2a2a] rounded-full shadow-[0_0_0_3px_rgba(42,42,42,0.1),0_0_0_6px_rgba(42,42,42,0.05)] before:absolute before:inset-[-2px] before:bg-inherit before:rounded-inherit before:blur-[2px] before:z-[-1] animate-[big-bounce_1s_infinite_alternate_cubic-bezier(0.5,0.05,1,0.5)]"
+      >
+        <div
+          class="absolute bg-white rounded-full top-[35%] left-[10px] w-[14px] h-[14px] after:absolute after:bg-black after:rounded-full after:w-[40%] after:h-[40%] after:top-[30%] after:left-[30%]"
+        ></div>
+        <div
+          class="absolute bg-white rounded-full top-[35%] right-[10px] w-[14px] h-[14px] after:absolute after:bg-black after:rounded-full after:w-[40%] after:h-[40%] after:top-[30%] after:left-[30%]"
+        ></div>
       </div>
 
-      <!-- Sprite 2: The Observer -->
-      <div class="soot-sprite sprite-2">
-        <div class="eyes left"></div>
-        <div class="eyes right"></div>
-        <div class="star-candy"></div>
+      <!-- Sprite 2: The Observer (Holding Candy) -->
+      <div
+        class="relative w-[40px] h-[40px] bg-[#2a2a2a] rounded-full shadow-[0_0_0_3px_rgba(42,42,42,0.1),0_0_0_6px_rgba(42,42,42,0.05)] before:absolute before:inset-[-2px] before:bg-inherit before:rounded-inherit before:blur-[2px] before:z-[-1] animate-[gentle-sway_2s_infinite_ease-in-out]"
+      >
+        <div
+          class="absolute bg-white rounded-full top-[35%] left-[6px] w-[12px] h-[12px] after:absolute after:bg-black after:rounded-full after:w-[40%] after:h-[40%] after:top-[30%] after:left-[30%]"
+        ></div>
+        <div
+          class="absolute bg-white rounded-full top-[35%] right-[6px] w-[12px] h-[12px] after:absolute after:bg-black after:rounded-full after:w-[40%] after:h-[40%] after:top-[30%] after:left-[30%]"
+        ></div>
+        <!-- Star Candy (Konpeito) -->
+        <div
+          class="absolute w-3 h-3 bg-[#ffb7b2] top-[-15px] left-1/2 -translate-x-1/2 rotate-45 animate-[spin-candy_3s_linear_infinite] before:absolute before:w-full before:h-full before:bg-inherit before:rotate-[30deg] after:absolute after:w-full after:h-full after:bg-inherit after:rotate-[60deg]"
+        ></div>
       </div>
 
       <!-- Sprite 3: The Little One -->
-      <div class="soot-sprite sprite-3">
-        <div class="eyes left"></div>
-        <div class="eyes right"></div>
+      <div
+        class="relative w-[30px] h-[30px] bg-[#2a2a2a] rounded-full shadow-[0_0_0_3px_rgba(42,42,42,0.1),0_0_0_6px_rgba(42,42,42,0.05)] before:absolute before:inset-[-2px] before:bg-inherit before:rounded-inherit before:blur-[2px] before:z-[-1] animate-[small-jump_0.6s_infinite_alternate_cubic-bezier(0.4,0,0.2,1)]"
+      >
+        <div
+          class="absolute bg-white rounded-full top-[35%] left-[4px] w-[10px] h-[10px] after:absolute after:bg-black after:rounded-full after:w-[40%] after:h-[40%] after:top-[30%] after:left-[30%] after:animate-[look-around_2s_infinite]"
+        ></div>
+        <div
+          class="absolute bg-white rounded-full top-[35%] right-[4px] w-[10px] h-[10px] after:absolute after:bg-black after:rounded-full after:w-[40%] after:h-[40%] after:top-[30%] after:left-[30%] after:animate-[look-around_2s_infinite]"
+        ></div>
       </div>
     </div>
 
@@ -38,195 +59,3 @@ defineProps({
   },
 });
 </script>
-
-<style scoped>
-.ghibli-loader-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-}
-
-.sprites-group {
-  display: flex;
-  align-items: flex-end;
-  gap: 1.5rem;
-  height: 60px; /* Define height for bounce consistency */
-  transform: scale(1.2);
-}
-
-/* Base Soot Sprite */
-.soot-sprite {
-  background: #2a2a2a;
-  border-radius: 50%;
-  position: relative;
-  /* Fuzzy edges using box-shadows */
-  box-shadow:
-    0 0 0 3px rgba(42, 42, 42, 0.1),
-    0 0 0 6px rgba(42, 42, 42, 0.05);
-}
-
-.soot-sprite::before {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  background: inherit;
-  border-radius: inherit;
-  filter: blur(2px);
-  z-index: -1;
-}
-
-/* Eyes */
-.eyes {
-  position: absolute;
-  background: white;
-  border-radius: 50%;
-  top: 35%;
-}
-
-.eyes::after {
-  content: '';
-  position: absolute;
-  background: black;
-  border-radius: 50%;
-  width: 40%;
-  height: 40%;
-  top: 30%;
-  left: 30%;
-}
-
-/* Sprite 1: Large Bouncer */
-.sprite-1 {
-  width: 50px;
-  height: 50px;
-  animation: big-bounce 1s infinite alternate cubic-bezier(0.5, 0.05, 1, 0.5);
-}
-.sprite-1 .eyes {
-  width: 14px;
-  height: 14px;
-}
-.sprite-1 .eyes.left {
-  left: 10px;
-}
-.sprite-1 .eyes.right {
-  right: 10px;
-}
-
-/* Sprite 2: Holding Candy */
-.sprite-2 {
-  width: 40px;
-  height: 40px;
-  animation: gentle-sway 2s infinite ease-in-out;
-}
-.sprite-2 .eyes {
-  width: 12px;
-  height: 12px;
-}
-.sprite-2 .eyes.left {
-  left: 6px;
-}
-.sprite-2 .eyes.right {
-  right: 6px;
-}
-
-/* Star Candy (Konpeito) */
-.star-candy {
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  background: #ffb7b2; /* Soft pink */
-  top: -15px;
-  left: 50%;
-  transform: translateX(-50%) rotate(45deg);
-  animation: spin-candy 3s linear infinite;
-}
-.star-candy::before,
-.star-candy::after {
-  content: '';
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  background: inherit;
-  top: 0;
-  left: 0;
-}
-.star-candy::before {
-  transform: rotate(30deg);
-}
-.star-candy::after {
-  transform: rotate(60deg);
-}
-
-/* Sprite 3: Small Runner */
-.sprite-3 {
-  width: 30px;
-  height: 30px;
-  animation: small-jump 0.6s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
-}
-.sprite-3 .eyes {
-  width: 10px;
-  height: 10px;
-}
-.sprite-3 .eyes.left {
-  left: 4px;
-}
-.sprite-3 .eyes.right {
-  right: 4px;
-}
-.sprite-3 .eyes.left::after,
-.sprite-3 .eyes.right::after {
-  animation: look-around 2s infinite;
-}
-
-/* Animations */
-@keyframes big-bounce {
-  from {
-    transform: translateY(0) scaleY(1.1);
-  }
-  to {
-    transform: translateY(-20px) scaleY(0.9);
-  }
-}
-
-@keyframes gentle-sway {
-  0%,
-  100% {
-    transform: rotate(-5deg);
-  }
-  50% {
-    transform: rotate(5deg);
-  }
-}
-
-@keyframes small-jump {
-  from {
-    transform: translateY(0);
-  }
-  to {
-    transform: translateY(-10px);
-  }
-}
-
-@keyframes look-around {
-  0%,
-  100% {
-    transform: translate(0, 0);
-  }
-  25% {
-    transform: translate(-2px, 0);
-  }
-  75% {
-    transform: translate(2px, 0);
-  }
-}
-
-@keyframes spin-candy {
-  from {
-    transform: translateX(-50%) rotate(0deg);
-  }
-  to {
-    transform: translateX(-50%) rotate(360deg);
-  }
-}
-</style>

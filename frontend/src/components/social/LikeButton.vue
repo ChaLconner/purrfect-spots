@@ -1,6 +1,6 @@
 <template>
   <button
-    class="like-button flex items-center gap-2 transition-all duration-300 group"
+    class="flex items-center gap-2 transition-all duration-300 group hover:scale-105 active:scale-95 cursor-pointer border-none bg-transparent outline-none select-none [&]:[-webkit-tap-highlight-color:transparent]"
     :class="[liked ? 'text-terracotta' : 'text-brown-light']"
     :aria-label="liked ? 'Unlike' : 'Like'"
     @click="handleClick"
@@ -12,7 +12,10 @@
       <svg
         xmlns="http://www.w3.org/2000/svg"
         class="h-6 w-6 transition-transform"
-        :class="[liked ? 'fill-current' : 'stroke-current', { 'like-animation': animating }]"
+        :class="[
+          liked ? 'fill-current' : 'stroke-current',
+          { 'animate-[heartPop_0.3s_ease-out]': animating },
+        ]"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -245,39 +248,3 @@ async function sendToggleLike() {
   }
 }
 </script>
-
-<style scoped>
-.like-button {
-  cursor: pointer;
-  border: none;
-  background: transparent;
-  outline: none;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.like-button:hover {
-  transform: scale(1.05);
-}
-
-.like-button:active {
-  transform: scale(0.95);
-}
-
-/* Heart animation on like */
-.like-animation {
-  animation: heartPop 0.3s ease-out;
-}
-
-@keyframes heartPop {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.3);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-</style>

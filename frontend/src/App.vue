@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import NavBar from './components/NavBar.vue';
 import BottomNav from './components/layout/BottomNav.vue';
+import LicenseOverlay from './components/layout/LicenseOverlay.vue';
 import ToastContainer from './components/toast/ToastContainer.vue';
 import { onErrorCaptured, onMounted, ref } from 'vue';
 import { isBrowserExtensionError, logBrowserExtensionError } from './utils/browserExtensionHandler';
@@ -155,6 +156,7 @@ onErrorCaptured((err, instance, info) => {
       <ErrorBoundary>
         <router-view />
       </ErrorBoundary>
+      <LicenseOverlay />
     </main>
 
     <BottomNav v-if="showNav" />

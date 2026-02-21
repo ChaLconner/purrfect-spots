@@ -5,7 +5,6 @@ Tests for admin routes
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from datetime import datetime
 
 from dependencies import get_current_admin_user
 from main import app
@@ -28,8 +27,8 @@ class TestAdminRoutes:
     def clear_stats_cache(self):
         """Clear the stats cache before each test"""
         from routes.admin.stats import _stats_cache
-        _stats_cache.clear()
 
+        _stats_cache.clear()
 
     # Standard test UUIDs
     _ADMIN_ID = "00000000-0000-4000-a000-000000000aaa"
@@ -66,7 +65,11 @@ class TestAdminRoutes:
             ]
         )
 
-        with patch("routes.admin.users.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_supabase_admin):
+        with patch(
+            "routes.admin.users.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
             response = client.get("/api/v1/admin/users")
 
         assert response.status_code == 200
@@ -78,7 +81,11 @@ class TestAdminRoutes:
         """Test listing users with search query"""
         mock_supabase_admin.execute.return_value = MagicMock(data=[{"id": "u1", "name": "Search Result"}])
 
-        with patch("routes.admin.users.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_supabase_admin):
+        with patch(
+            "routes.admin.users.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
             response = client.get("/api/v1/admin/users?search=test")
 
         assert response.status_code == 200
@@ -88,7 +95,11 @@ class TestAdminRoutes:
         """Test list users failure handling"""
         mock_supabase_admin.execute.side_effect = Exception("DB Error")
 
-        with patch("routes.admin.users.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_supabase_admin):
+        with patch(
+            "routes.admin.users.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
             response = client.get("/api/v1/admin/users")
 
         assert response.status_code == 500
@@ -108,7 +119,11 @@ class TestAdminRoutes:
             MagicMock(count=10),
         ]
 
-        with patch("routes.admin.stats.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_supabase_admin):
+        with patch(
+            "routes.admin.stats.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
             response = client.get("/api/v1/admin/stats")
 
         assert response.status_code == 200
@@ -123,7 +138,11 @@ class TestAdminRoutes:
         """Test stats failure handling"""
         mock_supabase_admin.execute.side_effect = Exception("Stats error")
 
-        with patch("routes.admin.stats.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_supabase_admin):
+        with patch(
+            "routes.admin.stats.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
             response = client.get("/api/v1/admin/stats")
 
         assert response.status_code == 200
@@ -134,9 +153,15 @@ class TestAdminRoutes:
         """Test deleting a user"""
         user_id = self._TARGET_USER_ID
         # Mock user check (exists and not admin)
-        mock_supabase_admin.execute.return_value = MagicMock(data={"id": user_id, "email": "user@test.com", "roles": {"name": "user"}})
+        mock_supabase_admin.execute.return_value = MagicMock(
+            data={"id": user_id, "email": "user@test.com", "roles": {"name": "user"}}
+        )
 
-        with patch("routes.admin.users.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_supabase_admin):
+        with patch(
+            "routes.admin.users.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
             response = client.delete(f"/api/v1/admin/users/{user_id}")
 
         assert response.status_code == 200
@@ -147,7 +172,11 @@ class TestAdminRoutes:
         """Test deleting non-existent user"""
         mock_supabase_admin.execute.return_value = MagicMock(data=None)
 
-        with patch("routes.admin.users.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_supabase_admin):
+        with patch(
+            "routes.admin.users.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
             response = client.delete(f"/api/v1/admin/users/{self._GHOST_USER_ID}")
 
         assert response.status_code == 404
@@ -155,9 +184,15 @@ class TestAdminRoutes:
 
     def test_delete_admin_forbidden(self, client, override_admin, mock_supabase_admin):
         """Test preventing deletion of another admin"""
-        mock_supabase_admin.execute.return_value = MagicMock(data={"email": "other@admin.com", "roles": {"name": "admin"}})
+        mock_supabase_admin.execute.return_value = MagicMock(
+            data={"email": "other@admin.com", "roles": {"name": "admin"}}
+        )
 
-        with patch("routes.admin.users.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_supabase_admin):
+        with patch(
+            "routes.admin.users.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
             response = client.delete(f"/api/v1/admin/users/{self._OTHER_ADMIN_ID}")
 
         assert response.status_code == 400
@@ -167,7 +202,11 @@ class TestAdminRoutes:
         """Test delete user exception handling"""
         mock_supabase_admin.execute.side_effect = Exception("Delete error")
 
-        with patch("routes.admin.users.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_supabase_admin):
+        with patch(
+            "routes.admin.users.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
             response = client.delete(f"/api/v1/admin/users/{self._ERROR_USER_ID}")
 
         assert response.status_code == 500

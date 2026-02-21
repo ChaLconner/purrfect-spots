@@ -8,12 +8,16 @@
           :size-dependencies="[item.images.length, windowWidth]"
           :data-index="index"
         >
-          <div class="gallery-grid" role="grid" :aria-label="t('galleryPage.aria.galleryChunk')">
+          <div
+            class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 auto-rows-[200px] lg:auto-rows-[240px] xl:auto-rows-[260px] grid-flow-dense gap-1 lg:gap-1.5"
+            role="grid"
+            :aria-label="t('galleryPage.aria.galleryChunk')"
+          >
             <button
               v-for="(image, subIndex) in item.images"
               :key="image.id"
               type="button"
-              class="gallery-item p-0 border-none bg-transparent text-left"
+              class="w-full h-full mb-0 p-0 border-none bg-transparent text-left focus:outline-none focus-visible:[&_.image-card]:outline-3 focus-visible:[&_.image-card]:outline-secondary focus-visible:[&_.image-card]:outline-offset-4 animate-[galleryFadeIn_0.6s_cubic-bezier(0.2,0.8,0.2,1)_both]"
               :class="[
                 getBentoClass(item.index + subIndex),
                 { 'item-loaded': loadedImages[image.id] },
@@ -27,15 +31,19 @@
               @click="$emit('open-modal', image, item.index + subIndex)"
             >
               <!-- Glass-framed Image Card -->
-              <div class="image-card group">
+              <div
+                class="image-card group relative bg-transparent rounded cursor-pointer transition-transform duration-300 ease-in-out overflow-hidden w-full h-full"
+              >
                 <!-- Placeholder -->
                 <div
                   v-if="!loadedImages[image.id]"
-                  class="image-placeholder h-full w-full"
+                  class="image-placeholder absolute inset-0 z-10 bg-[#f0fdf4] rounded after:content-[''] after:absolute after:inset-0 after:bg-gradient-to-r after:from-transparent after:via-white/60 after:to-transparent after:animate-[shimmer_1.5s_infinite] after:-translate-x-full h-full w-full"
                   aria-hidden="true"
                 >
-                  <div class="placeholder-content">
-                    <div class="soot-dot"></div>
+                  <div class="placeholder-content flex items-center justify-center w-full h-full">
+                    <div
+                      class="soot-dot w-3 h-3 bg-[#5a4a3a]/10 rounded-full animate-[pulseDot_1.5s_ease-in-out_infinite]"
+                    ></div>
                   </div>
                 </div>
 
@@ -45,12 +53,14 @@
                   role="group"
                 >
                   <button
-                    class="treat-item-btn group absolute bottom-2 right-2 transition-all z-20"
+                    class="treat-item-btn group absolute bottom-2 right-2 bg-transparent border-none cursor-pointer p-0 transition-all z-20"
                     :title="t('galleryPage.modal.giveTreats')"
                     :aria-label="t('galleryPage.aria.giveTreat')"
                     @click.stop="handleGiveTreat(image)"
                   >
-                    <div class="treat-btn-inner">
+                    <div
+                      class="treat-btn-inner transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] drop-shadow-md group-hover:-translate-y-0.5 group-hover:scale-110 group-active:scale-95"
+                    >
                       <img
                         src="/give-treat.png"
                         :alt="t('profile.treats')"
@@ -61,7 +71,9 @@
                 </div>
 
                 <!-- Actual Image with native lazy loading -->
-                <div class="image-wrapper">
+                <div
+                  class="image-wrapper relative rounded overflow-hidden w-full h-full block shadow-none transition-shadow duration-300 ease-in-out"
+                >
                   <img
                     loading="lazy"
                     :src="image.image_url"
@@ -72,8 +84,8 @@
                         ? t('galleryPage.modal.aCatAt', { location: image.location_name })
                         : t('galleryPage.modal.aCat')
                     "
-                    class="gallery-image shadow-md"
-                    :class="{ 'image-visible': loadedImages[image.id] }"
+                    class="gallery-image w-full h-full object-cover block rounded scale-100 transition-[transform,opacity] duration-500 ease-in-out opacity-0 group-hover:scale-105 shadow-md"
+                    :class="{ 'opacity-100': loadedImages[image.id] }"
                     @load="handleImageLoad(image.id)"
                     @error="handleImageError(image.id, $event)"
                   />
@@ -89,7 +101,7 @@
     <div
       v-if="hasMore && !loadingMore"
       ref="loadMoreTrigger"
-      class="load-more h-4 w-full"
+      class="load-more flex flex-col items-center gap-3 p-8 h-4 w-full"
       aria-hidden="true"
     ></div>
     <div
@@ -326,205 +338,3 @@ watch(
   }
 );
 </script>
-
-<style scoped>
-/* ========================================
-   Gallery Grid (Bento)
-   ======================================== */
-.gallery-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  grid-auto-rows: 200px; /* Fixed row height for Bento cells */
-  grid-auto-flow: dense;
-  gap: 0.25rem;
-}
-
-@media (min-width: 640px) {
-  .gallery-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-@media (min-width: 1024px) {
-  .gallery-grid {
-    grid-template-columns: repeat(4, 1fr);
-    grid-auto-rows: 240px;
-    gap: 0.375rem;
-  }
-}
-
-@media (min-width: 1280px) {
-  .gallery-grid {
-    grid-template-columns: repeat(5, 1fr);
-    grid-auto-rows: 260px;
-  }
-}
-
-/* Gallery Item */
-.gallery-item {
-  /* margin-bottom is handled by grid gap */
-  margin-bottom: 0;
-  width: 100%;
-  height: 100%;
-  animation: galleryFadeIn 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-
-.gallery-item:focus {
-  outline: none;
-}
-
-.gallery-item:focus-visible .image-card {
-  outline: 3px solid var(--color-secondary);
-  outline-offset: 4px;
-}
-
-@keyframes galleryFadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* Bento Spans */
-.col-span-2 {
-  grid-column: span 2;
-}
-.row-span-2 {
-  grid-row: span 2;
-}
-.row-span-1 {
-  grid-row: span 1;
-}
-
-.image-card {
-  background-color: transparent;
-  border-radius: 0.25rem;
-  position: relative;
-  cursor: pointer;
-  transition: transform 0.3s ease;
-  overflow: hidden;
-  height: 100%;
-  width: 100%;
-}
-
-.image-wrapper {
-  position: relative;
-  border-radius: 0.25rem;
-  overflow: hidden;
-  width: 100%;
-  height: 100%;
-  display: block;
-  box-shadow: none;
-  transition: box-shadow 0.3s ease;
-}
-
-.gallery-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  border-radius: 0.25rem;
-  transform: scale(1);
-  transition:
-    transform 0.5s ease,
-    opacity 0.5s ease;
-  opacity: 0;
-}
-
-.gallery-image.image-visible {
-  opacity: 1;
-}
-
-.image-card:hover .gallery-image {
-  transform: scale(1.05);
-}
-
-/* Image Placeholder */
-.image-placeholder {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 10;
-  background: #f0fdf4;
-  border-radius: 0.25rem;
-}
-
-.image-placeholder::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
-  animation: shimmer 1.5s infinite;
-  transform: translateX(-100%);
-}
-
-.placeholder-content {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-}
-
-.soot-dot {
-  width: 12px;
-  height: 12px;
-  background-color: rgba(90, 74, 58, 0.1);
-  border-radius: 50%;
-  animation: pulseDot 1.5s ease-in-out infinite;
-}
-
-@keyframes shimmer {
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-@keyframes pulseDot {
-  0%,
-  100% {
-    transform: scale(0.8);
-    opacity: 0.5;
-  }
-  50% {
-    transform: scale(1.2);
-    opacity: 0.8;
-  }
-}
-
-/* Treat Button */
-.treat-item-btn {
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-}
-
-.treat-btn-inner {
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.15));
-}
-
-.treat-item-btn:hover .treat-btn-inner {
-  transform: translateY(-2px) scale(1.1);
-}
-
-.treat-item-btn:active .treat-btn-inner {
-  transform: scale(0.95);
-}
-
-/* Load More */
-.load-more {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 2rem;
-}
-</style>

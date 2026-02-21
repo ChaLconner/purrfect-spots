@@ -1,33 +1,53 @@
 <template>
-  <div class="auth-container">
+  <div
+    class="min-h-screen flex items-center justify-center p-4 sm:p-8 relative overflow-hidden bg-[#eaf6f3]"
+  >
     <!-- Animated Background Clouds -->
     <GhibliBackground />
 
     <!-- Main Content -->
-    <div class="auth-card">
+    <div
+      class="grid grid-cols-1 md:grid-cols-2 w-full max-w-[1000px] md:min-h-[600px] bg-white/50 backdrop-blur-[20px] rounded-[2rem] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.1),_0_0_0_1px_rgba(255,255,255,0.4)_inset,_-0_-2px_0_rgba(255,255,255,0.1)_inset] overflow-hidden relative z-10 max-md:max-w-[480px] max-md:min-h-fit"
+    >
       <!-- Left Side - Illustration -->
-      <div class="auth-illustration">
-        <div class="illustration-content">
-          <img :src="catIllustrationUrl" :alt="$t('auth.catIllustrationAlt')" class="cat-image" />
-          <div class="illustration-text">
-            <h2 class="welcome-title">Purrfect Spots</h2>
-            <p class="welcome-subtitle">{{ $t('auth.discoverSpots') }}</p>
+      <div
+        class="bg-gradient-to-br from-[rgba(127,183,164,0.85)] via-[rgba(149,196,180,0.85)] to-[rgba(168,212,197,0.85)] flex flex-col items-center justify-center p-6 sm:p-8 md:p-12 relative overflow-hidden max-md:order-[-1]"
+      >
+        <div class="text-center z-10">
+          <img
+            :src="catIllustrationUrl"
+            :alt="$t('auth.catIllustrationAlt')"
+            class="w-[120px] h-[120px] sm:w-[160px] sm:h-[160px] md:w-[280px] md:h-[280px] object-cover rounded-full border-4 md:border-6 border-white/40 shadow-[0_20px_40px_rgba(0,0,0,0.15),_0_0_0_8px_rgba(255,255,255,0.1)] md:shadow-[0_20px_40px_rgba(0,0,0,0.15),_0_0_0_12px_rgba(255,255,255,0.1)] animate-[float_6s_ease-in-out_infinite] transition-transform duration-300 hover:scale-105 block mx-auto"
+          />
+          <div class="mt-8">
+            <h2
+              class="font-['Nunito'] text-[1.4rem] md:text-[1.8rem] font-extrabold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.1)] mb-2"
+            >
+              Purrfect Spots
+            </h2>
+            <p
+              class="font-sans text-[0.9rem] md:text-base text-white/90 max-w-[250px] mx-auto leading-relaxed"
+            >
+              {{ $t('auth.discoverSpots') }}
+            </p>
           </div>
         </div>
       </div>
 
       <!-- Right Side - Form -->
-      <div class="auth-form-section">
-        <div class="form-header">
-          <h1 class="form-title">{{ isLogin ? $t('auth.welcomeBack') : $t('auth.joinUs') }}</h1>
-          <p class="form-subtitle">
+      <div class="p-6 sm:p-8 md:p-12 flex flex-col justify-center">
+        <div class="text-center mb-8">
+          <h1 class="font-['Nunito'] text-[1.6rem] md:text-4xl font-extrabold text-[#5a4632] mb-2">
+            {{ isLogin ? $t('auth.welcomeBack') : $t('auth.joinUs') }}
+          </h1>
+          <p class="font-sans text-[0.95rem] text-[#5a4632]">
             {{ isLogin ? $t('auth.signInToContinue') : $t('auth.createAccountToStart') }}
           </p>
         </div>
 
-        <form class="auth-form" novalidate @submit.prevent="throttledSubmit">
+        <form class="flex flex-col gap-5" novalidate @submit.prevent="throttledSubmit">
           <!-- Email Field -->
-          <div class="form-group">
+          <div class="flex flex-col gap-2">
             <BaseInput
               id="email"
               v-model="form.email"
@@ -42,7 +62,7 @@
           </div>
 
           <!-- Password Field -->
-          <div class="form-group">
+          <div class="flex flex-col gap-2">
             <BaseInput
               id="password"
               v-model="form.password"
@@ -60,14 +80,21 @@
               <PasswordStrengthMeter v-if="!isLogin" :password="form.password" />
             </transition>
 
-            <p v-if="!isLogin" class="form-hint">{{ $t('auth.minPasswordLength') }}</p>
-            <div v-if="isLogin" class="forgot-password-link">
-              <router-link to="/forgot-password">{{ $t('auth.forgotPassword') }}</router-link>
+            <p v-if="!isLogin" class="font-sans text-sm text-[#5a4632] mt-1 ml-2">
+              {{ $t('auth.minPasswordLength') }}
+            </p>
+            <div v-if="isLogin" class="text-right mt-1">
+              <router-link
+                to="/forgot-password"
+                class="font-sans text-[0.85rem] text-[#7fb7a4] no-underline font-medium hover:underline"
+              >
+                {{ $t('auth.forgotPassword') }}
+              </router-link>
             </div>
           </div>
 
           <!-- Full Name Field (Sign Up only) -->
-          <div v-if="!isLogin" class="form-group">
+          <div v-if="!isLogin" class="flex flex-col gap-2">
             <BaseInput
               id="name"
               v-model="form.name"
@@ -87,10 +114,16 @@
         </form>
 
         <!-- OAuth Divider -->
-        <div class="divider">
-          <span class="divider-line"></span>
-          <span class="divider-text">{{ $t('auth.orContinueWith') }}</span>
-          <span class="divider-line"></span>
+        <div class="flex items-center gap-4 my-6">
+          <span
+            class="flex-1 h-px bg-gradient-to-r from-transparent via-[rgba(127,183,164,0.3)] to-transparent"
+          ></span>
+          <span class="font-sans text-[0.85rem] text-gray-500 whitespace-nowrap">{{
+            $t('auth.orContinueWith')
+          }}</span>
+          <span
+            class="flex-1 h-px bg-gradient-to-r from-transparent via-[rgba(127,183,164,0.3)] to-transparent"
+          ></span>
         </div>
 
         <!-- Google OAuth Button -->
@@ -99,7 +132,7 @@
           variant="outline"
           block
           size="lg"
-          class="bg-white border-2 border-sage/60 text-brown shadow-sm hover:bg-white hover:border-sage hover:shadow-md transition-all"
+          class="bg-white border-2 border-[#a8d4c5] text-[#8b5a2b] shadow-sm hover:bg-white hover:border-[#7fb7a4] hover:shadow-md transition-all"
           :loading="isGoogleLoading"
           @click="handleGoogleLogin"
         >
@@ -123,15 +156,18 @@
               />
             </svg>
           </template>
-          <span class="text-brown">Google</span>
+          <span class="text-[#8b5a2b]">Google</span>
         </BaseButton>
 
         <!-- Switch Mode Link -->
-        <div class="switch-mode">
-          <span class="switch-text">
+        <div class="text-center mt-6 font-sans text-[0.9rem]">
+          <span class="text-[#5a4632]">
             {{ isLogin ? $t('auth.dontHaveAccount') : $t('auth.alreadyHaveAccount') }}
           </span>
-          <router-link :to="isLogin ? '/register' : '/login'" class="switch-link">
+          <router-link
+            :to="isLogin ? '/register' : '/login'"
+            class="text-[#a65d37] font-bold no-underline ml-1 transition-colors duration-200 hover:text-[#6da491] hover:underline"
+          >
             {{ isLogin ? $t('auth.signUp') : $t('auth.login') }}
           </router-link>
         </div>
@@ -220,423 +256,3 @@ watch(
   }
 );
 </script>
-
-<style scoped>
-/* ============================================
- * AUTH CONTAINER - Full Page Layout
- * ============================================ */
-.auth-container {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-  position: relative;
-  overflow: hidden;
-  background-color: #eaf6f3; /* Solid mint color for seamless look */
-  /* background: linear-gradient(135deg, #EAF6F3 0%, #D4EFE6 50%, #C8E6DC 100%); Removed gradient */
-}
-
-/* ============================================
- * ANIMATED CLOUDS BACKGROUND
- * ============================================ */
-
-/* ============================================
- * AUTH CARD - Main Container
- * ============================================ */
-.auth-card {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  width: 100%;
-  max-width: 1000px;
-  min-height: 600px;
-  /* Increased transparency for better blending */
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-radius: 2rem;
-  box-shadow:
-    0 25px 50px -12px rgba(0, 0, 0, 0.1),
-    0 0 0 1px rgba(255, 255, 255, 0.4) inset,
-    0 -2px 0 rgba(255, 255, 255, 0.1) inset;
-  overflow: hidden;
-  position: relative;
-  z-index: 1;
-}
-
-/* ============================================
- * LEFT SIDE - ILLUSTRATION
- * ============================================ */
-.auth-illustration {
-  /* Semi-transparent gradient to let clouds show through slightly */
-  background: linear-gradient(
-    135deg,
-    rgba(127, 183, 164, 0.85) 0%,
-    rgba(149, 196, 180, 0.85) 50%,
-    rgba(168, 212, 197, 0.85) 100%
-  );
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 3rem;
-  position: relative;
-  overflow: hidden;
-}
-
-.illustration-content {
-  text-align: center;
-  z-index: 2;
-}
-
-.cat-image {
-  width: 280px;
-  height: 280px;
-  object-fit: cover;
-  border-radius: 50%;
-  border: 6px solid rgba(255, 255, 255, 0.4);
-  box-shadow:
-    0 20px 40px rgba(0, 0, 0, 0.15),
-    0 0 0 12px rgba(255, 255, 255, 0.1);
-  animation: float 6s ease-in-out infinite;
-  transition: transform 0.3s ease;
-  display: block;
-  margin: 0 auto;
-}
-
-.cat-image:hover {
-  transform: scale(1.05);
-}
-
-@keyframes float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-15px);
-  }
-}
-
-.illustration-text {
-  margin-top: 2rem;
-}
-
-.welcome-title {
-  font-family: 'Nunito', sans-serif;
-  font-size: 1.8rem;
-  font-weight: 800;
-  color: white;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  margin-bottom: 0.5rem;
-}
-
-.welcome-subtitle {
-  font-family: 'Inter', sans-serif;
-  font-size: 1rem;
-  color: rgba(255, 255, 255, 0.9);
-  max-width: 250px;
-  margin: 0 auto;
-  line-height: 1.5;
-}
-
-/* Floating Decorations */
-.floating-paw {
-  position: absolute;
-  font-size: 1.5rem;
-  opacity: 0.6;
-  animation: floatPaw 4s ease-in-out infinite;
-}
-
-.paw-1 {
-  top: 15%;
-  left: 15%;
-  animation-delay: 0s;
-}
-
-.paw-2 {
-  top: 25%;
-  right: 20%;
-  animation-delay: 1s;
-  font-size: 1.2rem;
-}
-
-.paw-3 {
-  bottom: 20%;
-  left: 25%;
-  animation-delay: 2s;
-  font-size: 1.8rem;
-}
-
-@keyframes floatPaw {
-  0%,
-  100% {
-    transform: translateY(0) rotate(0deg);
-    opacity: 0.6;
-  }
-  50% {
-    transform: translateY(-10px) rotate(10deg);
-    opacity: 0.9;
-  }
-}
-
-/* ============================================
- * RIGHT SIDE - FORM SECTION
- * ============================================ */
-.auth-form-section {
-  padding: 3rem;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.form-header {
-  text-align: center;
-  margin-bottom: 2rem;
-}
-
-.form-title {
-  font-family: 'Nunito', sans-serif;
-  font-size: 2rem;
-  font-weight: 800;
-  color: #5a4632;
-  margin-bottom: 0.5rem;
-}
-
-.form-subtitle {
-  font-family: 'Inter', sans-serif;
-  font-size: 0.95rem;
-  color: #5a4632; /* Darkened from #7d7d7d */
-}
-
-/* ============================================
- * FORM ELEMENTS
- * ============================================ */
-.auth-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.form-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-family: 'Nunito', sans-serif;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #5a4632;
-}
-
-.form-hint {
-  font-family: 'Inter', sans-serif;
-  font-size: 0.8rem;
-  color: #5a4632; /* Darkened from #7d7d7d */
-  margin-top: 0.25rem;
-  margin-left: 0.5rem;
-}
-
-.input-wrapper {
-  position: relative;
-}
-
-.form-input {
-  width: 100%;
-  padding: 1rem 1.25rem;
-  font-family: 'Inter', sans-serif;
-  font-size: 1rem;
-  color: #5a4632;
-  background: rgba(255, 255, 255, 0.7);
-  border: 2px solid rgba(127, 183, 164, 0.2);
-  border-radius: 1rem;
-  outline: none;
-  transition: all 0.3s ease;
-}
-
-.form-input::placeholder {
-  color: #6b7280; /* gray-500 */
-}
-
-.form-input:focus {
-  background: rgba(255, 255, 255, 0.95);
-  border-color: #7fb7a4;
-  box-shadow: 0 0 0 4px rgba(127, 183, 164, 0.15);
-}
-
-.form-input:hover:not(:focus) {
-  border-color: rgba(127, 183, 164, 0.4);
-}
-
-.password-input {
-  padding-right: 3rem;
-}
-
-.password-toggle-btn {
-  position: absolute;
-  right: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
-  border: none;
-  cursor: pointer;
-  pointer-events: auto;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #6b7280; /* gray-500 */
-  transition: color 0.3s ease;
-}
-
-.password-toggle-btn:hover {
-  color: #7fb7a4;
-}
-
-.eye-icon {
-  width: 1.25rem;
-  height: 1.25rem;
-}
-
-.forgot-password-link {
-  text-align: right;
-  margin-top: 0.25rem;
-}
-
-.forgot-password-link a {
-  font-family: 'Inter', sans-serif;
-  font-size: 0.85rem;
-  color: #7fb7a4;
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.forgot-password-link a:hover {
-  text-decoration: underline;
-}
-
-/* ============================================
- * BUTTONS (Obsolete - Migrated to BaseButton)
- * ============================================ */
-/* Removed .submit-btn, .google-btn as they are replaced by BaseButton */
-
-/* ============================================
- * DIVIDER
- * ============================================ */
-.divider {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin: 1.5rem 0;
-}
-
-.divider-line {
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(127, 183, 164, 0.3), transparent);
-}
-
-.divider-text {
-  font-family: 'Inter', sans-serif;
-  font-size: 0.85rem;
-  color: #6b7280; /* gray-500 */
-  white-space: nowrap;
-}
-
-/* Removed google-btn styles */
-
-/* ============================================
- * SWITCH MODE LINK
- * ============================================ */
-.switch-mode {
-  text-align: center;
-  margin-top: 1.5rem;
-  font-family: 'Inter', sans-serif;
-  font-size: 0.9rem;
-}
-
-.switch-text {
-  color: #5a4632; /* Darkened from #7d7d7d */
-}
-
-.switch-link {
-  color: #a65d37;
-  font-weight: 700;
-  text-decoration: none;
-  margin-left: 0.25rem;
-  transition: color 0.2s ease;
-}
-
-.switch-link:hover {
-  color: #6da491;
-  text-decoration: underline;
-}
-
-/* ============================================
- * RESPONSIVE DESIGN
- * ============================================ */
-@media (max-width: 900px) {
-  .auth-card {
-    grid-template-columns: 1fr;
-    max-width: 480px;
-    min-height: auto;
-  }
-
-  .auth-illustration {
-    padding: 2rem;
-    order: -1;
-  }
-
-  .cat-image {
-    width: 160px;
-    height: 160px;
-  }
-
-  .welcome-title {
-    font-size: 1.4rem;
-  }
-
-  .welcome-subtitle {
-    font-size: 0.9rem;
-  }
-
-  .auth-form-section {
-    padding: 2rem;
-  }
-
-  .form-title {
-    font-size: 1.6rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .auth-container {
-    padding: 1rem;
-  }
-
-  .auth-illustration {
-    padding: 1.5rem;
-  }
-
-  .cat-image {
-    width: 120px;
-    height: 120px;
-  }
-
-  .auth-form-section {
-    padding: 1.5rem;
-  }
-
-  .form-input {
-    padding: 0.875rem 1rem;
-  }
-
-  .submit-btn {
-    padding: 0.875rem 1.5rem;
-  }
-}
-</style>

@@ -232,7 +232,3 @@ const processFile = (imageFile: File): void => {
   img.src = tempUrl;
 };
 </script>
-
-<style scoped>
-/* Scoped styles */
-</style>

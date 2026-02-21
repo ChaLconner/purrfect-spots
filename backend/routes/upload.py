@@ -104,11 +104,11 @@ async def _perform_server_side_detection(
 ) -> dict[str, Any]:
     """Run server-side cat detection and validate results"""
     # CRITICAL SECURITY FIX: Always perform server-side detection
-    
+
     # If file is UploadFile (legacy/fallback), reset cursor. If bytes, use directly.
     if isinstance(file, UploadFile):
         await file.seek(0)
-    
+
     detection_result = await detection_service.detect_cats(file)
 
     # Log discrepancy if client said "has_cats" but server says "no"
@@ -167,6 +167,7 @@ async def upload_cat_photo(
     description: str | None = Form(""),
     tags: str | None = Form(None),
     cat_detection_data: str | None = Form(None),
+    location_blurred: str = Form("false"),
     current_user: Any = Depends(get_current_user),
     gallery_service: GalleryService = Depends(get_gallery_service),
     detection_service: CatDetectionService = Depends(get_cat_detection_service),
@@ -228,6 +229,13 @@ async def upload_cat_photo(
         # Use shared validation utilities for coordinates and location text
         latitude, longitude = validate_coordinates(lat, lng)
 
+        # Apply privacy blur offset if requested
+        blurred_val = str(location_blurred).lower() in ["true", "1", "yes"]
+        if blurred_val:
+            import random
+            latitude += random.uniform(-0.00045, 0.00045)
+            longitude += random.uniform(-0.00045, 0.00045)
+
         # Consolidate text validation
         cleaned_location_name, cleaned_description = validate_location_data(location_name, description)
 
@@ -235,6 +243,9 @@ async def upload_cat_photo(
         parsed_tags = parse_and_sanitize_tags(tags)
         if parsed_tags:
             cleaned_description = format_tags_for_description(parsed_tags, cleaned_description)
+
+        # Determine status
+        status = "pending_review" if 'fallback_active' in cat_data else "approved"
 
         # Upload optimized file to S3
         try:
@@ -265,6 +276,8 @@ async def upload_cat_photo(
             "longitude": longitude,
             "image_url": image_url,
             "uploaded_at": datetime.now().isoformat(),
+            "location_blurred": blurred_val,
+            "status": status,
         }
 
         try:
@@ -341,5 +354,3 @@ async def test_upload_endpoint() -> dict[str, Any]:
         "message": "Upload endpoint is working!",
         "timestamp": datetime.now().isoformat(),
     }
-
-

@@ -8,10 +8,8 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from main import app
-
-# We don't import get_auth_service for override, we patch the service class
-# from routes.auth import get_auth_service
 from middleware.auth_middleware import get_current_user_from_header
+from routes.auth import get_auth_service
 
 
 @pytest.fixture
@@ -64,45 +62,51 @@ class TestGoogleAuthRoutes:
 
     async def test_google_login(self, client, mock_user_response):
         """Test Google login with token"""
-        with patch("routes.auth.AuthService") as MockServiceClass:
-            # Configure instance
-            mock_service = MockServiceClass.return_value
-            mock_service.verify_google_token.return_value = {"email": "test@example.com"}
-            mock_service.create_or_get_user.return_value = mock_user_response
-            mock_service.create_access_token.return_value = "mock_access_token"
-            mock_service.create_refresh_token.return_value = "mock_refresh_token"
+        mock_service = MagicMock()
+        mock_service.verify_google_token.return_value = {"email": "test@example.com"}
+        mock_service.create_or_get_user = AsyncMock(return_value=mock_user_response)
+        mock_service.create_access_token.return_value = "mock_access_token"
+        mock_service.create_refresh_token.return_value = "mock_refresh_token"
 
-            # Need to patch config for cookie setting
-            with patch("routes.auth.config") as mock_config:
-                mock_config.JWT_REFRESH_EXPIRATION_DAYS = 7
-                mock_config.is_production.return_value = False
+        app.dependency_overrides[get_auth_service] = lambda: mock_service
 
-                payload = {"token": "google_token"}
-                response = await client.post("/api/v1/auth/google", json=payload)
+        # Need to patch config for cookie setting
+        with patch("routes.auth.config") as mock_config:
+            mock_config.JWT_REFRESH_EXPIRATION_DAYS = 7
+            mock_config.is_production.return_value = False
 
-                assert response.status_code == 200, f"Response: {response.text}"
-                assert response.json()["access_token"] == "mock_access_token"
+            payload = {"token": "google_token"}
+            response = await client.post("/api/v1/auth/google", json=payload)
+
+            # Clean up override immediately to avoid leakage
+            app.dependency_overrides = {}
+
+            assert response.status_code == 200, f"Response: {response.text}"
+            assert response.json()["access_token"] == "mock_access_token"
 
     async def test_google_exchange_code(self, client, mock_login_response_obj):
         """Test exchange code for tokens"""
-        with patch("routes.auth.AuthService") as MockServiceClass:
-            mock_service = MockServiceClass.return_value
-            mock_service.exchange_google_code = AsyncMock(return_value=mock_login_response_obj)
+        mock_service = MagicMock()
+        mock_service.exchange_google_code = AsyncMock(return_value=mock_login_response_obj)
 
-            with patch("routes.auth.config") as mock_config:
-                mock_config.get_allowed_origins.return_value = ["http://localhost:5173"]
-                mock_config.JWT_REFRESH_EXPIRATION_DAYS = 7
-                mock_config.is_production.return_value = False
+        app.dependency_overrides[get_auth_service] = lambda: mock_service
 
-                payload = {
-                    "code": "auth_code",
-                    "code_verifier": "verifier",
-                    "redirect_uri": "http://localhost:5173/auth/callback",
-                }
-                response = await client.post("/api/v1/auth/google/exchange", json=payload)
+        with patch("routes.auth.config") as mock_config:
+            mock_config.get_allowed_origins.return_value = ["http://localhost:5173"]
+            mock_config.JWT_REFRESH_EXPIRATION_DAYS = 7
+            mock_config.is_production.return_value = False
 
-                assert response.status_code == 200, f"Response: {response.text}"
-                assert response.json()["access_token"] == "access"
+            payload = {
+                "code": "auth_code",
+                "code_verifier": "verifier",
+                "redirect_uri": "http://localhost:5173/auth/callback",
+            }
+            response = await client.post("/api/v1/auth/google/exchange", json=payload)
+
+            app.dependency_overrides = {}
+
+            assert response.status_code == 200, f"Response: {response.text}"
+            assert response.json()["access_token"] == "access"
 
     async def test_sync_user_data(self, client):
         """Test user sync endpoint"""
@@ -116,9 +120,10 @@ class TestGoogleAuthRoutes:
         mock_supabase_admin = MagicMock()
         mock_res = MagicMock()
         mock_res.data = [{"id": "00000000-0000-4000-a000-000000000123"}]
-        mock_supabase_admin.table().upsert().execute.return_value = mock_res
+        mock_supabase_admin.table.return_value.upsert.return_value.execute = AsyncMock(return_value=mock_res)
 
-        with patch("routes.auth.get_supabase_admin_client", return_value=mock_supabase_admin):
+        with patch("dependencies.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
+            mock_get_admin.return_value = mock_supabase_admin
             app.dependency_overrides[get_current_user_from_header] = lambda: mock_jwt_payload
 
             response = await client.post("/api/v1/auth/sync-user")

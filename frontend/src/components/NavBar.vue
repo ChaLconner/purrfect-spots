@@ -26,35 +26,65 @@ const catsStore = useCatsStore();
 </script>
 
 <template>
-  <nav class="navbar-container" aria-label="Main Navigation">
-    <div class="navbar-content">
+  <nav class="sticky top-0 z-50 m-2 sm:m-3 md:m-4 xl:my-4 xl:mx-8" aria-label="Main Navigation">
+    <div
+      class="relative flex justify-between items-center px-3 sm:px-4 md:px-5 xl:px-6 py-2 md:py-2.5 xl:py-3 bg-btn-bg rounded-[1.25rem] border-2 border-btn-shade-a gap-2 md:gap-4 xl:gap-8 min-w-0"
+      style="transform-style: preserve-3d"
+    >
+      <!-- 3D Base -->
+      <div
+        class="absolute inset-0 bg-btn-shade-c rounded-[inherit] -z-10 shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.25rem_0_0_var(--color-btn-shade-a)]"
+        style="transform: translate3d(0, 0.25rem, -1em)"
+      ></div>
+
       <!-- Left Section: Logo + Brand + Cat Counter -->
-      <div class="left-section">
-        <button class="brand-section" aria-label="Go to home" @click="router.push('/')">
-          <Logo class="brand-logo" />
-          <span class="brand-name hidden md:block">Purrfect Spots</span>
+      <div class="flex items-center gap-4 shrink-0">
+        <button
+          class="relative flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-2xl border-2 border-btn-shade-a bg-btn-shade-e transition-all duration-200 ease-in-out hover:bg-btn-shade-d hover:-translate-y-0.5 active:translate-y-0"
+          aria-label="Go to home"
+          @click="router.push('/')"
+        >
+          <Logo class="relative z-10 w-9 h-9 drop-shadow-[0_2px_4px_rgba(106,163,137,0.3)]" />
+          <span
+            class="relative z-10 font-accent font-bold text-lg text-btn-shade-a whitespace-nowrap hidden md:block"
+            >Purrfect Spots</span
+          >
         </button>
 
-        <div v-if="route.path === '/map' || route.path === '/'" class="cat-counter hidden 2xl:flex">
-          <div class="paw-icon-wrapper">
-            <Paw class="paw-icon" />
+        <div
+          v-if="route.path === '/map' || route.path === '/'"
+          class="relative items-center gap-2 px-3 py-1.5 rounded-2xl bg-btn-shade-e border-2 border-btn-shade-a hidden 2xl:flex"
+          style="transform-style: preserve-3d"
+        >
+          <div
+            class="absolute inset-0 bg-btn-shade-c rounded-[inherit] shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.2rem_0_0_var(--color-btn-shade-a)]"
+            style="transform: translate3d(0, 0.2rem, -1em)"
+          ></div>
+          <div class="relative z-10 w-7 h-7 flex items-center justify-center">
+            <Paw class="w-6 h-6 text-btn-shade-a" />
           </div>
-          <div class="cat-counter-text">
-            <span class="cat-count">{{ catsStore.catCount }} {{ $t('cats.cats') }}</span>
-            <span class="cat-subtitle">{{ $t('cats.spottedNearby') }}</span>
+          <div class="relative z-10 flex flex-col leading-tight">
+            <span class="font-accent font-bold text-xs text-btn-shade-a"
+              >{{ catsStore.catCount }} {{ $t('cats.cats') }}</span
+            >
+            <span class="font-accent text-[0.6rem] text-btn-shade-b">{{
+              $t('cats.spottedNearby')
+            }}</span>
           </div>
         </div>
       </div>
 
       <!-- Center Section: Search Box -->
-      <div class="center-section">
+      <div
+        class="flex justify-center flex-1 min-w-0 max-w-[480px] justify-self-center px-2 xl:z-10"
+      >
         <SearchBox />
       </div>
 
       <!-- Right Section: Navigation + Login -->
-      <div class="right-section">
+      <div class="flex items-center gap-2 md:gap-4 shrink-0 z-20">
         <!-- Desktop Nav Links -->
-        <div class="nav-links hidden xl:flex items-center gap-1.5">
+        <div class="hidden xl:flex items-center gap-1.5">
           <NavLink
             to="/map"
             variant="sage"
@@ -62,7 +92,7 @@ const catsStore = useCatsStore();
             :class="{ active: route.path === '/map' || route.path === '/' }"
           >
             <template #icon>
-              <MapIcon class="nav-icon" />
+              <MapIcon class="relative z-10 w-[1.1rem] h-[1.1rem]" />
             </template>
           </NavLink>
 
@@ -73,7 +103,7 @@ const catsStore = useCatsStore();
             :class="{ active: route.path === '/upload' }"
           >
             <template #icon>
-              <Upload class="nav-icon" />
+              <Upload class="relative z-10 w-[1.1rem] h-[1.1rem]" />
             </template>
           </NavLink>
 
@@ -84,7 +114,7 @@ const catsStore = useCatsStore();
             :class="{ active: route.path === '/gallery' }"
           >
             <template #icon>
-              <Gallery class="nav-icon" />
+              <Gallery class="relative z-10 w-[1.1rem] h-[1.1rem]" />
             </template>
           </NavLink>
 
@@ -95,7 +125,7 @@ const catsStore = useCatsStore();
             :class="{ active: route.path === '/leaderboard' }"
           >
             <template #icon>
-              <Trophy class="nav-icon" />
+              <Trophy class="relative z-10 w-[1.1rem] h-[1.1rem]" />
             </template>
           </NavLink>
         </div>
@@ -107,7 +137,7 @@ const catsStore = useCatsStore();
         <div v-if="!authStore.isAuthenticated" class="hidden xl:flex items-center gap-2">
           <NavLink to="/login" variant="accent" :label="$t('auth.login')">
             <template #icon>
-              <ProfileIcon class="nav-icon" />
+              <ProfileIcon class="relative z-10 w-[1.1rem] h-[1.1rem]" />
             </template>
           </NavLink>
         </div>
@@ -121,236 +151,3 @@ const catsStore = useCatsStore();
     </div>
   </nav>
 </template>
-
-<style scoped>
-.navbar-container {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  margin: 1rem 2rem 1.5rem 2rem;
-}
-
-@media (max-width: 1279px) {
-  .navbar-container {
-    margin: 0.75rem 1rem;
-  }
-}
-
-@media (max-width: 640px) {
-  .navbar-container {
-    margin: 0.5rem 0.75rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .navbar-container {
-    margin: 0.5rem;
-  }
-}
-
-/* 3D Navbar Content */
-.navbar-content {
-  position: relative;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.5rem 0.75rem;
-  background: var(--color-btn-bg);
-  border-radius: 1.25rem;
-  border: 2px solid var(--color-btn-shade-a);
-  transform-style: preserve-3d;
-  min-width: 0;
-  gap: 0.5rem;
-}
-
-@media (min-width: 768px) {
-  .navbar-content {
-    padding: 0.625rem 1rem;
-    gap: 1rem;
-  }
-}
-
-@media (min-width: 1280px) {
-  .navbar-content {
-    padding: 0.75rem 1.5rem;
-    gap: 2rem;
-  }
-}
-
-.navbar-content::before {
-  position: absolute;
-  content: '';
-  width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
-  background: var(--color-btn-shade-c);
-  border-radius: inherit;
-  box-shadow:
-    0 0 0 2px var(--color-btn-shade-b),
-    0 0.4em 0 0 var(--color-btn-shade-a);
-  transform: translate3d(0, 0.4em, -1em);
-  z-index: -1;
-}
-
-/* Left Section */
-.left-section {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  flex-shrink: 0;
-}
-
-/* 3D Brand Section */
-.brand-section {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  padding: 0.375rem 0.75rem;
-  border-radius: 1em;
-  border: 2px solid var(--color-btn-shade-a);
-  background: var(--color-btn-shade-e);
-  transition: all 0.2s ease;
-}
-
-.brand-section:hover {
-  background: var(--color-btn-shade-d);
-  transform: translateY(-2px);
-}
-
-.brand-section:active {
-  transform: translateY(0);
-}
-
-.brand-logo {
-  width: 2.25rem;
-  height: 2.25rem;
-  filter: drop-shadow(0 2px 4px rgba(106, 163, 137, 0.3));
-  position: relative;
-  z-index: 1;
-}
-
-.brand-name {
-  font-family: 'Zen Maru Gothic', sans-serif;
-  font-weight: 700;
-  font-size: 1.1rem;
-  color: var(--color-btn-shade-a);
-  white-space: nowrap;
-  position: relative;
-  z-index: 1;
-}
-
-/* 3D Cat Counter */
-.cat-counter {
-  position: relative;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0.75rem;
-  border-radius: 1em;
-  background: var(--color-btn-shade-e);
-  border: 2px solid var(--color-btn-shade-a);
-  transform-style: preserve-3d;
-}
-
-.cat-counter::before {
-  position: absolute;
-  content: '';
-  width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
-  background: var(--color-btn-shade-c);
-  border-radius: inherit;
-  box-shadow:
-    0 0 0 2px var(--color-btn-shade-b),
-    0 0.25em 0 0 var(--color-btn-shade-a);
-  transform: translate3d(0, 0.25em, -1em);
-}
-
-.paw-icon-wrapper {
-  width: 1.75rem;
-  height: 1.75rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  z-index: 1;
-}
-
-.paw-icon {
-  width: 1.5rem;
-  height: 1.5rem;
-  color: var(--color-btn-shade-a);
-}
-
-.cat-counter-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.1;
-  position: relative;
-  z-index: 1;
-}
-
-.cat-count {
-  font-family: 'Zen Maru Gothic', sans-serif;
-  font-weight: 700;
-  font-size: 0.8rem;
-  color: var(--color-btn-shade-a);
-}
-
-.cat-subtitle {
-  font-family: 'Zen Maru Gothic', sans-serif;
-  font-size: 0.6rem;
-  color: var(--color-btn-shade-b);
-}
-
-/* Center Section - Search */
-.center-section {
-  display: flex;
-  justify-content: center;
-  flex: 1;
-  min-width: 0;
-  max-width: 480px;
-  justify-self: center;
-  padding: 0 0.5rem;
-}
-
-@media (min-width: 1280px) {
-  .center-section {
-    z-index: 10;
-  }
-}
-
-/* Right Section */
-.right-section {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-shrink: 0;
-  z-index: 20;
-}
-
-@media (min-width: 768px) {
-  .right-section {
-    gap: 1rem;
-  }
-}
-
-/* Nav Icon Sizing - Hover effects handled in NavLink */
-.nav-icon {
-  width: 1.1rem;
-  height: 1.1rem;
-  position: relative;
-  z-index: 1;
-}
-
-/* Mobile Nav Visibility - Removed display: none */
-@media (max-width: 640px) {
-  .navbar-container {
-    margin: 0.5rem;
-    display: block !important;
-  }
-}
-</style>

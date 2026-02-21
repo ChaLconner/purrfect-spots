@@ -1,8 +1,10 @@
 <template>
-  <div class="map-page">
+  <div class="relative flex flex-col h-full pt-6 px-6 pb-4 overflow-hidden">
     <!-- Map Container with 3D Frame -->
-    <div class="map-frame">
-      <div class="map-container">
+    <div
+      class="relative flex-1 p-2 bg-[var(--color-btn-shade-e)] border-[3px] border-[var(--color-btn-shade-a)] rounded-[1.25rem] shadow-[0_0_0_3px_var(--color-btn-shade-b),0_0.5em_0_0_var(--color-btn-shade-a)]"
+    >
+      <div class="relative w-full h-full overflow-hidden rounded-xl bg-[var(--color-btn-shade-d)]">
         <!-- Initial Loading State (Progressive) -->
         <transition
           enter-active-class="transition-opacity duration-300"
@@ -42,52 +44,19 @@
         </div>
 
         <!-- Google Map -->
-        <div id="map" class="map-element"></div>
+        <div id="map" class="w-full h-full outline-none rounded-[inherit]"></div>
 
         <!-- Custom Map Controls (Glassmorphism) -->
 
-        <!-- Search Results Info (Floating Badge) -->
-        <transition
-          enter-active-class="transition-all duration-300 ease-out"
-          leave-active-class="transition-all duration-200 ease-in"
-          enter-from-class="opacity-0 -translate-y-4"
-          leave-to-class="opacity-0 -translate-y-4"
-        >
-          <div
-            v-if="!isLoading && !error && searchQuery"
-            class="absolute top-20 lg:top-6 left-1/2 transform -translate-x-1/2 z-10"
-          >
-            <div class="search-results-badge">
-              <i18n-t keypath="map.foundCats" tag="span" class="badge-text">
-                <template #count>
-                  <strong>{{ displayedLocations.length }}</strong>
-                </template>
-                <template #query>
-                  <span class="search-term">{{ searchQuery }}</span>
-                </template>
-              </i18n-t>
-              <button
-                class="clear-search-btn"
-                :aria-label="$t('map.clearSearch')"
-                @click="clearSearch"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  class="w-4 h-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </transition>
+        <MapSearchBadge
+          :show="!isLoading && !error && !!searchQuery"
+          :count="displayedLocations.length"
+          :query="searchQuery || ''"
+          @clear="clearSearch"
+        />
+
+        <!-- Onboarding Banner for new users -->
+        <OnboardingBanner />
       </div>
     </div>
 
@@ -110,6 +79,8 @@ import { showError } from '../store/toast';
 import GhibliLoader from '@/components/ui/GhibliLoader.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import CatDetailModal from '@/components/map/CatDetailModal.vue';
+import MapSearchBadge from '@/components/map/MapSearchBadge.vue';
+import OnboardingBanner from '@/components/map/OnboardingBanner.vue';
 
 import { loadGoogleMaps, isGoogleMapsLoaded } from '../utils/googleMapsLoader';
 import { getEnvVar } from '../utils/env';
@@ -284,7 +255,7 @@ const loadCatLocations = async () => {
 
     // sync state from URL if needed
     syncStateFromUrl();
-  } catch (err: unknown) {
+  } catch {
     // Error handling
     const msg = t('map.errorLoadingLocations');
     error.value = msg;
@@ -495,171 +466,3 @@ onUnmounted(() => {
   resetMetaTags(); // Reset SEO meta tags
 });
 </script>
-
-<style scoped>
-/* Map Page Layout */
-.map-page {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 1.5rem 1.5rem 1rem 1.5rem; /* Increased top padding */
-  overflow: hidden;
-}
-
-/* 3D Map Frame */
-.map-frame {
-  position: relative;
-  flex: 1;
-  padding: 0.5rem;
-  background: var(--color-btn-shade-e);
-  border: 3px solid var(--color-btn-shade-a);
-  border-radius: 1.25rem;
-  box-shadow:
-    0 0 0 3px var(--color-btn-shade-b),
-    0 0.5em 0 0 var(--color-btn-shade-a);
-}
-
-/* Map Container */
-.map-container {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  border-radius: 0.75rem;
-  background: var(--color-btn-shade-d);
-}
-
-/* Map Element */
-.map-element {
-  width: 100%;
-  height: 100%;
-  /* Removed fixed min-height to rely on flexbox and avoid scrollbars */
-  outline: none;
-  border-radius: inherit;
-}
-
-/* Floating animation for welcome card */
-@keyframes float {
-  0%,
-  100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-5px);
-  }
-}
-
-@keyframes float-gentle {
-  0%,
-  100% {
-    transform: translate(-50%, 0px);
-  }
-  50% {
-    transform: translate(-50%, -4px);
-  }
-}
-
-.animate-float {
-  animation: float 3s ease-in-out infinite;
-}
-
-.animate-float-gentle {
-  animation: float-gentle 4s ease-in-out infinite;
-}
-
-/* Delay utilities for sparkle animation */
-.delay-100 {
-  animation-delay: 0.1s;
-}
-.delay-200 {
-  animation-delay: 0.2s;
-}
-
-/* 3D Search Results Badge */
-.search-results-badge {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.625rem 0.625rem 0.625rem 1.25rem;
-  background: var(--color-btn-shade-e);
-  border: 2px solid var(--color-btn-shade-a);
-  border-radius: 2rem;
-  box-shadow:
-    0 0 0 2px var(--color-btn-shade-b),
-    0 0.3em 0 0 var(--color-btn-shade-a);
-  animation: float-gentle 4s ease-in-out infinite;
-}
-
-.badge-text {
-  font-family: 'Zen Maru Gothic', sans-serif;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--color-btn-shade-a);
-}
-
-.badge-text strong {
-  color: var(--color-btn-accent-a);
-  font-weight: 700;
-}
-
-.search-term {
-  font-style: italic;
-  color: var(--color-btn-brown-b);
-}
-
-/* 3D Clear Search Button */
-.clear-search-btn {
-  position: relative;
-  width: 1.75rem;
-  height: 1.75rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-btn-accent-e);
-  border: 2px solid var(--color-btn-accent-a);
-  border-radius: 50%;
-  color: var(--color-btn-accent-a);
-  cursor: pointer;
-  transform-style: preserve-3d;
-  transition: all 175ms cubic-bezier(0, 0, 1, 1);
-}
-
-.clear-search-btn::before {
-  position: absolute;
-  content: '';
-  width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
-  background: var(--color-btn-accent-c);
-  border-radius: inherit;
-  box-shadow:
-    0 0 0 2px var(--color-btn-accent-b),
-    0 0.2em 0 0 var(--color-btn-accent-a);
-  transform: translate3d(0, 0.2em, -1em);
-  transition: all 175ms cubic-bezier(0, 0, 1, 1);
-}
-
-.clear-search-btn:hover {
-  background: var(--color-btn-accent-d);
-  transform: translate(0, 0.1em);
-}
-
-.clear-search-btn:active {
-  transform: translate(0, 0.2em);
-}
-
-.clear-search-btn:active::before {
-  transform: translate3d(0, 0, -1em);
-  box-shadow:
-    0 0 0 2px var(--color-btn-accent-b),
-    0 0.05em 0 0 var(--color-btn-accent-b);
-}
-
-.clear-search-btn svg {
-  position: relative;
-  z-index: 1;
-}
-</style>

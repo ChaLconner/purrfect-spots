@@ -8,6 +8,8 @@ from typing import Any
 from fastapi import HTTPException, UploadFile
 from PIL import Image
 
+from logger import logger
+
 
 class CatDetectionService:
     """Service for cat detection and spot analysis using Google Cloud Vision API"""
@@ -90,8 +92,18 @@ class CatDetectionService:
             }
 
         except Exception as e:
-            logger.error(f"Cat detection failed: {e}")
-            raise HTTPException(status_code=500, detail="Cat detection failed. Please try again.")
+            logger.error(f"Cat detection failed, using fallback mode: {e}")
+            # Fallback response for manual review
+            return {
+                "has_cats": True,  # Assume true to allow upload
+                "cat_count": 1,
+                "confidence": 0,
+                "cats_detected": [{"description": "Pending manual review (AI unavailable)"}],
+                "image_quality": "Unknown",
+                "suitable_for_cat_spot": True,
+                "reasoning": "Fallback mode active",
+                "fallback_active": True,
+            }
 
     async def analyze_cat_spot_suitability(self, file: UploadFile | bytes) -> dict[str, Any]:
         """

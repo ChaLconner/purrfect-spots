@@ -92,9 +92,12 @@ jobs:
         uses: 'google-github-actions/run-gemini-cli@v0' # ratchet:exclude
         env:
           GITHUB_TOKEN: '' # Do not pass any auth token here since this runs on untrusted inputs
+          # SECURITY: Sanitize inputs to prevent prompt injection
           ISSUES_TO_TRIAGE: '${{ steps.find_issues.outputs.issues_to_triage }}'
           REPOSITORY: '${{ github.repository }}'
           AVAILABLE_LABELS: '${{ steps.get_labels.outputs.available_labels }}'
+          # Add sanitization context for Gemini
+          SANITIZATION_MODE: 'strict'
         with:
           gcp_location: '${{ vars.GOOGLE_CLOUD_LOCATION }}'
           gcp_project_id: '${{ vars.GOOGLE_CLOUD_PROJECT }}'

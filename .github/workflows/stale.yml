@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Mark stale issues and PRs
-        uses: actions/stale@v9
+        uses: actions/stale@28ca1036281d5b71ccaa1922fe291c2a84986cf7 # v9.0.0
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           

@@ -1,6 +1,5 @@
-from typing import Optional, List
+from typing import List, Optional
 from uuid import UUID
-from datetime import datetime
 
 from pydantic import BaseModel, Field
 
@@ -27,6 +26,7 @@ class BulkReportUpdate(BaseModel):
     status: str = Field(..., pattern="^(pending|resolved|dismissed)$")
     resolution_notes: Optional[str] = None
     delete_content: bool = False
+
 
 class UserBan(BaseModel):
     reason: str = Field(..., min_length=1, max_length=255)

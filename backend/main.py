@@ -11,6 +11,7 @@ Features:
 
 import asyncio
 import os
+
 from dotenv import load_dotenv
 
 # Explicitly load .env - Trigger reload (fix magic)
@@ -27,7 +28,6 @@ from fastapi.responses import JSONResponse, ORJSONResponse
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.mcp import MCPIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
-
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -56,7 +56,8 @@ CONTENT_TYPE_JSON = "application/json"
 
 if SENTRY_DSN:
 
-    def before_send(event, hint):
+    from sentry_sdk.types import Event, Hint
+    def before_send(event: Event, hint: Hint) -> Event | None:
         # Filter exceptions by type (when exc_info is available)
         if "exc_info" in hint:
             exc_type, exc_value, tb = hint["exc_info"]
@@ -65,7 +66,8 @@ if SENTRY_DSN:
 
         # Filter by log message for errors that come through without exc_info
         # (e.g., starlette lifespan shutdown, port binding conflicts)
-        message = event.get("logentry", {}).get("message", "") or event.get("message", "")
+        message_obj = event.get("logentry", {}).get("message", "") or event.get("message", "")
+        message = str(message_obj)
         noise_patterns = [
             "CancelledError",
             "KeyboardInterrupt",
@@ -209,6 +211,18 @@ else:
 
 # Initialize Telemetry (OpenTelemetry)
 setup_telemetry(app)
+
+# ========== Background Tasks ==========
+from tasks.cleanup_tasks import start_cleanup_jobs, stop_cleanup_jobs
+
+
+@app.on_event("startup")
+async def startup_event() -> None:
+    await start_cleanup_jobs()
+
+@app.on_event("shutdown")
+async def shutdown_event() -> None:
+    await stop_cleanup_jobs()
 
 # ========== Rate Limiter ==========
 app.state.limiter = limiter

@@ -1,6 +1,7 @@
 import datetime
 from typing import Any, Dict
 
+from postgrest.types import CountMethod
 from supabase import AClient
 
 from config import config
@@ -27,34 +28,38 @@ class QuotaService:
 
         try:
             # Query the main photos table for accurate rolling window count
-            res = await self.supabase.table("cat_photos") \
-                .select("id", count="exact") \
-                .eq("user_id", user_id) \
-                .gt("uploaded_at", twenty_four_hours_ago) \
-                .is_("deleted_at", "null") \
+            res = (
+                await self.supabase.table("cat_photos")
+                .select("id", count=CountMethod.exact)
+                .eq("user_id", user_id)
+                .gt("uploaded_at", twenty_four_hours_ago)
+                .is_("deleted_at", "null")
                 .execute()
+            )
 
             return res.count if hasattr(res, "count") and res.count is not None else 0
         except Exception as e:
             logger.error(f"Failed to fetch recent upload count for user {user_id}: {e}")
             # Fail closed for security - assume limit reached on error
-            return 9999 
+            return 9999
 
     async def check_quota(self, user_id: str, is_pro: bool) -> bool:
         """
         Check if user has sufficient quota within the 24-hour rolling window.
         """
         max_quota = self.PRO_LIMIT if is_pro else self.FREE_LIMIT
-        
+
         # 1. Check Global usage (System-wide daily limit)
         today = datetime.date.today().isoformat()
         try:
-            sys_usage = await self.supabase.table("system_daily_stats") \
-                .select("total_uploads") \
-                .eq("date", today) \
-                .maybe_single() \
+            sys_usage = (
+                await self.supabase.table("system_daily_stats")
+                .select("total_uploads")
+                .eq("date", today)
+                .maybe_single()
                 .execute()
-            
+            )
+
             sys_total = sys_usage.data["total_uploads"] if sys_usage and sys_usage.data else 0
             if sys_total >= self.GLOBAL_SYSTEM_LIMIT:
                 logger.critical(f"System Global Quota Reached: {sys_total}/{self.GLOBAL_SYSTEM_LIMIT}")
@@ -64,7 +69,7 @@ class QuotaService:
 
         # 2. Check User Rolling Quota
         usage_count = await self.get_recent_upload_count(user_id)
-        
+
         if usage_count >= max_quota:
             logger.warning(f"User {user_id} hit rolling quota: {usage_count}/{max_quota}")
             return False
@@ -104,10 +109,8 @@ class QuotaService:
                 "limit": max_quota,
                 "remaining": remaining,
                 "is_pro": is_pro,
-                "reset_type": "24h_rolling"
+                "reset_type": "24h_rolling",
             }
         except Exception as e:
             logger.error(f"Failed to get quota status: {e}")
             return {"used": 0, "limit": max_quota, "remaining": 0, "error": True}
-
-

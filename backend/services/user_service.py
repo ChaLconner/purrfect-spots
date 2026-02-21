@@ -1,13 +1,12 @@
-from typing import Any, cast, Optional
+from typing import Any, Optional
 
 from supabase import AClient
 
 from exceptions import ConflictError, ExternalServiceError, PurrfectSpotsException
 from logger import logger
-from services.email_service import email_service
 from user_models.user import User
 from utils.datetime_utils import utc_now_iso
-from utils.supabase_client import get_async_supabase_admin_client, get_async_supabase_client
+from utils.supabase_client import get_async_supabase_admin_client
 
 ERROR_FAILED_TO_CREATE_USER = "Failed to create user"
 ERROR_EMAIL_ALREADY_REGISTERED = "Email already registered"
@@ -88,6 +87,19 @@ class UserService:
             logger.debug("Failed to retrieve profile by email: %s", e)
             return None
 
+    async def get_user_by_username(self, username: str) -> User | None:
+        """Get user by username from database (Async)"""
+        try:
+            admin = await self._get_admin_client()
+            query = "*, roles(name, role_permissions(permissions(code)))"
+            result = await admin.table("users").select(query).eq("username", username).maybe_single().execute()
+            if result.data:
+                return self._map_db_user_to_model(result.data)
+            return None
+        except Exception as e:
+            logger.debug("Failed to retrieve profile by username: %s", e)
+            return None
+
     async def create_unverified_user(self, email: str, password: str, name: str) -> dict[str, Any]:
         """Create a new user without sending a confirmation email (Async)"""
         try:
@@ -150,7 +162,7 @@ class UserService:
                 user_record["role_id"] = await self._get_user_role_id()
 
             await admin.table("users").upsert(user_record, on_conflict="id").execute()
-            
+
             user = await self.get_user_by_id(user_id)
             if not user:
                 raise ExternalServiceError("Failed to retrieve user after creation", service="Supabase Database")
@@ -166,10 +178,12 @@ class UserService:
                 user = await self.get_user_by_id(res.user.id)
                 if user:
                     user_dict = user.model_dump()
-                    user_dict.update({
-                        "access_token": res.session.access_token,
-                        "refresh_token": res.session.refresh_token,
-                    })
+                    user_dict.update(
+                        {
+                            "access_token": res.session.access_token,
+                            "refresh_token": res.session.refresh_token,
+                        }
+                    )
                     return user_dict
 
                 return {
@@ -193,7 +207,6 @@ class UserService:
     ) -> dict[str, Any]:
         """Update user profile (Async)"""
         try:
-            from config import config
             admin = await self._get_admin_client()
             result = await admin.table("users").update(update_data).eq("id", user_id).execute()
             if not result.data:

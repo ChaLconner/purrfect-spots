@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
-import { useI18n } from 'vue-i18n';
 import SkeletonLoader from '@/components/ui/SkeletonLoader.vue';
 import type { CatLocation } from '@/types/api';
 
@@ -83,16 +82,19 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div ref="imageStageRef" class="modal-image-stage">
+  <div
+    ref="imageStageRef"
+    class="group relative bg-[#1a1a1a] h-[72vh] overflow-hidden flex items-center justify-center z-1 sm:max-[899px]:h-[85vh] min-[900px]:h-auto"
+  >
     <!-- Loading State -->
-    <div v-if="!isLoaded" class="loading-skeleton">
+    <div v-if="!isLoaded" class="absolute inset-0 z-10">
       <SkeletonLoader width="100%" height="100%" border-radius="0" />
     </div>
 
     <!-- Blurred Background for gaps -->
     <div
       v-if="image"
-      class="blurred-bg"
+      class="absolute -inset-5 bg-cover bg-center blur-[40px] brightness-90 saturate-[1.2] opacity-80 z-[-1] scale-110"
       :style="{ backgroundImage: `url(${image.image_url})` }"
     ></div>
 
@@ -115,18 +117,19 @@ onUnmounted(() => {
           ? $t('galleryPage.modal.aCatAt', { location: image.location_name })
           : $t('galleryPage.modal.aCat')
       "
-      class="main-image"
+      class="w-full h-full object-contain relative z-2 drop-shadow-[0_10px_20px_rgba(0,0,0,0.3)] scale-[1.2]"
       @load="$emit('image-load')"
       @error="$emit('image-error', $event)"
     />
 
     <!-- Gradient Overlay (Bottom) -->
-    <div class="image-overlay"></div>
+    <div
+      class="absolute bottom-0 left-0 w-full h-[120px] bg-gradient-to-t from-black/60 to-transparent pointer-events-none"
+    ></div>
 
-    <!-- Navigation Arrows (Floating) -->
     <button
       v-if="hasPrevious"
-      class="nav-btn prev-btn"
+      class="absolute top-1/2 -translate-y-1/2 left-6 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-white flex items-center justify-center cursor-pointer transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] z-20 opacity-100 md:opacity-0 group-hover:opacity-100 hover:bg-white hover:text-[#1a1a1a] hover:scale-110 hover:shadow-[0_4px_12px_rgba(0,0,0,0.2)] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 active:scale-95"
       :aria-label="$t('galleryPage.modal.previous')"
       @click.stop="$emit('navigate', 'prev')"
     >
@@ -144,7 +147,7 @@ onUnmounted(() => {
 
     <button
       v-if="hasNext"
-      class="nav-btn next-btn"
+      class="absolute top-1/2 -translate-y-1/2 right-6 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-white flex items-center justify-center cursor-pointer transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] z-20 opacity-100 md:opacity-0 group-hover:opacity-100 hover:bg-white hover:text-[#1a1a1a] hover:scale-110 hover:shadow-[0_4px_12px_rgba(0,0,0,0.2)] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 active:scale-95"
       :aria-label="$t('galleryPage.modal.next')"
       @click.stop="$emit('navigate', 'next')"
     >
@@ -161,120 +164,3 @@ onUnmounted(() => {
     </button>
   </div>
 </template>
-
-<style scoped>
-/* Image Stage */
-.modal-image-stage {
-  position: relative;
-  background: #1a1a1a;
-  height: 38vh;
-  flex-shrink: 0;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1; /* Ensure it stays below content if overlapping */
-}
-
-@media (min-width: 640px) and (max-width: 899px) {
-  .modal-image-stage {
-    height: 55vh; /* Taller image on tablets */
-  }
-}
-
-@media (min-width: 900px) {
-  .modal-image-stage {
-    flex: 1.6;
-    height: auto;
-  }
-}
-
-.loading-skeleton {
-  position: absolute;
-  inset: 0;
-  z-index: 10;
-}
-
-.main-image {
-  width: 100%;
-  height: 100%;
-  object-fit: contain; /* Show full image without cropping */
-  position: relative;
-  z-index: 2;
-  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.3)); /* Add depth */
-}
-
-.blurred-bg {
-  position: absolute;
-  inset: -20px;
-  background-size: cover;
-  background-position: center;
-  filter: blur(40px) brightness(0.9) saturate(1.2); /* Brighter, more vibrant */
-  opacity: 0.8; /* Make it more prominent */
-  z-index: -1; /* Behind main image */
-  transform: scale(1.1);
-}
-
-.image-overlay {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 120px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.6), transparent);
-  pointer-events: none;
-}
-
-/* Nav Buttons on Image */
-.nav-btn {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 20;
-  opacity: 0; /* Hidden by default for cleaner look, shown on hover */
-}
-
-.modal-image-stage:hover .nav-btn {
-  opacity: 1;
-}
-
-/* On mobile always show */
-@media (max-width: 768px) {
-  .nav-btn {
-    opacity: 1;
-    width: 40px;
-    height: 40px;
-  }
-}
-
-.nav-btn:hover {
-  background: white;
-  color: #1a1a1a;
-  transform: translateY(-50%) scale(1.1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.prev-btn {
-  left: 1.5rem;
-}
-.next-btn {
-  right: 1.5rem;
-}
-
-.error-state {
-  position: relative;
-  z-index: 2;
-}
-</style>

@@ -55,13 +55,15 @@ class SeoService:
     async def _get_all_photo_ids(self) -> List[str]:
         try:
             # Fetch visible photos, limit to most recent 1000 to avoid huge sitemap
-            res = await self.supabase.table("cat_photos") \
-                .select("id") \
-                .is_("deleted_at", "null") \
-                .order("uploaded_at", desc=True) \
-                .limit(1000) \
+            res = (
+                await self.supabase.table("cat_photos")
+                .select("id")
+                .is_("deleted_at", "null")
+                .order("uploaded_at", desc=True)
+                .limit(1000)
                 .execute()
-                
+            )
+
             return [row["id"] for row in res.data]
         except Exception as e:
             print(f"Sitemap photo fetch error: {e}")

@@ -2,7 +2,6 @@
 Tests for authentication services
 
 # nosec python:S2068 - Hardcoded passwords in this file are intentional test fixtures
-# These are not real credentials; they are used only for unit testing authentication
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -14,6 +13,7 @@ from user_models.user import User
 from utils.datetime_utils import utc_now
 
 
+@pytest.mark.asyncio
 class TestAuthService:
     """Test suite for AuthService"""
 
@@ -24,20 +24,43 @@ class TestAuthService:
     NEW_PASSWORD = "new_password"
 
     @pytest.fixture
-    def mock_user_service(self):
-        """Mock UserService"""
-        with patch("services.auth_service.UserService") as mock_class:
-            mock_instance = mock_class.return_value
-            yield mock_instance
+    def mock_supabase(self):
+        """Mock Supabase client"""
+        mock = MagicMock()
+        mock.auth = MagicMock()
+        return mock
 
     @pytest.fixture
-    def auth_service(self, mock_supabase, mock_user_service):
-        """Create AuthService instance with mocked supabase and user service"""
-        return AuthService(mock_supabase)
-        # Verify UserService was initialized with supabase client
-        # mock_user_service_class.assert_called_with(mock_supabase) # Can't easily check this here due to fixture yield
+    def mock_supabase_admin(self):
+        """Mock Supabase Admin client"""
+        mock = MagicMock()
+        mock.auth = MagicMock()
+        mock.auth.admin = MagicMock()
+        # Ensure async methods are awaited if called directly, though mostly accessed via properties
+        return mock
 
-    def test_create_or_get_user_new(self, auth_service, mock_user_service):
+    @pytest.fixture
+    def mock_user_service_instance(self):
+        """Mock UserService instance with AsyncMock methods"""
+        mock = MagicMock()
+        mock.create_or_get_user = AsyncMock()
+        mock.get_user_by_id = AsyncMock()
+        mock.update_user_profile = AsyncMock()
+        mock.authenticate_user = AsyncMock()
+        mock.create_unverified_user = AsyncMock()
+        mock.get_user_by_email = AsyncMock()
+        return mock
+
+    @pytest.fixture
+    def auth_service(self, mock_supabase, mock_supabase_admin, mock_user_service_instance):
+        """Create AuthService instance with mocked dependencies"""
+        # Patch the class so when AuthService init calls UserService(), it returns our mock
+        with patch("services.auth_service.UserService", return_value=mock_user_service_instance):
+            service = AuthService(mock_supabase, mock_supabase_admin)
+            # Ensure the service uses our mock instance (it should by virtue of patch, but explicit check helper)
+            yield service
+
+    async def test_create_or_get_user_new(self, auth_service, mock_user_service_instance):
         """Test creating a new user via OAuth data"""
         user_data = {
             "id": "new-user-123",
@@ -55,16 +78,15 @@ class TestAuthService:
             picture="https://example.com/pic.jpg",
             created_at=utc_now(),
         )
-        mock_user_service.create_or_get_user.return_value = expected_user
+        mock_user_service_instance.create_or_get_user.return_value = expected_user
 
-        user = auth_service.create_or_get_user(user_data)
+        user = await auth_service.create_or_get_user(user_data)
 
         assert user.id == "new-user-123"
         assert user.email == "new@example.com"
-        mock_user_service.create_or_get_user.assert_called_once_with(user_data)
+        mock_user_service_instance.create_or_get_user.assert_called_once_with(user_data)
 
-    @pytest.mark.asyncio
-    async def test_change_password_success(self, auth_service, mock_user_service):
+    async def test_change_password_success(self, auth_service, mock_user_service_instance, mock_supabase_admin):
         """Test changing password successfully"""
         user_id = self.TEST_USER_ID
         current_password = self.OLD_PASSWORD
@@ -76,38 +98,33 @@ class TestAuthService:
             email="test@test.com",
             name="Test",
             created_at=utc_now(),
-            password_hash="hashed_old",
         )
-        mock_user_service.get_user_by_id.return_value = mock_user
+        mock_user_service_instance.get_user_by_id.return_value = mock_user
 
         # Mock password validation
         with patch("services.auth_service.password_service") as mock_pw_service:
             mock_pw_service.validate_new_password = AsyncMock(return_value=(True, None))
-            mock_pw_service.verify_password.return_value = True
-            mock_pw_service.hash_password.return_value = "new_hash"
+            # AuthService now calls authenticate_user for verification instead of password_service.verify_password manually
+            mock_user_service_instance.authenticate_user.return_value = {"id": user_id}
 
-            with patch("services.auth_service.get_token_service") as mock_ts:
+            with patch("services.auth_service.get_token_service") as mock_ts_getter:
                 mock_token_service = MagicMock()
                 mock_token_service.blacklist_all_user_tokens = AsyncMock(return_value=None)
-                mock_ts.return_value = mock_token_service
+                mock_ts_getter.return_value = mock_token_service
 
                 # Mock email service
                 with patch("services.auth_service.email_service"):
-                    # Mock admin client
-                    auth_service.supabase_admin.auth.admin.update_user_by_id = MagicMock()
-
-                    # Mock successful authentication for current password check
-                    mock_user_service.authenticate_user.return_value = {"id": user_id}
+                    # Mock admin client update
+                    mock_supabase_admin.auth.admin.update_user_by_id = AsyncMock()
 
                     result = await auth_service.change_password(user_id, current_password, new_password)
 
                     assert result is True
-                    auth_service.supabase_admin.auth.admin.update_user_by_id.assert_called_once_with(
+                    mock_supabase_admin.auth.admin.update_user_by_id.assert_called_once_with(
                         user_id, {"password": new_password}
                     )
 
-    @pytest.mark.asyncio
-    async def test_change_password_incorrect(self, auth_service, mock_user_service):
+    async def test_change_password_incorrect(self, auth_service, mock_user_service_instance):
         """Test changing password with incorrect current password"""
         user_id = "user-123"
 
@@ -116,46 +133,46 @@ class TestAuthService:
             email="test@test.com",
             name="Test",
             created_at=utc_now(),
-            password_hash="hashed_real",
         )
-        mock_user_service.get_user_by_id.return_value = mock_user
+        mock_user_service_instance.get_user_by_id.return_value = mock_user
 
         with patch("services.auth_service.password_service") as mock_pw_service:
             mock_pw_service.validate_new_password = AsyncMock(return_value=(True, None))
-            mock_pw_service.verify_password.return_value = False
 
-            # Also mock the Supabase Auth login fallback to fail
-            # AuthService calls user_service.authenticate_user for fallback
-            mock_user_service.authenticate_user.return_value = None
+            # Mock authentication failure
+            mock_user_service_instance.authenticate_user.return_value = None
 
             with pytest.raises(ValueError, match="Incorrect current password"):
                 await auth_service.change_password(user_id, "wrong_password", "new_password")
 
-    @pytest.mark.asyncio
-    async def test_update_user_profile(self, auth_service, mock_user_service):
+    async def test_update_user_profile(self, auth_service, mock_user_service_instance):
         """Test updating user profile"""
         user_id = "user-123"
         update_data = {"name": "Updated Name"}
 
-        mock_user_service.update_user_profile = AsyncMock(return_value={"id": user_id, "name": "Updated Name"})
+        mock_user_service_instance.update_user_profile.return_value = {"id": user_id, "name": "Updated Name"}
 
         result = await auth_service.update_user_profile(user_id, update_data)
 
         assert result["name"] == "Updated Name"
-        mock_user_service.update_user_profile.assert_called_once_with(user_id, update_data, jwt_token=None)
+        mock_user_service_instance.update_user_profile.assert_called_once()
+        # Check args
+        args = mock_user_service_instance.update_user_profile.call_args
+        assert args[0][0] == user_id
+        assert args[0][1] == update_data
 
-    def test_get_user_by_id_found(self, auth_service, mock_user_service):
+    async def test_get_user_by_id_found(self, auth_service, mock_user_service_instance):
         """Test getting user by ID when user exists"""
         mock_user = User(id="user-123", email="test@test.com", name="Test", created_at=utc_now())
-        mock_user_service.get_user_by_id.return_value = mock_user
+        mock_user_service_instance.get_user_by_id.return_value = mock_user
 
-        result = auth_service.get_user_by_id("user-123")
+        result = await auth_service.get_user_by_id("user-123")
         assert result is not None
         assert result.id == "user-123"
 
-    def test_get_user_by_id_not_found(self, auth_service, mock_user_service):
+    async def test_get_user_by_id_not_found(self, auth_service, mock_user_service_instance):
         """Test getting user by ID when user doesn't exist"""
-        mock_user_service.get_user_by_id.return_value = None
+        mock_user_service_instance.get_user_by_id.return_value = None
 
-        result = auth_service.get_user_by_id("nonexistent")
+        result = await auth_service.get_user_by_id("nonexistent")
         assert result is None

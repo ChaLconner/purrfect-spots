@@ -1,16 +1,29 @@
 <template>
-  <output class="gallery-stats-container" aria-live="polite">
-    <div class="stats-pill">
-      <div class="stat-item">
-        <output class="stat-value" :aria-label="t('galleryPage.stats.totalPhotos')">{{
-          totalCount
-        }}</output>
-        <span class="stat-label">{{ t('galleryPage.stats.photo', totalCount) }}</span>
+  <output class="flex justify-center w-full mb-10" aria-live="polite">
+    <div
+      class="flex items-center gap-8 py-3.5 px-10 bg-white/90 backdrop-blur-sm rounded-full shadow-[0_4px_6px_-1px_rgba(0,0,0,0.02),0_2px_4px_-1px_rgba(0,0,0,0.02)] border border-white/50 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.05),0_4px_6px_-2px_rgba(0,0,0,0.025)] hover:bg-white/95"
+    >
+      <div class="flex items-baseline gap-2">
+        <output
+          class="font-nunito text-xl font-extrabold text-[#5a4632] leading-none"
+          :aria-label="t('galleryPage.stats.totalPhotos')"
+        >{{ totalCount }}</output>
+        <span class="font-sans text-sm font-medium text-[#7d7d7d] lowercase tracking-[0.02em]">{{
+          t('galleryPage.stats.photo', totalCount)
+        }}</span>
       </div>
-      <div v-if="totalCount !== visibleCount" class="separator" aria-hidden="true"></div>
-      <div v-if="totalCount !== visibleCount" class="stat-item">
-        <output class="stat-value">{{ visibleCount }}</output>
-        <span class="stat-label">{{ t('galleryPage.stats.showing') }}</span>
+      <div
+        v-if="totalCount !== visibleCount"
+        class="w-px h-6 bg-gradient-to-b from-transparent via-[#cbd5e0] to-transparent"
+        aria-hidden="true"
+      ></div>
+      <div v-if="totalCount !== visibleCount" class="flex items-baseline gap-2">
+        <output class="font-nunito text-xl font-extrabold text-[#5a4632] leading-none">{{
+          visibleCount
+        }}</output>
+        <span class="font-sans text-sm font-medium text-[#7d7d7d] lowercase tracking-[0.02em]">{{
+          t('galleryPage.stats.showing')
+        }}</span>
       </div>
     </div>
   </output>
@@ -26,64 +39,3 @@ defineProps<{
   visibleCount: number;
 }>();
 </script>
-
-<style scoped>
-.gallery-stats-container {
-  display: flex;
-  justify-content: center;
-  width: 100%;
-  margin-bottom: 2.5rem;
-}
-
-.stats-pill {
-  display: flex;
-  align-items: center;
-  gap: 2rem;
-  padding: 0.875rem 2.5rem;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(8px);
-  border-radius: 100px;
-  box-shadow:
-    0 4px 6px -1px rgba(0, 0, 0, 0.02),
-    0 2px 4px -1px rgba(0, 0, 0, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  transition: all 0.3s ease;
-}
-
-.stats-pill:hover {
-  transform: translateY(-2px);
-  box-shadow:
-    0 10px 15px -3px rgba(0, 0, 0, 0.05),
-    0 4px 6px -2px rgba(0, 0, 0, 0.025);
-  background: rgba(255, 255, 255, 0.95);
-}
-
-.stat-item {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-}
-
-.stat-value {
-  font-family: 'Nunito', sans-serif;
-  font-size: 1.25rem;
-  font-weight: 800;
-  color: #5a4632;
-  line-height: 1;
-}
-
-.stat-label {
-  font-family: 'Inter', sans-serif;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #7d7d7d;
-  text-transform: lowercase;
-  letter-spacing: 0.02em;
-}
-
-.separator {
-  width: 1px;
-  height: 24px;
-  background: linear-gradient(to bottom, transparent, #cbd5e0, transparent);
-}
-</style>

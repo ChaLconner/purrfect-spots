@@ -22,8 +22,5 @@
 </template>
 
 <script setup lang="ts">
-import { useI18n } from 'vue-i18n';
-
 // Static content, no script logic needed
-const { t } = useI18n();
 </script>

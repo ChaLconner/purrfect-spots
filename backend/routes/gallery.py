@@ -3,8 +3,10 @@ Gallery routes with API-side pagination support
 Enhanced with rate limiting and caching
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
-from supabase import Client
+from typing import Annotated
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response
 
 from dependencies import get_current_token, get_gallery_service
 from limiter import limiter
@@ -27,6 +29,8 @@ from schemas.gallery import (
     SearchResponse,
     TagInfo,
 )
+
+PhotoIdPath = Annotated[UUID, Path(title="The ID of the photo", description="Must be a valid UUID")]
 
 
 @router.get(
@@ -340,7 +344,7 @@ async def get_popular_tags(
 @limiter.limit("60/minute")
 async def get_photo(
     request: Request,
-    photo_id: str,
+    photo_id: PhotoIdPath,
     gallery_service: GalleryService = Depends(get_gallery_service),
     current_user: User | None = Depends(get_current_user_optional),
 ) -> CatLocation:
@@ -348,8 +352,9 @@ async def get_photo(
     Get a specific photo by its ID.
     Useful for deep linking and sharing.
     """
+    photo_id_str = str(photo_id)
     try:
-        photo = await gallery_service.get_photo_by_id(photo_id)
+        photo = await gallery_service.get_photo_by_id(photo_id_str)
         if not photo:
             raise HTTPException(status_code=404, detail="Photo not found")
 
@@ -363,7 +368,7 @@ async def get_photo(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching photo {photo_id}: {e!s}", exc_info=True)
+        logger.error(f"Error fetching photo {photo_id_str}: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch photo")
 
 
@@ -374,7 +379,7 @@ from services.storage_service import storage_service
 
 @router.delete("/{photo_id}", status_code=202)
 async def delete_photo(
-    photo_id: str,
+    photo_id: PhotoIdPath,
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user_from_credentials),
     gallery_service: GalleryService = Depends(get_gallery_service),
@@ -387,10 +392,11 @@ async def delete_photo(
     2. Scheduled background deletion (S3 + DB + Cache)
     3. Returns immediately (202 Accepted)
     """
+    photo_id_str = str(photo_id)
     try:
         # 1. Verify ownership quickly
         # We use a lightweight query just to check user_id
-        photo = await gallery_service.verify_photo_ownership(photo_id, current_user.id)
+        photo = await gallery_service.verify_photo_ownership(photo_id_str, current_user.id)
 
         if not photo:
             # Check if it exists at all to differentiate 404 from 403
@@ -403,7 +409,7 @@ async def delete_photo(
         # 2. Schedule background deletion
         background_tasks.add_task(
             gallery_service.process_photo_deletion,
-            photo_id=photo_id,
+            photo_id=photo_id_str,
             image_url=photo.get("image_url") or "",
             user_id=current_user.id,
             storage_service=storage_service,

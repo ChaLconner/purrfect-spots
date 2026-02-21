@@ -1,7 +1,7 @@
 import hashlib
 import uuid
-from datetime import datetime, timedelta, timezone
-from typing import Any, cast, Optional
+from datetime import datetime, timedelta
+from typing import Any, Optional, cast
 
 import jwt
 from supabase import AClient, acreate_client
@@ -16,20 +16,18 @@ from services.token_service import get_token_service
 from services.user_service import UserService
 from user_models.user import User, UserResponse
 from utils.datetime_utils import utc_now
-from utils.security import log_security_event
 from utils.supabase_client import get_async_supabase_admin_client
 
 try:
     from redis.exceptions import RedisError
 except ImportError:
-    class RedisError(Exception):
+
+    class RedisError(Exception):  # type: ignore[no-redef]
         pass
 
 
 class AuthService:
     """Authentication service using Async Supabase Client"""
-    
-
 
     def __init__(self, supabase_client: AClient, supabase_admin: Optional[AClient] = None) -> None:
         self.supabase = supabase_client
@@ -48,13 +46,22 @@ class AuthService:
         return await get_async_supabase_admin_client()
 
     async def _find_or_create_google_user(self, user_info: dict[str, Any], google_id: str) -> dict[str, Any]:
-        """Find existing user by Google ID or prepare data for new user (Async)"""
+        """Find existing user by Google ID or email to handle account linking (Async)"""
         existing_user = None
+        email = user_info.get("email")
         try:
             admin = await self._get_admin_client()
+            # 1. Check by google_id
             res = await admin.table("users").select("id").eq("google_id", google_id).execute()
             if res.data:
                 existing_user = res.data[0]
+            elif email:
+                # 2. Check by email (account linking scenario)
+                res_email = await admin.table("users").select("id").eq("email", email).execute()
+                if res_email.data:
+                    existing_user = res_email.data[0]
+                    # Link account by updating google_id
+                    await admin.table("users").update({"google_id": google_id}).eq("id", existing_user["id"]).execute()
         except Exception as e:
             logger.debug("Identity check unsuccessful: %s", e)
 
@@ -63,8 +70,8 @@ class AuthService:
             "id": user_id,
             "sub": user_id,
             "google_id": google_id,
-            "email": user_info["email"],
-            "name": user_info["name"],
+            "email": email,
+            "name": user_info.get("name", ""),
             "picture": user_info.get("picture", ""),
         }
 
@@ -136,16 +143,13 @@ class AuthService:
             if not res.data:
                 # If not in users table, try auth metadata search
                 return False
-                
+
             user_id = res.data[0]["id"]
-            
+
             # 2. Update auth user to confirm email
             # In Supabase Admin Auth, we can set email_confirm: True
-            await admin.auth.admin.update_user_by_id(
-                user_id,
-                {"email_confirm": True}
-            )
-            
+            await admin.auth.admin.update_user_by_id(user_id, {"email_confirm": True})
+
             # 3. Update verified flag in users table if it exists (schema check)
             # In this app, it seems we mostly rely on auth metadata and role-based permissions,
             # but let's see if there's a confirmed_at or similar. The user model doesn't show it.
@@ -157,6 +161,12 @@ class AuthService:
     async def get_user_by_id(self, user_id: str) -> User | None:
         """Get user by ID (Async) - Delegated to UserService"""
         return await self.user_service.get_user_by_id(user_id)
+
+    async def update_user_profile(
+        self, user_id: str, update_data: dict[str, Any], jwt_token: str | None = None
+    ) -> dict[str, Any]:
+        """Update user profile (Async) - Delegated to UserService"""
+        return await self.user_service.update_user_profile(user_id, update_data, jwt_token)
 
     def create_access_token(
         self,
@@ -178,18 +188,27 @@ class AuthService:
             "iat": utc_now(),
         }
         if user_data:
-            to_encode.update({
-                "email": user_data.get("email", ""),
-                "user_metadata": {
-                    "name": user_data.get("name", ""),
-                    "avatar_url": user_data.get("picture", ""),
-                    "provider_id": user_data.get("google_id"),
-                },
-                "app_metadata": {"provider": "google" if user_data.get("google_id") else "email"},
-            })
+            to_encode.update(
+                {
+                    "email": user_data.get("email", ""),
+                    "user_metadata": {
+                        "name": user_data.get("name", ""),
+                        "avatar_url": user_data.get("picture", ""),
+                        "provider_id": user_data.get("google_id"),
+                    },
+                    "app_metadata": {"provider": "google" if user_data.get("google_id") else "email"},
+                }
+            )
         return jwt.encode(to_encode, self.jwt_secret, algorithm=self.jwt_algorithm)
 
-
+    def verify_access_token(self, token: str) -> str | None:
+        """Verify access token and return user_id"""
+        try:
+            payload = jwt.decode(token, self.jwt_secret, algorithms=[self.jwt_algorithm])
+            return payload.get("sub") or payload.get("user_id")
+        except Exception as e:
+            logger.debug(f"Token verification failed: {e}")
+            return None
 
     async def exchange_google_code(
         self, code: str, code_verifier: str, redirect_uri: str, ip: str | None = None, user_agent: str | None = None
@@ -250,8 +269,8 @@ class AuthService:
                 return None
 
             jti = payload.get("jti")
-            user_id = payload.get("user_id")
-            iat = payload.get("iat")
+            payload.get("user_id")
+            payload.get("iat")
 
             if jti and await self.is_token_revoked(jti):
                 return None
@@ -289,7 +308,6 @@ class AuthService:
     async def reset_password(self, access_token: str, new_password: str) -> bool:
         """Reset password using Supabase Auth session (Async)"""
         try:
-
             is_valid, error = await password_service.validate_new_password(new_password)
             if not is_valid:
                 raise ValueError(error)
@@ -302,7 +320,7 @@ class AuthService:
 
             user_id = user_res.user.id
             await temp_client.auth.update_user({"password": new_password})
-            
+
             admin = await self._get_admin_client()
             await admin.table("users").update({"updated_at": utc_now().isoformat()}).eq("id", user_id).execute()
 

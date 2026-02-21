@@ -1,9 +1,12 @@
 <template>
-  <div v-if="active" class="treat-burst-container">
+  <div
+    v-if="active"
+    class="absolute inset-0 pointer-events-none z-50 flex items-center justify-center"
+  >
     <div
       v-for="p in particles"
       :key="p.id"
-      class="particle"
+      class="absolute w-6 h-6 opacity-0 animate-[burst_0.8s_cubic-bezier(0.1,0.8,0.3,1)_forwards]"
       :style="{
         '--tx': p.tx + 'px',
         '--ty': p.ty + 'px',
@@ -14,7 +17,7 @@
         animationDelay: p.delay + 'ms',
       }"
     >
-      <img src="/give-treat.png" alt="treat" />
+      <img src="/give-treat.png" alt="treat" class="w-full h-full object-contain" />
     </div>
   </div>
 </template>
@@ -76,44 +79,3 @@ watch(
   }
 );
 </script>
-
-<style scoped>
-.treat-burst-container {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.particle {
-  position: absolute;
-  width: 24px;
-  height: 24px;
-  opacity: 0;
-  animation: burst 0.8s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
-}
-
-.particle img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-@keyframes burst {
-  0% {
-    transform: translate(-50%, -50%) scale(0) rotate(0deg);
-    opacity: 0;
-  }
-  20% {
-    opacity: 1;
-  }
-  100% {
-    transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(var(--s))
-      rotate(var(--r));
-    opacity: 0;
-  }
-}
-</style>

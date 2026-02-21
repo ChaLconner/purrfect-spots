@@ -1,8 +1,8 @@
 <template>
-  <div class="gallery-page min-h-screen relative overflow-x-hidden">
+  <div class="gallery-page min-h-screen relative overflow-x-hidden bg-[#fffbf6]">
     <GhibliBackground />
 
-    <div class="gallery-container max-w-7xl mx-auto py-2 px-1 sm:px-2 lg:px-4">
+    <div class="gallery-container max-w-7xl mx-auto py-2 px-1 sm:px-2 lg:px-4 overflow-x-hidden">
       <!-- Ghibli Style Header with Search -->
       <GalleryHeader />
 
@@ -471,15 +471,3 @@ onUnmounted(() => {
   cleanupPreloads();
 });
 </script>
-
-<style scoped>
-/* Scoped styles specific to GalleryView layout */
-.gallery-container {
-  /* Ensure container doesn't overflow horizontally */
-  overflow-x: hidden;
-}
-
-.gallery-page {
-  background-color: #fffbf6;
-}
-</style>

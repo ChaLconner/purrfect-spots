@@ -10,79 +10,24 @@ const toggleLanguage = () => {
   localStorage.setItem('user-locale', newLocale);
 };
 
-const currentFlag = computed(() => {
-  return locale.value === 'en' ? '🇺🇸' : '🇹🇭';
-});
-
 const currentLabel = computed(() => {
   return locale.value === 'en' ? 'EN' : 'TH';
 });
 </script>
 
 <template>
-  <button class="language-btn" :aria-label="$t('common.switchLanguage')" @click="toggleLanguage">
-    <span class="language-label">{{ currentLabel }}</span>
+  <button
+    class="group relative flex items-center gap-2 px-3 py-1.5 bg-[var(--color-btn-shade-e)] border-2 border-[var(--color-btn-shade-a)] rounded-2xl cursor-pointer min-h-[2.5rem] transition-all duration-[150ms] ease-out hover:bg-[var(--color-btn-shade-d)] hover:translate-y-[0.1rem] active:translate-y-[0.25rem]"
+    style="transform-style: preserve-3d; will-change: transform"
+    :aria-label="$t('common.switchLanguage')"
+    @click="toggleLanguage"
+  >
+    <span
+      class="absolute inset-0 bg-[var(--color-btn-shade-c)] rounded-[inherit] -z-10 transition-all duration-[150ms] ease-out shadow-[0_0_0_2px_var(--color-btn-shade-b),0_0.2rem_0_0_var(--color-btn-shade-a)] group-hover:translate-y-[0.2rem] group-active:translate-y-0 group-active:translate-z-[-1em] group-active:shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.1em_0_0_var(--color-btn-shade-b)]"
+      style="transform: translate3d(0, 0.2rem, -1em); will-change: transform"
+    ></span>
+    <span class="font-accent font-bold text-[0.85rem] text-[var(--color-btn-shade-a)]">{{
+      currentLabel
+    }}</span>
   </button>
 </template>
-
-<style scoped>
-/* 3D Language Button */
-.language-btn {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0.75rem;
-  background: var(--color-btn-shade-e);
-  border: 2px solid var(--color-btn-shade-a);
-  border-radius: 1em;
-  cursor: pointer;
-  transition: all 175ms cubic-bezier(0, 0, 1, 1);
-  transform-style: preserve-3d;
-  min-height: 2.5rem;
-}
-
-.language-btn::before {
-  position: absolute;
-  content: '';
-  width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
-  background: var(--color-btn-shade-c);
-  border-radius: inherit;
-  box-shadow:
-    0 0 0 2px var(--color-btn-shade-b),
-    0 0.3em 0 0 var(--color-btn-shade-a);
-  transform: translate3d(0, 0.3em, -1em);
-  transition: all 175ms cubic-bezier(0, 0, 1, 1);
-  z-index: -1;
-}
-
-.language-btn:hover {
-  background: var(--color-btn-shade-d);
-  transform: translate(0, 0.15em);
-}
-
-.language-btn:hover::before {
-  transform: translate3d(0, 0.3em, -1em);
-}
-
-.language-btn:active {
-  transform: translate(0, 0.3em);
-}
-
-.language-btn:active::before {
-  transform: translate3d(0, 0, -1em);
-  box-shadow:
-    0 0 0 2px var(--color-btn-shade-b),
-    0 0.1em 0 0 var(--color-btn-shade-b);
-}
-
-.language-label {
-  font-family: 'Zen Maru Gothic', sans-serif;
-  font-weight: 700;
-  font-size: 0.85rem;
-  color: var(--color-btn-shade-a);
-}
-</style>

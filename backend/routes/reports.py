@@ -1,6 +1,7 @@
 from typing import Any, List
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+
 from dependencies import get_current_user, get_report_service
 from limiter import limiter
 from logger import logger
@@ -27,7 +28,7 @@ async def create_report(
             photo_id=str(report_data.photo_id),
             reporter_id=current_user.id,
             reason=report_data.reason,
-            details=report_data.details
+            details=report_data.details,
         )
         logger.info(f"Report created by user {current_user.id} against photo {report_data.photo_id}")
         return report

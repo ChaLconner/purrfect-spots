@@ -118,7 +118,7 @@ provide('errorBoundary', {
   >
     <div class="error-content max-w-md w-full text-center">
       <!-- Error Icon -->
-      <div class="error-icon mb-6">
+      <div class="animate-shake mb-6">
         <div class="w-20 h-20 mx-auto bg-red-100 rounded-full flex items-center justify-center">
           <svg
             class="w-10 h-10 text-red-500"
@@ -202,29 +202,3 @@ provide('errorBoundary', {
   <!-- Normal Content -->
   <slot v-else></slot>
 </template>
-
-<style scoped>
-.error-boundary {
-  background: linear-gradient(135deg, #fef2f2 0%, #fff5f5 100%);
-  border-radius: 1.5rem;
-}
-
-.error-icon {
-  animation: shake 0.5s ease-in-out;
-}
-
-@keyframes shake {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  20%,
-  60% {
-    transform: translateX(-5px);
-  }
-  40%,
-  80% {
-    transform: translateX(5px);
-  }
-}
-</style>

@@ -54,9 +54,9 @@
               stroke-linecap="round"
               stroke-linejoin="round"
             >
-              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
-              <path d="M3 3v5h5"></path>
-              <path d="m12 7 0 5 3 2"></path>
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+              <path d="m12 7 0 5 3 2" />
             </svg>
             {{ t('upload.rollingNotice') }}
           </span>
@@ -78,7 +78,13 @@
         <div class="p-6 sm:p-10">
           <ErrorBoundary>
             <!-- Step 1: Photo Upload -->
-            <transition name="fade" mode="out-in">
+            <transition
+              enter-active-class="transition-opacity duration-300 ease"
+              enter-from-class="opacity-0"
+              leave-active-class="transition-opacity duration-300 ease"
+              leave-to-class="opacity-0"
+              mode="out-in"
+            >
               <div v-if="currentStep === 1">
                 <UploadPhotoSection
                   :preview-url="uploadData.previewUrl"
@@ -105,7 +111,13 @@
             </transition>
 
             <!-- Step 2: Details -->
-            <transition name="fade" mode="out-in">
+            <transition
+              enter-active-class="transition-opacity duration-300 ease"
+              enter-from-class="opacity-0"
+              leave-active-class="transition-opacity duration-300 ease"
+              leave-to-class="opacity-0"
+              mode="out-in"
+            >
               <div v-if="currentStep === 2">
                 <UploadDetailsSection
                   v-model:location-name="uploadData.locationName"
@@ -134,7 +146,13 @@
             </transition>
 
             <!-- Step 3: Location -->
-            <transition name="fade" mode="out-in">
+            <transition
+              enter-active-class="transition-opacity duration-300 ease"
+              enter-from-class="opacity-0"
+              leave-active-class="transition-opacity duration-300 ease"
+              leave-to-class="opacity-0"
+              mode="out-in"
+            >
               <div v-if="currentStep === 3">
                 <UploadLocationSection
                   :is-authenticated="isAuthenticated"
@@ -178,7 +196,13 @@
             </transition>
 
             <!-- Step 4: Success -->
-            <transition name="fade" mode="out-in">
+            <transition
+              enter-active-class="transition-opacity duration-300 ease"
+              enter-from-class="opacity-0"
+              leave-active-class="transition-opacity duration-300 ease"
+              leave-to-class="opacity-0"
+              mode="out-in"
+            >
               <UploadSuccess
                 v-if="currentStep === 4"
                 :result="uploadResult"
@@ -206,7 +230,6 @@ import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '@/store/authStore';
 import { showError, showSuccess } from '@/store/toast';
 import { catDetectionService as CatDetectionService } from '@/services/catDetectionService';
-import { GalleryService } from '@/services/galleryService';
 import { loadGoogleMaps } from '@/utils/googleMapsLoader';
 import { getEnvVar } from '@/utils/env';
 import { useUploadCat } from '@/composables/useUploadCat';
@@ -233,8 +256,8 @@ const showLoginModal = ref(false);
 const gettingLocation = ref(false);
 const map = ref<google.maps.Map | null>(null);
 const marker = ref<google.maps.Marker | null>(null);
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const uploadResult = ref<any>(null);
+
+const uploadResult = ref<unknown>(null);
 
 // Placeholder for quota - ideally fetched from API
 const quotaStatus = ref<{
@@ -269,7 +292,7 @@ const canUpload = computed(() => {
 const uploadData = ref({
   file: null as File | null,
   previewUrl: null as string | null,
-  catDetectionResult: null as any,
+  catDetectionResult: null as unknown,
   locationName: '',
   description: '',
   tags: [] as string[],
@@ -314,10 +337,18 @@ const handleFileSelected = async ({ file, url }: { file: File; url: string }) =>
       }, 1000);
     } else {
       showError(t('upload.noCatsDetected'), 'Detection Failed');
+      if (uploadData.value.previewUrl) URL.revokeObjectURL(uploadData.value.previewUrl);
+      uploadData.value.previewUrl = null;
+      uploadData.value.file = null;
+      uploadData.value.catDetectionResult = null;
     }
   } catch (error) {
     console.error(error);
     showError(t('upload.errorVerifyCat'), t('common.error'));
+    if (uploadData.value.previewUrl) URL.revokeObjectURL(uploadData.value.previewUrl);
+    uploadData.value.previewUrl = null;
+    uploadData.value.file = null;
+    uploadData.value.catDetectionResult = null;
   } finally {
     isDetectingCats.value = false;
   }
@@ -351,7 +382,7 @@ const initMap = async () => {
         updateLocation(e.latLng.lat(), e.latLng.lng());
       }
     });
-  } catch (error) {
+  } catch {
     showError(t('upload.errorMapLoad'), t('common.error'));
   }
 };
@@ -455,33 +486,3 @@ const resetForm = () => {
   currentStep.value = 1;
 };
 </script>
-
-<style scoped>
-/* Custom scrollbar for better aesthetic in specific containers if needed */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(166, 93, 55, 0.2);
-  border-radius: 10px;
-}
-
-/* Firefox compatibility */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(166, 93, 55, 0.2) transparent;
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-</style>

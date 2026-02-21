@@ -1,5 +1,7 @@
 <template>
-  <div class="comments-section bg-cream-dark/30 p-4 rounded-2xl mt-2 border border-cream-dark/50">
+  <div
+    class="w-full min-w-0 overflow-x-hidden bg-cream-dark/30 p-4 rounded-2xl mt-2 border border-cream-dark/50"
+  >
     <h3 class="font-heading text-lg font-bold mb-3 text-brown flex items-center gap-2">
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -43,15 +45,20 @@
           class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm flex-shrink-0"
           @error="handleAvatarError(comment.id)"
         />
-        <div class="flex-1">
-          <BaseCard variant="glass" padding="sm" class="relative rounded-2xl bg-white/80">
-            <div class="flex justify-between items-baseline mb-1">
-              <span class="font-bold text-sm text-brown">{{
+        <div class="flex-1 min-w-0">
+          <BaseCard
+            variant="glass"
+            padding="sm"
+            class="relative rounded-2xl bg-white/80 overflow-hidden"
+          >
+            <div class="flex justify-between items-baseline mb-1 gap-2">
+              <span class="font-bold text-sm text-brown truncate">{{
                 comment.user_name || 'Anonymous'
               }}</span>
-              <span class="text-[10px] uppercase tracking-wider font-bold text-brown-light/60">{{
-                formatDate(comment.created_at)
-              }}</span>
+              <span
+                class="text-[10px] uppercase tracking-wider font-bold text-brown-light/60 whitespace-nowrap flex-shrink-0"
+                >{{ formatDate(comment.created_at) }}</span
+              >
             </div>
             <div v-if="editingId === comment.id" class="mt-2">
               <BaseInput
@@ -76,7 +83,7 @@
                 </button>
               </div>
             </div>
-            <p v-else class="text-brown-dark/80 text-sm leading-relaxed whitespace-pre-wrap pr-6">
+            <p v-else class="text-brown-dark/80 text-sm leading-relaxed pr-6 break-words">
               {{ comment.content }}
             </p>
 
@@ -315,9 +322,3 @@ function formatDate(dateStr: string) {
   });
 }
 </script>
-<style scoped>
-.comments-section {
-  /* Allow full expansion, parent handles scrolling */
-  width: 100%;
-}
-</style>

@@ -28,98 +28,123 @@ const navigateToProfile = () => {
 <template>
   <div class="fixed bottom-0 left-0 right-0 z-50 px-4 pb-4 pt-2 pointer-events-none xl:hidden">
     <nav
-      class="backdrop-blur-md rounded-2xl shadow-lg border pointer-events-auto max-w-md mx-auto"
-      style="background: var(--color-glass-cream); border-color: var(--color-btn-shade-a)"
+      class="backdrop-blur-md rounded-2xl shadow-lg border border-btn-shade-a pointer-events-auto max-w-md mx-auto bg-glass-cream"
     >
       <div class="flex justify-around items-center px-2 py-3">
         <!-- Map -->
         <router-link
           to="/map"
           class="group flex flex-col items-center flex-1 py-1 px-2 rounded-xl transition-all duration-300 active:scale-95"
-          :class="isActive('/map') || isActive('/') ? 'active-link' : 'inactive-link'"
+          :class="
+            isActive('/map') || isActive('/')
+              ? 'text-btn-shade-a'
+              : 'text-btn-shade-b hover:text-btn-shade-c'
+          "
           :aria-label="$t('nav.map')"
         >
           <div
-            class="flex justify-center items-center w-10 h-10 rounded-full transition-all duration-300 icon-container"
-            :class="{
-              'active-icon': isActive('/map') || isActive('/'),
-            }"
+            class="flex justify-center items-center w-10 h-10 rounded-full transition-all duration-300"
+            :class="
+              isActive('/map') || isActive('/')
+                ? 'bg-btn-shade-e text-btn-shade-a -translate-y-0.5 shadow-[0_2px_4px_rgba(0,0,0,0.1)] border border-btn-shade-b'
+                : ''
+            "
           >
             <MapIcon class="w-6 h-6" />
           </div>
-          <span class="text-xs font-bold mt-1 nav-label">{{ $t('nav.map') }}</span>
+          <span class="text-xs font-bold mt-1 font-accent">{{ $t('nav.map') }}</span>
         </router-link>
 
         <!-- Upload -->
         <router-link
           to="/upload"
           class="group flex flex-col items-center flex-1 py-1 px-2 rounded-xl transition-all duration-300 active:scale-95"
-          :class="isActive('/upload') ? 'active-link' : 'inactive-link'"
+          :class="
+            isActive('/upload') ? 'text-btn-shade-a' : 'text-btn-shade-b hover:text-btn-shade-c'
+          "
           :aria-label="$t('nav.upload')"
         >
           <div
-            class="flex justify-center items-center w-10 h-10 rounded-full transition-all duration-300 icon-container"
-            :class="{
-              'active-icon': isActive('/upload'),
-            }"
+            class="flex justify-center items-center w-10 h-10 rounded-full transition-all duration-300"
+            :class="
+              isActive('/upload')
+                ? 'bg-btn-shade-e text-btn-shade-a -translate-y-0.5 shadow-[0_2px_4px_rgba(0,0,0,0.1)] border border-btn-shade-b'
+                : ''
+            "
           >
             <UploadIcon class="w-6 h-6" />
           </div>
-          <span class="text-xs font-bold mt-1 nav-label">{{ $t('nav.upload') }}</span>
+          <span class="text-xs font-bold mt-1 font-accent">{{ $t('nav.upload') }}</span>
         </router-link>
 
         <!-- Gallery -->
         <router-link
           to="/gallery"
           class="group flex flex-col items-center flex-1 py-1 px-2 rounded-xl transition-all duration-300 active:scale-95"
-          :class="isActive('/gallery') ? 'active-link' : 'inactive-link'"
+          :class="
+            isActive('/gallery') ? 'text-btn-shade-a' : 'text-btn-shade-b hover:text-btn-shade-c'
+          "
           :aria-label="$t('nav.gallery')"
         >
           <div
-            class="flex justify-center items-center w-10 h-10 rounded-full transition-all duration-300 icon-container"
-            :class="{
-              'active-icon': isActive('/gallery'),
-            }"
+            class="flex justify-center items-center w-10 h-10 rounded-full transition-all duration-300"
+            :class="
+              isActive('/gallery')
+                ? 'bg-btn-shade-e text-btn-shade-a -translate-y-0.5 shadow-[0_2px_4px_rgba(0,0,0,0.1)] border border-btn-shade-b'
+                : ''
+            "
           >
             <GalleryIcon class="w-6 h-6" />
           </div>
-          <span class="text-xs font-bold mt-1 nav-label">{{ $t('nav.gallery') }}</span>
+          <span class="text-xs font-bold mt-1 font-accent">{{ $t('nav.gallery') }}</span>
         </router-link>
 
         <!-- Leaderboard -->
         <router-link
           to="/leaderboard"
           class="group flex flex-col items-center flex-1 py-1 px-2 rounded-xl transition-all duration-300 active:scale-95"
-          :class="isActive('/leaderboard') ? 'active-link' : 'inactive-link'"
+          :class="
+            isActive('/leaderboard')
+              ? 'text-btn-shade-a'
+              : 'text-btn-shade-b hover:text-btn-shade-c'
+          "
           :aria-label="$t('nav.leaderboard')"
         >
           <div
-            class="flex justify-center items-center w-10 h-10 rounded-full transition-all duration-300 icon-container"
-            :class="{
-              'active-icon': isActive('/leaderboard'),
-            }"
+            class="flex justify-center items-center w-10 h-10 rounded-full transition-all duration-300"
+            :class="
+              isActive('/leaderboard')
+                ? 'bg-btn-shade-e text-btn-shade-a -translate-y-0.5 shadow-[0_2px_4px_rgba(0,0,0,0.1)] border border-btn-shade-b'
+                : ''
+            "
           >
             <TrophyIcon class="w-6 h-6" />
           </div>
-          <span class="text-xs font-bold mt-1 nav-label">{{ $t('nav.leaderboard') }}</span>
+          <span class="text-xs font-bold mt-1 font-accent">{{ $t('nav.leaderboard') }}</span>
         </router-link>
 
         <!-- Profile / Login -->
         <button
           class="group flex flex-col items-center flex-1 py-1 px-2 rounded-xl transition-all duration-300 active:scale-95"
-          :class="isActive('/profile') || isActive('/login') ? 'active-link' : 'inactive-link'"
+          :class="
+            isActive('/profile') || isActive('/login')
+              ? 'text-btn-shade-a'
+              : 'text-btn-shade-b hover:text-btn-shade-c'
+          "
           :aria-label="authStore.isAuthenticated ? $t('nav.profile') : $t('auth.login')"
           @click="navigateToProfile"
         >
           <div
-            class="flex justify-center items-center w-10 h-10 rounded-full transition-all duration-300 icon-container"
-            :class="{
-              'active-icon': isActive('/profile') || isActive('/login'),
-            }"
+            class="flex justify-center items-center w-10 h-10 rounded-full transition-all duration-300"
+            :class="
+              isActive('/profile') || isActive('/login')
+                ? 'bg-btn-shade-e text-btn-shade-a -translate-y-0.5 shadow-[0_2px_4px_rgba(0,0,0,0.1)] border border-btn-shade-b'
+                : ''
+            "
           >
             <ProfileIcon class="w-6 h-6" />
           </div>
-          <span class="text-xs font-bold mt-1 nav-label">{{
+          <span class="text-xs font-bold mt-1 font-accent">{{
             authStore.isAuthenticated ? $t('nav.profile') : $t('auth.login')
           }}</span>
         </button>
@@ -127,29 +152,3 @@ const navigateToProfile = () => {
     </nav>
   </div>
 </template>
-
-<style scoped>
-.nav-label {
-  font-family: 'Zen Maru Gothic', sans-serif;
-}
-
-.active-link {
-  color: var(--color-btn-shade-a);
-}
-
-.inactive-link {
-  color: var(--color-btn-shade-b);
-}
-
-.inactive-link:hover {
-  color: var(--color-btn-shade-c);
-}
-
-.active-icon {
-  background-color: var(--color-btn-shade-e);
-  color: var(--color-btn-shade-a);
-  transform: translateY(-2px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  border: 1px solid var(--color-btn-shade-b);
-}
-</style>

@@ -182,7 +182,7 @@ class Config:
     UPLOAD_MAX_DIMENSION = int(os.getenv("UPLOAD_MAX_DIMENSION", "1920"))
     UPLOAD_ALLOWED_EXTENSIONS = os.getenv("UPLOAD_ALLOWED_EXTENSIONS", "jpg,jpeg,png,gif,webp").split(",")
     UPLOAD_RATE_LIMIT = os.getenv("UPLOAD_RATE_LIMIT", "5/minute")
-    
+
     # ==========================================
     # Quota Configuration
     # ==========================================

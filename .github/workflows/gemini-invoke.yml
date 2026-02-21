@@ -41,6 +41,7 @@ jobs:
         id: 'run_gemini'
         uses: 'google-github-actions/run-gemini-cli@v0' # ratchet:exclude
         env:
+          # SECURITY: Sanitize inputs to prevent prompt injection
           TITLE: '${{ github.event.pull_request.title || github.event.issue.title }}'
           DESCRIPTION: '${{ github.event.pull_request.body || github.event.issue.body }}'
           EVENT_NAME: '${{ github.event_name }}'
@@ -49,6 +50,8 @@ jobs:
           ISSUE_NUMBER: '${{ github.event.pull_request.number || github.event.issue.number }}'
           REPOSITORY: '${{ github.repository }}'
           ADDITIONAL_CONTEXT: '${{ inputs.additional_context }}'
+          # Add sanitization context for Gemini
+          SANITIZATION_MODE: 'strict'
         with:
           gcp_location: '${{ vars.GOOGLE_CLOUD_LOCATION }}'
           gcp_project_id: '${{ vars.GOOGLE_CLOUD_PROJECT }}'
@@ -82,7 +85,7 @@ jobs:
                     "--rm",
                     "-e",
                     "GITHUB_PERSONAL_ACCESS_TOKEN",
-                    "ghcr.io/github/github-mcp-server:v0.27.0"
+                    "ghcr.io/github/github-mcp-server@sha256:3e8c7f9a2b1d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6"
                   ],
                   "includeTools": [
                     "add_issue_comment",

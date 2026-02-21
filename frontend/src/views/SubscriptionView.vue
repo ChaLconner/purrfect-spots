@@ -78,8 +78,8 @@
                 </div>
                 <button
                   class="w-full bg-stone-100 text-stone-500 py-3 rounded-2xl hover:bg-stone-200 transition-colors font-bold text-sm"
-                  @click="handleManageSubscription"
                   :disabled="isLoading"
+                  @click="handleManageSubscription"
                 >
                   {{ $t('subscription.proPlan.manage') }}
                 </button>
@@ -335,51 +335,3 @@ async function buyTreats(packageType: string): Promise<void> {
   }
 }
 </script>
-
-<style scoped>
-.font-heading {
-  font-family: 'Outfit', sans-serif;
-}
-.font-body {
-  font-family: 'Inter', sans-serif;
-}
-/* Reused simplified utilities */
-.text-terracotta {
-  color: #c97b49;
-}
-.bg-terracotta {
-  background-color: #c97b49;
-}
-.bg-terracotta-dark {
-  background-color: #a66136;
-}
-.text-sage-dark {
-  color: #5c755e;
-}
-.bg-sage {
-  background-color: #8da18e;
-}
-.bg-sage-dark {
-  background-color: #5c755e;
-}
-.border-sage {
-  border-color: #8da18e;
-}
-.bg-glass {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(10px);
-}
-</style>
-
-<style>
-/* Global utility for hiding scrollbar but allowing scroll */
-.hide-scrollbar {
-  -ms-overflow-style: none; /* IE and Edge */
-  scrollbar-width: none; /* Firefox */
-}
-.hide-scrollbar::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
-}
-</style>

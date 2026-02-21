@@ -18,9 +18,23 @@ const DEFAULT_OPTIONS: ImageOptimizationOptions = {
   maxWidth: 1920,
   maxHeight: 1080,
   quality: 85,
-  format: 'jpeg',
+  format: 'webp',
   enableProgressive: true,
 };
+
+let imageWorker: Worker | null = null;
+let msgId = 0;
+
+function getWorker(): Worker | null {
+  if (typeof window !== 'undefined' && window.Worker) {
+    if (!imageWorker) {
+      // Import Web Worker using Vite standard query
+      imageWorker = new Worker(new URL('./imageWorker.ts', import.meta.url), { type: 'module' });
+    }
+    return imageWorker;
+  }
+  return null;
+}
 
 // CDN configuration
 export interface CDNConfig {
@@ -102,6 +116,7 @@ export const getCDNUrl = (imageUrl: string, options?: ImageOptimizationOptions):
 
 /**
  * Optimize an image file before upload
+ * Uses a Web Worker if available to prevent UI freezing on large files.
  */
 export const optimizeImage = async (
   file: File,
@@ -110,6 +125,44 @@ export const optimizeImage = async (
   const mergedOptions = { ...DEFAULT_OPTIONS, ...options };
 
   return new Promise((resolve, reject) => {
+    const worker = getWorker();
+
+    // Check if OffscreenCanvas is supported and we have a worker instance
+    if (worker && typeof OffscreenCanvas !== 'undefined') {
+      const currentId = msgId++;
+      
+      const onMessage = (e: MessageEvent) => {
+        if (e.data.id === currentId) {
+          worker.removeEventListener('message', onMessage);
+          
+          if (e.data.success) {
+            const optimizedFile = new File([e.data.blob], file.name.replace(/\.[^/.]+$/, "") + `.${mergedOptions.format}`, {
+              type: `image/${mergedOptions.format}`,
+              lastModified: Date.now(),
+            });
+            resolve(optimizedFile);
+          } else {
+            // Fallback to main thread if worker fails
+            console.warn('Worker image optimization failed:', e.data.error, 'Falling back to main thread.');
+            optimizeImageMainThread(file, mergedOptions).then(resolve).catch(reject);
+          }
+        }
+      };
+      
+      worker.addEventListener('message', onMessage);
+      worker.postMessage({ file, options: mergedOptions, id: currentId });
+    } else {
+      // Fallback for browsers that don't support workers or OffscreenCanvas
+      optimizeImageMainThread(file, mergedOptions).then(resolve).catch(reject);
+    }
+  });
+};
+
+/**
+ * Fallback image optimization on the main thread
+ */
+const optimizeImageMainThread = async (file: File, options: ImageOptimizationOptions): Promise<File> => {
+  return new Promise((resolve, reject) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const img = new Image();
@@ -117,7 +170,7 @@ export const optimizeImage = async (
     img.onload = () => {
       // Calculate new dimensions
       let { width, height } = img;
-      const { maxWidth, maxHeight } = mergedOptions;
+      const { maxWidth, maxHeight } = options;
 
       if (maxWidth && width > maxWidth) {
         height = (height * maxWidth) / width;
@@ -128,6 +181,9 @@ export const optimizeImage = async (
         width = (width * maxHeight) / height;
         height = maxHeight;
       }
+      
+      width = Math.round(width);
+      height = Math.round(height);
 
       // Set canvas dimensions
       canvas.width = width;
@@ -144,15 +200,15 @@ export const optimizeImage = async (
           }
 
           // Create new file with optimized data
-          const optimizedFile = new File([blob], file.name, {
-            type: `image/${mergedOptions.format}`,
+          const optimizedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + `.${options.format}`, {
+            type: `image/${options.format}`,
             lastModified: Date.now(),
           });
 
           resolve(optimizedFile);
         },
-        `image/${mergedOptions.format}`,
-        mergedOptions.quality! / 100
+        `image/${options.format}`,
+        (options.quality || 85) / 100
       );
     };
 

@@ -109,7 +109,7 @@ class TestUploadFlowIntegration:
 
         # Mock dependencies
         mock_detection_service = MagicMock()
-        mock_detection_service.detect_cats = MagicMock(
+        mock_detection_service.detect_cats = AsyncMock(
             return_value={
                 "has_cats": True,
                 "cat_count": 1,
@@ -120,7 +120,7 @@ class TestUploadFlowIntegration:
         )
 
         mock_storage_service = MagicMock()
-        mock_storage_service.upload_file = MagicMock(return_value="https://s3.example.com/cat.jpg")
+        mock_storage_service.upload_file = AsyncMock(return_value="https://s3.example.com/cat.jpg")
 
         # Mock Supabase return for insert
         mock_supabase_params = MagicMock()
@@ -136,29 +136,36 @@ class TestUploadFlowIntegration:
         ]
 
         mock_client = MagicMock()
-        mock_client.table.return_value.insert.return_value.execute.return_value = mock_supabase_params
+        mock_client.table.return_value.insert.return_value.execute = AsyncMock(return_value=mock_supabase_params)
 
         # Override dependencies
-        from dependencies import get_supabase_client
+        from dependencies import get_async_supabase_client
         from main import app
-        from routes.upload import get_cat_detection_service, get_current_user, get_storage_service
+        from routes.upload import get_cat_detection_service, get_current_user, get_quota_service, get_storage_service
 
-        app.dependency_overrides[get_supabase_client] = lambda: mock_client
+        # Mock quota service
+        mock_quota_service = MagicMock()
+        mock_quota_service.check_and_increment = AsyncMock(return_value=True)
+
+        app.dependency_overrides[get_async_supabase_client] = lambda: mock_client
         app.dependency_overrides[get_cat_detection_service] = lambda: mock_detection_service
         app.dependency_overrides[get_storage_service] = lambda: mock_storage_service
+        app.dependency_overrides[get_quota_service] = lambda: mock_quota_service
         app.dependency_overrides[get_current_user] = lambda: MagicMock(
             id=self.TEST_USER_ID, user_id=self.TEST_USER_ID, email=self.TEST_EMAIL
         )
 
         with (
-            patch("routes.upload.get_supabase_admin_client") as mock_get_admin,
-            patch("routes.upload.process_uploaded_image") as mock_process_image,
+            patch("utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin,
+            patch("routes.upload.process_uploaded_image", new_callable=AsyncMock) as mock_process_image,
             patch("routes.upload.invalidate_gallery_cache"),
             patch("routes.upload.invalidate_tags_cache"),
             patch("routes.upload.log_security_event"),
         ):
             mock_admin_client = MagicMock()
-            mock_admin_client.table.return_value.insert.return_value.execute.return_value = mock_supabase_params
+            mock_admin_client.table.return_value.insert.return_value.execute = AsyncMock(
+                return_value=mock_supabase_params
+            )
             mock_get_admin.return_value = mock_admin_client
 
             # Mock image processing result
@@ -256,18 +263,20 @@ class TestAuthFlowIntegration:
     def test_register_creates_user(self, client):
         """Test: Registration creates a new user"""
         mock_service = MagicMock()
-        mock_service.create_user_with_password.return_value = {
-            "id": "new-user-123",
-            "email": "new@example.com",
-            "name": "New User",
-            "picture": None,
-            "bio": None,
-            "created_at": "2024-01-01T00:00:00",
-            "verification_required": True,  # Set to True to go through verification flow
-        }
-        mock_service.authenticate_user.return_value = None  # No auto-login for verification flow
-        mock_service.create_access_token.return_value = "access-token"
-        mock_service.create_refresh_token.return_value = "refresh-token"
+        mock_service.create_user_with_password = AsyncMock(
+            return_value={
+                "id": "new-user-123",
+                "email": "new@example.com",
+                "name": "New User",
+                "picture": None,
+                "bio": None,
+                "created_at": "2024-01-01T00:00:00",
+                "verification_required": True,  # Set to True to go through verification flow
+            }
+        )
+        mock_service.authenticate_user = AsyncMock(return_value=None)  # No auto-login for verification flow
+        mock_service.create_access_token = MagicMock(return_value="access-token")
+        mock_service.create_refresh_token = MagicMock(return_value="refresh-token")
 
         from main import app
         from routes.auth import get_auth_service
@@ -293,14 +302,16 @@ class TestAuthFlowIntegration:
         """Test: Login returns access and refresh tokens"""
 
         mock_service = MagicMock()
-        mock_service.authenticate_user.return_value = {
-            "id": "user-123",
-            "email": "test@example.com",
-            "name": "Test User",
-            "created_at": "2023-01-01",
-        }
-        mock_service.create_access_token.return_value = "access-token"
-        mock_service.create_refresh_token.return_value = "refresh-token"
+        mock_service.authenticate_user = AsyncMock(
+            return_value={
+                "id": "user-123",
+                "email": "test@example.com",
+                "name": "Test User",
+                "created_at": "2023-01-01",
+            }
+        )
+        mock_service.create_access_token = MagicMock(return_value="access-token")
+        mock_service.create_refresh_token = MagicMock(return_value="refresh-token")
 
         from main import app
         from routes.auth import get_auth_service

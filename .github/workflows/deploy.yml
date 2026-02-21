@@ -46,15 +46,19 @@ concurrency:
 env:
   DOCKER_REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  # SECURITY: Set VERCEL_TOKEN as environment variable to prevent CLI arguments
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
 # ==============================================================================
-# PERMISSIONS
+# PERMISSIONS - Principle of least privilege
 # ==============================================================================
 permissions:
   contents: read
   packages: write
   deployments: write
   id-token: write # For OIDC authentication
+  # SECURITY: Limit write permissions to only necessary scopes
+  pull-requests: write # For status checks
 
 jobs:
   # ============================================================================
@@ -82,9 +86,61 @@ jobs:
         run: echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
 
       - name: Checkout code
-        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.2.2
         with:
           fetch-depth: 0
+
+      - name: Validate required secrets
+        id: validate-secrets
+        run: |
+          echo "🔒 Validating required secrets..."
+          
+          # Check for required secrets based on environment
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            INPUT_ENV="${{ inputs.environment }}"
+          else
+            REF="${{ github.ref }}"
+            if [ "$REF" == "refs/heads/main" ]; then
+              INPUT_ENV="production"
+            elif [ "$REF" == "refs/heads/dev" ]; then
+              INPUT_ENV="staging"
+            else
+              INPUT_ENV="none"
+            fi
+          fi
+          
+          # Validate secrets for staging
+          if [ "$INPUT_ENV" == "staging" ]; then
+            if [ -z "${{ secrets.VERCEL_TOKEN }}" ]; then
+              echo "::error::VERCEL_TOKEN is required for staging deployment"
+              exit 1
+            fi
+            if [ -z "${{ secrets.STAGING_API_URL }}" ]; then
+              echo "::warning::STAGING_API_URL is not set. Deployment may fail."
+            fi
+          fi
+          
+          # Validate secrets for production
+          if [ "$INPUT_ENV" == "production" ]; then
+            if [ -z "${{ secrets.VERCEL_TOKEN }}" ]; then
+              echo "::error::VERCEL_TOKEN is required for production deployment"
+              exit 1
+            fi
+            if [ -z "${{ secrets.PROD_API_URL }}" ]; then
+              echo "::error::PROD_API_URL is required for production deployment"
+              exit 1
+            fi
+            if [ -z "${{ secrets.SUPABASE_URL }}" ]; then
+              echo "::error::SUPABASE_URL is required for production deployment"
+              exit 1
+            fi
+            if [ -z "${{ secrets.SUPABASE_KEY }}" ]; then
+              echo "::error::SUPABASE_KEY is required for production deployment"
+              exit 1
+            fi
+          fi
+          
+          echo "✅ Secrets validation passed"
 
       - name: Determine environment
         id: set-env
@@ -147,7 +203,7 @@ jobs:
         run: |
           echo "🧪 Validating API Client Generation..."
           cd api-client
-          npm install
+          npm ci --prefer-offline --no-audit
           npm run validate
 
       - name: Setup Node.js
@@ -162,18 +218,29 @@ jobs:
           cd frontend
 
           # Link to Vercel project
-          npx vercel link --yes --token=${{ secrets.VERCEL_TOKEN }} --project "$VERCEL_PROJECT_ID" || { echo "::error::Vercel link failed"; exit 1; }
+          npx vercel link --yes --token="${{ secrets.VERCEL_TOKEN }}" --project "$VERCEL_PROJECT_ID" || { echo "::error::Vercel link failed"; exit 1; }
 
           # Inject Env Vars for Staging (using --yes to avoid interactive prompts)
+          # SECURITY: Use environment variables instead of command-line arguments to prevent secret leakage
           echo "🔧 Setting environment variables..."
-          npx vercel env add VITE_API_BASE_URL "${{ secrets.STAGING_API_URL }}" preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
+          # Set environment variable for Vercel CLI to read from
+          export VERCEL_TOKEN="${{ secrets.VERCEL_TOKEN }}"
+          
+          # Use Vercel CLI's --file flag to read from file instead of command-line arguments
+          # This prevents secrets from appearing in logs or process lists
+          echo "${{ secrets.STAGING_API_URL }}" > /tmp/staging_api_url.txt
+          npx vercel env add VITE_API_BASE_URL preview --force --yes --file=/tmp/staging_api_url.txt 2>/dev/null || true
+          rm -f /tmp/staging_api_url.txt
+          
           if [ -n "${{ secrets.GOOGLE_MAPS_API_KEY }}" ]; then
-            npx vercel env add VITE_GOOGLE_MAPS_API_KEY "${{ secrets.GOOGLE_MAPS_API_KEY }}" preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
+            echo "${{ secrets.GOOGLE_MAPS_API_KEY }}" > /tmp/google_maps_key.txt
+            npx vercel env add VITE_GOOGLE_MAPS_API_KEY preview --force --yes --file=/tmp/google_maps_key.txt 2>/dev/null || true
+            rm -f /tmp/google_maps_key.txt
           fi
           echo "✅ Environment variables configured"
 
           # Deploy to Vercel (server-side build)
-          npx vercel deploy --token=${{ secrets.VERCEL_TOKEN }} --yes
+          npx vercel deploy --yes
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -191,19 +258,30 @@ jobs:
           cd backend
 
           # Link to Vercel project
-          npx vercel link --yes --token=${{ secrets.VERCEL_TOKEN }} --project "$VERCEL_BACKEND_PROJECT_ID" || { echo "::error::Vercel link failed for backend"; exit 1; }
+          npx vercel link --yes --token="${{ secrets.VERCEL_TOKEN }}" --project "$VERCEL_BACKEND_PROJECT_ID" || { echo "::error::Vercel link failed for backend"; exit 1; }
 
           # Inject Env Vars for Staging (using --yes to avoid interactive prompts)
+          # SECURITY: Use environment variables instead of command-line arguments to prevent secret leakage
           echo "🔧 Setting environment variables..."
-          npx vercel env add SUPABASE_URL "${{ secrets.SUPABASE_URL }}" preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
-          npx vercel env add SUPABASE_KEY "${{ secrets.SUPABASE_KEY }}" preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
+          export VERCEL_TOKEN="${{ secrets.VERCEL_TOKEN }}"
+          
+          echo "${{ secrets.SUPABASE_URL }}" > /tmp/supabase_url.txt
+          npx vercel env add SUPABASE_URL preview --force --yes --file=/tmp/supabase_url.txt 2>/dev/null || true
+          rm -f /tmp/supabase_url.txt
+          
+          echo "${{ secrets.SUPABASE_KEY }}" > /tmp/supabase_key.txt
+          npx vercel env add SUPABASE_KEY preview --force --yes --file=/tmp/supabase_key.txt 2>/dev/null || true
+          rm -f /tmp/supabase_key.txt
+          
           if [ -n "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" ]; then
-            npx vercel env add SUPABASE_SERVICE_ROLE_KEY "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" preview --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
+            echo "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" > /tmp/supabase_service_role_key.txt
+            npx vercel env add SUPABASE_SERVICE_ROLE_KEY preview --force --yes --file=/tmp/supabase_service_role_key.txt 2>/dev/null || true
+            rm -f /tmp/supabase_service_role_key.txt
           fi
           echo "✅ Environment variables configured"
 
           # Deploy to Staging (server-side build)
-          npx vercel deploy --token=${{ secrets.VERCEL_TOKEN }} --yes
+          npx vercel deploy --yes
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
@@ -405,20 +483,28 @@ jobs:
 
           # Link to Vercel project (creates .vercel folder)
           echo "🔗 Linking to Vercel project..."
-          npx vercel link --yes --token=${{ secrets.VERCEL_TOKEN }} --project "$VERCEL_PROJECT_ID" || { echo "::error::Vercel link failed"; exit 1; }
+          npx vercel link --yes --token="${{ secrets.VERCEL_TOKEN }}" --project "$VERCEL_PROJECT_ID" || { echo "::error::Vercel link failed"; exit 1; }
 
           # Inject Env Vars for Production (using --yes to avoid interactive prompts)
+          # SECURITY: Use environment variables instead of command-line arguments to prevent secret leakage
           echo "🔧 Injecting environment variables..."
-          npx vercel env add VITE_API_BASE_URL "${{ secrets.PROD_API_URL }}" production --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
+          export VERCEL_TOKEN="${{ secrets.VERCEL_TOKEN }}"
+          
+          echo "${{ secrets.PROD_API_URL }}" > /tmp/prod_api_url.txt
+          npx vercel env add VITE_API_BASE_URL production --force --yes --file=/tmp/prod_api_url.txt 2>/dev/null || true
+          rm -f /tmp/prod_api_url.txt
+          
           if [ -n "${{ secrets.GOOGLE_MAPS_API_KEY }}" ]; then
-            npx vercel env add VITE_GOOGLE_MAPS_API_KEY "${{ secrets.GOOGLE_MAPS_API_KEY }}" production --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
+            echo "${{ secrets.GOOGLE_MAPS_API_KEY }}" > /tmp/google_maps_key.txt
+            npx vercel env add VITE_GOOGLE_MAPS_API_KEY production --force --yes --file=/tmp/google_maps_key.txt 2>/dev/null || true
+            rm -f /tmp/google_maps_key.txt
           fi
           echo "✅ Environment variables configured"
 
           # Deploy to Vercel (server-side build)
           echo "🚀 Triggering Vercel User Deployment..."
 
-          DEPLOY_OUTPUT=$(npx vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --yes)
+          DEPLOY_OUTPUT=$(npx vercel deploy --prod --yes)
           DEPLOY_EXIT_CODE=$?
 
           if [ $DEPLOY_EXIT_CODE -ne 0 ]; then
@@ -460,24 +546,37 @@ jobs:
 
           # Link to Vercel project
           echo "🔗 Linking Backend to Vercel..."
-          npx vercel link --yes --token=${{ secrets.VERCEL_TOKEN }} --project "$VERCEL_BACKEND_PROJECT_ID" || { echo "::error::Vercel link failed for backend"; exit 1; }
+          npx vercel link --yes --token="${{ secrets.VERCEL_TOKEN }}" --project "$VERCEL_BACKEND_PROJECT_ID" || { echo "::error::Vercel link failed for backend"; exit 1; }
 
           # Inject Env Vars for Production (using --yes to avoid interactive prompts)
+          # SECURITY: Use environment variables instead of command-line arguments to prevent secret leakage
           echo "🔧 Injecting environment variables..."
-          npx vercel env add SUPABASE_URL "${{ secrets.SUPABASE_URL }}" production --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
-          npx vercel env add SUPABASE_KEY "${{ secrets.SUPABASE_KEY }}" production --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
+          export VERCEL_TOKEN="${{ secrets.VERCEL_TOKEN }}"
+          
+          echo "${{ secrets.SUPABASE_URL }}" > /tmp/supabase_url.txt
+          npx vercel env add SUPABASE_URL production --force --yes --file=/tmp/supabase_url.txt 2>/dev/null || true
+          rm -f /tmp/supabase_url.txt
+          
+          echo "${{ secrets.SUPABASE_KEY }}" > /tmp/supabase_key.txt
+          npx vercel env add SUPABASE_KEY production --force --yes --file=/tmp/supabase_key.txt 2>/dev/null || true
+          rm -f /tmp/supabase_key.txt
+          
           if [ -n "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" ]; then
-            npx vercel env add SUPABASE_SERVICE_ROLE_KEY "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" production --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
+            echo "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" > /tmp/supabase_service_role_key.txt
+            npx vercel env add SUPABASE_SERVICE_ROLE_KEY production --force --yes --file=/tmp/supabase_service_role_key.txt 2>/dev/null || true
+            rm -f /tmp/supabase_service_role_key.txt
           fi
           # Also inject JWT_SECRET if available (Required by config.py)
           if [ -n "${{ secrets.JWT_SECRET }}" ]; then
-            npx vercel env add JWT_SECRET "${{ secrets.JWT_SECRET }}" production --force --token=${{ secrets.VERCEL_TOKEN }} --yes 2>/dev/null || true
+            echo "${{ secrets.JWT_SECRET }}" > /tmp/jwt_secret.txt
+            npx vercel env add JWT_SECRET production --force --yes --file=/tmp/jwt_secret.txt 2>/dev/null || true
+            rm -f /tmp/jwt_secret.txt
           fi
           echo "✅ Environment variables configured"
 
           # Deploy to Production (server-side build)
           echo "🚀 Triggering Backend Deployment..."
-          npx vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --yes
+          npx vercel deploy --prod --yes
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}

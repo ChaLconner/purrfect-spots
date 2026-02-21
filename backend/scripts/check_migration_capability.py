@@ -28,7 +28,9 @@ async def apply_migrations():
         # without a wrapper function, we will advise the user.
 
         print("\n[INFO] Direct raw SQL execution via 'supabase-py' client requires an RPC function (e.g., 'exec_sql').")
-        print("       The current client configuration primarily supports PostgREST features (select, insert, update, delete, rpc).")
+        print(
+            "       The current client configuration primarily supports PostgREST features (select, insert, update, delete, rpc)."
+        )
         print("\n[ACTION REQUIRED] To apply the migration 'backend/migrations/017_create_reports_table.sql':")
         print("  1. Open the Supabase Dashboard for your project.")
         print("  2. Go to the SQL Editor.")

@@ -1,4 +1,19 @@
-from typing import Optional
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from services.auth_service import AuthService
+    from services.email_service import EmailService
+    from services.gallery_service import GalleryService
+    from services.notification_service import NotificationService
+    from services.quota_service import QuotaService
+    from services.report_service import ReportService
+    from services.seo_service import SeoService
+    from services.social_service import SocialService
+    from services.subscription_service import SubscriptionService
+    from services.treats_service import TreatsService
+    from services.user_service import UserService
 
 from fastapi import Depends, Header, HTTPException
 
@@ -32,29 +47,31 @@ __all__ = [
 ]
 
 
-async def get_user_service() -> "UserService":
+async def get_user_service() -> UserService:
     from services.user_service import UserService
+
     return UserService(
-        supabase_client=await get_async_supabase_client(),
-        supabase_admin=await get_async_supabase_admin_client()
+        supabase_client=await get_async_supabase_client(), supabase_admin=await get_async_supabase_admin_client()
     )
 
 
-async def get_auth_service() -> "AuthService":
+async def get_auth_service() -> AuthService:
     from services.auth_service import AuthService
+
     return AuthService(
-        supabase_client=await get_async_supabase_client(),
-        supabase_admin=await get_async_supabase_admin_client()
+        supabase_client=await get_async_supabase_client(), supabase_admin=await get_async_supabase_admin_client()
     )
 
 
-async def get_gallery_service() -> "GalleryService":
+async def get_gallery_service() -> GalleryService:
     from services.gallery_service import GalleryService
+
     return GalleryService(await get_async_supabase_client())
 
 
-async def get_admin_gallery_service() -> "GalleryService":
+async def get_admin_gallery_service() -> GalleryService:
     from services.gallery_service import GalleryService
+
     return GalleryService(await get_async_supabase_admin_client())
 
 
@@ -116,9 +133,10 @@ async def get_current_admin_user(user: dict = Depends(get_current_user_from_toke
     try:
         # Check role in DB asynchronously
         from utils.supabase_client import get_async_supabase_admin_client
+
         client = await get_async_supabase_admin_client()
         res = await client.table("users").select("role").eq("id", user_id).single().execute()
-        
+
         if not res.data or res.data.get("role") != "admin":
             raise HTTPException(status_code=403, detail="Admin privileges required")
         return user
@@ -129,41 +147,49 @@ async def get_current_admin_user(user: dict = Depends(get_current_user_from_toke
         raise HTTPException(status_code=403, detail="Admin privileges required")
 
 
-async def get_notification_service() -> "NotificationService":
+async def get_notification_service() -> NotificationService:
     from services.notification_service import NotificationService
+
     return NotificationService(await get_async_supabase_admin_client())
 
 
-async def get_email_service():
+async def get_email_service() -> EmailService:
     from services.email_service import email_service
+
     return email_service
 
 
-async def get_quota_service() -> "QuotaService":
+async def get_quota_service() -> QuotaService:
     from services.quota_service import QuotaService
+
     return QuotaService(await get_async_supabase_admin_client())
 
 
-async def get_social_service() -> "SocialService":
+async def get_social_service() -> SocialService:
     from services.social_service import SocialService
+
     return SocialService(await get_async_supabase_admin_client())
 
 
-async def get_subscription_service() -> "SubscriptionService":
+async def get_subscription_service() -> SubscriptionService:
     from services.subscription_service import SubscriptionService
+
     return SubscriptionService(await get_async_supabase_client())
 
 
-async def get_treats_service() -> "TreatsService":
+async def get_treats_service() -> TreatsService:
     from services.treats_service import TreatsService
+
     return TreatsService(await get_async_supabase_admin_client())
 
 
-async def get_report_service() -> "ReportService":
+async def get_report_service() -> ReportService:
     from services.report_service import ReportService
+
     return ReportService(await get_async_supabase_admin_client())
 
 
-async def get_seo_service() -> "SeoService":
+async def get_seo_service() -> SeoService:
     from services.seo_service import SeoService
+
     return SeoService(await get_async_supabase_client())

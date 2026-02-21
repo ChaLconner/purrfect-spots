@@ -7,7 +7,20 @@ from services.subscription_service import SubscriptionService
 
 @pytest.fixture
 def subscription_service():
+    from unittest.mock import AsyncMock
+
     mock_supabase = MagicMock()
+    # Mock chain: .table().select().eq().maybe_single().execute()
+    builder = MagicMock()
+    mock_supabase.table.return_value = builder
+    builder.select.return_value = builder
+    builder.eq.return_value = builder
+    builder.single.return_value = builder
+    builder.maybe_single.return_value = builder
+    builder.update.return_value = builder
+    builder.match.return_value = builder
+    builder.execute = AsyncMock()
+
     return SubscriptionService(mock_supabase)
 
 
@@ -16,9 +29,9 @@ def subscription_service():
 async def test_create_checkout_session(mock_customer_create, mock_session_create, subscription_service):
     """Test checkout session creation with new customer."""
     # Mock user query (no existing customer id)
-    mock_execute = MagicMock()
-    mock_execute.data = None
-    subscription_service.supabase.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_execute
+    subscription_service.supabase.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
+        data=None
+    )
 
     mock_customer_create.return_value.id = "cus_test123"
     mock_session_create.return_value.url = "http://test.url"

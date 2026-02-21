@@ -15,8 +15,8 @@
     "url": "git+https://github.com/ChaLconner/purrfect-spots.git"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "ChaLconner",
+  "license": "MIT",
   "type": "commonjs",
   "bugs": {
     "url": "https://github.com/ChaLconner/purrfect-spots/issues"

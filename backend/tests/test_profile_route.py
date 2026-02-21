@@ -27,13 +27,13 @@ class TestProfileRoute:
     @pytest.fixture
     def mock_storage_service(self):
         service = MagicMock()
-        service.upload_file = MagicMock()
+        service.upload_file = AsyncMock()
         return service
 
     @pytest.mark.asyncio
     async def test_get_profile(self, client, mock_user, mock_auth_service):
         """Test getting current user profile"""
-        mock_auth_service.get_user_by_id.return_value = mock_user
+        mock_auth_service.get_user_by_id = AsyncMock(return_value=mock_user)
 
         app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
         app.dependency_overrides[get_auth_service] = lambda: mock_auth_service

@@ -1,9 +1,14 @@
 <template>
   <Teleport to="body">
-    <Transition name="modal-fade">
+    <Transition
+      enter-active-class="transition-all duration-300 ease-out"
+      leave-active-class="transition-all duration-300 ease-out"
+      enter-from-class="opacity-0 max-sm:translate-y-full sm:translate-y-2.5 sm:scale-[0.98]"
+      leave-to-class="opacity-0 max-sm:translate-y-full sm:translate-y-2.5 sm:scale-[0.98]"
+    >
       <dialog
         v-if="image"
-        class="modal-backdrop"
+        class="fixed inset-0 bg-[#0a0a0c]/90 backdrop-blur-[20px] flex items-center justify-center z-[1000] p-0 sm:p-3 min-[900px]:p-1 border-none m-0 w-screen h-screen overflow-hidden"
         :open="true"
         aria-modal="true"
         aria-labelledby="modal-title"
@@ -11,12 +16,14 @@
       >
         <div
           ref="modalContainer"
-          class="modal-container"
+          class="w-full h-full flex items-center justify-center outline-none sm:h-auto sm:max-h-[96vh] overflow-hidden"
           tabindex="-1"
           @click.stop
           @keydown="handleKeydown"
         >
-          <div class="modal-card">
+          <div
+            class="flex flex-col bg-white w-full h-full overflow-hidden relative shadow-[0_30px_60px_-12px_rgba(0,0,0,0.5)] rounded-none sm:rounded-3xl sm:h-auto sm:min-h-[670px] sm:max-h-[96vh] sm:w-[840px] sm:max-w-[97vw] min-[900px]:grid min-[900px]:grid-cols-[1fr_360px] min-[1200px]:grid-cols-[1fr_400px] min-[900px]:rounded-[2rem] min-[900px]:min-h-[820px] min-[900px]:max-h-[98vh] min-[900px]:w-full min-[900px]:max-w-full"
+          >
             <!-- Left Side: Image Stage -->
             <GalleryModalImageStage
               :image="image"
@@ -31,7 +38,11 @@
             />
 
             <!-- Mobile Close Button (Overlays Image) -->
-            <button class="mobile-close-btn" aria-label="Close" @click.stop="$emit('close')">
+            <button
+              class="absolute top-4 right-4 z-50 w-10 h-10 rounded-full border-none bg-black/40 backdrop-blur-[4px] text-white flex items-center justify-center cursor-pointer transition-all duration-300 shadow-[0_4px_12px_rgba(0,0,0,0.2)] active:scale-95 hover:bg-black/60 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 min-[900px]:hidden"
+              aria-label="Close"
+              @click.stop="$emit('close')"
+            >
               <svg
                 width="24"
                 height="24"
@@ -57,7 +68,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, computed } from 'vue';
+import { ref, watch, onMounted, onUnmounted, computed, nextTick } from 'vue';
 import type { CatLocation } from '@/types/api';
 
 import GalleryModalImageStage from '@/components/gallery/GalleryModalImageStage.vue';
@@ -104,7 +115,37 @@ function navigateNext(): void {
   if (hasNext.value) handleNavigation('next');
 }
 
-// Keyboard navigation
+// Keyboard navigation & Focus Trapping
+const previousFocus = ref<HTMLElement | null>(null);
+
+function trapFocus(e: KeyboardEvent): void {
+  if (!modalContainer.value) return;
+  const focusableElements = modalContainer.value.querySelectorAll<HTMLElement>(
+    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+  );
+  if (focusableElements.length === 0) return;
+
+  const firstElement = focusableElements[0];
+  const lastElement = focusableElements[focusableElements.length - 1];
+
+  if (e.shiftKey) {
+    // Shift + Tab
+    if (
+      document.activeElement === firstElement ||
+      document.activeElement === modalContainer.value
+    ) {
+      lastElement.focus();
+      e.preventDefault();
+    }
+  } else {
+    // Tab
+    if (document.activeElement === lastElement) {
+      firstElement.focus();
+      e.preventDefault();
+    }
+  }
+}
+
 function handleKeydown(e: KeyboardEvent): void {
   if (!props.image) return;
 
@@ -117,6 +158,9 @@ function handleKeydown(e: KeyboardEvent): void {
       break;
     case 'ArrowRight':
       navigateNext();
+      break;
+    case 'Tab':
+      trapFocus(e);
       break;
   }
 }
@@ -152,6 +196,10 @@ function setupListeners(): void {
 
 function cleanupListeners(): void {
   document.body.style.overflow = '';
+  // Restore focus for a11y
+  if (previousFocus.value) {
+    previousFocus.value.focus();
+  }
 }
 
 function onImageLoad(): void {
@@ -167,6 +215,7 @@ const modalContainer = ref<HTMLElement | null>(null);
 
 onMounted(() => {
   if (props.image) {
+    previousFocus.value = document.activeElement as HTMLElement;
     setupListeners();
     // Focus for a11y
     nextTick(() => {
@@ -199,143 +248,3 @@ onUnmounted(() => {
   cleanupListeners();
 });
 </script>
-
-<style scoped>
-/* Modal Backdrop & Container Styles (Layout only) */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(10, 10, 12, 0.9);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 0;
-  border: none;
-  margin: 0;
-  width: 100vw;
-  height: 100vh;
-}
-
-/* Tablet & Desktop: Add padding so it's not full edge-to-edge unless mobile */
-@media (min-width: 640px) {
-  .modal-backdrop {
-    padding: 1.5rem;
-  }
-}
-
-@media (min-width: 1024px) {
-  .modal-backdrop {
-    padding: 2.5rem;
-  }
-}
-
-.modal-container {
-  width: 100%;
-  height: 100%;
-  max-width: 1200px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  outline: none;
-}
-
-/* On non-mobile, constrain height */
-@media (min-width: 640px) {
-  .modal-container {
-    height: auto;
-    max-height: 90vh;
-  }
-}
-
-.modal-card {
-  display: flex;
-  flex-direction: column;
-  background: #ffffff;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  position: relative;
-  box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.5);
-  /* Mobile: Square corners by default */
-  border-radius: 0;
-}
-
-/* Tablet Portrait / Large Mobile: Card look, but vertical */
-@media (min-width: 640px) {
-  .modal-card {
-    border-radius: 1.5rem;
-    height: auto;
-    min-height: 500px;
-    max-height: 90vh;
-    width: 600px; /* Constrain width on tablet so it's not too wide */
-    max-width: 90vw;
-  }
-}
-
-/* Desktop / Landscape Tablet: Row layout */
-@media (min-width: 900px) {
-  .modal-card {
-    flex-direction: row;
-    border-radius: 2rem;
-    height: auto;
-    min-height: 600px;
-    max-height: 85vh;
-    width: 100%; /* Reset width constraint for desktop flexible layout */
-    max-width: 100%;
-  }
-}
-
-/* Transitions */
-.modal-fade-enter-active,
-.modal-fade-leave-active {
-  transition: all 0.3s ease-out;
-}
-
-.modal-fade-enter-from,
-.modal-fade-leave-to {
-  opacity: 0;
-  transform: translateY(10px) scale(0.98);
-}
-
-@media (max-width: 639px) {
-  .modal-fade-enter-from,
-  .modal-fade-leave-to {
-    opacity: 0;
-    transform: translateY(100%); /* Slide up on mobile */
-  }
-}
-/* Mobile Close Button */
-.mobile-close-btn {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  z-index: 50;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(4px);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.mobile-close-btn:active {
-  transform: scale(0.95);
-  background: rgba(0, 0, 0, 0.6);
-}
-
-@media (min-width: 900px) {
-  .mobile-close-btn {
-    display: none;
-  }
-}
-</style>

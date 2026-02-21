@@ -26,7 +26,99 @@
     "unknown": "Unknown",
     "validationError": "Validation Error",
     "somethingWentWrong": "Something went wrong",
-    "unableToProcess": "Unable to process request. Please try again."
+    "unableToProcess": "Unable to process request. Please try again.",
+    "confirm": "Confirm",
+    "welcome": "Welcome",
+    "refresh": "Refresh",
+    "export": "Export",
+    "exportCsv": "Export CSV",
+    "import": "Import",
+    "filter": "Filter",
+    "sort": "Sort",
+    "ascending": "Ascending",
+    "descending": "Descending",
+    "selectAll": "Select All",
+    "deselectAll": "Deselect All",
+    "selected": "Selected",
+    "actions": "Actions",
+    "view": "View",
+    "details": "Details",
+    "settings": "Settings",
+    "profile": "Profile",
+    "logout": "Logout",
+    "login": "Login",
+    "register": "Register",
+    "signUp": "Sign Up",
+    "signIn": "Sign In",
+    "or": "or",
+    "and": "and"
+  },
+  "time": {
+    "second": {
+      "one": "{count} second",
+      "other": "{count} seconds"
+    },
+    "minute": {
+      "one": "{count} minute",
+      "other": "{count} minutes"
+    },
+    "hour": {
+      "one": "{count} hour",
+      "other": "{count} hours"
+    },
+    "day": {
+      "one": "{count} day",
+      "other": "{count} days"
+    },
+    "week": {
+      "one": "{count} week",
+      "other": "{count} weeks"
+    },
+    "month": {
+      "one": "{count} month",
+      "other": "{count} months"
+    },
+    "year": {
+      "one": "{count} year",
+      "other": "{count} years"
+    },
+    "justNow": "Just now",
+    "ago": "{time} ago",
+    "in": "in {time}"
+  },
+  "errors": {
+    "network": "Unable to connect. Please check your internet connection.",
+    "server": "Server is temporarily unavailable. Please try again later.",
+    "unauthorized": "You are not authorized to perform this action.",
+    "forbidden": "You don't have permission to access this resource.",
+    "notFound": "The requested resource was not found.",
+    "validation": "Please check your input and try again.",
+    "timeout": "Request timed out. Please try again.",
+    "unknown": "An unexpected error occurred. Please try again.",
+    "sessionExpired": "Your session has expired. Please log in again.",
+    "rateLimit": "Too many requests. Please wait a moment and try again.",
+    "uploadFailed": "Failed to upload file. Please try again.",
+    "downloadFailed": "Failed to download file. Please try again.",
+    "invalidFile": "Invalid file format. Please upload a valid file.",
+    "fileTooLarge": "File is too large. Maximum size is {maxSize}.",
+    "invalidEmail": "Please enter a valid email address.",
+    "invalidPassword": "Password must be at least {minLength} characters.",
+    "passwordMismatch": "Passwords do not match.",
+    "emailExists": "An account with this email already exists.",
+    "invalidCredentials": "Invalid email or password.",
+    "tokenExpired": "This link has expired. Please request a new one.",
+    "invalidToken": "Invalid token. Please try again.",
+    "googleAuthFailed": "Failed to authenticate with Google. Please try again.",
+    "oauthError": "OAuth configuration error. Please contact support.",
+    "connectionError": "Cannot connect to server. Please check your internet connection.",
+    "serviceUnavailable": "Service temporarily unavailable.",
+    "extensionError": "An error occurred from browser extensions. Please disable extensions and try again.",
+    "detectionFailed": "Failed to detect cat in image.",
+    "locationError": "Failed to get location. Please enable location services.",
+    "mapError": "Failed to load map. Please try again.",
+    "paymentFailed": "Payment failed. Please try again.",
+    "subscriptionFailed": "Failed to process subscription. Please try again.",
+    "treatPurchaseFailed": "Failed to purchase treats. Please try again."
   },
   "upload": {
     "pageTitle": "Share a Purrfect Spot",
@@ -47,7 +139,9 @@
       "orClickToBrowse": "or click to browse",
       "verifyingCatContent": "Verifying...",
       "aspectRatioMessage": "Please upload a photo with a standard aspect ratio (between 0.5 and 2.0).",
-      "invalidAspectRatio": "Invalid Aspect Ratio"
+      "invalidAspectRatio": "Invalid Aspect Ratio",
+      "preview": "Preview",
+      "removePhoto": "Remove Photo"
     },
     "detailsSection": {
       "title": "Cat Details",
@@ -57,7 +151,8 @@
       "description": "Description",
       "descriptionPlaceholder": "Tell us about this spot...",
       "tagsOptional": "Tags (Optional)",
-      "tagsPlaceholder": "Add tags..."
+      "tagsPlaceholder": "Add tags...",
+      "maxTags": "Max tags reached"
     },
     "locationSection": {
       "title": "Add Location",
@@ -65,7 +160,10 @@
       "useMyLocation": "Use My Location",
       "loginToUseMap": "Log in to use the map",
       "tapToPin": "Tap the map to pin the location",
-      "dragMarker": "Drag marker to adjust"
+      "dragMarker": "Drag marker to adjust",
+      "locationRequired": "Please select a location on the map",
+      "locationFound": "Location found!",
+      "locationNotFound": "Location not found. Please try again."
     },
     "used": "Used",
     "limit": "Limit",
@@ -75,7 +173,6 @@
     "errorGeolocation": "Geolocation is not supported by your browser",
     "uploadFailed": "Upload failed. Please try again.",
     "unexpectedError": "An unexpected error occurred",
-    "locationRequired": "Please select a location on the map",
     "success": {
       "title": "Upload Successful!",
       "message": "Your cat spot has been shared with the community",
@@ -85,6 +182,11 @@
       "confidence": "Confidence",
       "uploadAnother": "Upload Another",
       "viewMap": "View on Map"
+    },
+    "quota": {
+      "remaining": "{count} uploads remaining today",
+      "exceeded": "Daily upload limit reached",
+      "upgradePrompt": "Upgrade to Pro for more uploads"
     }
   },
   "auth": {
@@ -132,6 +234,7 @@
     "passwordUpdated": "Password updated successfully. Please login.",
     "invalidToken": "Invalid or expired reset link",
     "signInRequired": "Sign in required",
+    "catIllustrationAlt": "Cute cat illustration",
     "verifyEmail": {
       "title": "Verify Your Email",
       "subtitle": "We sent a 6-digit code to",
@@ -148,7 +251,9 @@
       "codeSentMessage": "Verification code sent!",
       "verificationFailed": "Verification failed",
       "resendFailedTitle": "Resend Failed",
-      "resendFailedMessage": "Failed to resend code"
+      "resendFailedMessage": "Failed to resend code",
+      "enterCode": "Enter 6-digit code",
+      "codePlaceholder": "••••••"
     },
     "callback": {
       "passwordResetVerified": "Password Reset Verified",
@@ -186,6 +291,11 @@
       "ariaClose": "Close",
       "ariaReport": "Report",
       "reportTitle": "Report this photo"
+    },
+    "markers": {
+      "yourLocation": "Your location",
+      "catSpot": "Cat spot",
+      "verifiedSpot": "Verified spot"
     }
   },
   "profile": {
@@ -253,7 +363,8 @@
     "editDetails": "Edit Details",
     "deletePhoto": "Delete Photo",
     "reportPhoto": "Report Photo",
-    "giveTreat": "Give Treat"
+    "giveTreat": "Give Treat",
+    "myProfile": "My Profile"
   },
   "nav": {
     "home": "Home",
@@ -268,11 +379,18 @@
     "leaderboard": "Leaderboard"
   },
   "cats": {
-      "cats": "cats",
-      "spottedNearby": "spotted nearby"
+    "cats": "cats",
+    "spottedNearby": "spotted nearby",
+    "cat": "cat",
+    "kitten": "kitten",
+    "kittens": "kittens"
   },
   "toast": {
-      "loggedOut": "Logged out successfully"
+    "loggedOut": "Logged out successfully",
+    "success": "Success",
+    "error": "Error",
+    "warning": "Warning",
+    "info": "Info"
   },
   "subscription": {
     "title": "Support the Purrfect Community",
@@ -345,7 +463,13 @@
       "title": "Leaderboard",
       "description": "See the most spoiled cats and top contributors in the Purrfect Spots community."
     },
-    "errorLoad": "Failed to load leaderboard data."
+    "errorLoad": "Failed to load leaderboard data.",
+    "ranks": {
+      "first": "The Cat Whisperer",
+      "second": "Treat Master",
+      "third": "Feline Friend",
+      "default": "Spotter"
+    }
   },
   "admin": {
     "dashboard": "Admin Dashboard",
@@ -368,17 +492,142 @@
       "page": "Page"
     },
     "confirmDelete": "Are you sure you want to ban/delete user {name}? This action cannot be undone.",
-    "deleteFailed": "Failed to delete user"
+    "deleteFailed": "Failed to delete user",
+    "reports": {
+      "title": "User Reports",
+      "noReports": "No reports found.",
+      "date": "Date",
+      "reason": "Reason",
+      "content": "Content",
+      "reporter": "Reporter",
+      "status": "Status",
+      "statuses": {
+        "pending": "Pending",
+        "resolved": "Resolved",
+        "dismissed": "Dismissed"
+      },
+      "actions": {
+        "resolve": "Resolve",
+        "dismiss": "Dismiss",
+        "deleteContent": "Delete Content",
+        "view": "View"
+      },
+      "filters": {
+        "allStatuses": "All Statuses",
+        "allReasons": "All Reasons"
+      },
+      "modal": {
+        "title": "Resolve Report",
+        "dismissTitle": "Dismiss Report",
+        "deleteTitle": "Delete Content & Resolve",
+        "bulkTitle": "Bulk Action ({count} Reports)",
+        "warning": "Warning: This content will be permanently deleted.",
+        "standardReason": "Standard Reason",
+        "selectReason": "Select a reason...",
+        "additionalNotes": "Additional Notes (Optional)",
+        "notesPlaceholder": "Add specific details for user...",
+        "confirm": "Confirm",
+        "cancel": "Cancel"
+      }
+    },
+    "users": {
+      "editProfile": "Edit Profile",
+      "fullName": "Full Name",
+      "bio": "Bio",
+      "pictureUrl": "Picture URL",
+      "clearToRevert": "Clear to revert to default avatar.",
+      "banUser": "Ban User",
+      "banReason": "Reason",
+      "banReasonPlaceholder": "Violation of Terms of Service",
+      "provideBanReason": "Please provide a reason for banning this user.",
+      "confirmBan": "Ban User",
+      "unbanUser": "Unban User",
+      "confirmUnban": "Are you sure you want to unban user {name}?",
+      "deleteUser": "Delete User",
+      "confirmDelete": "Are you sure you want to PERMANENTLY DELETE user {name}? This action CANNOT be undone and will remove all their data.",
+      "yesDelete": "Yes, Delete",
+      "unban": "Unban",
+      "profile": "Profile",
+      "banned": "BANNED",
+      "roles": {
+        "user": "User",
+        "admin": "Admin",
+        "superAdmin": "Super Admin"
+      },
+      "export": {
+        "noUsers": "No users to export",
+        "success": "Users exported successfully",
+        "failed": "Failed to export users"
+      },
+      "actions": {
+        "roleUpdated": "Role updated to {role}",
+        "userBanned": "User {name} has been banned.",
+        "userUnbanned": "User {name} has been unbanned.",
+        "userDeleted": "User {name} has been deleted.",
+        "profileUpdated": "User profile updated successfully",
+        "roleNotFound": "Target role not found in system",
+        "failedToBan": "Failed to ban user",
+        "failedToUnban": "Failed to unban user",
+        "failedToDelete": "Failed to delete user",
+        "failedToUpdateRole": "Failed to update user role",
+        "failedToUpdateProfile": "Failed to update profile"
+      }
+    },
+    "photos": {
+      "editContent": "Edit Content",
+      "locationName": "Location Name",
+      "description": "Description",
+      "save": "Save",
+      "saving": "Saving...",
+      "delete": "Delete",
+      "viewPublicPage": "View Public Page",
+      "actionDenied": "Action Denied",
+      "noPermission": "You do not have permission to edit content.",
+      "detailsUpdated": "Photo details updated successfully",
+      "failedToUpdate": "Failed to update photo details",
+      "deleted": "Photo deleted successfully",
+      "failedToDelete": "Failed to delete photo",
+      "unknown": "Unknown"
+    },
+    "audit": {
+      "title": "Audit Logs",
+      "filterByUser": "Filter by User ID",
+      "allActions": "All Actions",
+      "actions": {
+        "LOGIN": "Login",
+        "LOGOUT": "Logout",
+        "DELETE_USER": "Delete User",
+        "BAN_USER": "Ban User",
+        "UNBAN_USER": "Unban User",
+        "UPDATE_ROLE": "Update Role",
+        "UPDATE_PROFILE": "Update Profile",
+        "DELETE_PHOTO": "Delete Photo",
+        "RESOLVE_REPORT": "Resolve Report",
+        "DISMISS_REPORT": "Dismiss Report"
+      },
+      "unknownUser": "Unknown",
+      "system": "System",
+      "copyJson": "Copy JSON",
+      "copiedToClipboard": "Copied to clipboard",
+      "failedToCopy": "Failed to copy",
+      "failedToLoad": "Failed to load audit logs"
+    },
+    "stats": {
+      "failedToLoad": "Failed to load stats",
+      "failedToLoadUsers": "Failed to load users"
+    }
   },
   "privacyPolicy": {
     "title": "Privacy Policy",
     "backHome": "← Back to Home",
-    "content": "<p class=\"text-sm text-brown-500 mb-6\">Last Updated: {date}</p><p>At Purrfect Spots (\"we\", \"us\", or \"our\"), we respect your privacy and are committed to protecting your personal data. This Privacy Policy explains how we collect, use, and safeguard your information when you visit our website <a href=\"https://purrfectspots.xyz\" class=\"text-terracotta-600 hover:text-terracotta-700\">purrfectspots.xyz</a>.</p><h3>1. Information We Collect</h3><p>We collect information that you voluntarily provide to us when you register on the website, use our services, or contact us.</p><ul><li><strong>Personal Data:</strong> Name, email address, and profile picture (via Google Login or manual registration).</li><li><strong>Content Data:</strong> Photos, comments, likes, and location data you upload to the platform.</li><li><strong>Usage Data:</strong> Information about how you interact with our website (e.g., pages visited, time spent).</li></ul><h3>2. How We Use Your Information</h3><p>We use the collected information for the following purposes:</p><ul><li>To provide and maintain our Service.</li><li>To notify you about changes to our Service.</li><li>To allow you to participate in interactive features (e.g., uploading photos, commenting).</li><li>To provide customer support.</li><li>To detect, prevent, and address technical issues.</li></ul><h3>3. Data Sharing and Disclosure</h3><p>We do not sell your personal data. We may share your information with third-party service providers (e.g., Google Cloud, Supabase, Stripe) solely for the purpose of operating our Service. These providers are obligated to protect your data.</p><h3>4. Cookies and Tracking Technologies</h3><p>We use cookies and similar tracking technologies to track the activity on our Service and hold certain information. You can instruct your browser to refuse all cookies or to indicate when a cookie is being sent.</p><h3>5. User Rights</h3><p>Depending on your location, you may have the following rights regarding your personal data:</p><ul><li>The right to access, update, or delete the information we have on you.</li><li>The right of rectification.</li><li>The right to object.</li><li>The right of restriction.</li></ul><p>To exercise these rights, please contact us at support@purrfectspots.com.</p><h3>6. Changes to This Privacy Policy</h3><p>We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page.</p><h3>7. Contact Us</h3><p>If you have any questions about this Privacy Policy, please contact us by email: support@purrfectspots.com.</p>"
+    "lastUpdated": "Last Updated: {date}",
+    "content": "<p>At Purrfect Spots (\"we\", \"us\", or \"our\"), we respect your privacy and are committed to protecting your personal data. This Privacy Policy explains how we collect, use, and safeguard your information when you visit our website <a href=\"https://purrfectspots.xyz\" class=\"text-terracotta-600 hover:text-terracotta-700\">purrfectspots.xyz</a>.</p><h3>1. Information We Collect</h3><p>We collect information that you voluntarily provide to us when you register on the website, use our services, or contact us.</p><ul><li><strong>Personal Data:</strong> Name, email address, and profile picture (via Google Login or manual registration).</li><li><strong>Content Data:</strong> Photos, comments, likes, and location data you upload to the platform.</li><li><strong>Usage Data:</strong> Information about how you interact with our website (e.g., pages visited, time spent).</li></ul><h3>2. How We Use Your Information</h3><p>We use the collected information for the following purposes:</p><ul><li>To provide and maintain our Service.</li><li>To notify you about changes to our Service.</li><li>To allow you to participate in interactive features (e.g., uploading photos, commenting).</li><li>To provide customer support.</li><li>To detect, prevent, and address technical issues.</li></ul><h3>3. Data Sharing and Disclosure</h3><p>We do not sell your personal data. We may share your information with third-party service providers (e.g., Google Cloud, Supabase, Stripe) solely for the purpose of operating our Service. These providers are obligated to protect your data.</p><h3>4. Cookies and Tracking Technologies</h3><p>We use cookies and similar tracking technologies to track the activity on our Service and hold certain information. You can instruct your browser to refuse all cookies or to indicate when a cookie is being sent.</p><h3>5. User Rights</h3><p>Depending on your location, you may have the following rights regarding your personal data:</p><ul><li>The right to access, update, or delete the information we have on you.</li><li>The right of rectification.</li><li>The right to object.</li><li>The right of restriction.</li></ul><p>To exercise these rights, please contact us at support@purrfectspots.com.</p><h3>6. Changes to This Privacy Policy</h3><p>We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page.</p><h3>7. Contact Us</h3><p>If you have any questions about this Privacy Policy, please contact us by email: support@purrfectspots.com.</p>"
   },
   "termsOfService": {
     "title": "Terms of Service",
     "backHome": "← Back to Home",
-    "content": "<p class=\"text-sm text-brown-500 mb-6\">Last Updated: {date}</p><p>Welcome to Purrfect Spots (\"Services\"). By using our website <a href=\"https://purrfectspots.xyz\" class=\"text-terracotta-600 hover:text-terracotta-700\">purrfectspots.xyz</a>, you agree to be bound by these Terms of Service. If you disagree with any part of the terms, you must not use our Services.</p><h3>1. Acceptance of Terms</h3><p>By accessing or using the Service, you agree to be bound by these Terms. If you disagree with any part of the terms, then you may not access the Service.</p><h3>2. Description of Service</h3><p>Purrfect Spots is a platform for users to upload, share, and discover photos and locations of cats. We reserve the right to modify or discontinue the Service at any time without notice.</p><h3>3. User Accounts</h3><p>When you create an account with us, you must provide accurate and complete information. You are solely responsible for safeguarding your account password and for all activities that occur under your account. You must notify us immediately of any unauthorized use of your account.</p><h3>4. User Content and Conduct</h3><p>You retain ownership of the content you upload (\"User Content\"), but you grant us a worldwide, royalty-free license to use, reproduce, modify, adapt, publish, and display such content.</p><p><strong>You agree NOT to upload content that:</strong></p><ul><li>Is illegal, harmful, threatening, abusive, harassing, defamatory, vulgar, obscene, or invasive of another's privacy.</li><li>Infringes on any patent, trademark, trade secret, copyright, or other proprietary rights of any party.</li><li>Contains software viruses or any other computer code designed to interrupt, destroy, or limit the functionality of any computer software or hardware.</li><li>Promotes hate speech, violence, or discrimination.</li><li>Is sexually explicit or pornographic.</li></ul><p>We reserve the right to remove any content that violates these Terms or is otherwise objectionable, at our sole discretion.</p><h3>5. Intellectual Property</h3><p>The Service and its original content (excluding User Content), features, and functionality are and will remain the exclusive property of Purrfect Spots and its licensors.</p><h3>6. Termination</h3><p>We may terminate or suspend your account immediately, without prior notice or liability, for any reason whatsoever, including without limitation if you breach the Terms.</p><h3>7. Limitation of Liability</h3><p>In no event shall Purrfect Spots, nor its directors, employees, partners, agents, suppliers, or affiliates, be liable for any indirect, incidental, special, consequential or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses, resulting from (i) your access to or use of or inability to access or use the Service; (ii) any conduct or content of any third party on the Service; (iii) any content obtained from the Service; and (iv) unauthorized access, use or alteration of your transmissions or content, whether based on warranty, contract, tort (including negligence) or any other legal theory, whether or not we have been informed of the possibility of such damage.</p><h3>8. Disclaimer</h3><p>Your use of the Service is at your sole risk. The Service is provided on an \"AS IS\" and \"AS AVAILABLE\" basis. The Service is provided without warranties of any kind, whether express or implied.</p><h3>9. Governing Law</h3><p>These Terms shall be governed and construed in accordance with the laws of Thailand, without regard to its conflict of law provisions.</p><h3>10. Changes</h3><p>We reserve the right, at our sole discretion, to modify or replace these Terms at any time. By continuing to access or use our Service after those revisions become effective, you agree to be bound by the revised terms.</p><h3>11. Contact Us</h3><p>If you have any questions about these Terms, please contact us by email: support@purrfectspots.com.</p>"
+    "lastUpdated": "Last Updated: {date}",
+    "content": "<p>Welcome to Purrfect Spots (\"Services\"). By using our website <a href=\"https://purrfectspots.xyz\" class=\"text-terracotta-600 hover:text-terracotta-700\">purrfectspots.xyz</a>, you agree to be bound by these Terms of Service. If you disagree with any part of the terms, you must not use our Services.</p><h3>1. Acceptance of Terms</h3><p>By accessing or using the Service, you agree to be bound by these Terms. If you disagree with any part of the terms, then you may not access the Service.</p><h3>2. Description of Service</h3><p>Purrfect Spots is a platform for users to upload, share, and discover photos and locations of cats. We reserve the right to modify or discontinue the Service at any time without notice.</p><h3>3. User Accounts</h3><p>When you create an account with us, you must provide accurate and complete information. You are solely responsible for safeguarding your account password and for all activities that occur under your account. You must notify us immediately of any unauthorized use of your account.</p><h3>4. User Content and Conduct</h3><p>You retain ownership of the content you upload (\"User Content\"), but you grant us a worldwide, royalty-free license to use, reproduce, modify, adapt, publish, and display such content.</p><p><strong>You agree NOT to upload content that:</strong></p><ul><li>Is illegal, harmful, threatening, abusive, harassing, defamatory, vulgar, obscene, or invasive of another's privacy.</li><li>Infringes on any patent, trademark, trade secret, copyright, or other proprietary rights of any party.</li><li>Contains software viruses or any other computer code designed to interrupt, destroy, or limit the functionality of any computer software or hardware.</li><li>Promotes hate speech, violence, or discrimination.</li><li>Is sexually explicit or pornographic.</li></ul><p>We reserve the right to remove any content that violates these Terms or is otherwise objectionable, at our sole discretion.</p><h3>5. Intellectual Property</h3><p>The Service and its original content (excluding User Content), features, and functionality are and will remain the exclusive property of Purrfect Spots and its licensors.</p><h3>6. Termination</h3><p>We may terminate or suspend your account immediately, without prior notice or liability, for any reason whatsoever, including without limitation if you breach the Terms.</p><h3>7. Limitation of Liability</h3><p>In no event shall Purrfect Spots, nor its directors, employees, partners, agents, suppliers, or affiliates, be liable for any indirect, incidental, special, consequential or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses, resulting from (i) your access to or use of or inability to access or use the Service; (ii) any conduct or content of any third party on the Service; (iii) any content obtained from the Service; and (iv) unauthorized access, use or alteration of your transmissions or content, whether based on warranty, contract, tort (including negligence) or any other legal theory, whether or not we have been informed of the possibility of such damage.</p><h3>8. Disclaimer</h3><p>Your use of the Service is at your sole risk. The Service is provided on an \"AS IS\" and \"AS AVAILABLE\" basis. The Service is provided without warranties of any kind, whether express or implied.</p><h3>9. Governing Law</h3><p>These Terms shall be governed and construed in accordance with the laws of Thailand, without regard to its conflict of law provisions.</p><h3>10. Changes</h3><p>We reserve the right, at our sole discretion, to modify or replace these Terms at any time. By continuing to access or use our Service after those revisions become effective, you agree to be bound by the revised terms.</p><h3>11. Contact Us</h3><p>If you have any questions about these Terms, please contact us by email: support@purrfectspots.com.</p>"
   },
   "galleryPage": {
     "header": {
@@ -457,5 +706,134 @@
     "title": "404",
     "message": "Page Not Found",
     "goHome": "Go Home"
+  },
+  "accessibility": {
+    "mainNavigation": "Main Navigation",
+    "goToHome": "Go to home",
+    "notifications": "Notifications",
+    "userMenu": "User menu",
+    "search": "Search",
+    "clearSearch": "Clear search",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "removeTag": "Remove tag",
+    "closeModal": "Close modal",
+    "editComment": "Edit comment",
+    "removeComment": "Remove comment",
+    "like": "Like",
+    "unlike": "Unlike",
+    "giveTreat": "Give treat",
+    "report": "Report",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "loading": "Loading",
+    "error": "Error",
+    "success": "Success"
+  },
+  "social": {
+    "like": "Like",
+    "unlike": "Unlike",
+    "comment": "Comment",
+    "comments": "Comments",
+    "postComment": "Post Comment",
+    "posting": "Posting...",
+    "showAll": "Show all {count} comments",
+    "showLess": "Show less",
+    "viewAll": "View all {count} comments",
+    "anonymous": "Anonymous",
+    "userAvatar": "User avatar",
+    "actor": "Actor",
+    "preview": "Preview",
+    "loginRequired": "Login required",
+    "serverError": "Our servers are taking a short break. Try again soon!",
+    "catNap": "Cat Nap in Progress",
+    "hairballError": "Something went wrong. Please try liking again.",
+    "failedToPost": "Failed to post comment",
+    "failedToDelete": "Failed to delete",
+    "failedToUpdate": "Failed to update comment",
+    "failedToLoad": "Failed to load comments"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "noNotifications": "No notifications",
+    "markAsRead": "Mark as read",
+    "markAllAsRead": "Mark all as read",
+    "loadMore": "Load more",
+    "failedToLoad": "Failed to load notifications"
+  },
+  "ui": {
+    "tryAgain": "Try Again",
+    "retry": "Retry",
+    "loading": "Loading...",
+    "noData": "No data available",
+    "emptyState": {
+      "defaultTitle": "A Quiet Spot",
+      "defaultMessage": "No items found here yet."
+    },
+    "errorState": {
+      "defaultTitle": "Oops!",
+      "defaultMessage": "Something went wrong."
+    },
+    "skeleton": {
+      "loading": "Loading..."
+    },
+    "loginRequired": {
+      "title": "Login Required",
+      "message": "Please log in to continue",
+      "action": "Log In"
+    },
+    "optimizedImage": {
+      "failedToLoad": "Failed to load: {alt}",
+      "retry": "Retry loading image"
+    },
+    "passwordStrength": {
+      "weak": "Weak",
+      "fair": "Fair",
+      "good": "Good",
+      "strong": "Strong"
+    },
+    "tagsInput": {
+      "maxTagsReached": "Max tags reached",
+      "addTag": "Add tag",
+      "removeTag": "Remove tag"
+    },
+    "reportModal": {
+      "submitFailed": "Failed to submit report"
+    },
+    "emptyState": {
+      "title": "A Quiet Spot",
+      "message": "No items found here yet."
+    }
+  },
+  "googleAuth": {
+    "title": "Sign in with Google",
+    "connecting": "Connecting...",
+    "unableToConnect": "Unable to connect to Google service.",
+    "loginError": "Google Login Error"
+  },
+  "constants": {
+    "reportReasons": {
+      "not_a_cat": "Not a Cat / Irrelevant",
+      "animal_welfare": "Animal Abuse / Distress",
+      "privacy": "Privacy Violation / Private Property",
+      "inappropriate": "Inappropriate Content (Nudity/Gore)",
+      "spam": "Spam / Advertising",
+      "harassment": "Harassment / Hate Speech",
+      "other": "Other"
+    },
+    "resolutionReasons": {
+      "violation_content": "Violation: Inappropriate Content",
+      "violation_irrelevant": "Violation: Not a Cat / Irrelevant",
+      "violation_safety": "Violation: Safety / Animal Welfare",
+      "violation_privacy": "Violation: Privacy",
+      "violation_spam": "Violation: Spam",
+      "warning_issued": "Warning Issued",
+      "no_violation": "No Violation Found",
+      "duplicate": "Duplicate Report",
+      "context_verified": "Context Verified (Safe)"
+    }
   }
 }

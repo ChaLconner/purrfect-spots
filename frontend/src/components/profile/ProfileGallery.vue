@@ -97,7 +97,7 @@ const rows = computed(() => {
         :items="rows"
         :min-item-size="200"
         key-field="id"
-        class="profile-scroller"
+        class="h-full max-h-[80vh]"
       >
         <template #default="{ item, index, active }">
           <DynamicScrollerItem
@@ -105,7 +105,7 @@ const rows = computed(() => {
             :active="active"
             :size-dependencies="[cols]"
             :data-index="index"
-            class="profile-row"
+            class="w-full"
           >
             <div
               class="grid gap-3 sm:gap-4 md:gap-6 p-2 sm:p-3 md:p-4 w-full"
@@ -148,14 +148,3 @@ const rows = computed(() => {
     </div>
   </div>
 </template>
-
-<style scoped>
-.profile-scroller {
-  height: 100%;
-  max-height: 80vh;
-}
-
-.profile-row {
-  width: 100%;
-}
-</style>

@@ -70,11 +70,3 @@ defineProps<{
   disabled?: boolean;
 }>();
 </script>
-
-<style scoped>
-/* Glass effect duplication - should be global utility ideally */
-.bg-glass {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(10px);
-}
-</style>

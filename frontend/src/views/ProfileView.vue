@@ -420,22 +420,3 @@ onUnmounted(() => {
   resetMetaTags();
 });
 </script>
-
-<style scoped>
-/* Scoped styles mainly for specific overrides if needed */
-.aspect-square {
-  aspect-ratio: 1 / 1;
-}
-
-/* Custom scrollbar for textareas if needed */
-textarea::-webkit-scrollbar {
-  width: 8px;
-}
-textarea::-webkit-scrollbar-track {
-  background: #f1f1f1;
-}
-textarea::-webkit-scrollbar-thumb {
-  background: #c97b49;
-  border-radius: 4px;
-}
-</style>

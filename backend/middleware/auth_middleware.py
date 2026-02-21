@@ -17,7 +17,6 @@ from services.token_service import get_token_service
 from user_models.user import User
 from utils.auth_utils import decode_token
 from utils.supabase_client import (
-    get_async_supabase_admin_client,
     get_async_supabase_client,
 )
 
@@ -111,24 +110,24 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
     # Try to get user from database (bypassing RLS)
     try:
         from utils.supabase_client import get_async_supabase_admin_client
+
         supabase_admin = await get_async_supabase_admin_client()
         # Fetch user with role and permissions
         query = "*, roles(name, role_permissions(permissions(code)))"
         result = await supabase_admin.table("users").select(query).eq("id", user_id).maybe_single().execute()
 
         if result and hasattr(result, "data") and result.data:
-
             data = result.data
 
             # Extract permissions from nested structure
             permissions = []
             role_name = data.get("role", "user")  # Default to legacy column
-            
+
             role_data = data.get("roles")
             if role_data and isinstance(role_data, dict):
                 if role_data.get("name"):
                     role_name = role_data.get("name")
-                
+
                 rps = role_data.get("role_permissions", [])
                 for rp in rps:
                     perm = rp.get("permissions")
@@ -156,6 +155,7 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
     except Exception as e:
         # Fallback to payload data if DB lookup fails
         import traceback
+
         logger.error(f"Failed to fetch user from DB in middleware: {e}\nTraceback: {traceback.format_exc()}")
         logger.warning(f"Failed to fetch user from DB in middleware: {e}")
 
@@ -195,7 +195,10 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
     )
 
 
-def require_permission(permission_code: str):
+from typing import Awaitable, Callable
+
+
+def require_permission(permission_code: str) -> Callable[[User], Awaitable[User]]:
     """Dependency factory to check for specific permission"""
 
     async def permission_checker(user: User = Depends(get_current_user)) -> User:

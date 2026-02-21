@@ -10,6 +10,7 @@
       >
         <svg
           class="w-10 h-10 sm:w-12 sm:h-12 transform scale-0 animate-check-mark"
+          style="animation-delay: 0.2s"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -155,40 +156,3 @@ defineEmits<{
 
 const { t } = useI18n();
 </script>
-
-<style scoped>
-@keyframes check-mark {
-  0% {
-    transform: scale(0) rotate(-45deg);
-    opacity: 0;
-  }
-  50% {
-    transform: scale(1.2) rotate(0deg);
-  }
-  100% {
-    transform: scale(1) rotate(0deg);
-    opacity: 1;
-  }
-}
-
-.animate-check-mark {
-  animation: check-mark 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-  animation-delay: 0.2s;
-}
-
-@keyframes bounce-slow {
-  0%,
-  100% {
-    transform: translateY(-5%);
-    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
-  }
-  50% {
-    transform: translateY(0);
-    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
-  }
-}
-
-.animate-bounce-slow {
-  animation: bounce-slow 3s infinite;
-}
-</style>

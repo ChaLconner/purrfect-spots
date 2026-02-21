@@ -68,9 +68,3 @@ const handleLogin = () => {
   emit('login');
 };
 </script>
-
-<style scoped>
-.font-heading {
-  font-family: 'Nunito', sans-serif;
-}
-</style>

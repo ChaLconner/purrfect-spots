@@ -1,7 +1,6 @@
 from typing import Any, List
 
 from fastapi import APIRouter, Depends, Query
-from supabase import Client
 
 from dependencies import get_notification_service
 from middleware.auth_middleware import get_current_user_from_credentials

@@ -4,6 +4,7 @@ Provides image compression, resizing, and format optimization before S3 upload
 """
 
 import io
+from typing import Any
 
 from PIL import Image
 
@@ -169,15 +170,24 @@ def get_image_dimensions(image_content: bytes) -> tuple[int, int]:
         return (0, 0)
 
 
-def is_valid_image(image_content: bytes) -> bool:
+def is_valid_image(image_content: bytes | Any) -> bool:
     """
     Verify that the content is a valid image.
 
     Returns:
         True if valid image, False otherwise
     """
+    import io
+
+    from PIL import Image
+
+    from logger import logger
+
     try:
-        img = Image.open(io.BytesIO(image_content))
+        if isinstance(image_content, bytes):
+            img = Image.open(io.BytesIO(image_content))
+        else:
+            img = Image.open(image_content)
         img.verify()  # Verify image integrity
         return True
     except Exception as e:

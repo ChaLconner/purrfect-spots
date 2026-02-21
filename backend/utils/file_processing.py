@@ -4,6 +4,7 @@ Consolidates common file handling patterns across routes
 Enhanced with security features: magic bytes validation, input sanitization
 """
 
+from typing import Any
 from fastapi import HTTPException, UploadFile
 
 from logger import logger
@@ -27,34 +28,16 @@ async def process_uploaded_image(
     optimize: bool = True,
     max_dimension: int = 1920,
     user_id: str | None = None,
-) -> tuple[bytes, str, str]:
+) -> tuple[Any, str, str]:
     """
-    Process an uploaded image file with validation and optional optimization.
+    Process an uploaded image file with validation and return for streaming upload.
     Enhanced with magic bytes validation for security.
-
-    This consolidates the common pattern of:
-    1. Reading file contents
-    2. Validating file type and size (with magic bytes)
-    3. Optionally optimizing the image
-    4. Determining safe file extension
-
-    Args:
-        file: FastAPI UploadFile object
-        max_size_mb: Maximum allowed file size in MB
-        optimize: Whether to optimize the image
-        max_dimension: Maximum image dimension for optimization
-        user_id: Optional user ID for security logging
-
-    Returns:
-        Tuple of (processed_bytes, content_type, file_extension)
-
-    Raises:
-        HTTPException: If file validation fails
     """
     try:
-        # Read file contents
-        contents = await file.read()
-        original_size = len(contents)
+        # Get actual size without reading everything
+        file.file.seek(0, 2)
+        original_size = file.file.tell()
+        file.file.seek(0)
 
         logger.debug(f"Processing uploaded file: {file.filename}, size={original_size / 1024:.1f}KB")
 
@@ -85,8 +68,11 @@ async def process_uploaded_image(
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 
+        # Read only a chunk for magic bytes validation
+        chunk = await file.read(2048)
+        
         # CRITICAL: Validate using magic bytes (more secure than Content-Type)
-        is_valid_magic, detected_mime, magic_error = validate_image_magic_bytes(contents)
+        is_valid_magic, detected_mime, magic_error = validate_image_magic_bytes(chunk)
         if not is_valid_magic:
             log_security_event(
                 "magic_bytes_validation_failed",
@@ -101,7 +87,7 @@ async def process_uploaded_image(
             raise HTTPException(status_code=400, detail="Invalid image file type")
 
         # Check Content-Type matches actual file content
-        content_match, actual_mime = validate_content_type_matches(file.content_type or DEFAULT_CONTENT_TYPE, contents)
+        content_match, actual_mime = validate_content_type_matches(file.content_type or DEFAULT_CONTENT_TYPE, chunk)
         if not content_match:
             log_security_event(
                 "content_type_mismatch",
@@ -111,9 +97,11 @@ async def process_uploaded_image(
             )
             # Use the actual detected MIME type instead of claimed
             file.content_type = actual_mime
+            
+        await file.seek(0)
 
-        # Verify it's actually a valid image (PIL verification)
-        if not is_valid_image(contents):
+        # Verify it's actually a valid image (PIL verification via file object)
+        if not is_valid_image(file.file):
             log_security_event(
                 "corrupted_image_blocked",
                 user_id=user_id,
@@ -122,23 +110,9 @@ async def process_uploaded_image(
             )
             raise HTTPException(status_code=400, detail="Invalid or corrupted image file")
 
-        # Optimize image if requested (also strips EXIF metadata)
-        # Optimize image if requested (also strips EXIF metadata)
+        await file.seek(0)
+        
         content_type_str = actual_mime if content_match else (file.content_type or DEFAULT_CONTENT_TYPE)
-
-        if optimize:
-            # Offload CPU-bound image optimization to thread pool
-            import asyncio
-            loop = asyncio.get_running_loop()
-            contents, content_type_str = await loop.run_in_executor(
-                None, 
-                optimize_image, 
-                contents, 
-                content_type_str, 
-                max_dimension, 
-                85, # quality default
-                None # target_format default
-            )
 
         # Get safe file extension based on final content type
         file_extension = get_safe_file_extension(file.filename or "", content_type_str)
@@ -146,10 +120,10 @@ async def process_uploaded_image(
         log_security_event(
             "upload_processed_successfully",
             user_id=user_id,
-            details={"final_type": content_type_str, "final_size_kb": len(contents) / 1024},
+            details={"final_type": content_type_str, "final_size_kb": original_size / 1024},
         )
 
-        return contents, content_type_str, file_extension.lstrip(".")
+        return file.file, content_type_str, file_extension.lstrip(".")
 
     except HTTPException:
         raise
@@ -163,8 +137,10 @@ async def process_uploaded_image(
         )
         raise HTTPException(status_code=500, detail="Failed to process uploaded file")
     finally:
-        # Reset file position for potential reuse
-        await file.seek(0)
+        # DO NOT file.seek(0) here because we are returning file.file to be streamed,
+        # unless it threw an error and wasn't returned, but it is better to just leave it as is 
+        # since it's meant to be read from position 0 by the caller.
+        pass
 
 
 async def read_file_for_detection(file: UploadFile, max_size_mb: int = 10) -> bytes:

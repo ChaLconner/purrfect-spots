@@ -8,7 +8,6 @@ import pytest
 
 from dependencies import (
     get_admin_gallery_service,
-    get_async_supabase_admin_client,
     get_notification_service,
 )
 from main import app
@@ -24,7 +23,6 @@ class TestAdminRoutesExtended:
         return mock_supabase_admin
 
     @pytest.fixture
-
     def admin_user_with_permissions(self):
         """Return a user with all necessary admin permissions"""
         return User(
@@ -49,7 +47,11 @@ class TestAdminRoutesExtended:
             data=[{"id": "r1", "name": "Admin"}, {"id": "r2", "name": "User"}]
         )
 
-        with patch("routes.admin.users.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_supabase_admin):
+        with patch(
+            "routes.admin.users.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
             response = client.get("/api/v1/admin/roles")
 
         assert response.status_code == 200
@@ -77,7 +79,11 @@ class TestAdminRoutesExtended:
             MagicMock(),  # Audit log
         ]
 
-        with patch("routes.admin.users.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_supabase_admin):
+        with patch(
+            "routes.admin.users.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
             response = client.put(f"/api/v1/admin/users/{user_id}/role", json={"role_id": role_id})
 
         assert response.status_code == 200
@@ -101,7 +107,11 @@ class TestAdminRoutesExtended:
 
         mock_supabase_admin.execute.side_effect = [mock_role_res, mock_update_res]
 
-        with patch("routes.admin.users.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_supabase_admin):
+        with patch(
+            "routes.admin.users.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
             response = client.put(f"/api/v1/admin/users/{user_id}/role", json={"role_id": role_id})
 
         assert response.status_code == 404
@@ -117,7 +127,11 @@ class TestAdminRoutesExtended:
 
         mock_supabase_admin.execute.return_value = mock_role_res
 
-        with patch("routes.admin.users.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_supabase_admin):
+        with patch(
+            "routes.admin.users.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
             response = client.put(f"/api/v1/admin/users/{user_id}/role", json={"role_id": role_id})
 
         assert response.status_code == 404
@@ -129,7 +143,11 @@ class TestAdminRoutesExtended:
             data=[{"id": "log-1", "action": "UPDATE_ROLE", "users": {"email": "admin@example.com", "name": "Admin"}}]
         )
 
-        with patch("routes.admin.audit.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_supabase_admin):
+        with patch(
+            "routes.admin.audit.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
             response = client.get("/api/v1/admin/audit-logs")
 
         assert response.status_code == 200
@@ -146,7 +164,6 @@ class TestAdminContentRoutes:
         return mock_supabase_admin
 
     @pytest.fixture
-
     def admin_user(self):
         return User(
             id="00000000-0000-0000-0000-000000000000",
@@ -172,7 +189,11 @@ class TestAdminContentRoutes:
 
         mock_supabase_admin.execute.return_value = MagicMock(data=mock_data)
 
-        with patch("routes.admin.content.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_supabase_admin):
+        with patch(
+            "routes.admin.content.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
             response = client.get("/api/v1/admin/photos")
 
         assert response.status_code == 200
@@ -184,7 +205,11 @@ class TestAdminContentRoutes:
         """Test searching photos"""
         mock_supabase_admin.execute.return_value = MagicMock(data=[])
 
-        with patch("routes.admin.content.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_supabase_admin):
+        with patch(
+            "routes.admin.content.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
             response = client.get("/api/v1/admin/photos?search=cat")
 
         assert response.status_code == 200
@@ -205,7 +230,11 @@ class TestAdminContentRoutes:
         app.dependency_overrides[get_notification_service] = lambda: mock_notification_service
 
         try:
-            with patch("routes.admin.content.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_supabase_admin):
+            with patch(
+                "routes.admin.content.get_async_supabase_admin_client",
+                new_callable=AsyncMock,
+                return_value=mock_supabase_admin,
+            ):
                 response = client.delete(f"/api/v1/admin/photos/{photo_id}")
         finally:
             app.dependency_overrides.pop(get_admin_gallery_service, None)
@@ -219,7 +248,11 @@ class TestAdminContentRoutes:
         # Return none for photo check
         mock_supabase_admin.execute.return_value = MagicMock(data=None)
 
-        with patch("routes.admin.content.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_supabase_admin):
+        with patch(
+            "routes.admin.content.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
             response = client.delete("/api/v1/admin/photos/00000000-0000-0000-0000-000000000999")
 
         assert response.status_code == 404
@@ -236,7 +269,11 @@ class TestAdminContentRoutes:
         ]
         mock_supabase_admin.execute.return_value = MagicMock(data=mock_data)
 
-        with patch("routes.admin.reports.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_supabase_admin):
+        with patch(
+            "routes.admin.reports.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
             response = client.get("/api/v1/admin/reports")
 
         assert response.status_code == 200
@@ -257,13 +294,14 @@ class TestAdminContentRoutes:
         app.dependency_overrides[get_notification_service] = lambda: mock_notification_service
 
         try:
-            with patch("routes.admin.reports.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_supabase_admin):
+            with patch(
+                "routes.admin.reports.get_async_supabase_admin_client",
+                new_callable=AsyncMock,
+                return_value=mock_supabase_admin,
+            ):
                 response = client.put(f"/api/v1/admin/reports/{report_id}", json=update_data)
         finally:
             app.dependency_overrides.pop(get_notification_service, None)
 
         assert response.status_code == 200
         assert response.json()["status"] == "resolved"
-
-
-

@@ -92,17 +92,24 @@ const aspectRatioStyle = computed(() => {
 </script>
 
 <template>
-  <div ref="imageRef" class="optimized-image-container" :style="aspectRatioStyle">
+  <div ref="imageRef" class="relative overflow-hidden bg-gray-100" :style="aspectRatioStyle">
     <!-- Placeholder/Skeleton -->
-    <div v-if="!isLoaded && !hasError" class="image-placeholder" :class="{ 'fade-out': isLoaded }">
+    <div
+      v-if="!isLoaded && !hasError"
+      class="absolute inset-0 flex items-center justify-center z-10 transition-opacity duration-300 ease-out"
+      :class="{ 'opacity-0': isLoaded }"
+    >
       <img
         v-if="placeholder"
         :src="placeholder"
-        class="placeholder-image"
+        class="w-full h-full object-cover blur-[20px] scale-110"
         alt=""
         aria-hidden="true"
       />
-      <div v-else class="skeleton-placeholder animate-pulse"></div>
+      <div
+        v-else
+        class="w-full h-full bg-[linear-gradient(90deg,#e5e7eb_25%,#f3f4f6_50%,#e5e7eb_75%)] bg-[length:200%_100%] animate-shimmer"
+      ></div>
     </div>
 
     <!-- Actual Image -->
@@ -116,9 +123,9 @@ const aspectRatioStyle = computed(() => {
       :height="height"
       :loading="lazy ? 'lazy' : 'eager'"
       :decoding="lazy ? 'async' : 'auto'"
-      class="optimized-image"
+      class="w-full h-full opacity-0 transition-opacity duration-300 ease-out"
       :class="{
-        'is-loaded': isLoaded,
+        'opacity-100': isLoaded,
         [`object-${objectFit}`]: true,
       }"
       @load="handleLoad"
@@ -126,9 +133,20 @@ const aspectRatioStyle = computed(() => {
     />
 
     <!-- Error State -->
-    <div v-if="hasError" class="image-error">
-      <img :src="fallbackSrc" :alt="`Failed to load: ${alt}`" class="fallback-image" />
-      <button class="retry-button" aria-label="Retry loading image" @click="retry">
+    <div
+      v-if="hasError"
+      class="absolute inset-0 flex flex-col items-center justify-center bg-gray-50"
+    >
+      <img
+        :src="fallbackSrc"
+        :alt="`Failed to load: ${alt}`"
+        class="w-1/2 max-w-[100px] opacity-50"
+      />
+      <button
+        class="absolute bottom-2 right-2 p-2 bg-white rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.15)] text-gray-500 transition-all duration-200 hover:bg-gray-100 hover:text-gray-700"
+        aria-label="Retry loading image"
+        @click="retry"
+      >
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             stroke-linecap="round"
@@ -141,107 +159,3 @@ const aspectRatioStyle = computed(() => {
     </div>
   </div>
 </template>
-
-<style scoped>
-.optimized-image-container {
-  position: relative;
-  overflow: hidden;
-  background-color: #f3f4f6;
-}
-
-.image-placeholder {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1;
-  transition: opacity 0.3s ease-out;
-}
-
-.image-placeholder.fade-out {
-  opacity: 0;
-}
-
-.placeholder-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  filter: blur(20px);
-  transform: scale(1.1);
-}
-
-.skeleton-placeholder {
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
-}
-
-.optimized-image {
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  transition: opacity 0.3s ease-out;
-}
-
-.optimized-image.is-loaded {
-  opacity: 1;
-}
-
-.object-cover {
-  object-fit: cover;
-}
-.object-contain {
-  object-fit: contain;
-}
-.object-fill {
-  object-fit: fill;
-}
-.object-none {
-  object-fit: none;
-}
-
-.image-error {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: #f9fafb;
-}
-
-.fallback-image {
-  width: 50%;
-  max-width: 100px;
-  opacity: 0.5;
-}
-
-.retry-button {
-  position: absolute;
-  bottom: 0.5rem;
-  right: 0.5rem;
-  padding: 0.5rem;
-  background: white;
-  border-radius: 50%;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  color: #6b7280;
-  transition: all 0.2s;
-}
-
-.retry-button:hover {
-  background: #f3f4f6;
-  color: #374151;
-}
-</style>

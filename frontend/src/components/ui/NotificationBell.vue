@@ -1,14 +1,24 @@
 <template>
-  <div class="relative notification-wrapper">
+  <div ref="wrapperRef" class="relative">
     <button
-      class="relative rounded-full transition-all duration-300 bell-button"
-      :class="{ 'bell-active': isOpen }"
+      class="group relative w-10 h-10 flex items-center justify-center rounded-full bg-[var(--color-btn-accent-e)] border-2 border-[var(--color-btn-accent-a)] text-[var(--color-btn-accent-a)] shrink-0 transition-all duration-[150ms] ease-out hover:bg-[var(--color-btn-accent-d)] hover:translate-y-[0.1rem] active:translate-y-[0.25rem]"
+      :class="{
+        'bg-[var(--color-btn-accent-a)] text-white border-[var(--color-btn-accent-a)]': isOpen,
+      }"
+      style="transform-style: preserve-3d; will-change: transform"
       aria-label="Notifications"
       @click="toggleDropdown"
     >
+      <span
+        class="absolute inset-0 bg-[var(--color-btn-accent-c)] rounded-[inherit] shadow-[0_0_0_2px_var(--color-btn-accent-b),_0_0.2rem_0_0_var(--color-btn-accent-a)] transition-all duration-[150ms] ease-out -z-10 group-hover:translate-y-[0.15rem] group-active:translate-y-0 group-active:translate-z-[-1em] group-active:shadow-[0_0_0_2px_var(--color-btn-accent-b),_0_0.1em_0_0_var(--color-btn-accent-b)]"
+        :class="{
+          'bg-[#8b4520] shadow-[0_0_0_2px_#a65d37,0_0.2rem_0_0_#5d321d]': isOpen,
+        }"
+        style="transform: translate3d(0, 0.2rem, -1em); will-change: transform"
+      ></span>
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        class="h-5 w-5 icon-bell"
+        class="h-5 w-5 relative z-[1]"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -22,33 +32,43 @@
       </svg>
       <span
         v-if="unreadCount > 0"
-        class="absolute top-1.5 right-1.5 bg-terracotta text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center shadow-lg border-2 border-white notification-badge"
+        class="absolute top-1.5 right-1.5 translate-x-1/4 -translate-y-1/4 bg-terracotta text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center shadow-lg border-2 border-white animate-[badge-pulse_2s_infinite] z-[2]"
       >
         {{ unreadCount > 9 ? '9+' : unreadCount }}
       </span>
     </button>
 
     <!-- Dropdown -->
-    <Transition name="ghibli-pop">
+    <Transition
+      enter-active-class="animate-ghibli-pop"
+      leave-active-class="transition-all duration-200 ease-out"
+      leave-from-class="opacity-100 scale-100 translate-y-0"
+      leave-to-class="opacity-0 scale-95 -translate-y-2.5"
+    >
       <div
         v-if="isOpen"
-        class="absolute right-0 mt-3 w-80 max-w-[calc(100vw-2rem)] ghibli-dropdown overflow-hidden z-50"
+        class="absolute right-0 mt-3 w-80 max-w-[calc(100vw-2rem)] origin-top-right bg-gradient-to-br from-[#fffdfa]/98 to-[#faf6ec]/98 backdrop-blur-lg border border-brown/15 rounded-3xl shadow-[0_10px_40px_-10px_rgba(139,77,45,0.25),0_4px_12px_rgba(0,0,0,0.05)] overflow-hidden z-50"
       >
-        <div class="dropdown-header flex justify-between items-center px-4 py-3">
+        <div class="flex justify-between items-center px-4 py-3 bg-brown/3 border-b border-brown/8">
           <h3 class="font-heading font-extrabold text-brown text-sm tracking-wide">
             Notifications
           </h3>
           <button
-            class="mark-read-btn text-[11px] font-bold uppercase tracking-wider"
+            class="text-terracotta bg-transparent border-none cursor-pointer transition-all duration-200 hover:text-brown-light hover:text-shadow-[0_0_8px_rgba(214,122,79,0.2)] text-[11px] font-bold uppercase tracking-wider"
             @click="store.markAllRead"
           >
             Mark all read
           </button>
         </div>
 
-        <div class="notification-list custom-scrollbar">
-          <div v-if="store.notifications.length === 0" class="empty-state py-12 px-6 text-center">
-            <div class="empty-icon mb-3"></div>
+        <div class="max-h-[400px] overflow-y-auto custom-scrollbar">
+          <div
+            v-if="store.notifications.length === 0 && !store.isLoadingMore"
+            class="py-12 px-6 text-center"
+          >
+            <div
+              class="w-12 h-12 mx-auto mb-3 opacity-20 bg-[url('/empty-bell.svg')] bg-contain bg-center bg-no-repeat"
+            ></div>
             <p class="text-sm font-body font-medium text-brown-light italic">
               No notifications yet... quiet as a napping kitten.
             </p>
@@ -56,18 +76,21 @@
           <div
             v-for="notification in store.notifications"
             :key="notification.id"
-            class="notification-item p-4 transition-all duration-300 cursor-pointer relative"
-            :class="{ unread: !notification.is_read }"
+            class="p-4 transition-all duration-300 cursor-pointer relative border-b border-brown/5 hover:bg-brown/3"
+            :class="{ 'bg-terracotta/4': !notification.is_read }"
             @click="handleRead(notification)"
           >
             <div class="flex gap-4">
-              <div class="actor-avatar-wrapper">
+              <div class="relative">
                 <img
                   :src="notification.actor_picture || '/default-avatar.svg'"
                   class="w-10 h-10 rounded-full flex-shrink-0 object-cover border-2 border-white shadow-sm"
                   alt="Actor"
                 />
-                <div v-if="!notification.is_read" class="unread-dot-v2"></div>
+                <div
+                  v-if="!notification.is_read"
+                  class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-terracotta border-2 border-[#fffdfa] rounded-full shadow-[0_2px_4px_rgba(214,122,79,0.3)]"
+                ></div>
               </div>
               <div class="flex-1 min-w-0">
                 <p class="text-[13px] font-bold text-brown truncate font-heading mb-0.5">
@@ -86,6 +109,25 @@
               </div>
             </div>
           </div>
+
+          <!-- Infinite Scroll Trigger Element -->
+          <div
+            v-if="store.hasMore"
+            ref="infiniteTrigger"
+            class="h-10 w-full flex items-center justify-center p-4"
+          >
+            <div
+              v-if="store.isLoadingMore"
+              class="w-5 h-5 border-2 border-terracotta/30 border-t-terracotta rounded-full animate-spin"
+            ></div>
+          </div>
+          <!-- End of list marker -->
+          <div
+            v-else-if="store.notifications.length > 0"
+            class="py-4 text-center text-[10px] font-medium text-brown-light/60 uppercase tracking-widest"
+          >
+            End of notifications
+          </div>
         </div>
       </div>
     </Transition>
@@ -93,7 +135,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { ref, watch, onMounted, onUnmounted, computed, nextTick } from 'vue';
 import { useNotificationStore } from '@/store';
 import { useRouter } from 'vue-router';
 import type { Notification } from '@/services/notificationService';
@@ -102,6 +144,9 @@ const store = useNotificationStore();
 const router = useRouter();
 const isOpen = ref(false);
 const unreadCount = computed(() => store.unreadCount);
+const wrapperRef = ref<HTMLElement | null>(null);
+const infiniteTrigger = ref<HTMLElement | null>(null);
+let observer: IntersectionObserver | null = null;
 
 function toggleDropdown(): void {
   isOpen.value = !isOpen.value;
@@ -119,6 +164,7 @@ function handleRead(notification: Notification): void {
   }
 }
 
+// Calculate time diff
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
   const now = new Date();
@@ -133,11 +179,56 @@ function formatDate(dateStr: string): string {
 // Close on click outside
 function handleClickOutside(event: MouseEvent): void {
   const target = event.target as HTMLElement;
-  const wrapper = document.querySelector('.notification-wrapper');
-  if (wrapper && !wrapper.contains(target)) {
+  if (wrapperRef.value && !wrapperRef.value.contains(target)) {
     isOpen.value = false;
   }
 }
+
+// Setup IntersectionObserver for Infinite Loading
+function setupObserver() {
+  if (observer) observer.disconnect();
+
+  observer = new IntersectionObserver(
+    (entries) => {
+      // Only fetch more when the trigger element comes into view and we are not already loading
+      if (entries[0].isIntersecting && store.hasMore && !store.isLoadingMore) {
+        store.fetchMoreNotifications();
+      }
+    },
+    {
+      root: null,
+      rootMargin: '0px',
+      threshold: 0.1,
+    }
+  );
+
+  if (infiniteTrigger.value) {
+    observer.observe(infiniteTrigger.value);
+  }
+}
+
+// Watch dropdown toggle to initialize the observer
+watch(isOpen, async (newVal) => {
+  if (newVal) {
+    if (store.notifications.length === 0) {
+      await store.fetchNotifications();
+    }
+    // Wait for DOM to render to find the trigger element
+    await nextTick();
+    if (store.hasMore) {
+      setupObserver();
+    }
+  } else {
+    if (observer) observer.disconnect();
+  }
+});
+
+// Clean up observer if it's the element dynamically replaced
+watch(infiniteTrigger, (newVal) => {
+  if (newVal && isOpen.value) {
+    setupObserver();
+  }
+});
 
 onMounted(() => {
   store.fetchNotifications();
@@ -146,220 +237,8 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  if (observer) observer.disconnect();
   store.unsubscribe();
   document.removeEventListener('mousedown', handleClickOutside);
 });
 </script>
-
-<style scoped>
-/* 3D Bell Button - Terracotta */
-.bell-button {
-  position: relative;
-  width: 2.5rem;
-  height: 2.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-btn-accent-e);
-  border: 2px solid var(--color-btn-accent-a);
-  color: var(--color-btn-accent-a);
-  flex-shrink: 0;
-  transform-style: preserve-3d;
-  transition: all 175ms cubic-bezier(0, 0, 1, 1);
-}
-
-.bell-button::before {
-  position: absolute;
-  content: '';
-  width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
-  background: var(--color-btn-accent-c);
-  border-radius: inherit;
-  box-shadow:
-    0 0 0 2px var(--color-btn-accent-b),
-    0 0.3em 0 0 var(--color-btn-accent-a);
-  transform: translate3d(0, 0.3em, -1em);
-  transition: all 175ms cubic-bezier(0, 0, 1, 1);
-}
-
-.bell-button:hover {
-  background: var(--color-btn-accent-d);
-  transform: translate(0, 0.15em);
-  color: var(--color-btn-accent-a);
-}
-
-.bell-button:hover::before {
-  transform: translate3d(0, 0.3em, -1em);
-}
-
-.bell-button:active {
-  transform: translate(0, 0.3em);
-}
-
-.bell-button:active::before {
-  transform: translate3d(0, 0, -1em);
-  box-shadow:
-    0 0 0 2px var(--color-btn-accent-b),
-    0 0.1em 0 0 var(--color-btn-accent-b);
-}
-
-.bell-active {
-  background: var(--color-btn-accent-a);
-  color: white;
-  border-color: var(--color-btn-accent-a);
-}
-
-.bell-active::before {
-  background: #8b4520;
-  box-shadow:
-    0 0 0 2px #a65d37,
-    0 0.3em 0 0 #5d321d;
-}
-
-.icon-bell {
-  position: relative;
-  z-index: 1;
-}
-
-.notification-badge {
-  transform: translate(25%, -25%);
-  animation: badge-pulse 2s infinite;
-  z-index: 2;
-}
-
-@keyframes badge-pulse {
-  0% {
-    transform: translate(25%, -25%) scale(1);
-    box-shadow: 0 0 0 0 rgba(214, 122, 79, 0.7);
-  }
-  70% {
-    transform: translate(25%, -25%) scale(1.1);
-    box-shadow: 0 0 0 6px rgba(214, 122, 79, 0);
-  }
-  100% {
-    transform: translate(25%, -25%) scale(1);
-    box-shadow: 0 0 0 0 rgba(214, 122, 79, 0);
-  }
-}
-
-.ghibli-dropdown {
-  background: linear-gradient(135deg, rgba(255, 253, 250, 0.98) 0%, rgba(250, 246, 236, 0.98) 100%);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(139, 77, 45, 0.15);
-  border-radius: 1.5rem;
-  box-shadow:
-    0 10px 40px -10px rgba(139, 77, 45, 0.25),
-    0 4px 12px rgba(0, 0, 0, 0.05);
-  transform-origin: top right;
-}
-
-.dropdown-header {
-  background: rgba(139, 77, 45, 0.03);
-  border-bottom: 1px solid rgba(139, 77, 45, 0.08);
-}
-
-.mark-read-btn {
-  color: #d67a4f;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.mark-read-btn:hover {
-  color: #a65d37;
-  text-shadow: 0 0 8px rgba(214, 122, 79, 0.2);
-}
-
-.notification-list {
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-.notification-item {
-  border-bottom: 1px solid rgba(139, 77, 45, 0.05);
-}
-
-.notification-item:hover {
-  background: rgba(139, 77, 45, 0.03);
-}
-
-.notification-item.unread {
-  background: rgba(214, 122, 79, 0.04);
-}
-
-.actor-avatar-wrapper {
-  position: relative;
-}
-
-.unread-dot-v2 {
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  width: 10px;
-  height: 10px;
-  background: #d67a4f;
-  border: 2px solid #fffdfa;
-  border-radius: 50%;
-  box-shadow: 0 2px 4px rgba(214, 122, 79, 0.3);
-}
-
-.dropdown-footer {
-  background: rgba(139, 77, 45, 0.02);
-  border-top: 1px solid rgba(139, 77, 45, 0.05);
-}
-
-.view-all-link {
-  color: #8b4d2d;
-  background: rgba(139, 77, 45, 0.05);
-  font-family: 'Quicksand', sans-serif;
-  text-decoration: none;
-}
-
-.view-all-link:hover {
-  background: rgba(139, 77, 45, 0.1);
-  color: #5d321d;
-}
-
-/* Scrollbar Styling */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 5px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(139, 77, 45, 0.2);
-  border-radius: 10px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(139, 77, 45, 0.3);
-}
-
-/* Animations */
-.ghibli-pop-enter-active {
-  animation: ghibli-pop-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.ghibli-pop-leave-active {
-  transition:
-    opacity 0.2s ease,
-    transform 0.2s ease;
-}
-.ghibli-pop-leave-to {
-  opacity: 0;
-  transform: scale(0.95) translateY(-10px);
-}
-
-@keyframes ghibli-pop-in {
-  from {
-    opacity: 0;
-    transform: scale(0.9) translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-</style>

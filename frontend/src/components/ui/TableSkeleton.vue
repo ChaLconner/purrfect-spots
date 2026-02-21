@@ -53,7 +53,7 @@ interface Props {
   checkboxColumn?: number; // Column index (1-based) to show checkbox
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   rows: 5,
   columns: 4,
   avatarColumn: -1,

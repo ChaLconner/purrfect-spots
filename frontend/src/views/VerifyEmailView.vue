@@ -1,22 +1,28 @@
 <template>
-  <div class="verify-container">
+  <div
+    class="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-[#eaf6f3]"
+  >
     <!-- Animated Background -->
     <GhibliBackground />
 
     <!-- Main Card -->
-    <div class="verify-card">
+    <div
+      class="bg-white/85 backdrop-blur-[20px] rounded-[2rem] p-12 max-w-[450px] w-full shadow-[0_25px_50px_-12px_rgba(0,0,0,0.1),_0_0_0_1px_rgba(255,255,255,0.4)_inset] relative z-10 max-sm:p-8"
+    >
       <!-- Header (No Icon) -->
-      <div class="verify-header">
-        <h1 class="verify-title">{{ t('auth.verifyEmail.title') }}</h1>
-        <p class="verify-subtitle">
+      <div class="text-center mb-8">
+        <h1 class="font-['Nunito'] text-[1.8rem] font-extrabold text-[#5a4632] mb-3">
+          {{ t('auth.verifyEmail.title') }}
+        </h1>
+        <p class="font-sans text-[0.95rem] text-[#5a4632] leading-relaxed">
           {{ t('auth.verifyEmail.subtitle') }}<br />
-          <strong class="email-display">{{ email }}</strong>
+          <strong class="text-[#2c3e50] break-all">{{ email }}</strong>
         </p>
       </div>
 
       <!-- OTP Input Section -->
-      <div class="otp-section">
-        <div class="otp-inputs">
+      <div class="mb-6">
+        <div class="flex gap-3 justify-center mb-4 w-full max-sm:gap-1">
           <input
             v-for="(_, index) in 6"
             :key="index"
@@ -25,8 +31,11 @@
             type="text"
             inputmode="numeric"
             maxlength="1"
-            class="otp-input"
-            :class="{ 'has-value': otpDigits[index], error: hasError }"
+            class="w-[50px] h-[60px] text-center font-mono text-2xl font-bold text-[#5a4632] bg-white/90 border-2 border-[rgba(127,183,164,0.3)] rounded-2xl outline-none transition-all duration-300 shrink-0 focus:border-[#7fb7a4] focus:shadow-[0_0_0_4px_rgba(127,183,164,0.15)] focus:scale-105 max-sm:flex-1 max-sm:w-auto max-sm:min-w-[36px] max-sm:h-[50px] max-sm:text-xl max-sm:p-0"
+            :class="[
+              otpDigits[index] ? 'bg-white border-[#7fb7a4]' : '',
+              hasError ? 'border-[#e74c3c] animate-[shake_0.4s_ease-in-out]' : '',
+            ]"
             @input="handleInput(index, $event)"
             @keydown="handleKeydown(index, $event)"
             @paste="handlePaste"
@@ -35,15 +44,23 @@
         </div>
 
         <!-- Error Message -->
-        <transition name="fade">
-          <p v-if="errorMessage" class="error-message">
+        <transition
+          enter-active-class="transition-all duration-300 ease-out"
+          leave-active-class="transition-all duration-300 ease-out"
+          enter-from-class="opacity-0 -translate-y-[5px]"
+          leave-to-class="opacity-0 -translate-y-[5px]"
+        >
+          <p
+            v-if="errorMessage"
+            class="flex items-center justify-center gap-2 text-[#e74c3c] text-[0.9rem] mt-4"
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
               stroke-width="1.5"
               stroke="currentColor"
-              class="error-icon"
+              class="w-[18px] h-[18px]"
             >
               <path
                 stroke-linecap="round"
@@ -58,40 +75,48 @@
 
       <!-- Verify Button -->
       <button
-        class="verify-btn"
+        class="flex items-center justify-center gap-3 w-full py-4 px-8 font-['Nunito'] text-[1.1rem] font-bold text-white bg-gradient-to-br from-[#7fb7a4] to-[#6da491] border-none rounded-2xl cursor-pointer transition-all duration-300 shadow-[0_4px_15px_rgba(127,183,164,0.4)] hover:not:disabled:-translate-y-0.5 hover:not:disabled:shadow-[0_8px_25px_rgba(127,183,164,0.5)] active:not:disabled:translate-y-0 disabled:opacity-70 disabled:cursor-not-allowed"
         :disabled="isLoading || otpCode.length !== 6"
         @click="handleVerify"
       >
-        <span v-if="isLoading" class="loading-spinner"></span>
+        <span
+          v-if="isLoading"
+          class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-[spin_0.8s_linear_infinite]"
+        ></span>
         {{ isLoading ? t('auth.verifyEmail.verifying') : t('auth.verifyEmail.verify') }}
       </button>
 
       <!-- Resend Section -->
-      <div class="resend-section">
-        <p class="resend-text">{{ t('auth.verifyEmail.didNotReceive') }}</p>
+      <div class="text-center mt-6 pt-6 border-t border-[rgba(127,183,164,0.2)]">
+        <p class="font-sans text-[0.9rem] text-[#6b7280] mb-2">
+          {{ t('auth.verifyEmail.didNotReceive') }}
+        </p>
         <button
           v-if="resendCooldown === 0"
-          class="resend-btn"
+          class="bg-transparent border-none text-[#7fb7a4] font-['Nunito'] text-base font-semibold cursor-pointer transition-colors duration-200 hover:not:disabled:text-[#6da491] hover:not:disabled:underline disabled:opacity-60 disabled:cursor-not-allowed"
           :disabled="isResending"
           @click="handleResend"
         >
           {{ isResending ? t('auth.verifyEmail.resending') : t('auth.verifyEmail.resend') }}
         </button>
-        <span v-else class="cooldown-text">
+        <span v-else class="font-sans text-[0.9rem] text-[#5a4632]">
           {{ t('auth.verifyEmail.resendAvailable', { seconds: resendCooldown }) }}
         </span>
       </div>
 
       <!-- Back to Login -->
-      <div class="back-link">
-        <router-link to="/login">
+      <div class="text-center mt-6">
+        <router-link
+          to="/login"
+          class="inline-flex items-center gap-2 text-[#5a4632] font-sans text-[0.9rem] no-underline transition-colors duration-200 hover:text-[#5a4632]"
+        >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
             stroke-width="1.5"
             stroke="currentColor"
-            class="back-icon"
+            class="w-4 h-4"
           >
             <path
               stroke-linecap="round"
@@ -284,285 +309,3 @@ onUnmounted(() => {
   if (cooldownInterval) clearInterval(cooldownInterval);
 });
 </script>
-
-<style scoped>
-/* Container */
-.verify-container {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  position: relative;
-  overflow: hidden;
-  background-color: #eaf6f3;
-}
-
-/* Card */
-.verify-card {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-radius: 2rem;
-  padding: 3rem;
-  max-width: 450px;
-  width: 100%;
-  box-shadow:
-    0 25px 50px -12px rgba(0, 0, 0, 0.1),
-    0 0 0 1px rgba(255, 255, 255, 0.4) inset;
-  position: relative;
-  z-index: 1;
-}
-
-/* Header */
-.verify-header {
-  text-align: center;
-  margin-bottom: 2rem;
-}
-
-/* DELETED: .email-icon style blocks */
-
-.verify-title {
-  font-family: 'Nunito', sans-serif;
-  font-size: 1.8rem;
-  font-weight: 800;
-  color: #5a4632;
-  margin-bottom: 0.75rem;
-}
-
-.verify-subtitle {
-  font-family: 'Inter', sans-serif;
-  font-size: 0.95rem;
-  color: #5a4632;
-  line-height: 1.6;
-}
-
-.email-display {
-  color: #2c3e50;
-  word-break: break-all;
-}
-
-/* OTP Section */
-.otp-section {
-  margin-bottom: 1.5rem;
-}
-
-.otp-inputs {
-  display: flex;
-  gap: 0.75rem;
-  justify-content: center;
-  margin-bottom: 1rem;
-  width: 100%;
-}
-
-.otp-input {
-  width: 50px;
-  height: 60px;
-  text-align: center;
-  font-family: 'Courier New', monospace;
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: #5a4632;
-  background: rgba(255, 255, 255, 0.9);
-  border: 2px solid rgba(127, 183, 164, 0.3);
-  border-radius: 1rem;
-  outline: none;
-  transition: all 0.3s ease;
-  flex-shrink: 0;
-}
-
-.otp-input:focus {
-  border-color: #7fb7a4;
-  box-shadow: 0 0 0 4px rgba(127, 183, 164, 0.15);
-  transform: scale(1.05);
-}
-
-.otp-input.has-value {
-  background: white;
-  border-color: #7fb7a4;
-}
-
-.otp-input.error {
-  border-color: #e74c3c;
-  animation: shake 0.4s ease-in-out;
-}
-
-@keyframes shake {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  25% {
-    transform: translateX(-5px);
-  }
-  75% {
-    transform: translateX(5px);
-  }
-}
-
-/* Error Message */
-.error-message {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  color: #e74c3c;
-  font-size: 0.9rem;
-  margin-top: 1rem;
-}
-
-.error-icon {
-  width: 18px;
-  height: 18px;
-}
-
-/* Verify Button */
-.verify-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  width: 100%;
-  padding: 1rem 2rem;
-  font-family: 'Nunito', sans-serif;
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: white;
-  background: linear-gradient(135deg, #7fb7a4 0%, #6da491 100%);
-  border: none;
-  border-radius: 1rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(127, 183, 164, 0.4);
-}
-
-.verify-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(127, 183, 164, 0.5);
-}
-
-.verify-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-.loading-spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* Resend Section */
-.resend-section {
-  text-align: center;
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid rgba(127, 183, 164, 0.2);
-}
-
-.resend-text {
-  font-family: 'Inter', sans-serif;
-  font-size: 0.9rem;
-  color: #6b7280;
-  margin-bottom: 0.5rem;
-}
-
-.resend-btn {
-  background: none;
-  border: none;
-  color: #7fb7a4;
-  font-family: 'Nunito', sans-serif;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: color 0.2s ease;
-}
-
-.resend-btn:hover:not(:disabled) {
-  color: #6da491;
-  text-decoration: underline;
-}
-
-.resend-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.cooldown-text {
-  font-family: 'Inter', sans-serif;
-  font-size: 0.9rem;
-  color: #5a4632;
-}
-
-/* Back Link */
-.back-link {
-  text-align: center;
-  margin-top: 1.5rem;
-}
-
-.back-link a {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #5a4632;
-  font-family: 'Inter', sans-serif;
-  font-size: 0.9rem;
-  text-decoration: none;
-  transition: color 0.2s ease;
-}
-
-.back-link a:hover {
-  color: #5a4632;
-}
-
-.back-icon {
-  width: 16px;
-  height: 16px;
-}
-
-/* Transitions */
-.fade-enter-active,
-.fade-leave-active {
-  transition:
-    opacity 0.3s ease,
-    transform 0.3s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-  transform: translateY(-5px);
-}
-
-/* Responsive */
-@media (max-width: 480px) {
-  .verify-card {
-    padding: 2rem 1.5rem;
-  }
-
-  .otp-inputs {
-    gap: 0.25rem; /* Smaller gap for mobile */
-  }
-
-  /* Make inputs flexible to fit screen */
-  .otp-input {
-    flex: 1; /* Grow to fill available space */
-    width: auto; /* Allow shrink/growth */
-    min-width: 36px; /* Minimum touch target */
-    height: 50px;
-    font-size: 1.25rem;
-    padding: 0;
-  }
-}
-</style>
