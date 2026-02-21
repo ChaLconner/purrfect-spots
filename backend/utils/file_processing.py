@@ -9,7 +9,7 @@ from fastapi import HTTPException, UploadFile
 
 from logger import logger
 from utils.file_utils import get_safe_file_extension, validate_image_file
-from utils.image_utils import is_valid_image, optimize_image
+from utils.image_utils import is_valid_image
 from utils.security import (
     is_safe_filename,
     log_security_event,
@@ -70,7 +70,7 @@ async def process_uploaded_image(
 
         # Read only a chunk for magic bytes validation
         chunk = await file.read(2048)
-        
+
         # CRITICAL: Validate using magic bytes (more secure than Content-Type)
         is_valid_magic, detected_mime, magic_error = validate_image_magic_bytes(chunk)
         if not is_valid_magic:
@@ -97,7 +97,7 @@ async def process_uploaded_image(
             )
             # Use the actual detected MIME type instead of claimed
             file.content_type = actual_mime
-            
+
         await file.seek(0)
 
         # Verify it's actually a valid image (PIL verification via file object)
@@ -111,7 +111,7 @@ async def process_uploaded_image(
             raise HTTPException(status_code=400, detail="Invalid or corrupted image file")
 
         await file.seek(0)
-        
+
         content_type_str = actual_mime if content_match else (file.content_type or DEFAULT_CONTENT_TYPE)
 
         # Get safe file extension based on final content type
@@ -138,7 +138,7 @@ async def process_uploaded_image(
         raise HTTPException(status_code=500, detail="Failed to process uploaded file")
     finally:
         # DO NOT file.seek(0) here because we are returning file.file to be streamed,
-        # unless it threw an error and wasn't returned, but it is better to just leave it as is 
+        # unless it threw an error and wasn't returned, but it is better to just leave it as is
         # since it's meant to be read from position 0 by the caller.
         pass
 

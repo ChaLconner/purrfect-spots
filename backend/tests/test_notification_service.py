@@ -56,15 +56,16 @@ async def test_mark_as_read(notification_service):
     await notification_service.mark_as_read(_USER_1, _NOTIF_1)
     notification_service.supabase.table.return_value.update.assert_called_with({"is_read": True})
 
+
 async def test_cleanup_old_notifications(notification_service):
     """Should call delete with specific conditions on notification table"""
-    
-    notification_service.supabase.table.return_value.delete.return_value.lt.return_value.execute.return_value = MagicMock(
-        data=[{"id": _NOTIF_1}, {"id": "00000000-0000-4000-b000-000000000002"}]
+
+    notification_service.supabase.table.return_value.delete.return_value.lt.return_value.execute.return_value = (
+        MagicMock(data=[{"id": _NOTIF_1}, {"id": "00000000-0000-4000-b000-000000000002"}])
     )
-    
+
     await notification_service.cleanup_old_notifications(days=30)
-    
+
     notification_service.supabase.table.assert_called_with("notifications")
     notification_service.supabase.table.return_value.delete.assert_called_once()
     notification_service.supabase.table.return_value.delete.return_value.lt.assert_called_once()

@@ -144,13 +144,15 @@ class Config:
                 "Please set JWT_REFRESH_SECRET environment variable."
             )
         else:
+            import secrets
+
             warnings.warn(
-                "JWT_REFRESH_SECRET not set. Using JWT_SECRET (NOT SAFE FOR PRODUCTION). "
-                "For development, this is acceptable but you should set a separate JWT_REFRESH_SECRET.",
+                "JWT_REFRESH_SECRET not set. Generating a random secret for this session (NOT PERSISTENT). "
+                "For stable sessions, please set a separate JWT_REFRESH_SECRET in your .env.",
                 UserWarning,
                 stacklevel=2,
             )
-            JWT_REFRESH_SECRET = JWT_SECRET
+            JWT_REFRESH_SECRET = secrets.token_hex(32)
 
     JWT_REFRESH_EXPIRATION_DAYS = int(os.getenv("JWT_REFRESH_EXPIRATION_DAYS", "7"))
     JWT_ACCESS_EXPIRATION_HOURS = int(os.getenv("JWT_ACCESS_EXPIRATION_HOURS", "1"))

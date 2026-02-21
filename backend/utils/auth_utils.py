@@ -31,8 +31,6 @@ def decode_token(token: str) -> Dict[str, Any]:
 
     errors: list[str] = []
 
-
-
     # Decode with Custom JWT Secret (Standard)
     # This secret must match the one used to sign the token (e.g. Supabase Project Secret)
     if config.JWT_SECRET:

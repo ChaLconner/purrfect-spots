@@ -14,17 +14,13 @@ ehthumbs.db
 .sonarlint/
 .sonar/
 .kilocode/
+Snitch/
 
 # --- Environment & Secrets (CRITICAL) ---
-.env
-.env.*
+**/.env
+**/.env.*
 !.env.example
 backend/keys/
-# Subdirectory envs
-backend/.env
-backend/.env.*
-frontend/.env
-frontend/.env.*
 
 # --- Python (Backend) ---
 __pycache__/
@@ -35,7 +31,7 @@ __pycache__/
 venv/
 env/
 .Python
-lib/
+# backend/lib/ # Refined to avoid ignoring frontend source
 lib64/
 parts/
 sdist/
@@ -76,6 +72,7 @@ frontend/lint_*.txt
 frontend/type_check.log
 lint_output.txt
 *_errors.txt
+mypy_results.txt
 *_output.txt
 test_out.txt
 coverage_output.txt

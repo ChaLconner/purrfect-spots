@@ -10,11 +10,11 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/
 lib64/
 parts/
 sdist/
-var/
+# var/
 wheels/
 share/python-wheels/
 *.egg-info/
@@ -73,5 +73,6 @@ google_vision.json
 
 # Error logs
 *_errors.txt
+mypy_results.txt
 
 routes/gallery.txt

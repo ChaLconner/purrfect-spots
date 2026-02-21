@@ -21,6 +21,7 @@ router = APIRouter()
 UserIdPath = Annotated[UUID, Path(title="The ID of the user", description="Must be a valid UUID")]
 RoleIdPath = Annotated[UUID, Path(title="The ID of the role", description="Must be a valid UUID")]
 
+
 @router.get("/users", response_model=dict[str, Any])
 @limiter.limit("60/minute")
 async def list_users(
@@ -214,7 +215,7 @@ async def update_user_role(
     Update a user's role.
     """
     user_id_str = str(user_id)
-    # The actual schema validation handles role_id format if we set it as UUID, 
+    # The actual schema validation handles role_id format if we set it as UUID,
     # but here we cast assuming it's provided via the body model.
     role_id_str = str(role_data.role_id) if role_data.role_id else None
     if not role_id_str:
@@ -292,7 +293,12 @@ async def ban_user(
             raise HTTPException(status_code=400, detail="Cannot ban an admin user")
 
         # Update banned_at
-        await admin_client.table("users").update({"banned_at": datetime.now().isoformat()}).eq("id", user_id_str).execute()
+        await (
+            admin_client.table("users")
+            .update({"banned_at": datetime.now().isoformat()})
+            .eq("id", user_id_str)
+            .execute()
+        )
 
         # Send email
         if user_data.get("email"):
@@ -345,7 +351,6 @@ async def unban_user(
         check = await admin_client.table("users").select("email").eq("id", user_id_str).single().execute()
         if not check.data:
             raise HTTPException(status_code=404, detail="User not found")
-
 
         # Update banned_at to NULL
         await admin_client.table("users").update({"banned_at": None}).eq("id", user_id_str).execute()

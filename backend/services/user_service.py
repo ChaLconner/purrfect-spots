@@ -82,7 +82,7 @@ class UserService:
         try:
             admin = await self._get_admin_client()
             result = await admin.table("users").select("*").eq("email", email).maybe_single().execute()
-            return result.data if result.data else None
+            return result.data if result and result.data else None
         except Exception as e:
             logger.debug("Failed to retrieve profile by email: %s", e)
             return None
@@ -93,7 +93,7 @@ class UserService:
             admin = await self._get_admin_client()
             query = "*, roles(name, role_permissions(permissions(code)))"
             result = await admin.table("users").select(query).eq("username", username).maybe_single().execute()
-            if result.data:
+            if result and result.data:
                 return self._map_db_user_to_model(result.data)
             return None
         except Exception as e:
@@ -209,8 +209,9 @@ class UserService:
         try:
             admin = await self._get_admin_client()
             result = await admin.table("users").update(update_data).eq("id", user_id).execute()
-            if not result.data:
+            if not result or not result.data:
                 raise ValueError("User not found or update failed")
-            return result.data[0]
+            from typing import cast
+            return cast(dict[str, Any], result.data[0])
         except Exception as e:
             raise PurrfectSpotsException(f"Failed to update profile: {e!s}")

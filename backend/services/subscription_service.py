@@ -31,7 +31,9 @@ class SubscriptionService:
             await self.supabase.table("users").select("stripe_customer_id").eq("id", user_id).maybe_single().execute()
         )
 
-        db_customer_id = res_data.get("stripe_customer_id") if (res_data := (user_res.data if user_res else None)) else None
+        db_customer_id = (
+            res_data.get("stripe_customer_id") if (res_data := (user_res.data if user_res else None)) else None
+        )
         if db_customer_id:
             return cast(str, db_customer_id)
 
@@ -257,10 +259,10 @@ class SubscriptionService:
         """Create a Stripe Customer Portal session."""
         res = await self.supabase.table("users").select("stripe_customer_id").eq("id", user_id).maybe_single().execute()
 
-        if not res.data:
+        if res is None or not res.data:
             raise ValueError("User not found")
 
-        customer_id = res.data.get("stripe_customer_id") if res and res.data else None
+        customer_id = res.data.get("stripe_customer_id")
         if not customer_id:
             raise ValueError("No customer ID found for user")
 
@@ -275,10 +277,10 @@ class SubscriptionService:
         """Cancel active subscriptions (set to cancel at period end)."""
         res = await self.supabase.table("users").select("stripe_customer_id").eq("id", user_id).maybe_single().execute()
 
-        if not res.data:
+        if res is None or not res.data:
             raise ValueError("User not found")
 
-        customer_id = res.data.get("stripe_customer_id") if res and res.data else None
+        customer_id = res.data.get("stripe_customer_id")
         if not customer_id:
             raise ValueError("No subscription found")
 

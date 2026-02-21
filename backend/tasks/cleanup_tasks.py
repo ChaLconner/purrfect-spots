@@ -17,7 +17,7 @@ async def _cleanup_notifications_job() -> None:
             break
         except Exception as e:
             logger.error(f"Error in notification cleanup job: {e}")
-        
+
         # Sleep for 24 hours (86400 seconds)
         try:
             await asyncio.sleep(86400)
@@ -25,13 +25,16 @@ async def _cleanup_notifications_job() -> None:
             logger.info("Notification cleanup job cancelled during sleep.")
             break
 
+
 _task: asyncio.Task | None = None
+
 
 async def start_cleanup_jobs() -> None:
     global _task
     if _task is None:
         logger.info("Starting background cleanup jobs")
         _task = asyncio.create_task(_cleanup_notifications_job())
+
 
 async def stop_cleanup_jobs() -> None:
     global _task

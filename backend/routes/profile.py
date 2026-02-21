@@ -153,24 +153,25 @@ async def get_profile(
 
 
 UsernameOrIdPath = Annotated[
-    str, 
+    str,
     Path(
-        min_length=3, 
-        max_length=50, 
-        pattern=r"^[a-zA-Z0-9_\-]+$", 
-        description="User UUID or Username endpoint identifier"
-    )
+        min_length=3,
+        max_length=50,
+        pattern=r"^[a-zA-Z0-9_\-]+$",
+        description="User UUID or Username endpoint identifier",
+    ),
 ]
 
 from uuid import UUID
 
 PhotoIdPath = Annotated[UUID, Path(title="The ID of the photo", description="Must be a valid UUID")]
 
+
 async def resolve_user_by_identifier(
-    identifier: UsernameOrIdPath,
-    auth_service: AuthService = Depends(get_auth_service)
+    identifier: UsernameOrIdPath, auth_service: AuthService = Depends(get_auth_service)
 ) -> Any:  # Assuming User object is returned
     import uuid
+
     try:
         is_uuid = bool(uuid.UUID(identifier))
     except ValueError:
@@ -186,7 +187,7 @@ async def resolve_user_by_identifier(
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-        
+
     return user
 
 

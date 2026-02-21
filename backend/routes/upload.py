@@ -232,9 +232,11 @@ async def upload_cat_photo(
         # Apply privacy blur offset if requested
         blurred_val = str(location_blurred).lower() in ["true", "1", "yes"]
         if blurred_val:
-            import random
-            latitude += random.uniform(-0.00045, 0.00045)
-            longitude += random.uniform(-0.00045, 0.00045)
+            import secrets
+
+            rng = secrets.SystemRandom()
+            latitude += rng.uniform(-0.00045, 0.00045)
+            longitude += rng.uniform(-0.00045, 0.00045)
 
         # Consolidate text validation
         cleaned_location_name, cleaned_description = validate_location_data(location_name, description)
@@ -245,7 +247,7 @@ async def upload_cat_photo(
             cleaned_description = format_tags_for_description(parsed_tags, cleaned_description)
 
         # Determine status
-        status = "pending_review" if 'fallback_active' in cat_data else "approved"
+        status = "pending_review" if "fallback_active" in cat_data else "approved"
 
         # Upload optimized file to S3
         try:

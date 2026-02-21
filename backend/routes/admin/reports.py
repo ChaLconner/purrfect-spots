@@ -51,7 +51,10 @@ async def list_reports(
         admin_client = await get_async_supabase_admin_client()
         query = (
             admin_client.table("reports")
-            .select("*, reporter:users!reporter_id(email), photo:cat_photos(image_url, location_name)", count=CountMethod.exact)
+            .select(
+                "*, reporter:users!reporter_id(email), photo:cat_photos(image_url, location_name)",
+                count=CountMethod.exact,
+            )
             .range(offset, offset + limit - 1)
             .order("created_at", desc=True)
         )

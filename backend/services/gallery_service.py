@@ -66,7 +66,7 @@ class GalleryService:
 
             logger.info(f"Fetching gallery photos: limit={limit}, offset={offset}, user_id={user_id}")
 
-            data = []
+            data: list[dict[str, Any]] = []
 
             # Primary: Try official async RPC
             rpc_params: dict[str, Any] = {"p_limit": limit, "p_offset": offset}
@@ -86,8 +86,8 @@ class GalleryService:
                     .order("uploaded_at", desc=True)
                     .range(offset, offset + limit - 1)
                 )
-                res = await query.execute()
-                data = res.data or []
+                res_direct = await query.execute()
+                data = res_direct.data or []
 
             if data and user_id:
                 try:
@@ -101,13 +101,13 @@ class GalleryService:
             # Get total count
             if include_total:
                 try:
-                    res = (
-                        await self.supabase.table("cat_photos")
+                    res_count = await (
+                        self.supabase.table("cat_photos")
                         .select("id", count=CountMethod.exact)
                         .is_("deleted_at", "null")
                         .execute()
                     )
-                    total = res.count or 0
+                    total = res_count.count or 0
                 except Exception as e:
                     logger.error(f"Count fetch failed: {e}")
                     total = len(data)
@@ -421,7 +421,7 @@ class GalleryService:
             photo = data[0] if data else None
 
             if photo and photo.get("user_id") == user_id:
-                return photo
+                return cast(dict[str, Any], photo)
             return None
         except Exception as e:
             logger.error(f"Ownership check failed: {e}")
@@ -447,7 +447,13 @@ class GalleryService:
             # 2. Soft Delete from Database
             admin_client = await self.supabase_admin
             import datetime
-            await admin_client.table("cat_photos").update({"deleted_at": datetime.datetime.now().isoformat()}).eq("id", photo_id).execute()
+
+            await (
+                admin_client.table("cat_photos")
+                .update({"deleted_at": datetime.datetime.now().isoformat()})
+                .eq("id", photo_id)
+                .execute()
+            )
 
             # 3. Invalidate Caches
             from utils.cache import invalidate_gallery_cache, invalidate_tags_cache

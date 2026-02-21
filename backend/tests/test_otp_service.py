@@ -213,9 +213,7 @@ class TestOTPService:
             # If we can't mock aioredis easily, we rely on the loop handling exception.
             # The code catches Exception.
 
-            with patch(
-                "services.otp_service.OTPService._is_email_locked_out", side_effect=Exception("Redis error")
-            ):
+            with patch("services.otp_service.OTPService._is_email_locked_out", side_effect=Exception("Redis error")):
                 # Wait, if we mock the whole method, we aren't testing the fail-open logic INSIDE the method.
                 # We want the method to run, but Redis part to fail.
                 pass

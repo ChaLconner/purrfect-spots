@@ -96,6 +96,7 @@ class NotificationService:
     async def get_notifications(self, user_id: str, limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]:
         """Get user notifications with actor details."""
         from datetime import datetime, timedelta, timezone
+
         thirty_days_ago = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
 
         res = await (
@@ -144,8 +145,9 @@ class NotificationService:
     async def cleanup_old_notifications(self, days: int = 30) -> None:
         """Delete notifications older than specified days."""
         from datetime import datetime, timedelta, timezone
+
         cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
-        
+
         try:
             res = await self.supabase.table("notifications").delete().lt("created_at", cutoff_date).execute()
             deleted_count = len(res.data) if res.data else 0

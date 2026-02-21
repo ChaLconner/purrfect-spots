@@ -55,8 +55,8 @@ ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 CONTENT_TYPE_JSON = "application/json"
 
 if SENTRY_DSN:
-
     from sentry_sdk.types import Event, Hint
+
     def before_send(event: Event, hint: Hint) -> Event | None:
         # Filter exceptions by type (when exc_info is available)
         if "exc_info" in hint:
@@ -220,9 +220,11 @@ from tasks.cleanup_tasks import start_cleanup_jobs, stop_cleanup_jobs
 async def startup_event() -> None:
     await start_cleanup_jobs()
 
+
 @app.on_event("shutdown")
 async def shutdown_event() -> None:
     await stop_cleanup_jobs()
+
 
 # ========== Rate Limiter ==========
 app.state.limiter = limiter

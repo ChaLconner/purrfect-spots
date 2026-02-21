@@ -143,7 +143,7 @@ class TreatsService:
                     .execute()
                 )
 
-                db_customer_id = user_res.data.get("stripe_customer_id") if user_res.data else None
+                db_customer_id = user_res.data.get("stripe_customer_id") if user_res and user_res.data else None
                 if db_customer_id:
                     session_params["customer"] = db_customer_id
 
@@ -255,7 +255,7 @@ class TreatsService:
                 .execute()
             )
 
-            if res.data:
+            if res is not None and res.data:
                 return {
                     "amount": res.data["amount"],
                     "price": float(res.data["price"]),

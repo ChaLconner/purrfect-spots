@@ -24,9 +24,10 @@ class ReportService:
                 "status": "pending",
             }
             res = await self.supabase.table("reports").insert(data).execute()
-            if not res.data:
+            if not res or not res.data:
                 raise ValueError("Failed to create report")
-            return res.data[0]
+            from typing import cast
+            return cast(dict[str, Any], res.data[0])
         except Exception as e:
             logger.error(f"Report creation failed: {e}")
             raise

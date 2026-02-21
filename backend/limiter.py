@@ -9,6 +9,7 @@ Features:
 """
 
 import jwt
+from typing import Any, cast
 from fastapi import Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -196,7 +197,7 @@ limiter = Limiter(
     key_func=get_user_id_from_request,
     default_limits=[config.RATE_LIMIT_API_DEFAULT],
     storage_uri=_storage_uri,
-    storage_options=_storage_options,
+    storage_options=cast(Any, _storage_options),
     strategy="fixed-window",
     swallow_errors=True,  # Prevent 500 errors if Redis is down
     in_memory_fallback_enabled=True,  # Fallback to memory if Redis fails
@@ -207,7 +208,7 @@ strict_limiter = Limiter(
     key_func=get_user_id_from_request,
     default_limits=["5/minute"],
     storage_uri=_storage_uri,
-    storage_options=_storage_options,
+    storage_options=cast(Any, _storage_options),
     strategy="fixed-window",
     swallow_errors=True,
     in_memory_fallback_enabled=True,
@@ -218,7 +219,7 @@ upload_limiter = Limiter(
     key_func=get_user_id_from_request,
     default_limits=[config.UPLOAD_RATE_LIMIT],
     storage_uri=_storage_uri,
-    storage_options=_storage_options,
+    storage_options=cast(Any, _storage_options),
     strategy="fixed-window",
     swallow_errors=True,
     in_memory_fallback_enabled=True,
@@ -229,7 +230,7 @@ auth_limiter = Limiter(
     key_func=get_remote_address,  # Use IP for auth to prevent credential stuffing
     default_limits=[config.RATE_LIMIT_AUTH],
     storage_uri=_storage_uri,
-    storage_options=_storage_options,
+    storage_options=cast(Any, _storage_options),
     strategy="fixed-window",
     swallow_errors=True,
     in_memory_fallback_enabled=True,

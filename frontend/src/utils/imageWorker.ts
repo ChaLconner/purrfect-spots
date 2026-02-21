@@ -46,7 +46,8 @@ self.onmessage = async (e: MessageEvent) => {
     
     // Cleanup Memory
     bitmap.close();
-  } catch (err: any) {
-    self.postMessage({ id, error: err.message || 'Unknown error occurred in worker', success: false });
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred in worker';
+    self.postMessage({ id, error: errorMessage, success: false });
   }
 };

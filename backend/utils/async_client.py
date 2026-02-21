@@ -86,7 +86,7 @@ class AsyncSupabaseClient:
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             try:
-                response = await client.get(url, headers=headers, params=params)
+                response = await client.get(url, headers=headers, params=cast(Any, params))
                 response.raise_for_status()
                 return cast(List[Dict[str, Any]], response.json())
             except httpx.HTTPStatusError as e:
