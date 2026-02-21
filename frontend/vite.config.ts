@@ -1,44 +1,41 @@
 /// <reference types="vitest" />
-import { defineConfig } from "vitest/config";
-import vue from "@vitejs/plugin-vue";
-import tailwindcss from "@tailwindcss/vite";
-import { fileURLToPath, URL } from "node:url";
+import { defineConfig } from 'vitest/config';
+import vue from '@vitejs/plugin-vue';
+import tailwindcss from '@tailwindcss/vite';
+import { fileURLToPath, URL } from 'node:url';
 
-import viteCompression from "vite-plugin-compression";
-import { ViteImageOptimizer } from "vite-plugin-image-optimizer";
-import { VitePWA } from "vite-plugin-pwa";
+import viteCompression from 'vite-plugin-compression';
+import { ViteImageOptimizer } from 'vite-plugin-image-optimizer';
+import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
   test: {
     globals: true,
-    environment: "jsdom",
-    root: "./",
-    include: ["tests/**/*.spec.ts"],
-    setupFiles: ["./tests/setup.ts"],
+    environment: 'jsdom',
+    env: {
+      VITE_SUPABASE_URL: 'http://localhost:54321',
+      VITE_SUPABASE_ANON_KEY: 'test-anon-key',
+    },
+    root: './',
+    include: ['tests/**/*.spec.ts'],
+    setupFiles: ['./tests/setup.ts'],
     coverage: {
-      provider: "v8",
-      reporter: ["text", "html", "lcov", "json"],
-      reportsDirectory: "./coverage",
-      exclude: [
-        "node_modules/",
-        "e2e/",
-        "dist/",
-        "*.config.*",
-        "**/*.d.ts",
-        "src/main.ts"
-      ],
+      provider: 'v8',
+      reporter: ['text', 'html', 'lcov', 'json'],
+      reportsDirectory: './coverage',
+      exclude: ['node_modules/', 'e2e/', 'dist/', '*.config.*', '**/*.d.ts', 'src/main.ts'],
       // Code Quality: Coverage thresholds (Phase 1: 50%)
       // Run `npm run test:coverage` to verify
       thresholds: {
         statements: 70,
         branches: 70,
         functions: 70,
-        lines: 70
-      }
+        lines: 70,
+      },
     },
   },
   plugins: [
-    vue(), 
+    vue(),
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
@@ -55,14 +52,14 @@ export default defineConfig({
           {
             src: 'cat-icon-192.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
           },
           {
             src: 'cat-icon-512.png',
             sizes: '512x512',
-            type: 'image/png'
-          }
-        ]
+            type: 'image/png',
+          },
+        ],
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
@@ -75,12 +72,12 @@ export default defineConfig({
               cacheName: 'api-gallery-cache',
               expiration: {
                 maxEntries: 50,
-                maxAgeSeconds: 60 * 60 // 1 hour
+                maxAgeSeconds: 60 * 60, // 1 hour
               },
               cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
+                statuses: [0, 200],
+              },
+            },
           },
           {
             urlPattern: ({ url }) => url.pathname.startsWith('/api/v1/gallery/locations'),
@@ -89,12 +86,12 @@ export default defineConfig({
               cacheName: 'api-locations-cache',
               expiration: {
                 maxEntries: 10,
-                maxAgeSeconds: 60 * 60 // 1 hour
+                maxAgeSeconds: 60 * 60, // 1 hour
               },
               cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
+                statuses: [0, 200],
+              },
+            },
           },
           {
             urlPattern: ({ url }) => url.pathname.startsWith('/api/v1/gallery/popular-tags'),
@@ -103,15 +100,15 @@ export default defineConfig({
               cacheName: 'api-tags-cache',
               expiration: {
                 maxEntries: 10,
-                maxAgeSeconds: 24 * 60 * 60 // 24 hours
+                maxAgeSeconds: 24 * 60 * 60, // 24 hours
               },
               cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          }
-        ]
-      }
+                statuses: [0, 200],
+              },
+            },
+          },
+        ],
+      },
     }),
     viteCompression({
       verbose: true,
@@ -177,17 +174,16 @@ export default defineConfig({
         quality: 85,
       },
     }),
-
   ],
-  base: "/",
+  base: '/',
   resolve: {
     alias: {
-      "@": fileURLToPath(new URL("./src", import.meta.url)),
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
   build: {
-    outDir: "dist",
-    assetsDir: "assets",
+    outDir: 'dist',
+    assetsDir: 'assets',
     // Chunk size warning limit (500kb)
     chunkSizeWarningLimit: 500,
     rollupOptions: {
@@ -195,9 +191,11 @@ export default defineConfig({
         // Code splitting for better caching
         manualChunks: (id) => {
           // Vue and related packages
-          if (id.includes('node_modules/vue') || 
-              id.includes('node_modules/@vue') ||
-              id.includes('node_modules/pinia')) {
+          if (
+            id.includes('node_modules/vue') ||
+            id.includes('node_modules/@vue') ||
+            id.includes('node_modules/pinia')
+          ) {
             return 'vue-vendor';
           }
           // Axios
@@ -233,7 +231,7 @@ export default defineConfig({
     // Enable asset optimization
     assetsInlineLimit: 4096, // Inline assets smaller than 4kb
     sourcemap: false, // Disable sourcemaps in production
-    minify: "terser",
+    minify: 'terser',
     terserOptions: {
       compress: {
         drop_console: true, // Remove console.log in production
@@ -242,7 +240,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ["@googlemaps/js-api-loader"],
+    include: ['@googlemaps/js-api-loader'],
   },
   define: {
     // Ensure environment variables are properly replaced
@@ -250,12 +248,12 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      "/api": {
-        target: "http://localhost:8000",
+      '/api': {
+        target: 'http://localhost:8000',
         changeOrigin: true,
       },
     },
   },
   // Configure env file location to look at frontend directory
-  envDir: "./",
+  envDir: './',
 });

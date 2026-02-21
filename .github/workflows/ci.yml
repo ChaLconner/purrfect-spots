@@ -447,7 +447,7 @@ jobs:
       - name: Run Trivy vulnerability scanner (filesystem)
         uses: aquasecurity/trivy-action@master
         with:
-          trivy-version: "0.69.1"
+          version: "0.69.1"
           scan-type: "fs"
           scan-ref: "."
           severity: "CRITICAL,HIGH"
