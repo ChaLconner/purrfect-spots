@@ -24,6 +24,8 @@
     "deploy:preview": "vercel"
   },
   "dependencies": {
+    "@eslint/config-array": "^0.23.2",
+    "@eslint/eslintrc": "^3.3.3",
     "@googlemaps/js-api-loader": "^2.0.1",
     "@googlemaps/markerclusterer": "^2.6.2",
     "@sentry/vue": "^8.0.0",
@@ -62,6 +64,9 @@
     "vite-plugin-compression": "^0.5.1",
     "vite-plugin-image-optimizer": "^2.0.3",
     "vitest": "^4.0.16",
-    "vue-tsc": "^2.2.10"
+    "vue-tsc": "^3.2.5"
+  },
+  "overrides": {
+    "minimatch": ">=10.2.1"
   }
 }

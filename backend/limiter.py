@@ -8,8 +8,9 @@ Features:
 - Different rate limits for different endpoint types
 """
 
-import jwt
 from typing import Any, cast
+
+import jwt
 from fastapi import Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address

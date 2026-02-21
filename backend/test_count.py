@@ -18,6 +18,7 @@ async def main() -> None:
     client = await acreate_client(url, key)
     try:
         from postgrest.types import CountMethod
+
         res = await client.table("cat_photos").select("id", count=CountMethod.exact).limit(1).execute()
         print(f"Count: {res.count}")
     except Exception as e:

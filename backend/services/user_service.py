@@ -212,6 +212,7 @@ class UserService:
             if not result or not result.data:
                 raise ValueError("User not found or update failed")
             from typing import cast
+
             return cast(dict[str, Any], result.data[0])
         except Exception as e:
             raise PurrfectSpotsException(f"Failed to update profile: {e!s}")

@@ -27,6 +27,7 @@ class ReportService:
             if not res or not res.data:
                 raise ValueError("Failed to create report")
             from typing import cast
+
             return cast(dict[str, Any], res.data[0])
         except Exception as e:
             logger.error(f"Report creation failed: {e}")

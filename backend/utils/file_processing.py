@@ -5,6 +5,7 @@ Enhanced with security features: magic bytes validation, input sanitization
 """
 
 from typing import Any
+
 from fastapi import HTTPException, UploadFile
 
 from logger import logger

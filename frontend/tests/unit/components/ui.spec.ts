@@ -20,9 +20,12 @@ describe('ErrorBoundary Component', () => {
 describe('SkeletonLoader Component', () => {
   it('should render with default props', () => {
     const wrapper = mount(SkeletonLoader);
-    const element = wrapper.find('.skeleton-loader');
-    
+    // Component renders a root div with Tailwind classes (no .skeleton-loader class)
+    const element = wrapper.find('div');
+
     expect(element.exists()).toBe(true);
+    expect(element.attributes('style')).toContain('width: 100%');
+    expect(element.attributes('style')).toContain('height: 100%');
   });
 
   it('should apply custom dimensions', () => {
@@ -33,7 +36,7 @@ describe('SkeletonLoader Component', () => {
       }
     });
 
-    const element = wrapper.find('.skeleton-loader');
+    const element = wrapper.find('div');
     expect(element.attributes('style')).toContain('width: 200px');
     expect(element.attributes('style')).toContain('height: 100px');
   });
