@@ -41,7 +41,7 @@ def generate_cache_key(*args: Any, **kwargs: Any) -> str:
     arg_str = json.dumps(
         {"args": [str(a) for a in args], "kwargs": {k: str(v) for k, v in kwargs.items()}}, default=str, sort_keys=True
     )
-    return hashlib.md5(arg_str.encode()).hexdigest()
+    return hashlib.sha256(arg_str.encode()).hexdigest()
 
 
 def cache(

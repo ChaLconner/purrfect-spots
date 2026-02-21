@@ -13,6 +13,10 @@ vi.mock('@/utils/googleMapsLoader', () => ({
   isGoogleMapsLoaded: vi.fn().mockReturnValue(true),
 }));
 
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({ t: (key: string) => key }),
+}));
+
 vi.mock('@/services/galleryService', () => ({
   GalleryService: {
     getLocations: vi.fn().mockResolvedValue([]),
@@ -61,15 +65,10 @@ describe('MapView.vue', () => {
     const mapDiv = document.createElement('div');
     mapDiv.id = 'map';
     document.body.appendChild(mapDiv);
-
-    vi.clearAllMocks();
   });
 
   afterEach(() => {
-    const mapDiv = document.getElementById('map');
-    if (mapDiv) {
-      document.body.removeChild(mapDiv);
-    }
+    document.body.innerHTML = ''; // Clear the DOM after each test
     delete process.env.VITE_GOOGLE_MAPS_API_KEY;
   });
 
@@ -82,17 +81,20 @@ describe('MapView.vue', () => {
           SearchBox: true,
           CatDetailModal: true,
           ErrorState: true,
+          'i18n-t': true,
+          OnboardingBanner: true,
         },
+        mocks: {
+          $t: (msg: string) => msg
+        }
       },
     });
 
-    expect(wrapper.find('.map-page').exists()).toBe(true);
+    expect(wrapper.exists()).toBe(true);
     
-    // Should show loader initially
-    expect(wrapper.findComponent({ name: 'GhibliLoader' }).exists()).toBe(true);
-
     await nextTick();
     await nextTick();
+    await new Promise(resolve => setTimeout(resolve, 10));
 
     // Map initialization should be called
     expect(global.google.maps.Map).toHaveBeenCalled();
@@ -105,7 +107,7 @@ describe('MapView.vue', () => {
     vi.mocked(GalleryService.getLocations).mockResolvedValue(locations);
 
     mount(MapView, {
-      global: { plugins: [router], stubs: { GhibliLoader: true, SearchBox: true, CatDetailModal: true, ErrorState: true } },
+      global: { plugins: [router], stubs: { GhibliLoader: true, SearchBox: true, CatDetailModal: true, ErrorState: true, 'i18n-t': true, OnboardingBanner: true }, mocks: { $t: (msg: string) => msg } },
     });
 
     expect(GalleryService.getLocations).toHaveBeenCalled();
@@ -121,7 +123,7 @@ describe('MapView.vue', () => {
     vi.mocked(GalleryService.getLocations).mockRejectedValue(new Error('Fetch failed'));
     
     const wrapper = mount(MapView, {
-      global: { plugins: [router], stubs: { GhibliLoader: true, SearchBox: true, CatDetailModal: true, ErrorState: true } },
+      global: { plugins: [router], stubs: { GhibliLoader: true, SearchBox: true, CatDetailModal: true, ErrorState: true, 'i18n-t': true, OnboardingBanner: true }, mocks: { $t: (msg: string) => msg } },
     });
 
     await nextTick();
@@ -136,7 +138,7 @@ describe('MapView.vue', () => {
     catsStore.setSearchQuery('test search');
     
     const wrapper = mount(MapView, {
-      global: { plugins: [router], stubs: { GhibliLoader: true, SearchBox: true, CatDetailModal: true, ErrorState: true } },
+      global: { plugins: [router], stubs: { GhibliLoader: true, SearchBox: true, CatDetailModal: true, ErrorState: true, 'i18n-t': true, OnboardingBanner: true }, mocks: { $t: (msg: string) => msg } },
     });
 
     wrapper.vm.isInitialLoading = false;

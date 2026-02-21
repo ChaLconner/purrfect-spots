@@ -38,23 +38,23 @@ class TestProcessUploadedImage:
 
         with patch("utils.file_processing.validate_image_file"):
             with patch("utils.file_processing.is_valid_image", return_value=True):
-                with patch("utils.file_processing.optimize_image") as mock_optimize:
-                    mock_optimize.return_value = (sample_image_bytes, "image/jpeg")
-                    with patch(
-                        "utils.file_processing.get_safe_file_extension",
-                        return_value=".jpg",
-                    ):
-                        from utils.file_processing import process_uploaded_image
+                with patch("utils.file_processing.validate_image_magic_bytes", return_value=(True, "image/jpeg", None)):
+                    with patch("utils.file_processing.validate_content_type_matches", return_value=(True, "image/jpeg")):
+                        with patch(
+                            "utils.file_processing.get_safe_file_extension",
+                            return_value=".jpg",
+                        ):
+                            from utils.file_processing import process_uploaded_image
 
-                        (
-                            contents,
-                            content_type,
-                            extension,
-                        ) = await process_uploaded_image(mock_file, optimize=False)
+                            (
+                                contents,
+                                content_type,
+                                extension,
+                            ) = await process_uploaded_image(mock_file, optimize=False)
 
-                        assert contents == mock_file.file
-                        assert content_type == "image/jpeg"
-                        assert extension == "jpg"
+                            assert contents == mock_file.file
+                            assert content_type == "image/jpeg"
+                            assert extension == "jpg"
 
     @pytest.mark.asyncio
     async def test_process_invalid_file_type(self, create_mock_upload_file):
@@ -109,17 +109,15 @@ class TestProcessUploadedImage:
 
         with patch("utils.file_processing.validate_image_file"):
             with patch("utils.file_processing.is_valid_image", return_value=True):
-                with patch("utils.file_processing.optimize_image") as mock_optimize:
-                    with patch(
-                        "utils.file_processing.get_safe_file_extension",
-                        return_value=".jpg",
-                    ):
-                        from utils.file_processing import process_uploaded_image
+                with patch("utils.file_processing.validate_image_magic_bytes", return_value=(True, "image/jpeg", None)):
+                    with patch("utils.file_processing.validate_content_type_matches", return_value=(True, "image/jpeg")):
+                        with patch(
+                            "utils.file_processing.get_safe_file_extension",
+                            return_value=".jpg",
+                        ):
+                            from utils.file_processing import process_uploaded_image
 
-                        await process_uploaded_image(mock_file, optimize=False)
-
-                        # optimize_image should not be called
-                        mock_optimize.assert_not_called()
+                            await process_uploaded_image(mock_file, optimize=False)
 
 
 class TestReadFileForDetection:

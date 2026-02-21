@@ -23,6 +23,10 @@ vi.mock('vue-router', () => ({
   }),
 }));
 
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({ t: (key: string) => key }),
+}));
+
 vi.mock('@/services/galleryService', () => ({
   GalleryService: {
     getImages: vi.fn(),
@@ -72,7 +76,13 @@ describe('GalleryView.vue', () => {
           GalleryHeader: true,
           GalleryGrid: true,
           GalleryModal: true,
+          ErrorState: true,
+          EmptyState: true,
+          GhibliLoader: true,
         },
+        mocks: {
+          $t: (msg: string) => msg
+        }
       },
     });
 
@@ -92,7 +102,12 @@ describe('GalleryView.vue', () => {
       pagination: { total: 0, page: 1, limit: 20, has_more: false }
     });
 
-    const wrapper = shallowMount(GalleryView);
+    const wrapper = shallowMount(GalleryView, {
+      global: {
+        stubs: { GhibliBackground: true, GalleryHeader: true, GalleryGrid: true, GalleryModal: true, ErrorState: true, EmptyState: true, GhibliLoader: true },
+        mocks: { $t: (msg: string) => msg }
+      }
+    });
 
     await nextTick();
     await nextTick();
@@ -112,7 +127,12 @@ describe('GalleryView.vue', () => {
       limit: 20
     });
 
-    shallowMount(GalleryView);
+    shallowMount(GalleryView, {
+      global: {
+        stubs: { GhibliBackground: true, GalleryHeader: true, GalleryGrid: true, GalleryModal: true, ErrorState: true, EmptyState: true, GhibliLoader: true },
+        mocks: { $t: (msg: string) => msg }
+      }
+    });
 
     await nextTick();
     
@@ -139,7 +159,12 @@ describe('GalleryView.vue', () => {
       pagination: { total: 2, page: 1, limit: 1, has_more: true }
     });
 
-    const wrapper = shallowMount(GalleryView);
+    const wrapper = shallowMount(GalleryView, {
+      global: {
+        stubs: { GhibliBackground: true, GalleryHeader: true, GalleryGrid: true, GalleryModal: true, ErrorState: true, EmptyState: true, GhibliLoader: true },
+        mocks: { $t: (msg: string) => msg }
+      }
+    });
 
     await nextTick();
     await nextTick();
@@ -170,7 +195,11 @@ describe('GalleryView.vue', () => {
     mockRoute.params = { id: 'deep-1' };
 
     const wrapper = shallowMount(GalleryView, {
-      props: { id: 'deep-1' }
+      props: { id: 'deep-1' },
+      global: {
+        stubs: { GhibliBackground: true, GalleryHeader: true, GalleryGrid: true, GalleryModal: true, ErrorState: true, EmptyState: true, GhibliLoader: true },
+        mocks: { $t: (msg: string) => msg }
+      }
     });
 
     await nextTick();
@@ -188,7 +217,12 @@ describe('GalleryView.vue', () => {
 
     vi.mocked(GalleryService.getImages).mockRejectedValue(new Error('Network error'));
 
-    const wrapper = shallowMount(GalleryView);
+    const wrapper = shallowMount(GalleryView, {
+      global: {
+        stubs: { GhibliBackground: true, GalleryHeader: true, GalleryGrid: true, GalleryModal: true, ErrorState: true, EmptyState: true, GhibliLoader: true },
+        mocks: { $t: (msg: string) => msg }
+      }
+    });
 
     await nextTick();
     await nextTick();

@@ -3,17 +3,26 @@ import { mount } from '@vue/test-utils';
 import AdminDashboard from '@/views/admin/AdminDashboard.vue';
 import { apiV1 } from '@/utils/api';
 import { nextTick } from 'vue';
+import { createPinia, setActivePinia } from 'pinia';
+import { useAdminStore } from '@/store/adminStore';
 
-// Manually mock apiV1
-vi.mock('@/utils/api', () => ({
-  apiV1: {
-    get: vi.fn(),
-  },
-}));
+vi.mock('@/utils/api', async (importOriginal) => {
+  const actual = await importOriginal<any>();
+  return {
+    ...actual,
+    apiV1: {
+      get: vi.fn(),
+    },
+  };
+});
 
 describe('AdminDashboard.vue', () => {
+  let pinia: any;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    pinia = createPinia();
+    setActivePinia(pinia);
   });
 
   const mockStats = {
@@ -28,7 +37,9 @@ describe('AdminDashboard.vue', () => {
     // Mock api implementation
     (apiV1.get as any).mockResolvedValue(mockStats);
 
-    const wrapper = mount(AdminDashboard);
+    const wrapper = mount(AdminDashboard, {
+      global: { plugins: [pinia] }
+    });
 
     // Wait for mounted hook
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -52,22 +63,25 @@ describe('AdminDashboard.vue', () => {
 
   it('handles loading state', async () => {
     // Return a promise that never resolves (or delays) to test loading state if needed
-    // But simplified test: initially isLoading becomes true
     (apiV1.get as any).mockImplementation(() => new Promise(() => {}));
     
-    const wrapper = mount(AdminDashboard);
+    const wrapper = mount(AdminDashboard, {
+      global: { plugins: [pinia] }
+    });
     await nextTick();
-    expect(wrapper.text()).toContain('Loading stats...');
+    expect(wrapper.html()).toContain('animate-shimmer');
   });
 
   it('handles error state', async () => {
     (apiV1.get as any).mockRejectedValue(new Error('Failed'));
 
-    const wrapper = mount(AdminDashboard);
+    const wrapper = mount(AdminDashboard, {
+      global: { plugins: [pinia] }
+    });
     
     await new Promise((resolve) => setTimeout(resolve, 0));
     await nextTick();
 
-    expect(wrapper.text()).toContain('Failed to load stats');
+    expect(wrapper.text()).toContain('No stats available or failed to load.');
   });
 });

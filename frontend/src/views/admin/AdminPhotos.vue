@@ -295,10 +295,10 @@ const isLoading = ref(false);
 const previewImage = ref<AdminPhoto | null>(null);
 
 const canDeleteContent = computed(
-  () => authStore.hasPermission('content:delete') || authStore.isAdmin
+  (): boolean => authStore.hasPermission('content:delete') || authStore.isAdmin
 );
 const canWriteContent = computed(
-  () => authStore.hasPermission('content:write') || authStore.isAdmin
+  (): boolean => authStore.hasPermission('content:write') || authStore.isAdmin
 );
 const searchTimeoutId = ref<number | null>(null);
 
@@ -310,8 +310,7 @@ const editForm = ref({
   description: '',
 });
 
-const startEdit = (photo: AdminPhoto) => {
-  console.log('Starting edit for photo:', photo.id);
+const startEdit = (photo: AdminPhoto): void => {
   if (!canWriteContent.value) {
     console.warn('User does not have content:write permission');
     toast({
@@ -328,17 +327,16 @@ const startEdit = (photo: AdminPhoto) => {
   };
 };
 
-const cancelEdit = () => {
+const cancelEdit = (): void => {
   editingPhotoId.value = null;
 };
 
-const saveEdit = async (photo: AdminPhoto) => {
+const saveEdit = async (photo: AdminPhoto): Promise<void> => {
   if (!editForm.value.location_name.trim()) return;
 
   isSaving.value = true;
   try {
     const updated = await apiV1.patch(`/admin/photos/${photo.id}`, editForm.value);
-    console.log('Photo updated successfully:', updated);
     photo.location_name = updated.location_name;
     photo.description = updated.description;
 

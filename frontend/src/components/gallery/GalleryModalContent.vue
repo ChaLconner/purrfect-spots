@@ -29,19 +29,19 @@ const isReportOpen = ref(false);
 const selectedAmount = ref(1);
 
 // Clean description
-const cleanDescription = computed(() => {
+const cleanDescription = computed((): string => {
   if (!props.image?.description) return '';
   return getCleanDescription(props.image.description);
 });
 
 // Filtered tags
-const imageTags = computed(() => {
+const imageTags = computed((): string[] => {
   if (!props.image?.description) return [];
   return extractTags(props.image.description);
 });
 
 // Formatted Date
-const dateFormatted = computed(() => {
+const dateFormatted = computed((): string => {
   if (!props.image?.uploaded_at) return '';
   try {
     return new Date(props.image.uploaded_at).toLocaleDateString('en-US', {
@@ -55,8 +55,8 @@ const dateFormatted = computed(() => {
 });
 
 // Robust visibility check for Give Treats button
-const showGiveTreats = computed(() => {
-  const result = (() => {
+const showGiveTreats = computed((): boolean => {
+  const result = ((): boolean => {
     // Safety check: if image is missing, hide
     if (!props.image) return false;
 
@@ -72,15 +72,6 @@ const showGiveTreats = computed(() => {
     // Strict comparison of strings to prevent type mismatches
     return String(authStore.user.id) !== String(props.image.user_id);
   })();
-
-  // LOGGING
-  console.log('[GalleryModal] Visibility Calc:', {
-    isAuthenticated: authStore.isAuthenticated, // Valid boolean?
-    myId: authStore.user?.id,
-    imgUserId: props.image?.user_id,
-    match: String(authStore.user?.id) === String(props.image?.user_id),
-    RESULT: result,
-  });
 
   return result;
 });

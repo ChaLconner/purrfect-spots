@@ -17,9 +17,9 @@
             Welcome to Purrfect Spots!
           </h3>
           <button
-            @click="dismiss"
             class="text-gray-400 hover:text-gray-600 transition-colors p-1"
             aria-label="Close"
+            @click="dismiss"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -44,8 +44,8 @@
           </div>
         </div>
         <button
-          @click="dismiss"
           class="mt-2 w-full py-2 bg-[var(--color-bg-primary)] hover:bg-[#d8e4d6] text-[var(--color-text-primary)] font-semibold rounded-lg border border-[var(--color-btn-shade-b)] shadow-sm transition-colors text-sm font-['Fredoka'] tracking-wide"
+          @click="dismiss"
         >
           Got it, let's explore!
         </button>

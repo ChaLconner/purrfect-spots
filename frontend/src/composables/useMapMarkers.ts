@@ -135,7 +135,10 @@ export function useMapMarkers(map: Ref<GoogleMap | null>) {
       if (!currentIds.has(id)) {
         markersToRemove.push(marker);
         if (markerListeners.has(id)) {
-          google.maps.event.removeListener(markerListeners.get(id)!);
+          const listener = markerListeners.get(id);
+          if (listener) {
+            google.maps.event.removeListener(listener);
+          }
           markerListeners.delete(id);
         }
         markersMap.delete(id);

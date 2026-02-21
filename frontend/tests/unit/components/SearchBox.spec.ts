@@ -106,7 +106,7 @@ describe('SearchBox.vue', () => {
     expect(input.element.value).toBe('initial');
     
     // Find clear button (only shows when query exists)
-    const clearBtn = wrapper.find('button.clear-mode');
+    const clearBtn = wrapper.find('button[aria-label="Clear search"]');
     expect(clearBtn.exists()).toBe(true);
     
     await clearBtn.trigger('click');

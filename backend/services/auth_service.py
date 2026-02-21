@@ -301,8 +301,8 @@ class AuthService:
             if not action_link:
                 return False
             return email_service.send_reset_email(email, action_link)
-        except Exception as e:
-            logger.error("Failed to process password reset: %s", e)
+        except Exception:
+            logger.error("Failed to process password reset")
         return True
 
     async def reset_password(self, access_token: str, new_password: str) -> bool:

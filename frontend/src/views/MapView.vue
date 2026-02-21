@@ -414,7 +414,8 @@ const syncStateFromUrl = async () => {
   if (found && map.value) {
     map.value.panTo({ lat: found.latitude, lng: found.longitude });
     // Only zoom in if we're zoomed out too far
-    if (map.value.getZoom()! < 15) {
+    const currentZoom = map.value.getZoom();
+    if (currentZoom !== undefined && currentZoom < 15) {
       map.value.setZoom(15);
     }
   }

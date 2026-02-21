@@ -7,10 +7,7 @@
         {{ $t('termsOfService.title') }}
       </h1>
 
-      <div
-        class="prose prose-brown max-w-none text-brown-700"
-        v-html="$t('termsOfService.content', { date: new Date().toLocaleDateString() })"
-      ></div>
+      <div ref="contentRef" class="prose prose-brown max-w-none text-brown-700"></div>
 
       <div class="mt-8 pt-8 border-t border-sand-200">
         <router-link to="/" class="text-terracotta-600 hover:text-terracotta-700 font-medium">
@@ -22,5 +19,19 @@
 </template>
 
 <script setup lang="ts">
-// Static content, no script logic needed
+import { ref, watchEffect, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
+const contentRef = ref<HTMLElement | null>(null);
+
+onMounted(() => {
+  watchEffect(() => {
+    if (contentRef.value) {
+      contentRef.value.innerHTML = t('termsOfService.content', {
+        date: new Date().toLocaleDateString(),
+      });
+    }
+  });
+});
 </script>

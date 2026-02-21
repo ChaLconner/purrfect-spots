@@ -92,14 +92,17 @@ jobs:
 
       - name: Validate required secrets
         id: validate-secrets
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          INPUT_ENV: ${{ inputs.environment }}
         run: |
           echo "🔒 Validating required secrets..."
           
           # Check for required secrets based on environment
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            INPUT_ENV="${{ inputs.environment }}"
+          if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
+            INPUT_ENV="$INPUT_ENV"
           else
-            REF="${{ github.ref }}"
             if [ "$REF" == "refs/heads/main" ]; then
               INPUT_ENV="production"
             elif [ "$REF" == "refs/heads/dev" ]; then

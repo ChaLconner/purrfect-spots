@@ -4,13 +4,13 @@ import { computed } from 'vue';
 
 const { locale } = useI18n();
 
-const toggleLanguage = () => {
+const toggleLanguage = (): void => {
   const newLocale = locale.value === 'en' ? 'th' : 'en';
   locale.value = newLocale;
   localStorage.setItem('user-locale', newLocale);
 };
 
-const currentLabel = computed(() => {
+const currentLabel = computed((): string => {
   return locale.value === 'en' ? 'EN' : 'TH';
 });
 </script>

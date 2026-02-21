@@ -1,0 +1,3017 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "PurrFect Spots API",
+    "description": "\n        PurrFect Spots API helps you share and discover cat locations.\n        \n        ## API Versioning\n        All endpoints are available under `/api/v1/` prefix.\n        Legacy routes (without prefix) are maintained for backward compatibility.\n        \n        ## Features\n        * 📍 **Share Locations**: Upload photos of cats and their locations.\n        * 🤖 **AI Detection**: Automatically detect cats in uploaded photos.\n        * 🔐 **Authentication**: Secure login via Email/Password or Google OAuth.\n        * 📊 **Pagination**: API-side pagination for efficient data loading.\n        ",
+    "contact": {
+      "name": "Purrfect Spots Team",
+      "email": "support@purrfectspots.com"
+    },
+    "license": {
+      "name": "MIT"
+    },
+    "version": "3.0.0"
+  },
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "Root",
+        "description": "Root endpoint",
+        "operationId": "root__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health Check",
+        "description": "Simple health check endpoint",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/test-json": {
+      "get": {
+        "summary": "Test Json Response",
+        "description": "Test endpoint to verify JSON responses are working correctly",
+        "operationId": "test_json_response_api_test_json_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Register",
+        "description": "Register new user with email and password, then send OTP for verification",
+        "operationId": "register_api_v1_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/verify-otp": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Verify Otp",
+        "description": "Verify email using 6-digit OTP code",
+        "operationId": "verify_otp_api_v1_auth_verify_otp_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyOTPRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/resend-otp": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Resend Otp",
+        "description": "Resend verification OTP code",
+        "operationId": "resend_otp_api_v1_auth_resend_otp_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResendOTPRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Login",
+        "description": "Login with email and password via Supabase Auth",
+        "operationId": "login_api_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh-token": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Refresh Token",
+        "description": "Refresh access token using long-lived refresh token from HttpOnly cookie",
+        "operationId": "refresh_token_api_v1_auth_refresh_token_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Logout",
+        "description": "Logout user (clear refresh token cookie and revoke it)",
+        "operationId": "logout_api_v1_auth_logout_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/forgot-password": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Forgot Password",
+        "description": "Request password reset (via Supabase Auth)",
+        "operationId": "forgot_password_api_v1_auth_forgot_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/reset-password": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Reset Password",
+        "description": "Reset password using token",
+        "operationId": "reset_password_api_v1_auth_reset_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/session-exchange": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Exchange Session",
+        "description": "Exchange Supabase Session (from email verification redirect) for Backend Session.\nValidates the Supabase token and issues our own secure HttpOnly cookies.",
+        "operationId": "exchange_session_api_v1_auth_session_exchange_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionExchangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Get Current User Info",
+        "description": "Get current user information (unified from bot manual and google auth)",
+        "operationId": "get_current_user_info_api_v1_auth_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/google/login": {
+      "get": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Google Login Redirect",
+        "description": "Redirect to Google OAuth login page with PKCE support",
+        "operationId": "google_login_redirect_api_v1_auth_google_login_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/google": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Google Login",
+        "description": "Login with Google OAuth token",
+        "operationId": "google_login_api_v1_auth_google_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/google/exchange": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Google Exchange Code",
+        "description": "Exchange Google authorization code for tokens (PKCE OAuth 2.0 flow)",
+        "operationId": "google_exchange_code_api_v1_auth_google_exchange_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleCodeExchangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/sync-user": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Sync User Data",
+        "description": "Insert/Upsert user into Supabase Table from JWT payload (Supabase Auth compatible)",
+        "operationId": "sync_user_data_api_v1_auth_sync_user_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/profile/": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Get Profile",
+        "description": "Get current user profile",
+        "operationId": "get_profile_api_v1_profile__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Update Profile",
+        "description": "Update user profile information",
+        "operationId": "update_profile_api_v1_profile__put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/profile": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Get Profile",
+        "description": "Get current user profile",
+        "operationId": "get_profile_api_v1_profile_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Update Profile",
+        "description": "Update user profile information",
+        "operationId": "update_profile_api_v1_profile_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/profile/uploads": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Get User Uploads",
+        "description": "Get all uploads by current user - filtered by user_id",
+        "operationId": "get_user_uploads_api_v1_profile_uploads_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/profile/picture": {
+      "post": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Upload Profile Picture",
+        "description": "Upload and update profile picture",
+        "operationId": "upload_profile_picture_api_v1_profile_picture_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_profile_picture_api_v1_profile_picture_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/profile/password": {
+      "put": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Change Password",
+        "description": "Change user password",
+        "operationId": "change_password_api_v1_profile_password_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/profile/uploads/{photo_id}": {
+      "put": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Update User Photo",
+        "description": "Update a user's upload photo details (description, etc)",
+        "operationId": "update_user_photo_api_v1_profile_uploads__photo_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "photo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Photo Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePhotoRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Delete User Photo",
+        "description": "Delete a user's uploaded photo",
+        "operationId": "delete_user_photo_api_v1_profile_uploads__photo_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "photo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Photo Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/upload/cat": {
+      "post": {
+        "tags": [
+          "Upload"
+        ],
+        "summary": "Upload Cat Photo",
+        "description": "Upload cat photo with location information.\n\nSecurity features:\n- Rate limited: 5 requests per minute\n- Magic bytes validation for file type\n- Input sanitization for all text fields\n- Security event logging\n\nThe image is automatically optimized (resized/compressed) before upload to S3.",
+        "operationId": "upload_cat_photo_api_v1_upload_cat_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_cat_photo_api_v1_upload_cat_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/upload/test": {
+      "get": {
+        "tags": [
+          "Upload"
+        ],
+        "summary": "Test Upload Endpoint",
+        "description": "Test if upload endpoint is working",
+        "operationId": "test_upload_endpoint_api_v1_upload_test_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/detect/cats": {
+      "post": {
+        "tags": [
+          "Cat Detection"
+        ],
+        "summary": "Detect Cats In Image",
+        "description": "Detect cats in images using Google Cloud Vision API.\nRate Limit: 5 requests per minute per user.",
+        "operationId": "detect_cats_in_image_api_v1_detect_cats_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_detect_cats_in_image_api_v1_detect_cats_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatDetectionResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/detect/spot-analysis": {
+      "post": {
+        "tags": [
+          "Cat Detection"
+        ],
+        "summary": "Analyze Cat Spot",
+        "description": "Analyze suitability of locations for cats using Google Cloud Vision.\nRate Limit: 5 requests per minute per user.",
+        "operationId": "analyze_cat_spot_api_v1_detect_spot_analysis_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_analyze_cat_spot_api_v1_detect_spot_analysis_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpotAnalysisResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/detect/combined": {
+      "post": {
+        "tags": [
+          "Cat Detection"
+        ],
+        "summary": "Combined Cat And Spot Analysis",
+        "description": "Analyze both cat detection and location suitability using Google Cloud Vision.\nRate Limit: 3 requests per minute per user.",
+        "operationId": "combined_cat_and_spot_analysis_api_v1_detect_combined_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_combined_cat_and_spot_analysis_api_v1_detect_combined_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CombinedAnalysisResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/detect/test-cats": {
+      "post": {
+        "tags": [
+          "Cat Detection"
+        ],
+        "summary": "Test Detect Cats",
+        "description": "Test cat detection using Google Cloud Vision (authentication required).\nRate Limit: 10 requests per minute per user.",
+        "operationId": "test_detect_cats_api_v1_detect_test_cats_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_test_detect_cats_api_v1_detect_test_cats_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/detect/test-spot": {
+      "post": {
+        "tags": [
+          "Cat Detection"
+        ],
+        "summary": "Test Analyze Spot",
+        "description": "Test location analysis using Google Cloud Vision (authentication required).\nRate Limit: 10 requests per minute per user.",
+        "operationId": "test_analyze_spot_api_v1_detect_test_spot_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_test_analyze_spot_api_v1_detect_test_spot_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/gallery/": {
+      "get": {
+        "tags": [
+          "Gallery"
+        ],
+        "summary": "Get Gallery",
+        "description": "Get cat images with pagination support.\n\nPagination can be done via:\n- `offset` + `limit`: Skip N items, return M items\n- `page` + `limit`: Return page N with M items per page (page starts at 1)\n\nExamples:\n- `/gallery?limit=20&offset=0` - First 20 images\n- `/gallery?limit=20&page=2` - Second page of 20 images",
+        "operationId": "get_gallery_api_v1_gallery__get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Number of items per page",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "Number of items per page"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Number of items to skip"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Page number (alternative to offset)",
+              "title": "Page"
+            },
+            "description": "Page number (alternative to offset)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedGalleryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/gallery": {
+      "get": {
+        "tags": [
+          "Gallery"
+        ],
+        "summary": "Get Gallery",
+        "description": "Get cat images with pagination support.\n\nPagination can be done via:\n- `offset` + `limit`: Skip N items, return M items\n- `page` + `limit`: Return page N with M items per page (page starts at 1)\n\nExamples:\n- `/gallery?limit=20&offset=0` - First 20 images\n- `/gallery?limit=20&page=2` - Second page of 20 images",
+        "operationId": "get_gallery_api_v1_gallery_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Number of items per page",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "Number of items per page"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Number of items to skip"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Page number (alternative to offset)",
+              "title": "Page"
+            },
+            "description": "Page number (alternative to offset)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedGalleryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/gallery/all": {
+      "get": {
+        "tags": [
+          "Gallery"
+        ],
+        "summary": "Get All Gallery",
+        "description": "Get all cat images with optional limit (use with caution for large datasets).\nFor backward compatibility and map display.\n\nConsider using the paginated `/gallery` endpoint for better performance with large datasets.",
+        "operationId": "get_all_gallery_api_v1_gallery_all_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 5000,
+              "minimum": 1,
+              "description": "Maximum number of images to return (default: 1000)",
+              "default": 1000,
+              "title": "Limit"
+            },
+            "description": "Maximum number of images to return (default: 1000)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GalleryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/gallery/locations": {
+      "get": {
+        "tags": [
+          "Gallery"
+        ],
+        "summary": "Get Locations",
+        "description": "Get all cat locations from Supabase (for map display).",
+        "operationId": "get_locations_api_v1_gallery_locations_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CatLocation"
+                  },
+                  "type": "array",
+                  "title": "Response Get Locations Api V1 Gallery Locations Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/gallery/viewport": {
+      "get": {
+        "tags": [
+          "Gallery"
+        ],
+        "summary": "Get Locations In Viewport",
+        "description": "Get cat locations within a geographic viewport (bounding box).\n\nThis endpoint is optimized for map views that only need to display\nmarkers within the current visible area.\n\nArgs:\n    north: Maximum latitude (top of viewport)\n    south: Minimum latitude (bottom of viewport)\n    east: Maximum longitude (right of viewport)\n    west: Minimum longitude (left of viewport)\n    limit: Maximum pins to return (default 100)\n\nExample:\n    `/gallery/viewport?north=13.8&south=13.7&east=100.6&west=100.4`",
+        "operationId": "get_locations_in_viewport_api_v1_gallery_viewport_get",
+        "parameters": [
+          {
+            "name": "north",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "description": "North latitude bound",
+              "title": "North"
+            },
+            "description": "North latitude bound"
+          },
+          {
+            "name": "south",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "description": "South latitude bound",
+              "title": "South"
+            },
+            "description": "South latitude bound"
+          },
+          {
+            "name": "east",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "description": "East longitude bound",
+              "title": "East"
+            },
+            "description": "East longitude bound"
+          },
+          {
+            "name": "west",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "description": "West longitude bound",
+              "title": "West"
+            },
+            "description": "West longitude bound"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "Maximum number of results",
+              "default": 100,
+              "title": "Limit"
+            },
+            "description": "Maximum number of results"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GalleryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/gallery/search": {
+      "get": {
+        "tags": [
+          "Gallery"
+        ],
+        "summary": "Search Locations",
+        "description": "Search cat locations with optional text query and/or tag filters.\n\nExamples:\n- `/gallery/search?q=park` - Search for \"park\" in name or description\n- `/gallery/search?tags=orange,sleeping` - Filter by tags\n- `/gallery/search?q=sunny&tags=cute` - Combined search",
+        "operationId": "search_locations_api_v1_gallery_search_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Text to search in location name and description",
+              "title": "Q"
+            },
+            "description": "Text to search in location name and description"
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated list of tags to filter by",
+              "title": "Tags"
+            },
+            "description": "Comma-separated list of tags to filter by"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "Maximum number of results",
+              "default": 100,
+              "title": "Limit"
+            },
+            "description": "Maximum number of results"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/gallery/popular-tags": {
+      "get": {
+        "tags": [
+          "Gallery"
+        ],
+        "summary": "Get Popular Tags",
+        "description": "Get the most popular tags used across all cat photos.\n\nUseful for:\n- Tag autocomplete in upload form\n- Tag cloud visualization\n- Quick filter buttons",
+        "operationId": "get_popular_tags_api_v1_gallery_popular_tags_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Number of top tags to return",
+              "default": 20,
+              "title": "Limit"
+            },
+            "description": "Number of top tags to return"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PopularTagsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/gallery/{photo_id}": {
+      "get": {
+        "tags": [
+          "Gallery"
+        ],
+        "summary": "Get Photo",
+        "description": "Get a specific photo by its ID.\nUseful for deep linking and sharing.",
+        "operationId": "get_photo_api_v1_gallery__photo_id__get",
+        "parameters": [
+          {
+            "name": "photo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Photo Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatLocation"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/feature-flags/": {
+      "get": {
+        "tags": [
+          "Feature Flags"
+        ],
+        "summary": "Get Feature Flags",
+        "description": "Get all feature flags and their current status.\n\nThis endpoint is public and can be called by the frontend\nto determine which features to enable/disable in the UI.",
+        "operationId": "get_feature_flags_api_v1_feature_flags__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeatureFlagsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/feature-flags": {
+      "get": {
+        "tags": [
+          "Feature Flags"
+        ],
+        "summary": "Get Feature Flags",
+        "description": "Get all feature flags and their current status.\n\nThis endpoint is public and can be called by the frontend\nto determine which features to enable/disable in the UI.",
+        "operationId": "get_feature_flags_api_v1_feature_flags_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeatureFlagsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/feature-flags/{flag_name}": {
+      "get": {
+        "tags": [
+          "Feature Flags"
+        ],
+        "summary": "Get Feature Flag",
+        "description": "Check if a specific feature flag is enabled.\n\nArgs:\n    flag_name: Name of the feature flag to check\n\nReturns:\n    Object with flag name and enabled status",
+        "operationId": "get_feature_flag_api_v1_feature_flags__flag_name__get",
+        "parameters": [
+          {
+            "name": "flag_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Flag Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/live": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Liveness Check",
+        "description": "Liveness probe - checks if the application is running.\n\nThis is a lightweight check that should always succeed if the\napplication is not deadlocked or crashed.\n\nUsed by: Kubernetes liveness probes, basic monitoring\n\nReturns:\n    200 OK if application is alive",
+        "operationId": "liveness_check_health_live_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Readiness Check",
+        "description": "Readiness probe - checks if the application can handle requests.\n\nThis checks critical dependencies (database) and reports on\noptional services (Redis, S3).\n\nUsed by: Kubernetes readiness probes, load balancer health checks\n\nReturns:\n    200 OK if ready to serve requests\n    503 Service Unavailable if critical dependencies are down",
+        "operationId": "readiness_check_health_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/dependencies": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Dependency Check",
+        "description": "Detailed dependency health check.\n\nChecks all external services and provides detailed diagnostics.\nThis is more verbose than the readiness check and is intended\nfor debugging and monitoring dashboards.\n\nReturns:\n    Detailed status of all dependencies",
+        "operationId": "dependency_check_health_dependencies_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/metrics": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Metrics",
+        "description": "Basic metrics endpoint for monitoring.\n\nReturns cache stats and basic service metrics.\nThis is a simple alternative for environments without Prometheus.",
+        "operationId": "metrics_health_metrics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AnalysisMetadata": {
+        "properties": {
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "file_size": {
+            "type": "integer",
+            "title": "File Size"
+          },
+          "analyzed_by": {
+            "type": "string",
+            "title": "Analyzed By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "filename",
+          "file_size",
+          "analyzed_by"
+        ],
+        "title": "AnalysisMetadata"
+      },
+      "Body_analyze_cat_spot_api_v1_detect_spot_analysis_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_analyze_cat_spot_api_v1_detect_spot_analysis_post"
+      },
+      "Body_combined_cat_and_spot_analysis_api_v1_detect_combined_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_combined_cat_and_spot_analysis_api_v1_detect_combined_post"
+      },
+      "Body_detect_cats_in_image_api_v1_detect_cats_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_detect_cats_in_image_api_v1_detect_cats_post"
+      },
+      "Body_test_analyze_spot_api_v1_detect_test_spot_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_test_analyze_spot_api_v1_detect_test_spot_post"
+      },
+      "Body_test_detect_cats_api_v1_detect_test_cats_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_test_detect_cats_api_v1_detect_test_cats_post"
+      },
+      "Body_upload_cat_photo_api_v1_upload_cat_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          },
+          "lat": {
+            "type": "string",
+            "title": "Lat"
+          },
+          "lng": {
+            "type": "string",
+            "title": "Lng"
+          },
+          "location_name": {
+            "type": "string",
+            "title": "Location Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "default": ""
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          },
+          "cat_detection_data": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cat Detection Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file",
+          "lat",
+          "lng",
+          "location_name"
+        ],
+        "title": "Body_upload_cat_photo_api_v1_upload_cat_post"
+      },
+      "Body_upload_profile_picture_api_v1_profile_picture_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_profile_picture_api_v1_profile_picture_post"
+      },
+      "CatDetected": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "breed_guess": {
+            "type": "string",
+            "title": "Breed Guess"
+          },
+          "position": {
+            "type": "string",
+            "title": "Position"
+          },
+          "size": {
+            "type": "string",
+            "title": "Size"
+          }
+        },
+        "type": "object",
+        "required": [
+          "description",
+          "breed_guess",
+          "position",
+          "size"
+        ],
+        "title": "CatDetected"
+      },
+      "CatDetectionResult": {
+        "properties": {
+          "has_cats": {
+            "type": "boolean",
+            "title": "Has Cats"
+          },
+          "cat_count": {
+            "type": "integer",
+            "title": "Cat Count"
+          },
+          "confidence": {
+            "type": "number",
+            "title": "Confidence"
+          },
+          "cats_detected": {
+            "items": {
+              "$ref": "#/components/schemas/CatDetected"
+            },
+            "type": "array",
+            "title": "Cats Detected",
+            "default": []
+          },
+          "image_quality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Quality",
+            "default": "Medium"
+          },
+          "suitable_for_cat_spot": {
+            "type": "boolean",
+            "title": "Suitable For Cat Spot"
+          },
+          "reasoning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filename"
+          },
+          "file_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Size"
+          },
+          "detected_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detected By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "has_cats",
+          "cat_count",
+          "confidence",
+          "suitable_for_cat_spot"
+        ],
+        "title": "CatDetectionResult"
+      },
+      "CatLocation": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "image_url": {
+            "type": "string",
+            "title": "Image Url"
+          },
+          "latitude": {
+            "type": "number",
+            "title": "Latitude"
+          },
+          "longitude": {
+            "type": "number",
+            "title": "Longitude"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "location_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Name"
+          },
+          "uploaded_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uploaded At"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "image_url",
+          "latitude",
+          "longitude"
+        ],
+        "title": "CatLocation"
+      },
+      "ChangePasswordRequest": {
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "title": "Current Password"
+          },
+          "new_password": {
+            "type": "string",
+            "title": "New Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "title": "ChangePasswordRequest"
+      },
+      "CombinedAnalysisResult": {
+        "properties": {
+          "cat_detection": {
+            "$ref": "#/components/schemas/CatDetectionResult"
+          },
+          "spot_analysis": {
+            "$ref": "#/components/schemas/SpotAnalysisResult"
+          },
+          "overall_recommendation": {
+            "$ref": "#/components/schemas/OverallRecommendation"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/AnalysisMetadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cat_detection",
+          "spot_analysis",
+          "overall_recommendation",
+          "metadata"
+        ],
+        "title": "CombinedAnalysisResult"
+      },
+      "FeatureFlagsResponse": {
+        "properties": {
+          "flags": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Flags"
+          }
+        },
+        "type": "object",
+        "required": [
+          "flags"
+        ],
+        "title": "FeatureFlagsResponse",
+        "description": "Response model for feature flags."
+      },
+      "ForgotPasswordRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "ForgotPasswordRequest"
+      },
+      "GalleryResponse": {
+        "properties": {
+          "images": {
+            "items": {
+              "$ref": "#/components/schemas/CatLocation"
+            },
+            "type": "array",
+            "title": "Images"
+          }
+        },
+        "type": "object",
+        "required": [
+          "images"
+        ],
+        "title": "GalleryResponse",
+        "description": "Legacy response for backward compatibility"
+      },
+      "GoogleCodeExchangeRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "code_verifier": {
+            "type": "string",
+            "title": "Code Verifier"
+          },
+          "redirect_uri": {
+            "type": "string",
+            "title": "Redirect Uri"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "code_verifier",
+          "redirect_uri"
+        ],
+        "title": "GoogleCodeExchangeRequest"
+      },
+      "GoogleTokenRequest": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "GoogleTokenRequest"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "LoginRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "LoginRequest"
+      },
+      "LoginResponse": {
+        "properties": {
+          "access_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Access Token"
+          },
+          "token_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Type",
+            "default": "bearer"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "requires_verification": {
+            "type": "boolean",
+            "title": "Requires Verification",
+            "default": false
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "refresh_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh Token"
+          }
+        },
+        "type": "object",
+        "title": "LoginResponse"
+      },
+      "OverallRecommendation": {
+        "properties": {
+          "suitable_for_cat_spot": {
+            "type": "boolean",
+            "title": "Suitable For Cat Spot"
+          },
+          "confidence": {
+            "type": "number",
+            "title": "Confidence"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "suitable_for_cat_spot",
+          "confidence",
+          "summary"
+        ],
+        "title": "OverallRecommendation"
+      },
+      "PaginatedGalleryResponse": {
+        "properties": {
+          "images": {
+            "items": {
+              "$ref": "#/components/schemas/CatLocation"
+            },
+            "type": "array",
+            "title": "Images"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationMeta"
+          }
+        },
+        "type": "object",
+        "required": [
+          "images",
+          "pagination"
+        ],
+        "title": "PaginatedGalleryResponse",
+        "description": "Paginated gallery response with metadata"
+      },
+      "PaginationMeta": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "has_more": {
+            "type": "boolean",
+            "title": "Has More"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "total_pages": {
+            "type": "integer",
+            "title": "Total Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "limit",
+          "offset",
+          "has_more",
+          "page",
+          "total_pages"
+        ],
+        "title": "PaginationMeta",
+        "description": "Pagination metadata"
+      },
+      "PopularTagsResponse": {
+        "properties": {
+          "tags": {
+            "items": {
+              "$ref": "#/components/schemas/TagInfo"
+            },
+            "type": "array",
+            "title": "Tags"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tags"
+        ],
+        "title": "PopularTagsResponse"
+      },
+      "ProfileUpdateRequest": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "bio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bio"
+          },
+          "picture": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Picture"
+          }
+        },
+        "type": "object",
+        "title": "ProfileUpdateRequest"
+      },
+      "RegisterInput": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "title": "Password",
+            "description": "Password must be at least 8 characters long"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name",
+            "description": "Please enter first and last name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "password",
+          "name"
+        ],
+        "title": "RegisterInput"
+      },
+      "ResendOTPRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "ResendOTPRequest"
+      },
+      "ResetPasswordRequest": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "new_password": {
+            "type": "string",
+            "title": "New Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "new_password"
+        ],
+        "title": "ResetPasswordRequest"
+      },
+      "SafetyFactors": {
+        "properties": {
+          "safe_from_traffic": {
+            "type": "boolean",
+            "title": "Safe From Traffic"
+          },
+          "has_shelter": {
+            "type": "boolean",
+            "title": "Has Shelter"
+          },
+          "food_source_nearby": {
+            "type": "boolean",
+            "title": "Food Source Nearby"
+          },
+          "water_access": {
+            "type": "boolean",
+            "title": "Water Access"
+          },
+          "escape_routes": {
+            "type": "boolean",
+            "title": "Escape Routes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "safe_from_traffic",
+          "has_shelter",
+          "food_source_nearby",
+          "water_access",
+          "escape_routes"
+        ],
+        "title": "SafetyFactors"
+      },
+      "SearchResponse": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/CatLocation"
+            },
+            "type": "array",
+            "title": "Results"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          }
+        },
+        "type": "object",
+        "required": [
+          "results",
+          "total"
+        ],
+        "title": "SearchResponse"
+      },
+      "SessionExchangeRequest": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "refresh_token"
+        ],
+        "title": "SessionExchangeRequest"
+      },
+      "SpotAnalysisResult": {
+        "properties": {
+          "suitability_score": {
+            "type": "integer",
+            "title": "Suitability Score"
+          },
+          "safety_factors": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SafetyFactors"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "environment_type": {
+            "type": "string",
+            "title": "Environment Type"
+          },
+          "pros": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Pros"
+          },
+          "cons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Cons"
+          },
+          "recommendations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recommendations"
+          },
+          "best_times": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Best Times"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filename"
+          },
+          "analyzed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analyzed By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "suitability_score",
+          "environment_type",
+          "pros",
+          "cons",
+          "recommendations",
+          "best_times"
+        ],
+        "title": "SpotAnalysisResult"
+      },
+      "TagInfo": {
+        "properties": {
+          "tag": {
+            "type": "string",
+            "title": "Tag"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tag",
+          "count"
+        ],
+        "title": "TagInfo"
+      },
+      "UpdatePhotoRequest": {
+        "properties": {
+          "location_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "title": "UpdatePhotoRequest"
+      },
+      "UserResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "picture": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Picture"
+          },
+          "bio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bio"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email"
+        ],
+        "title": "UserResponse"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "VerifyOTPRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "otp": {
+            "type": "string",
+            "maxLength": 6,
+            "minLength": 6,
+            "pattern": "^\\d{6}$",
+            "title": "Otp",
+            "description": "6-digit OTP code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "otp"
+        ],
+        "title": "VerifyOTPRequest"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Manual Authentication",
+      "description": "Operations for traditional email/password login and registration."
+    },
+    {
+      "name": "Google Authentication",
+      "description": "OAuth2 authentication with Google."
+    },
+    {
+      "name": "Profile",
+      "description": "User profile management operations."
+    },
+    {
+      "name": "Upload",
+      "description": "Image upload and processing."
+    },
+    {
+      "name": "Cat Detection",
+      "description": "AI-powered cat detection and analysis."
+    },
+    {
+      "name": "Gallery",
+      "description": "Public gallery and location data access."
+    }
+  ]
+}

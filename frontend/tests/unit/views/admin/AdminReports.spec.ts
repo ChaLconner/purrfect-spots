@@ -3,23 +3,38 @@ import { mount } from '@vue/test-utils';
 import AdminReports from '@/views/admin/AdminReports.vue';
 import { apiV1 } from '@/utils/api';
 import { nextTick } from 'vue';
+import { createPinia, setActivePinia } from 'pinia';
+import { useAuthStore } from '@/store/authStore';
 
-// Mock apiV1
-vi.mock('@/utils/api', () => ({
-  apiV1: {
-    get: vi.fn(),
-    put: vi.fn(),
-    delete: vi.fn(),
-  },
-}));
+vi.mock('@/utils/api', async (importOriginal) => {
+  const actual = await importOriginal<any>();
+  return {
+    ...actual,
+    apiV1: {
+      get: vi.fn(),
+      put: vi.fn(),
+      delete: vi.fn(),
+    },
+  };
+});
 
-vi.mock('@/constants/moderation', () => ({
-  RESOLUTION_REASONS: [{ value: 'spam', label: 'Violation: Spam or Misleading', type: 'resolved' }]
-}));
+vi.mock('@/constants/moderation', async (importOriginal) => {
+  const actual: any = await importOriginal();
+  return {
+    ...actual,
+    RESOLUTION_REASONS: [{ value: 'spam', label: 'Violation: Spam or Misleading', type: 'resolved' }]
+  };
+});
 
 describe('AdminReports.vue', () => {
+  let pinia: any;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    pinia = createPinia();
+    setActivePinia(pinia);
+    const authStore = useAuthStore();
+    authStore.user = { id: 'admin1', email: 'admin@test.com', permissions: ['content:delete'] } as any;
   });
 
   const mockReports = [
@@ -42,9 +57,11 @@ describe('AdminReports.vue', () => {
   ];
 
   it('renders reports list correctly', async () => {
-    (apiV1.get as any).mockResolvedValue(mockReports);
+    (apiV1.get as any).mockResolvedValue({ data: mockReports, total: 1 });
 
-    const wrapper = mount(AdminReports);
+    const wrapper = mount(AdminReports, {
+      global: { plugins: [pinia] }
+    });
     await new Promise((resolve) => setTimeout(resolve, 0));
     await nextTick();
 
@@ -54,8 +71,10 @@ describe('AdminReports.vue', () => {
   });
 
   it('opens modal on action click', async () => {
-    (apiV1.get as any).mockResolvedValue(mockReports);
-    const wrapper = mount(AdminReports);
+    (apiV1.get as any).mockResolvedValue({ data: mockReports, total: 1 });
+    const wrapper = mount(AdminReports, {
+      global: { plugins: [pinia] }
+    });
     await new Promise((resolve) => setTimeout(resolve, 0));
     await nextTick();
 
@@ -69,8 +88,10 @@ describe('AdminReports.vue', () => {
   });
 
   it('completes resolution flow', async () => {
-    (apiV1.get as any).mockResolvedValue(mockReports);
-    const wrapper = mount(AdminReports);
+    (apiV1.get as any).mockResolvedValue({ data: mockReports, total: 1 });
+    const wrapper = mount(AdminReports, {
+      global: { plugins: [pinia] }
+    });
     await new Promise((resolve) => setTimeout(resolve, 0));
     await nextTick();
 
@@ -78,10 +99,10 @@ describe('AdminReports.vue', () => {
     const resolveBtn = wrapper.findAll('button').find((b) => b.attributes('title') === 'Mark as Resolved');
     await resolveBtn?.trigger('click');
 
-    // Verify options exist - we need to find the modal select, which is the second one
+    // Verify options exist - we need to find the modal select, which is the third one now
     const selects = wrapper.findAll('select');
-    expect(selects.length).toBe(2);
-    const reasonSelect = selects[1];
+    expect(selects.length).toBe(3);
+    const reasonSelect = selects[2];
     
     const options = reasonSelect.findAll('option');
     expect(options.length).toBeGreaterThan(1);

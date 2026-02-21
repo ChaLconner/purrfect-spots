@@ -88,23 +88,24 @@ describe('useAuthForm', () => {
   describe('Validation', () => {
     it('should validate required fields', async () => {
       const wrapper = mount(createTestComponent('login'));
-      const vm = wrapper.vm;
+      const vm = wrapper.vm as any;
       
       await vm.handleSubmit();
-      expect(showError).toHaveBeenCalledWith('Please fill in all fields');
+      expect(vm.formErrors.email).toBe('Email is required');
+      expect(vm.formErrors.password).toBe('Password is required');
       expect(AuthService.login).not.toHaveBeenCalled();
     });
 
     it('should validate password length for registration', async () => {
       const wrapper = mount(createTestComponent('register'));
-      const vm = wrapper.vm;
+      const vm = wrapper.vm as any;
       
       vm.form.name = 'Test User';
       vm.form.email = 'test@example.com';
       vm.form.password = 'short';
       
       await vm.handleSubmit();
-      expect(showError).toHaveBeenCalledWith('Password must be at least 8 characters');
+      expect(vm.formErrors.password).toBe('Password must be at least 8 characters');
     });
   });
 

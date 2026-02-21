@@ -11,7 +11,7 @@ const mockReplace = vi.fn();
 const mockRoute = {
   params: {} as Record<string, string>,
   query: {},
-  fullPath: '/profile'
+  fullPath: '/profile',
 };
 
 vi.mock('vue-router', () => ({
@@ -20,6 +20,10 @@ vi.mock('vue-router', () => ({
     push: mockPush,
     replace: mockReplace,
   }),
+}));
+
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({ t: (key: string) => key }),
 }));
 
 vi.mock('@/services/profileService', () => ({
@@ -47,12 +51,24 @@ vi.mock('@/composables/useSeo', () => ({
 }));
 
 // Mock sub-components
-vi.mock('@/components/profile/ProfileHeader.vue', () => ({ default: { template: '<div></div>', props: ['uploadsCount'] } }));
-vi.mock('@/components/profile/ProfileGallery.vue', () => ({ default: { template: '<div></div>', props: ['uploads'] } }));
-vi.mock('@/components/profile/ImageDetailModal.vue', () => ({ default: { template: '<div></div>' } }));
-vi.mock('@/components/profile/EditProfileModal.vue', () => ({ default: { template: '<div></div>' } }));
-vi.mock('@/components/profile/EditPhotoModal.vue', () => ({ default: { template: '<div></div>' } }));
-vi.mock('@/components/profile/DeleteConfirmModal.vue', () => ({ default: { template: '<div></div>' } }));
+vi.mock('@/components/profile/ProfileHeader.vue', () => ({
+  default: { template: '<div></div>', props: ['uploadsCount'] },
+}));
+vi.mock('@/components/profile/ProfileGallery.vue', () => ({
+  default: { template: '<div></div>', props: ['uploads'] },
+}));
+vi.mock('@/components/profile/ImageDetailModal.vue', () => ({
+  default: { template: '<div></div>' },
+}));
+vi.mock('@/components/profile/EditProfileModal.vue', () => ({
+  default: { template: '<div></div>' },
+}));
+vi.mock('@/components/profile/EditPhotoModal.vue', () => ({
+  default: { template: '<div></div>' },
+}));
+vi.mock('@/components/profile/DeleteConfirmModal.vue', () => ({
+  default: { template: '<div></div>' },
+}));
 vi.mock('@/components/ui/GhibliBackground.vue', () => ({ default: { template: '<div></div>' } }));
 
 describe('ProfileView.vue', () => {
@@ -87,13 +103,16 @@ describe('ProfileView.vue', () => {
     Object.defineProperty(globalThis, 'localStorage', {
       value: storageMock,
       writable: true,
-      configurable: true
+      configurable: true,
     });
-    
+
     vi.mocked(ProfileService.getUserUploads).mockResolvedValue([]);
     vi.mocked(ProfileService.getPublicUserUploads).mockResolvedValue([]);
-    vi.mocked(ProfileService.getPublicProfile).mockResolvedValue({ id: 'other', name: 'Other' } as any);
-    
+    vi.mocked(ProfileService.getPublicProfile).mockResolvedValue({
+      id: 'other',
+      name: 'Other',
+    } as any);
+
     // Default logged-in state in store
     authStore.isAuthenticated = true;
     authStore.isInitialized = true;
@@ -101,7 +120,7 @@ describe('ProfileView.vue', () => {
     // authStore.isUserReady is likely a getter
     Object.defineProperty(authStore, 'isUserReady', {
       get: vi.fn(() => !!authStore.user),
-      configurable: true
+      configurable: true,
     });
   });
 
@@ -112,9 +131,12 @@ describe('ProfileView.vue', () => {
       global: {
         stubs: {
           ProfileHeader: true,
-          ProfileGallery: true
+          ProfileGallery: true,
+        },
+        mocks: {
+          $t: (msg: string) => msg
         }
-      }
+      },
     });
 
     return { wrapper, authStore };
@@ -123,7 +145,7 @@ describe('ProfileView.vue', () => {
   it('renders correctly for own profile', async () => {
     mockRoute.params = {}; // isOwnProfile: true
     const { wrapper } = mountProfile();
-    
+
     // Explicitly call to bypass any mounting race
     await wrapper.vm.loadProfileData();
     await nextTick();
@@ -133,8 +155,11 @@ describe('ProfileView.vue', () => {
 
   it('loads public profile for other users', async () => {
     mockRoute.params = { id: 'other-user' }; // isOwnProfile: false
-    vi.mocked(ProfileService.getPublicProfile).mockResolvedValue({ id: 'other-user', name: 'Other' } as any);
-    
+    vi.mocked(ProfileService.getPublicProfile).mockResolvedValue({
+      id: 'other-user',
+      name: 'Other',
+    } as any);
+
     const { wrapper } = mountProfile();
     await wrapper.vm.loadProfileData();
 
@@ -149,7 +174,7 @@ describe('ProfileView.vue', () => {
     mockRoute.params = {};
     const { wrapper } = mountProfile({
       isAuthenticated: false,
-      user: null
+      user: null,
     });
 
     await wrapper.vm.loadProfileData();
@@ -169,7 +194,13 @@ describe('ProfileView.vue', () => {
   });
 
   it('handles profile update successfully', async () => {
-    const updatedUser = { id: 'test-user-id', name: 'New Name', username: 'new', bio: 'new bio', picture: 'new.jpg' };
+    const updatedUser = {
+      id: 'test-user-id',
+      name: 'New Name',
+      username: 'new',
+      bio: 'new bio',
+      picture: 'new.jpg',
+    };
     vi.mocked(ProfileService.updateProfile).mockResolvedValue(updatedUser);
 
     const { wrapper, authStore } = mountProfile();
@@ -195,7 +226,7 @@ describe('ProfileView.vue', () => {
     await nextTick();
 
     wrapper.vm.photoToEdit = { id: 'photo-1' } as any;
-    
+
     await wrapper.vm.executeDeletePhoto();
 
     expect(ProfileService.deletePhoto).toHaveBeenCalledWith('photo-1');
@@ -205,12 +236,14 @@ describe('ProfileView.vue', () => {
     vi.mocked(ProfileService.getPublicProfile).mockRejectedValue(new Error('Not found'));
     mockRoute.params = { id: 'non-existent' };
 
-    const { wrapper } = mountProfile();
+    const { wrapper } = mountProfile({
+      user: { name: 'Placeholder' } // Avoid template evaluating $t on null user if it crashes
+    });
     await wrapper.vm.loadProfileData();
 
     await nextTick();
     await nextTick();
 
-    expect(wrapper.vm.uploadsError).toBe('User not found or failed to load profile.');
+    expect(wrapper.vm.uploadsError).toBe('profile.userNotFound');
   });
 });

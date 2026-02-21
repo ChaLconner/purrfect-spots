@@ -39,7 +39,7 @@
         <!-- Report Button (Top Left) -->
         <button
           v-if="cat && (!authStore.isAuthenticated || authStore.user?.id !== cat.user_id)"
-          class="group absolute top-5 left-5 z-20 w-10 h-10 flex items-center justify-center text-white bg-black/20 backdrop-blur-[4px] rounded-full border-none cursor-pointer drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)] transition-all duration-300 hover:bg-red-500/80 hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2"
+          class="report-btn group absolute top-5 left-5 z-20 w-10 h-10 flex items-center justify-center text-white bg-black/20 backdrop-blur-[4px] rounded-full border-none cursor-pointer drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)] transition-all duration-300 hover:bg-red-500/80 hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2"
           :aria-label="t('map.modal.ariaReport')"
           :title="t('map.modal.reportTitle')"
           @click="handleReportClick"
@@ -95,8 +95,7 @@
                 v-for="tag in tags"
                 :key="tag"
                 class="text-[0.85rem] font-semibold text-gray-400"
-                >#{{ tag }}</span
-              >
+              >#{{ tag }}</span>
             </div>
 
             <!-- Interaction Row -->

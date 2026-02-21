@@ -57,8 +57,7 @@
               }}</span>
               <span
                 class="text-[10px] uppercase tracking-wider font-bold text-brown-light/60 whitespace-nowrap flex-shrink-0"
-                >{{ formatDate(comment.created_at) }}</span
-              >
+              >{{ formatDate(comment.created_at) }}</span>
             </div>
             <div v-if="editingId === comment.id" class="mt-2">
               <BaseInput

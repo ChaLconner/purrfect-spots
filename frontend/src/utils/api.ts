@@ -44,11 +44,11 @@ let currentAccessToken: string | null = null;
 let refreshTokenCallback: (() => Promise<boolean>) | null = null;
 let logoutCallback: (() => void) | null = null;
 
-export const setAccessToken = (token: string | null) => {
+export const setAccessToken = (token: string | null): void => {
   currentAccessToken = token;
 };
 
-export const setAuthCallbacks = (refreshFn: () => Promise<boolean>, logoutFn: () => void) => {
+export const setAuthCallbacks = (refreshFn: () => Promise<boolean>, logoutFn: () => void): void => {
   refreshTokenCallback = refreshFn;
   logoutCallback = logoutFn;
 };
@@ -176,7 +176,12 @@ const createApiInstance = (): AxiosInstance => {
     },
     async (error: AxiosError) => {
       if (isBrowserExtensionError(error)) {
-        return handleBrowserExtensionError(error, () => instance.request(error.config!));
+        return handleBrowserExtensionError(error, () => {
+          if (!error.config) {
+            throw error;
+          }
+          return instance.request(error.config);
+        });
       }
 
       if (!error.response) {
@@ -234,7 +239,7 @@ interface RetryableRequestConfig extends AxiosRequestConfig {
 }
 
 // Handle 401 errors (Token Expiry)
-async function handleUnauthorizedError(error: AxiosError, status: number) {
+async function handleUnauthorizedError(error: AxiosError, status: number): Promise<unknown> {
   const originalRequest = error.config as RetryableRequestConfig;
   if (!originalRequest) throw error;
 
@@ -302,7 +307,7 @@ function isRetryableError(error: unknown, config: RetryConfig): boolean {
   if (error instanceof ApiError && error.statusCode)
     return config.retryableStatuses.includes(error.statusCode);
   if ((error as AxiosError).response?.status)
-    return config.retryableStatuses.includes((error as AxiosError).response!.status);
+    return config.retryableStatuses.includes((error as AxiosError).response.status);
   if ((error as AxiosError).request && !(error as AxiosError).response) return true;
   return false;
 }
@@ -361,19 +366,19 @@ export const apiRequest = async <T = unknown>(
 };
 
 export const api = {
-  get: <T = unknown>(endpoint: string, config?: AxiosRequestConfig) =>
+  get: <T = unknown>(endpoint: string, config?: AxiosRequestConfig): Promise<T> =>
     apiRequest<T>(endpoint, { method: 'GET', ...config }),
 
-  post: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig) =>
+  post: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> =>
     apiRequest<T>(endpoint, { method: 'POST', data, ...config }),
 
-  put: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig) =>
+  put: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> =>
     apiRequest<T>(endpoint, { method: 'PUT', data, ...config }),
 
-  patch: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig) =>
+  patch: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> =>
     apiRequest<T>(endpoint, { method: 'PATCH', data, ...config }),
 
-  delete: <T = unknown>(endpoint: string, config?: AxiosRequestConfig) =>
+  delete: <T = unknown>(endpoint: string, config?: AxiosRequestConfig): Promise<T> =>
     apiRequest<T>(endpoint, { method: 'DELETE', ...config }),
 };
 
@@ -407,19 +412,19 @@ export const uploadFile = async <T = unknown>(
 };
 
 export const apiV1 = {
-  get: <T = unknown>(endpoint: string, config?: AxiosRequestConfig) =>
+  get: <T = unknown>(endpoint: string, config?: AxiosRequestConfig): Promise<T> =>
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'GET', ...config }),
 
-  post: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig) =>
+  post: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> =>
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'POST', data, ...config }),
 
-  put: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig) =>
+  put: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> =>
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'PUT', data, ...config }),
 
-  patch: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig) =>
+  patch: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> =>
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'PATCH', data, ...config }),
 
-  delete: <T = unknown>(endpoint: string, config?: AxiosRequestConfig) =>
+  delete: <T = unknown>(endpoint: string, config?: AxiosRequestConfig): Promise<T> =>
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'DELETE', ...config }),
 };
 

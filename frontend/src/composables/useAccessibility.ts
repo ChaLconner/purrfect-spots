@@ -40,7 +40,7 @@ function getOrCreateAnnouncer(): HTMLElement {
 /**
  * Announce message to screen readers
  */
-export function announce(message: string, priority: 'polite' | 'assertive' = 'polite') {
+export function announce(message: string, priority: 'polite' | 'assertive' = 'polite'): void {
   const el = getOrCreateAnnouncer();
   el.setAttribute('aria-live', priority);
 
@@ -54,7 +54,11 @@ export function announce(message: string, priority: 'polite' | 'assertive' = 'po
 /**
  * Focus trap for modals/dialogs
  */
-export function useFocusTrap(containerRef: { value: HTMLElement | null }) {
+export function useFocusTrap(containerRef: { value: HTMLElement | null }): {
+  activate: () => void;
+  deactivate: () => void;
+  getFocusableElements: () => HTMLElement[];
+} {
   const previousActiveElement = ref<HTMLElement | null>(null);
 
   const focusableSelectors = [
@@ -74,7 +78,7 @@ export function useFocusTrap(containerRef: { value: HTMLElement | null }) {
     ); // Visible elements only
   }
 
-  function handleKeyDown(event: KeyboardEvent) {
+  function handleKeyDown(event: KeyboardEvent): void {
     if (event.key !== 'Tab') return;
 
     const focusable = getFocusableElements();
@@ -96,7 +100,7 @@ export function useFocusTrap(containerRef: { value: HTMLElement | null }) {
     }
   }
 
-  function activate() {
+  function activate(): void {
     previousActiveElement.value = document.activeElement as HTMLElement;
 
     nextTick(() => {
@@ -111,7 +115,7 @@ export function useFocusTrap(containerRef: { value: HTMLElement | null }) {
     document.addEventListener('keydown', handleKeyDown);
   }
 
-  function deactivate() {
+  function deactivate(): void {
     document.removeEventListener('keydown', handleKeyDown);
 
     if (previousActiveElement.value?.focus) {
@@ -129,10 +133,16 @@ export function useFocusTrap(containerRef: { value: HTMLElement | null }) {
 /**
  * Focus management for modals
  */
-export function useModalFocus(isOpen: { value: boolean }, modalRef: { value: HTMLElement | null }) {
+export function useModalFocus(
+  isOpen: { value: boolean },
+  modalRef: { value: HTMLElement | null }
+): {
+  activateFocusTrap: () => void;
+  deactivateFocusTrap: () => void;
+} {
   const { activate, deactivate } = useFocusTrap(modalRef);
 
-  function handleEscape(event: KeyboardEvent) {
+  function handleEscape(event: KeyboardEvent): void {
     if (event.key === 'Escape' && isOpen.value) {
       // Emit close event - caller should handle this
       event.preventDefault();
@@ -165,10 +175,12 @@ export function useArrowKeyNavigation(
     loop?: boolean;
     orientation?: 'horizontal' | 'vertical' | 'both';
   } = {}
-) {
+): {
+  handleKeyDown: (event: KeyboardEvent) => void;
+} {
   const { loop = true, orientation = 'both' } = options;
 
-  function handleKeyDown(event: KeyboardEvent) {
+  function handleKeyDown(event: KeyboardEvent): void {
     const itemsList = Array.from(items.value);
     const currentIndex = itemsList.indexOf(document.activeElement as HTMLElement);
     if (currentIndex === -1) return;
@@ -209,8 +221,10 @@ export function useArrowKeyNavigation(
 /**
  * Skip link for keyboard navigation
  */
-export function useSkipLink(targetId: string) {
-  function skipToContent() {
+export function useSkipLink(targetId: string): {
+  skipToContent: () => void;
+} {
+  function skipToContent(): void {
     const target = document.getElementById(targetId);
     if (target) {
       target.focus();

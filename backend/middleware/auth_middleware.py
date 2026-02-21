@@ -247,8 +247,8 @@ async def _attempt_token_decoding(token: str, supabase: AClient | None) -> tuple
         payload = await decode_supabase_token(token)
         logger.info("Token decoded successfully using Supabase JWKS")
         return payload, "supabase"
-    except (HTTPException, ValueError) as e:
-        logger.debug("Supabase token decoding attempted but failed: %s", e)
+    except (HTTPException, ValueError):
+        logger.debug("Supabase token decoding attempted but failed")
         pass
 
     # 2. Try Standard JWT Decoding (Supabase Key or Custom Secret)
@@ -260,10 +260,10 @@ async def _attempt_token_decoding(token: str, supabase: AClient | None) -> tuple
         # Determine source - if it has app_metadata it's likely Supabase
         source = "supabase" if "app_metadata" in payload else "custom"
         return payload, source
-    except ValueError as e:
-        logger.debug("Standard token verification failed: %s", e)
-    except Exception as e:
-        logger.debug("Unexpected error during standard token verification: %s", e)
+    except ValueError:
+        logger.debug("Standard token verification failed")
+    except Exception:
+        logger.debug("Unexpected error during standard token verification")
 
     # 3. Try Direct API (Final Fallback)
     if supabase:
