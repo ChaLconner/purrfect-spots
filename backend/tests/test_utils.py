@@ -368,7 +368,10 @@ class TestAuthUtils:
         payload = {"sub": "user123"}
         token = jwt.encode(payload, secret, algorithm="HS256")
 
-        with patch("config.config.JWT_SECRET", "different_secret_key_at_least_32_chars"), pytest.raises(ValueError, match="Invalid token"):
+        with (
+            patch("config.config.JWT_SECRET", "different_secret_key_at_least_32_chars"),
+            pytest.raises(ValueError, match="Invalid token"),
+        ):
             decode_token(token)
 
     def test_get_client_info(self) -> None:

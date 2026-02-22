@@ -82,8 +82,8 @@ async def register(
         log_security_event("register_otp_sent", details={"email": data.email}, severity="INFO")
 
         return {
-            "access_token": None,
-            "token_type": None,
+            "access_token": None,  # nosec B105
+            "token_type": None,  # nosec B105
             "user": None,
             "message": "Registration successful. Please check your email for the verification code.",
             "requires_verification": True,
@@ -218,14 +218,14 @@ async def refresh_token(
 
     if not refresh_token:
         # Return 200 with null token to avoid console errors only if it's a silent refresh
-        return {"access_token": None, "token_type": None, "message": "No active session"}
+        return {"access_token": None, "token_type": None, "message": "No active session"}  # nosec B105
 
     ip, ua = get_client_info(request)
     payload = await auth_service.verify_refresh_token(refresh_token, ip, ua)
 
     if not payload:
         response.delete_cookie("refresh_token")
-        return {"access_token": None, "token_type": None, "message": "Session expired"}
+        return {"access_token": None, "token_type": None, "message": "Session expired"}  # nosec B105
 
     user_id = payload["user_id"]
 
@@ -233,7 +233,7 @@ async def refresh_token(
     user_obj = await auth_service.get_user_by_id(user_id)
     if not user_obj:
         response.delete_cookie("refresh_token")
-        return {"access_token": None, "token_type": None, "message": "User not found"}
+        return {"access_token": None, "token_type": None, "message": "User not found"}  # nosec B105
 
     # Rotate token means we should revoke the OLD one to prevent reuse!
     old_jti = payload.get("jti")
@@ -260,7 +260,7 @@ async def refresh_token(
         permissions=user_obj.permissions,
     )
 
-    return {"access_token": new_access_token, "token_type": "bearer", "user": user_response}
+    return {"access_token": new_access_token, "token_type": "bearer", "user": user_response}  # nosec B105
 
 
 @router.post("/logout")
