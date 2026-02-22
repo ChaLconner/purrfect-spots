@@ -128,23 +128,27 @@ class TestGoogleVisionServiceInit:
 
     def test_cat_label_keywords_exist(self):
         """Test that cat keywords are defined"""
-        with patch.dict("os.environ", {"GOOGLE_VISION_KEY_PATH": "dummy/path.json"}):
-            with patch("google.cloud.vision.ImageAnnotatorClient"):
-                from services.google_vision import GoogleVisionService
+        with (
+            patch.dict("os.environ", {"GOOGLE_VISION_KEY_PATH": "dummy/path.json"}),
+            patch("google.cloud.vision.ImageAnnotatorClient"),
+        ):
+            from services.google_vision import GoogleVisionService
 
-                service = GoogleVisionService()
+            service = GoogleVisionService()
 
-                assert hasattr(service, "CAT_LABEL_KEYWORDS")
-                assert "cat" in service.CAT_LABEL_KEYWORDS
-                assert "kitten" in service.CAT_LABEL_KEYWORDS
+            assert hasattr(service, "CAT_LABEL_KEYWORDS")
+            assert "cat" in service.CAT_LABEL_KEYWORDS
+            assert "kitten" in service.CAT_LABEL_KEYWORDS
 
     def test_confidence_thresholds_valid(self):
         """Test confidence threshold values are valid"""
-        with patch.dict("os.environ", {"GOOGLE_VISION_KEY_PATH": "dummy/path.json"}):
-            with patch("google.cloud.vision.ImageAnnotatorClient"):
-                from services.google_vision import GoogleVisionService
+        with (
+            patch.dict("os.environ", {"GOOGLE_VISION_KEY_PATH": "dummy/path.json"}),
+            patch("google.cloud.vision.ImageAnnotatorClient"),
+        ):
+            from services.google_vision import GoogleVisionService
 
-                service = GoogleVisionService()
+            service = GoogleVisionService()
 
-                assert 0 <= service.CAT_LABEL_SCORE_THRESHOLD <= 1
-                assert 0 <= service.CAT_OBJECT_SCORE_THRESHOLD <= 1
+            assert 0 <= service.CAT_LABEL_SCORE_THRESHOLD <= 1
+            assert 0 <= service.CAT_OBJECT_SCORE_THRESHOLD <= 1

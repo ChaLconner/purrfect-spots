@@ -23,6 +23,7 @@ export function escapeHtml(text: string): string {
     '/': '&#x2F;',
   };
 
+  // eslint-disable-next-line security/detect-object-injection
   return text.replaceAll(/[&<>"'/]/g, (char) => htmlEntities[char] || char);
 }
 
@@ -102,6 +103,7 @@ export function getSecureHeaders(): Record<string, string> {
 
   const csrfToken = getCsrfToken();
   if (csrfToken) {
+    // eslint-disable-next-line security/detect-object-injection
     headers[CSRF_HEADER_NAME] = csrfToken;
   }
 

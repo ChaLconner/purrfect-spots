@@ -27,6 +27,7 @@ def test_https_redirect_production():
         response = client.get("https://testserver/test", headers={"X-Forwarded-Proto": "https"}, follow_redirects=False)
         assert response.status_code == 200
 
+
 def test_https_redirect_development():
     with patch.dict(os.environ, {"ENVIRONMENT": "development"}):
         app = FastAPI()
@@ -41,6 +42,7 @@ def test_https_redirect_development():
         # Should not redirect in dev
         response = client.get("http://testserver/test", headers={"X-Forwarded-Proto": "http"}, follow_redirects=False)
         assert response.status_code == 200
+
 
 def test_security_headers_production():
     with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
@@ -60,6 +62,7 @@ def test_security_headers_production():
         assert response.headers["X-Frame-Options"] == "DENY"
         assert "Strict-Transport-Security" in response.headers
         assert "Content-Security-Policy-Report-Only" in response.headers
+
 
 def test_security_headers_development():
     with patch.dict(os.environ, {"ENVIRONMENT": "development"}):

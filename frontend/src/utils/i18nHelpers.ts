@@ -208,6 +208,7 @@ export function formatFileSize(bytes: number): string {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   const size = bytes / Math.pow(k, i);
 
+  // eslint-disable-next-line security/detect-object-injection
   return `${formatNumber(size, { maximumFractionDigits: 1 })} ${units[i]}`;
 }
 

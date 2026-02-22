@@ -22,11 +22,13 @@ class TestGalleryServiceExtended:
 
         # It calls mock_supabase_admin.table()...
 
-        with patch("dependencies.get_async_supabase_admin_client", return_value=mock_supabase_admin):
-            with patch("services.search_service.SearchService._check_fulltext_support", return_value=True):
-                service = GalleryService(mock_supabase)
-                service._admin_client_lazy = mock_supabase_admin
-                return service
+        with (
+            patch("dependencies.get_async_supabase_admin_client", return_value=mock_supabase_admin),
+            patch("services.search_service.SearchService._check_fulltext_support", return_value=True),
+        ):
+            service = GalleryService(mock_supabase)
+            service._admin_client_lazy = mock_supabase_admin
+            return service
 
     async def test_check_fulltext_support_true(self, mock_supabase):
         # Setup mock for successful execution

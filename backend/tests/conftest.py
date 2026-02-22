@@ -7,6 +7,7 @@ Pytest configuration and fixtures for backend tests
 
 import os
 import sys
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -17,7 +18,7 @@ os.environ["SENTRY_DSN"] = ""
 os.environ["REDIS_URL"] = ""
 
 # Add backend directory to path so imports work
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(str(Path(__file__).parent.parent))
 
 # Mock bcrypt before it's imported by services to avoid PyO3 initialization error
 try:

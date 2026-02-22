@@ -36,25 +36,24 @@ class TestProcessUploadedImage:
         """Test processing a valid JPEG image"""
         mock_file = create_mock_upload_file(sample_image_bytes, "cat.jpg", "image/jpeg")
 
-        with patch("utils.file_processing.validate_image_file"):
-            with patch("utils.file_processing.is_valid_image", return_value=True):
-                with patch("utils.file_processing.validate_image_magic_bytes", return_value=(True, "image/jpeg", None)):
-                    with patch("utils.file_processing.validate_content_type_matches", return_value=(True, "image/jpeg")):
-                        with patch(
-                            "utils.file_processing.get_safe_file_extension",
-                            return_value=".jpg",
-                        ):
-                            from utils.file_processing import process_uploaded_image
+        with (
+            patch("utils.file_processing.validate_image_file"),
+            patch("utils.file_processing.is_valid_image", return_value=True),
+            patch("utils.file_processing.validate_image_magic_bytes", return_value=(True, "image/jpeg", None)),
+            patch("utils.file_processing.validate_content_type_matches", return_value=(True, "image/jpeg")),
+            patch("utils.file_processing.get_safe_file_extension", return_value=".jpg"),
+        ):
+            from utils.file_processing import process_uploaded_image
 
-                            (
-                                contents,
-                                content_type,
-                                extension,
-                            ) = await process_uploaded_image(mock_file, optimize=False)
+            (
+                contents,
+                content_type,
+                extension,
+            ) = await process_uploaded_image(mock_file, optimize=False)
 
-                            assert contents == mock_file.file
-                            assert content_type == "image/jpeg"
-                            assert extension == "jpg"
+            assert contents == mock_file.file
+            assert content_type == "image/jpeg"
+            assert extension == "jpg"
 
     @pytest.mark.asyncio
     async def test_process_invalid_file_type(self, create_mock_upload_file):
@@ -92,32 +91,33 @@ class TestProcessUploadedImage:
         """Test rejection of corrupted image files"""
         mock_file = create_mock_upload_file(b"corrupted data", "test.jpg", "image/jpeg")
 
-        with patch("utils.file_processing.validate_image_file"):
-            with patch("utils.file_processing.is_valid_image", return_value=False):
-                from utils.file_processing import process_uploaded_image
+        with (
+            patch("utils.file_processing.validate_image_file"),
+            patch("utils.file_processing.is_valid_image", return_value=False),
+        ):
+            from utils.file_processing import process_uploaded_image
 
-                with pytest.raises(HTTPException) as excinfo:
-                    await process_uploaded_image(mock_file)
+            with pytest.raises(HTTPException) as excinfo:
+                await process_uploaded_image(mock_file)
 
-                assert excinfo.value.status_code == 400
-                assert "invalid" in excinfo.value.detail.lower() or "corrupted" in excinfo.value.detail.lower()
+            assert excinfo.value.status_code == 400
+            assert "invalid" in excinfo.value.detail.lower() or "corrupted" in excinfo.value.detail.lower()
 
     @pytest.mark.asyncio
     async def test_process_without_optimization(self, create_mock_upload_file, sample_image_bytes):
         """Test processing without optimization"""
         mock_file = create_mock_upload_file(sample_image_bytes, "cat.jpg", "image/jpeg")
 
-        with patch("utils.file_processing.validate_image_file"):
-            with patch("utils.file_processing.is_valid_image", return_value=True):
-                with patch("utils.file_processing.validate_image_magic_bytes", return_value=(True, "image/jpeg", None)):
-                    with patch("utils.file_processing.validate_content_type_matches", return_value=(True, "image/jpeg")):
-                        with patch(
-                            "utils.file_processing.get_safe_file_extension",
-                            return_value=".jpg",
-                        ):
-                            from utils.file_processing import process_uploaded_image
+        with (
+            patch("utils.file_processing.validate_image_file"),
+            patch("utils.file_processing.is_valid_image", return_value=True),
+            patch("utils.file_processing.validate_image_magic_bytes", return_value=(True, "image/jpeg", None)),
+            patch("utils.file_processing.validate_content_type_matches", return_value=(True, "image/jpeg")),
+            patch("utils.file_processing.get_safe_file_extension", return_value=".jpg"),
+        ):
+            from utils.file_processing import process_uploaded_image
 
-                            await process_uploaded_image(mock_file, optimize=False)
+            await process_uploaded_image(mock_file, optimize=False)
 
 
 class TestReadFileForDetection:

@@ -21,7 +21,7 @@ from services.cat_detection_service import CatDetectionService, cat_detection_se
 from services.gallery_service import GalleryService
 from services.quota_service import QuotaService
 from services.storage_service import StorageService, storage_service
-from utils.cache import invalidate_gallery_cache, invalidate_tags_cache
+from utils.cache import invalidate_gallery_cache, invalidate_tags_cache, invalidate_user_cache
 from utils.file_processing import process_uploaded_image, validate_coordinates, validate_location_data
 from utils.security import (
     log_security_event,
@@ -297,9 +297,10 @@ async def upload_cat_photo(
             )
             raise HTTPException(status_code=500, detail="Failed to save cat photo")
 
-        # Invalidate gallery and tags cache after new upload
+        # Invalidate gallery, tags and user photos cache after new upload
         await invalidate_gallery_cache()
         await invalidate_tags_cache()
+        await invalidate_user_cache(user_id)
 
         log_security_event(
             "cat_photo_upload_success",

@@ -20,20 +20,24 @@ class TestGoogleVisionServiceExtended:
 
     def test_init_with_service_account_env(self, mock_vision_client):
         json_creds = '{"type": "service_account", "project_id": "test"}'
-        with patch.dict(os.environ, {"GOOGLE_VISION_SERVICE_ACCOUNT": json_creds}):
-            with patch("services.google_vision.VISION_AVAILABLE", True):
-                with patch("services.google_vision.vision.ImageAnnotatorClient") as mock_client_class:
-                    mock_client_class.from_service_account_info.return_value = mock_vision_client
-                    service = GoogleVisionService()
-                    assert service.is_initialized is True
-                    assert service.client is not None
+        with (
+            patch.dict(os.environ, {"GOOGLE_VISION_SERVICE_ACCOUNT": json_creds}),
+            patch("services.google_vision.VISION_AVAILABLE", True),
+            patch("services.google_vision.vision.ImageAnnotatorClient") as mock_client_class,
+        ):
+            mock_client_class.from_service_account_info.return_value = mock_vision_client
+            service = GoogleVisionService()
+            assert service.is_initialized is True
+            assert service.client is not None
 
     def test_init_with_key_path(self, mock_vision_client):
-        with patch.dict(os.environ, {"GOOGLE_VISION_SERVICE_ACCOUNT": "", "GOOGLE_VISION_KEY_PATH": "/tmp/key.json"}):  # noqa: S108
-            with patch("os.path.exists", return_value=True):
-                with patch("services.google_vision.VISION_AVAILABLE", True):
-                    service = GoogleVisionService()
-                    assert service.is_initialized is True
+        with (
+            patch.dict(os.environ, {"GOOGLE_VISION_SERVICE_ACCOUNT": "", "GOOGLE_VISION_KEY_PATH": "/tmp/key.json"}),  # noqa: S108
+            patch("os.path.exists", return_value=True),
+            patch("services.google_vision.VISION_AVAILABLE", True),
+        ):
+            service = GoogleVisionService()
+            assert service.is_initialized is True
 
     def test_init_fallback(self):
         # When VISION_AVAILABLE is False
@@ -65,16 +69,18 @@ class TestGoogleVisionServiceExtended:
         mock_file.filename = "cat.jpg"
         mock_file.file.read.side_effect = [b"imagedata", b""]  # Chunked read
 
-        with patch.dict(os.environ, {"GOOGLE_VISION_SERVICE_ACCOUNT": "{}"}):
-            with patch("services.google_vision.VISION_AVAILABLE", True):
-                service = GoogleVisionService()
-                # Bypass init logic since we mocked client class
-                service.client = mock_vision_client
-                service.is_initialized = True
+        with (
+            patch.dict(os.environ, {"GOOGLE_VISION_SERVICE_ACCOUNT": "{}"}),
+            patch("services.google_vision.VISION_AVAILABLE", True),
+        ):
+            service = GoogleVisionService()
+            # Bypass init logic since we mocked client class
+            service.client = mock_vision_client
+            service.is_initialized = True
 
-                result = await service.detect_cats(mock_file)
-                assert result["has_cats"] is True
-                assert result["confidence"] > 90
+            result = await service.detect_cats(mock_file)
+            assert result["has_cats"] is True
+            assert result["confidence"] > 90
 
     @pytest.mark.asyncio
     async def test_fallback_cat_detection(self):

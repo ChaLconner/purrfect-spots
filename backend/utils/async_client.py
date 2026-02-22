@@ -161,9 +161,7 @@ class AsyncSupabaseClient:
                 logger.error(f"Async INSERT {table} error: {str(e)}")
                 raise
 
-    async def delete(
-        self, table: str, filters: dict[str, str], jwt_token: str | None = None
-    ) -> list[dict[str, Any]]:
+    async def delete(self, table: str, filters: dict[str, str], jwt_token: str | None = None) -> list[dict[str, Any]]:
         """
         Execute a DELETE query asynchronously.
         """

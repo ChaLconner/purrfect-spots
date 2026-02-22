@@ -32,7 +32,7 @@ class BreakingChangeError(Exception):
 
 def load_schema(path: str) -> dict:
     """Load OpenAPI schema from file."""
-    with open(path, encoding="utf-8") as f:
+    with Path(path).open(encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -200,7 +200,7 @@ def main() -> int:
         if args.update_baseline:
             current = get_current_schema()
             baseline_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(baseline_path, "w", encoding="utf-8") as f:
+            with baseline_path.open("w", encoding="utf-8") as f:
                 json.dump(current, f, indent=2, ensure_ascii=False)
             print(f"✅ Created baseline at {baseline_path}")
             return 0
@@ -236,7 +236,7 @@ def main() -> int:
 
         # Update baseline if requested before potentially exiting
         if args.update_baseline:
-            with open(baseline_path, "w", encoding="utf-8") as f:
+            with baseline_path.open("w", encoding="utf-8") as f:
                 json.dump(current, f, indent=2, ensure_ascii=False)
             print(f"\n✅ Baseline updated at {baseline_path}")
             return 0  # If we updated the baseline, it's considered successfully acknowledged
@@ -251,7 +251,7 @@ def main() -> int:
 
         # Update baseline if requested
         if args.update_baseline:
-            with open(baseline_path, "w", encoding="utf-8") as f:
+            with baseline_path.open("w", encoding="utf-8") as f:
                 json.dump(current, f, indent=2, ensure_ascii=False)
             print(f"\n✅ Baseline updated at {baseline_path}")
 

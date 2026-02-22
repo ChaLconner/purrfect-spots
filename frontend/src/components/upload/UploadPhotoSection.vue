@@ -53,14 +53,6 @@
       <div v-if="previewUrl" class="w-full h-full absolute inset-0 z-10 bg-stone-50">
         <img :src="previewUrl" class="w-full h-full object-contain" alt="Preview" />
 
-        <!-- Verification Badge -->
-        <div
-          v-if="catDetectionResult?.has_cats"
-          class="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-sage-dark text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-lg flex items-center animate-fade-in-up"
-        >
-          {{ t('upload.photoSection.verifiedCatPhoto') }}
-        </div>
-
         <!-- Click to change hint -->
         <div
           v-if="catDetectionResult?.has_cats && !isDetectingCats"

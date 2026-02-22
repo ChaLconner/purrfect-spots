@@ -11,6 +11,7 @@ Features:
 
 import asyncio
 import os
+from collections.abc import AsyncIterator
 
 from dotenv import load_dotenv
 
@@ -151,10 +152,11 @@ from utils.telemetry import setup_telemetry
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await start_cleanup_jobs()
     yield
     await stop_cleanup_jobs()
+
 
 # ========== FastAPI Application ==========
 # SECURITY: In production, disable OpenAPI docs to prevent information disclosure

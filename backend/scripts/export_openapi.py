@@ -29,7 +29,7 @@ def export_openapi_schema(output_path: str = "openapi.json") -> None:
     output_file = Path(output_path)
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(output_file, "w", encoding="utf-8") as f:
+    with output_file.open("w", encoding="utf-8") as f:
         json.dump(schema, f, indent=2, ensure_ascii=False)
 
     print(f"✅ OpenAPI schema exported to: {output_file.absolute()}")

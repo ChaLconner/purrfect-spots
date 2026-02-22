@@ -54,15 +54,14 @@ async def test_get_jwks_success(mock_env, mock_jwks_response):
 
 @pytest.mark.asyncio
 async def test_get_jwks_cached(mock_env, mock_jwks_response):
-    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
-        # Pre-set cache
-        with (
-            patch("middleware.auth_middleware._jwks_cache", mock_jwks_response),
-            patch("middleware.auth_middleware._jwks_last_update", time.time()),
-        ):
-            jwks = await get_jwks()
-            assert jwks == mock_jwks_response
-            mock_get.assert_not_called()
+    with (
+        patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get,
+        patch("middleware.auth_middleware._jwks_cache", mock_jwks_response),
+        patch("middleware.auth_middleware._jwks_last_update", time.time()),
+    ):
+        jwks = await get_jwks()
+        assert jwks == mock_jwks_response
+        mock_get.assert_not_called()
 
 
 @pytest.mark.asyncio

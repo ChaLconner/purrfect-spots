@@ -9,7 +9,7 @@ Tests for registration, login, logout, refresh token, and password reset endpoin
 
 import os
 from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
@@ -410,24 +410,32 @@ class TestInputValidation:
         data = LoginRequest(email="test@example.com", password="password")  # pragma: allowlist secret
         assert data.email == "test@example.com"
 
+
 class TestOtherAuthEndpoints:
-    @pytest.mark.skip()
+    @pytest.mark.asyncio
     async def test_verify_otp(self, client, mock_auth_service):
-        from unittest.mock import AsyncMock, MagicMock
-        from user_models.user import User
-        # mock_auth_service fixture already sets up otp_service to return True
-        mock_auth_service.get_user_by_email_unverified.return_value = {"id": "1", "email": "test@example.com"}
-        mock_auth_service.authenticate_user.return_value = User(id="1", email="test@example.com", name="Test User", created_at=datetime.utcnow())
-        
-        response = await client.post("/api/v1/auth/verify-otp", json={"email": "test@example.com", "otp": "123456", "session_id": "aa"})
+        from datetime import UTC
+
+        # mock_auth_service fixture already sets up otp_service
+        mock_auth_service.confirm_user_email = AsyncMock(return_value=True)
+        mock_auth_service.get_user_by_email_unverified = AsyncMock(
+            return_value={"id": "1", "email": "test@example.com", "name": "Test", "created_at": datetime.now(UTC)}
+        )
+
+        mock_otp = AsyncMock()
+        mock_otp.verify_otp = AsyncMock(return_value={"success": True})
+
+        with (
+            patch("routes.auth.create_login_response", return_value={"message": "Success"}),
+            patch("routes.auth.get_otp_service", new_callable=AsyncMock, return_value=mock_otp),
+        ):
+            response = await client.post("/api/v1/auth/verify-otp", json={"email": "test@example.com", "otp": "123456"})
         assert response.status_code == 200
 
     async def test_resend_otp(self, client, mock_auth_service):
-        from unittest.mock import AsyncMock
-        from user_models.user import User
         # The endpoint uses auth_service.get_user_by_email_unverified
         mock_auth_service.get_user_by_email_unverified.return_value = {"id": "1", "email": "test@example.com"}
-        
+
         # mock_auth_service already mocks otp_service
         # so we just need to hit the endpoint
         response = await client.post("/api/v1/auth/resend-otp", json={"email": "test@example.com"})
@@ -439,34 +447,36 @@ class TestOtherAuthEndpoints:
             assert response.status_code == 302
             assert "accounts.google.com" in response.headers["location"]
 
-    @pytest.mark.skip()
+    @pytest.mark.asyncio
     async def test_sync_user(self, client, app):
         from unittest.mock import AsyncMock, MagicMock
+
         from middleware.auth_middleware import get_current_user_from_header
+
         app.dependency_overrides[get_current_user_from_header] = lambda: {"sub": "1", "email": "a@a.com"}
-        mock_admin = AsyncMock()
-        mock_on_conflict = AsyncMock()
-        mock_on_conflict.execute = AsyncMock()
-        mock_upsert = MagicMock()
-        mock_upsert.on_conflict.return_value = mock_on_conflict
-        mock_table = MagicMock()
-        mock_table.upsert.return_value = mock_upsert
-        mock_admin.table.return_value = mock_table
-        
-        with patch("dependencies.get_async_supabase_admin_client", return_value=mock_admin):
+        mock_admin = MagicMock()
+        mock_admin.table.return_value.upsert.return_value.execute = AsyncMock(
+            return_value=MagicMock(data=[{"id": "1"}])
+        )
+
+        with patch("dependencies.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_admin):
             response = await client.post("/api/v1/auth/sync-user")
-        
+
         assert response.status_code == 200
         app.dependency_overrides.clear()
 
-    @pytest.mark.skip()
+    @pytest.mark.asyncio
     async def test_google_exchange(self, client, mock_auth_service):
-        from unittest.mock import AsyncMock
         from schemas.auth import LoginResponse
-        
-        login_response = LoginResponse(access_token="test_access", refresh_token="test_refresh", token_type="bearer", message="Success")
-        mock_auth_service.exchange_google_code.return_value = login_response
-        
-        response = await client.post("/api/v1/auth/google/exchange", json={"code": "123", "code_verifier": "abc", "redirect_uri": "http://localhost:5173/auth/callback"})
-        assert response.status_code == 200
 
+        login_response = LoginResponse(
+            access_token="test_access", refresh_token="test_refresh", token_type="bearer", message="Success"
+        )
+        mock_auth_service.exchange_google_code = AsyncMock(return_value=login_response)
+
+        with patch("routes.auth._validate_google_redirect_uri", return_value=True):
+            response = await client.post(
+                "/api/v1/auth/google/exchange",
+                json={"code": "123", "code_verifier": "abc", "redirect_uri": "http://localhost:5173/auth/callback"},
+            )
+        assert response.status_code == 200

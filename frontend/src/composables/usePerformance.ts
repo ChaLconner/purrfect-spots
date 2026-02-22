@@ -64,6 +64,7 @@ export function logMetric(metric: PerformanceMetric): void {
       'needs-improvement': '⚠️',
       poor: '❌',
     };
+    // eslint-disable-next-line security/detect-object-injection
     const emoji = ratingEmojis[rating] || '❓';
     // eslint-disable-next-line no-console
     console.log(
@@ -151,7 +152,7 @@ export function useWebVitals(): { vitals: Ref<Record<string, number>> } {
   const vitals = ref<Record<string, number>>({});
 
   onMounted(() => {
-    if (typeof globalThis === 'undefined') return;
+    if (typeof globalThis === 'undefined' || typeof performance === 'undefined') return;
 
     // Use PerformanceObserver for Web Vitals
     try {

@@ -221,6 +221,7 @@ async function syncStateFromUrl() {
   const index = visibleImages.value.findIndex((img) => img.id.toString() === imageId);
 
   if (index !== -1) {
+    // eslint-disable-next-line security/detect-object-injection
     selectedImage.value = visibleImages.value[index];
     currentImageIndex.value = index;
     isDeepLinked.value = false;
@@ -377,6 +378,7 @@ function handleModalNavigate(direction: 'prev' | 'next') {
   }
 
   if (newIndex !== currentImageIndex.value) {
+    // eslint-disable-next-line security/detect-object-injection
     const nextImage = visibleImages.value[newIndex];
     if (nextImage) {
       // With infinite scroll, we don't need to jump pages, just ensure it's loaded

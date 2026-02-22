@@ -33,69 +33,6 @@
       {{ t('upload.success.message') }}
     </p>
 
-    <!-- Upload Summary Card -->
-    <div
-      v-if="result"
-      class="bg-white/50 backdrop-blur-sm rounded-3xl p-6 mb-10 w-full max-w-md text-left border border-white/60 shadow-lg shadow-brown/5 group hover:shadow-xl transition-all duration-500"
-    >
-      <div class="flex justify-between items-start mb-6">
-        <div class="space-y-1">
-          <h4 class="font-heading font-bold text-brown text-xl leading-tight">
-            {{ result.photo?.location_name || t('upload.success.newSpot') }}
-          </h4>
-          <div
-            class="flex items-center text-stone-400 text-xs font-medium uppercase tracking-wider"
-          >
-            <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-            {{ new Date().toLocaleDateString() }}
-          </div>
-        </div>
-        <div
-          v-if="result.cat_detection?.has_cats"
-          class="inline-flex items-center bg-sage/10 text-sage-dark text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-widest border border-sage/20"
-        >
-          <span class="w-1.5 h-1.5 bg-sage-dark rounded-full mr-2 animate-pulse"></span>
-          {{ t('upload.success.verified') }}
-        </div>
-      </div>
-
-      <div class="grid grid-cols-2 gap-4">
-        <div
-          class="bg-stone-50/50 p-4 rounded-2xl border border-stone-100 group-hover:bg-white group-hover:shadow-sm transition-all"
-        >
-          <p class="text-stone-400 text-[10px] uppercase tracking-widest font-bold mb-2">
-            {{ t('upload.success.catsDetected') }}
-          </p>
-          <div class="flex items-end gap-1">
-            <span class="text-brown font-heading font-bold text-3xl tabular-nums">{{
-              result.cat_detection?.cat_count || 0
-            }}</span>
-            <span class="text-brown-light text-sm font-body mb-1">{{ t('cats.cats') }}</span>
-          </div>
-        </div>
-        <div
-          class="bg-stone-50/50 p-4 rounded-2xl border border-stone-100 group-hover:bg-white group-hover:shadow-sm transition-all"
-        >
-          <p class="text-stone-400 text-[10px] uppercase tracking-widest font-bold mb-2">
-            {{ t('upload.success.confidence') }}
-          </p>
-          <div class="flex items-end gap-1">
-            <span class="text-brown font-heading font-bold text-3xl tabular-nums">{{
-              Math.round((result.cat_detection?.confidence || 0) * 100)
-            }}</span>
-            <span class="text-brown-light text-sm font-body mb-1">%</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- Action Buttons -->
     <div class="flex flex-col-reverse sm:flex-row gap-4 justify-center w-full max-w-md">
       <button

@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import json
 import os
+from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException, UploadFile
@@ -79,14 +80,16 @@ class GoogleVisionService:
             env_key_path = os.getenv("GOOGLE_VISION_KEY_PATH")
 
             if env_key_path:
-                key_path = env_key_path if os.path.isabs(env_key_path) else os.path.abspath(env_key_path)
+                key_path = (
+                    Path(env_key_path).resolve() if Path(env_key_path).is_absolute() else Path(env_key_path).resolve()
+                )
             else:
-                key_path = os.path.join(os.path.dirname(__file__), "..", "keys", "google_vision.json")
+                key_path = Path(__file__).parent / ".." / "keys" / "google_vision.json"
 
             logger.debug(f"Checking key file at: {key_path}")
 
-            if os.path.exists(key_path):
-                self.client = vision.ImageAnnotatorClient.from_service_account_json(key_path)  # type: ignore
+            if Path(key_path).exists():
+                self.client = vision.ImageAnnotatorClient.from_service_account_json(str(key_path))  # type: ignore
                 self.is_initialized = True
                 logger.info("Google Vision client initialized from key file")
             else:
@@ -246,28 +249,26 @@ class GoogleVisionService:
         """Filter and process cat-related labels"""
         cat_labels = []
         for label in labels:
-            if label.description.lower() in self.CAT_LABEL_KEYWORDS:
-                if label.score >= self.CAT_LABEL_SCORE_THRESHOLD:
-                    cat_labels.append({"description": label.description, "score": label.score})
+            if label.description.lower() in self.CAT_LABEL_KEYWORDS and label.score >= self.CAT_LABEL_SCORE_THRESHOLD:
+                cat_labels.append({"description": label.description, "score": label.score})
         return cat_labels
 
     def _filter_cat_objects(self, objects: Any) -> list[dict]:
         """Filter and process cat objects"""
         cat_objects = []
         for obj in objects:
-            if obj.name.lower() in self.CAT_OBJECT_KEYWORDS:
-                if obj.score >= self.CAT_OBJECT_SCORE_THRESHOLD:
-                    # Normalized vertices
-                    bounding_box = []
-                    if obj.bounding_poly and obj.bounding_poly.normalized_vertices:
-                        bounding_box = [{"x": v.x, "y": v.y} for v in obj.bounding_poly.normalized_vertices]
-                    cat_objects.append(
-                        {
-                            "name": obj.name,
-                            "score": obj.score,
-                            "bounding_box": bounding_box,
-                        }
-                    )
+            if obj.name.lower() in self.CAT_OBJECT_KEYWORDS and obj.score >= self.CAT_OBJECT_SCORE_THRESHOLD:
+                # Normalized vertices
+                bounding_box = []
+                if obj.bounding_poly and obj.bounding_poly.normalized_vertices:
+                    bounding_box = [{"x": v.x, "y": v.y} for v in obj.bounding_poly.normalized_vertices]
+                cat_objects.append(
+                    {
+                        "name": obj.name,
+                        "score": obj.score,
+                        "bounding_box": bounding_box,
+                    }
+                )
         return cat_objects
 
     def _create_no_cats_detected_result(self, labels: Any) -> dict:

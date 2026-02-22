@@ -1,14 +1,15 @@
 import asyncio
+import contextlib
 import os
 import random
+from pathlib import Path
 
 from dotenv import load_dotenv
 from faker import Faker
 from supabase import Client, create_client
 
 # Load environment variables
-backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-env_path = os.path.join(backend_dir, ".env")
+env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
 
 # Initialize Supabase
@@ -106,10 +107,8 @@ async def seed_data() -> None:
         # Random likes
         for _ in range(random.randint(0, 5)):
             actor = random.choice(users)
-            try:
+            with contextlib.suppress(Exception):
                 supabase.table("photo_likes").insert({"user_id": actor["id"], "photo_id": photo["id"]}).execute()
-            except Exception:
-                pass  # Ignore duplicates
 
         # Random comments
         for _ in range(random.randint(0, 3)):

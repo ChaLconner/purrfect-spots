@@ -1,4 +1,3 @@
-
 from supabase import AClient, Client, acreate_client, create_client
 
 from config import config

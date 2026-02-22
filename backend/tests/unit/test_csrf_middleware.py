@@ -19,6 +19,7 @@ def test_csrf_middleware_safe_methods():
     response = client.get("/safe")
     assert response.status_code == 200
 
+
 def test_csrf_middleware_exempt_path():
     with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
         app = FastAPI()
@@ -29,8 +30,9 @@ def test_csrf_middleware_exempt_path():
             return {"status": "ok"}
 
         client = TestClient(app)
-        response = client.post("/exempt") # No CSRF token provided
+        response = client.post("/exempt")  # No CSRF token provided
         assert response.status_code == 200
+
 
 def test_csrf_middleware_dev_mode():
     with patch.dict(os.environ, {"ENVIRONMENT": "development"}):
@@ -46,6 +48,7 @@ def test_csrf_middleware_dev_mode():
         response = client.post("/protected")
         assert response.status_code == 200
 
+
 def test_csrf_middleware_prod_missing_tokens():
     with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
         app = FastAPI()
@@ -59,6 +62,7 @@ def test_csrf_middleware_prod_missing_tokens():
         response = client.post("/protected")
         assert response.status_code == 403
         assert response.json()["error_code"] == "CSRF_TOKEN_MISSING"
+
 
 def test_csrf_middleware_prod_mismatch_tokens():
     with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
@@ -75,6 +79,7 @@ def test_csrf_middleware_prod_mismatch_tokens():
         assert response.status_code == 403
         assert response.json()["error_code"] == "CSRF_TOKEN_MISMATCH"
 
+
 def test_csrf_middleware_prod_valid_tokens():
     with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
         app = FastAPI()
@@ -88,6 +93,7 @@ def test_csrf_middleware_prod_valid_tokens():
         client.cookies.set("csrf_token", "valid_token_123")
         response = client.post("/protected", headers={"X-CSRF-Token": "valid_token_123"})
         assert response.status_code == 200
+
 
 def test_set_csrf_cookie_on_get_non_api():
     app = FastAPI()

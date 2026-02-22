@@ -47,12 +47,14 @@ export const loadGoogleMaps = async (options: GoogleMapsLoaderOptions): Promise<
   // Create the load promise
   loadPromise = new Promise<void>((resolve, reject) => {
     // Set up the callback function
+    // eslint-disable-next-line security/detect-object-injection
     (globalThis as any)[callbackName] = () => {
       clearTimeout(timeoutId);
       isLoaded = true;
       isLoading = false;
 
       // Clean up the callback function
+      // eslint-disable-next-line security/detect-object-injection
       delete (globalThis as any)[callbackName];
 
       // Execute all pending callbacks
@@ -69,6 +71,7 @@ export const loadGoogleMaps = async (options: GoogleMapsLoaderOptions): Promise<
       isLoading = false;
 
       // Clean up the callback function on error
+      // eslint-disable-next-line security/detect-object-injection
       delete (globalThis as any)[callbackName];
 
       // Reject all pending promises
@@ -91,6 +94,7 @@ export const loadGoogleMaps = async (options: GoogleMapsLoaderOptions): Promise<
         isLoading = false;
 
         // Clean up
+        // eslint-disable-next-line security/detect-object-injection
         delete (globalThis as any)[callbackName];
         document.head.removeChild(script);
 

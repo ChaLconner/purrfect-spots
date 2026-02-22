@@ -184,7 +184,7 @@ const handleKeydown = (event: KeyboardEvent) => {
     >
       <div
         v-if="isOpen"
-        class="fixed inset-0 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        class="fixed inset-0 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center z-[200] p-4"
         role="dialog"
         aria-modal="true"
         aria-labelledby="edit-profile-title"
@@ -456,9 +456,9 @@ const handleKeydown = (event: KeyboardEvent) => {
                         type="button"
                         :disabled="
                           isUpdatingPassword ||
-                            !passwordForm.current ||
-                            !passwordForm.new ||
-                            !passwordForm.confirm
+                          !passwordForm.current ||
+                          !passwordForm.new ||
+                          !passwordForm.confirm
                         "
                         class="px-5 py-2.5 bg-[#C07040] text-white rounded-lg sm:rounded-xl text-sm font-bold hover:bg-[#A05030] shadow-md transition-all disabled:opacity-50 disabled:shadow-none cursor-pointer disabled:cursor-not-allowed"
                         @click="updatePassword"

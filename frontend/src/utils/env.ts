@@ -26,5 +26,6 @@ export const isProd = (): boolean => {
  * @returns The environment variable value or the default value
  */
 export const getEnvVar = (key: string, defaultValue: string = ''): string => {
+  // eslint-disable-next-line security/detect-object-injection
   return (import.meta as any).env?.[key] || defaultValue;
 };

@@ -178,6 +178,7 @@ const startCooldown = (seconds: number): void => {
 
 // Input refs management
 const setInputRef = (el: unknown, index: number): void => {
+  // eslint-disable-next-line security/detect-object-injection
   inputRefs.value[index] = el as HTMLInputElement;
 };
 
@@ -188,10 +189,12 @@ const handleInput = (index: number, event: Event): void => {
 
   // Only allow digits
   if (value && !/^\d$/.test(value)) {
+    // eslint-disable-next-line security/detect-object-injection
     otpDigits.value[index] = '';
     return;
   }
 
+  // eslint-disable-next-line security/detect-object-injection
   otpDigits.value[index] = value;
 
   // Auto-focus next input
@@ -207,7 +210,9 @@ const handleInput = (index: number, event: Event): void => {
 
 // Handle keydown for backspace navigation
 const handleKeydown = (index: number, event: KeyboardEvent): void => {
+  // eslint-disable-next-line security/detect-object-injection
   if (event.key === 'Backspace' && !otpDigits.value[index] && index > 0) {
+    // eslint-disable-next-line security/detect-object-injection
     inputRefs.value[index - 1]?.focus();
   }
 };
@@ -220,10 +225,12 @@ const handlePaste = (event: ClipboardEvent): void => {
 
   if (digits.length > 0) {
     for (let i = 0; i < 6; i++) {
+      // eslint-disable-next-line security/detect-object-injection
       otpDigits.value[i] = digits[i] || '';
     }
     // Focus last filled input or first empty
     const focusIndex = Math.min(digits.length, 5);
+    // eslint-disable-next-line security/detect-object-injection
     inputRefs.value[focusIndex]?.focus();
 
     // Auto-submit if complete

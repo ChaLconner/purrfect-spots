@@ -165,10 +165,13 @@ class GalleryService:
             data = res.data or []
             # Optimize thumbnails for map markers (very small)
             for photo in data:
-                if "image_url" in photo and photo["image_url"]:
-                    if "supabase.co/storage/v1/object/public" in photo["image_url"]:
-                        sep = "&" if "?" in photo["image_url"] else "?"
-                        photo["image_url"] = f"{photo['image_url']}{sep}width=100&resize=cover&format=webp"
+                if (
+                    "image_url" in photo
+                    and photo["image_url"]
+                    and "supabase.co/storage/v1/object/public" in photo["image_url"]
+                ):
+                    sep = "&" if "?" in photo["image_url"] else "?"
+                    photo["image_url"] = f"{photo['image_url']}{sep}width=100&resize=cover&format=webp"
             return data
         except Exception as e:
             from exceptions import ExternalServiceError
@@ -441,26 +444,23 @@ class GalleryService:
         try:
             logger.info("Starting background deletion for photo %s", photo_id)
 
-            # 1. Skip Delete from Storage (S3) for soft delete
-            # if image_url:
-            #     await storage_service.delete_file(image_url)
+            # 1. Delete from storage (S3/Supabase Storage)
+            try:
+                await storage_service.delete_file(image_url)
+            except Exception as e:
+                logger.error(f"Error deleting file from storage: {e}")
 
-            # 2. Soft Delete from Database
+            # 2. Hard Delete from Database (Permanent deletion)
             admin_client = await self.supabase_admin
-            import datetime
 
-            await (
-                admin_client.table("cat_photos")
-                .update({"deleted_at": datetime.datetime.now().isoformat()})
-                .eq("id", photo_id)
-                .execute()
-            )
+            await admin_client.table("cat_photos").delete().eq("id", photo_id).execute()
 
             # 3. Invalidate Caches
-            from utils.cache import invalidate_gallery_cache, invalidate_tags_cache
+            from utils.cache import invalidate_gallery_cache, invalidate_tags_cache, invalidate_user_cache
 
             await invalidate_gallery_cache()
             await invalidate_tags_cache()
+            await invalidate_user_cache(user_id)
 
             # 4. Log security event
             from utils.security import log_security_event

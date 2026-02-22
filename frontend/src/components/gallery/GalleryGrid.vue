@@ -228,6 +228,7 @@ function generateSrcSet(url: string): string {
 
 // Image Loading
 function handleImageLoad(id: string): void {
+  // eslint-disable-next-line security/detect-object-injection
   loadedImages.value[id] = true;
 }
 
@@ -237,6 +238,7 @@ function handleImageError(id: string, event: Event): void {
     target.src = IMAGE_CONFIG.PLACEHOLDER_URL;
   }
   // Clear shimmer on error
+  // eslint-disable-next-line security/detect-object-injection
   loadedImages.value[id] = true;
 }
 

@@ -214,6 +214,7 @@ const createApiInstance = (): AxiosInstance => {
         return handleUnauthorizedError(error, status);
       }
 
+      // eslint-disable-next-line security/detect-object-injection
       if (handlers[status]) return handlers[status]();
 
       if (status >= 500) {
@@ -393,6 +394,7 @@ export const uploadFile = async <T = unknown>(
 
   if (additionalData) {
     Object.entries(additionalData).forEach(([key, value]) => {
+      if (value === undefined) return;
       if (typeof value === 'object' && value !== null) {
         formData.append(key, JSON.stringify(value));
       } else {

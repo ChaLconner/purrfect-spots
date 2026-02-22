@@ -80,6 +80,7 @@ exclude = [
     "^tests/",
     "^scripts/",
     "^\\.venv/",
+    "^venv/",
     "^__pycache__/",
     "^migrations/",
 ]

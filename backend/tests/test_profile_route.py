@@ -185,6 +185,7 @@ class TestProfileRoute:
     async def test_get_public_user_uploads(self, client, mock_user, mock_gallery_service, mock_cat_photo):
         """Test getting public user uploads"""
         from routes.profile import resolve_user_by_identifier
+
         mock_gallery_service.get_user_photos = AsyncMock(return_value=[mock_cat_photo])
 
         app.dependency_overrides[resolve_user_by_identifier] = lambda: mock_user
@@ -199,25 +200,23 @@ class TestProfileRoute:
         assert len(data["uploads"]) == 1
         assert data["uploads"][0]["location_name"] == mock_cat_photo["location_name"]
 
-    @pytest.mark.skip()
     @pytest.mark.asyncio
     async def test_update_user_photo(self, client, mock_user, mock_gallery_service):
         """Test updating user photo"""
-        mock_gallery_service.get_photo_by_id = AsyncMock(return_value={"id": "00000000-0000-0000-0000-000000000001", "user_id": mock_user.id})
-        
-        mock_admin = AsyncMock()
-        mock_eq = AsyncMock()
-        mock_eq.execute = AsyncMock()
-        mock_update = MagicMock()
-        mock_update.eq.return_value = mock_eq
-        mock_table = MagicMock()
-        mock_table.update.return_value = mock_update
-        mock_admin.table.return_value = mock_table
+        mock_gallery_service.get_photo_by_id = AsyncMock(
+            return_value={"id": "00000000-0000-0000-0000-000000000001", "user_id": mock_user.id}
+        )
+
+        mock_admin = MagicMock()
+        mock_admin.table.return_value.update.return_value.eq.return_value.execute = AsyncMock()
 
         app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
         app.dependency_overrides[get_admin_gallery_service] = lambda: mock_gallery_service
 
-        with patch("routes.profile.invalidate_gallery_cache", new=AsyncMock()), patch("dependencies.get_async_supabase_admin_client", return_value=mock_admin):
+        with (
+            patch("routes.profile.invalidate_gallery_cache", new_callable=AsyncMock),
+            patch("routes.profile.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_admin),
+        ):
             payload = {"location_name": "New Loc", "description": "New Desc"}
             response = await client.put("/api/v1/profile/uploads/00000000-0000-0000-0000-000000000001", json=payload)
 
@@ -229,7 +228,9 @@ class TestProfileRoute:
     @pytest.mark.asyncio
     async def test_delete_user_photo(self, client, mock_user, mock_gallery_service, mock_storage_service):
         """Test deleting user photo"""
-        mock_gallery_service.verify_photo_ownership = AsyncMock(return_value={"id": "00000000-0000-0000-0000-000000000001", "image_url": "url"})
+        mock_gallery_service.verify_photo_ownership = AsyncMock(
+            return_value={"id": "00000000-0000-0000-0000-000000000001", "image_url": "url"}
+        )
         mock_gallery_service.process_photo_deletion = AsyncMock()
 
         app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
