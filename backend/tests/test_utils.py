@@ -317,3 +317,108 @@ class TestRateLimiter:
 
         # Should fall back to IP
         assert result == "192.168.1.1"
+
+
+class TestAuthUtils:
+    """Test suite for authentication utilities"""
+
+    def test_decode_token_missing(self) -> None:
+        """Test decoding missing token"""
+        from utils.auth_utils import decode_token
+
+        with pytest.raises(ValueError, match="Token is missing"):
+            decode_token("")
+
+    def test_decode_token_valid(self) -> None:
+        """Test decoding valid token"""
+        import jwt
+
+        from utils.auth_utils import decode_token
+
+        secret = "test_secret_key_at_least_32_chars"
+        payload = {"sub": "user123"}
+        token = jwt.encode(payload, secret, algorithm="HS256")
+
+        with patch("config.config.JWT_SECRET", secret):
+            decoded = decode_token(token)
+            assert decoded["sub"] == "user123"
+
+    def test_decode_token_expired(self) -> None:
+        """Test decoding expired token"""
+        import time
+
+        import jwt
+
+        from utils.auth_utils import decode_token
+
+        secret = "test_secret_key_at_least_32_chars"
+        payload = {"sub": "user123", "exp": int(time.time()) - 3600}
+        token = jwt.encode(payload, secret, algorithm="HS256")
+
+        with patch("config.config.JWT_SECRET", secret), pytest.raises(ValueError, match="Token has expired"):
+            decode_token(token)
+
+    def test_decode_token_invalid_secret(self) -> None:
+        """Test decoding token with invalid secret"""
+        import jwt
+
+        from utils.auth_utils import decode_token
+
+        secret = "test_secret_key_at_least_32_chars"
+        payload = {"sub": "user123"}
+        token = jwt.encode(payload, secret, algorithm="HS256")
+
+        with patch("config.config.JWT_SECRET", "different_secret_key_at_least_32_chars"), pytest.raises(ValueError, match="Invalid token"):
+            decode_token(token)
+
+    def test_get_client_info(self) -> None:
+        """Test extracting client info from request"""
+        from utils.auth_utils import get_client_info
+
+        mock_request = MagicMock()
+        mock_request.client.host = "1.2.3.4"
+        mock_request.headers = {"user-agent": "test-agent"}
+
+        ip, ua = get_client_info(mock_request)
+        assert ip == "1.2.3.4"
+        assert ua == "test-agent"
+
+    def test_get_client_info_forwarded(self) -> None:
+        """Test extracting client info with X-Forwarded-For"""
+        from utils.auth_utils import get_client_info
+
+        mock_request = MagicMock()
+        mock_request.headers = {"X-Forwarded-For": "5.6.7.8, 1.2.3.4"}
+        mock_request.client = None
+
+        ip, _ = get_client_info(mock_request)
+        assert ip == "5.6.7.8"
+
+    def test_get_client_info_real_ip(self) -> None:
+        """Test extracting client info with X-Real-IP"""
+        from utils.auth_utils import get_client_info
+
+        mock_request = MagicMock()
+        mock_request.headers = {"X-Real-IP": "9.10.11.12"}
+        mock_request.client = None
+
+        ip, _ = get_client_info(mock_request)
+        assert ip == "9.10.11.12"
+
+    def test_set_refresh_cookie(self) -> None:
+        """Test setting refresh cookie on response"""
+        from utils.auth_utils import set_refresh_cookie
+
+        mock_response = MagicMock()
+        with (
+            patch("config.config.JWT_REFRESH_EXPIRATION_DAYS", 7),
+            patch("config.config.is_production", return_value=False),
+        ):
+            set_refresh_cookie(mock_response, "refresh-123")
+
+        mock_response.set_cookie.assert_called_once()
+        args, kwargs = mock_response.set_cookie.call_args
+        assert kwargs["key"] == "refresh_token"
+        assert kwargs["value"] == "refresh-123"
+        assert kwargs["httponly"] is True
+        assert kwargs["secure"] is False

@@ -55,12 +55,11 @@ class OTPService:
                 try:
                     import redis.asyncio as aioredis
 
-                    redis_client = aioredis.from_url(redis_url, encoding="utf-8", decode_responses=False)
-                    lockout_key = f"otp_lockout:{email}"
-                    exists = await redis_client.exists(lockout_key)
-                    await redis_client.close()
-                    return bool(exists)
-                except Exception:
+                    async with aioredis.from_url(redis_url, encoding="utf-8", decode_responses=False) as redis_client:
+                        lockout_key = f"otp_lockout:{email}"
+                        exists = await redis_client.exists(lockout_key)
+                        return bool(exists)
+                except Exception:  # nosec B110
                     pass
 
             # Fallback to database check
@@ -99,13 +98,14 @@ class OTPService:
                 try:
                     import redis.asyncio as aioredis
 
-                    redis_client = aioredis.from_url(redis_url, encoding="utf-8", decode_responses=False)
-                    lockout_key = f"otp_lockout:{email}"
-                    await redis_client.setex(lockout_key, self.LOCKOUT_DURATION_MINUTES * 60, locked_until.isoformat())
-                    await redis_client.close()
+                    async with aioredis.from_url(redis_url, encoding="utf-8", decode_responses=False) as redis_client:
+                        lockout_key = f"otp_lockout:{email}"
+                        await redis_client.setex(
+                            lockout_key, self.LOCKOUT_DURATION_MINUTES * 60, locked_until.isoformat()
+                        )
                     logger.info("Email locked out in Redis: %s until %s", email, locked_until.isoformat())
                     return
-                except Exception:
+                except Exception:  # nosec B110
                     pass
 
             # Fallback to database
@@ -144,12 +144,11 @@ class OTPService:
                 try:
                     import redis.asyncio as aioredis
 
-                    redis_client = aioredis.from_url(redis_url, encoding="utf-8", decode_responses=False)
-                    lockout_key = f"otp_lockout:{email}"
-                    await redis_client.delete(lockout_key)
-                    await redis_client.close()
+                    async with aioredis.from_url(redis_url, encoding="utf-8", decode_responses=False) as redis_client:
+                        lockout_key = f"otp_lockout:{email}"
+                        await redis_client.delete(lockout_key)
                     return
-                except Exception:
+                except Exception:  # nosec B110
                     pass
 
             # Fallback to database

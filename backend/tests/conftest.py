@@ -8,7 +8,7 @@ Pytest configuration and fixtures for backend tests
 import os
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -16,6 +16,9 @@ import pytest
 os.environ["SENTRY_DSN"] = ""
 # Disable Redis to prevent connection hangs
 os.environ["REDIS_URL"] = ""
+# Set JWT secrets for testing
+os.environ["JWT_SECRET"] = "test-secret-key-at-least-32-chars-long"
+os.environ["JWT_REFRESH_SECRET"] = "test-refresh-secret-key-at-least-32-chars-long"
 
 # Add backend directory to path so imports work
 sys.path.append(str(Path(__file__).parent.parent))
@@ -184,19 +187,45 @@ def mock_supabase_admin():
 
 
 @pytest.fixture(autouse=True)
+def mock_boto3_client():
+    """Mock boto3 client to prevent real AWS calls during tests"""
+    with patch("boto3.client") as mock:
+        mock_s3 = MagicMock()
+        mock.return_value = mock_s3
+        yield mock_s3
+
+
+@pytest.fixture(autouse=True)
 def mock_async_supabase():
     """
     Mock the async_supabase client with proper async behavior.
     """
-    from unittest.mock import AsyncMock, patch
+    # Mock acreate_client in utils.supabase_client
+    with patch("utils.supabase_client.acreate_client", new_callable=AsyncMock) as mock_ac:
+        mock_client = MagicMock()
+        mock_ac.return_value = mock_client
 
-    with patch("utils.async_client.async_supabase") as mock:
-        # Use AsyncMock for methods that are awaited
-        # Default successful but empty returns
-        mock.rpc = AsyncMock(return_value=[])
-        mock.select = AsyncMock(return_value=[])
-        mock.count = AsyncMock(return_value=0)
-        yield mock
+        # Setup standard mock table/select chain
+        mock_table = MagicMock()
+        mock_client.table.return_value = mock_table
+
+        # List of methods that typically return 'self' for chaining
+        chainable_methods = ["select", "insert", "update", "delete", "eq", "is_", "limit", "order", "single"]
+        for method in chainable_methods:
+            getattr(mock_table, method).return_value = mock_table
+
+        # execute() must be an AsyncMock because it's awaited
+        mock_query_result = MagicMock()
+        mock_query_result.data = [{"id": 1}]  # Non-empty list to simulate success
+        mock_query_result.count = 1
+        mock_table.execute = AsyncMock(return_value=mock_query_result)
+
+        # Setup RPC
+        mock_rpc = MagicMock()
+        mock_rpc.execute = AsyncMock(return_value=MagicMock(data=[]))
+        mock_client.rpc.return_value = mock_rpc
+
+        yield mock_client
 
 
 class MockUser:

@@ -56,13 +56,7 @@ class EmailService:
             """
 
             msg.attach(MIMEText(body, "html"))
-
-            server = smtplib.SMTP(self.smtp_server, self.smtp_port)
-            server.starttls()
-            server.login(self.smtp_user, self.smtp_password)
-            server.send_message(msg)
-            server.quit()
-
+            self._send(msg)
             logger.info(f"Reset password email sent to {to_email}")
             return True
 
@@ -108,14 +102,7 @@ class EmailService:
             """
 
             msg.attach(MIMEText(body, "html"))
-
-            # Add timeout to prevent hanging
-            server = smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=10)
-            server.starttls()
-            server.login(self.smtp_user, self.smtp_password)
-            server.send_message(msg)
-            server.quit()
-
+            self._send(msg)
             logger.info(f"Confirmation email sent to {to_email}")
             return True
 
@@ -182,13 +169,7 @@ class EmailService:
             """
 
             msg.attach(MIMEText(body, "html"))
-
-            server = smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=10)
-            server.starttls()
-            server.login(self.smtp_user, self.smtp_password)
-            server.send_message(msg)
-            server.quit()
-
+            self._send(msg)
             logger.info("One-time authentication code sent to %s", to_email)
             return True
 
@@ -230,7 +211,6 @@ class EmailService:
             </html>
             """
             msg.attach(MIMEText(body, "html"))
-            # server logic...
             self._send(msg)
             return True
         except Exception as e:
@@ -356,14 +336,15 @@ class EmailService:
             return False
 
     def _send(self, msg: MIMEMultipart) -> None:
-        """Helper to send SMTP message."""
+        """Helper to send SMTP message with proper resource management."""
         if not self.smtp_user or not self.smtp_password:
             raise ValueError("SMTP credentials not set")
-        server = smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=10)
-        server.starttls()
-        server.login(self.smtp_user, self.smtp_password)
-        server.send_message(msg)
-        server.quit()
+
+        with smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=10) as server:
+            server.starttls()
+            server.login(self.smtp_user, self.smtp_password)
+            server.send_message(msg)
+            # quit() is called automatically via __exit__ in smtplib.SMTP context manager
 
 
 email_service = EmailService()

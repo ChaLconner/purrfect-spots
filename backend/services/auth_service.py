@@ -227,7 +227,7 @@ class AuthService:
 
             return LoginResponse(
                 access_token=jwt_token,
-                token_type="bearer",
+                token_type="bearer",  # nosec B106
                 user=UserResponse(
                     id=user.id,
                     email=user.email,

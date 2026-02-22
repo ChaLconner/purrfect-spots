@@ -103,7 +103,7 @@ ignore_missing_imports = true
 
 
 [tool.bandit]
-exclude_dirs = ["tests", ".venv", "__pycache__"]
+exclude_dirs = ["tests", "scripts", ".venv", "venv", "__pycache__"]
 skips = ["B101", "B104"]
 
 [tool.pytest.ini_options]

@@ -33,7 +33,7 @@ class TestGoogleVisionServiceExtended:
     def test_init_with_key_path(self, mock_vision_client):
         with (
             patch.dict(os.environ, {"GOOGLE_VISION_SERVICE_ACCOUNT": "", "GOOGLE_VISION_KEY_PATH": "/tmp/key.json"}),  # noqa: S108
-            patch("os.path.exists", return_value=True),
+            patch("services.google_vision.Path.exists", return_value=True),
             patch("services.google_vision.VISION_AVAILABLE", True),
         ):
             service = GoogleVisionService()

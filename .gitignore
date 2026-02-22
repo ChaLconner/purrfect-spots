@@ -14,7 +14,6 @@ ehthumbs.db
 .sonarlint/
 .sonar/
 .kilocode/
-Snitch/
 
 # --- Environment & Secrets (CRITICAL) ---
 **/.env

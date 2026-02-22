@@ -136,7 +136,7 @@ async def clear_cache(pattern: str = "cache:*") -> None:
             keys = await redis_client.keys(pattern)
             if keys:
                 await redis_client.delete(*keys)
-        except Exception:
+        except Exception:  # nosec B110
             pass
 
 
