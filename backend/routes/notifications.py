@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import Any
 
 from fastapi import APIRouter, Depends, Query
 
@@ -11,13 +11,13 @@ from user_models.user import User
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
 
-@router.get("", response_model=List[NotificationResponse])
+@router.get("", response_model=list[NotificationResponse])
 async def get_notifications(
     limit: int = Query(20, ge=1, le=50),
     offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_user_from_credentials),
     service: NotificationService = Depends(get_notification_service),
-) -> List[dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get user notifications"""
     return await service.get_notifications(current_user.id, limit, offset)
 

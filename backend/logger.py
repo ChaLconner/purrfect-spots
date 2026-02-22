@@ -13,11 +13,11 @@ import logging
 import os
 import sys
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from functools import wraps
-from typing import Any, Generator, TypeVar
+from typing import Any, TypeVar
 
 # Type variable for generic function decoration
 F = TypeVar("F", bound=Callable[..., Any])

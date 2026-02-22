@@ -1,7 +1,8 @@
 import functools
 import hashlib
 import json
-from typing import Any, Callable, Coroutine, TypeVar, Union
+from collections.abc import Callable, Coroutine
+from typing import Any, TypeVar
 
 T = TypeVar("T")
 
@@ -12,7 +13,7 @@ from logger import logger
 
 # Initialize Redis client
 redis_url = config.REDIS_URL
-redis_client: Union[redis.Redis, None] = None
+redis_client: redis.Redis | None = None
 
 # Export is_dev for compatibility with tests
 is_dev = config.ENVIRONMENT.lower() in ["development", "testing"]

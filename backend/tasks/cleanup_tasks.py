@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 
 from logger import logger
 from services.notification_service import NotificationService
@@ -41,8 +42,6 @@ async def stop_cleanup_jobs() -> None:
     if _task is not None:
         logger.info("Stopping background cleanup jobs")
         _task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await _task
-        except asyncio.CancelledError:
-            pass
         _task = None

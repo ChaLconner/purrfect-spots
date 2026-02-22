@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from services.auth_service import AuthService
@@ -75,7 +75,7 @@ async def get_admin_gallery_service() -> GalleryService:
     return GalleryService(await get_async_supabase_admin_client())
 
 
-def get_current_user_from_token(authorization: Optional[str] = Header(None)) -> dict:
+def get_current_user_from_token(authorization: str | None = Header(None)) -> dict:
     """
     Extract and verify user from JWT token in Authorization header.
     Always verifies the JWT signature using JWT_SECRET.
@@ -100,7 +100,7 @@ def get_current_user_from_token(authorization: Optional[str] = Header(None)) -> 
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
-def get_current_token(authorization: Optional[str] = Header(None)) -> Optional[str]:
+def get_current_token(authorization: str | None = Header(None)) -> str | None:
     """
     Extract the JWT token string from the Authorization header.
     Returns None if header is missing or invalid scheme.

@@ -3,7 +3,7 @@ Authentication routes for both Manual (Email/Password) and Google OAuth
 """
 
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -239,7 +239,7 @@ async def refresh_token(
     old_jti = payload.get("jti")
     old_exp = payload.get("exp")
     if old_jti and old_exp:
-        await auth_service.revoke_token(old_jti, user_id, datetime.fromtimestamp(old_exp, timezone.utc))
+        await auth_service.revoke_token(old_jti, user_id, datetime.fromtimestamp(old_exp, UTC))
 
     new_access_token = auth_service.create_access_token(user_id, role=user_obj.role, permissions=user_obj.permissions)
     new_refresh_token = auth_service.create_refresh_token(user_id, ip, ua)
@@ -276,7 +276,7 @@ async def logout(response: Response, request: Request, auth_service: AuthService
                 user_id = payload.get("user_id")
                 exp = payload.get("exp")
                 if jti and user_id and exp:
-                    await auth_service.revoke_token(jti, user_id, datetime.fromtimestamp(exp, timezone.utc))
+                    await auth_service.revoke_token(jti, user_id, datetime.fromtimestamp(exp, UTC))
         except Exception:
             logger.warning("Logout cleanup failed (ignore)")
 
@@ -354,7 +354,7 @@ async def exchange_session(
             "name": name,
             "picture": picture,
             "bio": db_user.bio if db_user else None,
-            "created_at": db_user.created_at if db_user else datetime.now(timezone.utc),
+            "created_at": db_user.created_at if db_user else datetime.now(UTC),
             "role": db_user.role if db_user else "user",
             "role_id": db_user.role_id if db_user else None,
             "permissions": db_user.permissions if db_user else [],

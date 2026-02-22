@@ -1,6 +1,6 @@
 import os
-from datetime import datetime, timezone
-from typing import Any, Dict, cast
+from datetime import UTC, datetime
+from typing import Any, cast
 
 import stripe
 from starlette.concurrency import run_in_threadpool
@@ -60,7 +60,7 @@ class SubscriptionService:
         success_url: str,
         cancel_url: str,
         stripe_customer_id: str | None = None,
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Creates a Stripe Checkout Session for a subscription."""
         try:
             customer_id = await self._get_or_create_stripe_customer(user_id, email, stripe_customer_id)
@@ -112,7 +112,7 @@ class SubscriptionService:
         else:
             logger.info("Unhandled Stripe webhook event type: %s", event_type)
 
-    async def _dispatch_checkout_completed(self, session: Dict[str, Any]) -> None:
+    async def _dispatch_checkout_completed(self, session: dict[str, Any]) -> None:
         """Route checkout.session.completed based on mode."""
         mode = session.get("mode")
         if mode == "subscription":
@@ -124,7 +124,7 @@ class SubscriptionService:
 
     # ── Subscription lifecycle handlers ──────────────────────────────
 
-    async def _handle_checkout_session_completed(self, session: Dict[str, Any]) -> None:
+    async def _handle_checkout_session_completed(self, session: dict[str, Any]) -> None:
         user_id = session.get("metadata", {}).get("user_id")
 
         if not user_id:
@@ -158,7 +158,7 @@ class SubscriptionService:
         sub = await run_in_threadpool(stripe.Subscription.retrieve, subscription_id)
         current_period_end = datetime.fromtimestamp(
             cast(Any, sub).current_period_end,
-            timezone.utc,  # type: ignore[arg-type]
+            UTC,  # type: ignore[arg-type]
         )
 
         await (
@@ -175,7 +175,7 @@ class SubscriptionService:
         )
         logger.info("Subscription activated for user %s", user_id)
 
-    async def _handle_payment_session_completed(self, session: Dict[str, Any]) -> None:
+    async def _handle_payment_session_completed(self, session: dict[str, Any]) -> None:
         """Handle one-time payments (e.g., Treats) by delegating to specialized services."""
         purchase_type = session.get("metadata", {}).get("type")
 
@@ -184,7 +184,7 @@ class SubscriptionService:
         else:
             logger.info("Unhandled payment session type: %s", purchase_type)
 
-    async def _handle_subscription_deleted(self, subscription: Dict[str, Any]) -> None:
+    async def _handle_subscription_deleted(self, subscription: dict[str, Any]) -> None:
         customer_id = subscription.get("customer")
         if not customer_id:
             logger.warning("subscription.deleted missing customer_id")
@@ -204,7 +204,7 @@ class SubscriptionService:
         )
         logger.info("Subscription deleted for customer %s", customer_id)
 
-    async def _handle_subscription_updated(self, subscription: Dict[str, Any]) -> None:
+    async def _handle_subscription_updated(self, subscription: dict[str, Any]) -> None:
         customer_id = subscription.get("customer")
         if not customer_id:
             logger.warning("Subscription updated event missing customer_id")
@@ -220,7 +220,7 @@ class SubscriptionService:
             )
             return
 
-        current_period_end = datetime.fromtimestamp(raw_period_end, timezone.utc)
+        current_period_end = datetime.fromtimestamp(raw_period_end, UTC)
 
         await (
             self.supabase.table("users")
@@ -236,7 +236,7 @@ class SubscriptionService:
 
     # ── Query helpers ────────────────────────────────────────────────
 
-    async def get_subscription_status(self, user_id: str) -> Dict[str, Any]:
+    async def get_subscription_status(self, user_id: str) -> dict[str, Any]:
         res = (
             await self.supabase.table("users")
             .select("is_pro, subscription_end_date, stripe_customer_id, cancel_at_period_end, treat_balance")

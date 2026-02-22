@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict
+from typing import Any
 
 import jwt
 
@@ -9,7 +9,7 @@ from config import config
 logger = logging.getLogger(__name__)
 
 
-def decode_token(token: str) -> Dict[str, Any]:
+def decode_token(token: str) -> dict[str, Any]:
     """
     Decode and verify a JWT token.
 

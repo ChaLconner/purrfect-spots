@@ -3,7 +3,7 @@ Tests for OTP service
 """
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -42,8 +42,7 @@ class TestOTPService:
     def otp_service(self, mock_supabase_admin):
         """Create OTPService instance with mocked dependencies"""
         # OTPService expects a client instance now
-        service = OTPService(mock_supabase_admin)
-        return service
+        return OTPService(mock_supabase_admin)
 
     def test_generate_otp(self, otp_service):
         """Test OTP generation format"""
@@ -74,7 +73,7 @@ class TestOTPService:
         email = "test@example.com"
         otp = "123456"
         otp_hash = otp_service._hash_otp(otp)
-        expires_at = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
+        expires_at = (datetime.now(UTC) + timedelta(minutes=5)).isoformat()
 
         # Mock find result
         mock_supabase_admin.table.return_value.execute.return_value = MagicMock(
@@ -94,7 +93,7 @@ class TestOTPService:
         """Test invalid OTP verification"""
         email = "test@example.com"
         stored_hash = otp_service._hash_otp("000000")
-        expires_at = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
+        expires_at = (datetime.now(UTC) + timedelta(minutes=5)).isoformat()
 
         mock_supabase_admin.table.return_value.execute.return_value = MagicMock(
             data=[{"id": "rec-1", "otp_hash": stored_hash, "attempts": 0, "max_attempts": 5, "expires_at": expires_at}]
@@ -110,7 +109,7 @@ class TestOTPService:
     async def test_verify_otp_expired(self, otp_service, mock_supabase_admin):
         """Test expired OTP verification"""
         email = "test@example.com"
-        expires_at = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
+        expires_at = (datetime.now(UTC) - timedelta(minutes=1)).isoformat()
 
         mock_supabase_admin.table.return_value.execute.return_value = MagicMock(
             data=[{"id": "rec-1", "otp_hash": "hash", "attempts": 0, "max_attempts": 5, "expires_at": expires_at}]
@@ -134,7 +133,7 @@ class TestOTPService:
         """Test lockout logic using DB fallback"""
         email = "lockout@example.com"
 
-        locked_until = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
+        locked_until = (datetime.now(UTC) + timedelta(minutes=10)).isoformat()
 
         # First call is _is_email_locked_out check
         # It calls select().eq()...execute()
@@ -169,7 +168,7 @@ class TestOTPService:
                         "otp_hash": "somehash",
                         "attempts": 5,
                         "max_attempts": 5,
-                        "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat(),
+                        "expires_at": (datetime.now(UTC) + timedelta(minutes=5)).isoformat(),
                     }
                 ]
             ),
@@ -192,7 +191,7 @@ class TestOTPService:
         assert can is True
 
         # Case 2: Just sent (cooldown active)
-        created_at = datetime.now(timezone.utc).isoformat()
+        created_at = datetime.now(UTC).isoformat()
         mock_supabase_admin.table.return_value.execute.return_value = MagicMock(data=[{"created_at": created_at}])
         can, remaining = await otp_service.can_resend_otp(email)
         assert can is False

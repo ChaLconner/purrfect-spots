@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, cast
 
 import httpx
 
@@ -23,8 +23,8 @@ class AsyncSupabaseClient:
         self.timeout = httpx.Timeout(10.0, connect=5.0)
 
     async def rpc(
-        self, function_name: str, params: Optional[Dict[str, Any]] = None, jwt_token: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        self, function_name: str, params: dict[str, Any] | None = None, jwt_token: str | None = None
+    ) -> list[dict[str, Any]]:
         """
         Execute a Postgres function (RPC) asynchronously.
         """
@@ -38,7 +38,7 @@ class AsyncSupabaseClient:
             try:
                 response = await client.post(url, headers=headers, json=params or {})
                 response.raise_for_status()
-                return cast(List[Dict[str, Any]], response.json())
+                return cast(list[dict[str, Any]], response.json())
             except httpx.HTTPStatusError as e:
                 is_auth_error = e.response.status_code in (401, 403)
                 log_func = logger.warning if is_auth_error else logger.error
@@ -52,12 +52,12 @@ class AsyncSupabaseClient:
         self,
         table: str,
         columns: str = "*",
-        order: Optional[str] = None,
-        limit: Optional[int] = None,
-        offset: Optional[int] = None,
-        filters: Optional[Dict[str, str]] = None,
-        jwt_token: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        order: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        filters: dict[str, str] | None = None,
+        jwt_token: str | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Execute a SELECT query asynchronously.
         Very basic implementation for common use cases.
@@ -65,7 +65,7 @@ class AsyncSupabaseClient:
         url = f"{self.base_url}/{table}"
         # Use list of tuples (or dict items) to support duplicate keys in filters
         # e.g. ?latitude=gte.10&latitude=lte.20
-        params: List[tuple[str, str]] = [("select", columns)]
+        params: list[tuple[str, str]] = [("select", columns)]
 
         if order:
             params.append(("order", order))
@@ -88,7 +88,7 @@ class AsyncSupabaseClient:
             try:
                 response = await client.get(url, headers=headers, params=cast(Any, params))
                 response.raise_for_status()
-                return cast(List[Dict[str, Any]], response.json())
+                return cast(list[dict[str, Any]], response.json())
             except httpx.HTTPStatusError as e:
                 is_auth_error = e.response.status_code in (401, 403)
                 log_func = logger.warning if is_auth_error else logger.error
@@ -98,7 +98,7 @@ class AsyncSupabaseClient:
                 logger.error(f"Async SELECT {table} error: {str(e)}")
                 raise
 
-    async def count(self, table: str, filters: Optional[Dict[str, str]] = None, jwt_token: Optional[str] = None) -> int:
+    async def count(self, table: str, filters: dict[str, str] | None = None, jwt_token: str | None = None) -> int:
         """
         Get the exact count of rows in a table asynchronously.
         Uses PostGrest 'Prefer: count=exact' header if possible, or HEAD request.
@@ -135,7 +135,7 @@ class AsyncSupabaseClient:
                     logger.warning(f"Async COUNT {table} fallback also failed: {fallback_err}")
                     return 0
 
-    async def insert(self, table: str, data: Dict[str, Any], jwt_token: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def insert(self, table: str, data: dict[str, Any], jwt_token: str | None = None) -> list[dict[str, Any]]:
         """
         Execute an INSERT query asynchronously.
         Returns the inserted record(s).
@@ -151,7 +151,7 @@ class AsyncSupabaseClient:
             try:
                 response = await client.post(url, headers=headers, json=data)
                 response.raise_for_status()
-                return cast(List[Dict[str, Any]], response.json())
+                return cast(list[dict[str, Any]], response.json())
             except httpx.HTTPStatusError as e:
                 is_auth_error = e.response.status_code in (401, 403)
                 log_func = logger.warning if is_auth_error else logger.error
@@ -162,8 +162,8 @@ class AsyncSupabaseClient:
                 raise
 
     async def delete(
-        self, table: str, filters: Dict[str, str], jwt_token: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        self, table: str, filters: dict[str, str], jwt_token: str | None = None
+    ) -> list[dict[str, Any]]:
         """
         Execute a DELETE query asynchronously.
         """
@@ -184,7 +184,7 @@ class AsyncSupabaseClient:
                 # But our default header has it.
                 if response.status_code == 204:
                     return []
-                return cast(List[Dict[str, Any]], response.json())
+                return cast(list[dict[str, Any]], response.json())
             except httpx.HTTPStatusError as e:
                 is_auth_error = e.response.status_code in (401, 403)
                 log_func = logger.warning if is_auth_error else logger.error
@@ -195,8 +195,8 @@ class AsyncSupabaseClient:
                 raise
 
     async def update(
-        self, table: str, data: Dict[str, Any], filters: Dict[str, str], jwt_token: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        self, table: str, data: dict[str, Any], filters: dict[str, str], jwt_token: str | None = None
+    ) -> list[dict[str, Any]]:
         """
         Execute an UPDATE query asynchronously.
         Returns the updated record(s).
@@ -215,7 +215,7 @@ class AsyncSupabaseClient:
             try:
                 response = await client.patch(url, headers=headers, json=data, params=filters)
                 response.raise_for_status()
-                return cast(List[Dict[str, Any]], response.json())
+                return cast(list[dict[str, Any]], response.json())
             except httpx.HTTPStatusError as e:
                 is_auth_error = e.response.status_code in (401, 403)
                 log_func = logger.warning if is_auth_error else logger.error

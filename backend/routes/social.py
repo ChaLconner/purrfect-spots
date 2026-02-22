@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -68,11 +68,11 @@ async def add_comment(
         raise HTTPException(status_code=500, detail="Failed to post comment")
 
 
-@router.get("/photos/{photo_id}/comments", response_model=List[CommentResponse])
+@router.get("/photos/{photo_id}/comments", response_model=list[CommentResponse])
 async def get_comments(
     photo_id: str,
     social_service: SocialService = Depends(get_social_service),
-) -> List[dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get comments for a photo."""
     try:
         return await social_service.get_comments(photo_id)

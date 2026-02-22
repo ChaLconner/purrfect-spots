@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated, Any, List, Optional, cast
+from typing import Annotated, Any, cast
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path, Request
@@ -28,7 +28,7 @@ async def list_users(
     request: Request,
     limit: int = 20,
     offset: int = 0,
-    search: Optional[str] = None,
+    search: str | None = None,
     sort_by: str = "created_at",
     order: str = "desc",
     current_admin: User = Depends(require_permission("users:read")),
@@ -190,7 +190,7 @@ async def update_user_profile_admin(
 @limiter.limit("60/minute")
 async def list_roles(
     request: Request, current_admin: User = Depends(require_permission("roles:read"))
-) -> List[dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     List all available roles.
     """

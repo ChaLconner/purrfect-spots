@@ -28,6 +28,7 @@ DANGEROUS_PATTERNS = [
     r"data:text/html",  # Data URLs with HTML
 ]
 
+from datetime import UTC
 from typing import Any
 
 
@@ -330,11 +331,11 @@ def log_audit_event(
         success: Whether the action was successful
     """
     import json
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     # Build audit log entry
     audit_entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "action": action,
         "success": success,
     }
@@ -517,7 +518,4 @@ def is_safe_filename(filename: str) -> bool:
         return False
 
     # Check length
-    if len(filename) > MAX_FILENAME_LENGTH:
-        return False
-
-    return True
+    return not len(filename) > MAX_FILENAME_LENGTH

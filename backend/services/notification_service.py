@@ -1,5 +1,6 @@
 import re
-from typing import Any, Dict, List, Optional
+from datetime import UTC
+from typing import Any
 
 from supabase import AClient
 
@@ -27,11 +28,11 @@ class NotificationService:
         user_id: str,
         type: str,
         message: str,
-        title: Optional[str] = None,
-        actor_id: Optional[str] = None,
-        resource_id: Optional[str] = None,
-        resource_type: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        title: str | None = None,
+        actor_id: str | None = None,
+        resource_id: str | None = None,
+        resource_type: str | None = None,
+    ) -> dict[str, Any]:
         """Create a new notification.
 
         Validates user_id format before inserting to prevent PostgreSQL
@@ -93,11 +94,11 @@ class NotificationService:
                 logger.error("Failed to create notification for user %s: %s", user_id, e)
             return {}
 
-    async def get_notifications(self, user_id: str, limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]:
+    async def get_notifications(self, user_id: str, limit: int = 20, offset: int = 0) -> list[dict[str, Any]]:
         """Get user notifications with actor details."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import datetime, timedelta
 
-        thirty_days_ago = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+        thirty_days_ago = (datetime.now(UTC) - timedelta(days=30)).isoformat()
 
         res = await (
             self.supabase.table("notifications")
@@ -144,9 +145,9 @@ class NotificationService:
 
     async def cleanup_old_notifications(self, days: int = 30) -> None:
         """Delete notifications older than specified days."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import datetime, timedelta
 
-        cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        cutoff_date = (datetime.now(UTC) - timedelta(days=days)).isoformat()
 
         try:
             res = await self.supabase.table("notifications").delete().lt("created_at", cutoff_date).execute()

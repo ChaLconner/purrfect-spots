@@ -1,6 +1,6 @@
 import os
 import time
-from typing import Any, Dict, List
+from typing import Any
 
 import stripe
 from starlette.concurrency import run_in_threadpool
@@ -14,7 +14,7 @@ from utils.cache import cached_leaderboard
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 # ── In-memory package cache ──────────────────────────────────────────
-_packages_cache: Dict[str, Dict[str, Any]] | None = None
+_packages_cache: dict[str, dict[str, Any]] | None = None
 _packages_cache_ts: float = 0.0
 _PACKAGES_CACHE_TTL = 300  # 5 minutes
 
@@ -28,7 +28,7 @@ class TreatsService:
 
     async def give_treat(
         self, from_user_id: str, photo_id: str, amount: int, jwt_token: str | None = None
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Give treats to a photo owner (fully atomic via DB RPC)."""
         try:
             from utils.supabase_client import get_async_supabase_admin_client
@@ -112,11 +112,11 @@ class TreatsService:
         success_url: str,
         cancel_url: str,
         stripe_customer_id: str | None = None,
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Create a Stripe Checkout Session for treat purchase."""
         try:
             # Build session params — link to customer if available
-            session_params: Dict[str, Any] = {
+            session_params: dict[str, Any] = {
                 "payment_method_types": ["card"],
                 "line_items": [{"price": price_id, "quantity": 1}],
                 "mode": "payment",
@@ -158,7 +158,7 @@ class TreatsService:
 
     # ── Balance & Transactions ───────────────────────────────────────
 
-    async def get_balance(self, user_id: str) -> Dict[str, Any]:
+    async def get_balance(self, user_id: str) -> dict[str, Any]:
         user_res = await self.supabase.table("users").select("treat_balance").eq("id", user_id).single().execute()
 
         balance = user_res.data["treat_balance"] if user_res.data else 0
@@ -180,11 +180,11 @@ class TreatsService:
     # ── Leaderboard ──────────────────────────────────────────────────
 
     @cached_leaderboard
-    async def get_leaderboard(self, period: str = "all_time") -> List[Dict[str, Any]]:
+    async def get_leaderboard(self, period: str = "all_time") -> list[dict[str, Any]]:
         """Top treat receivers (Most Spoiled Cats owners)."""
         try:
             res = await self.supabase.rpc("get_leaderboard", {"p_period": period}).execute()
-            data: List[Dict[str, Any]] = res.data or []
+            data: list[dict[str, Any]] = res.data or []
             return data
         except Exception as e:
             logger.error(f"Failed to fetch leaderboard: {e}")
@@ -193,7 +193,7 @@ class TreatsService:
                 return await self._get_leaderboard_fallback()
             return []
 
-    async def _get_leaderboard_fallback(self) -> List[Dict[str, Any]]:
+    async def _get_leaderboard_fallback(self) -> list[dict[str, Any]]:
         res = (
             await self.supabase.table("users")
             .select("id, name, username, picture, total_treats_received")
@@ -205,7 +205,7 @@ class TreatsService:
 
     # ── Packages (cached) ────────────────────────────────────────────
 
-    async def get_packages(self) -> Dict[str, Dict[str, Any]]:
+    async def get_packages(self) -> dict[str, dict[str, Any]]:
         """Fetch treat packages from database with in-memory caching."""
         global _packages_cache, _packages_cache_ts
 
@@ -215,7 +215,7 @@ class TreatsService:
 
         try:
             res = await self.supabase.table("treat_packages").select("*").eq("is_active", True).execute()
-            packages: Dict[str, Dict[str, Any]] = {}
+            packages: dict[str, dict[str, Any]] = {}
             for row in res.data or []:
                 packages[row["id"]] = {
                     "amount": row["amount"],
@@ -237,7 +237,7 @@ class TreatsService:
                 return _packages_cache
             return {}
 
-    async def get_package_by_id(self, package_id: str) -> Dict[str, Any] | None:
+    async def get_package_by_id(self, package_id: str) -> dict[str, Any] | None:
         """Fetch a specific treat package (uses cached packages first)."""
         # Try cache first
         packages = await self.get_packages()
@@ -271,7 +271,7 @@ class TreatsService:
 
     # ── Fulfillment (webhook) ────────────────────────────────────────
 
-    async def fulfill_treat_purchase(self, session: Dict[str, Any]) -> None:
+    async def fulfill_treat_purchase(self, session: dict[str, Any]) -> None:
         """Handle fulfilling a treat purchase after payment session completion."""
         user_id = session.get("metadata", {}).get("user_id")
         package_id = session.get("metadata", {}).get("package")

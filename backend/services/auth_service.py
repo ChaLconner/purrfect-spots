@@ -1,7 +1,7 @@
 import hashlib
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import jwt
 from supabase import AClient, acreate_client
@@ -29,7 +29,7 @@ except ImportError:
 class AuthService:
     """Authentication service using Async Supabase Client"""
 
-    def __init__(self, supabase_client: AClient, supabase_admin: Optional[AClient] = None) -> None:
+    def __init__(self, supabase_client: AClient, supabase_admin: AClient | None = None) -> None:
         self.supabase = supabase_client
         self.supabase_admin = supabase_admin
         self.user_service = UserService(supabase_client, supabase_admin)

@@ -72,7 +72,7 @@ class TestFeatureFlagService:
         """Test get_all_flags returns all default flags"""
         with patch.dict(os.environ, {}, clear=False):
             # Clear any existing feature flags
-            for key in os.environ.keys():
+            for key in os.environ:
                 if key.startswith("FEATURE_"):
                     del os.environ[key]
 

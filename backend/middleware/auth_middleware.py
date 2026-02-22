@@ -3,7 +3,7 @@ Authentication middleware for protecting routes with Supabase Auth
 """
 
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 import jwt
@@ -161,7 +161,7 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
 
     # Common extraction for both sources
     iat = payload.get("iat")
-    created_at = datetime.fromtimestamp(iat, timezone.utc) if isinstance(iat, (int, float)) else None
+    created_at = datetime.fromtimestamp(iat, UTC) if isinstance(iat, (int, float)) else None
 
     # Extract permissions from payload if available
     permissions = payload.get("permissions", [])
@@ -195,7 +195,7 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
     )
 
 
-from typing import Awaitable, Callable
+from collections.abc import Awaitable, Callable
 
 
 def require_permission(permission_code: str) -> Callable[[User], Awaitable[User]]:
@@ -229,7 +229,7 @@ async def _verify_via_supabase_api(token: str, supabase: AClient) -> dict | None
                 "email": supabase_user.email,
                 "user_metadata": supabase_user.user_metadata,
                 "app_metadata": supabase_user.app_metadata,
-                "iat": int(datetime.now(timezone.utc).timestamp()),
+                "iat": int(datetime.now(UTC).timestamp()),
             }
     except Exception as api_err:
         logger.debug("Direct Supabase verification failed: %s", api_err)
@@ -290,7 +290,7 @@ async def _validate_token_security(payload: dict) -> None:
     if user_id and iat:
         try:
             token_service = await get_token_service()
-            issued_at = datetime.fromtimestamp(iat, timezone.utc)
+            issued_at = datetime.fromtimestamp(iat, UTC)
             if await token_service.is_user_invalidated(user_id, issued_at):
                 raise HTTPException(status_code=401, detail="Session invalidated (Password changed)")
         except HTTPException:

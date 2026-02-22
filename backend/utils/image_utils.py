@@ -184,10 +184,7 @@ def is_valid_image(image_content: bytes | Any) -> bool:
     from logger import logger
 
     try:
-        if isinstance(image_content, bytes):
-            img = Image.open(io.BytesIO(image_content))
-        else:
-            img = Image.open(image_content)
+        img = Image.open(io.BytesIO(image_content)) if isinstance(image_content, bytes) else Image.open(image_content)
         img.verify()  # Verify image integrity
         return True
     except Exception as e:

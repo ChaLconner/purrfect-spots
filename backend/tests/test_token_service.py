@@ -3,7 +3,7 @@ Tests for token service
 """
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -15,8 +15,7 @@ class TestTokenService:
     @pytest.fixture
     def mock_redis(self):
         """Mock Redis client"""
-        mock = AsyncMock()
-        return mock
+        return AsyncMock()
 
     @pytest.fixture
     def mock_supabase_admin(self):
@@ -75,8 +74,8 @@ class TestTokenService:
 
             # Check expiry is set in future
             expiry = service._memory_blacklist[token_hash]
-            assert expiry.tzinfo == timezone.utc
-            assert expiry > datetime.now(timezone.utc)
+            assert expiry.tzinfo == UTC
+            assert expiry > datetime.now(UTC)
 
     @pytest.mark.asyncio
     async def test_blacklist_token_db_persistence(self, token_service, mock_supabase_admin):
@@ -84,7 +83,7 @@ class TestTokenService:
         token = "db-token"
         user_id = "user-123"
         jti = "jti-123"
-        expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+        expires_at = datetime.now(UTC) + timedelta(hours=1)
 
         result = await token_service.blacklist_token(token=token, user_id=user_id, jti=jti, expires_at=expires_at)
 
@@ -115,7 +114,7 @@ class TestTokenService:
             service = TokenService(None)
             token = "memory-check"
             token_hash = service._hash_token(token)
-            service._memory_blacklist[token_hash] = datetime.now(timezone.utc) + timedelta(minutes=5)
+            service._memory_blacklist[token_hash] = datetime.now(UTC) + timedelta(minutes=5)
 
             result = await service.is_blacklisted(token=token)
             assert result is True
@@ -127,9 +126,9 @@ class TestTokenService:
 
         # Setup DB hit
         mock_response = MagicMock()
-        from datetime import datetime, timedelta, timezone
+        from datetime import datetime, timedelta
 
-        future_time = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+        future_time = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
 
         mock_response.data = [{"expires_at": future_time}]
 
@@ -160,13 +159,13 @@ class TestTokenService:
     async def test_is_user_invalidated(self, token_service, mock_redis):
         """Test checking if user tokens are invalidated"""
         user_id = "user-456"
-        invalidated_at = datetime.now(timezone.utc)
+        invalidated_at = datetime.now(UTC)
         mock_redis.get.return_value = invalidated_at.isoformat().encode()
 
         # Token issued BEFORE invalidation
         token_iat = invalidated_at - timedelta(minutes=1)
         # Using aware objects for comparison
-        token_iat = token_iat.replace(tzinfo=timezone.utc)  # already aware
+        token_iat = token_iat.replace(tzinfo=UTC)  # already aware
 
         result = await token_service.is_user_invalidated(user_id, token_iat)
         assert result is True
@@ -222,8 +221,8 @@ class TestTokenService:
         ):
             service = TokenService(None)
             service._memory_blacklist = {
-                "old": datetime.now(timezone.utc) - timedelta(minutes=1),
-                "new": datetime.now(timezone.utc) + timedelta(minutes=5),
+                "old": datetime.now(UTC) - timedelta(minutes=1),
+                "new": datetime.now(UTC) + timedelta(minutes=5),
             }
             service._cleanup_memory_blacklist()
             assert "old" not in service._memory_blacklist

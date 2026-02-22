@@ -1,15 +1,14 @@
-from typing import List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 
 class UserUpdateAdmin(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
-    bio: Optional[str] = Field(None, max_length=500)
-    website: Optional[str] = Field(None, max_length=255)
-    picture: Optional[str] = Field(None, max_length=1000)
-    role: Optional[str] = Field(None, pattern="^(user|admin|moderator|super_admin)$")
+    name: str | None = Field(None, min_length=1, max_length=100)
+    bio: str | None = Field(None, max_length=500)
+    website: str | None = Field(None, max_length=255)
+    picture: str | None = Field(None, max_length=1000)
+    role: str | None = Field(None, pattern="^(user|admin|moderator|super_admin)$")
 
 
 class RoleUpdateAdmin(BaseModel):
@@ -17,14 +16,14 @@ class RoleUpdateAdmin(BaseModel):
 
 
 class PhotoUpdateAdmin(BaseModel):
-    location_name: Optional[str] = Field(None, min_length=1, max_length=255)
-    description: Optional[str] = Field(None, max_length=1000)
+    location_name: str | None = Field(None, min_length=1, max_length=255)
+    description: str | None = Field(None, max_length=1000)
 
 
 class BulkReportUpdate(BaseModel):
-    report_ids: List[UUID] = Field(..., min_length=1)
+    report_ids: list[UUID] = Field(..., min_length=1)
     status: str = Field(..., pattern="^(pending|resolved|dismissed)$")
-    resolution_notes: Optional[str] = None
+    resolution_notes: str | None = None
     delete_content: bool = False
 
 

@@ -143,20 +143,32 @@ tags_metadata = [
 
 
 # Import telemetry setup
+# ========== Background Tasks ==========
+from contextlib import asynccontextmanager
+
+from tasks.cleanup_tasks import start_cleanup_jobs, stop_cleanup_jobs
 from utils.telemetry import setup_telemetry
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await start_cleanup_jobs()
+    yield
+    await stop_cleanup_jobs()
 
 # ========== FastAPI Application ==========
 # SECURITY: In production, disable OpenAPI docs to prevent information disclosure
 if ENVIRONMENT == "production":
     app = FastAPI(
+        lifespan=lifespan,
         title="PurrFect Spots API",
         description="""
         PurrFect Spots API helps you share and discover cat locations.
-        
+
         ## API Versioning
         All endpoints are available under `/api/v1/` prefix.
         Legacy routes (without prefix) are maintained for backward compatibility.
-        
+
         ## Features
         * 📍 **Share Locations**: Upload photos of cats and their locations.
         * 🤖 **AI Detection**: Automatically detect cats in uploaded photos.
@@ -180,14 +192,15 @@ if ENVIRONMENT == "production":
     logger.warning("OpenAPI docs disabled in production environment")
 else:
     app = FastAPI(
+        lifespan=lifespan,
         title="PurrFect Spots API",
         description="""
         PurrFect Spots API helps you share and discover cat locations.
-        
+
         ## API Versioning
         All endpoints are available under `/api/v1/` prefix.
         Legacy routes (without prefix) are maintained for backward compatibility.
-        
+
         ## Features
         * 📍 **Share Locations**: Upload photos of cats and their locations.
         * 🤖 **AI Detection**: Automatically detect cats in uploaded photos.
@@ -212,18 +225,7 @@ else:
 # Initialize Telemetry (OpenTelemetry)
 setup_telemetry(app)
 
-# ========== Background Tasks ==========
-from tasks.cleanup_tasks import start_cleanup_jobs, stop_cleanup_jobs
-
-
-@app.on_event("startup")
-async def startup_event() -> None:
-    await start_cleanup_jobs()
-
-
-@app.on_event("shutdown")
-async def shutdown_event() -> None:
-    await stop_cleanup_jobs()
+# (Background tasks are now managed by lifespan)
 
 
 # ========== Rate Limiter ==========

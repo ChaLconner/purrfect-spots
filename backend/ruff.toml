@@ -28,16 +28,8 @@ ignore = [
     "S324",   # Insecure hash ( we use for non-security purposes)
     "B008",   # Function call in default arg (FastAPI Depends)
     "B904",   # raise from (not required)
-    "SIM",    # flake8-simplify (too opinionated)
-    "PTH",    # Pathlib (gradual migration)
     "RUF",    # Ruff-specific (too many false positives)
-    "UP",     # pyupgrade (Python 3.9 compat)
-    "W293",   # Blank line whitespace (auto-fix)
-    "C4",     # flake8-comprehensions (preference)
-    "W291",   # Trailing whitespace
-    "W292",   # No newline at end of file
     "E402",   # Module level import not at top of file
-    "RET",    # Return consistency (too strict)
     "ARG",    # Unused arguments (often false positives in tests/frameworks)
     "TCH",    # Type checking blocks (can be noisy)
     "ANN",    # Missing type annotations (too many to fix right now)

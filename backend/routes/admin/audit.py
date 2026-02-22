@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from postgrest.types import CountMethod
@@ -18,8 +18,8 @@ async def list_audit_logs(
     request: Request,
     limit: int = 50,
     offset: int = 0,
-    user_id: Optional[str] = None,
-    action: Optional[str] = None,
+    user_id: str | None = None,
+    action: str | None = None,
     current_admin: User = Depends(require_permission("system:audit_logs")),
 ) -> dict[str, Any]:
     """

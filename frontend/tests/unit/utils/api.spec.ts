@@ -13,7 +13,8 @@ import {
   uploadFile,
   buildPaginationQuery,
   apiInstance,
-  apiV1
+  apiV1,
+  getDefaultHeaders
 } from '@/utils/api';
 import { getEnvVar } from '@/utils/env';
 
@@ -36,6 +37,10 @@ vi.mock('@/utils/env', () => ({
   isDev: vi.fn(() => true),
 }));
 
+vi.mock('@/utils/security', () => ({
+  getCsrfToken: vi.fn(() => null),
+}));
+
 describe('API Utils', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -46,6 +51,57 @@ describe('API Utils', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  describe('getApiBaseUrl', () => {
+    it('returns env URL when set', () => {
+      vi.mocked(getEnvVar).mockReturnValue('https://api.example.com');
+      expect(getApiBaseUrl()).toBe('https://api.example.com');
+    });
+
+    it('strips trailing slash from env URL', () => {
+      vi.mocked(getEnvVar).mockReturnValue('https://api.example.com/');
+      expect(getApiBaseUrl()).toBe('https://api.example.com');
+    });
+
+    it('returns default localhost URL when env not set', () => {
+      vi.mocked(getEnvVar).mockReturnValue('');
+      expect(getApiBaseUrl()).toBe('http://localhost:8000');
+    });
+  });
+
+  describe('getApiUrl', () => {
+    it('constructs full URL from endpoint', () => {
+      vi.mocked(getEnvVar).mockReturnValue('https://api.example.com');
+      expect(getApiUrl('/users')).toBe('https://api.example.com/users');
+    });
+
+    it('handles endpoint without leading slash', () => {
+      vi.mocked(getEnvVar).mockReturnValue('https://api.example.com');
+      expect(getApiUrl('users')).toBe('https://api.example.com/users');
+    });
+  });
+
+  describe('getDefaultHeaders', () => {
+    it('returns content type and accept headers', () => {
+      const headers = getDefaultHeaders();
+      expect(headers['Content-Type']).toBe('application/json');
+      expect(headers['Accept']).toBe('application/json');
+    });
+  });
+
+  describe('getAuthHeaders', () => {
+    it('includes Authorization when token is set', () => {
+      setAccessToken('my-token');
+      const headers = getAuthHeaders();
+      expect(headers['Authorization']).toBe('Bearer my-token');
+    });
+
+    it('does not include Authorization when no token', () => {
+      setAccessToken(null);
+      const headers = getAuthHeaders();
+      expect(headers['Authorization']).toBeUndefined();
+    });
   });
 
   describe('apiRequest', () => {
@@ -144,6 +200,31 @@ describe('API Utils', () => {
         expect(apiInstance.request).toHaveBeenCalledWith(expect.objectContaining({
             url: '/api/v1/users'
         }));
+    });
+
+    it('apiV1 patch and delete work', async () => {
+      vi.mocked(apiInstance.request).mockResolvedValue({ data: 'ok' });
+      await apiV1.patch('/users/1', { name: 'test' });
+      await apiV1.delete('/users/1');
+      expect(apiInstance.request).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('buildPaginationQuery', () => {
+    it('builds query with limit and offset', () => {
+      expect(buildPaginationQuery({ limit: 10, offset: 20 })).toBe('?limit=10&offset=20');
+    });
+
+    it('builds query with limit and page', () => {
+      expect(buildPaginationQuery({ limit: 10, page: 2 })).toBe('?limit=10&page=2');
+    });
+
+    it('prefers page over offset', () => {
+      expect(buildPaginationQuery({ limit: 10, page: 2, offset: 20 })).toBe('?limit=10&page=2');
+    });
+
+    it('returns empty string for empty params', () => {
+      expect(buildPaginationQuery({})).toBe('');
     });
   });
 });

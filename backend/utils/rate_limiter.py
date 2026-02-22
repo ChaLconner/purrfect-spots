@@ -10,7 +10,6 @@ Thread-safe via asyncio lock.
 import asyncio
 import time
 from collections import defaultdict
-from typing import Dict, Tuple
 
 from logger import logger
 
@@ -30,7 +29,7 @@ class RateLimiter:
         self.max_requests = max_requests
         self.window_seconds = window_seconds
         # key -> (request_count, window_start_time)
-        self._windows: Dict[str, Tuple[int, float]] = defaultdict(lambda: (0, 0.0))
+        self._windows: dict[str, tuple[int, float]] = defaultdict(lambda: (0, 0.0))
         self._lock = asyncio.Lock()
 
     async def is_allowed(self, key: str) -> bool:

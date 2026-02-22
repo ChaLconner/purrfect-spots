@@ -2,7 +2,7 @@
 User profile management routes
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Path, Response, UploadFile
@@ -272,7 +272,7 @@ async def get_user_uploads(
         photos = await gallery_service.get_user_photos(current_user.id)
 
         # Use central schema for consistent data structure
-        uploads = [CatLocation(**photo).dict() for photo in photos]
+        uploads = [CatLocation(**photo).model_dump() for photo in photos]
 
         return {"uploads": uploads, "count": len(uploads)}
 
@@ -406,7 +406,7 @@ async def update_user_photo(
         if not valid_updates:
             raise HTTPException(status_code=400, detail="No valid data provided")
 
-        valid_updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+        valid_updates["updated_at"] = datetime.now(UTC).isoformat()
 
         # 3. Update
         # Use admin service because we already verified ownership

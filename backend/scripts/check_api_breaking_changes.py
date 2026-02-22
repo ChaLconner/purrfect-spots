@@ -234,6 +234,13 @@ def main() -> int:
         print()
         print(f"Total: {len(breaking_changes)} breaking change(s)")
 
+        # Update baseline if requested before potentially exiting
+        if args.update_baseline:
+            with open(baseline_path, "w", encoding="utf-8") as f:
+                json.dump(current, f, indent=2, ensure_ascii=False)
+            print(f"\n✅ Baseline updated at {baseline_path}")
+            return 0  # If we updated the baseline, it's considered successfully acknowledged
+
         if args.fail_on_breaking:
             print("\n❌ CI check failed due to breaking changes.")
             print("   If these changes are intentional, update the baseline:")
@@ -242,11 +249,11 @@ def main() -> int:
     else:
         print("✅ No breaking changes detected!")
 
-    # Update baseline if requested
-    if args.update_baseline:
-        with open(baseline_path, "w", encoding="utf-8") as f:
-            json.dump(current, f, indent=2, ensure_ascii=False)
-        print(f"\n✅ Baseline updated at {baseline_path}")
+        # Update baseline if requested
+        if args.update_baseline:
+            with open(baseline_path, "w", encoding="utf-8") as f:
+                json.dump(current, f, indent=2, ensure_ascii=False)
+            print(f"\n✅ Baseline updated at {baseline_path}")
 
     return 0
 

@@ -10,7 +10,8 @@ This protects against Cross-Site Request Forgery attacks by:
 
 import os
 import secrets
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -84,9 +85,8 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             # Still validate if tokens are provided
             cookie_token = request.cookies.get(self.CSRF_COOKIE_NAME)
             header_token = request.headers.get(self.CSRF_HEADER_NAME)
-            if cookie_token and header_token:
-                if not secrets.compare_digest(cookie_token, header_token):
-                    logger.warning(f"CSRF token mismatch in dev mode: path={request.url.path}")
+            if cookie_token and header_token and not secrets.compare_digest(cookie_token, header_token):
+                logger.warning(f"CSRF token mismatch in dev mode: path={request.url.path}")
             return await call_next(request)
 
         # Production: Full CSRF validation

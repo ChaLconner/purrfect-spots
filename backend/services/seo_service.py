@@ -1,5 +1,4 @@
 import datetime
-from typing import List
 
 from supabase import AClient
 
@@ -52,7 +51,7 @@ class SeoService:
 
         return "\n".join(xml)
 
-    async def _get_all_photo_ids(self) -> List[str]:
+    async def _get_all_photo_ids(self) -> list[str]:
         try:
             # Fetch visible photos, limit to most recent 1000 to avoid huge sitemap
             res = (
@@ -69,7 +68,7 @@ class SeoService:
             print(f"Sitemap photo fetch error: {e}")
             return []
 
-    async def _get_all_user_ids(self) -> List[str]:
+    async def _get_all_user_ids(self) -> list[str]:
         try:
             # Fetch active users
             res = await self.supabase.table("users").select("id").limit(1000).execute()

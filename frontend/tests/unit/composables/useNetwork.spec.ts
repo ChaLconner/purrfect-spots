@@ -21,23 +21,35 @@ describe('useNetwork', () => {
 
   it('should initialize with current online status', () => {
     Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
-    const { isOnline } = useNetwork();
-    expect(isOnline.value).toBe(true);
+
+    let result: any;
+    const TestComponent = defineComponent({
+      template: '<div></div>',
+      setup() {
+        result = useNetwork();
+        return {};
+      },
+    });
+
+    mount(TestComponent);
+
+    expect(result.isOnline.value).toBe(true);
   });
 
   it('should respond to offline event', async () => {
     Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
-    
+
     let result: any;
     const TestComponent = defineComponent({
+      template: '<div></div>',
       setup() {
         result = useNetwork();
-        return () => {};
-      }
+        return {};
+      },
     });
-    
+
     mount(TestComponent);
-    
+
     expect(result.isOnline.value).toBe(true);
 
     // Simulate going offline
@@ -52,21 +64,22 @@ describe('useNetwork', () => {
 
   it('should respond to online event', async () => {
     Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
-    
+
     let result: any;
     const TestComponent = defineComponent({
-        setup() {
-            result = useNetwork();
-            return () => {};
-        }
+      template: '<div></div>',
+      setup() {
+        result = useNetwork();
+        return {};
+      },
     });
 
     mount(TestComponent);
-    
+
     // Simulate going online
     Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
     globalThis.dispatchEvent(new Event('online'));
-    
+
     await nextTick();
 
     expect(result.isOnline.value).toBe(true);
@@ -75,12 +88,13 @@ describe('useNetwork', () => {
 
   it('should remove event listeners on unmount', () => {
     const removeEventListenerSpy = vi.spyOn(globalThis, 'removeEventListener');
-    
+
     const TestComponent = defineComponent({
+      template: '<div></div>',
       setup() {
         useNetwork();
         return {};
-      }
+      },
     });
 
     const wrapper = mount(TestComponent);

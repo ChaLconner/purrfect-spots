@@ -38,9 +38,7 @@ class PasswordService:
         Validate password complexity:
         - At least 8 characters
         """
-        if len(password) < self.MIN_PASSWORD_LENGTH:
-            return False
-        return True
+        return not len(password) < self.MIN_PASSWORD_LENGTH
 
     async def is_password_pwned(self, password: str) -> bool:
         """

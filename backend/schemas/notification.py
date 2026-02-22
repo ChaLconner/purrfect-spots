@@ -1,6 +1,5 @@
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel
 
@@ -15,13 +14,13 @@ class NotificationType(str, Enum):
 class NotificationResponse(BaseModel):
     id: str
     user_id: str
-    actor_id: Optional[str] = None
+    actor_id: str | None = None
     type: NotificationType
-    title: Optional[str] = None
-    message: Optional[str] = None
-    resource_id: Optional[str] = None
-    resource_type: Optional[str] = None
+    title: str | None = None
+    message: str | None = None
+    resource_id: str | None = None
+    resource_type: str | None = None
     is_read: bool
     created_at: datetime
-    actor_name: Optional[str] = None
-    actor_picture: Optional[str] = None
+    actor_name: str | None = None
+    actor_picture: str | None = None

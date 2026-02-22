@@ -1,5 +1,5 @@
 import re
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from postgrest.types import CountMethod
@@ -39,7 +39,7 @@ async def list_photos(
     request: Request,
     limit: int = 20,
     offset: int = 0,
-    search: Optional[str] = None,
+    search: str | None = None,
     reported: bool = False,
     current_admin: User = Depends(require_permission("content:read")),
 ) -> dict[str, Any]:

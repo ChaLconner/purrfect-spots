@@ -14,11 +14,10 @@ def mock_app():
 
 
 def test_setup_telemetry_disabled(mock_app):
-    with patch.dict(os.environ, {"ENABLE_TELEMETRY": "false"}):
-        with patch("utils.telemetry.logger") as mock_logger:
-            setup_telemetry(mock_app)
-            # Should log that it's disabled
-            mock_logger.info.assert_called_with("Telemetry disabled (ENABLE_TELEMETRY!=true)")
+    with patch.dict(os.environ, {"ENABLE_TELEMETRY": "false"}), patch("utils.telemetry.logger") as mock_logger:
+        setup_telemetry(mock_app)
+        # Should log that it's disabled
+        mock_logger.info.assert_called_with("Telemetry disabled (ENABLE_TELEMETRY!=true)")
 
 
 def test_setup_telemetry_enabled_import_error(mock_app):

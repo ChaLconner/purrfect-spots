@@ -36,8 +36,7 @@ class TestSocialLikesIntegration:
         # If no user, create one
         email = f"test_{uuid.uuid4()}@example.com"
         password = "testpassword123"
-        user = supabase.auth.admin.create_user({"email": email, "password": password, "email_confirm": True})
-        return user
+        return supabase.auth.admin.create_user({"email": email, "password": password, "email_confirm": True})
 
     @pytest.fixture(scope="class")
     def test_photo(self, supabase: Client, test_user):

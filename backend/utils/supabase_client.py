@@ -1,4 +1,3 @@
-from typing import Optional
 
 from supabase import AClient, Client, acreate_client, create_client
 
@@ -39,8 +38,8 @@ def get_supabase_admin_client() -> Client:
 
 # --- Async Clients ---
 
-_async_supabase: Optional[AClient] = None
-_async_supabase_admin: Optional[AClient] = None
+_async_supabase: AClient | None = None
+_async_supabase_admin: AClient | None = None
 
 
 async def get_async_supabase_client() -> AClient:

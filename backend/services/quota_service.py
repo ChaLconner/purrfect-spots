@@ -1,5 +1,5 @@
 import datetime
-from typing import Any, Dict
+from typing import Any
 
 from postgrest.types import CountMethod
 from supabase import AClient
@@ -23,7 +23,7 @@ class QuotaService:
         Respects the 24-hour rolling window requirement.
         """
         # Calculate 24 hours ago in UTC
-        now = datetime.datetime.now(datetime.timezone.utc)
+        now = datetime.datetime.now(datetime.UTC)
         twenty_four_hours_ago = (now - datetime.timedelta(hours=24)).isoformat()
 
         try:
@@ -96,7 +96,7 @@ class QuotaService:
         except Exception as e:
             logger.error(f"Failed to increment legacy quota for user {user_id}: {e}")
 
-    async def get_user_quota_status(self, user_id: str, is_pro: bool) -> Dict[str, Any]:
+    async def get_user_quota_status(self, user_id: str, is_pro: bool) -> dict[str, Any]:
         """Get quota usage details for UI based on rolling window."""
         max_quota = self.PRO_LIMIT if is_pro else self.FREE_LIMIT
 

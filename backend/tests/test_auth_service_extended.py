@@ -9,7 +9,6 @@ import pytest
 from services.auth_service import AuthService
 
 
-@pytest.mark.asyncio
 class TestAuthServiceExtended:
     @pytest.fixture
     def mock_supabase(self):
@@ -45,26 +44,25 @@ class TestAuthServiceExtended:
 
     @pytest.fixture
     def auth_service(self, mock_supabase, mock_user_service_instance):
-        with patch("services.auth_service.UserService", return_value=mock_user_service_instance):
-            with patch(
-                "services.auth_service.get_async_supabase_admin_client", new=AsyncMock(return_value=mock_supabase)
+        with patch("services.auth_service.UserService", return_value=mock_user_service_instance), patch(
+            "services.auth_service.get_async_supabase_admin_client", new=AsyncMock(return_value=mock_supabase)
+        ):
+            # Patch config
+            with patch.dict(
+                "os.environ",
+                {
+                    "GOOGLE_CLIENT_ID": "test_id",
+                    "GOOGLE_CLIENT_SECRET": "test_secret",
+                    "JWT_SECRET": "test_jwt_secret_must_be_at_least_32_characters_long",
+                },
             ):
-                # Patch config
-                with patch.dict(
-                    "os.environ",
-                    {
-                        "GOOGLE_CLIENT_ID": "test_id",
-                        "GOOGLE_CLIENT_SECRET": "test_secret",
-                        "JWT_SECRET": "test_jwt_secret_must_be_at_least_32_characters_long",
-                    },
-                ):
-                    service = AuthService(mock_supabase, mock_supabase)  # Pass admin too
-                    service.google_client_id = "test_id"
-                    service.google_client_secret = "test_secret"
-                    service.jwt_secret = "test_jwt_secret_must_be_at_least_32_characters_long"
-                    service.jwt_algorithm = "HS256"
+                service = AuthService(mock_supabase, mock_supabase)  # Pass admin too
+                service.google_client_id = "test_id"
+                service.google_client_secret = "test_secret"
+                service.jwt_secret = "test_jwt_secret_must_be_at_least_32_characters_long"
+                service.jwt_algorithm = "HS256"
 
-                    yield service
+                yield service
 
     def test_verify_google_token_success(self, auth_service):
         with patch("google.oauth2.id_token.verify_oauth2_token") as mock_verify:

@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Any, Dict, Tuple
+from typing import Any
 
 from fastapi import APIRouter, Depends, Request
 from postgrest.types import CountMethod
@@ -13,7 +13,7 @@ from user_models.user import User
 router = APIRouter()
 
 # Simple in-memory cache: (data, expiration_timestamp)
-_stats_cache: Dict[str, Tuple[dict[str, Any], datetime]] = {}
+_stats_cache: dict[str, tuple[dict[str, Any], datetime]] = {}
 CACHE_TTL_SECONDS = 300  # 5 minutes
 
 

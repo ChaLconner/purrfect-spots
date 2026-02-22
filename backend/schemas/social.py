@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -18,9 +17,9 @@ class CommentResponse(BaseModel):
     photo_id: str
     content: str
     created_at: datetime
-    updated_at: Optional[datetime] = None
-    user_name: Optional[str] = None
-    user_picture: Optional[str] = None
+    updated_at: datetime | None = None
+    user_name: str | None = None
+    user_picture: str | None = None
 
 
 class LikeResponse(BaseModel):

@@ -2,7 +2,7 @@ import asyncio
 import hashlib
 import json
 import os
-from typing import Any, List, Optional
+from typing import Any
 
 from fastapi import HTTPException, UploadFile
 
@@ -141,7 +141,7 @@ class GoogleVisionService:
         """Calculate SHA-256 hash of image content."""
         return hashlib.sha256(content).hexdigest()
 
-    async def _get_cached_result(self, image_hash: str) -> Optional[dict]:
+    async def _get_cached_result(self, image_hash: str) -> dict | None:
         """Try to retrieve cached analysis result. (Async)"""
         try:
             client = await get_async_supabase_admin_client()
@@ -156,7 +156,7 @@ class GoogleVisionService:
                 logger.info(f"Vision API Cache Hit: {image_hash[:8]}...")
                 from typing import cast
 
-                return cast(Optional[dict], response.data["response"])
+                return cast(dict | None, response.data["response"])
         except Exception as e:
             logger.warning(f"Cache lookup failed: {e}")
         return None
@@ -221,7 +221,7 @@ class GoogleVisionService:
         confidence = self._calculate_confidence(cat_labels, cat_objects)
         return self._create_detection_result(has_cats, cat_labels, cat_objects, labels, confidence)
 
-    def _check_non_cat_animals(self, objects: Any) -> Optional[str]:
+    def _check_non_cat_animals(self, objects: Any) -> str | None:
         """Check for presence of other animals that might cause false positives"""
         for obj in objects:
             if obj.name.lower() in self.NON_CAT_ANIMALS and obj.score >= self.NON_CAT_SCORE_THRESHOLD:
@@ -242,7 +242,7 @@ class GoogleVisionService:
             "reasoning": reason,
         }
 
-    def _filter_cat_labels(self, labels: Any) -> List[dict]:
+    def _filter_cat_labels(self, labels: Any) -> list[dict]:
         """Filter and process cat-related labels"""
         cat_labels = []
         for label in labels:
@@ -251,7 +251,7 @@ class GoogleVisionService:
                     cat_labels.append({"description": label.description, "score": label.score})
         return cat_labels
 
-    def _filter_cat_objects(self, objects: Any) -> List[dict]:
+    def _filter_cat_objects(self, objects: Any) -> list[dict]:
         """Filter and process cat objects"""
         cat_objects = []
         for obj in objects:
@@ -284,7 +284,7 @@ class GoogleVisionService:
             "reasoning": "No cat-related labels or objects passed confidence thresholds",
         }
 
-    def _calculate_confidence(self, cat_labels: List[dict], cat_objects: List[dict]) -> float:
+    def _calculate_confidence(self, cat_labels: list[dict], cat_objects: list[dict]) -> float:
         """Calculate overall confidence score"""
         max_label_score = max([lbl["score"] for lbl in cat_labels]) if cat_labels else 0
         max_object_score = max([o["score"] for o in cat_objects]) if cat_objects else 0
@@ -294,7 +294,7 @@ class GoogleVisionService:
         return round(confidence, 2)
 
     def _create_detection_result(
-        self, has_cats: bool, cat_labels: List[dict], cat_objects: List[dict], labels: Any, confidence: float
+        self, has_cats: bool, cat_labels: list[dict], cat_objects: list[dict], labels: Any, confidence: float
     ) -> dict:
         """Create standard detection result"""
         labels_list = [label.description for label in labels]
@@ -343,14 +343,14 @@ class GoogleVisionService:
 
             return results[0], results[1]
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("Vision API call timed out")
             return None, None
         except Exception as api_error:
             logger.warning(f"Vision API call failed: {api_error}")
             return None, None
 
-    def _fallback_cat_detection(self, error: Optional[str] = None) -> dict:
+    def _fallback_cat_detection(self, error: str | None = None) -> dict:
         """Fallback cat detection when Google Vision is not available.
 
         SECURITY: Returns has_cats=False to prevent bypass when Vision API is unavailable.
@@ -371,7 +371,7 @@ class GoogleVisionService:
             "fallback_mode": True,
         }
 
-    def _get_fallback_content(self, image_input: Any, content: Optional[bytes]) -> bytes:
+    def _get_fallback_content(self, image_input: Any, content: bytes | None) -> bytes:
         if content is not None:
             return content
         if isinstance(image_input, bytes):
@@ -390,7 +390,7 @@ class GoogleVisionService:
         return any(k in filename for k in cat_keywords)
 
     def _create_fallback_result(
-        self, has_cats: bool, confidence: float, width: int, height: int, format_name: str, error: Optional[str]
+        self, has_cats: bool, confidence: float, width: int, height: int, format_name: str, error: str | None
     ) -> dict:
         return {
             "has_cats": has_cats,
@@ -452,7 +452,7 @@ class GoogleVisionService:
             logger.error(f"Spot analysis failed: {e!s}")
             raise HTTPException(status_code=500, detail=f"Spot analysis failed: {e!s}")
 
-    def _analyze_environment(self, labels: List[str]) -> dict:
+    def _analyze_environment(self, labels: list[str]) -> dict:
         env_type = "Cannot be identified"
         safety = {
             "safe_from_traffic": False,
@@ -461,9 +461,9 @@ class GoogleVisionService:
             "water_access": False,
             "escape_routes": False,
         }
-        pros: List[str] = []
-        cons: List[str] = []
-        recs: List[str] = []
+        pros: list[str] = []
+        cons: list[str] = []
+        recs: list[str] = []
 
         # Sub-checks
         self._check_park_environment(labels, safety, pros)
@@ -487,7 +487,7 @@ class GoogleVisionService:
             "recommendations": recs,
         }
 
-    def _check_park_environment(self, labels: List[str], safety: dict, pros: List[str]) -> str | None:
+    def _check_park_environment(self, labels: list[str], safety: dict, pros: list[str]) -> str | None:
         if any(label in labels for label in ["park", "garden", "nature", "tree", "grass"]):
             safety.update({"has_shelter": True, "escape_routes": True})
             pros.extend(["Has spacious area", "Has trees for shelter"])
@@ -495,7 +495,7 @@ class GoogleVisionService:
         return None
 
     def _check_street_environment(
-        self, labels: List[str], safety: dict, cons: List[str], recs: List[str]
+        self, labels: list[str], safety: dict, cons: list[str], recs: list[str]
     ) -> str | None:
         if any(label in labels for label in ["street", "road", "traffic", "car"]):
             safety["safe_from_traffic"] = False
@@ -504,7 +504,7 @@ class GoogleVisionService:
             return "Street or public road"
         return None
 
-    def _check_residential_environment(self, labels: List[str], safety: dict, pros: List[str]) -> str | None:
+    def _check_residential_environment(self, labels: list[str], safety: dict, pros: list[str]) -> str | None:
         if any(label in labels for label in ["building", "house", "shelter", "roof"]):
             safety.update({"has_shelter": True, "escape_routes": True})
             pros.extend(["Has shelter from weather", "Has multiple entry/exit routes"])

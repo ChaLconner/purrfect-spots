@@ -8,7 +8,8 @@ Features:
 - Tag filtering and popular tags
 """
 
-from typing import TYPE_CHECKING, Any, Counter, cast
+from collections import Counter
+from typing import TYPE_CHECKING, Any, cast
 
 from postgrest.types import CountMethod
 from supabase import AClient

@@ -27,7 +27,7 @@ def run_migration() -> None:
         return
 
     print(f"Reading migration from {migration_file}...")
-    with open(migration_file, "r") as f:
+    with open(migration_file) as f:
         f.read()
 
     print("Executing SQL...")

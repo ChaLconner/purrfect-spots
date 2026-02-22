@@ -9,8 +9,8 @@ Adds a unique request ID to each request for:
 """
 
 import uuid
+from collections.abc import Awaitable, Callable
 from contextvars import ContextVar
-from typing import Awaitable, Callable
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware

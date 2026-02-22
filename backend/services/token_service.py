@@ -9,7 +9,7 @@ Centralized token management providing:
 
 import hashlib
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -72,7 +72,7 @@ class TokenService:
                 logger.warning(f"Redis blacklist failed: {e}")
         else:
             # Memory fallback
-            expiry = datetime.now(timezone.utc) + timedelta(seconds=ttl)
+            expiry = datetime.now(UTC) + timedelta(seconds=ttl)
             self._memory_blacklist[token_hash] = expiry
             logger.debug(f"Token blacklisted in memory. Reason: {reason}")
             self._cleanup_memory_blacklist()
@@ -113,7 +113,7 @@ class TokenService:
     def _check_memory_blacklist(self, token_hash: str) -> bool:
         """Check in-memory blacklist."""
         if token_hash in self._memory_blacklist:
-            if self._memory_blacklist[token_hash] > datetime.now(timezone.utc):
+            if self._memory_blacklist[token_hash] > datetime.now(UTC):
                 return True
             del self._memory_blacklist[token_hash]
         return False
@@ -137,7 +137,7 @@ class TokenService:
                 # Check if token is still valid (not expired)
                 for entry in result.data:
                     expires_at = datetime.fromisoformat(entry["expires_at"].replace("Z", "+00:00"))
-                    if datetime.now(timezone.utc) < expires_at:
+                    if datetime.now(UTC) < expires_at:
                         return True
         except Exception as e:
             logger.warning(f"Database check failed: {e}")
@@ -163,17 +163,14 @@ class TokenService:
             return True
 
         # 3. SECURITY: Check Database as source of truth
-        if await self._check_db_blacklist(jti, token_hash):
-            return True
-
-        return False
+        return bool(await self._check_db_blacklist(jti, token_hash))
 
     async def blacklist_all_user_tokens(self, user_id: str, reason: str = "security_event") -> int:
         """Invalidate all tokens for a user."""
         if self.redis:
             try:
                 key = f"user_invalidated:{user_id}"
-                await self.redis.set(key, datetime.now(timezone.utc).isoformat())
+                await self.redis.set(key, datetime.now(UTC).isoformat())
                 await self.redis.expire(key, self.default_ttl)
                 logger.info("Session state cleared for user: %s (Reason: %s)", user_id, reason)
                 return 1
@@ -190,9 +187,9 @@ class TokenService:
                 if invalidated_at_str:
                     invalidated_at = datetime.fromisoformat(invalidated_at_str.decode())
                     if invalidated_at.tzinfo is None:
-                        invalidated_at = invalidated_at.replace(tzinfo=timezone.utc)
+                        invalidated_at = invalidated_at.replace(tzinfo=UTC)
                     if token_issued_at.tzinfo is None:
-                        token_issued_at = token_issued_at.replace(tzinfo=timezone.utc)
+                        token_issued_at = token_issued_at.replace(tzinfo=UTC)
 
                     return token_issued_at < invalidated_at
             except Exception as e:
@@ -202,7 +199,7 @@ class TokenService:
 
     def _cleanup_memory_blacklist(self) -> None:
         """Remove expired entries from memory blacklist"""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expired = [k for k, expiry in self._memory_blacklist.items() if expiry <= now]
         for k in expired:
             del self._memory_blacklist[k]

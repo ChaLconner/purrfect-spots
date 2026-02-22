@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from supabase import AClient
 
@@ -16,9 +16,9 @@ class UserService:
     """Service for user-related operations using Async Supabase Client"""
 
     SERVICE_SUPABASE_AUTH = "Supabase Auth"
-    _cached_user_role_id: Optional[str] = None
+    _cached_user_role_id: str | None = None
 
-    def __init__(self, supabase_client: AClient, supabase_admin: Optional[AClient] = None) -> None:
+    def __init__(self, supabase_client: AClient, supabase_admin: AClient | None = None) -> None:
         self.supabase = supabase_client
         self.supabase_admin = supabase_admin
 
@@ -47,13 +47,12 @@ class UserService:
         permissions: list[str] = []
 
         role_data = data.get("roles")
-        if role_data:
-            if isinstance(role_data, dict):
-                rps = role_data.get("role_permissions", [])
-                for rp in rps:
-                    perm = rp.get("permissions")
-                    if perm and "code" in perm:
-                        permissions.append(perm["code"])
+        if role_data and isinstance(role_data, dict):
+            rps = role_data.get("role_permissions", [])
+            for rp in rps:
+                perm = rp.get("permissions")
+                if perm and "code" in perm:
+                    permissions.append(perm["code"])
 
         user_fields = data.copy()
         if isinstance(role_data, dict) and "name" in role_data:

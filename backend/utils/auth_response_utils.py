@@ -3,7 +3,7 @@ Helper utility for creating login responses.
 Separated to avoid circular imports between AuthService and Utils.
 """
 
-from typing import TYPE_CHECKING, Any, Dict, Union
+from typing import TYPE_CHECKING, Any
 
 from fastapi import Request, Response
 
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 def create_login_response(
     auth_service: "AuthService",
-    user: Union[Dict[str, Any], Any],
+    user: dict[str, Any] | Any,
     request: Request,
     response: Response,
     include_refresh_cookie: bool = True,

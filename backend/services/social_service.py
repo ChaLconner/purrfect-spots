@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, cast
+from typing import Any, cast
 
 from supabase import AClient
 
@@ -13,7 +13,7 @@ class SocialService:
         self.supabase = supabase_client
         self.notification_service = NotificationService(supabase_client)
 
-    async def toggle_like(self, user_id: str, photo_id: str, jwt_token: str | None = None) -> Dict[str, Any]:
+    async def toggle_like(self, user_id: str, photo_id: str, jwt_token: str | None = None) -> dict[str, Any]:
         """
         Toggle like status for a photo using atomic database function.
         """
@@ -55,7 +55,7 @@ class SocialService:
 
     async def add_comment(
         self, user_id: str, photo_id: str, content: str, jwt_token: str | None = None
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Add a comment to a photo."""
         from utils.supabase_client import get_async_supabase_admin_client
 
@@ -113,7 +113,7 @@ class SocialService:
 
         return cast(dict[str, Any], comment)
 
-    async def get_comments(self, photo_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+    async def get_comments(self, photo_id: str, limit: int = 50) -> list[dict[str, Any]]:
         """Get comments for a photo."""
         res = (
             await self.supabase.table("photo_comments")

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from postgrest.types import CountMethod
@@ -39,11 +39,11 @@ async def list_reports(
     request: Request,
     limit: int = 50,
     offset: int = 0,
-    status: Optional[str] = None,
-    reason: Optional[str] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    reporter_id: Optional[str] = None,
+    status: str | None = None,
+    reason: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    reporter_id: str | None = None,
     current_admin: User = Depends(require_permission("content:read")),
 ) -> dict[str, Any]:
     """List submitted reports."""

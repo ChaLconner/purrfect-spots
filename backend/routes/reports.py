@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -38,11 +38,11 @@ async def create_report(
         raise HTTPException(status_code=500, detail="Failed to submit report")
 
 
-@router.get("/my-reports", response_model=List[ReportResponse])
+@router.get("/my-reports", response_model=list[ReportResponse])
 async def list_my_reports(
     current_user: User = Depends(get_current_user),
     report_service: ReportService = Depends(get_report_service),
-) -> List[dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     List reports submitted by the current user.
     """

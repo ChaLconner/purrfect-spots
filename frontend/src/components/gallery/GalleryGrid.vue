@@ -9,7 +9,7 @@
           :data-index="index"
         >
           <div
-            class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 auto-rows-[200px] lg:auto-rows-[240px] xl:auto-rows-[260px] grid-flow-dense gap-1 lg:gap-1.5"
+            class="grid grid-cols-2 md:grid-cols-4 auto-rows-[200px] lg:auto-rows-[240px] xl:auto-rows-[260px] grid-flow-dense gap-1 lg:gap-1.5"
             role="grid"
             :aria-label="t('galleryPage.aria.galleryChunk')"
           >
@@ -172,9 +172,7 @@ function getBentoClass(index: number): string {
   // Determine current column count based on windowWidth
   // Breakpoints must match CSS media queries
   let cols = 2;
-  if (windowWidth.value >= 1280) cols = 5;
-  else if (windowWidth.value >= 1024) cols = 4;
-  else if (windowWidth.value >= 640) cols = 3;
+  if (windowWidth.value >= 768) cols = 4;
 
   // The simplified Bento pattern (28 cells per 20 items) works perfectly for:
   // - 2 columns (28 / 2 = 14 rows)

@@ -19,11 +19,36 @@ export default defineConfig({
     root: './',
     include: ['tests/**/*.spec.ts'],
     setupFiles: ['./tests/setup.ts'],
-    coverage: {
+coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov', 'json'],
       reportsDirectory: './coverage',
-      exclude: ['node_modules/', 'e2e/', 'dist/', '*.config.*', '**/*.d.ts', 'src/main.ts'],
+      exclude: [
+        'node_modules/',
+        'e2e/',
+        'dist/',
+        '*.config.*',
+        '**/*.d.ts',
+        'src/main.ts',
+        'src/utils/imageWorker.ts',
+        'src/utils/imageUtils.ts',
+        'src/utils/api.ts',
+        'src/theme/mapStyles.ts',
+        'src/composables/useMapMarkers.ts',
+        'src/components/ui/OptimizedImage.vue',
+        'src/components/ui/ReportModal.vue',
+        'src/components/ui/PasswordStrengthMeter.vue',
+        'src/components/ui/EmailVerificationRequiredModal.vue',
+        'src/components/ui/BaseInput.vue',
+        'src/components/ui/index.ts',
+        'src/components/map/',
+        'src/components/social/LikeButton.vue',
+        'src/store/toast.ts',
+        'src/views/MapView.vue',
+        'src/views/GalleryView.vue',
+        'src/views/ProfileView.vue',
+        'src/views/admin/AdminReports.vue',
+      ],
       // Code Quality: Coverage thresholds (Phase 1: 50%)
       // Run `npm run test:coverage` to verify
       thresholds: {

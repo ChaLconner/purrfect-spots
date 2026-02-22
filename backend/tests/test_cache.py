@@ -14,7 +14,7 @@ class TestCacheUtils:
         await cache.invalidate_all_caches()
         yield
 
-    def test_generate_cache_key(self):
+    async def test_generate_cache_key(self):
         key1 = cache.generate_cache_key("arg1", kwarg1="val1")
         key2 = cache.generate_cache_key("arg1", kwarg1="val1")
         assert key1 == key2

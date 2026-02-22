@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -8,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class ReportBase(BaseModel):
     photo_id: UUID
     reason: str = Field(..., description="Reason for reporting (spam, nudity, not_a_cat, etc.)")
-    details: Optional[str] = Field(None, description="Additional details provided by the reporter")
+    details: str | None = Field(None, description="Additional details provided by the reporter")
 
 
 class ReportCreate(ReportBase):
@@ -17,17 +16,17 @@ class ReportCreate(ReportBase):
 
 class ReportUpdate(BaseModel):
     status: str = Field(..., description="New status (pending, resolved, dismissed)")
-    resolution_notes: Optional[str] = None
+    resolution_notes: str | None = None
 
 
 class ReportResponse(ReportBase):
     id: UUID
-    reporter_id: Optional[UUID]
+    reporter_id: UUID | None
     status: str
     created_at: datetime
     updated_at: datetime
-    resolved_at: Optional[datetime]
-    resolved_by: Optional[UUID]
-    resolution_notes: Optional[str]
+    resolved_at: datetime | None
+    resolved_by: UUID | None
+    resolution_notes: str | None
 
     model_config = ConfigDict(from_attributes=True)

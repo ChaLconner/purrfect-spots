@@ -5,7 +5,6 @@ import pytest
 from services.gallery_service import GalleryService
 
 
-@pytest.mark.asyncio
 @pytest.fixture(autouse=True)
 async def clear_test_cache():
     """Clear the cache before each test to prevent cross-test contamination"""
