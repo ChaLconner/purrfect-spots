@@ -11,7 +11,7 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "Asia/Bangkok"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
     reviewers:
       - "security-team"
     labels:
@@ -22,6 +22,31 @@ updates:
       prefix: "deps"
       prefix-development: "deps-dev"
       include: "scope"
+    # Group related dependencies into single PRs
+    groups:
+      google-libs:
+        patterns:
+          - "google-*"
+      aws-libs:
+        patterns:
+          - "boto*"
+      linting-and-typing:
+        patterns:
+          - "ruff"
+          - "mypy"
+          - "bandit"
+          - "black"
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+        exclude-patterns:
+          - "google-*"
+          - "boto*"
+          - "ruff"
+          - "mypy"
+          - "bandit"
+          - "black"
     # Allow updates to production dependencies only
     allow:
       - dependency-type: "production"
@@ -31,9 +56,6 @@ updates:
         versions: ["< 1.0.0"]
       - dependency-name: "sqlalchemy"
         versions: ["< 1.5.0", ">= 1.4.0"]
-    # Security updates only
-    # Uncomment to enable security-only updates
-    # security-only: true
 
   # Update npm dependencies in frontend
   - package-ecosystem: "npm"
@@ -43,7 +65,7 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "Asia/Bangkok"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
     reviewers:
       - "security-team"
     labels:
@@ -54,6 +76,23 @@ updates:
       prefix: "deps"
       prefix-development: "deps-dev"
       include: "scope"
+    # Group related dependencies into single PRs
+    groups:
+      vue-ecosystem:
+        patterns:
+          - "vue*"
+          - "@vue/*"
+          - "pinia"
+          - "vue-router"
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+        exclude-patterns:
+          - "vue*"
+          - "@vue/*"
+          - "pinia"
+          - "vue-router"
     # Allow updates to production dependencies only
     allow:
       - dependency-type: "production"
@@ -63,9 +102,6 @@ updates:
         versions: ["< 3.0.0"]
       - dependency-name: "vite"
         versions: ["< 3.0.0"]
-    # Security updates only
-    # Uncomment to enable security-only updates
-    # security-only: true
 
   # Update Docker dependencies
   - package-ecosystem: "docker"
