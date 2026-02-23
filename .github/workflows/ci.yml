@@ -477,8 +477,6 @@ jobs:
       - name: Run Trufflehog
         uses: trufflesecurity/trufflehog@v3.88.29
         with:
-          base: ${{ github.event.repository.default_branch }}
-          head: HEAD
           extra_args: --only-verified
         # Note: --fail is automatically added by the action, don't add it again
 
