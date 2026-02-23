@@ -475,7 +475,7 @@ jobs:
           fetch-depth: 0
 
       - name: Run Trufflehog
-        uses: trufflesecurity/trufflehog@v3.88.29
+        uses: trufflesecurity/trufflehog@v3.93.4
         with:
           extra_args: --only-verified
         # Note: --fail is automatically added by the action, don't add it again
