@@ -30,7 +30,7 @@
     "@googlemaps/markerclusterer": "^2.6.2",
     "@sentry/vue": "^8.0.0",
     "@supabase/supabase-js": "^2.95.3",
-    "@tailwindcss/vite": "^4.1.11",
+    "@tailwindcss/vite": "^4.2.0",
     "axios": "^1.7.7",
     "pinia": "^3.0.4",
     "tailwindcss": "^4.1.11",
