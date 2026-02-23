@@ -200,7 +200,7 @@ jobs:
             --tb=short
 
       - name: Upload coverage HTML report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: always()
         with:
           name: backend-coverage-report
@@ -268,7 +268,7 @@ jobs:
           python scripts/export_openapi.py --output ../docs/openapi-current.json || echo "::warning::Failed to export OpenAPI spec"
 
       - name: Upload OpenAPI specs
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: always()
         with:
           name: openapi-specs
@@ -353,7 +353,7 @@ jobs:
           npm run test:coverage
 
       - name: Upload coverage HTML report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: always()
         with:
           name: frontend-coverage-report
@@ -386,7 +386,7 @@ jobs:
           VITE_API_BASE_URL: https://api.purrfect-spots.com
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: frontend-build
           path: frontend/dist
