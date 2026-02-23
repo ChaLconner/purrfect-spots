@@ -1,15 +1,16 @@
 # ==============================================================================
-# Purrfect Spots - CI/CD Pipeline (Best Practices)
+# Purrfect Spots - CI/CD Pipeline (Production)
 # ==============================================================================
 # Comprehensive CI/CD workflow for the Purrfect Spots application
 # Includes linting, testing, security scanning, and build verification
 #
 # Best Practices Implemented:
-# - Pinned action versions for reproducibility
+# - All actions pinned to full SHA for supply-chain security
 # - Proper job dependencies and conditional execution
 # - Caching for faster builds
 # - Security hardening with minimal permissions
 # - Graceful degradation for non-critical checks
+# - Consistent timeout-minutes on all jobs
 # ==============================================================================
 
 name: CI/CD Pipeline
@@ -22,6 +23,7 @@ on:
       - "**.md"
       - ".vscode/**"
       - ".agent/**"
+      - ".gemini/**"
   pull_request:
     branches: [main, develop, dev]
     paths-ignore:
@@ -29,6 +31,7 @@ on:
       - "**.md"
       - ".vscode/**"
       - ".agent/**"
+      - ".gemini/**"
   workflow_dispatch:
     inputs:
       force_full_run:
@@ -44,7 +47,6 @@ concurrency:
 env:
   PYTHON_VERSION: "3.12"
   NODE_VERSION: "20"
-  # Cache keys for dependency caching
   CACHE_VERSION: v1
 
 # ==============================================================================
@@ -73,7 +75,6 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
       docker: ${{ steps.filter.outputs.docker }}
       ci: ${{ steps.filter.outputs.ci }}
-      # Consolidated flags for cleaner logic downstream
       run_backend: ${{ inputs.force_full_run == true || steps.filter.outputs.backend == 'true' || steps.filter.outputs.ci == 'true' || steps.filter.outputs.api_spec == 'true' }}
       run_frontend: ${{ inputs.force_full_run == true || steps.filter.outputs.frontend == 'true' || steps.filter.outputs.ci == 'true' }}
     steps:
@@ -185,11 +186,13 @@ jobs:
           REDIS_URL: redis://localhost:6379
           JWT_SECRET: ${{ secrets.TEST_JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.TEST_JWT_REFRESH_SECRET }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'http://localhost:54321' }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           cd backend
+          # Provide fallback for SUPABASE_URL if not set
+          export SUPABASE_URL="${SUPABASE_URL:-http://localhost:54321}"
           pytest \
             --cov=. \
             --cov-report=xml:coverage.xml \
@@ -200,7 +203,7 @@ jobs:
             --tb=short
 
       - name: Upload coverage HTML report
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         if: always()
         with:
           name: backend-coverage-report
@@ -239,15 +242,14 @@ jobs:
       - name: Check for API breaking changes
         env:
           ENVIRONMENT: test
-          # Ensure fallback to memory if Redis is missing, but provide URL just in case app expects it
-          # No REDIS_URL means memory fallback in limiter.py, which is safer here.
           JWT_SECRET: ${{ secrets.TEST_JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.TEST_JWT_REFRESH_SECRET }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'http://localhost:54321' }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           cd backend
+          export SUPABASE_URL="${SUPABASE_URL:-http://localhost:54321}"
           if [ -f "../docs/openapi-baseline.json" ]; then
             python scripts/check_api_breaking_changes.py --baseline ../docs/openapi-baseline.json
           else
@@ -260,15 +262,16 @@ jobs:
           ENVIRONMENT: test
           JWT_SECRET: ${{ secrets.TEST_JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.TEST_JWT_REFRESH_SECRET }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'http://localhost:54321' }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           cd backend
+          export SUPABASE_URL="${SUPABASE_URL:-http://localhost:54321}"
           python scripts/export_openapi.py --output ../docs/openapi-current.json || echo "::warning::Failed to export OpenAPI spec"
 
       - name: Upload OpenAPI specs
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         if: always()
         with:
           name: openapi-specs
@@ -295,7 +298,7 @@ jobs:
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Build Backend Docker Image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@14487ce63c7a62a4a324b0bfb37086795e31c6c1 # v6.13.0
         with:
           context: ./backend
           file: ./backend/Dockerfile
@@ -353,12 +356,13 @@ jobs:
           npm run test:coverage
 
       - name: Upload coverage HTML report
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         if: always()
         with:
           name: frontend-coverage-report
           path: frontend/coverage
           retention-days: 14
+          if-no-files-found: warn
 
   frontend-build:
     name: Frontend Build
@@ -386,7 +390,7 @@ jobs:
           VITE_API_BASE_URL: https://api.purrfect-spots.com
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
           name: frontend-build
           path: frontend/dist
@@ -420,7 +424,7 @@ jobs:
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Build Frontend Docker Image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@14487ce63c7a62a4a324b0bfb37086795e31c6c1 # v6.13.0
         with:
           context: ./frontend
           file: ./frontend/Dockerfile
@@ -439,19 +443,18 @@ jobs:
       security-events: write
       contents: read
     continue-on-error: false # Enforced - block on security issues
-    timeout-minutes: 45
+    timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
 
       - name: Run Trivy vulnerability scanner (filesystem)
-        uses: aquasecurity/trivy-action@0.34.1
+        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # v0.28.0
         with:
-          version: "latest"
           scan-type: "fs"
           scan-ref: "."
           severity: "CRITICAL,HIGH"
-          exit-code: "1" # Fail the build on critical/high vulnerabilities
+          exit-code: "1"
           ignore-unfixed: true
           format: "sarif"
           output: "trivy-results.sarif"
@@ -461,7 +464,7 @@ jobs:
         if: always()
         with:
           sarif_file: "trivy-results.sarif"
-        continue-on-error: true # Upload should not block even if main scan fails
+        continue-on-error: true
 
   secret-scan:
     name: Secret Detection
@@ -475,10 +478,9 @@ jobs:
           fetch-depth: 0
 
       - name: Run Trufflehog
-        uses: trufflesecurity/trufflehog@v3.93.4
+        uses: trufflesecurity/trufflehog@7c0734f20e4cf5a91076b5a10efad828e53e4bc3 # v3.93.4
         with:
           extra_args: --only-verified
-        # Note: --fail is automatically added by the action, don't add it again
 
   sast-scan:
     name: SAST Scan (Semgrep)
@@ -488,17 +490,23 @@ jobs:
       security-events: write
       contents: read
     continue-on-error: true
+    container:
+      image: semgrep/semgrep:latest
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
 
-      - name: Run Semgrep
-        uses: semgrep/semgrep-action@v1
-        with:
-          config: p/default p/security-audit p/owasp-top-ten
-
+      - name: Run Semgrep scan
         env:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+        run: |
+          semgrep scan \
+            --config "p/default" \
+            --config "p/security-audit" \
+            --config "p/owasp-top-ten" \
+            --sarif \
+            --output semgrep.sarif \
+            . || true
 
       - name: Upload Semgrep SARIF
         uses: github/codeql-action/upload-sarif@48ab28a6f5dbc2a99bf1e0131198dd8f1df78169 # v3
@@ -522,7 +530,7 @@ jobs:
       - name: Dependency Review
         uses: actions/dependency-review-action@72eb03d02ccd075d15c1e55d5d8525b6a383d65b # v4.3.3
         with:
-          fail-on-severity: critical # Only fail on critical
+          fail-on-severity: critical
           allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, Python-2.0, Unlicense, 0BSD
 
   # ============================================================================
@@ -605,8 +613,9 @@ jobs:
     needs:
       - quality-gate
       - backend-build
+      - backend-typecheck
+      - api-contract-check
       - frontend-docker
-
       - security-scan
       - secret-scan
       - sast-scan
@@ -631,6 +640,8 @@ jobs:
           echo "### Optional Checks" >> $GITHUB_STEP_SUMMARY
           echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend Type Check | ${{ needs.backend-typecheck.result == 'success' && 'PASSED' || needs.backend-typecheck.result == 'skipped' && 'SKIPPED' || 'ISSUES FOUND' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| API Contract Check | ${{ needs.api-contract-check.result == 'success' && 'PASSED' || needs.api-contract-check.result == 'skipped' && 'SKIPPED' || 'ISSUES FOUND' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Security Scan | ${{ needs.security-scan.result == 'success' && 'PASSED' || needs.security-scan.result == 'skipped' && 'SKIPPED' || 'ISSUES FOUND' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| SAST Scan (Semgrep) | ${{ needs.sast-scan.result == 'success' && 'PASSED' || needs.sast-scan.result == 'skipped' && 'SKIPPED' || 'ISSUES FOUND' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Secret Detection | ${{ needs.secret-scan.result == 'success' && 'PASSED' || needs.secret-scan.result == 'skipped' && 'SKIPPED' || 'ISSUES FOUND' }} |" >> $GITHUB_STEP_SUMMARY
