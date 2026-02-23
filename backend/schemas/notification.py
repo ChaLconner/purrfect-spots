@@ -1,10 +1,10 @@
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel
 
 
-class NotificationType(str, Enum):
+class NotificationType(StrEnum):
     LIKE = "like"
     COMMENT = "comment"
     TREAT = "treat"
