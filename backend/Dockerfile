@@ -5,13 +5,12 @@
 # Base image: Python 3.12 slim
 
 # Stage 1: Builder
-FROM python:3.12-slim AS builder
+FROM python:3.12 AS builder
 
 WORKDIR /build
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
-    gcc \
     libmagic1 \
     && rm -rf /var/lib/apt/lists/*
 
