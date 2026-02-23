@@ -102,7 +102,7 @@ pip-requirements-parser==32.0.1
 pip_audit==2.10.0
 platformdirs==4.9.2
 pluggy==1.6.0
-postgrest==0.16.11
+postgrest==2.28.0
 propcache==0.4.1
 proto-plus==1.27.1
 protobuf==5.29.5
