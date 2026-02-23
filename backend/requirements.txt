@@ -147,7 +147,7 @@ SQLAlchemy==2.0.46
 starlette==0.50.0
 storage3==0.7.7
 StrEnum==0.4.15
-stripe==14.1.0
+stripe==14.3.0
 supabase==2.5.0
 supafunc==0.4.7
 tomli==2.4.0
