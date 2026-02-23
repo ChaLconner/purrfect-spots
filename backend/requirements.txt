@@ -1,4 +1,4 @@
-﻿aiohappyeyeballs==2.6.1
+aiohappyeyeballs==2.6.1
 aiohttp==3.13.3
 aiosignal==1.4.0
 alembic==1.18.3
@@ -135,7 +135,7 @@ requests-oauthlib==2.0.0
 resend==2.21.0
 rich==14.3.1
 rsa==4.9.1
-ruff==0.14.11
+ruff==0.15.2
 s3transfer==0.16.0
 scramp==1.4.8
 sentry-sdk==2.51.0
