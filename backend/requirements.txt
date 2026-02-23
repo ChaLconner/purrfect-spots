@@ -1,4 +1,4 @@
-﻿aiohappyeyeballs==2.6.1
+aiohappyeyeballs==2.6.1
 aiohttp==3.13.3
 aiosignal==1.4.0
 alembic==1.18.3
@@ -129,7 +129,7 @@ python-magic-bin==0.4.14 ; sys_platform == 'win32'
 python-multipart==0.0.22
 PyYAML==6.0.3
 realtime==1.0.6
-redis==5.3.1
+redis==7.2.0
 requests==2.32.5
 requests-oauthlib==2.0.0
 resend==2.21.0
