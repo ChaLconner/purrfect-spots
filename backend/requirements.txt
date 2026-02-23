@@ -35,7 +35,7 @@ deprecation==2.1.0
 dnspython==2.8.0
 email-validator==2.3.0
 fastapi==0.128.0
-filelock==3.20.3
+filelock==3.24.3
 frozenlist==1.8.0
 google-ai-generativelanguage==0.6.15
 google-api-core==2.30.0
