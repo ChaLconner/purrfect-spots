@@ -7,10 +7,13 @@
 <script setup lang="ts">
 import { ref, onMounted, onErrorCaptured } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { AuthService } from '../services/authService';
 import { useAuthStore } from '../store/authStore';
 import { showError, showSuccess } from '../store/toast';
 import type { LoginResponse } from '../types/auth';
+
+const { t } = useI18n();
 
 const router = useRouter();
 const route = useRoute();
@@ -41,7 +44,7 @@ onMounted(() => {
   });
 });
 
-const handleMagicLink = async (hash: string) => {
+const handleMagicLink = async (hash: string): Promise<boolean> => {
   const params = new URLSearchParams(hash.substring(1));
   const accessToken = params.get('access_token');
   const refreshToken = params.get('refresh_token');
@@ -72,7 +75,7 @@ const handleMagicLink = async (hash: string) => {
   return false;
 };
 
-const handleGoogleCode = async (code: string, codeVerifier: string) => {
+const handleGoogleCode = async (code: string, codeVerifier: string): Promise<boolean> => {
   const data = await AuthService.googleCodeExchange(code, codeVerifier);
   useAuthStore().setAuth(data);
 
@@ -93,7 +96,8 @@ const handleGoogleCode = async (code: string, codeVerifier: string) => {
   return true;
 };
 
-const handleAuthError = (err: unknown) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const handleAuthError = (err: any): void => {
   if (err.message?.includes('invalid_grant')) {
     error.value = t('auth.callback.authExpired');
   } else if (err.message?.includes('redirect_uri')) {
@@ -108,7 +112,7 @@ const handleAuthError = (err: unknown) => {
   }
 };
 
-const processAuthCallback = async () => {
+const processAuthCallback = async (): Promise<boolean> => {
   const code = route.query.code as string;
   const codeVerifier = globalThis.sessionStorage.getItem('google_code_verifier');
   const hash = globalThis.location.hash;
@@ -132,7 +136,7 @@ const processAuthCallback = async () => {
   return false;
 };
 
-const handleAuthCallback = async () => {
+const handleAuthCallback = async (): Promise<void> => {
   let retryCount = 0;
   const maxRetries = 3;
 

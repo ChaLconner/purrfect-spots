@@ -98,7 +98,7 @@ watch(
 );
 
 // Debounced search handler
-function handleSearchInput() {
+function handleSearchInput(): void {
   // Clear existing timer
   if (debounceTimer) {
     clearTimeout(debounceTimer);
@@ -111,7 +111,7 @@ function handleSearchInput() {
 }
 
 // Clear search immediately
-function clearSearch() {
+function clearSearch(): void {
   localSearchQuery.value = '';
   if (debounceTimer) {
     clearTimeout(debounceTimer);

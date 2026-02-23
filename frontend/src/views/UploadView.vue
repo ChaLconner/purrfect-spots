@@ -268,7 +268,7 @@ const quotaStatus = ref<{
 } | null>(null);
 
 // Fetch real quota from API
-const refreshQuota = async () => {
+const refreshQuota = async (): Promise<void> => {
   if (isAuthenticated.value) {
     try {
       const quota = await getUploadQuota();
@@ -310,17 +310,17 @@ const isStep3Valid = computed(() => {
 });
 
 // Handlers
-const handleCheckAuth = () => {
+const handleCheckAuth = (): void => {
   if (!isAuthenticated.value) {
     showLoginModal.value = true;
   }
 };
 
-const handleLoginParams = () => {
+const handleLoginParams = (): void => {
   router.push({ path: '/login', query: { redirect: '/upload' } });
 };
 
-const handleFileSelected = async ({ file, url }: { file: File; url: string }) => {
+const handleFileSelected = async ({ file, url }: { file: File; url: string }): Promise<void> => {
   uploadData.value.file = file;
   uploadData.value.previewUrl = url;
 
@@ -361,7 +361,7 @@ watch(currentStep, (step) => {
   }
 });
 
-const initMap = async () => {
+const initMap = async (): Promise<void> => {
   try {
     await loadGoogleMaps({ apiKey: getEnvVar('VITE_GOOGLE_MAPS_API_KEY') });
 
@@ -387,7 +387,7 @@ const initMap = async () => {
   }
 };
 
-const updateLocation = (lat: number, lng: number) => {
+const updateLocation = (lat: number, lng: number): void => {
   uploadData.value.latitude = lat;
   uploadData.value.longitude = lng;
 
@@ -402,7 +402,7 @@ const updateLocation = (lat: number, lng: number) => {
   }
 };
 
-const getCurrentLocation = () => {
+const getCurrentLocation = (): void => {
   if (!navigator.geolocation) {
     showError(t('upload.errorGeolocation'), t('common.error'));
     return;
@@ -434,7 +434,7 @@ watch(isUploading, (val) => {
   isSubmitting.value = val;
 });
 
-const submitUpload = async () => {
+const submitUpload = async (): Promise<void> => {
   if (!uploadData.value.file) return;
 
   if (!uploadData.value.latitude || !uploadData.value.longitude) {
@@ -472,7 +472,7 @@ const submitUpload = async () => {
   }
 };
 
-const resetForm = () => {
+const resetForm = (): void => {
   uploadData.value = {
     file: null,
     previewUrl: null,
