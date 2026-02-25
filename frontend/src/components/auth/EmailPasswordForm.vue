@@ -21,7 +21,7 @@ const form = reactive({
   name: '',
 });
 
-const handleSubmit = () => {
+const handleSubmit = (): void => {
   emit('submit', { ...form });
 };
 </script>

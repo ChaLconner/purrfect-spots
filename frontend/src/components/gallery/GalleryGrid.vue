@@ -146,7 +146,7 @@ const loadMoreObserver = ref<IntersectionObserver | null>(null);
 const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024);
 
 let resizeTimer: ReturnType<typeof setTimeout> | null = null;
-const updateWidth = () => {
+const updateWidth = (): void => {
   if (resizeTimer) clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
     windowWidth.value = globalThis.innerWidth;

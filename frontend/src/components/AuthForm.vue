@@ -220,7 +220,7 @@ watch(
 );
 
 // Check if user is already logged in
-const checkAuthAndRedirect = () => {
+const checkAuthAndRedirect = (): void => {
   const authStore = useAuthStore();
   if (authStore.isUserReady) {
     // 1. Priority: Deep Linking (Return to intended page)

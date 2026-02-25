@@ -6,7 +6,7 @@ import { getGoogleAuthUrl } from '../../utils/oauth';
 
 const isLoading = ref(false);
 
-const handleGoogleLogin = async () => {
+const handleGoogleLogin = async (): Promise<void> => {
   isLoading.value = true;
 
   try {
