@@ -46,7 +46,7 @@ on:
 
 concurrency:
   group: deploy-${{ github.ref }}
-  cancel-in-progress: false # Don't cancel in-progress deployments
+  cancel-in-progress: true # Cancel pending deploys; only the latest commit deploys
 
 # ==============================================================================
 # PERMISSIONS - Principle of least privilege
@@ -226,7 +226,17 @@ jobs:
           # NOTE: Do NOT cd into frontend/ here. The Vercel project settings
           # have Root Directory set to 'frontend', so deploying from repo root is correct.
 
-          # Link to Vercel project (uses VERCEL_TOKEN env var)
+          # Validate required Supabase secrets
+          if [ -z "$SUPABASE_URL" ]; then
+            echo "::error::SUPABASE_URL secret is not set! Frontend cannot connect to Supabase."
+            exit 1
+          fi
+          if [ -z "$SUPABASE_KEY" ]; then
+            echo "::error::SUPABASE_KEY secret is not set! Frontend cannot connect to Supabase."
+            exit 1
+          fi
+
+          # Link to Vercel project
           vercel link --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" || { echo "::error::Vercel link failed"; exit 1; }
 
           # Set environment variables via file (prevents secrets in logs)
@@ -241,17 +251,14 @@ jobs:
             rm -f /tmp/google_maps_key.txt
           fi
 
-          if [ -n "$SUPABASE_URL" ]; then
-            echo "$SUPABASE_URL" > /tmp/supabase_url.txt
-            vercel env add VITE_SUPABASE_URL preview --force --yes --token="$VERCEL_TOKEN" --file=/tmp/supabase_url.txt 2>/dev/null || true
-            rm -f /tmp/supabase_url.txt
-          fi
+          echo "$SUPABASE_URL" > /tmp/supabase_url.txt
+          vercel env add VITE_SUPABASE_URL preview --force --yes --token="$VERCEL_TOKEN" --file=/tmp/supabase_url.txt 2>/dev/null || true
+          rm -f /tmp/supabase_url.txt
 
-          if [ -n "$SUPABASE_KEY" ]; then
-            echo "$SUPABASE_KEY" > /tmp/supabase_key.txt
-            vercel env add VITE_SUPABASE_ANON_KEY preview --force --yes --token="$VERCEL_TOKEN" --file=/tmp/supabase_key.txt 2>/dev/null || true
-            rm -f /tmp/supabase_key.txt
-          fi
+          echo "$SUPABASE_KEY" > /tmp/supabase_key.txt
+          vercel env add VITE_SUPABASE_ANON_KEY preview --force --yes --token="$VERCEL_TOKEN" --file=/tmp/supabase_key.txt 2>/dev/null || true
+          rm -f /tmp/supabase_key.txt
+
           echo "✅ Environment variables configured"
 
           # Deploy to Vercel
@@ -485,6 +492,16 @@ jobs:
           echo "🔗 Linking to Vercel project..."
           vercel link --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" || { echo "::error::Vercel link failed"; exit 1; }
 
+          # Validate required Supabase secrets
+          if [ -z "$SUPABASE_URL" ]; then
+            echo "::error::SUPABASE_URL secret is not set! Frontend cannot connect to Supabase."
+            exit 1
+          fi
+          if [ -z "$SUPABASE_KEY" ]; then
+            echo "::error::SUPABASE_KEY secret is not set! Frontend cannot connect to Supabase."
+            exit 1
+          fi
+
           echo "🔧 Injecting environment variables..."
           echo "$PROD_API_URL" > /tmp/prod_api_url.txt
           vercel env add VITE_API_BASE_URL production --force --yes --token="$VERCEL_TOKEN" --file=/tmp/prod_api_url.txt 2>/dev/null || true
@@ -496,17 +513,14 @@ jobs:
             rm -f /tmp/google_maps_key.txt
           fi
 
-          if [ -n "$SUPABASE_URL" ]; then
-            echo "$SUPABASE_URL" > /tmp/supabase_url.txt
-            vercel env add VITE_SUPABASE_URL production --force --yes --token="$VERCEL_TOKEN" --file=/tmp/supabase_url.txt 2>/dev/null || true
-            rm -f /tmp/supabase_url.txt
-          fi
+          echo "$SUPABASE_URL" > /tmp/supabase_url.txt
+          vercel env add VITE_SUPABASE_URL production --force --yes --token="$VERCEL_TOKEN" --file=/tmp/supabase_url.txt 2>/dev/null || true
+          rm -f /tmp/supabase_url.txt
 
-          if [ -n "$SUPABASE_KEY" ]; then
-            echo "$SUPABASE_KEY" > /tmp/supabase_key.txt
-            vercel env add VITE_SUPABASE_ANON_KEY production --force --yes --token="$VERCEL_TOKEN" --file=/tmp/supabase_key.txt 2>/dev/null || true
-            rm -f /tmp/supabase_key.txt
-          fi
+          echo "$SUPABASE_KEY" > /tmp/supabase_key.txt
+          vercel env add VITE_SUPABASE_ANON_KEY production --force --yes --token="$VERCEL_TOKEN" --file=/tmp/supabase_key.txt 2>/dev/null || true
+          rm -f /tmp/supabase_key.txt
+
           echo "✅ Environment variables configured"
 
           echo "🚀 Triggering Vercel Production Deployment..."
