@@ -275,27 +275,29 @@ jobs:
             exit 0
           fi
 
-          cd backend
+          # NOTE: Do NOT cd into backend/ here. The Vercel project settings
+          # have Root Directory set to 'backend', so deploying from repo root is correct.
+          # Use --cwd backend to point vercel CLI at the right directory without doubling the path.
 
-          vercel link --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" || { echo "::error::Vercel link failed for backend"; exit 1; }
+          vercel link --yes --cwd backend --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" || { echo "::error::Vercel link failed for backend"; exit 1; }
 
           echo "🔧 Setting environment variables..."
           echo "$SUPABASE_URL" > /tmp/supabase_url.txt
-          vercel env add SUPABASE_URL preview --force --yes --token="$VERCEL_TOKEN" --file=/tmp/supabase_url.txt 2>/dev/null || true
+          vercel env add SUPABASE_URL preview --force --yes --cwd backend --token="$VERCEL_TOKEN" --file=/tmp/supabase_url.txt 2>/dev/null || true
           rm -f /tmp/supabase_url.txt
 
           echo "$SUPABASE_KEY" > /tmp/supabase_key.txt
-          vercel env add SUPABASE_KEY preview --force --yes --token="$VERCEL_TOKEN" --file=/tmp/supabase_key.txt 2>/dev/null || true
+          vercel env add SUPABASE_KEY preview --force --yes --cwd backend --token="$VERCEL_TOKEN" --file=/tmp/supabase_key.txt 2>/dev/null || true
           rm -f /tmp/supabase_key.txt
 
           if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
             echo "$SUPABASE_SERVICE_ROLE_KEY" > /tmp/supabase_service_role_key.txt
-            vercel env add SUPABASE_SERVICE_ROLE_KEY preview --force --yes --token="$VERCEL_TOKEN" --file=/tmp/supabase_service_role_key.txt 2>/dev/null || true
+            vercel env add SUPABASE_SERVICE_ROLE_KEY preview --force --yes --cwd backend --token="$VERCEL_TOKEN" --file=/tmp/supabase_service_role_key.txt 2>/dev/null || true
             rm -f /tmp/supabase_service_role_key.txt
           fi
           echo "✅ Environment variables configured"
 
-          vercel deploy --yes --token="$VERCEL_TOKEN"
+          vercel deploy --yes --cwd backend --token="$VERCEL_TOKEN"
 
       - name: Health Check
         if: inputs.skip_health_check != true
@@ -552,34 +554,36 @@ jobs:
              exit 1
           fi
 
-          cd backend
+          # NOTE: Do NOT cd into backend/ here. The Vercel project settings
+          # have Root Directory set to 'backend', so deploying from repo root is correct.
+          # Use --cwd backend to point vercel CLI at the right directory without doubling the path.
 
           echo "🔗 Linking Backend to Vercel..."
-          vercel link --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" || { echo "::error::Vercel link failed for backend"; exit 1; }
+          vercel link --yes --cwd backend --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" || { echo "::error::Vercel link failed for backend"; exit 1; }
 
           echo "🔧 Injecting environment variables..."
           echo "$SUPABASE_URL" > /tmp/supabase_url.txt
-          vercel env add SUPABASE_URL production --force --yes --token="$VERCEL_TOKEN" --file=/tmp/supabase_url.txt 2>/dev/null || true
+          vercel env add SUPABASE_URL production --force --yes --cwd backend --token="$VERCEL_TOKEN" --file=/tmp/supabase_url.txt 2>/dev/null || true
           rm -f /tmp/supabase_url.txt
 
           echo "$SUPABASE_KEY" > /tmp/supabase_key.txt
-          vercel env add SUPABASE_KEY production --force --yes --token="$VERCEL_TOKEN" --file=/tmp/supabase_key.txt 2>/dev/null || true
+          vercel env add SUPABASE_KEY production --force --yes --cwd backend --token="$VERCEL_TOKEN" --file=/tmp/supabase_key.txt 2>/dev/null || true
           rm -f /tmp/supabase_key.txt
 
           if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
             echo "$SUPABASE_SERVICE_ROLE_KEY" > /tmp/supabase_service_role_key.txt
-            vercel env add SUPABASE_SERVICE_ROLE_KEY production --force --yes --token="$VERCEL_TOKEN" --file=/tmp/supabase_service_role_key.txt 2>/dev/null || true
+            vercel env add SUPABASE_SERVICE_ROLE_KEY production --force --yes --cwd backend --token="$VERCEL_TOKEN" --file=/tmp/supabase_service_role_key.txt 2>/dev/null || true
             rm -f /tmp/supabase_service_role_key.txt
           fi
           if [ -n "$JWT_SECRET" ]; then
             echo "$JWT_SECRET" > /tmp/jwt_secret.txt
-            vercel env add JWT_SECRET production --force --yes --token="$VERCEL_TOKEN" --file=/tmp/jwt_secret.txt 2>/dev/null || true
+            vercel env add JWT_SECRET production --force --yes --cwd backend --token="$VERCEL_TOKEN" --file=/tmp/jwt_secret.txt 2>/dev/null || true
             rm -f /tmp/jwt_secret.txt
           fi
           echo "✅ Environment variables configured"
 
           echo "🚀 Triggering Backend Deployment..."
-          vercel deploy --prod --yes --token="$VERCEL_TOKEN"
+          vercel deploy --prod --yes --cwd backend --token="$VERCEL_TOKEN"
 
       - name: Health Check
         if: inputs.skip_health_check != true
