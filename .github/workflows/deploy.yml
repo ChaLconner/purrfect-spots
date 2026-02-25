@@ -223,7 +223,8 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
           echo "🚀 Deploying Frontend to Vercel Staging..."
-          cd frontend
+          # NOTE: Do NOT cd into frontend/ here. The Vercel project settings
+          # have Root Directory set to 'frontend', so deploying from repo root is correct.
 
           # Link to Vercel project (uses VERCEL_TOKEN env var)
           vercel link --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" || { echo "::error::Vercel link failed"; exit 1; }
@@ -476,7 +477,8 @@ jobs:
              exit 1
           fi
 
-          cd frontend
+          # NOTE: Do NOT cd into frontend/ here. The Vercel project settings
+          # have Root Directory set to 'frontend', so deploying from repo root is correct.
 
           echo "🔗 Linking to Vercel project..."
           vercel link --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" || { echo "::error::Vercel link failed"; exit 1; }
