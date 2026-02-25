@@ -528,7 +528,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
 
       - name: Dependency Review
-        uses: actions/dependency-review-action@72eb03d02ccd075d15c1e55d5d8525b6a383d65b # v4.3.3
+        uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: critical
           allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, Python-2.0, Unlicense, 0BSD

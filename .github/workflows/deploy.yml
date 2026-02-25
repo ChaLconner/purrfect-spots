@@ -219,6 +219,8 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
           echo "🚀 Deploying Frontend to Vercel Staging..."
           cd frontend
@@ -236,6 +238,18 @@ jobs:
             echo "$GOOGLE_MAPS_API_KEY" > /tmp/google_maps_key.txt
             vercel env add VITE_GOOGLE_MAPS_API_KEY preview --force --yes --file=/tmp/google_maps_key.txt 2>/dev/null || true
             rm -f /tmp/google_maps_key.txt
+          fi
+
+          if [ -n "$SUPABASE_URL" ]; then
+            echo "$SUPABASE_URL" > /tmp/supabase_url.txt
+            vercel env add VITE_SUPABASE_URL preview --force --yes --file=/tmp/supabase_url.txt 2>/dev/null || true
+            rm -f /tmp/supabase_url.txt
+          fi
+
+          if [ -n "$SUPABASE_KEY" ]; then
+            echo "$SUPABASE_KEY" > /tmp/supabase_key.txt
+            vercel env add VITE_SUPABASE_ANON_KEY preview --force --yes --file=/tmp/supabase_key.txt 2>/dev/null || true
+            rm -f /tmp/supabase_key.txt
           fi
           echo "✅ Environment variables configured"
 
@@ -440,6 +454,8 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           PROD_API_URL: ${{ secrets.PROD_API_URL }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           HAS_VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN != '' }}
           HAS_VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID != '' }}
           HAS_VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID != '' }}
@@ -474,6 +490,18 @@ jobs:
             echo "$GOOGLE_MAPS_API_KEY" > /tmp/google_maps_key.txt
             vercel env add VITE_GOOGLE_MAPS_API_KEY production --force --yes --file=/tmp/google_maps_key.txt 2>/dev/null || true
             rm -f /tmp/google_maps_key.txt
+          fi
+
+          if [ -n "$SUPABASE_URL" ]; then
+            echo "$SUPABASE_URL" > /tmp/supabase_url.txt
+            vercel env add VITE_SUPABASE_URL production --force --yes --file=/tmp/supabase_url.txt 2>/dev/null || true
+            rm -f /tmp/supabase_url.txt
+          fi
+
+          if [ -n "$SUPABASE_KEY" ]; then
+            echo "$SUPABASE_KEY" > /tmp/supabase_key.txt
+            vercel env add VITE_SUPABASE_ANON_KEY production --force --yes --file=/tmp/supabase_key.txt 2>/dev/null || true
+            rm -f /tmp/supabase_key.txt
           fi
           echo "✅ Environment variables configured"
 
