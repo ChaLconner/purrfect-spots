@@ -263,50 +263,9 @@ app.add_exception_handler(RequestValidationError, cast(ExceptionHandler, validat
 # app.add_exception_handler(asyncio.CancelledError, cast(ExceptionHandler, cancelled_error_handler))
 
 
-# ========== CORS Middleware ==========
+# ========== CORS Configuration (applied after all other middleware below) ==========
 allowed_origins = config.get_allowed_origins()
 logger.info(f"CORS allowed origins: {allowed_origins}")
-
-# SECURITY REVIEW: CORS Configuration
-# allow_credentials=True is necessary for authentication cookies to work
-# However, this can be a CSRF vulnerability if not properly configured
-# Mitigations:
-# 1. CSRF protection middleware is already enabled (see CSRFMiddleware)
-# 2. SameSite cookies are used (see set_refresh_cookie in auth_utils.py)
-# 3. Security headers (X-Frame-Options: DENY) prevent clickjacking
-# 4. Content-Security-Policy prevents XSS attacks
-#
-# SECURITY: Only allow credentials from trusted origins
-# Never use allow_origins=["*"] with allow_credentials=True
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=True,  # Required for cookie-based auth
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
-    allow_headers=[
-        "Accept",
-        "Accept-Language",
-        "Content-Language",
-        "Content-Type",
-        "Authorization",
-        "X-Requested-With",
-        "Origin",
-        "Access-Control-Request-Method",
-        "Access-Control-Request-Headers",
-        "Cache-Control",
-        "Pragma",
-        "X-CSRF-Token",  # Required for CSRF protection
-    ],
-    expose_headers=[
-        "Content-Range",
-        "X-Content-Range",
-        "X-Request-ID",
-        "X-CSRF-Token",
-        "Content-Length",
-        "Content-Type",
-    ],
-    max_age=86400,  # 24 hours
-)
 
 
 # ========== Health Check Endpoints ==========
@@ -389,6 +348,53 @@ app.add_middleware(RequestIdMiddleware)
 # ========== Compression ==========
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# ========== CORS Middleware (MUST BE LAST - outermost layer) ==========
+# IMPORTANT: In Starlette, the LAST middleware added is the OUTERMOST.
+# CORS must be outermost so it can add Access-Control-Allow-Origin headers
+# to ALL responses, including error responses from inner middleware like CSRF.
+# If CORS is not outermost, CSRF/Security middleware errors will be returned
+# WITHOUT CORS headers, causing the browser to block the response.
+#
+# SECURITY REVIEW: CORS Configuration
+# allow_credentials=True is necessary for authentication cookies to work
+# Mitigations:
+# 1. CSRF protection middleware is already enabled (see CSRFMiddleware)
+# 2. SameSite cookies are used (see set_refresh_cookie in auth_utils.py)
+# 3. Security headers (X-Frame-Options: DENY) prevent clickjacking
+# 4. Content-Security-Policy prevents XSS attacks
+#
+# SECURITY: Only allow credentials from trusted origins
+# Never use allow_origins=["*"] with allow_credentials=True
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,  # Required for cookie-based auth
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
+    allow_headers=[
+        "Accept",
+        "Accept-Language",
+        "Content-Language",
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Origin",
+        "Access-Control-Request-Method",
+        "Access-Control-Request-Headers",
+        "Cache-Control",
+        "Pragma",
+        "X-CSRF-Token",  # Required for CSRF protection
+    ],
+    expose_headers=[
+        "Content-Range",
+        "X-Content-Range",
+        "X-Request-ID",
+        "X-CSRF-Token",
+        "Content-Length",
+        "Content-Type",
+    ],
+    max_age=86400,  # 24 hours
+)
 
 # Vercel expects this to be available
 
