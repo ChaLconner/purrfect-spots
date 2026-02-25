@@ -26,16 +26,8 @@ export interface PaginatedResponse<T> {
 }
 
 // ========== Error Types ==========
-export const ApiErrorTypes = {
-  NETWORK_ERROR: 'NETWORK_ERROR',
-  AUTHENTICATION_ERROR: 'AUTHENTICATION_ERROR',
-  AUTHORIZATION_ERROR: 'AUTHORIZATION_ERROR',
-  VALIDATION_ERROR: 'VALIDATION_ERROR',
-  SERVER_ERROR: 'SERVER_ERROR',
-  UNKNOWN_ERROR: 'UNKNOWN_ERROR',
-} as const;
-
-export type ApiErrorType = (typeof ApiErrorTypes)[keyof typeof ApiErrorTypes];
+// Single source of truth lives in utils/api.ts to avoid circular dependency
+export { ApiErrorTypes, ApiErrorType } from '../utils/api';
 
 // ========== Cat/Gallery Types ==========
 /**

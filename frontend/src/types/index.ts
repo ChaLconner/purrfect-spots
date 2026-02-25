@@ -25,6 +25,7 @@ export type {
 } from './api';
 
 export { ApiErrorTypes } from './api';
+export { ApiError } from '../utils/api';
 
 // Toast Types
 export type { ToastType } from './toast';

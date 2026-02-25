@@ -211,6 +211,8 @@ coverage: {
     assetsDir: 'assets',
     // Chunk size warning limit (500kb)
     chunkSizeWarningLimit: 500,
+    // Skip gzip size reporting (handled by compression plugin) - saves memory
+    reportCompressedSize: false,
     rollupOptions: {
       output: {
         // Code splitting for better caching
@@ -222,6 +224,10 @@ coverage: {
             id.includes('node_modules/pinia')
           ) {
             return 'vue-vendor';
+          }
+          // Supabase
+          if (id.includes('node_modules/@supabase')) {
+            return 'supabase';
           }
           // Axios
           if (id.includes('node_modules/axios')) {
@@ -256,13 +262,14 @@ coverage: {
     // Enable asset optimization
     assetsInlineLimit: 4096, // Inline assets smaller than 4kb
     sourcemap: false, // Disable sourcemaps in production
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true, // Remove console.log in production
-        drop_debugger: true, // Remove debugger statements
-      },
-    },
+    // Use esbuild instead of terser: 10-20x faster, uses far less RAM
+    // Terser caused OOM crashes on Vercel's 2-core / 8GB build machines
+    minify: 'esbuild',
+  },
+  // esbuild minification options (root-level in Vite 7, not inside build)
+  esbuild: {
+    drop: ['console', 'debugger'], // Remove console.log and debugger in production
+    legalComments: 'none',
   },
   optimizeDeps: {
     include: ['@googlemaps/js-api-loader'],

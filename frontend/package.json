@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc && vite build",
-    "build:prod": "NODE_ENV=production vue-tsc && vite build --mode production",
+    "build:prod": "NODE_OPTIONS=--max-old-space-size=4096 vue-tsc && NODE_OPTIONS=--max-old-space-size=4096 vite build --mode production",
     "build:analyze": "vite build --mode production && npx source-map-explorer dist/assets/js/*.js",
     "preview": "vite preview",
     "type-check": "vue-tsc --noEmit",
