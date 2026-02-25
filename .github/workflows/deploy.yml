@@ -261,8 +261,17 @@ jobs:
 
           echo "✅ Environment variables configured"
 
-          # Deploy to Vercel
-          vercel deploy --yes --token="$VERCEL_TOKEN"
+          # Deploy to Vercel with VITE_ env vars passed directly to the build
+          BUILD_ENV_FLAGS=""
+          BUILD_ENV_FLAGS="$BUILD_ENV_FLAGS --build-env VITE_SUPABASE_URL=$SUPABASE_URL"
+          BUILD_ENV_FLAGS="$BUILD_ENV_FLAGS --build-env VITE_SUPABASE_ANON_KEY=$SUPABASE_KEY"
+          if [ -n "$STAGING_API_URL" ]; then
+            BUILD_ENV_FLAGS="$BUILD_ENV_FLAGS --build-env VITE_API_BASE_URL=$STAGING_API_URL"
+          fi
+          if [ -n "$GOOGLE_MAPS_API_KEY" ]; then
+            BUILD_ENV_FLAGS="$BUILD_ENV_FLAGS --build-env VITE_GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY"
+          fi
+          vercel deploy --yes --token="$VERCEL_TOKEN" $BUILD_ENV_FLAGS
 
       - name: Deploy Backend to Vercel (Staging)
         shell: bash
@@ -524,7 +533,19 @@ jobs:
           echo "✅ Environment variables configured"
 
           echo "🚀 Triggering Vercel Production Deployment..."
-          DEPLOY_OUTPUT=$(vercel deploy --prod --yes --token="$VERCEL_TOKEN")
+          # Pass VITE_ env vars directly to the build via --build-env to ensure
+          # they are available during Vite's build process, even if vercel env add
+          # hasn't fully propagated yet.
+          BUILD_ENV_FLAGS=""
+          BUILD_ENV_FLAGS="$BUILD_ENV_FLAGS --build-env VITE_SUPABASE_URL=$SUPABASE_URL"
+          BUILD_ENV_FLAGS="$BUILD_ENV_FLAGS --build-env VITE_SUPABASE_ANON_KEY=$SUPABASE_KEY"
+          if [ -n "$PROD_API_URL" ]; then
+            BUILD_ENV_FLAGS="$BUILD_ENV_FLAGS --build-env VITE_API_BASE_URL=$PROD_API_URL"
+          fi
+          if [ -n "$GOOGLE_MAPS_API_KEY" ]; then
+            BUILD_ENV_FLAGS="$BUILD_ENV_FLAGS --build-env VITE_GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY"
+          fi
+          DEPLOY_OUTPUT=$(vercel deploy --prod --yes --token="$VERCEL_TOKEN" $BUILD_ENV_FLAGS)
           DEPLOY_EXIT_CODE=$?
 
           if [ $DEPLOY_EXIT_CODE -ne 0 ]; then
@@ -611,38 +632,84 @@ jobs:
           echo "Waiting 15 seconds for service startup..."
           sleep 15
 
-          MAX_RETRIES=30
           RETRY_DELAY=10
-          ALL_OK=false
+          BACKEND_OK=false
+          FRONTEND_OK=false
 
-          for i in $(seq 1 $MAX_RETRIES); do
-            echo "Health check attempt $i of $MAX_RETRIES..."
-            
-            if curl -sf --max-time 15 "${PROD_API_URL}/health/ready" > /dev/null 2>&1; then
-              echo "✅ Backend readiness check passed!"
-              
-              if curl -sf --max-time 15 "$FRONTEND_URL" > /dev/null 2>&1; then
-                echo "✅ Frontend health check passed!"
-                ALL_OK=true
+          # ── 1. Frontend Health Check ──
+          echo ""
+          echo "━━━ Frontend Health Check ━━━"
+          if [ -z "$FRONTEND_URL" ]; then
+            echo "⚠️ Frontend URL not available from deploy step output. Skipping."
+            FRONTEND_OK=true
+          else
+            MAX_RETRIES_FE=10
+            for i in $(seq 1 $MAX_RETRIES_FE); do
+              echo "Frontend check attempt $i/$MAX_RETRIES_FE → $FRONTEND_URL"
+              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$FRONTEND_URL" 2>/dev/null || echo "000")
+              if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 400 ]; then
+                echo "✅ Frontend health check passed! (HTTP $HTTP_CODE)"
+                FRONTEND_OK=true
                 break
               fi
-            fi
-            
-            echo "Services not ready yet, retrying in ${RETRY_DELAY}s..."
-            sleep $RETRY_DELAY
-          done
-
-          if [ "$ALL_OK" != "true" ]; then
-            if [ "$HAS_BACKEND_PROJECT" != "true" ]; then
-               echo "⚠️ VERCEL_BACKEND_PROJECT_ID missing, so backend might not have deployed. Skipping failure."
-            else
-               echo "❌ Production health check failed after $MAX_RETRIES attempts"
-               echo "::error::Consider rolling back to previous version"
-               exit 1
+              echo "   ↳ HTTP $HTTP_CODE – retrying in ${RETRY_DELAY}s..."
+              sleep $RETRY_DELAY
+            done
+            if [ "$FRONTEND_OK" != "true" ]; then
+              echo "❌ Frontend health check failed after $MAX_RETRIES_FE attempts"
             fi
           fi
 
-          echo "✅ All production health checks passed!"
+          # ── 2. Backend Health Check ──
+          echo ""
+          echo "━━━ Backend Health Check ━━━"
+          if [ "$HAS_BACKEND_PROJECT" != "true" ]; then
+            echo "⚠️ VERCEL_BACKEND_PROJECT_ID not configured. Skipping backend health check."
+            BACKEND_OK=true
+          elif [ -z "$PROD_API_URL" ]; then
+            echo "⚠️ PROD_API_URL not set. Skipping backend health check."
+            BACKEND_OK=true
+          else
+            # Try lightweight liveness probe first
+            echo "Trying lightweight liveness probe..."
+            LIVE_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${PROD_API_URL}/health/live" 2>/dev/null || echo "000")
+            echo "   ↳ /health/live → HTTP $LIVE_CODE"
+
+            MAX_RETRIES_BE=20
+            for i in $(seq 1 $MAX_RETRIES_BE); do
+              echo "Backend readiness check attempt $i/$MAX_RETRIES_BE → ${PROD_API_URL}/health/ready"
+              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "${PROD_API_URL}/health/ready" 2>/dev/null || echo "000")
+              if [ "$HTTP_CODE" = "200" ]; then
+                echo "✅ Backend readiness check passed! (HTTP $HTTP_CODE)"
+                BACKEND_OK=true
+                break
+              fi
+              echo "   ↳ HTTP $HTTP_CODE – retrying in ${RETRY_DELAY}s..."
+              sleep $RETRY_DELAY
+            done
+
+            if [ "$BACKEND_OK" != "true" ]; then
+              echo "❌ Backend readiness check failed after $MAX_RETRIES_BE attempts"
+              echo "ℹ️ Trying to get diagnostic data..."
+              curl -s --max-time 10 "${PROD_API_URL}/health/ready" 2>/dev/null || echo "(no response)"
+            fi
+          fi
+
+          # ── 3. Final Verdict ──
+          echo ""
+          echo "━━━ Health Check Summary ━━━"
+          echo "Frontend: $([ "$FRONTEND_OK" = "true" ] && echo '✅ PASS' || echo '❌ FAIL')"
+          echo "Backend:  $([ "$BACKEND_OK" = "true" ] && echo '✅ PASS' || echo '❌ FAIL')"
+
+          if [ "$FRONTEND_OK" = "true" ] && [ "$BACKEND_OK" = "true" ]; then
+            echo ""
+            echo "✅ All production health checks passed!"
+          else
+            echo ""
+            echo "❌ Production health check failed"
+            echo "::error::Health check failed – Frontend: $FRONTEND_OK, Backend: $BACKEND_OK"
+            exit 1
+          fi
 
       - name: Smoke Tests
         env:
@@ -720,20 +787,21 @@ jobs:
 
           if [ -n "$PREVIOUS_TAG" ]; then
             echo "Rolling back to $PREVIOUS_TAG"
-            
-            # Rollback frontend
-            cd frontend
-            vercel rollback --yes --token="$VERCEL_TOKEN" || echo "::warning::Frontend rollback failed"
-            
+
+            # Rollback frontend (use --project flag, don't cd)
+            echo "Rolling back frontend..."
+            vercel rollback --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" || echo "::warning::Frontend rollback failed"
+
             # Rollback backend if configured
             if [ -n "$VERCEL_BACKEND_PROJECT_ID" ]; then
-              cd ../backend
-              vercel rollback --yes --token="$VERCEL_TOKEN" || echo "::warning::Backend rollback failed"
+              echo "Rolling back backend..."
+              vercel rollback --yes --token="$VERCEL_TOKEN" --project "$VERCEL_BACKEND_PROJECT_ID" || echo "::warning::Backend rollback failed"
             fi
-            
+
             echo "✅ Rollback completed"
           else
-            echo "::warning::No previous tag found for rollback"
+            echo "::warning::No previous tag found for rollback – this appears to be the first deployment."
+            echo "ℹ️ Manual intervention may be needed. Check the deployment dashboard."
           fi
 
       - name: Notify Deployment Result
