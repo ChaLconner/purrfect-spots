@@ -230,7 +230,7 @@ function getAvatarUrl(comment: Comment) {
 }
 
 function handleAvatarError(commentId: string) {
-  // eslint-disable-next-line security/detect-object-injection
+   
   avatarErrors.value[commentId] = true;
 }
 
@@ -299,7 +299,7 @@ async function saveEdit(id: string) {
     const updated = await SocialService.updateComment(id, editContent.value);
     const index = comments.value.findIndex((c) => c.id === id);
     if (index !== -1) {
-      // eslint-disable-next-line security/detect-object-injection
+       
       comments.value[index] = updated;
     }
     cancelEdit();

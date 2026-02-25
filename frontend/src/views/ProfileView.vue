@@ -164,14 +164,14 @@ const savePhotoChanges = async (data: { location_name: string; description: stri
     // Update local state
     const index = uploads.value.findIndex((p) => p.id === photoToEdit.value?.id);
     if (index !== -1 && photoToEdit.value) {
-      // eslint-disable-next-line security/detect-object-injection
+       
       const updatedUpload = {
-        // eslint-disable-next-line security/detect-object-injection
+         
         ...uploads.value[index],
         location_name: data.location_name,
         description: data.description,
       };
-      // eslint-disable-next-line security/detect-object-injection
+       
       uploads.value[index] = updatedUpload;
 
       // Update selected image view if open

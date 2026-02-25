@@ -26,8 +26,8 @@ export interface PaginatedResponse<T> {
 }
 
 // ========== Error Types ==========
-// Single source of truth lives in utils/api.ts to avoid circular dependency
-export { ApiErrorTypes, ApiErrorType } from '../utils/api';
+// Single source of truth lives in utils/apiErrors.ts to avoid circular dependency
+export { ApiError, ApiErrorTypes, type ApiErrorType } from '../utils/apiErrors';
 
 // ========== Cat/Gallery Types ==========
 /**

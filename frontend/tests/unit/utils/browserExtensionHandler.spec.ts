@@ -1,23 +1,21 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import {
-  isBrowserExtensionError,
-  logBrowserExtensionError,
-  handleBrowserExtensionError,
-  withBrowserExtensionHandling,
-  handleUnhandledRejection,
-  handleError,
-  handleVueError,
-} from '@/utils/browserExtensionHandler';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import * as browserHandler from '@/utils/browserExtensionHandler';
+import { isDev } from '@/utils/env';
 
+// Mock the environment utility
 vi.mock('@/utils/env', () => ({
-  isDev: vi.fn(() => true),
+  isDev: vi.fn(),
+  isProd: vi.fn(),
+  getEnvVar: vi.fn()
 }));
 
 describe('browserExtensionHandler', () => {
-  let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
+  let consoleWarnSpy: any;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Explicitly set isDev to true for these tests
+    vi.mocked(isDev).mockReturnValue(true);
     consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
 
@@ -27,44 +25,44 @@ describe('browserExtensionHandler', () => {
 
   describe('isBrowserExtensionError', () => {
     it('detects message channel closed errors', () => {
-      expect(isBrowserExtensionError({ message: 'message channel closed' })).toBe(true);
+      expect(browserHandler.isBrowserExtensionError({ message: 'message channel closed' })).toBe(true);
       expect(
-        isBrowserExtensionError({
+        browserHandler.isBrowserExtensionError({
           message: 'asynchronous response by returning true, but the message channel closed',
         })
       ).toBe(true);
     });
 
     it('detects ChunkLoadError', () => {
-      expect(isBrowserExtensionError({ name: 'ChunkLoadError' })).toBe(true);
+      expect(browserHandler.isBrowserExtensionError({ name: 'ChunkLoadError' })).toBe(true);
     });
 
     it('detects error codes', () => {
-      expect(isBrowserExtensionError({ code: 'NETWORK_ERROR' })).toBe(true);
-      expect(isBrowserExtensionError({ code: 'ERR_NETWORK' })).toBe(true);
+      expect(browserHandler.isBrowserExtensionError({ code: 'NETWORK_ERROR' })).toBe(true);
+      expect(browserHandler.isBrowserExtensionError({ code: 'ERR_NETWORK' })).toBe(true);
     });
 
     it('returns false for normal errors', () => {
-      expect(isBrowserExtensionError({ message: 'Network timeout' })).toBeFalsy();
-      expect(isBrowserExtensionError({ message: 'Server error 500' })).toBeFalsy();
+      expect(browserHandler.isBrowserExtensionError({ message: 'Network timeout' })).toBeFalsy();
+      expect(browserHandler.isBrowserExtensionError({ message: 'Server error 500' })).toBeFalsy();
     });
 
     it('returns false for null/undefined', () => {
-      expect(isBrowserExtensionError(null)).toBe(false);
-      expect(isBrowserExtensionError(undefined)).toBe(false);
+      expect(browserHandler.isBrowserExtensionError(null)).toBe(false);
+      expect(browserHandler.isBrowserExtensionError(undefined)).toBe(false);
     });
 
     it('uses toString if message missing', () => {
       const error = {
         toString: () => 'listener indicated an asynchronous response',
       };
-      expect(isBrowserExtensionError(error)).toBe(true);
+      expect(browserHandler.isBrowserExtensionError(error)).toBe(true);
     });
   });
 
   describe('logBrowserExtensionError', () => {
     it('logs warning in dev mode', () => {
-      logBrowserExtensionError({ message: 'test error' }, 'test context');
+      browserHandler.logBrowserExtensionError({ message: 'test error' }, 'test context');
 
       expect(consoleWarnSpy).toHaveBeenCalledWith(
         expect.stringContaining('Browser extension error'),
@@ -75,7 +73,7 @@ describe('browserExtensionHandler', () => {
     });
 
     it('includes context in log', () => {
-      logBrowserExtensionError({ message: 'error' }, 'my-context');
+      browserHandler.logBrowserExtensionError({ message: 'error' }, 'my-context');
 
       expect(consoleWarnSpy).toHaveBeenCalledWith(
         expect.anything(),
@@ -86,7 +84,7 @@ describe('browserExtensionHandler', () => {
     });
 
     it('handles missing message', () => {
-      logBrowserExtensionError(null);
+      browserHandler.logBrowserExtensionError(null);
 
       expect(consoleWarnSpy).toHaveBeenCalledWith(
         expect.anything(),
@@ -102,7 +100,7 @@ describe('browserExtensionHandler', () => {
       const normalError = new Error('Normal error');
 
       await expect(
-        handleBrowserExtensionError(normalError, async () => 'result')
+        browserHandler.handleBrowserExtensionError(normalError, async () => 'result')
       ).rejects.toThrow('Normal error');
     });
 
@@ -110,7 +108,7 @@ describe('browserExtensionHandler', () => {
       const extError = { message: 'message channel closed' };
       const retryCallback = vi.fn().mockResolvedValue('success');
 
-      const result = await handleBrowserExtensionError(extError, retryCallback, 2, 0);
+      const result = await browserHandler.handleBrowserExtensionError(extError, retryCallback, 2, 0);
 
       expect(result).toBe('success');
       expect(retryCallback).toHaveBeenCalledTimes(1);
@@ -124,7 +122,7 @@ describe('browserExtensionHandler', () => {
         .mockRejectedValueOnce({ message: 'message channel closed' })
         .mockResolvedValue('success');
 
-      const result = await handleBrowserExtensionError(extError, retryCallback, 3, 0);
+      const result = await browserHandler.handleBrowserExtensionError(extError, retryCallback, 3, 0);
 
       expect(result).toBe('success');
       expect(retryCallback).toHaveBeenCalledTimes(3);
@@ -136,7 +134,7 @@ describe('browserExtensionHandler', () => {
       const retryCallback = vi.fn().mockRejectedValue(lastError);
 
       await expect(
-        handleBrowserExtensionError(extError, retryCallback, 1, 0)
+        browserHandler.handleBrowserExtensionError(extError, retryCallback, 1, 0)
       ).rejects.toEqual(lastError);
     });
 
@@ -146,7 +144,7 @@ describe('browserExtensionHandler', () => {
       const retryCallback = vi.fn().mockRejectedValue(normalError);
 
       await expect(
-        handleBrowserExtensionError(extError, retryCallback, 3, 0)
+        browserHandler.handleBrowserExtensionError(extError, retryCallback, 3, 0)
       ).rejects.toThrow('Different error');
 
       expect(retryCallback).toHaveBeenCalledTimes(1);
@@ -156,7 +154,7 @@ describe('browserExtensionHandler', () => {
   describe('withBrowserExtensionHandling', () => {
     it('passes through successful results', async () => {
       const fn = vi.fn().mockResolvedValue('result');
-      const wrapped = withBrowserExtensionHandling(fn);
+      const wrapped = browserHandler.withBrowserExtensionHandling(fn);
 
       const result = await wrapped();
 
@@ -168,7 +166,7 @@ describe('browserExtensionHandler', () => {
         .fn()
         .mockRejectedValueOnce({ message: 'message channel closed' })
         .mockResolvedValue('success');
-      const wrapped = withBrowserExtensionHandling(fn, { maxRetries: 2, retryDelay: 0 });
+      const wrapped = browserHandler.withBrowserExtensionHandling(fn, { maxRetries: 2, retryDelay: 0 });
 
       const result = await wrapped();
 
@@ -178,7 +176,7 @@ describe('browserExtensionHandler', () => {
 
     it('rethrows non-extension errors', async () => {
       const fn = vi.fn().mockRejectedValue(new Error('Normal error'));
-      const wrapped = withBrowserExtensionHandling(fn);
+      const wrapped = browserHandler.withBrowserExtensionHandling(fn);
 
       await expect(wrapped()).rejects.toThrow('Normal error');
     });
@@ -191,7 +189,7 @@ describe('browserExtensionHandler', () => {
         preventDefault: vi.fn(),
       } as unknown as PromiseRejectionEvent;
 
-      const result = handleUnhandledRejection(event);
+      const result = browserHandler.handleUnhandledRejection(event);
 
       expect(result).toBe(false);
       expect(event.preventDefault).toHaveBeenCalled();
@@ -203,7 +201,7 @@ describe('browserExtensionHandler', () => {
         preventDefault: vi.fn(),
       } as unknown as PromiseRejectionEvent;
 
-      const result = handleUnhandledRejection(event);
+      const result = browserHandler.handleUnhandledRejection(event);
 
       expect(result).toBe(true);
       expect(event.preventDefault).not.toHaveBeenCalled();
@@ -217,7 +215,7 @@ describe('browserExtensionHandler', () => {
         preventDefault: vi.fn(),
       } as unknown as ErrorEvent;
 
-      const result = handleError(event);
+      const result = browserHandler.handleError(event);
 
       expect(result).toBe(false);
       expect(event.preventDefault).toHaveBeenCalled();
@@ -230,7 +228,7 @@ describe('browserExtensionHandler', () => {
         preventDefault: vi.fn(),
       } as unknown as ErrorEvent;
 
-      const result = handleError(event);
+      const result = browserHandler.handleError(event);
 
       expect(result).toBe(false);
     });
@@ -241,7 +239,7 @@ describe('browserExtensionHandler', () => {
         preventDefault: vi.fn(),
       } as unknown as ErrorEvent;
 
-      const result = handleError(event);
+      const result = browserHandler.handleError(event);
 
       expect(result).toBe(true);
     });
@@ -249,14 +247,14 @@ describe('browserExtensionHandler', () => {
 
   describe('handleVueError', () => {
     it('returns false for extension errors', () => {
-      const result = handleVueError({ message: 'message channel closed' }, 'Component.vue');
+      const result = browserHandler.handleVueError({ message: 'message channel closed' }, 'Component.vue');
 
       expect(result).toBe(false);
       expect(consoleWarnSpy).toHaveBeenCalled();
     });
 
     it('returns undefined for normal errors', () => {
-      const result = handleVueError(new Error('Normal error'), 'Component.vue');
+      const result = browserHandler.handleVueError(new Error('Normal error'), 'Component.vue');
 
       expect(result).toBeUndefined();
     });

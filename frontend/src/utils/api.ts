@@ -12,31 +12,9 @@ import { isBrowserExtensionError, handleBrowserExtensionError } from './browserE
 import { getEnvVar } from './env';
 import { getCsrfToken } from './security';
 
-// ========== API Error Types & Classes (Defined Early) ==========
-export const ApiErrorTypes = {
-  NETWORK_ERROR: 'NETWORK_ERROR',
-  AUTHENTICATION_ERROR: 'AUTHENTICATION_ERROR',
-  AUTHORIZATION_ERROR: 'AUTHORIZATION_ERROR',
-  VALIDATION_ERROR: 'VALIDATION_ERROR',
-  SERVER_ERROR: 'SERVER_ERROR',
-  UNKNOWN_ERROR: 'UNKNOWN_ERROR',
-} as const;
-
-export type ApiErrorType = (typeof ApiErrorTypes)[keyof typeof ApiErrorTypes];
-
-export class ApiError extends Error {
-  type: ApiErrorType;
-  statusCode?: number;
-  originalError?: unknown;
-
-  constructor(type: ApiErrorType, message: string, statusCode?: number, originalError?: unknown) {
-    super(message);
-    this.name = 'ApiError';
-    this.type = type;
-    this.statusCode = statusCode;
-    this.originalError = originalError;
-  }
-}
+import { ApiError, ApiErrorTypes } from './apiErrors';
+export { ApiError, ApiErrorTypes };
+export type { ApiErrorType } from './apiErrors';
 
 // ========== State & Callbacks (Break Circular Dependencies) ==========
 // In-memory access token (not exposed to window/global)
@@ -214,7 +192,7 @@ const createApiInstance = (): AxiosInstance => {
         return handleUnauthorizedError(error, status);
       }
 
-      // eslint-disable-next-line security/detect-object-injection
+       
       if (handlers[status]) return handlers[status]();
 
       if (status >= 500) {
@@ -307,8 +285,9 @@ function isRetryableError(error: unknown, config: RetryConfig): boolean {
   if (error instanceof ApiError && error.type === ApiErrorTypes.NETWORK_ERROR) return true;
   if (error instanceof ApiError && error.statusCode)
     return config.retryableStatuses.includes(error.statusCode);
-  if ((error as AxiosError).response?.status)
-    return config.retryableStatuses.includes((error as AxiosError).response.status);
+  const response = (error as AxiosError).response;
+  if (response?.status)
+    return config.retryableStatuses.includes(response.status);
   if ((error as AxiosError).request && !(error as AxiosError).response) return true;
   return false;
 }

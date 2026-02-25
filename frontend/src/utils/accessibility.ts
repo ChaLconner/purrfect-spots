@@ -209,7 +209,7 @@ export function setupArrowKeyNavigation(
         nextIndex = Math.max(0, Math.min(nextIndex, items.length - 1));
       }
 
-      // eslint-disable-next-line security/detect-object-injection
+       
       items[nextIndex]?.focus();
     }
   }

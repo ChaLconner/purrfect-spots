@@ -64,7 +64,7 @@ export function logMetric(metric: PerformanceMetric): void {
       'needs-improvement': '⚠️',
       poor: '❌',
     };
-    // eslint-disable-next-line security/detect-object-injection
+     
     const emoji = ratingEmojis[rating] || '❓';
     // eslint-disable-next-line no-console
     console.log(

@@ -91,7 +91,7 @@ describe('useImageLoader', () => {
       });
 
       const wrapper = mount(TestComponent);
-      const vm = wrapper.vm as ReturnType<typeof useImageLoader>;
+      const vm = wrapper.vm as any;
 
       expect(vm.hasError).toBe(false);
       vm.handleError(new Event('error'));

@@ -9,7 +9,7 @@ name: CodeQL Analysis
 
 on:
   push:
-    branches: [main, develop, dev]
+    branches: [main]
     paths-ignore:
       - "docs/**"
       - "**.md"
@@ -17,7 +17,7 @@ on:
       - ".agent/**"
       - ".gemini/**"
   pull_request:
-    branches: [main, develop, dev]
+    branches: [main]
     paths-ignore:
       - "docs/**"
       - "**.md"

@@ -266,9 +266,9 @@ coverage: {
     // Terser caused OOM crashes on Vercel's 2-core / 8GB build machines
     minify: 'esbuild',
   },
-  // esbuild minification options (root-level in Vite 7, not inside build)
+  // esbuild minification options
   esbuild: {
-    drop: ['console', 'debugger'], // Remove console.log and debugger in production
+    // drop: ['console', 'debugger'], // Removed as it stripped console calls during tests
     legalComments: 'none',
   },
   optimizeDeps: {
