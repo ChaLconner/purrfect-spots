@@ -1,5 +1,6 @@
 import os
 import uuid
+from unittest.mock import MagicMock
 
 import pytest
 from dotenv import load_dotenv
@@ -16,6 +17,7 @@ SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 @pytest.mark.skipif(
     not SUPABASE_URL or not SUPABASE_SERVICE_KEY, reason="Supabase credentials not found in environment"
 )
+@pytest.mark.skipif(isinstance(create_client, MagicMock), reason="Supabase module is mocked (missing dependencies)")
 class TestSocialLikesIntegration:
     """Integration tests for social features (likes) using real database"""
 
