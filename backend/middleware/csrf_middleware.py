@@ -47,25 +47,28 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         # Default exempt paths - APIs that don't need CSRF
         # (they use other auth mechanisms like OAuth tokens)
         # SECURITY REVIEW: Only exempt endpoints that are truly stateless or use other auth mechanisms
-        self.exempt_paths = exempt_paths or [
-            "/health",
-            "/docs",
-            "/redoc",
-            "/openapi.json",
-            "/api/v1/auth/google",
-            "/api/v1/auth/google/callback",
-            "/api/v1/auth/login",
-            "/api/v1/auth/register",
-            # "/api/v1/auth/refresh-token",  # Protected by CSRF
-            "/api/v1/auth/logout",
-            "/api/v1/auth/forgot-password",
-            "/api/v1/auth/reset-password",
-            # Public read-only endpoints (GET requests are already exempt by SAFE_METHODS)
-            "/api/v1/gallery",
-            "/api/v1/locations",
-            # Cat detection endpoint - uses API key authentication, not session-based
-            "/api/v1/cat-detection",
-        ]
+        self.exempt_paths = (
+            exempt_paths
+            or [
+                "/health",
+                "/docs",
+                "/redoc",
+                "/openapi.json",
+                "/api/v1/auth/google",
+                "/api/v1/auth/google/callback",
+                "/api/v1/auth/login",
+                "/api/v1/auth/register",
+                "/api/v1/auth/refresh-token",  # Exempt: uses HttpOnly cookie (not JS-accessible), rotated on use, IP+UA bound
+                "/api/v1/auth/logout",
+                "/api/v1/auth/forgot-password",
+                "/api/v1/auth/reset-password",
+                # Public read-only endpoints (GET requests are already exempt by SAFE_METHODS)
+                "/api/v1/gallery",
+                "/api/v1/locations",
+                # Cat detection endpoint - uses API key authentication, not session-based
+                "/api/v1/cat-detection",
+            ]
+        )
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         # Skip CSRF for safe methods (GET, HEAD, OPTIONS, TRACE)
@@ -134,7 +137,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
                 value=token,
                 httponly=False,  # JavaScript needs to read this
                 secure=self.is_production,
-                samesite="strict" if self.is_production else "lax",
+                samesite="none" if self.is_production else "lax",
                 max_age=3600 * 24,  # 24 hours
                 path="/",
             )

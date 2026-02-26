@@ -197,7 +197,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
+        uses: actions/setup-node@8f152de45cc393bb48ce5d89d36b731f54556e65 # v4.4.2
         with:
           node-version: "20"
 
@@ -208,7 +208,7 @@ jobs:
         run: |
           echo "🧪 Validating API Client Generation..."
           cd api-client
-          npm ci --prefer-offline --no-audit
+          npm install --prefer-offline --no-audit
           npm run validate
 
       - name: Deploy Frontend to Vercel (Staging)
@@ -440,7 +440,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
+        uses: actions/setup-node@8f152de45cc393bb48ce5d89d36b731f54556e65 # v4.4.2
         with:
           node-version: "20"
 

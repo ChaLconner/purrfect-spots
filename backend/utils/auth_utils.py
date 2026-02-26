@@ -67,12 +67,17 @@ def get_client_info(request: Any) -> tuple[str, str]:
 
 def set_refresh_cookie(response: Any, refresh_token: str) -> None:
     """Set HttpOnly Secure cookie for refresh token"""
+    is_prod = config.is_production()
     response.set_cookie(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
-        secure=config.is_production(),
-        samesite="lax",
+        secure=is_prod,
+        # IMPORTANT: SameSite=None is required for cross-origin requests
+        # (frontend on purrfect-spots.vercel.app, backend on purrfect-spots-backend.vercel.app)
+        # SameSite=Lax blocks cookies on cross-origin POST requests, breaking token refresh.
+        # SameSite=None requires Secure=True (enforced above in production).
+        samesite="none" if is_prod else "lax",
         max_age=config.JWT_REFRESH_EXPIRATION_DAYS * 86400,
         path="/",
     )

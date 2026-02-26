@@ -35,6 +35,9 @@ export const setAuthCallbacks = (refreshFn: () => Promise<boolean>, logoutFn: ()
 export const API_VERSION = 'v1';
 export const API_PREFIX = `/api/${API_VERSION}`;
 
+// Endpoints that should never trigger the 401 refresh interceptor
+const AUTH_ENDPOINTS = ['/auth/refresh-token', '/auth/login', '/auth/register', '/auth/logout'];
+
 // ========== Pagination Types ==========
 export interface PaginationParams {
   limit?: number;
@@ -65,7 +68,6 @@ export const getApiBaseUrl = (): string => {
     }
     return envUrl;
   }
-
 
   // Fallback for development
   return 'http://localhost:8000';
@@ -189,10 +191,21 @@ const createApiInstance = (): AxiosInstance => {
       };
 
       if (status === 401) {
-        return handleUnauthorizedError(error, status);
+        // Don't try to refresh if the failing request IS the refresh-token call (or other auth endpoints)
+        const requestUrl = error.config?.url || '';
+        const isAuthEndpoint = AUTH_ENDPOINTS.some((ep) => requestUrl.includes(ep));
+        if (!isAuthEndpoint) {
+          return handleUnauthorizedError(error, status);
+        }
+        // For auth endpoints that fail with 401, just throw directly
+        throw new ApiError(
+          ApiErrorTypes.AUTHENTICATION_ERROR,
+          'Authentication failed.',
+          status,
+          error
+        );
       }
 
-       
       if (handlers[status]) return handlers[status]();
 
       if (status >= 500) {
@@ -286,8 +299,7 @@ function isRetryableError(error: unknown, config: RetryConfig): boolean {
   if (error instanceof ApiError && error.statusCode)
     return config.retryableStatuses.includes(error.statusCode);
   const response = (error as AxiosError).response;
-  if (response?.status)
-    return config.retryableStatuses.includes(response.status);
+  if (response?.status) return config.retryableStatuses.includes(response.status);
   if ((error as AxiosError).request && !(error as AxiosError).response) return true;
   return false;
 }
@@ -301,7 +313,11 @@ export const apiRequest = async <T = unknown>(
   options: AxiosRequestConfig = {},
   retryConfig: Partial<RetryConfig> = {}
 ): Promise<T> => {
-  const config = { ...DEFAULT_RETRY_CONFIG, ...retryConfig };
+  // Never retry auth endpoints - they have their own refresh/retry logic
+  const isAuthEndpoint = AUTH_ENDPOINTS.some((ep) => endpoint.includes(ep));
+  const config = isAuthEndpoint
+    ? { ...DEFAULT_RETRY_CONFIG, ...retryConfig, maxRetries: 0 }
+    : { ...DEFAULT_RETRY_CONFIG, ...retryConfig };
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
