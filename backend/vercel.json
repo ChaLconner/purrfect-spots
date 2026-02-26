@@ -1,9 +1,9 @@
 {
   "version": 2,
   "framework": null,
-  "installCommand": "uv pip install -r requirements.txt --system",
+  "installCommand": "pip install -r requirements.txt",
   "buildCommand": "echo 'No build step required for Python backend'",
-
+  "pythonVersion": "3.10",
   "rewrites": [
     {
       "source": "/(.*)",
