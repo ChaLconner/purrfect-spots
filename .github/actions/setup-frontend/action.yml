@@ -32,6 +32,6 @@ runs:
         npm config delete https-proxy || true
         npm config set registry https://registry.npmjs.org/
 
-        # Install dependencies using workspaces from the root
-        # This is more reliable and ensures a consistent lock file
-        npm install -w frontend --prefer-offline --no-audit
+        # Install dependencies for the whole workspace
+        # This is more reliable and avoids npm bugs with optional native bindings
+        npm ci --prefer-offline --no-audit
