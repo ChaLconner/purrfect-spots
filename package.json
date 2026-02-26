@@ -1,14 +1,22 @@
 {
   "name": "purrfect-spots",
   "version": "1.0.0",
+  "private": true,
   "description": "**Connect. Share. Discover.**\r The ultimate platform for cat lovers to find and share the perfect spots for their furry friends.",
   "main": "index.js",
+  "workspaces": [
+    "frontend"
+  ],
   "directories": {
     "doc": "docs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "prepare": "husky"
+    "test": "npm test -w frontend",
+    "prepare": "husky",
+    "install:frontend": "npm install --workspace=frontend",
+    "build:frontend": "npm run build --workspace=frontend",
+    "build": "npm run build:frontend",
+    "dev": "npm run dev --workspace=frontend"
   },
   "repository": {
     "type": "git",
@@ -24,6 +32,7 @@
   "homepage": "https://github.com/ChaLconner/purrfect-spots#readme",
   "devDependencies": {
     "husky": "^9.1.7",
-    "k6": "^0.0.0"
+    "k6": "^0.0.0",
+    "vite": "^7.0.0"
   }
 }

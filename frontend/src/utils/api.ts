@@ -304,13 +304,26 @@ function calculateBackoffDelay(attempt: number, config: RetryConfig): number {
 }
 
 function isRetryableError(error: unknown, config: RetryConfig): boolean {
+  // Check for network errors (no response)
+  const isNetworkError =
+    (error instanceof ApiError && error.type === ApiErrorTypes.NETWORK_ERROR) ||
+    ((error as AxiosError).request && !(error as AxiosError).response);
+
+  // SECURITY: In production, do not retry network errors as they are likely CORS blocks
+  // Retrying them causes "infinite loop" symptoms and overwhelms the browser/server
+  if (import.meta.env.PROD && isNetworkError) {
+    console.warn('[API] Permanent network error or CORS block detected. Skipping retry.');
+    return false;
+  }
+
   if (error instanceof ApiError && error.type === ApiErrorTypes.NETWORK_ERROR) return true;
   if (error instanceof ApiError && error.statusCode)
     return config.retryableStatuses.includes(error.statusCode);
+
   const response = (error as AxiosError).response;
   if (response?.status) return config.retryableStatuses.includes(response.status);
-  if ((error as AxiosError).request && !(error as AxiosError).response) return true;
-  return false;
+
+  return isNetworkError; // Only retry if it was exactly a network error (and not in PROD)
 }
 
 function sleep(ms: number): Promise<void> {

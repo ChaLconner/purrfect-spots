@@ -6,29 +6,12 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from config import config
 from logger import logger
 from utils.security import log_security_event
 
 SENTRY_DSN = os.getenv("SENTRY_DSN")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 CONTENT_TYPE_JSON = "application/json"
-
-# Get allowed origins once for exception handlers
-_allowed_origins = config.get_allowed_origins()
-
-
-def _get_cors_origin_for_request(request: Request) -> str:
-    """
-    Get appropriate CORS origin header for request.
-    Returns request origin if it's in allowed list, otherwise empty.
-    This prevents CORS wildcard security issues.
-    """
-    origin = request.headers.get("origin", "")
-    if origin in _allowed_origins:
-        return origin
-    # For same-origin requests or non-browser clients
-    return _allowed_origins[0] if _allowed_origins else ""
 
 
 async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
@@ -58,24 +41,14 @@ async def generic_exception_handler(request: Request, exc: Exception) -> JSONRes
         user_agent=user_agent,
     )
 
-    cors_origin = _get_cors_origin_for_request(request)
-
-    # Return generic message to client, detailed error stays in logs
-    # In development, show the error for easier debugging
-    detail = "Internal Server Error"
+    detail = "An internal server error occurred."
     if ENVIRONMENT == "development":
         detail = str(exc)
 
     return JSONResponse(
         status_code=500,
         content={"detail": detail},
-        headers={
-            "Content-Type": CONTENT_TYPE_JSON,
-            "Access-Control-Allow-Origin": cors_origin,
-            "Access-Control-Allow-Credentials": "true",
-        }
-        if cors_origin
-        else {"Content-Type": CONTENT_TYPE_JSON},
+        headers={"Content-Type": CONTENT_TYPE_JSON},
     )
 
 
@@ -104,18 +77,10 @@ async def custom_http_exception_handler(request: Request, exc: StarletteHTTPExce
 
     logger.warning(f"HTTP Exception: {exc.status_code} - {exc.detail}")
 
-    cors_origin = _get_cors_origin_for_request(request)
-
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail},
-        headers={
-            "Content-Type": CONTENT_TYPE_JSON,
-            "Access-Control-Allow-Origin": cors_origin,
-            "Access-Control-Allow-Credentials": "true",
-        }
-        if cors_origin
-        else {"Content-Type": CONTENT_TYPE_JSON},
+        headers={"Content-Type": CONTENT_TYPE_JSON},
     )
 
 
@@ -141,16 +106,8 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
     logger.warning(f"Validation Error: {exc}")
 
-    cors_origin = _get_cors_origin_for_request(request)
-
     return JSONResponse(
         status_code=422,
         content={"detail": "Request validation failed", "errors": exc.errors()},
-        headers={
-            "Content-Type": CONTENT_TYPE_JSON,
-            "Access-Control-Allow-Origin": cors_origin,
-            "Access-Control-Allow-Credentials": "true",
-        }
-        if cors_origin
-        else {"Content-Type": CONTENT_TYPE_JSON},
+        headers={"Content-Type": CONTENT_TYPE_JSON},
     )
