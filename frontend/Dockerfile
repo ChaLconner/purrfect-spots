@@ -12,7 +12,7 @@ WORKDIR /build
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --silent
+RUN npm ci
 
 # Copy source code (uses .dockerignore to exclude sensitive files)
 # nosec docker:S6470 - Recursive copy is intentional, .dockerignore excludes sensitive data
