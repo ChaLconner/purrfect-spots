@@ -33,6 +33,12 @@
     "vite": "^7.0.0"
   },
   "overrides": {
+    "js-beautify": {
+      "editorconfig": "^3.0.1",
+      "glob": {
+        "minimatch": "10.2.4"
+      }
+    },
     "minimatch": ">=10.2.1"
   }
 }
