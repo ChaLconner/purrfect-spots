@@ -208,7 +208,7 @@ jobs:
         run: |
           echo "🧪 Validating API Client Generation..."
           cd api-client
-          npm install --prefer-offline --no-audit
+          npm install --prefer-offline --no-audit --no-workspaces
           npm run validate
 
       - name: Deploy Frontend to Vercel (Staging)

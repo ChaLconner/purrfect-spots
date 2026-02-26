@@ -7,16 +7,13 @@
   "workspaces": [
     "frontend"
   ],
-  "directories": {
-    "doc": "docs"
-  },
   "scripts": {
     "test": "npm test -w frontend",
     "prepare": "husky",
-    "install:frontend": "npm install --workspace=frontend",
-    "build:frontend": "npm run build --workspace=frontend",
+    "install:frontend": "npm install -w frontend",
+    "build:frontend": "npm run build -w frontend",
     "build": "npm run build:frontend",
-    "dev": "npm run dev --workspace=frontend"
+    "dev": "npm run dev -w frontend"
   },
   "repository": {
     "type": "git",

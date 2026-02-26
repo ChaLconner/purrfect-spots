@@ -326,14 +326,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Run Type Check (TypeScript)
-        run: |
-          cd frontend
-          npm run type-check
+        run: npm run type-check -w frontend
 
       - name: Run ESLint
-        run: |
-          cd frontend
-          npm run lint:check
+        run: npm run lint:check -w frontend
 
   frontend-test:
     name: Frontend Unit Tests
@@ -351,9 +347,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Run Vitest
-        run: |
-          cd frontend
-          npm run test:coverage
+        run: npm run test:coverage -w frontend
 
       - name: Upload coverage HTML report
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
@@ -383,9 +377,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Build Production Bundle
-        run: |
-          cd frontend
-          npm run build
+        run: npm run build -w frontend
         env:
           VITE_API_BASE_URL: https://api.purrfect-spots.com
 
