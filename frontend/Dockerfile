@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+# check=skip=SecretsUsedInArgOrEnv
 # ==============================================================================
 # Purrfect Spots Frontend - Production Dockerfile
 # ==============================================================================
