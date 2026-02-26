@@ -71,9 +71,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # Allow self, data URIs (for base64 images), and specific Google domains for Maps/Fonts
         if self.is_production:
             # Production CSP (API Only)
-            # Remove unsafe-inline as we only serve JSON
+            # Allow self and connect-src for frontend domains to prevent CORS/CSP blocking
             csp_policy = (
-                "default-src 'none'; frame-ancestors 'none';connect-src 'self';img-src 'self' data: https: blob:;"
+                "default-src 'none'; "
+                "frame-ancestors 'none'; "
+                "connect-src 'self' https://purrfectspots.xyz https://www.purrfectspots.xyz https://purrfect-spots.vercel.app; "
+                "img-src 'self' data: https: blob:;"
             )
         else:
             # Dev CSP (allowing docs etc)

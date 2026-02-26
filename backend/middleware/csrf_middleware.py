@@ -137,6 +137,8 @@ class CSRFMiddleware(BaseHTTPMiddleware):
                 value=token,
                 httponly=False,  # JavaScript needs to read this
                 secure=self.is_production,
+                # IMPORTANT: SameSite=None is required for cross-origin requests
+                # (frontend on purrfectspots.xyz, backend on vercel.app)
                 samesite="none" if self.is_production else "lax",
                 max_age=3600 * 24,  # 24 hours
                 path="/",

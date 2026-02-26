@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "test": "npm test -w frontend",
-    "prepare": "husky || echo skipped",
+    "prepare": "husky",
     "install:frontend": "npm install -w frontend",
     "build:frontend": "npm run build -w frontend",
     "build": "npm run build:frontend",

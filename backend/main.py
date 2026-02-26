@@ -351,26 +351,19 @@ app.add_middleware(RequestIdMiddleware)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # ========== CORS Middleware (MUST BE LAST - outermost layer) ==========
-# IMPORTANT: In Starlette, the LAST middleware added is the OUTERMOST.
+# IMPORTANT: In Starlette/FastAPI, the LAST middleware added is the OUTERMOST.
 # CORS must be outermost so it can add Access-Control-Allow-Origin headers
 # to ALL responses, including error responses from inner middleware like CSRF.
-# If CORS is not outermost, CSRF/Security middleware errors will be returned
-# WITHOUT CORS headers, causing the browser to block the response.
+# If CORS is not outermost, errors from inner middleware (like 403 Forbidden)
+# will be returned WITHOUT CORS headers, causing browser to block them.
 #
 # SECURITY REVIEW: CORS Configuration
-# allow_credentials=True is necessary for authentication cookies to work
-# Mitigations:
-# 1. CSRF protection middleware is already enabled (see CSRFMiddleware)
-# 2. SameSite cookies are used (see set_refresh_cookie in auth_utils.py)
-# 3. Security headers (X-Frame-Options: DENY) prevent clickjacking
-# 4. Content-Security-Policy prevents XSS attacks
-#
-# SECURITY: Only allow credentials from trusted origins
-# Never use allow_origins=["*"] with allow_credentials=True
+# allow_credentials=True is necessary for authentication cookies (refresh_token)
+# allow_origins MUST be a restricted list when allow_credentials=True
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_credentials=True,  # Required for cookie-based auth
+    allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
     allow_headers=[
         "Accept",
@@ -384,9 +377,8 @@ app.add_middleware(
         "Access-Control-Request-Headers",
         "Cache-Control",
         "Pragma",
-        "X-CSRF-Token",  # Required for CSRF protection
+        "X-CSRF-Token",
         "X-Api-Version",
-        "X-Requested-With",
         "Accept-Version",
         "Content-MD5",
     ],
@@ -398,7 +390,7 @@ app.add_middleware(
         "Content-Length",
         "Content-Type",
     ],
-    max_age=86400,  # 24 hours
+    max_age=86400,
 )
 
 # Vercel expects this to be available
