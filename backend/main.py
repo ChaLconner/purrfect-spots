@@ -21,7 +21,7 @@ load_dotenv()
 
 # ========== Sentry Integration ==========
 import sentry_sdk
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -316,8 +316,9 @@ async def health_check() -> JSONResponse:
 
 # ========== API Routes ==========
 # Include versioned API router (recommended)
-app.include_router(api_v1_router)
-app.include_router(admin_router, prefix="/api/v1")
+# We ensure the routers are included with correct prefixes
+app.include_router(api_v1_router) # This has /api/v1 prefix in api_v1.py
+app.include_router(admin_router, prefix="/api/v1") # Admin is separate
 
 # Include health check routes (no prefix, accessible at /health/*)
 app.include_router(health_router)
@@ -384,6 +385,10 @@ app.add_middleware(
         "Cache-Control",
         "Pragma",
         "X-CSRF-Token",  # Required for CSRF protection
+        "X-Api-Version",
+        "X-Requested-With",
+        "Accept-Version",
+        "Content-MD5",
     ],
     expose_headers=[
         "Content-Range",

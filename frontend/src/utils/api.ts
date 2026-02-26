@@ -193,7 +193,13 @@ const createApiInstance = (): AxiosInstance => {
       if (status === 401) {
         // Don't try to refresh if the failing request IS the refresh-token call (or other auth endpoints)
         const requestUrl = error.config?.url || '';
-        const isAuthEndpoint = AUTH_ENDPOINTS.some((ep) => requestUrl.includes(ep));
+        const isAuthEndpoint = AUTH_ENDPOINTS.some(
+          (ep) =>
+            requestUrl.toLowerCase().endsWith(ep.toLowerCase()) ||
+            requestUrl.toLowerCase().includes(`${ep.toLowerCase()}/`) ||
+            requestUrl.toLowerCase().includes(`${ep.toLowerCase()}?`)
+        );
+
         if (!isAuthEndpoint) {
           return handleUnauthorizedError(error, status);
         }
@@ -228,6 +234,7 @@ const createApiInstance = (): AxiosInstance => {
 
 interface RetryableRequestConfig extends AxiosRequestConfig {
   _retry?: boolean;
+  __is_refreshing?: boolean;
 }
 
 // Handle 401 errors (Token Expiry)
@@ -236,12 +243,14 @@ async function handleUnauthorizedError(error: AxiosError, status: number): Promi
   if (!originalRequest) throw error;
 
   // Avoid infinite loops
-  if (originalRequest._retry) {
+  if (originalRequest._retry || originalRequest.__is_refreshing) {
+    console.warn('[API Interceptor] Infinite retry loop detected for:', originalRequest.url);
     if (logoutCallback) logoutCallback();
     throw error;
   }
 
   originalRequest._retry = true;
+  originalRequest.__is_refreshing = true;
 
   try {
     if (refreshTokenCallback) {
