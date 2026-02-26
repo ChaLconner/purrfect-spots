@@ -26,7 +26,7 @@ export default {
     },
   },
   computed: {
-    classes() {
+    classes(): string {
       return `w-${this.size} h-${this.size} ${this.class}`.trim();
     },
   },

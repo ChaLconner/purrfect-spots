@@ -72,7 +72,7 @@ onMounted(() => {
   }
 });
 
-const dismiss = () => {
+const dismiss = (): void => {
   isVisible.value = false;
   localStorage.setItem(STORAGE_KEY, 'true');
 };

@@ -32,6 +32,9 @@ runs:
         npm config delete https-proxy || true
         npm config set registry https://registry.npmjs.org/
 
+        # Clean generated files to prevent native binding issues (npm bug #4828)
+        rm -rf node_modules package-lock.json frontend/node_modules backend/node_modules
+
         # Install dependencies for the whole workspace
         # Using npm install instead of npm ci prevents npm bug #4828 
         # related to optional dependencies (esbuild, rollup native bindings).

@@ -203,7 +203,7 @@ const isReportOpen = ref(false);
 const modalContainer = ref<HTMLElement | null>(null);
 const previousFocus = ref<HTMLElement | null>(null);
 
-function handleReportClick() {
+function handleReportClick(): void {
   if (!authStore.isAuthenticated) {
     toast({
       description: t('map.signInToReport'),
@@ -225,7 +225,7 @@ const tags = computed(() => {
   return extractTags(props.cat.description);
 });
 
-async function handleGiveTreat() {
+async function handleGiveTreat(): Promise<void> {
   if (!props.cat) return;
 
   if (!authStore.isAuthenticated) {
@@ -262,7 +262,7 @@ async function handleGiveTreat() {
   }
 }
 
-function trapFocus(e: KeyboardEvent) {
+function trapFocus(e: KeyboardEvent): void {
   if (!modalContainer.value) return;
   const focusableElements = modalContainer.value.querySelectorAll<HTMLElement>(
     'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
@@ -290,7 +290,7 @@ function trapFocus(e: KeyboardEvent) {
   }
 }
 
-const handleKeydown = (e: KeyboardEvent) => {
+const handleKeydown = (e: KeyboardEvent): void => {
   if (e.key === 'Escape') {
     emit('close');
   } else if (e.key === 'Tab') {

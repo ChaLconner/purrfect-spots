@@ -15,7 +15,7 @@ const menuOpen = defineModel<boolean>('menuOpen', { default: false });
 const router = useRouter();
 const authStore = useAuthStore();
 
-const logout = async () => {
+const logout = async (): Promise<void> => {
   try {
     await AuthService.logout();
   } catch (error) {
@@ -30,7 +30,7 @@ const logout = async () => {
   }
 };
 
-const closeMenu = () => {
+const closeMenu = (): void => {
   menuOpen.value = false;
 };
 </script>

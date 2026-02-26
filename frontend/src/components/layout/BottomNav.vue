@@ -11,12 +11,12 @@ const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 
-const isActive = (path: string) => {
+const isActive = (path: string): boolean => {
   return route.path === path;
 };
 
 // Handle Profile Navigation based on Auth state
-const navigateToProfile = () => {
+const navigateToProfile = (): void => {
   if (authStore.isAuthenticated) {
     router.push('/profile');
   } else {
