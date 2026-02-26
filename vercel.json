@@ -14,11 +14,6 @@
       "destination": "/index.html"
     }
   ],
-  "functions": {
-    "api/*.py": {
-      "runtime": "vercel-python@0.2.0"
-    }
-  },
   "build": {
     "env": {
       "NODE_OPTIONS": "--max-old-space-size=4096"
