@@ -33,5 +33,6 @@ runs:
         npm config set registry https://registry.npmjs.org/
 
         # Install dependencies for the whole workspace
-        # This is more reliable and avoids npm bugs with optional native bindings
-        npm ci --prefer-offline --no-audit
+        # Using npm install instead of npm ci prevents npm bug #4828 
+        # related to optional dependencies (esbuild, rollup native bindings).
+        npm install --prefer-offline --no-audit

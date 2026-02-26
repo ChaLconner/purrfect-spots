@@ -3,7 +3,6 @@
   "framework": null,
   "installCommand": "pip install -r requirements.txt",
   "buildCommand": "echo 'No build step required for Python backend'",
-  "pythonVersion": "3.10",
   "rewrites": [
     {
       "source": "/(.*)",
