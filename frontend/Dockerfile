@@ -11,8 +11,8 @@ WORKDIR /build
 # Copy package files first for caching
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci
+# Install dependencies (use install instead of ci because package-lock.json is at monorepo root)
+RUN npm install
 
 # Copy source code (uses .dockerignore to exclude sensitive files)
 # nosec docker:S6470 - Recursive copy is intentional, .dockerignore excludes sensitive data
