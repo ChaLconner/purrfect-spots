@@ -49,7 +49,7 @@ class PasswordService:
             # SHA1 is required by HIBP API - not used for password storage or sensitive tokens
             # codeql [py/weak-cryptographic-algorithm]
             # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1
-            sha1_password = hashlib.sha1(password.encode("utf-8")).hexdigest().upper()  # nosec B324
+            sha1_password = hashlib.sha1(password.encode("utf-8"), usedforsecurity=False).hexdigest().upper()  # nosec B324
             prefix = sha1_password[:5]
             suffix = sha1_password[5:]
 

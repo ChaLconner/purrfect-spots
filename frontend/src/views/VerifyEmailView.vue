@@ -139,6 +139,7 @@ import { useAuthStore } from '../store/authStore';
 import { showSuccess, showError } from '../store/toast';
 import { AuthService } from '../services/authService';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
+import { getSafeRedirect } from '@/utils/security';
 
 const router = useRouter();
 const route = useRoute();
@@ -178,7 +179,6 @@ const startCooldown = (seconds: number): void => {
 
 // Input refs management
 const setInputRef = (el: unknown, index: number): void => {
-   
   inputRefs.value[index] = el as HTMLInputElement;
 };
 
@@ -189,12 +189,10 @@ const handleInput = (index: number, event: Event): void => {
 
   // Only allow digits
   if (value && !/^\d$/.test(value)) {
-     
     otpDigits.value[index] = '';
     return;
   }
 
-   
   otpDigits.value[index] = value;
 
   // Auto-focus next input
@@ -210,9 +208,7 @@ const handleInput = (index: number, event: Event): void => {
 
 // Handle keydown for backspace navigation
 const handleKeydown = (index: number, event: KeyboardEvent): void => {
-   
   if (event.key === 'Backspace' && !otpDigits.value[index] && index > 0) {
-     
     inputRefs.value[index - 1]?.focus();
   }
 };
@@ -225,12 +221,11 @@ const handlePaste = (event: ClipboardEvent): void => {
 
   if (digits.length > 0) {
     for (let i = 0; i < 6; i++) {
-       
       otpDigits.value[i] = digits[i] || '';
     }
     // Focus last filled input or first empty
     const focusIndex = Math.min(digits.length, 5);
-     
+
     inputRefs.value[focusIndex]?.focus();
 
     // Auto-submit if complete
@@ -255,16 +250,10 @@ const handleVerify = async (): Promise<void> => {
       authStore.setAuth(response);
       showSuccess(t('auth.verifyEmail.successMessage'), t('auth.verifyEmail.successTitle'));
 
-      let redirectPath = sessionStorage.getItem('redirectAfterAuth') || '/upload';
+      const redirectPath = sessionStorage.getItem('redirectAfterAuth');
       sessionStorage.removeItem('redirectAfterAuth');
 
-      // Security: Prevent Open Redirects
-      // Ensure path starts with / and is not a protocol-relative URL (//)
-      if (!redirectPath.startsWith('/') || redirectPath.startsWith('//')) {
-        redirectPath = '/upload';
-      }
-
-      router.push(redirectPath);
+      router.push(getSafeRedirect(redirectPath));
     }
   } catch (err: unknown) {
     hasError.value = true;

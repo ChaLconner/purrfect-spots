@@ -14,7 +14,6 @@
         :treat-balance="viewedUser?.treat_balance || viewedUser?.total_treats_received"
         :is-own-profile="isOwnProfile"
         @edit="showEditModal = true"
-        @image-error="handleImageError"
         @logout="handleLogout"
       />
 
@@ -164,14 +163,12 @@ const savePhotoChanges = async (data: { location_name: string; description: stri
     // Update local state
     const index = uploads.value.findIndex((p) => p.id === photoToEdit.value?.id);
     if (index !== -1 && photoToEdit.value) {
-       
       const updatedUpload = {
-         
         ...uploads.value[index],
         location_name: data.location_name,
         description: data.description,
       };
-       
+
       uploads.value[index] = updatedUpload;
 
       // Update selected image view if open
@@ -235,14 +232,6 @@ const handleGiveTreat = async (photo: Upload): Promise<void> => {
     showError(msg);
   } finally {
     isSendingTreat.value = false;
-  }
-};
-
-const handleImageError = (event: Event): void => {
-  const target = event.target as HTMLImageElement;
-  // Prevent infinite loop if default-avatar also fails
-  if (!target.src.endsWith('/default-avatar.svg')) {
-    target.src = '/default-avatar.svg';
   }
 };
 

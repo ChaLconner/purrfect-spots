@@ -70,7 +70,13 @@ async def get_system_stats(
         _stats_cache[cache_key] = (result, datetime.now() + timedelta(seconds=CACHE_TTL_SECONDS))
 
         return result
-    except Exception as e:
-        logger.error(f"Failed to get stats: {e}")
+    except Exception:
+        logger.error("Failed to get stats")
         # Return fallback stats rather than 500ing the whole dashboard
-        return {"total_users": 0, "total_photos": 0, "pending_reports": 0, "total_reports": 0, "error": str(e)}
+        return {
+            "total_users": 0,
+            "total_photos": 0,
+            "pending_reports": 0,
+            "total_reports": 0,
+            "error": "Internal error",
+        }

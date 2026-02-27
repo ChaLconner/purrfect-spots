@@ -8,3 +8,4 @@ sys.path.insert(0, str(backend_dir))
 
 from main import app  # noqa: F401, E402
 
+__all__ = ["app"]

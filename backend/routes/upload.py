@@ -218,9 +218,9 @@ async def upload_cat_photo(
         if cat_detection_data:
             try:
                 client_cat_data = json.loads(cat_detection_data)
-                logger.debug("Client-side detection data received: %s", client_cat_data)
+                logger.debug("Client-side detection data received: %r", client_cat_data)
             except json.JSONDecodeError:
-                logger.warning("Failed to parse client detection data: %s", cat_detection_data)
+                logger.warning("Failed to parse client detection data: %r", cat_detection_data)
 
         # Perform server-side detection using OPTIMIZED content (smaller, standard format)
         # This prevents issues with large files or unsupported formats (like HEIC) failing in Vision API
@@ -311,7 +311,7 @@ async def upload_cat_photo(
             },
         )
 
-        logger.info("Cat photo uploaded successfully: %s by %s", created_photo["id"], current_user.email)
+        logger.info("Cat photo uploaded successfully: %r by %r", created_photo["id"], current_user.email)
 
         return JSONResponse(
             status_code=201,

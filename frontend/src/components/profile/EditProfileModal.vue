@@ -10,6 +10,7 @@ import { ProfileService } from '@/services/profileService';
 import { showError, showSuccess } from '@/store/toast';
 import { useFocusTrap, announce } from '@/composables/useAccessibility';
 import { useAuthStore } from '@/store/authStore';
+import { getAvatarFallback, handleAvatarError } from '@/utils/avatar';
 import PasswordStrengthMeter from '@/components/ui/PasswordStrengthMeter.vue';
 
 interface Props {
@@ -224,9 +225,10 @@ const handleKeydown = (event: KeyboardEvent) => {
               <div class="flex flex-col items-center mb-4 sm:mb-6">
                 <div class="relative group cursor-pointer" @click="triggerFileInput">
                   <img
-                    :src="editForm.picture || '/default-avatar.svg'"
-                    class="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-full object-cover border-4 border-white shadow-md transition-transform group-hover:scale-105"
+                    :src="editForm.picture || getAvatarFallback(editForm.name)"
+                    class="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-full object-cover border-4 border-white shadow-md transition-transform group-hover:scale-105 bg-stone-100"
                     :alt="editForm.name ? `${editForm.name}` : 'Current profile'"
+                    @error="handleAvatarError($event, editForm.name)"
                   />
                   <div
                     class="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
@@ -456,9 +458,9 @@ const handleKeydown = (event: KeyboardEvent) => {
                         type="button"
                         :disabled="
                           isUpdatingPassword ||
-                            !passwordForm.current ||
-                            !passwordForm.new ||
-                            !passwordForm.confirm
+                          !passwordForm.current ||
+                          !passwordForm.new ||
+                          !passwordForm.confirm
                         "
                         class="px-5 py-2.5 bg-[#C07040] text-white rounded-lg sm:rounded-xl text-sm font-bold hover:bg-[#A05030] shadow-md transition-all disabled:opacity-50 disabled:shadow-none cursor-pointer disabled:cursor-not-allowed"
                         @click="updatePassword"

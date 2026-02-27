@@ -83,9 +83,10 @@
             <div class="flex gap-4">
               <div class="relative">
                 <img
-                  :src="notification.actor_picture || '/default-avatar.svg'"
-                  class="w-10 h-10 rounded-full flex-shrink-0 object-cover border-2 border-white shadow-sm"
+                  :src="notification.actor_picture || getAvatarFallback(null)"
+                  class="w-10 h-10 rounded-full flex-shrink-0 object-cover border-2 border-white shadow-sm bg-stone-100"
                   alt="Actor"
+                  @error="handleAvatarError($event, null)"
                 />
                 <div
                   v-if="!notification.is_read"
@@ -139,6 +140,7 @@ import { ref, watch, onMounted, onUnmounted, computed, nextTick } from 'vue';
 import { useNotificationStore } from '@/store';
 import { useRouter } from 'vue-router';
 import type { Notification } from '@/services/notificationService';
+import { getAvatarFallback, handleAvatarError } from '@/utils/avatar';
 
 const store = useNotificationStore();
 const router = useRouter();

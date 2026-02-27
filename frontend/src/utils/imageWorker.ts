@@ -1,7 +1,10 @@
 /// <reference lib="webworker" />
 
 self.onmessage = async (e: MessageEvent) => {
+  // Security: Basic message validation
+  if (!e.data || typeof e.data !== 'object') return;
   const { file, options, id } = e.data;
+  if (!file || !id) return;
   
   try {
     // 1. Convert File to ImageBitmap (fast, non-blocking decoding)

@@ -81,12 +81,12 @@ async def list_users(
             count_result = await count_query.execute()
             total_count = count_result.count or len(processed_data)
         except Exception as count_err:
-            logger.warning(f"Count query failed, using data length: {count_err}")
+            logger.warning("Count query failed, using data length: %s", count_err)
             total_count = len(processed_data)
 
         return {"data": processed_data, "total": total_count}
-    except Exception as e:
-        logger.error(f"Failed to list users: {e}")
+    except Exception:
+        logger.error("Failed to list users")
         raise HTTPException(status_code=500, detail="Failed to fetch users")
 
 
@@ -150,9 +150,9 @@ async def delete_user(
 
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Failed to delete user {user_id_str}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to delete user: {e}")
+    except Exception:
+        logger.error("Failed to delete user %r", user_id_str)
+        raise HTTPException(status_code=500, detail="Failed to delete user")
 
 
 @router.patch("/users/{user_id}/profile", response_model=dict[str, Any])
@@ -182,7 +182,7 @@ async def update_user_profile_admin(
 
         return cast(dict[str, Any], result.data[0])
     except Exception as e:
-        logger.error(f"Failed to update user profile {user_id_str}: {e}")
+        logger.error("Failed to update user profile %r: %s", user_id_str, e)
         raise HTTPException(status_code=500, detail="Failed to update user profile")
 
 
@@ -198,8 +198,8 @@ async def list_roles(
         admin_client = await get_async_supabase_admin_client()
         result = await admin_client.table("roles").select("*").order("name").execute()
         return result.data
-    except Exception as e:
-        logger.error(f"Failed to list roles: {e}")
+    except Exception:
+        logger.error("Failed to list roles")
         raise HTTPException(status_code=500, detail="Failed to fetch roles")
 
 
@@ -257,9 +257,9 @@ async def update_user_role(
 
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Failed to update user role {user_id_str}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to update user role: {e}")
+    except Exception:
+        logger.error("Failed to update user role %r", user_id_str)
+        raise HTTPException(status_code=500, detail="Failed to update user role")
 
 
 @router.post("/users/{user_id}/ban")
@@ -325,9 +325,9 @@ async def ban_user(
         return {"message": f"User {user_id_str} banned successfully"}
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Failed to ban user: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to ban user: {str(e)}")
+    except Exception:
+        logger.error("Failed to ban user %r", user_id_str)
+        raise HTTPException(status_code=500, detail="Failed to ban user")
 
 
 @router.post("/users/{user_id}/unban")
@@ -376,6 +376,6 @@ async def unban_user(
         return {"message": f"User {user_id_str} unbanned successfully"}
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Failed to unban user: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to unban user: {str(e)}")
+    except Exception:
+        logger.error("Failed to unban user %r", user_id_str)
+        raise HTTPException(status_code=500, detail="Failed to unban user")

@@ -15,6 +15,7 @@ import {
   generateSecureRandom,
   generateCodeVerifier,
   generateCodeChallenge,
+  getSafeRedirect,
 } from '@/utils/security';
 
 vi.mock('@/utils/env', () => ({
@@ -54,7 +55,7 @@ describe('security utils', () => {
     });
 
     it('removes javascript: protocol', () => {
-      expect(sanitizeInput('javascript:alert(1)')).toBe('alert(1)');
+      expect(sanitizeInput('javascript:alert(1)')).toBe('[removed:]alert(1)');
     });
 
     it('truncates to max length', () => {
@@ -344,6 +345,30 @@ describe('security utils', () => {
       expect(challenge).not.toContain('=');
       expect(challenge).not.toContain('+');
       expect(challenge).not.toContain('/');
+    });
+  });
+
+  describe('getSafeRedirect', () => {
+    it('allows valid local paths', () => {
+      expect(getSafeRedirect('/dashboard')).toBe('/dashboard');
+      expect(getSafeRedirect('/profile/edit')).toBe('/profile/edit');
+    });
+
+    it('blocks absolute and protocol-relative URLs', () => {
+      expect(getSafeRedirect('https://evil.com')).toBe('/upload');
+      expect(getSafeRedirect('http://evil.com')).toBe('/upload');
+      expect(getSafeRedirect('//evil.com')).toBe('/upload');
+      expect(getSafeRedirect('/\\evil.com')).toBe('/upload');
+    });
+
+    it('handles null/empty paths with fallback', () => {
+      expect(getSafeRedirect(null)).toBe('/upload');
+      expect(getSafeRedirect('')).toBe('/upload');
+      expect(getSafeRedirect(null, '/default')).toBe('/default');
+    });
+
+    it('returns fallback on malformed URI', () => {
+      expect(getSafeRedirect('%E0%A4%A')).toBe('/upload');
     });
   });
 });

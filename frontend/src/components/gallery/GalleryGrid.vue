@@ -200,13 +200,9 @@ function generateSrcSet(url: string): string {
     .map((width) => {
       // 1. Supabase Storage (Native)
       if (url.includes('supabase.co')) {
-        let newUrl = url;
-        if (url.includes('width=')) {
-          newUrl = url.replace(/width=\d+/, `width=${width}`);
-        } else {
-          const sep = url.includes('?') ? '&' : '?';
-          newUrl = `${url}${sep}width=${width}`;
-        }
+        const newUrl = url.includes('width=')
+          ? url.replace(/width=\d+/, `width=${width}`)
+          : `${url}${url.includes('?') ? '&' : '?'}width=${width}`;
         return `${newUrl} ${width}w`;
       }
 
@@ -228,7 +224,6 @@ function generateSrcSet(url: string): string {
 
 // Image Loading
 function handleImageLoad(id: string): void {
-   
   loadedImages.value[id] = true;
 }
 
@@ -238,7 +233,7 @@ function handleImageError(id: string, event: Event): void {
     target.src = IMAGE_CONFIG.PLACEHOLDER_URL;
   }
   // Clear shimmer on error
-   
+
   loadedImages.value[id] = true;
 }
 

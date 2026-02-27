@@ -421,11 +421,11 @@ async def google_login_redirect() -> RedirectResponse:
         auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(oauth_params)}"
         return RedirectResponse(url=auth_url, status_code=302)
 
-    except Exception as e:
-        logger.error(f"Failed to redirect to Google login: {e}")
+    except Exception:
+        logger.error("Failed to redirect to Google login")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to redirect to Google login: {e!s}",
+            detail="Failed to redirect to Google login",
         )
 
 
@@ -445,8 +445,8 @@ async def google_login(
 
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        logger.error(f"Google Login failed: {e}")
+    except Exception:
+        logger.error("Google Login failed")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Login failed")
 
 
@@ -495,10 +495,10 @@ async def google_exchange_code(
         if not exchange_data.redirect_uri:
             raise ValueError("Redirect URI is required")
 
-        logger.debug(f"Auth Exchange Debug: Received redirect_uri={exchange_data.redirect_uri}")
+        logger.debug("Auth Exchange Debug: Received redirect_uri=%s", exchange_data.redirect_uri)
 
         if not _validate_google_redirect_uri(exchange_data.redirect_uri):
-            logger.warning(f"Invalid redirect URI: {exchange_data.redirect_uri}")
+            logger.warning("Invalid redirect URI: %s", exchange_data.redirect_uri)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid redirect URI",
@@ -521,8 +521,8 @@ async def google_exchange_code(
         raise
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        logger.error(f"Google Exchange failed: {e}")
+    except Exception:
+        logger.error("Google Exchange failed")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Code exchange failed",
@@ -563,6 +563,6 @@ async def sync_user_data(user: dict = Depends(get_current_user_from_header)) -> 
         res = await supabase_admin.table("users").upsert(data, on_conflict="id").execute()
         return {"message": "User synced", "data": res.data if hasattr(res, "data") else data}
 
-    except Exception as e:
-        logger.error(f"Sync failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Sync failed: {e!s}")
+    except Exception:
+        logger.error("Sync failed")
+        raise HTTPException(status_code=500, detail="Sync failed")

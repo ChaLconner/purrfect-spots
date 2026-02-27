@@ -43,7 +43,6 @@ def run_migration() -> None:
     # Fallback: We can't run raw SQL via supabase-py client (js/python) directly without a wrapper function on the DB side.
     # The user might have `psql` but it's not in PATH.
     # Is there a way to use `npx supabase db push`?
-    pass
 
 
 if __name__ == "__main__":

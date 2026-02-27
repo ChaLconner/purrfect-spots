@@ -187,7 +187,7 @@ class TreatsService:
             data: list[dict[str, Any]] = res.data or []
             return data
         except Exception as e:
-            logger.error(f"Failed to fetch leaderboard: {e}")
+            logger.error("Failed to fetch leaderboard: %s", e)
             # Fallback for all_time if RPC fails or during migration
             if period == "all_time":
                 return await self._get_leaderboard_fallback()
@@ -266,7 +266,7 @@ class TreatsService:
                 }
             return None
         except Exception as e:
-            logger.error("Failed to fetch treat package %s: %s", package_id, e)
+            logger.error("Failed to fetch treat package %r: %s", package_id, e)
             return None
 
     # ── Fulfillment (webhook) ────────────────────────────────────────
@@ -279,7 +279,7 @@ class TreatsService:
 
         if not user_id or not package_id:
             logger.error(
-                "Fulfillment failed: missing metadata. user_id=%s, package=%s",
+                "Fulfillment failed: missing metadata. user_id=%r, package=%r",
                 user_id,
                 package_id,
             )
@@ -288,13 +288,13 @@ class TreatsService:
         # Determine treat amount
         package = await self.get_package_by_id(package_id)
         if not package:
-            logger.error("Fulfillment failed: package %s not found", package_id)
+            logger.error("Fulfillment failed: package %r not found", package_id)
             return
 
         amount = package.get("amount", 0)
 
         if amount <= 0:
-            logger.error("Fulfillment failed: invalid amount for package %s", package_id)
+            logger.error("Fulfillment failed: invalid amount for package %r", package_id)
             return
 
         try:
@@ -317,7 +317,7 @@ class TreatsService:
                 logger.info("Duplicate webhook processed for session %s", session_id)
             else:
                 logger.info(
-                    "Added %d treats to user %s. New balance: %s",
+                    "Added %d treats to user %r. New balance: %s",
                     amount,
                     user_id,
                     result.get("new_balance"),

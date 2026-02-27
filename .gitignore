@@ -47,6 +47,8 @@ wheels/
 .coverage
 .coverage.*
 htmlcov/
+coverage.xml
+**/coverage.xml
 
 # --- Node/Vue (Frontend) ---
 node_modules/

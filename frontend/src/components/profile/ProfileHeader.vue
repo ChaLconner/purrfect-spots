@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
+import { getAvatarFallback, handleAvatarError } from '@/utils/avatar';
 
 /**
  * ProfileHeader Component
@@ -51,10 +52,10 @@ const formatJoinDate = (dateString?: string) => {
           class="absolute inset-0 bg-terracotta rounded-full blur-md opacity-20 group-hover:opacity-40 transition-opacity duration-500"
         ></div>
         <img
-          :src="picture || '/default-avatar.svg'"
+          :src="picture || getAvatarFallback(name)"
           :alt="name || t('profile.unknownUser')"
-          class="w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-40 lg:h-40 rounded-full object-cover border-4 border-white shadow-md relative z-10"
-          @error="$emit('imageError', $event)"
+          class="w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-40 lg:h-40 rounded-full object-cover border-4 border-white shadow-md relative z-10 bg-stone-100"
+          @error="handleAvatarError($event, name)"
         />
         <button
           v-if="isOwnProfile"

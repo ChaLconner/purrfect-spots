@@ -6,3 +6,5 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from main import app  # noqa: F401, E402
+
+__all__ = ["app"]

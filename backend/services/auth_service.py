@@ -18,13 +18,6 @@ from user_models.user import User, UserResponse
 from utils.datetime_utils import utc_now
 from utils.supabase_client import get_async_supabase_admin_client
 
-try:
-    from redis.exceptions import RedisError
-except ImportError:
-
-    class RedisError(Exception):  # type: ignore[no-redef]
-        pass
-
 
 class AuthService:
     """Authentication service using Async Supabase Client"""

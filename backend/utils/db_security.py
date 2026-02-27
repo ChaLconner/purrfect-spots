@@ -109,7 +109,7 @@ def sanitize_order_by(column: str, allowed_columns: list[str], default: str | No
 
     # Validate against whitelist
     if clean_column not in allowed_columns:
-        logger.warning("Invalid ORDER BY column rejected: %s", column)
+        logger.warning("Invalid ORDER BY column rejected: %r", column)
         return default
 
     return f"{clean_column} DESC" if descending else clean_column
@@ -135,9 +135,9 @@ def detect_sql_injection(value: str) -> bool:
 
     if SQL_INJECTION_REGEX.search(value):
         if len(value) > 50:
-            logger.warning("Potential SQL injection detected: %s...", value[:50])
+            logger.warning("Potential SQL injection detected: %r...", value[:50])
         else:
-            logger.warning("Potential SQL injection detected: %s", value)
+            logger.warning("Potential SQL injection detected: %r", value)
         return True
 
     return False
@@ -249,7 +249,7 @@ def sanitize_uuid(value: str) -> str | None:
     """
     if validate_uuid(value):
         return value.lower()
-    logger.warning("Invalid UUID rejected: %s...", value[:50] if value else "None")
+    logger.warning("Invalid UUID rejected: %r...", value[:50] if value else "None")
     return None
 
 

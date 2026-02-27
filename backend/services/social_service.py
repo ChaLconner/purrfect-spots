@@ -48,7 +48,7 @@ class SocialService:
             if "P0002" in error_msg or "Photo not found" in error_msg:
                 raise NotFoundError(message="Photo not found", resource_type="photo", resource_id=photo_id)
 
-            logger.error(f"Toggle like failed for user={user_id} photo={photo_id}: {e}")
+            logger.error("Toggle like failed for user=%r photo=%r: %s", user_id, photo_id, e)
             raise ExternalServiceError(
                 message=f"Failed to toggle like: {error_msg}", service="Supabase", retryable=True
             )

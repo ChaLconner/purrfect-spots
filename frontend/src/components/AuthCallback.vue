@@ -11,6 +11,7 @@ import { useI18n } from 'vue-i18n';
 import { AuthService } from '../services/authService';
 import { useAuthStore } from '../store/authStore';
 import { showError, showSuccess } from '../store/toast';
+import { getSafeRedirect } from '../utils/security';
 import type { LoginResponse } from '../types/auth';
 
 const { t } = useI18n();
@@ -89,9 +90,9 @@ const handleGoogleCode = async (code: string, codeVerifier: string): Promise<boo
   success.value = true;
 
   setTimeout(() => {
-    const redirectPath = sessionStorage.getItem('redirectAfterAuth') || '/upload';
+    const redirectPath = sessionStorage.getItem('redirectAfterAuth');
     sessionStorage.removeItem('redirectAfterAuth');
-    router.push(redirectPath);
+    router.push(getSafeRedirect(redirectPath));
   }, 1000);
   return true;
 };
@@ -131,7 +132,7 @@ const processAuthCallback = async (): Promise<boolean> => {
   if (hash && !hash.includes('access_token=')) {
     const params = new URLSearchParams(hash.substring(1));
     const errorMsg = params.get('error_description');
-    if (errorMsg) throw new Error(errorMsg.replaceAll('+', ' '));
+    if (errorMsg) throw new Error(decodeURIComponent(errorMsg.replace(/\+/g, ' ')));
   }
   return false;
 };
@@ -145,7 +146,7 @@ const handleAuthCallback = async (): Promise<void> => {
       if (await processAuthCallback()) return;
       break;
     } catch (err: unknown) {
-      if (err.message?.includes('message channel closed')) {
+      if (err instanceof Error && err.message?.includes('message channel closed')) {
         retryCount++;
         if (retryCount < maxRetries) {
           await new Promise((resolve) => setTimeout(resolve, 1000));

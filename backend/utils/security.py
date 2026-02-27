@@ -22,10 +22,9 @@ MAX_TAGS_COUNT = 20
 
 # Dangerous patterns to remove from user input
 DANGEROUS_PATTERNS = [
-    r"<script[^>]*>.*?</script>",  # Script tags
-    r"javascript:",  # JavaScript protocol
-    r"on\w+\s*=",  # Event handlers
-    r"data:text/html",  # Data URLs with HTML
+    r"<(script|iframe|object|embed|style|meta|link|base|form)[^>]*>([\s\S]*?)<\/\1>|<(script|iframe|object|embed|style|meta|link|base|form)[^>]*>",  # Dangerous tags
+    r"(javascript|data|vbscript|vbs|livescript|mocha|jdbc)\s*:",  # Dangerous protocols
+    r"on\w+\s*=[^>\s]*",  # Event handlers
 ]
 
 from datetime import UTC

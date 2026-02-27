@@ -472,8 +472,6 @@ class GalleryService:
         except Exception as e:
             logger.error("Background deletion failed for photo %s: %s", photo_id, e, exc_info=True)
             # We might want to retry or alert admin?
-            # For now, just log error.
-            pass
 
     async def save_photo(self, photo_data: dict[str, Any]) -> dict[str, Any]:
         """

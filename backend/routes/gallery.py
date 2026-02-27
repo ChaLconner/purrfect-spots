@@ -368,7 +368,7 @@ async def get_photo(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching photo {photo_id_str}: {e!s}", exc_info=True)
+        logger.error("Error fetching photo %r: %s", photo_id_str, e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch photo")
 
 

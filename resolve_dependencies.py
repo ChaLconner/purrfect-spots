@@ -28,6 +28,11 @@ def main():
     args = parser.parse_args()
 
     requirements_file = args.requirements
+    
+    # Security: Prevent argument injection if the filename starts with a hyphen
+    if requirements_file.startswith('-'):
+        print(f"Error: Invalid requirements file path '{requirements_file}'. Paths starting with '-' are not allowed for security reasons.")
+        sys.exit(1)
 
     if not os.path.exists(requirements_file):
         print(f"Error: Requirements file '{requirements_file}' not found.")

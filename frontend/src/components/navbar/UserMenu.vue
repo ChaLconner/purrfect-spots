@@ -6,6 +6,7 @@ import { useAuthStore } from '../../store/authStore';
 import { AuthService } from '../../services/authService';
 import { showSuccess } from '../../store/toast';
 import { isDev } from '../../utils/env';
+import { getAvatarFallback, handleAvatarError } from '@/utils/avatar';
 
 const { t } = useI18n();
 const showUserMenu = ref(false);
@@ -21,10 +22,7 @@ const handleClickOutside = (event: Event) => {
 };
 
 const handleImageError = (event: Event) => {
-  const target = event.target as HTMLImageElement;
-  if (!target.src.includes('default-avatar.svg')) {
-    target.src = '/default-avatar.svg';
-  }
+  handleAvatarError(event, authStore.user?.name);
 };
 
 const logout = async () => {
@@ -66,9 +64,9 @@ onUnmounted(() => {
         style="transform: translate3d(0, 0.2rem, -1em); will-change: transform"
       ></span>
       <img
-        :src="authStore.user?.picture || '/default-avatar.svg'"
+        :src="authStore.user?.picture || getAvatarFallback(authStore.user?.name)"
         :alt="authStore.user?.name || 'User'"
-        class="relative z-10 w-full h-full rounded-full object-cover border-2 border-btn-shade-a shadow-[0_2px_4px_rgba(106,163,137,0.2)] shrink-0"
+        class="relative z-10 w-full h-full rounded-full object-cover border-2 border-btn-shade-a shadow-[0_2px_4px_rgba(106,163,137,0.2)] shrink-0 bg-stone-100"
         @error="handleImageError"
       />
     </button>

@@ -139,7 +139,14 @@ export function tSafe(key: string, params?: Record<string, unknown>): string {
     ? Object.fromEntries(
         Object.entries(params).map(([k, v]) => [
           k,
-          typeof v === 'string' ? v.replace(/</g, '<').replace(/>/g, '>') : v,
+          typeof v === 'string'
+            ? v
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;')
+            : v,
         ])
       )
     : undefined;

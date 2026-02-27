@@ -249,7 +249,6 @@ async def _attempt_token_decoding(token: str, supabase: AClient | None) -> tuple
         return payload, "supabase"
     except (HTTPException, ValueError):
         logger.debug("Supabase token decoding attempted but failed")
-        pass
 
     # 2. Try Standard JWT Decoding (Supabase Key or Custom Secret)
     try:

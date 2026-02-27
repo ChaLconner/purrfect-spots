@@ -39,9 +39,14 @@ export function sanitizeInput(input: string, maxLength = 1000): string {
 
   // Remove script tags (simplified non-backtracking pattern)
 
-  sanitized = sanitized.replaceAll(/<script[^>]*>.*?<\/script>/gis, '');
-  sanitized = sanitized.replaceAll(/on\w+\s*=/gi, '');
-  sanitized = sanitized.replaceAll(/javascript:/gi, '');
+  // Remove dangerous tags and their content
+  sanitized = sanitized.replace(/<(script|iframe|object|embed|style|meta|link|base|form)[^>]*>([\s\S]*?)<\/\1>|<(script|iframe|object|embed|style|meta|link|base|form)[^>]*>/gi, '');
+  
+  // Remove event handlers (e.g., onclick=)
+  sanitized = sanitized.replaceAll(/\bon\w+\s*=[^>\s]*/gi, '');
+  
+  // Remove dangerous protocols including those with whitespace or hex encoding
+  sanitized = sanitized.replace(/(javascript|data|vbscript|vbs|livescript|mocha|jdbc)\s*:/gi, '[removed:]');
 
   return sanitized.trim();
 }
@@ -57,14 +62,18 @@ export function sanitizeUrl(url: string): string {
   // Block dangerous protocols
   // nosec typescript:S2245 - These protocol strings are BLOCKED by validation, not executed
   // This is security validation code that prevents XSS attacks
-  const dangerousProtocols = ['javascript:', 'data:text/html', 'vbscript:'];
-  for (const protocol of dangerousProtocols) {
-    if (trimmed.startsWith(protocol)) {
-      if (isDev()) {
-        console.warn(`Blocked dangerous URL: ${url.slice(0, 50)}...`);
-      }
-      return '';
+  // Block dangerous protocols (includes those with whitespace or hex encoding/decoding)
+  const dangerousProtocolsRegex = /^(?:javascript|data|vbscript|vbs|livescript|mocha|jdbc):/i;
+  
+  // Also remove common control characters if present
+  // eslint-disable-next-line no-control-regex
+  const sanitizedUrl = trimmed.replaceAll(/[\u0000-\u001F\u007F-\u009F\u00AD]/g, '');
+  
+  if (dangerousProtocolsRegex.test(sanitizedUrl)) {
+    if (isDev()) {
+      console.warn(`Blocked dangerous URL: ${url.slice(0, 50)}...`);
     }
+    return '';
   }
 
   return url;
@@ -254,4 +263,33 @@ export async function generateCodeChallenge(verifier: string): Promise<string> {
   const hash = await crypto.subtle.digest('SHA-256', data);
   const base64 = btoa(String.fromCodePoint(...new Uint8Array(hash)));
   return base64.replaceAll('=', '').replaceAll('+', '-').replaceAll('/', '_');
+}
+
+/**
+ * Safely validate and return a redirect path to prevent Open Redirect attacks.
+ * Forces the path to be local (starting with /) and blocks protocol-relative URLs (//).
+ */
+export function getSafeRedirect(path: string | null, fallback = '/upload'): string {
+  if (!path) return fallback;
+
+  try {
+    const decoded = decodeURIComponent(path).trim();
+    // 1. Must start with /
+    // 2. Must NOT start with // (protocol-relative)
+    // 3. Must NOT start with /\ or \/ (some browsers treat these as relative)
+    // 4. Must NOT contain : (blocks all protocols)
+    if (
+      decoded.startsWith('/') &&
+      !decoded.startsWith('//') &&
+      !decoded.startsWith('/\\') &&
+      !decoded.includes(':') &&
+      !decoded.includes('\\')
+    ) {
+      return decoded;
+    }
+  } catch {
+    // If decoding fails, fallback
+  }
+
+  return fallback;
 }

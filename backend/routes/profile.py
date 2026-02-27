@@ -214,7 +214,7 @@ async def get_public_profile(
     except HTTPException:
         raise
     except Exception:
-        logger.error(f"Failed to get public profile for {user.id}")
+        logger.error("Failed to get public profile for %r", user.id)
         raise HTTPException(status_code=500, detail="Failed to retrieve user profile")
 
 
@@ -247,13 +247,13 @@ async def get_public_user_uploads(
                 }
                 uploads.append(upload_item)
             except Exception as e:
-                logger.debug(f"Skipping malformed photo {photo.get('id')}: {e}")
+                logger.debug("Skipping malformed photo %r: %s", photo.get("id"), e)
                 continue
 
         return {"uploads": uploads, "count": len(uploads)}
 
     except Exception as e:
-        logger.error(f"Failed to get uploads for user {user_id}: {e}")
+        logger.error("Failed to get uploads for user %r: %s", user_id, e)
         raise HTTPException(status_code=500, detail="Failed to get uploads")
 
 
@@ -277,7 +277,7 @@ async def get_user_uploads(
         return {"uploads": uploads, "count": len(uploads)}
 
     except Exception as e:
-        logger.error("Failed to get uploads for user %s: %s", current_user.id, e, exc_info=True)
+        logger.error("Failed to get uploads for user %r: %s", current_user.id, e, exc_info=True)
         # In development, return the actual error
         detail = f"Internal Server Error: {e!s}" if config.ENVIRONMENT == "development" else "Internal Server Error"
         raise HTTPException(status_code=500, detail=detail)
@@ -429,7 +429,7 @@ async def update_user_photo(
     except HTTPException:
         raise
     except Exception:
-        logger.error("Failed to update photo %s", photo_id_str)
+        logger.error("Failed to update photo %r", photo_id_str)
         raise HTTPException(status_code=500, detail="Failed to update photo")
 
 
@@ -463,5 +463,5 @@ async def delete_user_photo(
     except HTTPException:
         raise
     except Exception:
-        logger.error("Failed to delete photo %s", photo_id_str)
+        logger.error("Failed to delete photo %r", photo_id_str)
         raise HTTPException(status_code=500, detail="Failed to delete photo")
