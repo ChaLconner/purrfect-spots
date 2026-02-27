@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Mark stale issues and PRs
-        uses: actions/stale@28ca1036281d5b71ccaa1922fe291c2a84986cf7 # v9.0.0
+        uses: actions/stale@b5d41d4e1d5dceea10e7104786b73624c18a190f # v10.2.0
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
