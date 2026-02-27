@@ -14,18 +14,18 @@ const router = useRouter();
 const authStore = useAuthStore();
 
 // Close user menu when clicking outside
-const handleClickOutside = (event: Event) => {
+const handleClickOutside = (event: Event): void => {
   const target = event.target as HTMLElement;
   if (showUserMenu.value && target && !target.closest('.user-menu-container')) {
     showUserMenu.value = false;
   }
 };
 
-const handleImageError = (event: Event) => {
+const handleImageError = (event: Event): void => {
   handleAvatarError(event, authStore.user?.name);
 };
 
-const logout = async () => {
+const logout = async (): Promise<void> => {
   try {
     await AuthService.logout();
   } catch (error) {

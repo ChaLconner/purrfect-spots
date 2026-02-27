@@ -86,11 +86,11 @@ watch(
   }
 );
 
-const triggerFileInput = () => {
+const triggerFileInput = (): void => {
   fileInput.value?.click();
 };
 
-const handleFileSelect = async (event: Event) => {
+const handleFileSelect = async (event: Event): Promise<void> => {
   const target = event.target as HTMLInputElement;
   if (target.files && target.files[0]) {
     const file = target.files[0];
@@ -113,7 +113,7 @@ const handleFileSelect = async (event: Event) => {
   }
 };
 
-const updatePassword = async () => {
+const updatePassword = async (): Promise<void> => {
   if (passwordForm.new !== passwordForm.confirm) {
     showError(t('auth.passwordsDoNotMatch'));
     return;
@@ -147,7 +147,7 @@ const updatePassword = async () => {
   }
 };
 
-const handleSave = () => {
+const handleSave = (): void => {
   emit('save', {
     name: editForm.name,
     username: editForm.username,
@@ -156,7 +156,7 @@ const handleSave = () => {
   });
 };
 
-const handleClose = () => {
+const handleClose = (): void => {
   emit('close');
 };
 
@@ -458,9 +458,9 @@ const handleKeydown = (event: KeyboardEvent) => {
                         type="button"
                         :disabled="
                           isUpdatingPassword ||
-                            !passwordForm.current ||
-                            !passwordForm.new ||
-                            !passwordForm.confirm
+                          !passwordForm.current ||
+                          !passwordForm.new ||
+                          !passwordForm.confirm
                         "
                         class="px-5 py-2.5 bg-[#C07040] text-white rounded-lg sm:rounded-xl text-sm font-bold hover:bg-[#A05030] shadow-md transition-all disabled:opacity-50 disabled:shadow-none cursor-pointer disabled:cursor-not-allowed"
                         @click="updatePassword"

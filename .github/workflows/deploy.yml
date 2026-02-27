@@ -90,22 +90,33 @@ jobs:
         with:
           fetch-depth: 0
 
-      # FIX #6: Determine target environment ONCE, then reuse in the validate step.
-      # Previously the if/elif logic was duplicated verbatim across two steps.
+      # FIX #14: reliably detect the branch name when triggered by workflow_run.
+      # github.ref in workflow_run is always the default branch (main).
+      # We must use github.event.workflow_run.head_branch for the actual branch.
       - name: Determine environment
         id: set-env
         env:
           EVENT_NAME: ${{ github.event_name }}
-          REF: ${{ github.ref }}
           INPUT_ENV: ${{ inputs.environment }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
+          # Use HEAD_BRANCH for workflow_run, otherwise use REF_NAME
+          if [ "$EVENT_NAME" == "workflow_run" ]; then
+            BRANCH_NAME="$HEAD_BRANCH"
+          else
+            BRANCH_NAME="$REF_NAME"
+          fi
+
+          echo "🔍 Detected branch: $BRANCH_NAME"
+
           if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
             echo "environment=${INPUT_ENV}" >> $GITHUB_OUTPUT
             echo "should_deploy=true" >> $GITHUB_OUTPUT
-          elif [ "$REF" == "refs/heads/main" ]; then
+          elif [ "$BRANCH_NAME" == "main" ]; then
             echo "environment=production" >> $GITHUB_OUTPUT
             echo "should_deploy=true" >> $GITHUB_OUTPUT
-          elif [ "$REF" == "refs/heads/dev" ]; then
+          elif [ "$BRANCH_NAME" == "dev" ]; then
             echo "environment=staging" >> $GITHUB_OUTPUT
             echo "should_deploy=true" >> $GITHUB_OUTPUT
           else

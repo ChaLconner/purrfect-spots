@@ -50,14 +50,14 @@ watch(debouncedSearch, (newValue) => {
   }
 });
 
-const handleSearch = () => {
+const handleSearch = (): void => {
   // Force navigation if not on map
   if (route.path !== '/map' && route.path !== '/') {
     router.push({ path: '/map', query: { search: searchQuery.value } });
   }
 };
 
-const clearSearch = () => {
+const clearSearch = (): void => {
   searchQuery.value = '';
   // Store update will happen via debounce watcher, but we can force it for UI responsiveness if needed
   // But let's let debounce handle it or setting it directly if instant clear is desired.
