@@ -291,11 +291,11 @@ jobs:
             exit 0
           fi
 
-          # NOTE: The Vercel project settings have Root Directory set to 'backend',
-          # so we MUST cd into the backend folder before running vercel commands.
-          # This ensures the CLI correctly identifies the project context.
-          cd backend
+          # NOTE: Do NOT cd into backend/ here. The Vercel project settings
+          # have Root Directory set to 'backend', so deploying from repo root is correct.
+          # This is consistent with how the frontend is deployed.
 
+          echo "🔗 Linking Backend to Vercel..."
           vercel link --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" || { echo "::error::Vercel link failed for backend"; exit 1; }
 
           echo "🔧 Setting environment variables..."
@@ -590,9 +590,9 @@ jobs:
              exit 1
           fi
 
-          # NOTE: The Vercel project settings have Root Directory set to 'backend',
-          # so we MUST cd into the backend folder before running vercel commands.
-          cd backend
+          # NOTE: Do NOT cd into backend/ here. The Vercel project settings
+          # have Root Directory set to 'backend', so deploying from repo root is correct.
+          # This is consistent with how the frontend is deployed.
 
           echo "🔗 Linking Backend to Vercel..."
           vercel link --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" || { echo "::error::Vercel link failed for backend"; exit 1; }

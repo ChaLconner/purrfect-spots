@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "PurrFect Spots API",
-    "description": "\n        PurrFect Spots API helps you share and discover cat locations.\n        \n        ## API Versioning\n        All endpoints are available under `/api/v1/` prefix.\n        Legacy routes (without prefix) are maintained for backward compatibility.\n        \n        ## Features\n        * 📍 **Share Locations**: Upload photos of cats and their locations.\n        * 🤖 **AI Detection**: Automatically detect cats in uploaded photos.\n        * 🔐 **Authentication**: Secure login via Email/Password or Google OAuth.\n        * 📊 **Pagination**: API-side pagination for efficient data loading.\n        ",
+    "description": "\n        PurrFect Spots API helps you share and discover cat locations.\n\n        ## API Versioning\n        All endpoints are available under `/api/v1/` prefix.\n        Legacy routes (without prefix) are maintained for backward compatibility.\n\n        ## Features\n        * 📍 **Share Locations**: Upload photos of cats and their locations.\n        * 🤖 **AI Detection**: Automatically detect cats in uploaded photos.\n        * 🔐 **Authentication**: Secure login via Email/Password or Google OAuth.\n        * 📊 **Pagination**: API-side pagination for efficient data loading.\n        ",
     "contact": {
       "name": "Purrfect Spots Team",
       "email": "support@purrfectspots.com"
@@ -10,7 +10,7 @@
     "license": {
       "name": "MIT"
     },
-    "version": "3.0.0"
+    "version": "3.1.0"
   },
   "paths": {
     "/": {
@@ -35,23 +35,6 @@
         "summary": "Health Check",
         "description": "Simple health check endpoint",
         "operationId": "health_check_health_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/test-json": {
-      "get": {
-        "summary": "Test Json Response",
-        "description": "Test endpoint to verify JSON responses are working correctly",
-        "operationId": "test_json_response_api_test_json_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -129,7 +112,18 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/LoginResponse"
+                    },
+                    {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  ],
+                  "title": "Response Verify Otp Api V1 Auth Verify Otp Post"
+                }
               }
             }
           },
@@ -169,7 +163,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Resend Otp Api V1 Auth Resend Otp Post"
+                }
               }
             }
           },
@@ -241,7 +239,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Refresh Token Api V1 Auth Refresh Token Post"
+                }
               }
             }
           }
@@ -261,7 +263,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Logout Api V1 Auth Logout Post"
+                }
               }
             }
           }
@@ -291,7 +297,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Forgot Password Api V1 Auth Forgot Password Post"
+                }
               }
             }
           },
@@ -331,7 +341,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Reset Password Api V1 Auth Reset Password Post"
+                }
               }
             }
           },
@@ -529,7 +543,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Sync User Data Api V1 Auth Sync User Post"
+                }
               }
             }
           }
@@ -537,29 +555,6 @@
       }
     },
     "/api/v1/profile/": {
-      "get": {
-        "tags": [
-          "Profile"
-        ],
-        "summary": "Get Profile",
-        "description": "Get current user profile",
-        "operationId": "get_profile_api_v1_profile__get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      },
       "put": {
         "tags": [
           "Profile"
@@ -567,22 +562,49 @@
         "summary": "Update Profile",
         "description": "Update user profile information",
         "operationId": "update_profile_api_v1_profile__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ProfileUpdateRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Update Profile Api V1 Profile  Put"
+                }
               }
             }
           },
@@ -596,38 +618,37 @@
               }
             }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/v1/profile": {
+        }
+      },
       "get": {
         "tags": [
           "Profile"
         ],
         "summary": "Get Profile",
         "description": "Get current user profile",
-        "operationId": "get_profile_api_v1_profile_get",
+        "operationId": "get_profile_api_v1_profile__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Profile Api V1 Profile  Get"
+                }
               }
             }
           }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      },
+        }
+      }
+    },
+    "/api/v1/profile": {
       "put": {
         "tags": [
           "Profile"
@@ -635,22 +656,49 @@
         "summary": "Update Profile",
         "description": "Update user profile information",
         "operationId": "update_profile_api_v1_profile_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ProfileUpdateRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Update Profile Api V1 Profile Put"
+                }
               }
             }
           },
@@ -664,12 +712,134 @@
               }
             }
           }
-        },
+        }
+      },
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Get Profile",
+        "description": "Get current user profile",
+        "operationId": "get_profile_api_v1_profile_get",
         "security": [
           {
             "HTTPBearer": []
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Profile Api V1 Profile Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/profile/public/{identifier}": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Get Public Profile",
+        "description": "Get public user profile by ID or username",
+        "operationId": "get_public_profile_api_v1_profile_public__identifier__get",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 50,
+              "pattern": "^[a-zA-Z0-9_\\-]+$",
+              "description": "User UUID or Username endpoint identifier",
+              "title": "Identifier"
+            },
+            "description": "User UUID or Username endpoint identifier"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Public Profile Api V1 Profile Public  Identifier  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/profile/public/{identifier}/uploads": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Get Public User Uploads",
+        "description": "Get public uploads by user_id or username",
+        "operationId": "get_public_user_uploads_api_v1_profile_public__identifier__uploads_get",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 50,
+              "pattern": "^[a-zA-Z0-9_\\-]+$",
+              "description": "User UUID or Username endpoint identifier",
+              "title": "Identifier"
+            },
+            "description": "User UUID or Username endpoint identifier"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Public User Uploads Api V1 Profile Public  Identifier  Uploads Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/profile/uploads": {
@@ -685,7 +855,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get User Uploads Api V1 Profile Uploads Get"
+                }
               }
             }
           }
@@ -720,7 +894,13 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Upload Profile Picture Api V1 Profile Picture Post"
+                }
               }
             }
           },
@@ -765,7 +945,13 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Change Password Api V1 Profile Password Put"
+                }
               }
             }
           },
@@ -807,8 +993,11 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Photo Id"
-            }
+              "format": "uuid",
+              "title": "The ID of the photo",
+              "description": "Must be a valid UUID"
+            },
+            "description": "Must be a valid UUID"
           }
         ],
         "requestBody": {
@@ -826,7 +1015,13 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Update User Photo Api V1 Profile Uploads  Photo Id  Put"
+                }
               }
             }
           },
@@ -847,7 +1042,7 @@
           "Profile"
         ],
         "summary": "Delete User Photo",
-        "description": "Delete a user's uploaded photo",
+        "description": "Delete a user's uploaded photo with background processing",
         "operationId": "delete_user_photo_api_v1_profile_uploads__photo_id__delete",
         "security": [
           {
@@ -861,16 +1056,25 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Photo Id"
-            }
+              "format": "uuid",
+              "title": "The ID of the photo",
+              "description": "Must be a valid UUID"
+            },
+            "description": "Must be a valid UUID"
           }
         ],
         "responses": {
-          "200": {
+          "202": {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Delete User Photo Api V1 Profile Uploads  Photo Id  Delete"
+                }
               }
             }
           },
@@ -880,6 +1084,30 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/upload/quota": {
+      "get": {
+        "tags": [
+          "Upload"
+        ],
+        "summary": "Get Upload Quota",
+        "description": "Get current user's upload quota status.",
+        "operationId": "get_upload_quota_api_v1_upload_quota_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Upload Quota Api V1 Upload Quota Get"
                 }
               }
             }
@@ -940,7 +1168,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Test Upload Endpoint Api V1 Upload Test Get"
+                }
               }
             }
           }
@@ -1096,7 +1328,11 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Test Detect Cats Api V1 Detect Test Cats Post"
+                }
               }
             }
           },
@@ -1136,86 +1372,10 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/gallery/": {
-      "get": {
-        "tags": [
-          "Gallery"
-        ],
-        "summary": "Get Gallery",
-        "description": "Get cat images with pagination support.\n\nPagination can be done via:\n- `offset` + `limit`: Skip N items, return M items\n- `page` + `limit`: Return page N with M items per page (page starts at 1)\n\nExamples:\n- `/gallery?limit=20&offset=0` - First 20 images\n- `/gallery?limit=20&page=2` - Second page of 20 images",
-        "operationId": "get_gallery_api_v1_gallery__get",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 100,
-              "minimum": 1,
-              "description": "Number of items per page",
-              "default": 20,
-              "title": "Limit"
-            },
-            "description": "Number of items per page"
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "description": "Number of items to skip",
-              "default": 0,
-              "title": "Offset"
-            },
-            "description": "Number of items to skip"
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer",
-                  "minimum": 1
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Page number (alternative to offset)",
-              "title": "Page"
-            },
-            "description": "Page number (alternative to offset)"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PaginatedGalleryResponse"
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Test Analyze Spot Api V1 Detect Test Spot Post"
                 }
               }
             }
@@ -1241,6 +1401,11 @@
         "summary": "Get Gallery",
         "description": "Get cat images with pagination support.\n\nPagination can be done via:\n- `offset` + `limit`: Skip N items, return M items\n- `page` + `limit`: Return page N with M items per page (page starts at 1)\n\nExamples:\n- `/gallery?limit=20&offset=0` - First 20 images\n- `/gallery?limit=20&page=2` - Second page of 20 images",
         "operationId": "get_gallery_api_v1_gallery_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "limit",
@@ -1287,6 +1452,22 @@
               "title": "Page"
             },
             "description": "Page number (alternative to offset)"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
           }
         ],
         "responses": {
@@ -1296,9 +1477,32 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PaginatedGalleryResponse"
+                },
+                "example": {
+                  "images": [
+                    {
+                      "id": "123",
+                      "url": "https://example.com/cat.jpg",
+                      "latitude": 13.7563,
+                      "longitude": 100.5018,
+                      "location_name": "Bangkok",
+                      "uploaded_at": "2024-03-20T10:00:00Z"
+                    }
+                  ],
+                  "pagination": {
+                    "total": 1,
+                    "limit": 20,
+                    "offset": 0,
+                    "has_more": false,
+                    "page": 1,
+                    "total_pages": 1
+                  }
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal Server Error"
           },
           "422": {
             "description": "Validation Error",
@@ -1395,6 +1599,11 @@
         "summary": "Get Locations In Viewport",
         "description": "Get cat locations within a geographic viewport (bounding box).\n\nThis endpoint is optimized for map views that only need to display\nmarkers within the current visible area.\n\nArgs:\n    north: Maximum latitude (top of viewport)\n    south: Minimum latitude (bottom of viewport)\n    east: Maximum longitude (right of viewport)\n    west: Minimum longitude (left of viewport)\n    limit: Maximum pins to return (default 100)\n\nExample:\n    `/gallery/viewport?north=13.8&south=13.7&east=100.6&west=100.4`",
         "operationId": "get_locations_in_viewport_api_v1_gallery_viewport_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "north",
@@ -1485,8 +1694,13 @@
           "Gallery"
         ],
         "summary": "Search Locations",
-        "description": "Search cat locations with optional text query and/or tag filters.\n\nExamples:\n- `/gallery/search?q=park` - Search for \"park\" in name or description\n- `/gallery/search?tags=orange,sleeping` - Filter by tags\n- `/gallery/search?q=sunny&tags=cute` - Combined search",
+        "description": "Search cat locations with optional text query and/or tag filters.",
         "operationId": "search_locations_api_v1_gallery_search_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "q",
@@ -1537,6 +1751,38 @@
               "title": "Limit"
             },
             "description": "Maximum number of results"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of items to skip",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Number of items to skip"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Page number (alternative to offset)",
+              "title": "Page"
+            },
+            "description": "Page number (alternative to offset)"
           }
         ],
         "responses": {
@@ -1619,6 +1865,11 @@
         "summary": "Get Photo",
         "description": "Get a specific photo by its ID.\nUseful for deep linking and sharing.",
         "operationId": "get_photo_api_v1_gallery__photo_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "photo_id",
@@ -1626,8 +1877,11 @@
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Photo Id"
-            }
+              "format": "uuid",
+              "title": "The ID of the photo",
+              "description": "Must be a valid UUID"
+            },
+            "description": "Must be a valid UUID"
           }
         ],
         "responses": {
@@ -1637,6 +1891,59 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CatLocation"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Gallery"
+        ],
+        "summary": "Delete Photo",
+        "description": "Delete a photo.\n\nOptimized for performance:\n1. Quick ownership check (fast DB read)\n2. Scheduled background deletion (S3 + DB + Cache)\n3. Returns immediately (202 Accepted)",
+        "operationId": "delete_photo_api_v1_gallery__photo_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "photo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "The ID of the photo",
+              "description": "Must be a valid UUID"
+            },
+            "description": "Must be a valid UUID"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Delete Photo Api V1 Gallery  Photo Id  Delete"
                 }
               }
             }
@@ -1722,7 +2029,1837 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Feature Flag Api V1 Feature Flags  Flag Name  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/subscription/checkout": {
+      "post": {
+        "tags": [
+          "Subscription"
+        ],
+        "summary": "Create Checkout Session",
+        "description": "Create a Stripe Checkout Session for subscription",
+        "operationId": "create_checkout_session_api_v1_subscription_checkout_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCheckoutRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutSessionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/subscription/webhook": {
+      "post": {
+        "tags": [
+          "Subscription"
+        ],
+        "summary": "Stripe Webhook",
+        "description": "Handle Stripe Webhooks",
+        "operationId": "stripe_webhook_api_v1_subscription_webhook_post",
+        "parameters": [
+          {
+            "name": "stripe-signature",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Stripe-Signature"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Stripe Webhook Api V1 Subscription Webhook Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/subscription/status": {
+      "get": {
+        "tags": [
+          "Subscription"
+        ],
+        "summary": "Get Subscription Status",
+        "description": "Get current user's subscription status",
+        "operationId": "get_subscription_status_api_v1_subscription_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionStatus"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/subscription/cancel": {
+      "post": {
+        "tags": [
+          "Subscription"
+        ],
+        "summary": "Cancel Subscription",
+        "description": "Cancel subscription",
+        "operationId": "cancel_subscription_api_v1_subscription_cancel_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Cancel Subscription Api V1 Subscription Cancel Post"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/subscription/portal": {
+      "post": {
+        "tags": [
+          "Subscription"
+        ],
+        "summary": "Create Portal Session",
+        "description": "Create Stripe Customer Portal session",
+        "operationId": "create_portal_session_api_v1_subscription_portal_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePortalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/treats/balance": {
+      "get": {
+        "tags": [
+          "Treats"
+        ],
+        "summary": "Get Balance",
+        "description": "Get current user's treat balance and recent history",
+        "operationId": "get_balance_api_v1_treats_balance_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TreatBalanceResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/treats/give": {
+      "post": {
+        "tags": [
+          "Treats"
+        ],
+        "summary": "Give Treat",
+        "description": "Give treats to a photo owner",
+        "operationId": "give_treat_api_v1_treats_give_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GiveTreatRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Give Treat Api V1 Treats Give Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/treats/purchase/checkout": {
+      "post": {
+        "tags": [
+          "Treats"
+        ],
+        "summary": "Purchase Treats Checkout",
+        "description": "Purchase treats pack",
+        "operationId": "purchase_treats_checkout_api_v1_treats_purchase_checkout_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseTreatsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Purchase Treats Checkout Api V1 Treats Purchase Checkout Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/treats/packages": {
+      "get": {
+        "tags": [
+          "Treats"
+        ],
+        "summary": "Get Treat Packages",
+        "description": "Get available treat packages from database",
+        "operationId": "get_treat_packages_api_v1_treats_packages_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "object",
+                  "title": "Response Get Treat Packages Api V1 Treats Packages Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/treats/leaderboard": {
+      "get": {
+        "tags": [
+          "Treats"
+        ],
+        "summary": "Get Leaderboard",
+        "description": "Get top treat receivers",
+        "operationId": "get_leaderboard_api_v1_treats_leaderboard_get",
+        "parameters": [
+          {
+            "name": "period",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "all_time",
+              "title": "Period"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response Get Leaderboard Api V1 Treats Leaderboard Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/social/photos/{photo_id}/like": {
+      "post": {
+        "tags": [
+          "Social"
+        ],
+        "summary": "Toggle Like",
+        "description": "Toggle like on a photo.\n\nUses atomic database function to prevent race conditions.\nReturns the new liked status and updated likes count.\nRate limited to 10 requests per 10 seconds per user.",
+        "operationId": "toggle_like_api_v1_social_photos__photo_id__like_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "photo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Photo Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LikeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/social/photos/{photo_id}/comments": {
+      "post": {
+        "tags": [
+          "Social"
+        ],
+        "summary": "Add Comment",
+        "description": "Add a comment to a photo.",
+        "operationId": "add_comment_api_v1_social_photos__photo_id__comments_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "photo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Photo Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommentCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Social"
+        ],
+        "summary": "Get Comments",
+        "description": "Get comments for a photo.",
+        "operationId": "get_comments_api_v1_social_photos__photo_id__comments_get",
+        "parameters": [
+          {
+            "name": "photo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Photo Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CommentResponse"
+                  },
+                  "title": "Response Get Comments Api V1 Social Photos  Photo Id  Comments Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/social/comments/{comment_id}": {
+      "delete": {
+        "tags": [
+          "Social"
+        ],
+        "summary": "Delete Comment",
+        "description": "Delete a comment.",
+        "operationId": "delete_comment_api_v1_social_comments__comment_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "comment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Comment Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Delete Comment Api V1 Social Comments  Comment Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Get Notifications",
+        "description": "Get user notifications",
+        "operationId": "get_notifications_api_v1_notifications_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NotificationResponse"
+                  },
+                  "title": "Response Get Notifications Api V1 Notifications Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/{id}/read": {
+      "put": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Mark As Read",
+        "description": "Mark notification as read",
+        "operationId": "mark_as_read_api_v1_notifications__id__read_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Mark As Read Api V1 Notifications  Id  Read Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/read-all": {
+      "put": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Mark All As Read",
+        "description": "Mark all notifications as read",
+        "operationId": "mark_all_as_read_api_v1_notifications_read_all_put",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Mark All As Read Api V1 Notifications Read All Put"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sitemap.xml": {
+      "get": {
+        "summary": "Get Sitemap",
+        "description": "Generate dynamic sitemap for search engines.\nCached for 1 hour.",
+        "operationId": "get_sitemap_api_v1_sitemap_xml_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/v1/reports/": {
+      "post": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Create Report",
+        "description": "Submit a report for a photo.",
+        "operationId": "create_report_api_v1_reports__post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/my-reports": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "List My Reports",
+        "description": "List reports submitted by the current user.",
+        "operationId": "list_my_reports_api_v1_reports_my_reports_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReportResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List My Reports Api V1 Reports My Reports Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List Users",
+        "description": "List all users with pagination, search, and sorting.\nOnly accessible by admins with users:read permission.",
+        "operationId": "list_users_api_v1_admin_users_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "created_at",
+              "title": "Sort By"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "desc",
+              "title": "Order"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Users Api V1 Admin Users Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}": {
+      "delete": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Delete User",
+        "description": "Permanently delete a user and their data.",
+        "operationId": "delete_user_api_v1_admin_users__user_id__delete",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "The ID of the user",
+              "description": "Must be a valid UUID"
+            },
+            "description": "Must be a valid UUID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Delete User Api V1 Admin Users  User Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}/profile": {
+      "patch": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Update User Profile Admin",
+        "description": "Update a user's profile as an admin.",
+        "operationId": "update_user_profile_admin_api_v1_admin_users__user_id__profile_patch",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "The ID of the user",
+              "description": "Must be a valid UUID"
+            },
+            "description": "Must be a valid UUID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserUpdateAdmin"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Update User Profile Admin Api V1 Admin Users  User Id  Profile Patch"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/roles": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List Roles",
+        "description": "List all available roles.",
+        "operationId": "list_roles_api_v1_admin_roles_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array",
+                  "title": "Response List Roles Api V1 Admin Roles Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}/role": {
+      "put": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Update User Role",
+        "description": "Update a user's role.",
+        "operationId": "update_user_role_api_v1_admin_users__user_id__role_put",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "The ID of the user",
+              "description": "Must be a valid UUID"
+            },
+            "description": "Must be a valid UUID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleUpdateAdmin"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Update User Role Api V1 Admin Users  User Id  Role Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}/ban": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Ban User",
+        "description": "Ban a user.",
+        "operationId": "ban_user_api_v1_admin_users__user_id__ban_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "The ID of the user",
+              "description": "Must be a valid UUID"
+            },
+            "description": "Must be a valid UUID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserBan"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Ban User Api V1 Admin Users  User Id  Ban Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}/unban": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Unban User",
+        "description": "Unban a user.",
+        "operationId": "unban_user_api_v1_admin_users__user_id__unban_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "The ID of the user",
+              "description": "Must be a valid UUID"
+            },
+            "description": "Must be a valid UUID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Unban User Api V1 Admin Users  User Id  Unban Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/stats": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Get System Stats",
+        "description": "Get basic system statistics.\nOptimized to use estimated counts for large tables.\nCached for 5 minutes.",
+        "operationId": "get_system_stats_api_v1_admin_stats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get System Stats Api V1 Admin Stats Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/photos": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List Photos",
+        "description": "List all photos with pagination and optional search.\nOnly accessible by admins with content:read permission.",
+        "operationId": "list_photos_api_v1_admin_photos_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "name": "reported",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Reported"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Photos Api V1 Admin Photos Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/photos/{photo_id}": {
+      "delete": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Delete Photo Admin",
+        "description": "Delete a photo as an admin (Content Moderation).\nNo ownership check required.",
+        "operationId": "delete_photo_admin_api_v1_admin_photos__photo_id__delete",
+        "parameters": [
+          {
+            "name": "photo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Photo Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Delete Photo Admin Api V1 Admin Photos  Photo Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Update Photo Admin",
+        "description": "Update photo details as an admin.",
+        "operationId": "update_photo_admin_api_v1_admin_photos__photo_id__patch",
+        "parameters": [
+          {
+            "name": "photo_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Photo Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhotoUpdateAdmin"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Update Photo Admin Api V1 Admin Photos  Photo Id  Patch"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/reports": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List Reports",
+        "description": "List submitted reports.",
+        "operationId": "list_reports_api_v1_admin_reports_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "reason",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reason"
+            }
+          },
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start Date"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End Date"
+            }
+          },
+          {
+            "name": "reporter_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reporter Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Reports Api V1 Admin Reports Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/reports/{report_id}": {
+      "put": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Update Report",
+        "description": "Resolve or dismiss a report.",
+        "operationId": "update_report_api_v1_admin_reports__report_id__put",
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Report Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Update Data"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Update Report Api V1 Admin Reports  Report Id  Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/reports/bulk": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Bulk Update Reports",
+        "description": "Bulk resolve or dismiss reports.",
+        "operationId": "bulk_update_reports_api_v1_admin_reports_bulk_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkReportUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Bulk Update Reports Api V1 Admin Reports Bulk Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/audit-logs": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List Audit Logs",
+        "description": "List audit logs.",
+        "operationId": "list_audit_logs_api_v1_admin_audit_logs_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Action"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Audit Logs Api V1 Admin Audit Logs Get"
+                }
               }
             }
           },
@@ -1967,6 +4104,11 @@
               }
             ],
             "title": "Cat Detection Data"
+          },
+          "location_blurred": {
+            "type": "string",
+            "title": "Location Blurred",
+            "default": "false"
           }
         },
         "type": "object",
@@ -1991,6 +4133,46 @@
           "file"
         ],
         "title": "Body_upload_profile_picture_api_v1_profile_picture_post"
+      },
+      "BulkReportUpdate": {
+        "properties": {
+          "report_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Report Ids"
+          },
+          "status": {
+            "type": "string",
+            "pattern": "^(pending|resolved|dismissed)$",
+            "title": "Status"
+          },
+          "resolution_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution Notes"
+          },
+          "delete_content": {
+            "type": "boolean",
+            "title": "Delete Content",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "report_ids",
+          "status"
+        ],
+        "title": "BulkReportUpdate"
       },
       "CatDetected": {
         "properties": {
@@ -2181,6 +4363,32 @@
             "type": "array",
             "title": "Tags",
             "default": []
+          },
+          "likes_count": {
+            "type": "integer",
+            "title": "Likes Count",
+            "default": 0
+          },
+          "comments_count": {
+            "type": "integer",
+            "title": "Comments Count",
+            "default": 0
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          },
+          "liked": {
+            "type": "boolean",
+            "title": "Liked",
+            "default": false
           }
         },
         "type": "object",
@@ -2210,6 +4418,24 @@
         ],
         "title": "ChangePasswordRequest"
       },
+      "CheckoutSessionResponse": {
+        "properties": {
+          "checkout_url": {
+            "type": "string",
+            "title": "Checkout Url"
+          },
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "checkout_url",
+          "session_id"
+        ],
+        "title": "CheckoutSessionResponse"
+      },
       "CombinedAnalysisResult": {
         "properties": {
           "cat_detection": {
@@ -2233,6 +4459,125 @@
           "metadata"
         ],
         "title": "CombinedAnalysisResult"
+      },
+      "CommentCreate": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "title": "CommentCreate"
+      },
+      "CommentResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "photo_id": {
+            "type": "string",
+            "title": "Photo Id"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "user_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Name"
+          },
+          "user_picture": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Picture"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "photo_id",
+          "content",
+          "created_at"
+        ],
+        "title": "CommentResponse"
+      },
+      "CreateCheckoutRequest": {
+        "properties": {
+          "price_id": {
+            "type": "string",
+            "title": "Price Id"
+          },
+          "success_url": {
+            "type": "string",
+            "title": "Success Url"
+          },
+          "cancel_url": {
+            "type": "string",
+            "title": "Cancel Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "price_id",
+          "success_url",
+          "cancel_url"
+        ],
+        "title": "CreateCheckoutRequest"
+      },
+      "CreatePortalRequest": {
+        "properties": {
+          "return_url": {
+            "type": "string",
+            "title": "Return Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "return_url"
+        ],
+        "title": "CreatePortalRequest"
       },
       "FeatureFlagsResponse": {
         "properties": {
@@ -2282,6 +4627,27 @@
         "title": "GalleryResponse",
         "description": "Legacy response for backward compatibility"
       },
+      "GiveTreatRequest": {
+        "properties": {
+          "photo_id": {
+            "type": "string",
+            "title": "Photo Id"
+          },
+          "amount": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Amount",
+            "description": "Number of treats to give (1-100)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "photo_id",
+          "amount"
+        ],
+        "title": "GiveTreatRequest"
+      },
       "GoogleCodeExchangeRequest": {
         "properties": {
           "code": {
@@ -2330,6 +4696,24 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "LikeResponse": {
+        "properties": {
+          "liked": {
+            "type": "boolean",
+            "title": "Liked"
+          },
+          "likes_count": {
+            "type": "integer",
+            "title": "Likes Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "liked",
+          "likes_count"
+        ],
+        "title": "LikeResponse"
       },
       "LoginRequest": {
         "properties": {
@@ -2427,6 +4811,126 @@
         "type": "object",
         "title": "LoginResponse"
       },
+      "NotificationResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "actor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Id"
+          },
+          "type": {
+            "$ref": "#/components/schemas/NotificationType"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "resource_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Id"
+          },
+          "resource_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Type"
+          },
+          "is_read": {
+            "type": "boolean",
+            "title": "Is Read"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "actor_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Name"
+          },
+          "actor_picture": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Picture"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "type",
+          "is_read",
+          "created_at"
+        ],
+        "title": "NotificationResponse"
+      },
+      "NotificationType": {
+        "type": "string",
+        "enum": [
+          "like",
+          "comment",
+          "treat",
+          "system"
+        ],
+        "title": "NotificationType"
+      },
       "OverallRecommendation": {
         "properties": {
           "suitable_for_cat_spot": {
@@ -2510,6 +5014,37 @@
         "title": "PaginationMeta",
         "description": "Pagination metadata"
       },
+      "PhotoUpdateAdmin": {
+        "properties": {
+          "location_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "title": "PhotoUpdateAdmin"
+      },
       "PopularTagsResponse": {
         "properties": {
           "tags": {
@@ -2526,6 +5061,19 @@
         ],
         "title": "PopularTagsResponse"
       },
+      "PortalResponse": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "PortalResponse"
+      },
       "ProfileUpdateRequest": {
         "properties": {
           "name": {
@@ -2538,6 +5086,17 @@
               }
             ],
             "title": "Name"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
           },
           "bio": {
             "anyOf": [
@@ -2564,6 +5123,19 @@
         },
         "type": "object",
         "title": "ProfileUpdateRequest"
+      },
+      "PurchaseTreatsRequest": {
+        "properties": {
+          "package": {
+            "type": "string",
+            "title": "Package"
+          }
+        },
+        "type": "object",
+        "required": [
+          "package"
+        ],
+        "title": "PurchaseTreatsRequest"
       },
       "RegisterInput": {
         "properties": {
@@ -2592,6 +5164,144 @@
           "name"
         ],
         "title": "RegisterInput"
+      },
+      "ReportCreate": {
+        "properties": {
+          "photo_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Photo Id"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "description": "Reason for reporting (spam, nudity, not_a_cat, etc.)"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details",
+            "description": "Additional details provided by the reporter"
+          }
+        },
+        "type": "object",
+        "required": [
+          "photo_id",
+          "reason"
+        ],
+        "title": "ReportCreate"
+      },
+      "ReportResponse": {
+        "properties": {
+          "photo_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Photo Id"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "description": "Reason for reporting (spam, nudity, not_a_cat, etc.)"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details",
+            "description": "Additional details provided by the reporter"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "reporter_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reporter Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "resolved_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved By"
+          },
+          "resolution_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution Notes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "photo_id",
+          "reason",
+          "id",
+          "reporter_id",
+          "status",
+          "created_at",
+          "updated_at",
+          "resolved_at",
+          "resolved_by",
+          "resolution_notes"
+        ],
+        "title": "ReportResponse"
       },
       "ResendOTPRequest": {
         "properties": {
@@ -2624,6 +5334,20 @@
           "new_password"
         ],
         "title": "ResetPasswordRequest"
+      },
+      "RoleUpdateAdmin": {
+        "properties": {
+          "role_id": {
+            "type": "string",
+            "title": "Role Id",
+            "description": "UUID of the role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role_id"
+        ],
+        "title": "RoleUpdateAdmin"
       },
       "SafetyFactors": {
         "properties": {
@@ -2695,6 +5419,28 @@
               }
             ],
             "title": "Tags"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offset"
           }
         },
         "type": "object",
@@ -2815,6 +5561,52 @@
         ],
         "title": "SpotAnalysisResult"
       },
+      "SubscriptionStatus": {
+        "properties": {
+          "is_pro": {
+            "type": "boolean",
+            "title": "Is Pro"
+          },
+          "subscription_end_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subscription End Date"
+          },
+          "cancel_at_period_end": {
+            "type": "boolean",
+            "title": "Cancel At Period End",
+            "default": false
+          },
+          "stripe_customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stripe Customer Id"
+          },
+          "treat_balance": {
+            "type": "integer",
+            "title": "Treat Balance",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "is_pro"
+        ],
+        "title": "SubscriptionStatus"
+      },
       "TagInfo": {
         "properties": {
           "tag": {
@@ -2832,6 +5624,89 @@
           "count"
         ],
         "title": "TagInfo"
+      },
+      "TreatBalanceResponse": {
+        "properties": {
+          "balance": {
+            "type": "integer",
+            "title": "Balance"
+          },
+          "recent_transactions": {
+            "items": {
+              "$ref": "#/components/schemas/TreatTransaction"
+            },
+            "type": "array",
+            "title": "Recent Transactions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "balance",
+          "recent_transactions"
+        ],
+        "title": "TreatBalanceResponse"
+      },
+      "TreatTransaction": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "amount": {
+            "type": "integer",
+            "title": "Amount"
+          },
+          "transaction_type": {
+            "type": "string",
+            "title": "Transaction Type"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "photo_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Id"
+          },
+          "from_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From User Id"
+          },
+          "to_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To User Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "amount",
+          "transaction_type",
+          "created_at"
+        ],
+        "title": "TreatTransaction"
       },
       "UpdatePhotoRequest": {
         "properties": {
@@ -2861,11 +5736,48 @@
         "type": "object",
         "title": "UpdatePhotoRequest"
       },
+      "UserBan": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "UserBan"
+      },
       "UserResponse": {
         "properties": {
           "id": {
             "type": "string",
             "title": "Id"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          },
+          "google_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Google Id"
           },
           "email": {
             "type": "string",
@@ -2915,6 +5827,52 @@
               }
             ],
             "title": "Created At"
+          },
+          "is_pro": {
+            "type": "boolean",
+            "title": "Is Pro",
+            "default": false
+          },
+          "treat_balance": {
+            "type": "integer",
+            "title": "Treat Balance",
+            "default": 0
+          },
+          "role": {
+            "type": "string",
+            "title": "Role",
+            "default": "user"
+          },
+          "role_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Id"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Permissions",
+            "default": []
+          },
+          "banned_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Banned At"
           }
         },
         "type": "object",
@@ -2923,6 +5881,73 @@
           "email"
         ],
         "title": "UserResponse"
+      },
+      "UserUpdateAdmin": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "bio": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bio"
+          },
+          "website": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Website"
+          },
+          "picture": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Picture"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(user|admin|moderator|super_admin)$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "title": "UserUpdateAdmin"
       },
       "ValidationError": {
         "properties": {

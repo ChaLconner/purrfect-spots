@@ -13,15 +13,13 @@
           'text-orange-400': rank === 3,
           'text-stone-300': rank > 3,
         }"
-        >#{{ rank }}</span
-      >
+      >#{{ rank }}</span>
     </div>
 
     <!-- Avatar -->
     <div class="flex-shrink-0 relative bg-stone-100 rounded-full">
       <img
         :src="user.picture || getAvatarFallback(user.name)"
-        @error="handleAvatarError($event, user.name)"
         loading="lazy"
         class="w-12 h-12 md:w-16 md:h-16 rounded-full object-cover border-2 md:border-4 border-white shadow-md transition-transform duration-300 group-hover:scale-105"
         :class="{
@@ -30,6 +28,7 @@
           'ring-2 md:ring-4 ring-orange-300/30': rank === 3,
         }"
         :alt="`${user.name || 'User'}'s avatar`"
+        @error="handleAvatarError($event, user.name)"
       />
     </div>
 

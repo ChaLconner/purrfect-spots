@@ -105,7 +105,7 @@ export function useUploadCat(): {
 
       // Handle API errors specifically
       if (err instanceof ApiError) {
-        let errorMessage = '';
+        let errorMessage: string;
 
         switch (err.type) {
           case ApiErrorTypes.NETWORK_ERROR:
