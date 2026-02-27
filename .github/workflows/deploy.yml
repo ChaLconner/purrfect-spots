@@ -263,7 +263,8 @@ jobs:
 
           echo "🚀 Deploying Frontend..."
           # FIX #13: Capture the deployment URL for downstream notification
-          DEPLOY_OUTPUT=$(eval vercel deploy \
+          # Targeted frontend directory explicitly and removed eval for cleaner execution
+          DEPLOY_OUTPUT=$(vercel deploy ./frontend \
             --yes \
             --token="$VERCEL_TOKEN" \
             $BUILD_ENV_FLAGS)
@@ -320,7 +321,7 @@ jobs:
             2>&1 || echo "::warning::Failed to inject SUPABASE_KEY — it may already exist with the correct value."
 
           echo "🚀 Deploying Backend..."
-          vercel deploy \
+          vercel deploy ./backend \
             --yes \
             --token="$VERCEL_TOKEN"
 
@@ -456,7 +457,8 @@ jobs:
           [ -n "$GOOGLE_MAPS_API_KEY" ] && VITE_FLAGS="${VITE_FLAGS} --build-env VITE_GOOGLE_MAPS_API_KEY=\"${GOOGLE_MAPS_API_KEY}\""
 
           echo "🚀 Triggering Vercel Production Deployment..."
-          DEPLOY_OUTPUT=$(eval vercel deploy --prod --yes --token="$VERCEL_TOKEN" $VITE_FLAGS)
+          # Targeted frontend directory and removed invalid --project flag
+          DEPLOY_OUTPUT=$(vercel deploy ./frontend --prod --yes --token="$VERCEL_TOKEN" $VITE_FLAGS)
           URL=$(echo "$DEPLOY_OUTPUT" | grep -oE 'https://[a-zA-Z0-9.-]+\.vercel\.app' | head -1)
           echo "deployment_url=${URL}" >> $GITHUB_OUTPUT
           echo "✅ Deployed to: ${URL}"
@@ -503,7 +505,7 @@ jobs:
             2>&1 || echo "::warning::Failed to inject SUPABASE_KEY — it may already exist with the correct value."
 
           echo "🚀 Triggering Backend Deployment..."
-          vercel deploy --prod --yes --token="$VERCEL_TOKEN"
+          vercel deploy ./backend --prod --yes --token="$VERCEL_TOKEN"
 
   production-verify:
     name: Production - Verification
@@ -585,20 +587,18 @@ jobs:
             echo "Rolling back to $PREVIOUS_TAG"
 
             # FIX #3: Each rollback now targets its own project explicitly via
-            # --project so they can never accidentally rollback the same service.
+            # VERCEL_PROJECT_ID env var instead of the unsupported --project flag.
             echo "Rolling back frontend..."
-            vercel rollback \
+            VERCEL_PROJECT_ID="$VERCEL_FRONTEND_PROJECT_ID" vercel rollback \
               --yes \
               --token="$VERCEL_TOKEN" \
-              --project="$VERCEL_FRONTEND_PROJECT_ID" \
               || echo "::warning::Frontend rollback failed"
 
             if [ -n "$VERCEL_BACKEND_PROJECT_ID" ]; then
               echo "Rolling back backend..."
-              vercel rollback \
+              VERCEL_PROJECT_ID="$VERCEL_BACKEND_PROJECT_ID" vercel rollback \
                 --yes \
                 --token="$VERCEL_TOKEN" \
-                --project="$VERCEL_BACKEND_PROJECT_ID" \
                 || echo "::warning::Backend rollback failed"
             fi
 
