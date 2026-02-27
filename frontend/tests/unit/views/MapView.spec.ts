@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
-import { createRouter, createWebHistory } from 'vue-router';
+import { createRouter, createWebHistory, type Router } from 'vue-router';
 import MapView from '@/views/MapView.vue';
 import { GalleryService } from '@/services/galleryService';
 import { useCatsStore } from '@/store';
 import { nextTick } from 'vue';
+import type { CatLocation } from '@/types/api';
 
 // Mock map dependencies
 vi.mock('@/utils/googleMapsLoader', () => ({
@@ -14,13 +15,14 @@ vi.mock('@/utils/googleMapsLoader', () => ({
 }));
 
 vi.mock('vue-i18n', () => ({
-  useI18n: () => ({ t: (key: string) => key }),
+  useI18n: (): { t: (key: string) => string } => ({ t: (key: string): string => key }),
 }));
 
 vi.mock('@/services/galleryService', () => ({
   GalleryService: {
     getLocations: vi.fn().mockResolvedValue([]),
     getViewportLocations: vi.fn().mockResolvedValue([]),
+    getPhotoById: vi.fn().mockResolvedValue(null),
   },
 }));
 
@@ -28,8 +30,8 @@ vi.mock('@/services/galleryService', () => ({
 const mockMap = {
   addListener: vi.fn(),
   getBounds: vi.fn().mockReturnValue({
-    getNorthEast: () => ({ lat: () => 14, lng: () => 101 }),
-    getSouthWest: () => ({ lat: () => 13, lng: () => 100 }),
+    getNorthEast: () => ({ lat: (): number => 14, lng: (): number => 101 }),
+    getSouthWest: () => ({ lat: (): number => 13, lng: (): number => 100 }),
   }),
   getZoom: vi.fn().mockReturnValue(15),
   fitBounds: vi.fn(),
@@ -48,10 +50,25 @@ global.google = {
   },
 } as any;
 
+const mockGeolocation = {
+  getCurrentPosition: vi.fn(),
+  watchPosition: vi.fn().mockReturnValue(1),
+  clearWatch: vi.fn(),
+};
+
 describe('MapView.vue', () => {
-  let router;
+  let router: Router;
 
   beforeEach(() => {
+    // Mock navigator.geolocation
+    Object.defineProperty(global, 'navigator', {
+      value: {
+        geolocation: mockGeolocation,
+      },
+      configurable: true,
+      writable: true,
+    });
+
     setActivePinia(createPinia());
     router = createRouter({
       history: createWebHistory(),
@@ -83,9 +100,10 @@ describe('MapView.vue', () => {
           ErrorState: true,
           'i18n-t': true,
           OnboardingBanner: true,
+          MapSearchBadge: true,
         },
         mocks: {
-          $t: (msg: string) => msg
+          $t: (msg: string): string => msg
         }
       },
     });
@@ -101,13 +119,25 @@ describe('MapView.vue', () => {
   });
 
   it('loads cat locations on mount', async () => {
-    const locations = [
-      { id: '1', latitude: 13.7, longitude: 100.5, location_name: 'Test Cat' }
+    const locations: CatLocation[] = [
+      { 
+        id: '1', 
+        latitude: 13.7, 
+        longitude: 100.5, 
+        location_name: 'Test Cat',
+        description: 'A test cat',
+        image_url: 'https://example.com/cat.jpg',
+        tags: ['test'],
+        uploaded_at: new Date().toISOString(),
+        likes_count: 0,
+        comments_count: 0,
+        liked: false
+      }
     ];
     vi.mocked(GalleryService.getLocations).mockResolvedValue(locations);
 
     mount(MapView, {
-      global: { plugins: [router], stubs: { GhibliLoader: true, SearchBox: true, CatDetailModal: true, ErrorState: true, 'i18n-t': true, OnboardingBanner: true }, mocks: { $t: (msg: string) => msg } },
+      global: { plugins: [router], stubs: { GhibliLoader: true, SearchBox: true, CatDetailModal: true, ErrorState: true, 'i18n-t': true, OnboardingBanner: true, MapSearchBadge: true }, mocks: { $t: (msg: string): string => msg } },
     });
 
     expect(GalleryService.getLocations).toHaveBeenCalled();
@@ -123,7 +153,7 @@ describe('MapView.vue', () => {
     vi.mocked(GalleryService.getLocations).mockRejectedValue(new Error('Fetch failed'));
     
     const wrapper = mount(MapView, {
-      global: { plugins: [router], stubs: { GhibliLoader: true, SearchBox: true, CatDetailModal: true, ErrorState: true, 'i18n-t': true, OnboardingBanner: true }, mocks: { $t: (msg: string) => msg } },
+      global: { plugins: [router], stubs: { GhibliLoader: true, SearchBox: true, CatDetailModal: true, ErrorState: true, 'i18n-t': true, OnboardingBanner: true, MapSearchBadge: true }, mocks: { $t: (msg: string): string => msg } },
     });
 
     await nextTick();
@@ -138,15 +168,15 @@ describe('MapView.vue', () => {
     catsStore.setSearchQuery('test search');
     
     const wrapper = mount(MapView, {
-      global: { plugins: [router], stubs: { GhibliLoader: true, SearchBox: true, CatDetailModal: true, ErrorState: true, 'i18n-t': true, OnboardingBanner: true }, mocks: { $t: (msg: string) => msg } },
+      global: { plugins: [router], stubs: { GhibliLoader: true, SearchBox: true, CatDetailModal: true, ErrorState: true, 'i18n-t': true, OnboardingBanner: true, MapSearchBadge: true }, mocks: { $t: (msg: string): string => msg } },
     });
 
-    wrapper.vm.isInitialLoading = false;
+    (wrapper.vm as any).isInitialLoading = false;
     await nextTick();
 
-    const clearBtn = wrapper.find('.clear-search-btn');
-    if (clearBtn.exists()) {
-      await clearBtn.trigger('click');
+    const badge = wrapper.findComponent({ name: 'MapSearchBadge' });
+    if (badge.exists()) {
+      await badge.vm.$emit('clear');
       expect(catsStore.searchQuery).toBe('');
     }
   });

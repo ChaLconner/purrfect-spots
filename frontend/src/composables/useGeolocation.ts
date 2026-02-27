@@ -72,7 +72,7 @@ export function useGeolocation() {
         resolve(fallbackCoords);
       };
 
-      if (!navigator.geolocation) {
+      if (typeof navigator === 'undefined' || !navigator.geolocation) {
         // nosec typescript:S5604 - Geolocation is the core feature of this cat location app
         // User consent is obtained via browser permission prompt
         handleFailure('Geolocation is not supported by this browser');
@@ -92,7 +92,8 @@ export function useGeolocation() {
    * Start watching position for continuous updates
    */
   const startWatchingPosition = async (options?: PositionOptions) => {
-    if (!navigator.geolocation || watchId.value !== null) return;
+    if (typeof navigator === 'undefined' || !navigator.geolocation || watchId.value !== null)
+      return;
 
     // Don't start watching if we already know permission is denied
     if (permissionDenied.value) {
@@ -138,7 +139,7 @@ export function useGeolocation() {
    * Stop watching position
    */
   const stopWatchingPosition = () => {
-    if (watchId.value !== null) {
+    if (typeof navigator !== 'undefined' && watchId.value !== null) {
       navigator.geolocation.clearWatch(watchId.value);
       watchId.value = null;
     }

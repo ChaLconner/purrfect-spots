@@ -229,10 +229,13 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          echo "🚀 Deploying Frontend..."
-          # Configure Vercel Project Environment Variables
-          echo "$STAGING_API_URL" > /tmp/staging_api_url.txt
-          vercel env add VITE_API_BASE_URL preview --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --scope "$VERCEL_ORG_ID" --file=/tmp/staging_api_url.txt 2>/dev/null || true
+          echo "🚀 Linking and Pulling Frontend Config..."
+          # Use vercel link/pull to establish project context
+          vercel link --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --scope "$VERCEL_ORG_ID"
+          vercel pull --yes --environment=preview --token="$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID"
+
+          echo "🔧 Injecting environment variables..."
+          echo "$STAGING_API_URL" | vercel env add VITE_API_BASE_URL preview --force --yes --token="$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" 2>/dev/null || true
           
           # Prepare Build env flags
           BUILD_ENV_FLAGS="--build-env VITE_SUPABASE_URL=$SUPABASE_URL"
@@ -240,10 +243,10 @@ jobs:
           [ -n "$STAGING_API_URL" ] && BUILD_ENV_FLAGS="$BUILD_ENV_FLAGS --build-env VITE_API_BASE_URL=$STAGING_API_URL"
           [ -n "$GOOGLE_MAPS_API_KEY" ] && BUILD_ENV_FLAGS="$BUILD_ENV_FLAGS --build-env VITE_GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY"
 
+          echo "🚀 Deploying Frontend..."
           vercel deploy \
             --yes \
             --token="$VERCEL_TOKEN" \
-            --project="$VERCEL_PROJECT_ID" \
             --scope="$VERCEL_ORG_ID" \
             $BUILD_ENV_FLAGS
 
@@ -278,18 +281,20 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          echo "🚀 Deploying Backend..."
+          echo "🚀 Linking and Pulling Backend Config..."
           # Prevent project configuration conflicts
           rm -rf .vercel
+          vercel link --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --scope "$VERCEL_ORG_ID"
+          vercel pull --yes --environment=preview --token="$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID"
 
-          # Inject environment variables
-          echo "$SUPABASE_URL" | vercel env add SUPABASE_URL preview --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --scope "$VERCEL_ORG_ID" 2>/dev/null || true
-          echo "$SUPABASE_KEY" | vercel env add SUPABASE_KEY preview --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --scope "$VERCEL_ORG_ID" 2>/dev/null || true
+          echo "🔧 Injecting environment variables..."
+          echo "$SUPABASE_URL" | vercel env add SUPABASE_URL preview --force --yes --token="$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" 2>/dev/null || true
+          echo "$SUPABASE_KEY" | vercel env add SUPABASE_KEY preview --force --yes --token="$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" 2>/dev/null || true
 
+          echo "🚀 Deploying Backend..."
           vercel deploy \
             --yes \
             --token="$VERCEL_TOKEN" \
-            --project="$VERCEL_PROJECT_ID" \
             --scope="$VERCEL_ORG_ID"
 
   staging-verify:
@@ -382,12 +387,19 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
         run: |
+          echo "🚀 Linking and Pulling Frontend Production Config..."
+          vercel link --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --scope "$VERCEL_ORG_ID"
+          vercel pull --yes --environment=production --token="$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID"
+
+          echo "🔧 Injecting environment variables..."
+          echo "$PROD_API_URL" | vercel env add VITE_API_BASE_URL production --force --yes --token="$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" 2>/dev/null || true
+
           VITE_FLAGS="--build-env VITE_SUPABASE_URL=$SUPABASE_URL --build-env VITE_SUPABASE_ANON_KEY=$SUPABASE_KEY"
           [ -n "$PROD_API_URL" ] && VITE_FLAGS="$VITE_FLAGS --build-env VITE_API_BASE_URL=$PROD_API_URL"
           [ -n "$GOOGLE_MAPS_API_KEY" ] && VITE_FLAGS="$VITE_FLAGS --build-env VITE_GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY"
           
           echo "🚀 Triggering Vercel Production Deployment..."
-          DEPLOY_OUTPUT=$(vercel deploy --prod --yes --token="$VERCEL_TOKEN" --project="$VERCEL_PROJECT_ID" --scope="$VERCEL_ORG_ID" $VITE_FLAGS)
+          DEPLOY_OUTPUT=$(vercel deploy --prod --yes --token="$VERCEL_TOKEN" --scope="$VERCEL_ORG_ID" $VITE_FLAGS)
           URL=$(echo "$DEPLOY_OUTPUT" | grep -oE 'https://[a-zA-Z0-9.-]+\.vercel\.app' | head -1)
           echo "deployment_url=$URL" >> $GITHUB_OUTPUT
           echo "✅ Deployed to: $URL"
@@ -415,9 +427,17 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          echo "🚀 Triggering Backend Deployment..."
+          echo "🚀 Linking and Pulling Backend Production Config..."
           rm -rf .vercel
-          vercel deploy --prod --yes --token="$VERCEL_TOKEN" --project="$VERCEL_PROJECT_ID" --scope="$VERCEL_ORG_ID"
+          vercel link --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --scope "$VERCEL_ORG_ID"
+          vercel pull --yes --environment=production --token="$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID"
+
+          echo "🔧 Injecting environment variables..."
+          echo "$SUPABASE_URL" | vercel env add SUPABASE_URL production --force --yes --token="$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" 2>/dev/null || true
+          echo "$SUPABASE_KEY" | vercel env add SUPABASE_KEY production --force --yes --token="$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" 2>/dev/null || true
+
+          echo "🚀 Triggering Backend Deployment..."
+          vercel deploy --prod --yes --token="$VERCEL_TOKEN" --scope="$VERCEL_ORG_ID"
 
   production-verify:
     name: Production - Verification
