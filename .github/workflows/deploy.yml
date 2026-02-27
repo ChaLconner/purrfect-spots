@@ -223,8 +223,8 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
           echo "🚀 Deploying Frontend to Vercel Staging..."
-          # NOTE: Do NOT cd into frontend/ here. The Vercel project settings
-          # have Root Directory set to 'frontend', so deploying from repo root is correct.
+          # NOTE: We run from the repo root because Vercel Project Settings "Root Directory" 
+          # is set to 'frontend'. Vercel will automatically cd into 'frontend' during build.
 
           # Validate required Supabase secrets
           if [ -z "$SUPABASE_URL" ]; then
@@ -236,27 +236,27 @@ jobs:
             exit 1
           fi
 
-          # Link to Vercel project
-          (cd frontend && vercel link --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID") || { echo "::error::Vercel link failed"; exit 1; }
+          # Link to Vercel project (from root)
+          vercel link --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" || { echo "::error::Vercel link failed"; exit 1; }
 
           # Set environment variables via project context
           echo "🔧 Setting environment variables..."
           echo "$STAGING_API_URL" > /tmp/staging_api_url.txt
-          (cd frontend && vercel env add VITE_API_BASE_URL preview --force --yes --token="$VERCEL_TOKEN" --file=/tmp/staging_api_url.txt) 2>/dev/null || true
+          vercel env add VITE_API_BASE_URL preview --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/staging_api_url.txt 2>/dev/null || true
           rm -f /tmp/staging_api_url.txt
 
           if [ -n "$GOOGLE_MAPS_API_KEY" ]; then
             echo "$GOOGLE_MAPS_API_KEY" > /tmp/google_maps_key.txt
-            (cd frontend && vercel env add VITE_GOOGLE_MAPS_API_KEY preview --force --yes --token="$VERCEL_TOKEN" --file=/tmp/google_maps_key.txt) 2>/dev/null || true
+            vercel env add VITE_GOOGLE_MAPS_API_KEY preview --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/google_maps_key.txt 2>/dev/null || true
             rm -f /tmp/google_maps_key.txt
           fi
 
           echo "$SUPABASE_URL" > /tmp/supabase_url.txt
-          (cd frontend && vercel env add VITE_SUPABASE_URL preview --force --yes --token="$VERCEL_TOKEN" --file=/tmp/supabase_url.txt) 2>/dev/null || true
+          vercel env add VITE_SUPABASE_URL preview --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/supabase_url.txt 2>/dev/null || true
           rm -f /tmp/supabase_url.txt
 
           echo "$SUPABASE_KEY" > /tmp/supabase_key.txt
-          (cd frontend && vercel env add VITE_SUPABASE_ANON_KEY preview --force --yes --token="$VERCEL_TOKEN" --file=/tmp/supabase_key.txt) 2>/dev/null || true
+          vercel env add VITE_SUPABASE_ANON_KEY preview --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/supabase_key.txt 2>/dev/null || true
           rm -f /tmp/supabase_key.txt
 
           echo "✅ Environment variables configured"
@@ -272,8 +272,8 @@ jobs:
             BUILD_ENV_FLAGS="$BUILD_ENV_FLAGS --build-env VITE_GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY"
           fi
 
-          # Deploy to Vercel
-          (cd frontend && vercel deploy --yes --token="$VERCEL_TOKEN" $BUILD_ENV_FLAGS)
+          # Deploy to Vercel (from root)
+          vercel deploy --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" $BUILD_ENV_FLAGS
 
       - name: Deploy Backend to Vercel (Staging)
         shell: bash
@@ -293,29 +293,29 @@ jobs:
             exit 0
           fi
 
-          # For monorepo reliability, we cd into the backend folder.
-          # IMPORTANT: Vercel Project Settings "Root Directory" should be set to default/empty.
+          # NOTE: We run from the repo root because Vercel Project Settings "Root Directory" 
+          # is set to 'backend'. Vercel will automatically cd into 'backend' during build.
 
           echo "🔗 Linking Backend to Vercel..."
-          (cd backend && vercel link --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID") || { echo "::error::Vercel link failed for backend"; exit 1; }
+          vercel link --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" || { echo "::error::Vercel link failed for backend"; exit 1; }
 
           echo "🔧 Setting environment variables..."
           echo "$SUPABASE_URL" > /tmp/supabase_url.txt
-          (cd backend && vercel env add SUPABASE_URL preview --force --yes --token="$VERCEL_TOKEN" --file=/tmp/supabase_url.txt) 2>/dev/null || true
+          vercel env add SUPABASE_URL preview --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/supabase_url.txt 2>/dev/null || true
           rm -f /tmp/supabase_url.txt
 
           echo "$SUPABASE_KEY" > /tmp/supabase_key.txt
-          (cd backend && vercel env add SUPABASE_KEY preview --force --yes --token="$VERCEL_TOKEN" --file=/tmp/supabase_key.txt) 2>/dev/null || true
+          vercel env add SUPABASE_KEY preview --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/supabase_key.txt 2>/dev/null || true
           rm -f /tmp/supabase_key.txt
 
           if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
             echo "$SUPABASE_SERVICE_ROLE_KEY" > /tmp/supabase_service_role_key.txt
-            (cd backend && vercel env add SUPABASE_SERVICE_ROLE_KEY preview --force --yes --token="$VERCEL_TOKEN" --file=/tmp/supabase_service_role_key.txt) 2>/dev/null || true
+            vercel env add SUPABASE_SERVICE_ROLE_KEY preview --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/supabase_service_role_key.txt 2>/dev/null || true
             rm -f /tmp/supabase_service_role_key.txt
           fi
           echo "✅ Environment variables configured"
 
-          (cd backend && vercel deploy --yes --token="$VERCEL_TOKEN")
+          vercel deploy --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID"
 
       - name: Health Check
         if: inputs.skip_health_check != true
@@ -497,11 +497,11 @@ jobs:
              exit 1
           fi
 
-          # For monorepo reliability, we cd into the frontend folder.
-          # IMPORTANT: Vercel Project Settings "Root Directory" should be set to default/empty.
+          # NOTE: We run from the repo root because Vercel Project Settings "Root Directory" 
+          # is set to 'frontend'. Vercel will automatically cd into 'frontend' during build.
 
           echo "🔗 Linking to Vercel project..."
-          (cd frontend && vercel link --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID") || { echo "::error::Vercel link failed"; exit 1; }
+          vercel link --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" || { echo "::error::Vercel link failed"; exit 1; }
 
           # Validate required Supabase secrets
           if [ -z "$SUPABASE_URL" ]; then
@@ -515,21 +515,21 @@ jobs:
 
           echo "🔧 Injecting environment variables..."
           echo "$PROD_API_URL" > /tmp/prod_api_url.txt
-          (cd frontend && vercel env add VITE_API_BASE_URL production --force --yes --token="$VERCEL_TOKEN" --file=/tmp/prod_api_url.txt) 2>/dev/null || true
+          vercel env add VITE_API_BASE_URL production --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/prod_api_url.txt 2>/dev/null || true
           rm -f /tmp/prod_api_url.txt
 
           if [ -n "$GOOGLE_MAPS_API_KEY" ]; then
             echo "$GOOGLE_MAPS_API_KEY" > /tmp/google_maps_key.txt
-            (cd frontend && vercel env add VITE_GOOGLE_MAPS_API_KEY production --force --yes --token="$VERCEL_TOKEN" --file=/tmp/google_maps_key.txt) 2>/dev/null || true
+            vercel env add VITE_GOOGLE_MAPS_API_KEY production --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/google_maps_key.txt 2>/dev/null || true
             rm -f /tmp/google_maps_key.txt
           fi
 
           echo "$SUPABASE_URL" > /tmp/supabase_url.txt
-          (cd frontend && vercel env add VITE_SUPABASE_URL production --force --yes --token="$VERCEL_TOKEN" --file=/tmp/supabase_url.txt) 2>/dev/null || true
+          vercel env add VITE_SUPABASE_URL production --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/supabase_url.txt 2>/dev/null || true
           rm -f /tmp/supabase_url.txt
 
           echo "$SUPABASE_KEY" > /tmp/supabase_key.txt
-          (cd frontend && vercel env add VITE_SUPABASE_ANON_KEY production --force --yes --token="$VERCEL_TOKEN" --file=/tmp/supabase_key.txt) 2>/dev/null || true
+          vercel env add VITE_SUPABASE_ANON_KEY production --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/supabase_key.txt 2>/dev/null || true
           rm -f /tmp/supabase_key.txt
 
           echo "✅ Environment variables configured"
@@ -545,7 +545,7 @@ jobs:
           if [ -n "$GOOGLE_MAPS_API_KEY" ]; then
             BUILD_ENV_FLAGS="$BUILD_ENV_FLAGS --build-env VITE_GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY"
           fi
-          DEPLOY_OUTPUT=$(cd frontend && vercel deploy --prod --yes --token="$VERCEL_TOKEN" $BUILD_ENV_FLAGS)
+          DEPLOY_OUTPUT=$(vercel deploy --prod --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" $BUILD_ENV_FLAGS)
           DEPLOY_EXIT_CODE=$?
 
           if [ $DEPLOY_EXIT_CODE -ne 0 ]; then
@@ -589,35 +589,35 @@ jobs:
              exit 1
           fi
 
-          # For monorepo reliability, we cd into the backend folder.
-          # IMPORTANT: Vercel Project Settings "Root Directory" should be set to default/empty.
+          # NOTE: We run from the repo root because Vercel Project Settings "Root Directory" 
+          # is set to 'backend'. Vercel will automatically cd into 'backend' during build.
 
           echo "🔗 Linking Backend to Vercel..."
-          (cd backend && vercel link --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID") || { echo "::error::Vercel link failed for backend"; exit 1; }
+          vercel link --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" || { echo "::error::Vercel link failed for backend"; exit 1; }
 
           echo "🔧 Injecting environment variables..."
           echo "$SUPABASE_URL" > /tmp/supabase_url.txt
-          (cd backend && vercel env add SUPABASE_URL production --force --yes --token="$VERCEL_TOKEN" --file=/tmp/supabase_url.txt) 2>/dev/null || true
+          vercel env add SUPABASE_URL production --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/supabase_url.txt 2>/dev/null || true
           rm -f /tmp/supabase_url.txt
 
           echo "$SUPABASE_KEY" > /tmp/supabase_key.txt
-          (cd backend && vercel env add SUPABASE_KEY production --force --yes --token="$VERCEL_TOKEN" --file=/tmp/supabase_key.txt) 2>/dev/null || true
+          vercel env add SUPABASE_KEY production --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/supabase_key.txt 2>/dev/null || true
           rm -f /tmp/supabase_key.txt
 
           if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
             echo "$SUPABASE_SERVICE_ROLE_KEY" > /tmp/supabase_service_role_key.txt
-            (cd backend && vercel env add SUPABASE_SERVICE_ROLE_KEY production --force --yes --token="$VERCEL_TOKEN" --file=/tmp/supabase_service_role_key.txt) 2>/dev/null || true
+            vercel env add SUPABASE_SERVICE_ROLE_KEY production --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/supabase_service_role_key.txt 2>/dev/null || true
             rm -f /tmp/supabase_service_role_key.txt
           fi
           if [ -n "$JWT_SECRET" ]; then
             echo "$JWT_SECRET" > /tmp/jwt_secret.txt
-            (cd backend && vercel env add JWT_SECRET production --force --yes --token="$VERCEL_TOKEN" --file=/tmp/jwt_secret.txt) 2>/dev/null || true
+            vercel env add JWT_SECRET production --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/jwt_secret.txt 2>/dev/null || true
             rm -f /tmp/jwt_secret.txt
           fi
           echo "✅ Environment variables configured"
 
           echo "🚀 Triggering Backend Deployment..."
-          (cd backend && vercel deploy --prod --yes --token="$VERCEL_TOKEN")
+          vercel deploy --prod --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID"
 
       - name: Health Check
         if: inputs.skip_health_check != true
