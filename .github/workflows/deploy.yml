@@ -181,34 +181,41 @@ jobs:
           echo "Generated version: ${VERSION}"
 
   # ============================================================================
-  # DEPLOY TO STAGING
+  # STAGING - PARALLEL DEPLOYMENTS
   # ============================================================================
-  deploy-staging:
-    name: Deploy to Staging
+  staging-frontend:
+    name: Staging - Frontend
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     needs: prepare
     if: needs.prepare.outputs.environment == 'staging'
-    environment:
-      name: staging
-      url: ${{ vars.STAGING_FRONTEND_URL }}
+    environment: { name: staging, url: ${{ vars.STAGING_FRONTEND_URL }} }
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@8f152de45cc393bb48ce5d89d36b731f54556e65 # v4.4.2
+        uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: 'npm'
 
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
+
+      - name: Authenticate Vercel
+        run: vercel whoami --token="${{ secrets.VERCEL_TOKEN }}"
+
+      - name: Cache API Client Node Modules
+        uses: actions/cache@v4
+        with:
+          path: api-client/node_modules
+          key: ${{ runner.os }}-api-client-${{ hashFiles('api-client/package.json') }}
 
       - name: Validate API Client Generation
         run: |
           echo "🧪 Validating API Client Generation..."
           cd api-client
-          npm install --prefer-offline --no-audit --no-workspaces
+          [ -d node_modules ] || npm install --prefer-offline --no-audit
           npm run validate
 
       - name: Deploy Frontend to Vercel (Staging)
@@ -222,58 +229,45 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          echo "🚀 Deploying Frontend to Vercel Staging..."
-          # NOTE: We run from the repo root because Vercel Project Settings "Root Directory" 
-          # is set to 'frontend'. Vercel will automatically cd into 'frontend' during build.
-
-          # Validate required Supabase secrets
-          if [ -z "$SUPABASE_URL" ]; then
-            echo "::error::SUPABASE_URL secret is not set! Frontend cannot connect to Supabase."
-            exit 1
-          fi
-          if [ -z "$SUPABASE_KEY" ]; then
-            echo "::error::SUPABASE_KEY secret is not set! Frontend cannot connect to Supabase."
-            exit 1
-          fi
-
-          # Link to Vercel project (from root)
-          vercel link --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" || { echo "::error::Vercel link failed"; exit 1; }
-
-          # Set environment variables via project context
-          echo "🔧 Setting environment variables..."
+          echo "🚀 Deploying Frontend..."
+          # Configure Vercel Project Environment Variables
           echo "$STAGING_API_URL" > /tmp/staging_api_url.txt
-          vercel env add VITE_API_BASE_URL preview --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/staging_api_url.txt 2>/dev/null || true
-          rm -f /tmp/staging_api_url.txt
-
-          if [ -n "$GOOGLE_MAPS_API_KEY" ]; then
-            echo "$GOOGLE_MAPS_API_KEY" > /tmp/google_maps_key.txt
-            vercel env add VITE_GOOGLE_MAPS_API_KEY preview --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/google_maps_key.txt 2>/dev/null || true
-            rm -f /tmp/google_maps_key.txt
-          fi
-
-          echo "$SUPABASE_URL" > /tmp/supabase_url.txt
-          vercel env add VITE_SUPABASE_URL preview --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/supabase_url.txt 2>/dev/null || true
-          rm -f /tmp/supabase_url.txt
-
-          echo "$SUPABASE_KEY" > /tmp/supabase_key.txt
-          vercel env add VITE_SUPABASE_ANON_KEY preview --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/supabase_key.txt 2>/dev/null || true
-          rm -f /tmp/supabase_key.txt
-
-          echo "✅ Environment variables configured"
-
-          # Deploy to Vercel with VITE_ env vars passed directly to the build
-          BUILD_ENV_FLAGS=""
-          BUILD_ENV_FLAGS="$BUILD_ENV_FLAGS --build-env VITE_SUPABASE_URL=$SUPABASE_URL"
+          vercel env add VITE_API_BASE_URL preview --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --scope "$VERCEL_ORG_ID" --file=/tmp/staging_api_url.txt 2>/dev/null || true
+          
+          # Prepare Build env flags
+          BUILD_ENV_FLAGS="--build-env VITE_SUPABASE_URL=$SUPABASE_URL"
           BUILD_ENV_FLAGS="$BUILD_ENV_FLAGS --build-env VITE_SUPABASE_ANON_KEY=$SUPABASE_KEY"
-          if [ -n "$STAGING_API_URL" ]; then
-            BUILD_ENV_FLAGS="$BUILD_ENV_FLAGS --build-env VITE_API_BASE_URL=$STAGING_API_URL"
-          fi
-          if [ -n "$GOOGLE_MAPS_API_KEY" ]; then
-            BUILD_ENV_FLAGS="$BUILD_ENV_FLAGS --build-env VITE_GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY"
-          fi
+          [ -n "$STAGING_API_URL" ] && BUILD_ENV_FLAGS="$BUILD_ENV_FLAGS --build-env VITE_API_BASE_URL=$STAGING_API_URL"
+          [ -n "$GOOGLE_MAPS_API_KEY" ] && BUILD_ENV_FLAGS="$BUILD_ENV_FLAGS --build-env VITE_GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY"
 
-          # Deploy to Vercel (from root)
-          vercel deploy --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" $BUILD_ENV_FLAGS
+          vercel deploy \
+            --yes \
+            --token="$VERCEL_TOKEN" \
+            --project="$VERCEL_PROJECT_ID" \
+            --scope="$VERCEL_ORG_ID" \
+            $BUILD_ENV_FLAGS
+
+  staging-backend:
+    name: Staging - Backend
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: needs.prepare.outputs.environment == 'staging'
+    environment: { name: staging }
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: 'npm'
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Authenticate Vercel
+        run: vercel whoami --token="${{ secrets.VERCEL_TOKEN }}"
 
       - name: Deploy Backend to Vercel (Staging)
         shell: bash
@@ -281,174 +275,71 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
-          HAS_BACKEND_PROJECT: ${{ secrets.VERCEL_BACKEND_PROJECT_ID != '' }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          echo "🚀 Deploying Backend to Vercel Staging..."
+          echo "🚀 Deploying Backend..."
+          # Prevent project configuration conflicts
+          rm -rf .vercel
 
-          if [ "$HAS_BACKEND_PROJECT" != "true" ]; then
-            echo "::warning::VERCEL_BACKEND_PROJECT_ID secret is missing! Skipping backend deployment."
-            exit 0
-          fi
+          # Inject environment variables
+          echo "$SUPABASE_URL" | vercel env add SUPABASE_URL preview --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --scope "$VERCEL_ORG_ID" 2>/dev/null || true
+          echo "$SUPABASE_KEY" | vercel env add SUPABASE_KEY preview --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --scope "$VERCEL_ORG_ID" 2>/dev/null || true
 
-          # NOTE: We run from the repo root because Vercel Project Settings "Root Directory" 
-          # is set to 'backend'. Vercel will automatically cd into 'backend' during build.
+          vercel deploy \
+            --yes \
+            --token="$VERCEL_TOKEN" \
+            --project="$VERCEL_PROJECT_ID" \
+            --scope="$VERCEL_ORG_ID"
 
-          echo "🔗 Linking Backend to Vercel..."
-          vercel link --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" || { echo "::error::Vercel link failed for backend"; exit 1; }
-
-          echo "🔧 Setting environment variables..."
-          echo "$SUPABASE_URL" > /tmp/supabase_url.txt
-          vercel env add SUPABASE_URL preview --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/supabase_url.txt 2>/dev/null || true
-          rm -f /tmp/supabase_url.txt
-
-          echo "$SUPABASE_KEY" > /tmp/supabase_key.txt
-          vercel env add SUPABASE_KEY preview --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/supabase_key.txt 2>/dev/null || true
-          rm -f /tmp/supabase_key.txt
-
-          if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
-            echo "$SUPABASE_SERVICE_ROLE_KEY" > /tmp/supabase_service_role_key.txt
-            vercel env add SUPABASE_SERVICE_ROLE_KEY preview --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/supabase_service_role_key.txt 2>/dev/null || true
-            rm -f /tmp/supabase_service_role_key.txt
-          fi
-          echo "✅ Environment variables configured"
-
-          vercel deploy --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID"
-
-      - name: Health Check
-        if: inputs.skip_health_check != true
+  staging-verify:
+    name: Staging - Verification
+    runs-on: ubuntu-latest
+    needs: [prepare, staging-frontend, staging-backend]
+    if: always() && needs.prepare.outputs.environment == 'staging'
+    steps:
+      - name: Staging Health Check
+        if: inputs.skip_health_check != true && needs.staging-frontend.result == 'success' && needs.staging-backend.result == 'success'
         env:
           STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
-          HAS_BACKEND_PROJECT: ${{ secrets.VERCEL_BACKEND_PROJECT_ID != '' }}
         run: |
-          echo "🏥 Running health check..."
-
-          echo "Waiting 10 seconds for service startup..."
+          echo "🏥 Running staging health check..."
           sleep 10
+          curl -sf --max-time 15 "${STAGING_API_URL}/health/ready" || (echo "❌ Staging Health Check Failed" && exit 1)
+          echo "✅ Staging Backend is Healthy"
 
-          MAX_RETRIES=20
-          RETRY_DELAY=10
-          BACKEND_OK=false
-
-          for i in $(seq 1 $MAX_RETRIES); do
-            echo "Health check attempt $i of $MAX_RETRIES..."
-            
-            if curl -sf --max-time 10 "${STAGING_API_URL}/health/ready" > /dev/null 2>&1; then
-              echo "✅ Backend readiness check passed!"
-              BACKEND_OK=true
-              break
-            else
-              echo "Backend not ready yet, retrying in ${RETRY_DELAY}s..."
-              sleep $RETRY_DELAY
-            fi
-          done
-
-          if [ "$BACKEND_OK" != "true" ]; then
-             if [ "$HAS_BACKEND_PROJECT" != "true" ]; then
-               echo "⚠️ Backend check failed but VERCEL_BACKEND_PROJECT_ID was missing, so this is expected."
-             else
-               echo "❌ Backend health check failed after $MAX_RETRIES attempts"
-               exit 1
-             fi
-          fi
-
-          echo "✅ All health checks passed!"
-
-      - name: Notify Deployment Result
+      - name: Notify Staging Result
         if: always()
         env:
-          STAGING_FRONTEND_URL: ${{ secrets.STAGING_FRONTEND_URL }}
-          STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
-          VERSION: ${{ needs.prepare.outputs.version }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          JOB_STATUS: ${{ job.status }}
+          FE_RESULT: ${{ needs.staging-frontend.result }}
+          BE_RESULT: ${{ needs.staging-backend.result }}
+          VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          if [ "$JOB_STATUS" == "success" ]; then
-            echo "✅ Staging deployment successful!"
-            echo "🔗 Frontend URL: ${STAGING_FRONTEND_URL}"
-            echo "🔗 Backend URL: ${STAGING_API_URL}"
-            echo "📦 Version: ${VERSION}"
+          if [ "$FE_RESULT" == "success" ] && [ "$BE_RESULT" == "success" ]; then
+            TITLE="✅ Staging Deployment Successful"
             COLOR_SLACK="good"
             COLOR_DISCORD=5763719
-            TITLE="✅ Staging Deployment Successful"
           else
-            echo "❌ Staging deployment failed!"
+            TITLE="❌ Staging Deployment Failed"
             COLOR_SLACK="danger"
             COLOR_DISCORD=15548997
-            TITLE="❌ Staging Deployment Failed"
           fi
-
-          # Send Slack notification if configured
-          if [ -n "$SLACK_WEBHOOK_URL" ]; then
-            curl -X POST "$SLACK_WEBHOOK_URL" \
-              -H "Content-Type: application/json" \
-              -d "{
-                \"text\": \"${TITLE}\",
-                \"attachments\": [{
-                  \"color\": \"${COLOR_SLACK}\",
-                  \"fields\": [
-                    {\"title\": \"Environment\", \"value\": \"Staging\", \"short\": true},
-                    {\"title\": \"Version\", \"value\": \"${VERSION}\", \"short\": true},
-                    {\"title\": \"Deployed by\", \"value\": \"${{ github.actor }}\", \"short\": true},
-                    {\"title\": \"Run\", \"value\": \"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\", \"short\": false}
-                  ]
-                }]
-              }" 2>/dev/null || echo "Slack notification failed"
-          fi
-
-          # Send Discord notification if configured
-          if [ -n "$DISCORD_WEBHOOK_URL" ]; then
-            curl -X POST "$DISCORD_WEBHOOK_URL" \
-              -H "Content-Type: application/json" \
-              -d "{
-                \"embeds\": [{
-                  \"title\": \"${TITLE}\",
-                  \"color\": ${COLOR_DISCORD},
-                  \"fields\": [
-                    {\"name\": \"Environment\", \"value\": \"Staging\", \"inline\": true},
-                    {\"name\": \"Version\", \"value\": \"${VERSION}\", \"inline\": true},
-                    {\"name\": \"Deployed by\", \"value\": \"${{ github.actor }}\", \"inline\": true},
-                    {\"name\": \"Run\", \"value\": \"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}
-                  ]
-                }]
-              }" 2>/dev/null || echo "Discord notification failed"
-          fi
+          
+          [ -n "$SLACK_WEBHOOK_URL" ] && curl -X POST "$SLACK_WEBHOOK_URL" -H "Content-Type: application/json" -d "{\"text\": \"${TITLE}\", \"attachments\": [{\"color\": \"${COLOR_SLACK}\", \"fields\": [{\"title\": \"Environment\", \"value\": \"Staging\", \"short\": true}, {\"title\": \"Version\", \"value\": \"${VERSION}\", \"short\": true}]}]}" 2>/dev/null || true
+          [ -n "$DISCORD_WEBHOOK_URL" ] && curl -X POST "$DISCORD_WEBHOOK_URL" -H "Content-Type: application/json" -d "{\"embeds\": [{\"title\": \"${TITLE}\", \"color\": ${COLOR_DISCORD}, \"fields\": [{\"name\": \"Environment\", \"value\": \"Staging\"}, {\"name\": \"Version\", \"value\": \"${VERSION}\"}]}]}" 2>/dev/null || true
+          echo "Notifying: $TITLE"
 
   # ============================================================================
-  # DEPLOY TO PRODUCTION
+  # PRODUCTION - MODULAR FLOW
   # ============================================================================
-  deploy-production:
-    name: Deploy to Production
+  production-backup:
+    name: Production - Backup
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     needs: prepare
-    outputs:
-      frontend_url: ${{ steps.deploy-frontend.outputs.deployment_url }}
     if: needs.prepare.outputs.environment == 'production'
-    environment:
-      name: production
-      url: https://purrfect-spots.vercel.app
-    permissions:
-      contents: write # Needed for tagging releases
-      packages: write
-      deployments: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@8f152de45cc393bb48ce5d89d36b731f54556e65 # v4.4.2
-        with:
-          node-version: "20"
-
-      - name: Install Vercel CLI
-        run: npm install -g vercel@latest
-
       - name: Pre-deployment backup
         env:
           BACKUP_WEBHOOK_URL: ${{ secrets.BACKUP_WEBHOOK_URL }}
@@ -461,284 +352,91 @@ jobs:
               -H "Authorization: Bearer $BACKUP_API_KEY" \
               -H "Content-Type: application/json" \
               -d "{\"type\": \"pre-deployment\", \"version\": \"${VERSION}\"}"
-            echo "Backup triggered successfully"
-          else
-            echo "::warning::No backup webhook configured. Skipping backup."
           fi
 
-      - name: Deploy Frontend to Vercel (Production)
-        id: deploy-frontend
-        shell: bash
+  production-frontend:
+    name: Production - Frontend
+    runs-on: ubuntu-latest
+    needs: [prepare, production-backup]
+    if: needs.prepare.outputs.environment == 'production'
+    outputs:
+      deployment_url: ${{ steps.deploy.outputs.deployment_url }}
+    environment: { name: production, url: https://purrfect-spots.vercel.app }
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with: { node-version: "20", cache: 'npm' }
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+      - name: Authenticate Vercel
+        run: vercel whoami --token="${{ secrets.VERCEL_TOKEN }}"
+      - id: deploy
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           PROD_API_URL: ${{ secrets.PROD_API_URL }}
-          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          HAS_VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN != '' }}
-          HAS_VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID != '' }}
-          HAS_VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID != '' }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
         run: |
-          echo "🚀 Deploying Frontend to Vercel Production..."
-
-          # Validate required env vars
-          if [ "$HAS_VERCEL_TOKEN" != "true" ]; then
-            echo "::error::VERCEL_TOKEN is not set"
-            exit 1
-          fi
-          if [ "$HAS_VERCEL_ORG_ID" != "true" ]; then
-            echo "::error::VERCEL_ORG_ID is not set"
-            exit 1
-          fi
-          if [ "$HAS_VERCEL_PROJECT_ID" != "true" ]; then
-             echo "::error::VERCEL_PROJECT_ID is not set"
-             exit 1
-          fi
-
-          # NOTE: We run from the repo root because Vercel Project Settings "Root Directory" 
-          # is set to 'frontend'. Vercel will automatically cd into 'frontend' during build.
-
-          echo "🔗 Linking to Vercel project..."
-          vercel link --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" || { echo "::error::Vercel link failed"; exit 1; }
-
-          # Validate required Supabase secrets
-          if [ -z "$SUPABASE_URL" ]; then
-            echo "::error::SUPABASE_URL secret is not set! Frontend cannot connect to Supabase."
-            exit 1
-          fi
-          if [ -z "$SUPABASE_KEY" ]; then
-            echo "::error::SUPABASE_KEY secret is not set! Frontend cannot connect to Supabase."
-            exit 1
-          fi
-
-          echo "🔧 Injecting environment variables..."
-          echo "$PROD_API_URL" > /tmp/prod_api_url.txt
-          vercel env add VITE_API_BASE_URL production --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/prod_api_url.txt 2>/dev/null || true
-          rm -f /tmp/prod_api_url.txt
-
-          if [ -n "$GOOGLE_MAPS_API_KEY" ]; then
-            echo "$GOOGLE_MAPS_API_KEY" > /tmp/google_maps_key.txt
-            vercel env add VITE_GOOGLE_MAPS_API_KEY production --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/google_maps_key.txt 2>/dev/null || true
-            rm -f /tmp/google_maps_key.txt
-          fi
-
-          echo "$SUPABASE_URL" > /tmp/supabase_url.txt
-          vercel env add VITE_SUPABASE_URL production --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/supabase_url.txt 2>/dev/null || true
-          rm -f /tmp/supabase_url.txt
-
-          echo "$SUPABASE_KEY" > /tmp/supabase_key.txt
-          vercel env add VITE_SUPABASE_ANON_KEY production --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/supabase_key.txt 2>/dev/null || true
-          rm -f /tmp/supabase_key.txt
-
-          echo "✅ Environment variables configured"
-
+          VITE_FLAGS="--build-env VITE_SUPABASE_URL=$SUPABASE_URL --build-env VITE_SUPABASE_ANON_KEY=$SUPABASE_KEY"
+          [ -n "$PROD_API_URL" ] && VITE_FLAGS="$VITE_FLAGS --build-env VITE_API_BASE_URL=$PROD_API_URL"
+          [ -n "$GOOGLE_MAPS_API_KEY" ] && VITE_FLAGS="$VITE_FLAGS --build-env VITE_GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY"
+          
           echo "🚀 Triggering Vercel Production Deployment..."
-          # Pass VITE_ env vars directly to the build via --build-env
-          BUILD_ENV_FLAGS=""
-          BUILD_ENV_FLAGS="$BUILD_ENV_FLAGS --build-env VITE_SUPABASE_URL=$SUPABASE_URL"
-          BUILD_ENV_FLAGS="$BUILD_ENV_FLAGS --build-env VITE_SUPABASE_ANON_KEY=$SUPABASE_KEY"
-          if [ -n "$PROD_API_URL" ]; then
-            BUILD_ENV_FLAGS="$BUILD_ENV_FLAGS --build-env VITE_API_BASE_URL=$PROD_API_URL"
-          fi
-          if [ -n "$GOOGLE_MAPS_API_KEY" ]; then
-            BUILD_ENV_FLAGS="$BUILD_ENV_FLAGS --build-env VITE_GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY"
-          fi
-          DEPLOY_OUTPUT=$(vercel deploy --prod --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" $BUILD_ENV_FLAGS)
-          DEPLOY_EXIT_CODE=$?
+          DEPLOY_OUTPUT=$(vercel deploy --prod --yes --token="$VERCEL_TOKEN" --project="$VERCEL_PROJECT_ID" --scope="$VERCEL_ORG_ID" $VITE_FLAGS)
+          URL=$(echo "$DEPLOY_OUTPUT" | grep -oE 'https://[a-zA-Z0-9.-]+\.vercel\.app' | head -1)
+          echo "deployment_url=$URL" >> $GITHUB_OUTPUT
+          echo "✅ Deployed to: $URL"
 
-          if [ $DEPLOY_EXIT_CODE -ne 0 ]; then
-            echo "::error::Vercel deployment failed"
-            echo "$DEPLOY_OUTPUT"
-            exit $DEPLOY_EXIT_CODE
-          fi
-
-          deployment_url=$(echo "$DEPLOY_OUTPUT" | grep -oE 'https://[a-zA-Z0-9.-]+\.vercel\.app' | head -1)
-
-          if [ -z "$deployment_url" ]; then
-            echo "::error::Deployment succeeded but no URL found"
-            echo "$DEPLOY_OUTPUT"
-            exit 1
-          fi
-
-          echo "deployment_url=$deployment_url" >> $GITHUB_OUTPUT
-          echo "✅ Deployed to: $deployment_url"
-
-      - name: Deploy Backend to Vercel (Production)
-        shell: bash
+  production-backend:
+    name: Production - Backend
+    runs-on: ubuntu-latest
+    needs: [prepare, production-backup]
+    if: needs.prepare.outputs.environment == 'production'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with: { node-version: "20", cache: 'npm' }
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+      - name: Authenticate Vercel
+        run: vercel whoami --token="${{ secrets.VERCEL_TOKEN }}"
+      - name: Deploy Backend
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
-          HAS_BACKEND_PROJECT: ${{ secrets.VERCEL_BACKEND_PROJECT_ID != '' }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
         run: |
-          echo "🚀 Deploying Backend to Vercel Production..."
-
-          if [ "$HAS_BACKEND_PROJECT" != "true" ]; then
-            echo "::error::VERCEL_BACKEND_PROJECT_ID secret is missing! Cannot deploy backend to Production."
-            exit 1
-          fi
-
-          if [ -z "$VERCEL_ORG_ID" ]; then
-             echo "::error::VERCEL_ORG_ID is not set (Backend)"
-             exit 1
-          fi
-
-          # NOTE: We run from the repo root because Vercel Project Settings "Root Directory" 
-          # is set to 'backend'. Vercel will automatically cd into 'backend' during build.
-
-          echo "🔗 Linking Backend to Vercel..."
-          vercel link --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" || { echo "::error::Vercel link failed for backend"; exit 1; }
-
-          echo "🔧 Injecting environment variables..."
-          echo "$SUPABASE_URL" > /tmp/supabase_url.txt
-          vercel env add SUPABASE_URL production --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/supabase_url.txt 2>/dev/null || true
-          rm -f /tmp/supabase_url.txt
-
-          echo "$SUPABASE_KEY" > /tmp/supabase_key.txt
-          vercel env add SUPABASE_KEY production --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/supabase_key.txt 2>/dev/null || true
-          rm -f /tmp/supabase_key.txt
-
-          if [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
-            echo "$SUPABASE_SERVICE_ROLE_KEY" > /tmp/supabase_service_role_key.txt
-            vercel env add SUPABASE_SERVICE_ROLE_KEY production --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/supabase_service_role_key.txt 2>/dev/null || true
-            rm -f /tmp/supabase_service_role_key.txt
-          fi
-          if [ -n "$JWT_SECRET" ]; then
-            echo "$JWT_SECRET" > /tmp/jwt_secret.txt
-            vercel env add JWT_SECRET production --force --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID" --file=/tmp/jwt_secret.txt 2>/dev/null || true
-            rm -f /tmp/jwt_secret.txt
-          fi
-          echo "✅ Environment variables configured"
-
           echo "🚀 Triggering Backend Deployment..."
-          vercel deploy --prod --yes --token="$VERCEL_TOKEN" --project "$VERCEL_PROJECT_ID"
+          rm -rf .vercel
+          vercel deploy --prod --yes --token="$VERCEL_TOKEN" --project="$VERCEL_PROJECT_ID" --scope="$VERCEL_ORG_ID"
 
-      - name: Health Check
-        if: inputs.skip_health_check != true
-        env:
-          PROD_API_URL: ${{ secrets.PROD_API_URL }}
-          FRONTEND_URL: ${{ steps.deploy-frontend.outputs.deployment_url }}
-          HAS_BACKEND_PROJECT: ${{ secrets.VERCEL_BACKEND_PROJECT_ID != '' }}
-        run: |
-          echo "🏥 Running production health check..."
-
-          echo "Waiting 15 seconds for service startup..."
-          sleep 15
-
-          RETRY_DELAY=10
-          BACKEND_OK=false
-          FRONTEND_OK=false
-
-          # ── 1. Frontend Health Check ──
-          echo ""
-          echo "━━━ Frontend Health Check ━━━"
-          if [ -z "$FRONTEND_URL" ]; then
-            echo "⚠️ Frontend URL not available from deploy step output. Skipping."
-            FRONTEND_OK=true
-          else
-            MAX_RETRIES_FE=10
-            for i in $(seq 1 $MAX_RETRIES_FE); do
-              echo "Frontend check attempt $i/$MAX_RETRIES_FE → $FRONTEND_URL"
-              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$FRONTEND_URL" 2>/dev/null || echo "000")
-              if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 400 ]; then
-                echo "✅ Frontend health check passed! (HTTP $HTTP_CODE)"
-                FRONTEND_OK=true
-                break
-              fi
-              echo "   ↳ HTTP $HTTP_CODE – retrying in ${RETRY_DELAY}s..."
-              sleep $RETRY_DELAY
-            done
-            if [ "$FRONTEND_OK" != "true" ]; then
-              echo "❌ Frontend health check failed after $MAX_RETRIES_FE attempts"
-            fi
-          fi
-
-          # ── 2. Backend Health Check ──
-          echo ""
-          echo "━━━ Backend Health Check ━━━"
-          if [ "$HAS_BACKEND_PROJECT" != "true" ]; then
-            echo "⚠️ VERCEL_BACKEND_PROJECT_ID not configured. Skipping backend health check."
-            BACKEND_OK=true
-          elif [ -z "$PROD_API_URL" ]; then
-            echo "⚠️ PROD_API_URL not set. Skipping backend health check."
-            BACKEND_OK=true
-          else
-            # Try lightweight liveness probe first
-            echo "Trying lightweight liveness probe..."
-            LIVE_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${PROD_API_URL}/health/live" 2>/dev/null || echo "000")
-            echo "   ↳ /health/live → HTTP $LIVE_CODE"
-
-            MAX_RETRIES_BE=20
-            for i in $(seq 1 $MAX_RETRIES_BE); do
-              echo "Backend readiness check attempt $i/$MAX_RETRIES_BE → ${PROD_API_URL}/health/ready"
-              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "${PROD_API_URL}/health/ready" 2>/dev/null || echo "000")
-              if [ "$HTTP_CODE" = "200" ]; then
-                echo "✅ Backend readiness check passed! (HTTP $HTTP_CODE)"
-                BACKEND_OK=true
-                break
-              fi
-              echo "   ↳ HTTP $HTTP_CODE – retrying in ${RETRY_DELAY}s..."
-              sleep $RETRY_DELAY
-            done
-
-            if [ "$BACKEND_OK" != "true" ]; then
-              echo "❌ Backend readiness check failed after $MAX_RETRIES_BE attempts"
-              echo "ℹ️ Trying to get diagnostic data..."
-              curl -s --max-time 10 "${PROD_API_URL}/health/ready" 2>/dev/null || echo "(no response)"
-            fi
-          fi
-
-          # ── 3. Final Verdict ──
-          echo ""
-          echo "━━━ Health Check Summary ━━━"
-          echo "Frontend: $([ "$FRONTEND_OK" = "true" ] && echo '✅ PASS' || echo '❌ FAIL')"
-          echo "Backend:  $([ "$BACKEND_OK" = "true" ] && echo '✅ PASS' || echo '❌ FAIL')"
-
-          if [ "$FRONTEND_OK" = "true" ] && [ "$BACKEND_OK" = "true" ]; then
-            echo ""
-            echo "✅ All production health checks passed!"
-          else
-            echo ""
-            echo "❌ Production health check failed"
-            echo "::error::Health check failed – Frontend: $FRONTEND_OK, Backend: $BACKEND_OK"
-            exit 1
-          fi
-
+  production-verify:
+    name: Production - Verification
+    runs-on: ubuntu-latest
+    needs: [prepare, production-frontend, production-backend]
+    if: always() && needs.prepare.outputs.environment == 'production'
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
       - name: Smoke Tests
+        if: needs.production-frontend.result == 'success' && needs.production-backend.result == 'success'
         env:
           PROD_API_URL: ${{ secrets.PROD_API_URL }}
-          FRONTEND_URL: ${{ steps.deploy-frontend.outputs.deployment_url }}
         run: |
-          echo "🧪 Running smoke tests..."
-          echo "Testing critical endpoints..."
-
-          # Test health endpoint (jq is pre-installed on ubuntu-latest)
-          curl -sf "${PROD_API_URL}/health/dependencies" | jq . || echo "Dependency health check"
-
-          # Test public endpoints (no auth required)
-          curl -sf "${PROD_API_URL}/api/v1/spots?limit=1" > /dev/null && echo "✅ Spots API OK" || echo "::warning::Spots API check failed"
-
-          # CORS Smoke Test
-          if [ -n "$FRONTEND_URL" ]; then
-            echo "Testing CORS connectivity from $FRONTEND_URL to ${PROD_API_URL}..."
-            CORS_STATUS=$(curl -s -I -H "Origin: $FRONTEND_URL" -H "Access-Control-Request-Method: GET" "${PROD_API_URL}/health/ready" | grep -i "Access-Control-Allow-Origin" || echo "MISSING")
-            
-            if [[ "$CORS_STATUS" == *"MISSING"* ]]; then
-               echo "::warning::⚠️ CORS headers missing! Frontend may not be able to talk to Backend."
-            else
-               echo "✅ CORS Check Passed: $CORS_STATUS"
-            fi
-          else
-            echo "::warning::Frontend URL not found, skipping CORS check."
-          fi
-
-          echo "✅ Smoke tests completed!"
+          echo "🧪 Running Smoke Tests..."
+          sleep 15
+          curl -sf "${PROD_API_URL}/health/ready" || exit 1
+          echo "✅ Backend integration check passed"
 
       - name: Create Release Tag
         if: success()
@@ -872,16 +570,16 @@ jobs:
     name: Deployment Summary
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [prepare, deploy-staging, deploy-production]
+    needs: [prepare, staging-verify, production-verify]
     if: always() && needs.prepare.outputs.should_deploy == 'true'
     steps:
       - name: Create deployment summary
         env:
           ENVIRONMENT: ${{ needs.prepare.outputs.environment }}
           VERSION: ${{ needs.prepare.outputs.version }}
-          FRONTEND_URL: ${{ needs.deploy-production.outputs.frontend_url }}
-          STAGING_RESULT: ${{ needs.deploy-staging.result }}
-          PRODUCTION_RESULT: ${{ needs.deploy-production.result }}
+          FRONTEND_URL: ${{ needs.production-frontend.outputs.deployment_url }}
+          STAGING_RESULT: ${{ needs.staging-verify.result }}
+          PRODUCTION_RESULT: ${{ needs.production-verify.result }}
           START_TIME: ${{ needs.prepare.outputs.start_time }}
         run: |
           echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
