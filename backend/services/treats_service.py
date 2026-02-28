@@ -6,7 +6,7 @@ import stripe
 from starlette.concurrency import run_in_threadpool
 from supabase import AClient
 
-from logger import logger
+from logger import logger, sanitize_log_value
 from schemas.notification import NotificationType
 from services.notification_service import NotificationService
 from utils.cache import cached_leaderboard
@@ -266,7 +266,7 @@ class TreatsService:
                 }
             return None
         except Exception as e:
-            logger.error("Failed to fetch treat package %r: %s", package_id, e)
+            logger.error("Failed to fetch treat package %s: %s", sanitize_log_value(package_id), e)
             return None
 
     # ── Fulfillment (webhook) ────────────────────────────────────────

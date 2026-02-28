@@ -102,7 +102,7 @@
                         class="h-10 w-10 rounded-full object-cover"
                         :src="
                           user.picture ||
-                            `https://ui-avatars.com/api/?name=${user.name}&background=random`
+                          `https://ui-avatars.com/api/?name=${user.name}&background=random`
                         "
                         :alt="user.name"
                       />

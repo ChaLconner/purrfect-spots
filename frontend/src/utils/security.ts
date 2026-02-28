@@ -23,7 +23,6 @@ export function escapeHtml(text: string): string {
     '/': '&#x2F;',
   };
 
-   
   return text.replaceAll(/[&<>"'/]/g, (char) => htmlEntities[char] || char);
 }
 
@@ -39,14 +38,23 @@ export function sanitizeInput(input: string, maxLength = 1000): string {
 
   // Remove script tags (simplified non-backtracking pattern)
 
-  // Remove dangerous tags and their content
-  sanitized = sanitized.replace(/<(script|iframe|object|embed|style|meta|link|base|form)[^>]*>([\s\S]*?)<\/\1>|<(script|iframe|object|embed|style|meta|link|base|form)[^>]*>/gi, '');
-  
-  // Remove event handlers (e.g., onclick=)
-  sanitized = sanitized.replaceAll(/\bon\w+\s*=[^>\s]*/gi, '');
-  
+  // Remove dangerous tags and their content (loop to handle nested patterns like <scr<script>ipt>)
+  let previous = '';
+  while (previous !== sanitized) {
+    previous = sanitized;
+    sanitized = sanitized.replace(
+      /(<(script|iframe|object|embed|style|meta|link|base|form)[^>]*>([\s\S]*?)<\/\2>|<(script|iframe|object|embed|style|meta|link|base|form)[^>]*>)/gi,
+      ''
+    );
+    // Remove event handlers (e.g., onclick=)
+    sanitized = sanitized.replaceAll(/\bon\w+\s*=[^>\s]*/gi, '');
+  }
+
   // Remove dangerous protocols including those with whitespace or hex encoding
-  sanitized = sanitized.replace(/(javascript|data|vbscript|vbs|livescript|mocha|jdbc)\s*:/gi, '[removed:]');
+  sanitized = sanitized.replace(
+    /(javascript|data|vbscript|vbs|livescript|mocha|jdbc)\s*:/gi,
+    '[removed:]'
+  );
 
   return sanitized.trim();
 }
@@ -64,11 +72,11 @@ export function sanitizeUrl(url: string): string {
   // This is security validation code that prevents XSS attacks
   // Block dangerous protocols (includes those with whitespace or hex encoding/decoding)
   const dangerousProtocolsRegex = /^(?:javascript|data|vbscript|vbs|livescript|mocha|jdbc):/i;
-  
+
   // Also remove common control characters if present
   // eslint-disable-next-line no-control-regex
   const sanitizedUrl = trimmed.replaceAll(/[\u0000-\u001F\u007F-\u009F\u00AD]/g, '');
-  
+
   if (dangerousProtocolsRegex.test(sanitizedUrl)) {
     if (isDev()) {
       console.warn(`Blocked dangerous URL: ${url.slice(0, 50)}...`);
@@ -112,7 +120,6 @@ export function getSecureHeaders(): Record<string, string> {
 
   const csrfToken = getCsrfToken();
   if (csrfToken) {
-     
     headers[CSRF_HEADER_NAME] = csrfToken;
   }
 

@@ -36,10 +36,10 @@ export const useCatsStore = defineStore('cats', () => {
   const locations = ref<CatLocation[]>([]);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
-  
+
   // Client-side search for Map View (filters loaded locations)
   const searchQuery = ref('');
-  
+
   // Server-side search for Gallery View (API based)
   const gallerySearchQuery = ref('');
   const popularTags = ref<TagInfo[]>([]);
@@ -365,8 +365,7 @@ export function getCleanDescription(description: string | null | undefined): str
  */
 export function hasTag(location: CatLocation, tag: string): boolean {
   const normalizedTag = tag.toLowerCase().replace(/^#/, '');
-  const tags = (location.tags && location.tags.length > 0) ? location.tags : extractTags(location.description);
+  const tags =
+    location.tags && location.tags.length > 0 ? location.tags : extractTags(location.description);
   return tags.some((t) => t.toLowerCase() === normalizedTag);
 }
-
-

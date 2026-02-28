@@ -1,0 +1,13 @@
+# Trivy Configuration File
+# Reference: https://aquasecurity.github.io/trivy/latest/docs/references/configuration/config-file/
+
+# Report options
+# Same as '--ignorefile'
+ignorefile: ".trivyignore"
+
+# Scan options
+scan:
+  # Same as '--scanners'
+  scanners:
+    - vuln
+    - secret

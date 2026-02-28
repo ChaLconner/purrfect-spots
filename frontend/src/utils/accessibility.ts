@@ -209,7 +209,6 @@ export function setupArrowKeyNavigation(
         nextIndex = Math.max(0, Math.min(nextIndex, items.length - 1));
       }
 
-       
       items[nextIndex]?.focus();
     }
   }

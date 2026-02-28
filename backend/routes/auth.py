@@ -12,7 +12,7 @@ from fastapi.responses import RedirectResponse
 from config import config
 from dependencies import get_auth_service
 from limiter import auth_limiter as limiter
-from logger import logger
+from logger import logger, sanitize_log_value
 from middleware.auth_middleware import get_current_user, get_current_user_from_header
 from schemas.auth import (
     ForgotPasswordRequest,
@@ -495,10 +495,10 @@ async def google_exchange_code(
         if not exchange_data.redirect_uri:
             raise ValueError("Redirect URI is required")
 
-        logger.debug("Auth Exchange Debug: Received redirect_uri=%s", exchange_data.redirect_uri)
+        logger.debug("Auth Exchange Debug: Received redirect_uri=%s", sanitize_log_value(exchange_data.redirect_uri))
 
         if not _validate_google_redirect_uri(exchange_data.redirect_uri):
-            logger.warning("Invalid redirect URI: %s", exchange_data.redirect_uri)
+            logger.warning("Invalid redirect URI: %s", sanitize_log_value(exchange_data.redirect_uri))
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid redirect URI",

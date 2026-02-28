@@ -8,3 +8,9 @@ CVE-2026-0994
 # No upstream fix available (latest @vue/test-utils 2.4.6 still affected)
 # Not exploitable in production - only used in test tooling
 GHSA-3ppc-4f35-3m26
+
+# serialize-javascript RCE (GHSA-5c6j-r48x-rmvq) - transient dev-only:
+# vite-plugin-pwa -> workbox-build -> @rollup/plugin-terser -> serialize-javascript
+# High severity but no upstream fix in latest 7.x branch yet.
+# Not exploitable in production - used during the build phase only.
+GHSA-5c6j-r48x-rmvq

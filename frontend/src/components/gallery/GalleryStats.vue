@@ -7,7 +7,8 @@
         <output
           class="font-nunito text-xl font-extrabold text-[#5a4632] leading-none"
           :aria-label="t('galleryPage.stats.totalPhotos')"
-        >{{ totalCount }}</output>
+          >{{ totalCount }}</output
+        >
         <span class="font-sans text-sm font-medium text-[#7d7d7d] lowercase tracking-[0.02em]">{{
           t('galleryPage.stats.photo', totalCount)
         }}</span>

@@ -13,7 +13,6 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { apiV1, setAccessToken, setAuthCallbacks } from '../utils/api';
 import { ProfileService } from '../services/profileService';
 
-
 // Module-level helper to update API header - avoids recreation on every store access
 function updateApiHeader(accessToken: string | null): void {
   if (accessToken) {
@@ -235,8 +234,6 @@ export const useAuthStore = defineStore('auth', () => {
       return await refreshToken();
     }
   }
-
-
 
   /**
    * Update user profile data

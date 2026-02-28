@@ -16,7 +16,7 @@ from dependencies import (
     get_current_token,
 )
 from limiter import auth_limiter
-from logger import logger
+from logger import logger, sanitize_log_value
 from middleware.auth_middleware import get_current_user_from_credentials
 from schemas.location import CatLocation
 from services.storage_service import StorageService
@@ -277,7 +277,7 @@ async def get_user_uploads(
         return {"uploads": uploads, "count": len(uploads)}
 
     except Exception as e:
-        logger.error("Failed to get uploads for user %r: %s", current_user.id, e, exc_info=True)
+        logger.error("Failed to get uploads for user %s: %s", sanitize_log_value(current_user.id), e, exc_info=True)
         # In development, return the actual error
         detail = f"Internal Server Error: {e!s}" if config.ENVIRONMENT == "development" else "Internal Server Error"
         raise HTTPException(status_code=500, detail=detail)
@@ -429,7 +429,7 @@ async def update_user_photo(
     except HTTPException:
         raise
     except Exception:
-        logger.error("Failed to update photo %r", photo_id_str)
+        logger.error("Failed to update photo %s", sanitize_log_value(photo_id_str))
         raise HTTPException(status_code=500, detail="Failed to update photo")
 
 
@@ -463,5 +463,5 @@ async def delete_user_photo(
     except HTTPException:
         raise
     except Exception:
-        logger.error("Failed to delete photo %r", photo_id_str)
+        logger.error("Failed to delete photo %s", sanitize_log_value(photo_id_str))
         raise HTTPException(status_code=500, detail="Failed to delete photo")

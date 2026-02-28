@@ -139,8 +139,11 @@ def get_user_id_from_request(request: Request) -> str:
                     # Sanitize user_id to prevent injection if reflected in responses
                     # Although user_id comes from a verified JWT, being safe is better
                     clean_user_id = "".join(c for c in str(user_id) if c.isalnum() or c in "-_@.")
+                    # Limit length to prevent abuse
+                    clean_user_id = clean_user_id[:128]
+                    # Return sanitized user identifier for rate limiting
                     # nosemgrep: python.flask.security.audit.directly-returned-format-string.directly-returned-format-string
-                    return "user:" + clean_user_id
+                    return f"user:{clean_user_id}"
         except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
             # Token is invalid or expired
             # Treat as unauthenticated user (fall back to IP)

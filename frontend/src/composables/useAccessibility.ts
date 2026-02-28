@@ -212,7 +212,6 @@ export function useArrowKeyNavigation(
       nextIndex = Math.max(0, Math.min(nextIndex, itemsList.length - 1));
     }
 
-     
     itemsList[nextIndex]?.focus();
   }
 

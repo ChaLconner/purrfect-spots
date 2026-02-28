@@ -66,7 +66,9 @@
           v-if="selectedReportIds.length > 0 && canManageReports"
           class="flex items-center bg-terracotta-50 px-3 py-1.5 rounded-lg border border-terracotta-100 gap-2"
         >
-          <span class="text-xs font-medium text-terracotta-700">{{ selectedReportIds.length }} Selected</span>
+          <span class="text-xs font-medium text-terracotta-700"
+            >{{ selectedReportIds.length }} Selected</span
+          >
           <button
             class="text-xs px-2 py-1 bg-white border border-terracotta-200 rounded hover:bg-terracotta-100 text-terracotta-700 font-medium"
             @click="openBulkActionModal('resolve')"
@@ -365,7 +367,9 @@
         </div>
 
         <div class="mb-6">
-          <label class="block text-sm font-medium text-brown-700 mb-1">Additional Notes (Optional)</label>
+          <label class="block text-sm font-medium text-brown-700 mb-1"
+            >Additional Notes (Optional)</label
+          >
           <textarea
             v-model="resolutionNote"
             rows="3"

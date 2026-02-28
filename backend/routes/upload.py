@@ -15,7 +15,7 @@ from config import config
 from dependencies import get_gallery_service, get_quota_service
 from exceptions import ExternalServiceError
 from limiter import limiter
-from logger import logger
+from logger import logger, sanitize_log_value
 from middleware.auth_middleware import get_current_user
 from services.cat_detection_service import CatDetectionService, cat_detection_service
 from services.gallery_service import GalleryService
@@ -218,9 +218,9 @@ async def upload_cat_photo(
         if cat_detection_data:
             try:
                 client_cat_data = json.loads(cat_detection_data)
-                logger.debug("Client-side detection data received: %r", client_cat_data)
+                logger.debug("Client-side detection data received")
             except json.JSONDecodeError:
-                logger.warning("Failed to parse client detection data: %r", cat_detection_data)
+                logger.warning("Failed to parse client detection data: %s", sanitize_log_value(cat_detection_data))
 
         # Perform server-side detection using OPTIMIZED content (smaller, standard format)
         # This prevents issues with large files or unsupported formats (like HEIC) failing in Vision API

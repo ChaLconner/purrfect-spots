@@ -5,7 +5,7 @@ export interface TreatPackage {
   bonus: number;
   price_per_treat: number;
   // Computed property for UI logic (key from the object entries)
-  key?: string; 
+  key?: string;
 }
 
 export interface SubscriptionStatus {

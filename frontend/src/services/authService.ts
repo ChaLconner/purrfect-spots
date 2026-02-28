@@ -68,17 +68,9 @@ export class AuthService {
       if (error instanceof ApiError) {
         // Provide more detailed error messages for specific cases
         if (error.message.includes('invalid_grant')) {
-          throw new ApiError(
-            error.type,
-            AuthErrorMessages.SESSION_EXPIRED,
-            error.statusCode
-          );
+          throw new ApiError(error.type, AuthErrorMessages.SESSION_EXPIRED, error.statusCode);
         } else if (error.message.includes('redirect_uri')) {
-          throw new ApiError(
-            error.type,
-            AuthErrorMessages.REDIRECT_URI_MISMATCH,
-            error.statusCode
-          );
+          throw new ApiError(error.type, AuthErrorMessages.REDIRECT_URI_MISMATCH, error.statusCode);
         }
         throw error;
       }

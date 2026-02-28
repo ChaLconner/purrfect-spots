@@ -99,7 +99,7 @@ export const getCDNUrl = (imageUrl: string, options?: ImageOptimizationOptions):
     if (options.maxHeight) params.set('h', options.maxHeight.toString());
     params.set('q', (options.quality || 80).toString());
     params.set('output', options.format || 'webp');
-    
+
     return `https://wsrv.nl/?${params.toString()}`;
   }
 
@@ -130,25 +130,33 @@ export const optimizeImage = async (
     // Check if OffscreenCanvas is supported and we have a worker instance
     if (worker && typeof OffscreenCanvas !== 'undefined') {
       const currentId = msgId++;
-      
+
       const onMessage = (e: MessageEvent) => {
         if (e.data.id === currentId) {
           worker.removeEventListener('message', onMessage);
-          
+
           if (e.data.success) {
-            const optimizedFile = new File([e.data.blob], file.name.replace(/\.[^/.]+$/, "") + `.${mergedOptions.format}`, {
-              type: `image/${mergedOptions.format}`,
-              lastModified: Date.now(),
-            });
+            const optimizedFile = new File(
+              [e.data.blob],
+              file.name.replace(/\.[^/.]+$/, '') + `.${mergedOptions.format}`,
+              {
+                type: `image/${mergedOptions.format}`,
+                lastModified: Date.now(),
+              }
+            );
             resolve(optimizedFile);
           } else {
             // Fallback to main thread if worker fails
-            console.warn('Worker image optimization failed:', e.data.error, 'Falling back to main thread.');
+            console.warn(
+              'Worker image optimization failed:',
+              e.data.error,
+              'Falling back to main thread.'
+            );
             optimizeImageMainThread(file, mergedOptions).then(resolve).catch(reject);
           }
         }
       };
-      
+
       worker.addEventListener('message', onMessage);
       worker.postMessage({ file, options: mergedOptions, id: currentId });
     } else {
@@ -161,7 +169,10 @@ export const optimizeImage = async (
 /**
  * Fallback image optimization on the main thread
  */
-const optimizeImageMainThread = async (file: File, options: ImageOptimizationOptions): Promise<File> => {
+const optimizeImageMainThread = async (
+  file: File,
+  options: ImageOptimizationOptions
+): Promise<File> => {
   return new Promise((resolve, reject) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -181,7 +192,7 @@ const optimizeImageMainThread = async (file: File, options: ImageOptimizationOpt
         width = (width * maxHeight) / height;
         height = maxHeight;
       }
-      
+
       width = Math.round(width);
       height = Math.round(height);
 
@@ -200,10 +211,14 @@ const optimizeImageMainThread = async (file: File, options: ImageOptimizationOpt
           }
 
           // Create new file with optimized data
-          const optimizedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + `.${options.format}`, {
-            type: `image/${options.format}`,
-            lastModified: Date.now(),
-          });
+          const optimizedFile = new File(
+            [blob],
+            file.name.replace(/\.[^/.]+$/, '') + `.${options.format}`,
+            {
+              type: `image/${options.format}`,
+              lastModified: Date.now(),
+            }
+          );
 
           resolve(optimizedFile);
         },
@@ -320,7 +335,6 @@ export const validateImageFile = (
   file: File,
   maxSizeMB: number = 10,
   allowedTypes: string[] = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-
 ): { valid: boolean; error?: string } => {
   // Check file type
   if (!allowedTypes.includes(file.type)) {

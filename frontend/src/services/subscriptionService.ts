@@ -8,7 +8,7 @@ export const SubscriptionService = {
       cancel_url: `${window.location.origin}/subscription/cancel`,
     });
   },
-  
+
   async getStatus(): Promise<{
     is_pro: boolean;
     subscription_end_date: string | null;
@@ -18,11 +18,11 @@ export const SubscriptionService = {
   }> {
     return apiV1.get('/subscription/status');
   },
-  
+
   async cancel(): Promise<void> {
     return apiV1.post('/subscription/cancel');
   },
-  
+
   async createPortalSession(returnUrl: string): Promise<{ url: string }> {
     return apiV1.post('/subscription/portal', { return_url: returnUrl });
   },

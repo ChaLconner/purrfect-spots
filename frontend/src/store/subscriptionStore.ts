@@ -27,7 +27,7 @@ export const useSubscriptionStore = defineStore('subscription', () => {
   const sortedPackages = computed(() =>
     Object.entries(treatPackages.value)
       .map(([key, pkg]) => ({ ...pkg, key }))
-      .sort((a, b) => a.amount - b.amount),
+      .sort((a, b) => a.amount - b.amount)
   );
 
   // ── Fetch subscription status ──────────────────────────────────
@@ -36,11 +36,7 @@ export const useSubscriptionStore = defineStore('subscription', () => {
     if (!authStore.isAuthenticated) return;
 
     const now = Date.now();
-    if (
-      !force &&
-      now - lastFetched.value < FETCH_COOLDOWN &&
-      isPro.value !== undefined
-    ) {
+    if (!force && now - lastFetched.value < FETCH_COOLDOWN && isPro.value !== undefined) {
       return;
     }
 

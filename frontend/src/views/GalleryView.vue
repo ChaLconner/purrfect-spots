@@ -221,7 +221,6 @@ async function syncStateFromUrl() {
   const index = visibleImages.value.findIndex((img) => img.id.toString() === imageId);
 
   if (index !== -1) {
-     
     selectedImage.value = visibleImages.value[index];
     currentImageIndex.value = index;
     isDeepLinked.value = false;
@@ -378,7 +377,6 @@ function handleModalNavigate(direction: 'prev' | 'next') {
   }
 
   if (newIndex !== currentImageIndex.value) {
-     
     const nextImage = visibleImages.value[newIndex];
     if (nextImage) {
       // With infinite scroll, we don't need to jump pages, just ensure it's loaded

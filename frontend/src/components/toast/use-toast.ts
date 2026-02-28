@@ -10,7 +10,7 @@ interface ToastOptions {
 
 /**
  * useToast Composable
- * 
+ *
  * A wrapper around useToastStore to provide a shadcn-like API
  */
 export function useToast() {

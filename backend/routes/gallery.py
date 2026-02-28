@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Res
 
 from dependencies import get_current_token, get_gallery_service
 from limiter import limiter
-from logger import logger
+from logger import logger, sanitize_log_value
 from middleware.auth_middleware import (
     get_current_user_from_credentials,
     get_current_user_optional,
@@ -368,7 +368,7 @@ async def get_photo(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Error fetching photo %r: %s", photo_id_str, e, exc_info=True)
+        logger.error("Error fetching photo %s: %s", sanitize_log_value(photo_id_str), e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch photo")
 
 

@@ -64,7 +64,7 @@ export function logMetric(metric: PerformanceMetric): void {
       'needs-improvement': '⚠️',
       poor: '❌',
     };
-     
+
     const emoji = ratingEmojis[rating] || '❓';
     // eslint-disable-next-line no-console
     console.log(
@@ -242,7 +242,10 @@ export function useWebVitals(): { vitals: Ref<Record<string, number>> } {
 /**
  * Component render time tracking
  */
-export function useRenderTime(componentName: string): { renderTime: Ref<number>; startMeasure: () => void } {
+export function useRenderTime(componentName: string): {
+  renderTime: Ref<number>;
+  startMeasure: () => void;
+} {
   const renderStart = ref(0);
   const renderTime = ref(0);
 
@@ -272,7 +275,10 @@ export function useRenderTime(componentName: string): { renderTime: Ref<number>;
 /**
  * API call timing wrapper
  */
-export function useApiTiming(): { apiCalls: Ref<Map<string, number>>; trackApiCall: <T>(endpoint: string, method: string, apiCall: () => Promise<T>) => Promise<T> } {
+export function useApiTiming(): {
+  apiCalls: Ref<Map<string, number>>;
+  trackApiCall: <T>(endpoint: string, method: string, apiCall: () => Promise<T>) => Promise<T>;
+} {
   const apiCalls = ref<Map<string, number>>(new Map());
 
   const trackApiCall = async <T>(

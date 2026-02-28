@@ -10,7 +10,7 @@ from dependencies import (
     get_email_service,
 )
 from limiter import limiter
-from logger import logger
+from logger import logger, sanitize_log_value
 from middleware.auth_middleware import require_permission
 from schemas.admin_schemas import RoleUpdateAdmin, UserBan, UserUpdateAdmin
 from services.email_service import EmailService
@@ -151,7 +151,7 @@ async def delete_user(
     except HTTPException:
         raise
     except Exception:
-        logger.error("Failed to delete user %r", user_id_str)
+        logger.error("Failed to delete user %s", sanitize_log_value(user_id_str))
         raise HTTPException(status_code=500, detail="Failed to delete user")
 
 
@@ -182,7 +182,7 @@ async def update_user_profile_admin(
 
         return cast(dict[str, Any], result.data[0])
     except Exception as e:
-        logger.error("Failed to update user profile %r: %s", user_id_str, e)
+        logger.error("Failed to update user profile %s: %s", sanitize_log_value(user_id_str), e)
         raise HTTPException(status_code=500, detail="Failed to update user profile")
 
 
@@ -258,7 +258,7 @@ async def update_user_role(
     except HTTPException:
         raise
     except Exception:
-        logger.error("Failed to update user role %r", user_id_str)
+        logger.error("Failed to update user role %s", sanitize_log_value(user_id_str))
         raise HTTPException(status_code=500, detail="Failed to update user role")
 
 
@@ -326,7 +326,7 @@ async def ban_user(
     except HTTPException:
         raise
     except Exception:
-        logger.error("Failed to ban user %r", user_id_str)
+        logger.error("Failed to ban user %s", sanitize_log_value(user_id_str))
         raise HTTPException(status_code=500, detail="Failed to ban user")
 
 
@@ -377,5 +377,5 @@ async def unban_user(
     except HTTPException:
         raise
     except Exception:
-        logger.error("Failed to unban user %r", user_id_str)
+        logger.error("Failed to unban user %s", sanitize_log_value(user_id_str))
         raise HTTPException(status_code=500, detail="Failed to unban user")

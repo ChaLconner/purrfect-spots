@@ -6,14 +6,7 @@
     :transform="transform"
   >
     <g stroke-width="0">
-      <rect
-        x="0"
-        y="0"
-        width="512.00"
-        height="512.00"
-        rx="256"
-        fill="#C97B49"
-      />
+      <rect x="0" y="0" width="512.00" height="512.00" rx="256" fill="#C97B49" />
     </g>
     <g stroke-linecap="round" stroke-linejoin="round" />
     <g fill="#FAF6EC">

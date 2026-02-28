@@ -13,7 +13,8 @@
           'text-orange-400': rank === 3,
           'text-stone-300': rank > 3,
         }"
-      >#{{ rank }}</span>
+        >#{{ rank }}</span
+      >
     </div>
 
     <!-- Avatar -->

@@ -215,7 +215,6 @@ export function formatFileSize(bytes: number): string {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   const size = bytes / Math.pow(k, i);
 
-   
   return `${formatNumber(size, { maximumFractionDigits: 1 })} ${units[i]}`;
 }
 

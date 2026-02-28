@@ -18,12 +18,12 @@ export const NotificationService = {
   async getNotifications(limit: number = 20, offset: number = 0): Promise<Notification[]> {
     return apiV1.get('/notifications', { params: { limit, offset } });
   },
-  
+
   async markAsRead(id: string): Promise<void> {
     return apiV1.put(`/notifications/${id}/read`);
   },
-  
+
   async markAllAsRead(): Promise<void> {
     return apiV1.put('/notifications/read-all');
-  }
+  },
 };

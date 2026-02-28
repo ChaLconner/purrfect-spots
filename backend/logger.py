@@ -294,3 +294,30 @@ def log_response(request_id: str, status_code: int, duration_ms: float) -> None:
     log_record.duration_ms = duration_ms
     log_record.funcName = "response"
     logger.handle(log_record)
+
+
+def sanitize_log_value(value: Any) -> str:
+    """
+    Sanitize a value for safe inclusion in log messages.
+
+    Prevents log injection attacks by stripping newline characters,
+    carriage returns, and other control characters that could be used
+    to forge log entries.
+
+    Args:
+        value: The value to sanitize for logging
+
+    Returns:
+        Sanitized string safe for log output
+    """
+    text = str(value)
+    # Remove characters that could be used for log injection/forging
+    # This includes newlines, carriage returns, and other control chars
+    sanitized = text.replace("\n", "\\n").replace("\r", "\\r")
+    # Remove other ASCII control characters (0x00-0x1F except tab 0x09)
+    sanitized = "".join(c if (c == "\t" or ord(c) >= 0x20) else f"\\x{ord(c):02x}" for c in sanitized)
+    # Truncate unreasonably long values
+    max_len = 500
+    if len(sanitized) > max_len:
+        sanitized = sanitized[:max_len] + "...[truncated]"
+    return sanitized

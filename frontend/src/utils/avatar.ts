@@ -10,7 +10,18 @@ export const getAvatarFallback = (name?: string | null): string => {
 export const handleAvatarError = (event: Event, name?: string | null): void => {
   const target = event.target as HTMLImageElement;
   const fallbackUrl = getAvatarFallback(name);
-  if (target.src !== fallbackUrl && !target.src.includes('ui-avatars.com')) {
+
+  // Use proper URL parsing to check the hostname instead of substring matching
+  // to prevent bypasses like "evil.com?q=ui-avatars.com"
+  let isAvatarService = false;
+  try {
+    const parsedUrl = new URL(target.src);
+    isAvatarService = parsedUrl.hostname === 'ui-avatars.com';
+  } catch {
+    // Invalid URL - not an avatar service URL
+  }
+
+  if (target.src !== fallbackUrl && !isAvatarService) {
     target.src = fallbackUrl;
   }
 };

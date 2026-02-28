@@ -42,7 +42,9 @@ export class GalleryService {
   /**
    * Search for cat locations
    */
-  static async search(params: SearchParams): Promise<{ results: CatLocation[]; total: number; limit?: number; offset?: number }> {
+  static async search(
+    params: SearchParams
+  ): Promise<{ results: CatLocation[]; total: number; limit?: number; offset?: number }> {
     const apiParams = {
       q: params.query,
       tags: params.tags?.join(','),
@@ -50,7 +52,12 @@ export class GalleryService {
       offset: params.offset,
       page: params.page,
     };
-    return await apiV1.get<{ results: CatLocation[]; total: number; limit?: number; offset?: number }>('/gallery/search', {
+    return await apiV1.get<{
+      results: CatLocation[];
+      total: number;
+      limit?: number;
+      offset?: number;
+    }>('/gallery/search', {
       params: apiParams,
     });
   }

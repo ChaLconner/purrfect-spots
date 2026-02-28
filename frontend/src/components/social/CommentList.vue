@@ -57,7 +57,8 @@
               }}</span>
               <span
                 class="text-[10px] uppercase tracking-wider font-bold text-brown-light/60 whitespace-nowrap flex-shrink-0"
-              >{{ formatDate(comment.created_at) }}</span>
+                >{{ formatDate(comment.created_at) }}</span
+              >
             </div>
             <div v-if="editingId === comment.id" class="mt-2">
               <BaseInput
@@ -230,7 +231,6 @@ function getAvatarUrl(comment: Comment) {
 }
 
 function handleAvatarError(commentId: string) {
-   
   avatarErrors.value[commentId] = true;
 }
 
@@ -299,7 +299,6 @@ async function saveEdit(id: string) {
     const updated = await SocialService.updateComment(id, editContent.value);
     const index = comments.value.findIndex((c) => c.id === id);
     if (index !== -1) {
-       
       comments.value[index] = updated;
     }
     cancelEdit();
