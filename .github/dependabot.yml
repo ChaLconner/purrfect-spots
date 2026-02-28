@@ -1,12 +1,74 @@
-# Dependabot configuration - DISABLED
-# Dependabot has been disabled to prevent excessive CI/CD workflow runs
-# that consume Vercel deployment limits.
+# ==============================================================================
+# Dependabot Configuration
+# ==============================================================================
+# Monthly dependency updates with strict limits to avoid
+# excessive CI/CD workflow runs and Vercel deployment usage.
 #
-# Dependencies should be updated manually when needed:
-#   Backend:  pip install --upgrade <package> && pip freeze > requirements.txt
-#   Frontend: npm update && npm audit fix
-#
-# To re-enable, uncomment the configuration below and adjust schedule/limits.
+# Strategy:
+# - Monthly schedule to minimize noise
+# - Max 5 open PRs per ecosystem
+# - Grouped minor/patch updates to reduce PR count
+# - Auto-labeled for easy filtering
+# ==============================================================================
 
 version: 2
-updates: []
+updates:
+  # --------------------------------------------------------------------------
+  # Frontend (npm)
+  # --------------------------------------------------------------------------
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "frontend"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "deps(frontend)"
+
+  # --------------------------------------------------------------------------
+  # Backend (pip)
+  # --------------------------------------------------------------------------
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "backend"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "deps(backend)"
+
+  # --------------------------------------------------------------------------
+  # GitHub Actions
+  # --------------------------------------------------------------------------
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "ci"
+    groups:
+      actions-updates:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "deps(actions)"

@@ -43,6 +43,10 @@
             "integration_id": null
           },
           {
+            "context": "Backend Build Verify",
+            "integration_id": null
+          },
+          {
             "context": "Frontend Lint & Type Check",
             "integration_id": null
           },
@@ -51,7 +55,11 @@
             "integration_id": null
           },
           {
-            "context": "Frontend Build",
+            "context": "Security Scan (Trivy)",
+            "integration_id": null
+          },
+          {
+            "context": "Secret Detection",
             "integration_id": null
           },
           {

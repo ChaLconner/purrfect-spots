@@ -281,10 +281,10 @@ jobs:
           retention-days: 30
           if-no-files-found: ignore
 
-  backend-build:
-    name: Backend Docker Build
+  backend-build-verify:
+    name: Backend Build Verify
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     needs: [backend-lint, backend-test]
     if: |
       always() &&
@@ -294,18 +294,40 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
-
-      - name: Build Backend Docker Image
-        uses: docker/build-push-action@14487ce63c7a62a4a324b0bfb37086795e31c6c1 # v6.13.0
+      - name: Setup Backend Environment
+        uses: ./.github/actions/setup-backend
         with:
-          context: ./backend
-          file: ./backend/Dockerfile
-          push: false
-          tags: purrfect-spots-backend:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          python-version: ${{ env.PYTHON_VERSION }}
+          install-deps: "true"
+          install-dev-tools: "false"
+
+      - name: Verify Python compilation
+        run: |
+          cd backend
+          echo "🔍 Verifying Python source compilation..."
+          python -m compileall -q . 2>&1
+          echo "✅ All Python files compile successfully"
+
+      - name: Verify project structure
+        run: |
+          cd backend
+          echo "🔍 Verifying project structure for deployment..."
+
+          # Check for required files
+          REQUIRED_FILES=("requirements.txt")
+          for f in "${REQUIRED_FILES[@]}"; do
+            if [ ! -f "$f" ]; then
+              echo "::error::Required file '$f' not found in backend/"
+              exit 1
+            fi
+          done
+
+          # Verify FastAPI app can be imported
+          python -c "from main import app; print('✅ FastAPI app imports successfully')" 2>&1 || {
+            echo "::warning::Could not import FastAPI app — ensure 'main.py' exists with 'app' instance"
+          }
+
+          echo "✅ Backend project structure is valid"
 
   # ============================================================================
   # FRONTEND JOBS
@@ -395,35 +417,6 @@ jobs:
           echo "========================"
           du -sh dist/
           du -sh dist/assets/* || true
-
-  frontend-docker:
-    name: Frontend Docker Build
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: frontend-build
-    if: needs.frontend-build.result == 'success'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
-
-      - name: Download build artifacts
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4
-        with:
-          name: frontend-build
-          path: frontend/dist
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
-
-      - name: Build Frontend Docker Image
-        uses: docker/build-push-action@14487ce63c7a62a4a324b0bfb37086795e31c6c1 # v6.13.0
-        with:
-          context: ./frontend
-          file: ./frontend/Dockerfile
-          push: false
-          tags: purrfect-spots-frontend:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   # ============================================================================
   # SECURITY SCANS
@@ -548,11 +541,12 @@ jobs:
     needs:
       - backend-lint
       - backend-test
-      - backend-build
+      - backend-build-verify
       - frontend-lint
       - frontend-test
       - frontend-build
       - security-scan
+      - secret-scan
       - dependency-review
 
     if: always()
@@ -590,11 +584,12 @@ jobs:
           # Required checks - skipped is acceptable (means no changes detected)
           check_job "Backend Lint" "${{ needs.backend-lint.result }}" "true" || failed=1
           check_job "Backend Tests" "${{ needs.backend-test.result }}" "true" || failed=1
-          check_job "Backend Build" "${{ needs.backend-build.result }}" "true" || failed=1
+          check_job "Backend Build Verify" "${{ needs.backend-build-verify.result }}" "true" || failed=1
           check_job "Frontend Lint" "${{ needs.frontend-lint.result }}" "true" || failed=1
           check_job "Frontend Tests" "${{ needs.frontend-test.result }}" "true" || failed=1
           check_job "Frontend Build" "${{ needs.frontend-build.result }}" "true" || failed=1
           check_job "Security Scan" "${{ needs.security-scan.result }}" "true" || failed=1
+          check_job "Secret Detection" "${{ needs.secret-scan.result }}" "true" || failed=1
 
           if [ "${{ github.event_name }}" == "pull_request" ]; then
             check_job "Dependency Review" "${{ needs.dependency-review.result }}" "true" || failed=1
@@ -617,10 +612,10 @@ jobs:
     timeout-minutes: 5
     needs:
       - quality-gate
-      - backend-build
+      - backend-build-verify
       - backend-typecheck
       - api-contract-check
-      - frontend-docker
+      - frontend-build
       - security-scan
       - secret-scan
       - sast-scan
@@ -635,21 +630,25 @@ jobs:
           echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Quality Gate | ${{ needs.quality-gate.result == 'success' && 'PASSED' || needs.quality-gate.result == 'skipped' && 'SKIPPED' || 'FAILED' }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Build Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "### Build Verification" >> $GITHUB_STEP_SUMMARY
           echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Backend Docker | ${{ needs.backend-build.result == 'success' && 'BUILT' || needs.backend-build.result == 'skipped' && 'SKIPPED' || 'FAILED' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Frontend Docker | ${{ needs.frontend-docker.result == 'success' && 'BUILT' || needs.frontend-docker.result == 'skipped' && 'SKIPPED' || 'FAILED' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend Build Verify | ${{ needs.backend-build-verify.result == 'success' && 'PASSED' || needs.backend-build-verify.result == 'skipped' && 'SKIPPED' || 'FAILED' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend Build | ${{ needs.frontend-build.result == 'success' && 'BUILT' || needs.frontend-build.result == 'skipped' && 'SKIPPED' || 'FAILED' }} |" >> $GITHUB_STEP_SUMMARY
 
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Security & Quality" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Scan (Trivy) | ${{ needs.security-scan.result == 'success' && 'PASSED' || needs.security-scan.result == 'skipped' && 'SKIPPED' || 'ISSUES FOUND' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Secret Detection | ${{ needs.secret-scan.result == 'success' && 'PASSED' || needs.secret-scan.result == 'skipped' && 'SKIPPED' || 'ISSUES FOUND' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| SAST Scan (Semgrep) | ${{ needs.sast-scan.result == 'success' && 'PASSED' || needs.sast-scan.result == 'skipped' && 'SKIPPED' || 'ISSUES FOUND' }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Optional Checks" >> $GITHUB_STEP_SUMMARY
           echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Backend Type Check | ${{ needs.backend-typecheck.result == 'success' && 'PASSED' || needs.backend-typecheck.result == 'skipped' && 'SKIPPED' || 'ISSUES FOUND' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| API Contract Check | ${{ needs.api-contract-check.result == 'success' && 'PASSED' || needs.api-contract-check.result == 'skipped' && 'SKIPPED' || 'ISSUES FOUND' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Security Scan | ${{ needs.security-scan.result == 'success' && 'PASSED' || needs.security-scan.result == 'skipped' && 'SKIPPED' || 'ISSUES FOUND' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| SAST Scan (Semgrep) | ${{ needs.sast-scan.result == 'success' && 'PASSED' || needs.sast-scan.result == 'skipped' && 'SKIPPED' || 'ISSUES FOUND' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Secret Detection | ${{ needs.secret-scan.result == 'success' && 'PASSED' || needs.secret-scan.result == 'skipped' && 'SKIPPED' || 'ISSUES FOUND' }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,256 @@
+# ==============================================================================
+# Purrfect Spots - Release Management
+# ==============================================================================
+# Automated release workflow with changelog generation
+#
+# Trigger:
+# - Manual workflow_dispatch with version input
+# - Automatically after successful production deployment (tag push)
+#
+# Security:
+# - All actions pinned to full SHA
+# - Minimal permissions scope
+# - Tag validation against main branch
+# ==============================================================================
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+      - "release-*"
+
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g., v1.2.0)"
+        required: true
+        type: string
+      prerelease:
+        description: "Mark as pre-release"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  # ============================================================================
+  # VALIDATE RELEASE
+  # ============================================================================
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      is_prerelease: ${{ steps.version.outputs.is_prerelease }}
+      previous_tag: ${{ steps.version.outputs.previous_tag }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+            IS_PRERELEASE="${{ inputs.prerelease }}"
+          else
+            # Extract version from tag
+            VERSION="${{ github.ref_name }}"
+            IS_PRERELEASE="false"
+
+            # Check if it's a pre-release tag
+            if echo "$VERSION" | grep -qE '(alpha|beta|rc|canary)'; then
+              IS_PRERELEASE="true"
+            fi
+          fi
+
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "is_prerelease=${IS_PRERELEASE}" >> $GITHUB_OUTPUT
+
+          # Find previous tag for changelog
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          echo "previous_tag=${PREVIOUS_TAG}" >> $GITHUB_OUTPUT
+
+          echo "📦 Version: ${VERSION}"
+          echo "🏷️ Previous tag: ${PREVIOUS_TAG:-none}"
+          echo "🔖 Pre-release: ${IS_PRERELEASE}"
+
+      - name: Validate tag is on main branch
+        if: github.event_name == 'push'
+        run: |
+          TAG_COMMIT=$(git rev-list -n 1 "${{ github.ref_name }}")
+          MAIN_COMMITS=$(git rev-list origin/main)
+
+          if echo "$MAIN_COMMITS" | grep -q "$TAG_COMMIT"; then
+            echo "✅ Tag is on the main branch"
+          else
+            echo "::warning::Tag commit is not on the main branch — this may be intentional for hotfix releases"
+          fi
+
+  # ============================================================================
+  # GENERATE CHANGELOG
+  # ============================================================================
+  changelog:
+    name: Generate Changelog
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: validate
+    outputs:
+      changelog: ${{ steps.generate.outputs.changelog }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog
+        id: generate
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+          PREVIOUS_TAG: ${{ needs.validate.outputs.previous_tag }}
+        run: |
+          echo "📝 Generating changelog..."
+
+          if [ -n "$PREVIOUS_TAG" ]; then
+            RANGE="${PREVIOUS_TAG}..HEAD"
+          else
+            RANGE="HEAD"
+          fi
+
+          # Generate categorized changelog
+          {
+            echo "changelog<<CHANGELOG_EOF"
+
+            echo "## What's Changed"
+            echo ""
+
+            # Features
+            FEATURES=$(git log "$RANGE" --pretty=format:"- %s (%h)" --grep="^feat" --grep="^feature" --grep="^add" -i 2>/dev/null || true)
+            if [ -n "$FEATURES" ]; then
+              echo "### ✨ Features"
+              echo "$FEATURES"
+              echo ""
+            fi
+
+            # Bug fixes
+            FIXES=$(git log "$RANGE" --pretty=format:"- %s (%h)" --grep="^fix" --grep="^bug" -i 2>/dev/null || true)
+            if [ -n "$FIXES" ]; then
+              echo "### 🐛 Bug Fixes"
+              echo "$FIXES"
+              echo ""
+            fi
+
+            # Performance
+            PERF=$(git log "$RANGE" --pretty=format:"- %s (%h)" --grep="^perf" -i 2>/dev/null || true)
+            if [ -n "$PERF" ]; then
+              echo "### ⚡ Performance"
+              echo "$PERF"
+              echo ""
+            fi
+
+            # Documentation
+            DOCS=$(git log "$RANGE" --pretty=format:"- %s (%h)" --grep="^docs" -i 2>/dev/null || true)
+            if [ -n "$DOCS" ]; then
+              echo "### 📚 Documentation"
+              echo "$DOCS"
+              echo ""
+            fi
+
+            # Other changes (everything else)
+            OTHER=$(git log "$RANGE" --pretty=format:"- %s (%h)" \
+              --invert-grep --grep="^feat" --grep="^feature" --grep="^add" \
+              --grep="^fix" --grep="^bug" --grep="^perf" --grep="^docs" \
+              -i 2>/dev/null | head -20 || true)
+            if [ -n "$OTHER" ]; then
+              echo "### 🔧 Other Changes"
+              echo "$OTHER"
+              echo ""
+            fi
+
+            # Contributors
+            echo "### 👥 Contributors"
+            git log "$RANGE" --format="%aN" 2>/dev/null | sort -u | while read -r name; do
+              echo "- @${name}"
+            done
+            echo ""
+
+            echo "---"
+            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREVIOUS_TAG}...${{ needs.validate.outputs.version }}"
+
+            echo "CHANGELOG_EOF"
+          } >> $GITHUB_OUTPUT
+
+          echo "✅ Changelog generated"
+
+  # ============================================================================
+  # CREATE GITHUB RELEASE
+  # ============================================================================
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [validate, changelog]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.validate.outputs.version }}
+          IS_PRERELEASE: ${{ needs.validate.outputs.is_prerelease }}
+          CHANGELOG: ${{ needs.changelog.outputs.changelog }}
+        run: |
+          echo "🚀 Creating GitHub Release..."
+
+          PRERELEASE_FLAG=""
+          if [ "$IS_PRERELEASE" == "true" ]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+
+          # Create or update release
+          if gh release view "$VERSION" &>/dev/null; then
+            echo "Release $VERSION already exists — updating..."
+            gh release edit "$VERSION" \
+              --title "Release ${VERSION}" \
+              --notes "$CHANGELOG" \
+              $PRERELEASE_FLAG
+          else
+            gh release create "$VERSION" \
+              --title "Release ${VERSION}" \
+              --notes "$CHANGELOG" \
+              $PRERELEASE_FLAG \
+              --verify-tag || \
+            gh release create "$VERSION" \
+              --title "Release ${VERSION}" \
+              --notes "$CHANGELOG" \
+              $PRERELEASE_FLAG
+          fi
+
+          echo "✅ Release ${VERSION} created successfully"
+
+      - name: Create release summary
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+          IS_PRERELEASE: ${{ needs.validate.outputs.is_prerelease }}
+        run: |
+          echo "## 🎉 Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | \`${VERSION}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Pre-release | ${IS_PRERELEASE} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Release URL | https://github.com/${{ github.repository }}/releases/tag/${VERSION} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Created by | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
