@@ -4,13 +4,23 @@ from config import config
 from logger import logger
 
 # Initialize Supabase clients
+# Use a fail-soft approach for development/test environments
+is_production = config.ENVIRONMENT.lower() == "production"
+
 supabase_url = config.SUPABASE_URL
 supabase_key = config.SUPABASE_KEY
 
 if not supabase_url:
-    raise ValueError("SUPABASE_URL must be set in environment variables")
+    if is_production:
+        raise ValueError("SUPABASE_URL must be set in environment variables")
+    # Default to localhost for development/testing if not specified
+    supabase_url = "http://localhost:54321"
+
 if not supabase_key:
-    raise ValueError("SUPABASE_KEY must be set in environment variables")
+    if is_production:
+        raise ValueError("SUPABASE_KEY must be set in environment variables")
+    # Use a dummy key for development/testing if not specified
+    supabase_key = "dummy-anon-key"
 
 # Synchronous clients (for legacy support and small tasks)
 supabase: Client = create_client(supabase_url, supabase_key)

@@ -185,6 +185,7 @@ jobs:
         env:
           ENVIRONMENT: test
           SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'http://localhost:54321' }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY || 'dummy-anon-key' }}
         run: |
           cd backend
           if [ -f "../docs/openapi-baseline.json" ]; then
@@ -212,6 +213,10 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           install-deps: "true"
       - name: Verify
+        env:
+          ENVIRONMENT: test
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'http://localhost:54321' }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY || 'dummy-anon-key' }}
         run: |
           cd backend
           python -m compileall -q .
