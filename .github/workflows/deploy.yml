@@ -86,7 +86,7 @@ jobs:
 
       - name: Checkout code
         # FIX #2: All actions pinned to full SHA — consistent with security policy
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -206,11 +206,11 @@ jobs:
     steps:
       - name: Checkout code
         # FIX #2: Pinned to full SHA
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
         # FIX #12: Pinned to full SHA
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
           cache: "npm"
@@ -295,11 +295,11 @@ jobs:
     steps:
       - name: Checkout code
         # FIX #2: Pinned to full SHA
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
         # FIX #12: Pinned to full SHA
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
           cache: "npm"
@@ -435,10 +435,10 @@ jobs:
     steps:
       - name: Checkout code
         # FIX #2: Pinned to full SHA
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup Node.js
         # FIX #12: Pinned to full SHA
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with: { node-version: "20", cache: "npm" }
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
@@ -488,10 +488,10 @@ jobs:
     steps:
       - name: Checkout code
         # FIX #2: Pinned to full SHA
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup Node.js
         # FIX #12: Pinned to full SHA
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with: { node-version: "20", cache: "npm" }
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
@@ -536,13 +536,13 @@ jobs:
     steps:
       - name: Checkout code
         # Need repo access for tagging
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
         # Need node for Vercel CLI (which is used in rollback)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
 
