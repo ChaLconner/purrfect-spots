@@ -458,9 +458,9 @@ const handleKeydown = (event: KeyboardEvent) => {
                         type="button"
                         :disabled="
                           isUpdatingPassword ||
-                          !passwordForm.current ||
-                          !passwordForm.new ||
-                          !passwordForm.confirm
+                            !passwordForm.current ||
+                            !passwordForm.new ||
+                            !passwordForm.confirm
                         "
                         class="px-5 py-2.5 bg-[#C07040] text-white rounded-lg sm:rounded-xl text-sm font-bold hover:bg-[#A05030] shadow-md transition-all disabled:opacity-50 disabled:shadow-none cursor-pointer disabled:cursor-not-allowed"
                         @click="updatePassword"

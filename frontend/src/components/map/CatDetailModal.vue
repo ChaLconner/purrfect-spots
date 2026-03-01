@@ -95,8 +95,7 @@
                 v-for="tag in tags"
                 :key="tag"
                 class="text-[0.85rem] font-semibold text-gray-400"
-                >#{{ tag }}</span
-              >
+              >#{{ tag }}</span>
             </div>
 
             <!-- Interaction Row -->

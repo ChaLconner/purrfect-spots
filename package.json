@@ -39,7 +39,8 @@
         "minimatch": "10.2.4"
       }
     },
-    "minimatch": ">=10.2.1"
+    "minimatch": ">=10.2.1",
+    "serialize-javascript": ">=7.0.3"
   },
   "optionalDependencies": {
     "@tailwindcss/oxide-linux-x64-gnu": "4.2.1",

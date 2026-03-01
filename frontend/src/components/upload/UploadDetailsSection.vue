@@ -30,8 +30,7 @@
         <label
           for="place-name"
           class="block text-xs font-bold text-brown-light uppercase tracking-wider pl-1"
-          >{{ t('upload.detailsSection.nameOfPlace') }}</label
-        >
+        >{{ t('upload.detailsSection.nameOfPlace') }}</label>
         <BaseInput
           id="place-name"
           :model-value="locationName"
@@ -48,8 +47,7 @@
         <label
           for="place-description"
           class="block text-xs font-bold text-brown-light uppercase tracking-wider pl-1"
-          >{{ t('upload.detailsSection.description') }}</label
-        >
+        >{{ t('upload.detailsSection.description') }}</label>
         <textarea
           id="place-description"
           :value="description"
@@ -65,8 +63,7 @@
         <label
           for="tags-input"
           class="block text-xs font-bold text-brown-light uppercase tracking-wider pl-1"
-          >{{ t('upload.detailsSection.tagsOptional') }}</label
-        >
+        >{{ t('upload.detailsSection.tagsOptional') }}</label>
         <TagsInput
           id="tags-input"
           :model-value="tags"
