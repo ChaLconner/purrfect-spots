@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Backend for Purrfect Spots"
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi>=0.128.0,<0.134.0",
+    "fastapi>=0.128.0,<0.136.0",
     "uvicorn>=0.24.0,<0.42.0",
     "python-dotenv>=1.0.0,<2.0.0",
     "boto3>=1.34.0,<2.0.0",
