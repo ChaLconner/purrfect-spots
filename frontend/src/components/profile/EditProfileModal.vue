@@ -160,13 +160,13 @@ const handleClose = (): void => {
   emit('close');
 };
 
-const handleBackdropClick = (event: MouseEvent) => {
+const handleBackdropClick = (event: MouseEvent): void => {
   if (event.target === event.currentTarget) {
     handleClose();
   }
 };
 
-const handleKeydown = (event: KeyboardEvent) => {
+const handleKeydown = (event: KeyboardEvent): void => {
   if (event.key === 'Escape') {
     handleClose();
   }

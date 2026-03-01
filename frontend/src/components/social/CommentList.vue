@@ -222,14 +222,14 @@ const displayedComments = computed(() => {
 // Avatar handling
 const avatarErrors = ref<Record<string, boolean>>({});
 
-function getAvatarUrl(comment: Comment) {
+function getAvatarUrl(comment: Comment): string {
   if (avatarErrors.value[comment.id]) {
     return EXTERNAL_URLS.DEFAULT_AVATAR; // Use valid fallback
   }
   return comment.user_picture || EXTERNAL_URLS.DEFAULT_AVATAR;
 }
 
-function handleAvatarError(commentId: string) {
+function handleAvatarError(commentId: string): void {
   avatarErrors.value[commentId] = true;
 }
 
@@ -237,7 +237,7 @@ onMounted(() => {
   fetchComments();
 });
 
-async function fetchComments() {
+async function fetchComments(): Promise<void> {
   loading.value = true;
   try {
     comments.value = await SocialService.getComments(props.photoId);
@@ -248,7 +248,7 @@ async function fetchComments() {
   }
 }
 
-async function postComment() {
+async function postComment(): Promise<void> {
   if (!newComment.value.trim()) return;
 
   isSubmitting.value = true;
@@ -269,7 +269,7 @@ async function postComment() {
   }
 }
 
-async function deleteComment(id: string) {
+async function deleteComment(id: string): Promise<void> {
   // eslint-disable-next-line no-alert
   if (!window.confirm('Delete this comment?')) return;
   try {
@@ -280,17 +280,17 @@ async function deleteComment(id: string) {
   }
 }
 
-function startEdit(comment: Comment) {
+function startEdit(comment: Comment): void {
   editingId.value = comment.id;
   editContent.value = comment.content;
 }
 
-function cancelEdit() {
+function cancelEdit(): void {
   editingId.value = null;
   editContent.value = '';
 }
 
-async function saveEdit(id: string) {
+async function saveEdit(id: string): Promise<void> {
   if (!editContent.value.trim() || isUpdating.value) return;
 
   isUpdating.value = true;
@@ -312,7 +312,7 @@ async function saveEdit(id: string) {
   }
 }
 
-function formatDate(dateStr: string) {
+function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',

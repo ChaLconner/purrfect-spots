@@ -27,7 +27,7 @@ const emit = defineEmits<{
 const { toast } = useToast();
 const { t, locale } = useI18n();
 
-const handleGiveTreat = () => {
+const handleGiveTreat = (): void => {
   if (props.image) {
     emit('give-treat', props.image);
   }
@@ -35,7 +35,7 @@ const handleGiveTreat = () => {
 
 const isReportOpen = ref(false);
 
-const handleReportClick = () => {
+const handleReportClick = (): void => {
   if (!props.currentUser) {
     toast({
       description: t('map.signInToReport'),

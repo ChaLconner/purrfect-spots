@@ -26,7 +26,7 @@ defineEmits<{
 
 const { t, locale } = useI18n();
 
-const formatJoinDate = (dateString?: string) => {
+const formatJoinDate = (dateString?: string): string => {
   if (!dateString) return t('common.unknown');
   const date = new Date(dateString);
   return date.toLocaleDateString(locale.value, { year: 'numeric', month: 'long' });

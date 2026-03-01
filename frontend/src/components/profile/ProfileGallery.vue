@@ -25,7 +25,7 @@ defineEmits<{
 
 // Responsive Columns
 const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024);
-const updateWidth = () => {
+const updateWidth = (): void => {
   windowWidth.value = globalThis.innerWidth;
 };
 
