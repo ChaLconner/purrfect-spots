@@ -35,35 +35,35 @@
         "strict_required_status_checks_policy": true,
         "required_status_checks": [
           {
-            "context": "Backend Lint and Quality",
+            "context": "Backend: Lint & Format",
             "integration_id": null
           },
           {
-            "context": "Backend Unit Tests",
+            "context": "Backend: Unit Tests",
             "integration_id": null
           },
           {
-            "context": "Backend Build Verify",
+            "context": "Backend: Build Verify",
             "integration_id": null
           },
           {
-            "context": "Frontend Lint & Type Check",
+            "context": "Frontend: Lint & Typecheck",
             "integration_id": null
           },
           {
-            "context": "Frontend Unit Tests",
+            "context": "Frontend: Unit Tests",
             "integration_id": null
           },
           {
-            "context": "Security Scan (Trivy)",
+            "context": "Security: Trivy Scan",
             "integration_id": null
           },
           {
-            "context": "Secret Detection",
+            "context": "Security: Secret Scan",
             "integration_id": null
           },
           {
-            "context": "Quality Gate",
+            "context": "Final: Quality Gate",
             "integration_id": null
           }
         ]
