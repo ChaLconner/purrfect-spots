@@ -5,7 +5,7 @@ inputs:
   node-version:
     description: "Node.js version to use"
     required: false
-    default: "20"
+    default: "22"
   install-deps:
     description: "Whether to install dependencies"
     required: false
@@ -15,7 +15,7 @@ runs:
   using: "composite"
   steps:
     - name: Setup Node.js
-      uses: actions/setup-node@8f152de45cc393bb48ce5d89d36b731f54556e65 # v4.4.2
+      uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
       with:
         node-version: ${{ inputs.node-version }}
         cache: "npm"

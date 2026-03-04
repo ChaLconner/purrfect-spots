@@ -86,7 +86,7 @@ jobs:
 
       - name: Checkout code
         # FIX #2: All actions pinned to full SHA — consistent with security policy
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
 
@@ -173,11 +173,13 @@ jobs:
 
       - name: Generate version
         id: version
+        env:
+          TARGET_ENV: ${{ steps.set-env.outputs.environment }}
         run: |
           SHORT_SHA=$(git rev-parse --short HEAD)
           TIMESTAMP=$(date +%Y%m%d%H%M%S)
 
-          if [ "${{ steps.set-env.outputs.environment }}" == "production" ]; then
+          if [ "$TARGET_ENV" == "production" ]; then
             TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
             VERSION="${TAG}-${SHORT_SHA}"
           else
@@ -206,13 +208,13 @@ jobs:
     steps:
       - name: Checkout code
         # FIX #2: Pinned to full SHA
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Setup Node.js
         # FIX #12: Pinned to full SHA
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
 
       - name: Install Vercel CLI
@@ -295,13 +297,13 @@ jobs:
     steps:
       - name: Checkout code
         # FIX #2: Pinned to full SHA
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Setup Node.js
         # FIX #12: Pinned to full SHA
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
 
       - name: Install Vercel CLI
@@ -435,11 +437,11 @@ jobs:
     steps:
       - name: Checkout code
         # FIX #2: Pinned to full SHA
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - name: Setup Node.js
         # FIX #12: Pinned to full SHA
-        uses: actions/setup-node@v4
-        with: { node-version: "20", cache: "npm" }
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with: { node-version: "22", cache: "npm" }
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
       - name: Authenticate Vercel
@@ -485,14 +487,16 @@ jobs:
     needs: [prepare, production-backup]
     if: ${{ needs.prepare.outputs.environment == 'production' }}
     timeout-minutes: 15
+    environment:
+      name: production
     steps:
       - name: Checkout code
         # FIX #2: Pinned to full SHA
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - name: Setup Node.js
         # FIX #12: Pinned to full SHA
-        uses: actions/setup-node@v4
-        with: { node-version: "20", cache: "npm" }
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with: { node-version: "22", cache: "npm" }
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
       - name: Authenticate Vercel
@@ -536,15 +540,15 @@ jobs:
     steps:
       - name: Checkout code
         # Need repo access for tagging
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
         # Need node for Vercel CLI (which is used in rollback)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with:
-          node-version: "20"
+          node-version: "22"
 
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
@@ -764,7 +768,7 @@ jobs:
     name: Deployment Summary (Staging)
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [prepare, staging-verify]
+    needs: [prepare, staging-frontend, staging-verify]
     if: ${{ always() && needs.prepare.outputs.environment == 'staging' && needs.prepare.outputs.should_deploy == 'true' }}
     steps:
       - name: Create staging deployment summary
@@ -811,7 +815,7 @@ jobs:
     name: Deployment Summary (Production)
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [prepare, production-verify]
+    needs: [prepare, production-frontend, production-verify]
     if: ${{ always() && needs.prepare.outputs.environment == 'production' && needs.prepare.outputs.should_deploy == 'true' }}
     steps:
       - name: Create production deployment summary
