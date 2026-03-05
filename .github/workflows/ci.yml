@@ -66,7 +66,7 @@ jobs:
       run_frontend: ${{ inputs.force_full_run == true || steps.filter.outputs.frontend == 'true' || steps.filter.outputs.ci == 'true' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@v4
 
       - name: Filter paths
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3
@@ -98,7 +98,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@v4
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -119,7 +119,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@v4
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -142,7 +142,7 @@ jobs:
         options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@v4
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -163,6 +163,7 @@ jobs:
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
         if: always()
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           file: backend/coverage.xml
           flags: backend
         continue-on-error: true
@@ -176,7 +177,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@v4
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -206,7 +207,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@v4
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -233,7 +234,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@v4
       - name: Setup Frontend
         uses: ./.github/actions/setup-frontend
         with:
@@ -251,7 +252,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@v4
       - name: Setup Frontend
         uses: ./.github/actions/setup-frontend
         with:
@@ -272,7 +273,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@v4
       - name: Setup Frontend
         uses: ./.github/actions/setup-frontend
         with:
@@ -295,7 +296,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@v4
       - name: Trivy FS Scan
         uses: aquasecurity/trivy-action@0.34.1
         with:
@@ -308,6 +309,7 @@ jobs:
           scanners: "vuln,secret"
           github-pat: ${{ secrets.GITHUB_TOKEN }}
           exit-code: "1"
+          trivy-version: "0.69.2"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TRIVY_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -324,7 +326,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Trufflehog
@@ -342,7 +344,7 @@ jobs:
       image: semgrep/semgrep:latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@v4
       - name: Semgrep
         run: |
           semgrep scan --config "p/default" --config "p/security-audit" --sarif --output semgrep.sarif . || true
@@ -363,7 +365,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@v4
       - name: Dependency Review
         uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
         with:
@@ -381,8 +383,11 @@ jobs:
       - name: Check Status
         run: |
           echo "Verifying quality gate..."
-          if [[ "${{ needs.backend-verify.result }}" == "failure" || "${{ needs.frontend-build.result }}" == "failure" || "${{ needs.security-vuln.result }}" == "failure" || "${{ needs.security-secrets.result }}" == "failure" ]]; then
-            echo "::error::Core quality checks failed. Please review the workflow logs."
+          if [[ "${{ needs.backend-verify.result }}" == "failure" || "${{ needs.backend-verify.result }}" == "cancelled" || \
+                "${{ needs.frontend-build.result }}" == "failure" || "${{ needs.frontend-build.result }}" == "cancelled" || \
+                "${{ needs.security-vuln.result }}" == "failure" || "${{ needs.security-vuln.result }}" == "cancelled" || \
+                "${{ needs.security-secrets.result }}" == "failure" || "${{ needs.security-secrets.result }}" == "cancelled" ]]; then
+            echo "::error::Core quality checks failed or were cancelled. Please review the workflow logs."
             exit 1
           fi
           echo "✅ All core checks passed or were skipped."

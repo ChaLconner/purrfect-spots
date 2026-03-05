@@ -3,6 +3,12 @@
 // workers (they cannot receive cross-origin messages unlike SharedWorkers).
 // The data validation below provides defense-in-depth.
 self.onmessage = async (e: MessageEvent) => {
+  // Security: Verify message origin
+  // Dedicated workers shouldn't receive cross-origin messages, but verify origin for defense-in-depth.
+  if (e.origin !== '' && e.origin !== self.location.origin) {
+    return;
+  }
+
   // Security: Validate message structure and required fields
   if (!e.data || typeof e.data !== 'object') return;
   const { file, options, id } = e.data;

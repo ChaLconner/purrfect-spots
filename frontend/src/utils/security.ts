@@ -5,6 +5,7 @@
  */
 
 import { isDev } from './env';
+import DOMPurify from 'dompurify';
 
 // ==============================================================================
 // XSS Prevention
@@ -34,30 +35,20 @@ export function sanitizeInput(input: string, maxLength = 1000): string {
   if (!input) return '';
 
   // Truncate to max length
-  let sanitized = input.slice(0, maxLength);
+  const truncated = input.slice(0, maxLength);
 
-  // Remove script tags (simplified non-backtracking pattern)
-
-  // Remove dangerous tags and their content (loop to handle nested patterns like <scr<script>ipt>)
-  let previous = '';
-  while (previous !== sanitized) {
-    previous = sanitized;
-    sanitized = sanitized.replace(
-      /(<(script|iframe|object|embed|style|meta|link|base|form)[^>]*>([\s\S]*?)<\/\2>|<(script|iframe|object|embed|style|meta|link|base|form)[^>]*>)/gi,
-      ''
-    );
-    // Remove event handlers (e.g., onclick=)
-    sanitized = sanitized.replaceAll(/\bon\w+\s*=[^>\s]*/gi, '');
-  }
-
-  // Remove dangerous protocols including those with whitespace or hex encoding
-  sanitized = sanitized.replace(
+  // Remove dangerous protocols for defense-in-depth in plain text
+  const safeProtocols = truncated.replace(
     /(javascript|data|vbscript|vbs|livescript|mocha|jdbc)\s*:/gi,
     '[removed:]'
   );
 
-  return sanitized.trim();
+  // Use DOMPurify to securely sanitize any HTML
+  // We use DOMPurify for this instead of regex because regex based HTML sanitization 
+  // is error-prone and flagged by CodeQL as incomplete sanitization.
+  return DOMPurify.sanitize(safeProtocols).trim();
 }
+
 
 /**
  * Sanitize URL to prevent javascript: protocol attacks
