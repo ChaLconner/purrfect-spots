@@ -79,6 +79,7 @@ jobs:
       should_deploy: ${{ steps.set-env.outputs.should_deploy }}
       version: ${{ steps.version.outputs.version }}
       start_time: ${{ steps.timer.outputs.start_time }}
+      branch: ${{ steps.set-env.outputs.branch }}
     steps:
       - name: Start Timer
         id: timer
@@ -86,7 +87,7 @@ jobs:
 
       - name: Checkout code
         # FIX #2: All actions pinned to full SHA — consistent with security policy
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
         with:
           fetch-depth: 0
 
@@ -109,6 +110,7 @@ jobs:
           fi
 
           echo "🔍 Detected branch: $BRANCH_NAME"
+          echo "branch=${BRANCH_NAME}" >> $GITHUB_OUTPUT
 
           if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
             echo "environment=${INPUT_ENV}" >> $GITHUB_OUTPUT
@@ -208,11 +210,11 @@ jobs:
     steps:
       - name: Checkout code
         # FIX #2: Pinned to full SHA
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
 
       - name: Setup Node.js
         # FIX #12: Pinned to full SHA
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v4.2.0
         with:
           node-version: "22"
           cache: "npm"
@@ -225,7 +227,7 @@ jobs:
 
       - name: Cache API Client Node Modules
         # FIX #12: Pinned to full SHA
-        uses: actions/cache@d4323d4dc3a886dc810163b75ebb7a4ea95d8a58 # v4.2.2
+        uses: actions/cache@88522ab9f59f6be959f635c91b5c2c77d940b70d # v4.2.0
         with:
           path: api-client/node_modules
           key: ${{ runner.os }}-api-client-${{ hashFiles('api-client/package.json') }}
@@ -297,11 +299,11 @@ jobs:
     steps:
       - name: Checkout code
         # FIX #2: Pinned to full SHA
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
 
       - name: Setup Node.js
         # FIX #12: Pinned to full SHA
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v4.2.0
         with:
           node-version: "22"
           cache: "npm"
@@ -320,6 +322,7 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          BRANCH_NAME: ${{ needs.prepare.outputs.branch }}
         run: |
           echo "🚀 Linking and Pulling Backend Config..."
           rm -rf .vercel
@@ -327,16 +330,20 @@ jobs:
           vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
 
           # FIX #11: Warning on failure instead of silent '|| true'
+          # We pass the branch name to Vercel to avoid interactive prompts in staging/preview.
           echo "🔧 Injecting environment variables..."
-          echo "$SUPABASE_URL" | vercel env add SUPABASE_URL preview \
+          echo "$SUPABASE_URL" | vercel env add SUPABASE_URL preview "$BRANCH_NAME" \
             --force --yes --token="$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" \
             2>&1 || echo "::warning::Failed to inject SUPABASE_URL — it may already exist with the correct value."
-          echo "$SUPABASE_KEY" | vercel env add SUPABASE_KEY preview \
+          echo "$SUPABASE_KEY" | vercel env add SUPABASE_KEY preview "$BRANCH_NAME" \
             --force --yes --token="$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" \
             2>&1 || echo "::warning::Failed to inject SUPABASE_KEY — it may already exist with the correct value."
 
           echo "🚀 Deploying Backend..."
-          vercel deploy ./backend \
+          # Targeted the repo root ('.') instead of './backend' because the Vercel project
+          # is already configured with a 'Root Directory' setting of 'backend'.
+          # Uploading only './backend' would lead to a 'backend/backend' path error.
+          vercel deploy . \
             --yes \
             --token="$VERCEL_TOKEN"
 
@@ -437,10 +444,10 @@ jobs:
     steps:
       - name: Checkout code
         # FIX #2: Pinned to full SHA
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
       - name: Setup Node.js
         # FIX #12: Pinned to full SHA
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v4.2.0
         with: { node-version: "22", cache: "npm" }
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
@@ -492,10 +499,10 @@ jobs:
     steps:
       - name: Checkout code
         # FIX #2: Pinned to full SHA
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
       - name: Setup Node.js
         # FIX #12: Pinned to full SHA
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v4.2.0
         with: { node-version: "22", cache: "npm" }
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
@@ -526,7 +533,9 @@ jobs:
             2>&1 || echo "::warning::Failed to inject SUPABASE_KEY — it may already exist with the correct value."
 
           echo "🚀 Triggering Backend Deployment..."
-          vercel deploy ./backend --prod --yes --token="$VERCEL_TOKEN"
+          # Targeted the repo root ('.') instead of './backend' because the Vercel project
+          # is already configured with a 'Root Directory' setting of 'backend'.
+          vercel deploy . --prod --yes --token="$VERCEL_TOKEN"
 
   production-verify:
     name: Production - Verification
@@ -540,13 +549,13 @@ jobs:
     steps:
       - name: Checkout code
         # Need repo access for tagging
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
         # Need node for Vercel CLI (which is used in rollback)
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v4.2.0
         with:
           node-version: "22"
 
