@@ -46,11 +46,15 @@ class PasswordService:
         Uses k-Anonymity to preserve privacy (only sends first 5 chars of SHA-1 hash).
         """
         try:
-            # SHA1 is required by the HIBP k-Anonymity API protocol - NOT used for password storage
-            # The HIBP API only accepts SHA-1 hash prefixes to check for breached passwords
-            # Python's usedforsecurity=False explicitly marks this as non-cryptographic usage
+            # SHA1 is required by the HIBP k-Anonymity API protocol.
+            # We ONLY use this hash for data breach checks, NEVER for storage or authentication.
+            # usedforsecurity=False explicitly marks this as non-cryptographic usage.
+            encoded_pwd = password.encode("utf-8")
+            # codeql[py/weak-sensitive-data-hashing] Justification: SHA1 is strictly required by the HIBP k-anonymity API protocol.
+            # codeql[py/weak-cryptographic-algorithm] Justification: SHA1 is strictly required by the HIBP k-anonymity API protocol.
             # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1
-            sha1_password = hashlib.sha1(password.encode("utf-8"), usedforsecurity=False).hexdigest().upper()  # nosec B324  # lgtm[py/weak-sensitive-data-hashing]
+            sha1_algo = hashlib.sha1(encoded_pwd, usedforsecurity=False)  # nosec B324
+            sha1_password = sha1_algo.hexdigest().upper()
             prefix = sha1_password[:5]
             suffix = sha1_password[5:]
 

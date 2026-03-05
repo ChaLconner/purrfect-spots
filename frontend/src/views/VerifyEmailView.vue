@@ -139,7 +139,7 @@ import { useAuthStore } from '../store/authStore';
 import { showSuccess, showError } from '../store/toast';
 import { AuthService } from '../services/authService';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
-import { getSafeRedirect } from '@/utils/security';
+import { getSafeRedirect, isValidEmail } from '@/utils/security';
 
 const router = useRouter();
 const route = useRoute();
@@ -157,7 +157,8 @@ const inputRefs = ref<(HTMLInputElement | null)[]>([]);
 
 // Get email from route query
 const email = computed(() => {
-  return (route.query.email as string) || '';
+  const rawEmail = route.query.email as string;
+  return rawEmail && isValidEmail(rawEmail) ? rawEmail : '';
 });
 
 // Computed OTP code
@@ -217,7 +218,7 @@ const handleKeydown = (index: number, event: KeyboardEvent): void => {
 const handlePaste = (event: ClipboardEvent): void => {
   event.preventDefault();
   const pastedData = event.clipboardData?.getData('text') || '';
-  const digits = pastedData.replaceAll(/\D/g, '').slice(0, 6);
+  const digits = (pastedData.match(/\d/g) || []).join('').slice(0, 6);
 
   if (digits.length > 0) {
     for (let i = 0; i < 6; i++) {

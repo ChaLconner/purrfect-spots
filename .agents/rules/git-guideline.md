@@ -37,7 +37,8 @@ We use the **Conventional Commits** specification. Every commit message must fol
 - **Imperative Mood**: Use "fix", not "fixed" or "fixes".
 - **Lowercase Description**: Start the description with a lowercase letter.
 - **No Period at End**: Do not end the description line with a period.
-- **Scope (Optional)**: Provide a scope to specify the part of the codebase affected (e.g., `feat(api):`, `fix(ui):`).
+- **Scope (Optional)**: Provide a scope to specify the part of the codebase affected.
+  - **Recommended Scopes**: `api`, `ui`, `shared`, `db`, `docs`, `config`, `ci`, `deps`.
 - **Breaking Changes**: Indicate breaking changes by adding a `!` after the type/scope or adding `BREAKING CHANGE:` in the footer.
 
 **Bad Example:**
@@ -67,11 +68,12 @@ fix(auth): correct password validation logic and update login styles
 ## 3. Pull Request (PR) Rules
 
 1. **Atomic Commits**: Each commit should represent one logical change.
-2. **No Direct Pushes**: All changes to `main` and `dev` must go through a PR.
-3. **Link to Issue**: Every PR must be linked to a GitHub Issue (e.g., `Closes #123`).
-4. **CI/CD Compliance**: All status checks must pass (Lint, Tests, Security Scans).
-5. **Review Requirement**: At least **1 Reviewer Approval** is required.
-6. **Squash & Merge**: Preferred for feature branches to keep `main` history clean.
+2. **Rebase Before Merge**: Feature branches should be rebased on the latest `dev` branch before opening a PR to ensure a clean history.
+3. **No Direct Pushes**: All changes to `main` and `dev` must go through a PR.
+4. **Link to Issue**: Every PR must be linked to a GitHub Issue (e.g., `Closes #123`).
+5. **CI/CD Compliance**: All status checks must pass (Lint, Tests, Security Scans).
+6. **Review Requirement**: At least **1 Reviewer Approval** is required.
+7. **Squash & Merge**: Preferred for feature branches to keep `main` history clean.
 
 ---
 

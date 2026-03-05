@@ -9,6 +9,7 @@ This document provides concrete code examples for the rules outlined in [`CODING
 ## 1. API Responses & Error Handling
 
 **Bad Pattern:** Inconsistent error responses returned directly from routes.
+
 ```python
 @app.get("/users/{user_id}")
 async def get_user(user_id: int):
@@ -19,6 +20,7 @@ async def get_user(user_id: int):
 ```
 
 **Good Pattern:** Raise a custom exception in the service; Global Error Handler formats it.
+
 ```python
 # service.py
 def get_user(user_id: int):
@@ -43,6 +45,7 @@ async def not_found_handler(request: Request, exc: ResourceNotFoundError):
 ## 2. Database & ORM (N+1 Problem)
 
 **Bad Pattern:** Lazy loading relations inside a loop (N+1 queries).
+
 ```python
 # This triggers 1 query for users, and N queries for each user's profile
 users = session.scalars(select(User)).all()
@@ -51,6 +54,7 @@ for user in users:
 ```
 
 **Good Pattern:** Eager loading relations.
+
 ```python
 # Triggers only 1 query with a JOIN
 from sqlalchemy.orm import selectinload
@@ -63,6 +67,7 @@ for user in users:
 ## 3. Frontend Async / API Calls
 
 **Bad Pattern:** No error handling or loading state.
+
 ```vue
 <script setup lang="ts">
 const users = ref([])
@@ -76,6 +81,7 @@ onMounted(async () => {
 ```
 
 **Good Pattern:** Proper loading and error states with try/catch.
+
 ```vue
 <script setup lang="ts">
 const users = ref([])
@@ -101,6 +107,7 @@ onMounted(async () => {
 ## 4. Logging & Monitoring
 
 **Bad Pattern:** Using `print` and logging sensitive data.
+
 ```python
 def login(username, password):
     print(f"User {username} trying to log in with password {password}") # CRITICAL SILENT LEAK
@@ -108,6 +115,7 @@ def login(username, password):
 ```
 
 **Good Pattern:** Structured logging with Scrubbed Data and context.
+
 ```python
 import structlog
 
@@ -121,6 +129,7 @@ def login(username):
 ## 5. Tailwind CSS & Styling
 
 **Bad Pattern:** Hardcoding arbitrary values (e.g., `w-[245px]`, `bg-[#3b82f6]`) and repeating the same long list of utility classes everywhere instead of building a reusable component.
+
 ```vue
 <template>
   <button class="bg-[#3b82f6] hover:bg-[#2563eb] text-white px-[20px] py-[10px] rounded-[5px]">
@@ -176,6 +185,7 @@ const variantClasses = computed(() => {
 ```
 
 **How to use the component:**
+
 ```vue
 <!-- views/ExampleView.vue -->
 <script setup lang="ts">
@@ -222,4 +232,83 @@ const { stats, chartData, isLoading } = useDashboardData()
     <DashboardChart :data="chartData" :is-loading="isLoading" />
   </div>
 </template>
+```
+
+## 7. Row Level Security (RLS) & Supabase
+
+**Pattern:** Always enable RLS and define specific policies for authenticated users.
+
+```sql
+-- migration.sql
+ALTER TABLE galleries ENABLE ROW LEVEL SECURITY;
+
+-- Allow users to read only their own galleries
+CREATE POLICY "Users can view own galleries" 
+ON galleries FOR SELECT 
+USING (auth.uid() = user_id);
+
+-- Allow users to insert their own galleries
+CREATE POLICY "Users can insert own galleries" 
+ON galleries FOR INSERT 
+WITH CHECK (auth.uid() = user_id);
+```
+
+## 8. Backend Dependency Injection (DI)
+
+**Pattern:** Use lazy imports within getter functions to avoid circular dependencies when injecting services.
+
+```python
+# backend/dependencies.py
+async def get_user_service() -> UserService:
+    from services.user_service import UserService # Lazy import
+    return UserService(
+        supabase_client=await get_async_supabase_client()
+    )
+
+# backend/routes/user.py
+@router.get("/me")
+async def get_me(
+    user_service: UserService = Depends(get_user_service),
+    current_user: dict = Depends(get_current_user)
+):
+    return await user_service.get_user_by_id(current_user["id"])
+```
+
+## 9. Testing: Supabase Chainable Mocking
+
+**Pattern:** Use a chainable mock to simulate Supabase client's fluent API in unit tests.
+
+```python
+@pytest.fixture
+def mock_supabase_admin():
+    mock = MagicMock()
+    chain_mock = MagicMock()
+    
+    # Enable chaining: .table().select().eq().execute()
+    chain_mock.select.return_value = chain_mock
+    chain_mock.eq.return_value = chain_mock
+    chain_mock.execute = AsyncMock(return_value=MagicMock(data=[{"id": "1"}]))
+    
+    mock.table = MagicMock(return_value=chain_mock)
+    return mock
+```
+
+## 10. Frontend Data Validation (Zod)
+
+**Pattern:** Use Zod to validate API responses at the boundary (Composables/API client).
+
+```typescript
+import { z } from 'zod'
+
+const UserSchema = z.object({
+  id: z.string(),
+  email: z.string().email(),
+  name: z.string().nullable()
+})
+
+const fetchUser = async (id: string) => {
+  const { data } = await api.get(`/users/${id}`)
+  // Validate and parse (throws error if invalid)
+  return UserSchema.parse(data)
+}
 ```

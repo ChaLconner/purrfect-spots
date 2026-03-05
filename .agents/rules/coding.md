@@ -16,15 +16,15 @@ trigger: always_on
 
 - **Componentization & File Size**: Keep files small and focused. Aim for a maximum of 250-300 lines per file. Break down large files into smaller, reusable components or modules.
 
-- **Security**: No secrets in repo. Validate all inputs (Zod/Pydantic). Generic prod errors.
+- **Security**: No secrets in repo. Validate all inputs (Zod/Pydantic). Generic prod errors. Implement **Row Level Security (RLS)** for all database tables.
 
 ## 2. Architecture (Monorepo)
 
 ### Backend (FastAPI, Python 3.12+)
 
-- **Routes**: Controller layer. Min business logic. Calls Services.
+- **Routes**: Controller layer. Min business logic. Calls Services using FastAPI's `Depends` for injection.
 
-- **Services**: Pure business logic. No HTTP deps.
+- **Services**: Pure business logic. No HTTP deps. Use lazy imports for dependencies to avoid circular imports.
 
 - **Schemas**: Pydantic DTOs.
 
@@ -34,11 +34,11 @@ trigger: always_on
 
 - **Views**: Page components.
 
-- **Components**: Reusable UI.
+- **Components**: Reusable UI elements, kept small and focused.
 
-- **Stores**: Pinia Setup Stores.
+- **Stores**: Pinia Setup Stores. Avoid putting UI state (like `isLoading`) in global stores if it only belongs to one component.
 
-- **Composables**: Stateful logic.
+- **Composables**: Stateful logic and API interaction. Use **Zod** for runtime validation of API data.
 
 ## 3. API Design & Responses
 
@@ -76,7 +76,7 @@ trigger: always_on
 
 - **Components**: `<script setup lang="ts">`. Logic in `computed`/composables.
 
-- **Typing**: No explicit `any`. Interface all props/emits. Zod for API data.
+- **Typing**: No explicit `any`. Interface all props/emits. **Zod** for API data validation is required.
 
 - **State**: Pinia Setup Stores (`ref()`). Explicit types.
 
