@@ -19,7 +19,7 @@ const ENVIRONMENT = import.meta.env.MODE;
 
 import type { App as VueApp } from 'vue';
 
-async function initSentry(app: VueApp) {
+async function initSentry(app: VueApp): Promise<void> {
   if (!SENTRY_DSN) {
     return;
   }
@@ -88,7 +88,7 @@ globalThis.addEventListener('unhandledrejection', handleUnhandledRejection);
 globalThis.addEventListener('error', handleError);
 
 // Global error handler for browser extension conflicts
-app.config.errorHandler = (err, _instance, info) => {
+app.config.errorHandler = (err, _instance, info): void => {
   const result = handleVueError(err, info);
 
   // If handleVueError returned false, it means the error was handled

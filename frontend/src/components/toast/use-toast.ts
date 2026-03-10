@@ -13,7 +13,11 @@ interface ToastOptions {
  *
  * A wrapper around useToastStore to provide a shadcn-like API
  */
-export function useToast() {
+export function useToast(): {
+  toast: (options: ToastOptions) => string;
+  dismiss: (id: string) => void;
+  clear: () => void;
+} {
   const toastStore = useToastStore();
 
   const toast = (options: ToastOptions): string => {

@@ -10,7 +10,9 @@ Documentation for the Purrfect Spots project. This project is a platform for sha
 
 - [Environment Setup](./ENV_SETUP.md) - How to set up your local environment.
 - [Database Schema](./DATABASE_SCHEMA.md) - Database structure and relationships.
-- [Development Workflow](./DEPLOYMENT_WORKFLOW_IMPROVEMENTS.md) - Branching and deployment best practices.
+- [Coding Standards](./CODING_STANDARDS.md) - Project code architecture and requirements.
+- [Best Practices](./BEST_PRACTICES.md) - Concrete code examples and design patterns.
+- [Git & Commit Guidelines](./GIT_GUIDELINES.md) - Branching and deployment best practices.
 
 ### 🛠️ Infrastructure & Ops
 
@@ -20,9 +22,8 @@ Documentation for the Purrfect Spots project. This project is a platform for sha
 
 ### 🎨 Design & API
 
-- [API Spec (OpenAPI)](./openapi-baseline.json) - Direct link to API documentation.
-- [Design Tokens](./DESIGN_TOKENS.md) - Style guides and design constants.
-- [Project Roles & Standards](./SKILL_AGENT.md) - Agent guidelines and code standards.
+- [API Spec (OpenAPI)](../openapi-specs/openapi-baseline.json) - Direct link to API documentation.
+- [Design Tokens](./design_tokens.md) - Style guides and design constants.
 
 ### 📜 History & Archive
 
@@ -37,10 +38,9 @@ Documentation for the Purrfect Spots project. This project is a platform for sha
 | ----------------------- | --------------------------------------------------- |
 | `infra/`                | Infrastructure as code and configuration templates. |
 | `*.md`                  | Detailed documentation guides.                      |
-| `openapi-baseline.json` | Baseline API schema for contract testing.           |
 
 ---
 
 ## 🤝 Contributing
 
-Please refer to the [Development Workflow](./DEPLOYMENT_WORKFLOW_IMPROVEMENTS.md) guide before making any changes to ensure consistency and security.
+Please refer to the [Coding Standards](./CODING_STANDARDS.md) and [Git & Commit Guidelines](./GIT_GUIDELINES.md) before making any changes to ensure consistency and security.

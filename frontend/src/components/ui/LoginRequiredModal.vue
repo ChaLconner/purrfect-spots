@@ -60,11 +60,11 @@ defineProps<{
 
 const emit = defineEmits(['close', 'login']);
 
-const close = () => {
+const close = (): void => {
   emit('close');
 };
 
-const handleLogin = () => {
+const handleLogin = (): void => {
   emit('login');
 };
 </script>

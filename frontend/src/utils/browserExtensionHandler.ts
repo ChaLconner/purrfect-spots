@@ -4,7 +4,6 @@
  * This utility provides centralized handling for browser extension conflicts
  * that cause "message channel closed" errors and similar issues.
  */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { isDev } from './env';
 
@@ -29,11 +28,13 @@ const BROWSER_EXTENSION_ERROR_CODES = new Set(['NETWORK_ERROR', 'ERR_NETWORK']);
  * @param error The error to check
  * @returns True if the error is related to browser extension conflicts
  */
-export const isBrowserExtensionError = (error: any): boolean => {
+export const isBrowserExtensionError = (error: unknown): boolean => {
   if (!error) return false;
 
+  const err = error as Record<string, unknown>;
   const errorString =
-    error.message || (typeof error.toString === 'function' ? error.toString() : '');
+    (err?.message as string) || (typeof error?.toString === 'function' ? error.toString() : '');
+
 
   if (
     typeof errorString === 'string' &&
@@ -43,8 +44,8 @@ export const isBrowserExtensionError = (error: any): boolean => {
   }
 
   return (
-    (error.name && BROWSER_EXTENSION_ERROR_NAMES.has(error.name)) ||
-    (error.code && BROWSER_EXTENSION_ERROR_CODES.has(error.code))
+    (typeof err?.name === 'string' && BROWSER_EXTENSION_ERROR_NAMES.has(err.name)) ||
+    (typeof err?.code === 'string' && BROWSER_EXTENSION_ERROR_CODES.has(err.code))
   );
 };
 
@@ -53,9 +54,10 @@ export const isBrowserExtensionError = (error: any): boolean => {
  * @param error The error to log
  * @param context Additional context about where the error occurred
  */
-export const logBrowserExtensionError = (error: any, context: string = ''): void => {
+export const logBrowserExtensionError = (error: unknown, context: string = ''): void => {
   if (isDev()) {
-    const message = error?.message || error || 'Unknown browser extension error';
+    const err = error as Record<string, unknown>;
+    const message = (err?.message as string) || (typeof error === 'string' ? error : 'Unknown browser extension error');
     console.warn('⚠️ Browser extension error', context ? `(${context})` : '', ':', message);
   }
 };
@@ -69,7 +71,7 @@ export const logBrowserExtensionError = (error: any, context: string = ''): void
  * @returns Promise that resolves with the retry result or rejects with the original error
  */
 export const handleBrowserExtensionError = async <T>(
-  error: any,
+  error: unknown,
   retryCallback: () => Promise<T>,
   maxRetries: number = 1,
   retryDelay: number = 100
@@ -80,7 +82,7 @@ export const handleBrowserExtensionError = async <T>(
 
   logBrowserExtensionError(error, 'retry handler');
 
-  let lastError: any = error;
+  let lastError: unknown = error;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -90,7 +92,7 @@ export const handleBrowserExtensionError = async <T>(
       }
 
       return await retryCallback();
-    } catch (retryError: any) {
+    } catch (retryError: unknown) {
       lastError = retryError;
 
       // If it's not a browser extension error, don't retry further
@@ -112,7 +114,7 @@ export const handleBrowserExtensionError = async <T>(
  * @param options Options for error handling
  * @returns A wrapped function that handles browser extension errors
  */
-export const withBrowserExtensionHandling = <T extends any[], R>(
+export const withBrowserExtensionHandling = <T extends unknown[], R>(
   fn: (...args: T) => Promise<R>,
   options: {
     maxRetries?: number;
@@ -123,7 +125,7 @@ export const withBrowserExtensionHandling = <T extends any[], R>(
   return async (...args: T): Promise<R> => {
     try {
       return await fn(...args);
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (isBrowserExtensionError(error)) {
         return handleBrowserExtensionError(
           error,
@@ -168,7 +170,7 @@ export const handleError = (event: ErrorEvent): boolean => {
  * @param err The error that occurred
  * @param info Vue-specific error information
  */
-export const handleVueError = (err: any, info: string): boolean | undefined => {
+export const handleVueError = (err: unknown, info: string): boolean | undefined => {
   if (isBrowserExtensionError(err)) {
     logBrowserExtensionError(err, `Vue error in ${info}`);
     return false;

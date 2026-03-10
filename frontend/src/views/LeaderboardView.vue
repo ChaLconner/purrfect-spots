@@ -84,7 +84,7 @@ const periods = computed(() => [
   { label: t('leaderboardPage.periods.allTime'), value: 'all_time' },
 ]);
 
-const fetchLeaderboard = async () => {
+const fetchLeaderboard = async (): Promise<void> => {
   loading.value = true;
   try {
     const data = await TreatsService.getLeaderboard(period.value);

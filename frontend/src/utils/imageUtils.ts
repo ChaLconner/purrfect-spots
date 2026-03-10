@@ -131,7 +131,7 @@ export const optimizeImage = async (
     if (worker && typeof OffscreenCanvas !== 'undefined') {
       const currentId = msgId++;
 
-      const onMessage = (e: MessageEvent) => {
+      const onMessage = (e: MessageEvent): void => {
         if (e.data.id === currentId) {
           worker.removeEventListener('message', onMessage);
 
@@ -178,7 +178,7 @@ const optimizeImageMainThread = async (
     const ctx = canvas.getContext('2d');
     const img = new Image();
 
-    img.onload = () => {
+    img.onload = (): void => {
       // Calculate new dimensions
       let { width, height } = img;
       const { maxWidth, maxHeight } = options;
@@ -227,7 +227,7 @@ const optimizeImageMainThread = async (
       );
     };
 
-    img.onerror = () => reject(new Error('Failed to load image'));
+    img.onerror = (): void => reject(new Error('Failed to load image'));
     img.src = URL.createObjectURL(file);
   });
 };
@@ -300,8 +300,8 @@ export const preloadImage = (url: string, options?: ImageOptimizationOptions): P
     link.as = 'image';
     link.href = isCDNAvailable() ? getCDNUrl(url, options) : url;
 
-    link.onload = () => resolve();
-    link.onerror = () => reject(new Error(`Failed to preload image: ${url}`));
+    link.onload = (): void => resolve();
+    link.onerror = (): void => reject(new Error(`Failed to preload image: ${url}`));
 
     document.head.appendChild(link);
   });
@@ -314,12 +314,12 @@ export const getImageDimensions = (file: File): Promise<{ width: number; height:
   return new Promise((resolve, reject) => {
     const img = new Image();
 
-    img.onload = () => {
+    img.onload = (): void => {
       resolve({ width: img.width, height: img.height });
       URL.revokeObjectURL(img.src);
     };
 
-    img.onerror = () => {
+    img.onerror = (): void => {
       reject(new Error('Failed to load image'));
       URL.revokeObjectURL(img.src);
     };
@@ -379,7 +379,7 @@ export const imageToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
-    reader.onload = () => {
+    reader.onload = (): void => {
       if (typeof reader.result === 'string') {
         resolve(reader.result);
       } else {
@@ -387,7 +387,7 @@ export const imageToBase64 = (file: File): Promise<string> => {
       }
     };
 
-    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.onerror = (): void => reject(new Error('Failed to read file'));
     reader.readAsDataURL(file);
   });
 };

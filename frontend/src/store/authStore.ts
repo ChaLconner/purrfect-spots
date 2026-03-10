@@ -89,7 +89,7 @@ export const useAuthStore = defineStore('auth', () => {
    * Initialize authentication state
    * Try to recover session from HttpOnly cookie via refresh endpoint
    */
-  async function initializeAuth() {
+  async function initializeAuth(): Promise<void> {
     // Restore user data for UX while checking auth
     const storedUser = localStorage.getItem('user_data') || localStorage.getItem('user');
 
@@ -125,7 +125,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function refreshToken(): Promise<boolean> {
     if (refreshPromise) return refreshPromise;
 
-    refreshPromise = (async () => {
+    refreshPromise = (async (): Promise<boolean> => {
       try {
         const response = await apiV1.post<{
           access_token: string | null;
@@ -178,7 +178,7 @@ export const useAuthStore = defineStore('auth', () => {
   /**
    * Set authentication data after successful login
    */
-  async function setAuth(data: LoginResponse) {
+  async function setAuth(data: LoginResponse): Promise<void> {
     user.value = data.user;
     token.value = data.access_token;
     isAuthenticated.value = true;
@@ -198,7 +198,7 @@ export const useAuthStore = defineStore('auth', () => {
   /**
    * Clear all authentication data
    */
-  function clearAuth() {
+  function clearAuth(): void {
     user.value = null;
     token.value = null;
     isAuthenticated.value = false;
@@ -238,7 +238,7 @@ export const useAuthStore = defineStore('auth', () => {
   /**
    * Update user profile data
    */
-  function updateUser(updates: Partial<User>) {
+  function updateUser(updates: Partial<User>): void {
     if (user.value) {
       user.value = { ...user.value, ...updates };
       localStorage.setItem('user_data', JSON.stringify(sanitizeUserForCache(user.value)));
@@ -255,7 +255,7 @@ export const useAuthStore = defineStore('auth', () => {
   /**
    * Logout and redirect to login page
    */
-  async function logout() {
+  async function logout(): Promise<void> {
     try {
       await apiV1.post('/auth/logout');
     } catch (e) {

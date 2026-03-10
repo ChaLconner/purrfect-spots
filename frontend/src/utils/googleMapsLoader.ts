@@ -1,5 +1,4 @@
 // Google Maps API Loader - Centralized loader to prevent multiple script loads
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { isDev } from './env';
 
 interface GoogleMapsLoaderOptions {
@@ -48,14 +47,14 @@ export const loadGoogleMaps = async (options: GoogleMapsLoaderOptions): Promise<
   loadPromise = new Promise<void>((resolve, reject) => {
     // Set up the callback function
 
-    (globalThis as any)[callbackName] = () => {
+    (globalThis as Record<string, unknown>)[callbackName] = (): void => {
       clearTimeout(timeoutId);
       isLoaded = true;
       isLoading = false;
 
       // Clean up the callback function
 
-      delete (globalThis as any)[callbackName];
+      delete (globalThis as Record<string, unknown>)[callbackName];
 
       // Execute all pending callbacks
       pendingCallbacks.forEach((callback) => callback());
@@ -64,7 +63,7 @@ export const loadGoogleMaps = async (options: GoogleMapsLoaderOptions): Promise<
       resolve();
     };
 
-    script.onerror = (error) => {
+    script.onerror = (error: string | Event): void => {
       if (isDev()) {
         console.error('❌ Failed to load Google Maps API:', error);
       }
@@ -72,7 +71,7 @@ export const loadGoogleMaps = async (options: GoogleMapsLoaderOptions): Promise<
 
       // Clean up the callback function on error
 
-      delete (globalThis as any)[callbackName];
+      delete (globalThis as Record<string, unknown>)[callbackName];
 
       // Reject all pending promises
       pendingCallbacks = []; // Clear pending callbacks on error
@@ -95,7 +94,7 @@ export const loadGoogleMaps = async (options: GoogleMapsLoaderOptions): Promise<
 
         // Clean up
 
-        delete (globalThis as any)[callbackName];
+        delete (globalThis as Record<string, unknown>)[callbackName];
         document.head.removeChild(script);
 
         pendingCallbacks = [];
@@ -126,7 +125,7 @@ export const isGoogleMapsLoaded = (): boolean => {
  * Get the Google Maps object
  * @returns The global Google Maps object or null if not loaded
  */
-export const getGoogleMaps = () => {
+export const getGoogleMaps = (): typeof google.maps | null => {
   return globalThis.google?.maps || null;
 };
 

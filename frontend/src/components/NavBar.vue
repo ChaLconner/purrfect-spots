@@ -47,7 +47,9 @@ const catsStore = useCatsStore();
           <Logo class="relative z-10 w-9 h-9 drop-shadow-[0_2px_4px_rgba(106,163,137,0.3)]" />
           <span
             class="relative z-10 font-accent font-bold text-lg text-btn-shade-a whitespace-nowrap hidden md:block"
-          >Purrfect Spots</span>
+          >
+            Purrfect Spots
+          </span>
         </button>
 
         <div
@@ -64,7 +66,7 @@ const catsStore = useCatsStore();
           </div>
           <div class="relative z-10 flex flex-col leading-tight">
             <span class="font-accent font-bold text-xs text-btn-shade-a">
-              {{ catsStore.catCount }} {{ $t('cats.cats') }}
+              {{ catsStore.galleryCount || catsStore.catCount }} {{ $t('cats.cats') }}
             </span>
             <span class="font-accent text-[0.6rem] text-btn-shade-b">{{
               $t('cats.spottedNearby')

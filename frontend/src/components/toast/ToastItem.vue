@@ -22,7 +22,7 @@ onMounted(() => {
   }
 });
 
-function close() {
+function close(): void {
   isVisible.value = false;
   // Wait for transition to finish before removing from store
   setTimeout(() => {

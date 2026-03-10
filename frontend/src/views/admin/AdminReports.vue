@@ -448,7 +448,7 @@ const isAllSelected = computed(() => {
   return reports.value.length > 0 && selectedReportIds.value.length === reports.value.length;
 });
 
-const toggleSelection = (id: string) => {
+const toggleSelection = (id: string): void => {
   if (selectedReportIds.value.includes(id)) {
     selectedReportIds.value = selectedReportIds.value.filter((item) => item !== id);
   } else {
@@ -456,7 +456,7 @@ const toggleSelection = (id: string) => {
   }
 };
 
-const toggleSelectAll = () => {
+const toggleSelectAll = (): void => {
   if (isAllSelected.value) {
     selectedReportIds.value = [];
   } else {

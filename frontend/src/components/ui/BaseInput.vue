@@ -44,7 +44,7 @@ const inputClasses = computed(() => {
   ].join(' ');
 });
 
-const updateValue = (event: Event) => {
+const updateValue = (event: Event): void => {
   const target = event.target as HTMLInputElement | HTMLTextAreaElement;
   emit('update:modelValue', target.value);
 };

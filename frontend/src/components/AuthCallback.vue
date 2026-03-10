@@ -97,13 +97,19 @@ const handleGoogleCode = async (code: string, codeVerifier: string): Promise<boo
   return true;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const handleAuthError = (err: any): void => {
-  if (err.message?.includes('invalid_grant')) {
+const handleAuthError = (err: unknown): void => {
+  const errorMsg =
+    err instanceof Error
+      ? err.message
+      : typeof err === 'object' && err !== null && 'message' in err
+        ? String((err as Record<string, unknown>).message)
+        : String(err);
+
+  if (errorMsg.includes('invalid_grant')) {
     error.value = t('auth.callback.authExpired');
-  } else if (err.message?.includes('redirect_uri')) {
+  } else if (errorMsg.includes('redirect_uri')) {
     error.value = t('auth.callback.invalidOauth');
-  } else if (err.message === 'Failed to fetch') {
+  } else if (errorMsg === 'Failed to fetch') {
     error.value = t('auth.callback.connectionError');
   } else if (err instanceof Error && err.message) {
     const msg = err.message;

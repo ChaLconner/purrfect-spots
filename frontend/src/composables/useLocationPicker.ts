@@ -1,4 +1,4 @@
-import { ref, shallowRef, watch } from 'vue';
+import { ref, shallowRef, watch, type Ref, type ShallowRef } from 'vue';
 import { getGoogleMaps, loadGoogleMaps } from '../utils/googleMapsLoader';
 import { getEnvVar } from '../utils/env';
 import { showError, addToast } from '../store/toast';
@@ -14,7 +14,17 @@ interface LocationPickerOptions {
   mapElementId?: string;
 }
 
-export function useLocationPicker(options: LocationPickerOptions = {}) {
+export function useLocationPicker(options: LocationPickerOptions = {}): {
+  latitude: Ref<string>;
+  longitude: Ref<string>;
+  mapCenter: ShallowRef<Coordinates>;
+  gettingLocation: Ref<boolean>;
+  hasSelectedLocation: Ref<boolean>;
+  mapInstance: ShallowRef<google.maps.Map | null>;
+  initializeMap: () => Promise<void>;
+  getCurrentLocation: (silent?: boolean) => Promise<void>;
+  cleanup: () => void;
+} {
   // Default center for initial map view (Thailand center)
   const DEFAULT_MAP_CENTER = { lat: 13.7563, lng: 100.5018 };
   const DEFAULT_ZOOM_NO_SELECTION = 6; // Zoomed out to show more area
@@ -44,7 +54,7 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
   } as unknown as google.maps.Icon);
 
   // Helper to update all coordinate refs and create marker if needed
-  const setCoordinates = (lat: number, lng: number) => {
+  const setCoordinates = (lat: number, lng: number): void => {
     latitude.value = lat.toFixed(6);
     longitude.value = lng.toFixed(6);
     mapCenter.value = { lat, lng };
@@ -72,7 +82,11 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
     }
   };
 
-  const createMarkerWithHover = (position: Coordinates, title: string, map: google.maps.Map) => {
+  const createMarkerWithHover = (
+    position: Coordinates,
+    title: string,
+    map: google.maps.Map
+  ): google.maps.marker.AdvancedMarkerElement | google.maps.Marker | null => {
     const googleMaps = getGoogleMaps();
     if (!googleMaps) return null;
 
@@ -110,7 +124,7 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
 
   let mapInitializationAttempts = 0;
 
-  const initializeMap = async () => {
+  const initializeMap = async (): Promise<void> => {
     try {
       const mapElement = document.getElementById(mapElementId);
       if (!mapElement) return;
@@ -158,7 +172,7 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
   };
 
   // Helper to create draggable marker
-  const createDraggableMarker = (position: Coordinates) => {
+  const createDraggableMarker = (position: Coordinates): void => {
     if (mapMarker.value) return; // Already exists
     if (!mapInstance.value) return; // Map must be initialized
 
@@ -182,7 +196,7 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
   };
 
   let mapUpdateDebounce: ReturnType<typeof setTimeout> | null = null;
-  const debouncedUpdateMap = () => {
+  const debouncedUpdateMap = (): void => {
     if (!mapInstance.value) return;
     if (mapUpdateDebounce) clearTimeout(mapUpdateDebounce);
 
@@ -220,7 +234,7 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
     }
   };
 
-  const getCurrentLocation = async (silent = false) => {
+  const getCurrentLocation = async (silent = false): Promise<void> => {
     gettingLocation.value = true;
 
     if (!navigator.geolocation) {
@@ -257,7 +271,7 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
   };
 
   // Helper to set marker at approximate location from IP or default
-  const setApproximateLocationMarker = async (silent = false) => {
+  const setApproximateLocationMarker = async (silent = false): Promise<void> => {
     if (!mapInstance.value) return;
 
     // Try to get approximate location from IP
@@ -317,7 +331,7 @@ export function useLocationPicker(options: LocationPickerOptions = {}) {
   });
 
   // Cleanup function to be called in onUnmounted
-  const cleanup = () => {
+  const cleanup = (): void => {
     // Clear debounce timer
     if (mapUpdateDebounce) {
       clearTimeout(mapUpdateDebounce);

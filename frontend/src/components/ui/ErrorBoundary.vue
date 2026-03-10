@@ -78,30 +78,30 @@ onErrorCaptured((error: Error, instance, info) => {
   return import.meta.env.MODE === 'test';
 });
 
-function handleRetry() {
+function handleRetry(): void {
   hasError.value = false;
   errorMessage.value = '';
   errorStack.value = '';
   emit('retry');
 }
 
-function handleGoHome() {
+function handleGoHome(): void {
   hasError.value = false;
   router.push('/');
 }
 
-function handleReload() {
+function handleReload(): void {
   globalThis.location.reload();
 }
 
 // Provide error state to children if needed
 provide('errorBoundary', {
   hasError,
-  triggerError: (msg: string) => {
+  triggerError: (msg: string): void => {
     hasError.value = true;
     errorMessage.value = msg;
   },
-  clearError: () => {
+  clearError: (): void => {
     hasError.value = false;
     errorMessage.value = '';
   },

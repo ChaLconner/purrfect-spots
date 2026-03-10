@@ -127,14 +127,14 @@ import { ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { showError } from '@/store/toast';
 import { validateImageFile } from '@/utils/imageUtils';
+import type { CatDetectionResult } from '@/types/upload';
 
 const { t } = useI18n();
 
 const props = defineProps<{
   previewUrl: string | null;
   isDetectingCats: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  catDetectionResult: any;
+  catDetectionResult: CatDetectionResult | null;
   isAuthenticated: boolean;
   isQuotaFull?: boolean;
 }>();

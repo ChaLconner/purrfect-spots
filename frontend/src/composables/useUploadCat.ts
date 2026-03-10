@@ -31,7 +31,12 @@ export function useUploadCat(): {
   const uploadProgress = ref(0);
 
   // Get current quota status
-  const getUploadQuota = async () => {
+  const getUploadQuota = async (): Promise<{
+    used: number;
+    limit: number;
+    remaining: number;
+    is_pro: boolean;
+  } | null> => {
     try {
       // Lazy import api to avoid circular dependencies if any
       const { api } = await import('../utils/api');

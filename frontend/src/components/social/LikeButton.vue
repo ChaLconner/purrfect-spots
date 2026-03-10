@@ -145,7 +145,7 @@ watch(
 /**
  * Handle click with INSTANT optimistic update + debounced API call.
  */
-function handleClick() {
+function handleClick(): void {
   // Check authentication first
   if (!authStore.isAuthenticated) {
     toastStore.showInfo('Please log in to perform this action.');
@@ -187,7 +187,7 @@ function handleClick() {
 /**
  * Send the actual API request to toggle like.
  */
-async function sendToggleLike() {
+async function sendToggleLike(): Promise<void> {
   const requestId = ++lastRequestId;
   activeRequests++;
   isProcessing.value = true;

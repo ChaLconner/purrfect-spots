@@ -101,6 +101,7 @@ const router = useRouter();
 const route = useRoute();
 const { t } = useI18n();
 const { setMetaTags, resetMetaTags } = useSeo();
+const subscriptionStore = useSubscriptionStore();
 
 interface Upload {
   id: string;
@@ -150,7 +151,7 @@ const openEditPhotoModal = (photo: Upload): void => {
   showEditPhotoModal.value = true;
 };
 
-const savePhotoChanges = async (data: { location_name: string; description: string }) => {
+const savePhotoChanges = async (data: { location_name: string; description: string }): Promise<void> => {
   if (!photoToEdit.value) return;
   isSavingPhoto.value = true;
   try {
@@ -218,7 +219,6 @@ const handleGiveTreat = async (photo: Upload): Promise<void> => {
   if (isSendingTreat.value) return;
 
   isSendingTreat.value = true;
-  const subscriptionStore = useSubscriptionStore();
 
   try {
     await subscriptionStore.giveTreat(photo.id, 1);
@@ -254,44 +254,36 @@ const loadProfileData = async (): Promise<void> => {
   uploadsError.value = null;
 
   try {
+    // Load profile data
     const targetUserId = route.params.id as string;
 
     if (isOwnProfile.value) {
       // Viewing my own profile
-
-      // Ensure auth
-      if (!authStore.isUserReady) {
-        // If not logged in and trying to view /profile (no id), redirect to login
-        if (!targetUserId) {
-          router.push('/login');
-          return;
-        }
-        // If has ID but coincidentally matches unauthenticated state (unlikely but possible), treat as public
+      if (!authStore.isAuthenticated && !targetUserId) {
+        router.push('/login');
+        return;
       }
 
       viewedUser.value = authStore.user;
-
-      // Load my uploads
-      const userUploads = await ProfileService.getUserUploads();
-      uploads.value = userUploads;
+      uploads.value = await ProfileService.getUserUploads();
     } else {
       // Viewing someone else's profile
       if (!targetUserId) return;
-
-      // Load public profile
       viewedUser.value = await ProfileService.getPublicProfile(targetUserId);
-
-      // Load public uploads
-      const publicUploads = await ProfileService.getPublicUserUploads(targetUserId);
-      uploads.value = publicUploads;
+      uploads.value = await ProfileService.getPublicUserUploads(targetUserId);
     }
 
     // Set SEO
-    setMetaTags({
-      title: `${viewedUser.value?.name || t('profile.unknownUser')} | Purrfect Spots`,
-      description: viewedUser.value?.bio || t('profile.defaultDescription'),
-      image: viewedUser.value?.picture,
-    });
+    if (viewedUser.value) {
+      setMetaTags({
+        title: `${viewedUser.value.name || t('profile.unknownUser')} | Purrfect Spots`,
+        description: viewedUser.value.bio || t('profile.defaultDescription'),
+        image: viewedUser.value.picture,
+      });
+    }
+
+    // Sync from URL AFTER data is loaded
+    syncStateFromUrl();
   } catch (error) {
     if (isDev()) {
       console.error('Error loading profile:', error);
@@ -389,22 +381,25 @@ const handleSaveProfile = async (data: {
   }
 };
 
+// Initialization logic
 onMounted(() => {
-  // We wait for authStore.isInitialized watcher to trigger loadProfileData
+  // If auth is already initialized, load data immediately
+  // Otherwise, the watcher below will handle it
+  if (authStore.isInitialized) {
+    loadProfileData();
+  }
 });
 
-// Re-load data when auth initializes to ensure we get "My Profile" view correctly
-// This fixes the issue on F5 refresh where auth restores after mount
+// Re-load data when auth initializes or route changes
 watch(
-  () => authStore.isInitialized,
-  (isInit) => {
+  [(): boolean => authStore.isInitialized, (): string | string[] => route.params.id],
+  ([isInit]): void => {
+    // Only fetch if initialized
     if (isInit) {
-      loadProfileData().then(() => {
-        syncStateFromUrl();
-      });
+      loadProfileData();
     }
   },
-  { immediate: true }
+  { immediate: false }
 );
 
 // Cleanup on unmount

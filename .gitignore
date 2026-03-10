@@ -94,4 +94,4 @@ trivy-results.sarif
 docs/archive/
 
 .gemini/
-gha-creds-*.json
+gha-creds-*.jsondocs/openapi-current.json

@@ -44,6 +44,7 @@ export const useCatsStore = defineStore('cats', () => {
   const gallerySearchQuery = ref('');
   const popularTags = ref<TagInfo[]>([]);
   const selectedTags = ref<string[]>([]);
+  const galleryCount = ref(0);
 
   // Pagination state
   const pagination = ref<PaginationMeta>({
@@ -99,6 +100,7 @@ export const useCatsStore = defineStore('cats', () => {
   const catCount = computed(() => locations.value.length);
 
   const totalCount = computed(() => pagination.value.total);
+  const galleryCountComputed = computed(() => galleryCount.value);
 
   const hasMore = computed(() => pagination.value.has_more);
 
@@ -166,58 +168,57 @@ export const useCatsStore = defineStore('cats', () => {
 
   // ========== Actions ==========
 
-  /**
-   * Set locations data with pagination info
-   */
-  function setLocations(data: CatLocation[], paginationData?: PaginationMeta) {
+  function setLocations(data: CatLocation[], paginationData?: PaginationMeta): void {
     locations.value = data;
     if (paginationData) {
       pagination.value = paginationData;
+      galleryCount.value = paginationData.total;
     }
   }
 
   /**
    * Append more locations (for infinite scroll)
    */
-  function appendLocations(data: CatLocation[], paginationData?: PaginationMeta) {
+  function appendLocations(data: CatLocation[], paginationData?: PaginationMeta): void {
     locations.value = [...locations.value, ...data];
     if (paginationData) {
       pagination.value = paginationData;
+      galleryCount.value = paginationData.total;
     }
   }
 
   /**
    * Set loading state
    */
-  function setLoading(loading: boolean) {
+  function setLoading(loading: boolean): void {
     isLoading.value = loading;
   }
 
   /**
    * Set error state
    */
-  function setError(err: string | null) {
+  function setError(err: string | null): void {
     error.value = err;
   }
 
   /**
    * Set search query (Global/Map)
    */
-  function setSearchQuery(query: string) {
+  function setSearchQuery(query: string): void {
     searchQuery.value = query;
   }
 
   /**
    * Set gallery search query
    */
-  function setGallerySearchQuery(query: string) {
+  function setGallerySearchQuery(query: string): void {
     gallerySearchQuery.value = query;
   }
 
   /**
    * Clear search query
    */
-  function clearSearch() {
+  function clearSearch(): void {
     searchQuery.value = '';
     selectedTags.value = [];
   }
@@ -225,21 +226,21 @@ export const useCatsStore = defineStore('cats', () => {
   /**
    * Clear gallery search
    */
-  function clearGallerySearch() {
+  function clearGallerySearch(): void {
     gallerySearchQuery.value = '';
   }
 
   /**
    * Set popular tags from API
    */
-  function setPopularTags(tags: TagInfo[]) {
+  function setPopularTags(tags: TagInfo[]): void {
     popularTags.value = tags;
   }
 
   /**
    * Toggle tag selection for filtering
    */
-  function toggleTag(tag: string) {
+  function toggleTag(tag: string): void {
     const index = selectedTags.value.indexOf(tag);
     if (index === -1) {
       selectedTags.value.push(tag);
@@ -251,7 +252,7 @@ export const useCatsStore = defineStore('cats', () => {
   /**
    * Clear all filters
    */
-  function clearFilters() {
+  function clearFilters(): void {
     searchQuery.value = '';
     selectedTags.value = [];
   }
@@ -259,7 +260,7 @@ export const useCatsStore = defineStore('cats', () => {
   /**
    * Reset pagination to first page
    */
-  function resetPagination() {
+  function resetPagination(): void {
     pagination.value = {
       ...pagination.value,
       offset: 0,
@@ -271,7 +272,7 @@ export const useCatsStore = defineStore('cats', () => {
   /**
    * Go to next page
    */
-  function nextPage() {
+  function nextPage(): void {
     if (pagination.value.has_more) {
       pagination.value.page++;
       pagination.value.offset = (pagination.value.page - 1) * pagination.value.limit;
@@ -281,7 +282,7 @@ export const useCatsStore = defineStore('cats', () => {
   /**
    * Go to previous page
    */
-  function prevPage() {
+  function prevPage(): void {
     if (pagination.value.page > 1) {
       pagination.value.page--;
       pagination.value.offset = (pagination.value.page - 1) * pagination.value.limit;
@@ -291,7 +292,7 @@ export const useCatsStore = defineStore('cats', () => {
   /**
    * Go to specific page
    */
-  function goToPage(page: number) {
+  function goToPage(page: number): void {
     if (page >= 1 && page <= pagination.value.total_pages) {
       pagination.value.page = page;
       pagination.value.offset = (page - 1) * pagination.value.limit;
@@ -313,6 +314,7 @@ export const useCatsStore = defineStore('cats', () => {
     // Getters
     catCount,
     totalCount,
+    galleryCount: galleryCountComputed,
     hasMore,
     currentPage,
     totalPages,

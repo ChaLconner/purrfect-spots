@@ -237,7 +237,7 @@ const proFeatures = computed(() => [
   t('subscription.proPlan.features.4'),
 ]);
 
-function formatCurrency(amount: number) {
+function formatCurrency(amount: number): string {
   return new Intl.NumberFormat(locale.value === 'th' ? 'th-TH' : 'en-US', {
     style: 'currency',
     currency: config.app.currency,
