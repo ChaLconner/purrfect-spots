@@ -80,10 +80,10 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
+import type { UploadResponse } from '@/types/upload';
 
 defineProps<{
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  result: any;
+  result: UploadResponse | null;
 }>();
 
 defineEmits<{

@@ -222,12 +222,12 @@ watch(
   }
 );
 
-const close = () => {
+const close = (): void => {
   if (isSubmitting.value) return;
   emit('close');
 };
 
-const submitReport = async () => {
+const submitReport = async (): Promise<void> => {
   if (!form.reason) return;
 
   isSubmitting.value = true;

@@ -1,4 +1,4 @@
-import { reactive, ref, computed } from 'vue';
+import { reactive, ref, computed, type Ref, type ComputedRef } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/store/authStore';
 import { AuthService } from '@/services/authService';
@@ -6,7 +6,21 @@ import { showSuccess, showError } from '@/store/toast';
 import { isDev, getEnvVar } from '@/utils/env';
 import { getGoogleAuthUrl } from '@/utils/oauth';
 
-export function useAuthForm(initialMode: 'login' | 'register' = 'login') {
+export interface UseAuthFormReturn {
+  isLogin: Ref<boolean>;
+  isLoading: ComputedRef<boolean>;
+  isEmailLoading: Ref<boolean>;
+  isGoogleLoading: Ref<boolean>;
+  showPassword: Ref<boolean>;
+  form: { email: string; password: string; name: string };
+  formErrors: { email: string; password: string; name: string };
+  toggleMode: () => void;
+  handleSubmit: () => Promise<void>;
+  handleGoogleLogin: () => Promise<void>;
+}
+
+
+export function useAuthForm(initialMode: 'login' | 'register' = 'login'): UseAuthFormReturn {
   const router = useRouter();
   const authStore = useAuthStore();
 
@@ -22,7 +36,7 @@ export function useAuthForm(initialMode: 'login' | 'register' = 'login') {
     name: '',
   });
 
-  const toggleMode = () => {
+  const toggleMode = (): void => {
     isLogin.value = !isLogin.value;
   };
 
@@ -32,7 +46,7 @@ export function useAuthForm(initialMode: 'login' | 'register' = 'login') {
     name: '',
   });
 
-  const clearErrors = () => {
+  const clearErrors = (): void => {
     formErrors.email = '';
     formErrors.password = '';
     formErrors.name = '';
@@ -66,7 +80,7 @@ export function useAuthForm(initialMode: 'login' | 'register' = 'login') {
     return isValid;
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (): Promise<void> => {
     if (!validateForm()) return;
 
     isEmailLoading.value = true;
@@ -118,7 +132,7 @@ export function useAuthForm(initialMode: 'login' | 'register' = 'login') {
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = async (): Promise<void> => {
     isGoogleLoading.value = true;
 
     try {

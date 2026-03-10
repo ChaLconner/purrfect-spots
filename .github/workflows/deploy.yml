@@ -49,8 +49,11 @@ on:
 # to prevent cancelling a live smoke-test or release-tag step mid-flight.
 # Staging (dev branch) still cancels eagerly so only the latest commit deploys.
 concurrency:
-  group: deploy-${{ github.ref }}-${{ github.workflow }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  # FIX: github.ref in workflow_run is always the default branch (main).
+  # Use head_branch from workflow_run for the actual branch; fallback to
+  # github.ref for workflow_dispatch.
+  group: deploy-${{ github.event.workflow_run.head_branch || github.ref_name }}-${{ github.workflow }}
+  cancel-in-progress: ${{ (github.event.workflow_run.head_branch || github.ref_name) != 'main' }}
 
 # ==============================================================================
 # PERMISSIONS - Principle of least privilege
@@ -188,6 +191,11 @@ jobs:
             VERSION="staging-${TIMESTAMP}-${SHORT_SHA}"
           fi
 
+          # Validate version format
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-[a-f0-9]+$ ]] && [[ ! "$VERSION" =~ ^staging-[0-9]{14}-[a-f0-9]+$ ]]; then
+            echo "::warning::Version format may be invalid: $VERSION"
+          fi
+
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Generated version: ${VERSION}"
 
@@ -223,7 +231,9 @@ jobs:
         run: npm install -g vercel@latest
 
       - name: Authenticate Vercel
-        run: vercel whoami --token="${{ secrets.VERCEL_TOKEN }}"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel whoami --token="$VERCEL_TOKEN"
 
       - name: Cache API Client Node Modules
         # FIX #12: Pinned to full SHA
@@ -235,6 +245,10 @@ jobs:
       - name: Validate API Client Generation
         run: |
           echo "🧪 Validating API Client Generation..."
+          if [ ! -f "api-client/package.json" ]; then
+            echo "::warning::api-client/package.json not found — skipping validation."
+            exit 0
+          fi
           cd api-client
           [ -d node_modules ] || npm install --prefer-offline --no-audit
           npm run validate
@@ -268,22 +282,17 @@ jobs:
             --force --yes --token="$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" \
             2>&1 || echo "::warning::Failed to inject VITE_API_BASE_URL — it may already exist with the correct value."
 
-          # FIX #1: Secrets must never be expanded inside unquoted shell words.
-          # Pass each variable through vercel env add (already done above for the
-          # URL) or via quoted --build-env assignments. Every value is double-
-          # quoted to survive spaces, dollar signs, and other special characters.
-          BUILD_ENV_FLAGS="--build-env VITE_SUPABASE_URL=\"${SUPABASE_URL}\""
-          BUILD_ENV_FLAGS="${BUILD_ENV_FLAGS} --build-env VITE_SUPABASE_ANON_KEY=\"${SUPABASE_KEY}\""
-          [ -n "$STAGING_API_URL" ] && BUILD_ENV_FLAGS="${BUILD_ENV_FLAGS} --build-env VITE_API_BASE_URL=\"${STAGING_API_URL}\""
-          [ -n "$GOOGLE_MAPS_API_KEY" ] && BUILD_ENV_FLAGS="${BUILD_ENV_FLAGS} --build-env VITE_GOOGLE_MAPS_API_KEY=\"${GOOGLE_MAPS_API_KEY}\""
+          # Build --build-env flags using a bash array to preserve quoting
+          # for values that may contain spaces, dollar signs, or special chars.
+          DEPLOY_ARGS=(deploy ./frontend --yes --token="$VERCEL_TOKEN")
+          DEPLOY_ARGS+=(--build-env "VITE_SUPABASE_URL=$SUPABASE_URL")
+          DEPLOY_ARGS+=(--build-env "VITE_SUPABASE_ANON_KEY=$SUPABASE_KEY")
+          [ -n "$STAGING_API_URL" ] && DEPLOY_ARGS+=(--build-env "VITE_API_BASE_URL=$STAGING_API_URL")
+          [ -n "$GOOGLE_MAPS_API_KEY" ] && DEPLOY_ARGS+=(--build-env "VITE_GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY")
 
           echo "🚀 Deploying Frontend..."
           # FIX #13: Capture the deployment URL for downstream notification
-          # Targeted frontend directory explicitly and removed eval for cleaner execution
-          DEPLOY_OUTPUT=$(vercel deploy ./frontend \
-            --yes \
-            --token="$VERCEL_TOKEN" \
-            $BUILD_ENV_FLAGS)
+          DEPLOY_OUTPUT=$(vercel "${DEPLOY_ARGS[@]}")
           URL=$(echo "$DEPLOY_OUTPUT" | grep -oE 'https://[a-zA-Z0-9.-]+\.vercel\.app' | head -1)
           echo "deployment_url=${URL}" >> $GITHUB_OUTPUT
           echo "✅ Deployed to: ${URL}"
@@ -312,7 +321,9 @@ jobs:
         run: npm install -g vercel@latest
 
       - name: Authenticate Vercel
-        run: vercel whoami --token="${{ secrets.VERCEL_TOKEN }}"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel whoami --token="$VERCEL_TOKEN"
 
       - name: Deploy Backend to Vercel (Staging)
         shell: bash
@@ -441,6 +452,8 @@ jobs:
     environment:
       name: production
       url: https://purrfect-spots.vercel.app
+      # Require manual approval for production deployments
+      # Configure in GitHub Settings > Environments > production > Protection rules
     steps:
       - name: Checkout code
         # FIX #2: Pinned to full SHA
@@ -452,7 +465,9 @@ jobs:
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
       - name: Authenticate Vercel
-        run: vercel whoami --token="${{ secrets.VERCEL_TOKEN }}"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel whoami --token="$VERCEL_TOKEN"
       - id: deploy
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -476,14 +491,15 @@ jobs:
             --force --yes --token="$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" \
             2>&1 || echo "::warning::Failed to inject VITE_API_BASE_URL — it may already exist with the correct value."
 
-          # FIX #1: All secret values are double-quoted to handle special characters
-          VITE_FLAGS="--build-env VITE_SUPABASE_URL=\"${SUPABASE_URL}\" --build-env VITE_SUPABASE_ANON_KEY=\"${SUPABASE_KEY}\""
-          [ -n "$PROD_API_URL" ] && VITE_FLAGS="${VITE_FLAGS} --build-env VITE_API_BASE_URL=\"${PROD_API_URL}\""
-          [ -n "$GOOGLE_MAPS_API_KEY" ] && VITE_FLAGS="${VITE_FLAGS} --build-env VITE_GOOGLE_MAPS_API_KEY=\"${GOOGLE_MAPS_API_KEY}\""
+          # Build --build-env flags using a bash array to preserve quoting
+          DEPLOY_ARGS=(deploy ./frontend --prod --yes --token="$VERCEL_TOKEN")
+          DEPLOY_ARGS+=(--build-env "VITE_SUPABASE_URL=$SUPABASE_URL")
+          DEPLOY_ARGS+=(--build-env "VITE_SUPABASE_ANON_KEY=$SUPABASE_KEY")
+          [ -n "$PROD_API_URL" ] && DEPLOY_ARGS+=(--build-env "VITE_API_BASE_URL=$PROD_API_URL")
+          [ -n "$GOOGLE_MAPS_API_KEY" ] && DEPLOY_ARGS+=(--build-env "VITE_GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY")
 
           echo "🚀 Triggering Vercel Production Deployment..."
-          # Targeted frontend directory and removed invalid --project flag
-          DEPLOY_OUTPUT=$(vercel deploy ./frontend --prod --yes --token="$VERCEL_TOKEN" $VITE_FLAGS)
+          DEPLOY_OUTPUT=$(vercel "${DEPLOY_ARGS[@]}")
           URL=$(echo "$DEPLOY_OUTPUT" | grep -oE 'https://[a-zA-Z0-9.-]+\.vercel\.app' | head -1)
           echo "deployment_url=${URL}" >> $GITHUB_OUTPUT
           echo "✅ Deployed to: ${URL}"
@@ -507,7 +523,9 @@ jobs:
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
       - name: Authenticate Vercel
-        run: vercel whoami --token="${{ secrets.VERCEL_TOKEN }}"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel whoami --token="$VERCEL_TOKEN"
       - name: Deploy Backend
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -561,6 +579,8 @@ jobs:
 
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
+
+      # jq is pre-installed on ubuntu-latest runners — no manual install needed.
 
       - name: Smoke Tests
         if: needs.production-frontend.result == 'success' && needs.production-backend.result == 'success'
@@ -806,6 +826,7 @@ jobs:
           echo "### 📊 Deployment Metrics" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Workflow Run ID**: \`${{ github.run_id }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Workflow Run Number**: \`${{ github.run_number }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit SHA**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch**: \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Repository**: ${{ github.server_url }}/${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
@@ -849,11 +870,11 @@ jobs:
           [ "${PRODUCTION_RESULT}" == "success" ] && STATUS="✅ Success"
           [ "${PRODUCTION_RESULT}" == "skipped" ] && STATUS="⏭️ Skipped"
           echo "| Status | ${STATUS} |" >> $GITHUB_STEP_SUMMARY
-          echo "| URL | ${FRONTEND_URL} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📊 Deployment Metrics" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Workflow Run ID**: \`${{ github.run_id }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Workflow Run Number**: \`${{ github.run_number }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit SHA**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch**: \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Repository**: ${{ github.server_url }}/${{ github.repository }}" >> $GITHUB_STEP_SUMMARY

@@ -58,8 +58,10 @@ import { isDev } from '@/utils/env';
 import { GALLERY_CONFIG } from '@/utils/constants';
 import GalleryHeader from '@/components/gallery/GalleryHeader.vue';
 import GalleryGrid from '@/components/gallery/GalleryGrid.vue';
-import { useCatsStore } from '@/store';
 import type { CatLocation } from '@/types/api';
+import { useCatsStore, useAuthStore } from '@/store';
+
+const authStore = useAuthStore();
 
 import GalleryModal from '@/components/gallery/GalleryModal.vue';
 import GhibliLoader from '@/components/ui/GhibliLoader.vue';
@@ -199,7 +201,10 @@ const modalCurrentIndex = computed(() => {
   return isDeepLinked.value ? 0 : currentImageIndex.value;
 });
 
-async function syncStateFromUrl() {
+async function syncStateFromUrl(): Promise<void> {
+  // Wait for auth before syncing to avoid context issues or 401s
+  if (!authStore.isInitialized) return;
+
   const imageId = props.id;
 
   if (!imageId) {
@@ -260,7 +265,11 @@ watch(
   }
 );
 
-async function fetchGalleryData(reset = false) {
+async function fetchGalleryData(reset = false): Promise<void> {
+  // Prevent fetching until auth is initialized to ensure correct user context (likes, etc)
+  // and to avoid redundant requests on page mount.
+  if (!authStore.isInitialized) return;
+
   if (reset) {
     loading.value = true;
     currentPage.value = 1;
@@ -313,8 +322,20 @@ async function fetchGalleryData(reset = false) {
     }
 
     hasMoreImages.value = hasNext;
-    if (total > 0) totalImages.value = total;
-    else totalImages.value = visibleImages.value.length;
+    if (total > 0) {
+      totalImages.value = total;
+      // Sync total count to store for global counter (NavBar)
+      catsStore.setLocations(visibleImages.value, {
+        total,
+        limit: imagesPerPage,
+        offset: (currentPage.value - 1) * imagesPerPage,
+        has_more: hasNext,
+        page: currentPage.value,
+        total_pages: Math.ceil(total / imagesPerPage),
+      });
+    } else {
+      totalImages.value = visibleImages.value.length;
+    }
 
     // Initial sync with URL after data load (only on first load)
 
@@ -333,11 +354,11 @@ async function fetchGalleryData(reset = false) {
 }
 
 // Wrapper for initial mounting
-function fetchImages() {
+function fetchImages(): void {
   fetchGalleryData(true);
 }
 
-function loadMoreImages() {
+function loadMoreImages(): void {
   if (loadingMore.value || !hasMoreImages.value) return;
 
   // Increment page and fetch
@@ -345,7 +366,7 @@ function loadMoreImages() {
   fetchGalleryData(false);
 }
 
-function openModal(image: CatLocation, index: number) {
+function openModal(image: CatLocation, index: number): void {
   // Update URL using Path Parameter
   router.push({
     name: 'Gallery',
@@ -354,7 +375,7 @@ function openModal(image: CatLocation, index: number) {
   });
 }
 
-function closeModal() {
+function closeModal(): void {
   // Remove ID from Path - using undefined to avoid trailing slash or empty string issues
   router.push({
     name: 'Gallery',
@@ -363,7 +384,7 @@ function closeModal() {
   });
 }
 
-function handleModalNavigate(direction: 'prev' | 'next') {
+function handleModalNavigate(direction: 'prev' | 'next'): void {
   if (isDeepLinked.value) return; // Disable navigation for single deep linked image
   if (currentImageIndex.value < 0) return;
 
@@ -396,7 +417,7 @@ function handleModalNavigate(direction: 'prev' | 'next') {
 const preloadedLinks: HTMLLinkElement[] = [];
 
 // Preload first few images for better performance
-function preloadFirstImages() {
+function preloadFirstImages(): void {
   // Avoid duplicate preloads
   if (preloadedLinks.length > 0) return;
 
@@ -422,7 +443,7 @@ function preloadFirstImages() {
   });
 }
 
-function cleanupPreloads() {
+function cleanupPreloads(): void {
   preloadedLinks.forEach((link) => {
     if (link.parentNode) {
       link.parentNode.removeChild(link);
@@ -430,13 +451,6 @@ function cleanupPreloads() {
   });
   preloadedLinks.length = 0;
 }
-
-// Watch for auth initialization to fetch gallery data
-// This handles both initial load (wait for auth) and subsequent updates
-// immediate: true ensures it runs if auth is already initialized (e.g. client-side nav)
-import { useAuthStore } from '@/store/authStore';
-const authStore = useAuthStore();
-
 watch(
   () => authStore.isInitialized,
   (isInit) => {
@@ -448,26 +462,4 @@ watch(
   },
   { immediate: true }
 );
-
-// We don't need to call fetchImages in onMounted anymore because the watcher handles it.
-// If isInitialized is false, we wait. If true, watcher runs.
-onMounted(() => {
-  // Check for search query in URL on mount
-  if (route.query.q) {
-    catsStore.setGallerySearchQuery(route.query.q as string);
-  }
-
-  // Set SEO meta tags
-  setMetaTags({
-    title: `${t('galleryPage.seo.title')} | Purrfect Spots`,
-    description: t('galleryPage.seo.description'),
-    type: 'website',
-  });
-});
-
-onUnmounted(() => {
-  // Reset SEO meta tags
-  resetMetaTags();
-  cleanupPreloads();
-});
 </script>

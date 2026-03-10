@@ -122,7 +122,7 @@ onUnmounted(() => {
   resetMetaTags();
 });
 
-const handleSubmit = async () => {
+const handleSubmit = async (): Promise<void> => {
   if (!email.value) return;
 
   isLoading.value = true;

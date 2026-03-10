@@ -1,10 +1,15 @@
-import { ref, onMounted, onUnmounted, readonly } from 'vue';
+import { ref, onMounted, onUnmounted, readonly, type DeepReadonly, type Ref } from 'vue';
 
-export function useNetwork() {
+export interface UseNetworkReturn {
+  isOnline: DeepReadonly<Ref<boolean>>;
+  offlineAt: DeepReadonly<Ref<Date | null>>;
+}
+
+export function useNetwork(): UseNetworkReturn {
   const isOnline = ref(navigator.onLine);
   const offlineAt = ref<Date | null>(null);
 
-  function updateOnlineStatus() {
+  function updateOnlineStatus(): void {
     isOnline.value = navigator.onLine;
     if (isOnline.value) {
       offlineAt.value = null;

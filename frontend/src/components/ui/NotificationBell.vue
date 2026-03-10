@@ -187,7 +187,7 @@ function handleClickOutside(event: MouseEvent): void {
 }
 
 // Setup IntersectionObserver for Infinite Loading
-function setupObserver() {
+function setupObserver(): void {
   if (observer) observer.disconnect();
 
   observer = new IntersectionObserver(

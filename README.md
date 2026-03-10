@@ -1,106 +1,237 @@
 # 🐱 Purrfect Spots
 
-**Connect. Share. Discover.**
-The ultimate platform for cat lovers to find and share the perfect spots for their furry friends.
+[![CI Pipeline](https://github.com/ChaLconner/purrfect-spots/actions/workflows/ci.yml/badge.svg)](https://github.com/ChaLconner/purrfect-spots/actions/workflows/ci.yml)
+[![Production Deployment](https://github.com/ChaLconner/purrfect-spots/actions/workflows/deploy.yml/badge.svg)](https://github.com/ChaLconner/purrfect-spots/actions/workflows/deploy.yml)
+[![CodeQL Security](https://github.com/ChaLconner/purrfect-spots/actions/workflows/codeql.yml/badge.svg)](https://github.com/ChaLconner/purrfect-spots/actions/workflows/codeql.yml)
+[![Release](https://github.com/ChaLconner/purrfect-spots/actions/workflows/release.yml/badge.svg)](https://github.com/ChaLconner/purrfect-spots/actions/workflows/release.yml)
 
-## 🏗️ Architecture
+**Connect · Share · Discover**
 
-Purrfect Spots is a full-stack application built with:
+Purrfect Spots is a modern social platform where cat lovers can **share, discover, and explore locations of adorable cats around the world**.
 
-- **Frontend**: Vue 3 + Vite + TypeScript (Single Page Application)
-- **Backend**: Python FastAPI (Async)
-- **Database**: Supabase (PostgreSQL)
-- **Storage**: AWS S3 (via Supabase Storage)
-- **Caching**: Redis (Rate Limiting & Data Caching)
-- **AI**: Google Vision API (Cat Detection)
-- **Infrastructure**: Docker & Nginx
+Users can upload photos, automatically detect cats using AI, and visualize their locations on an interactive map.
 
-### Key Components
+The platform is designed with a **Ghibli-inspired aesthetic** and built using **modern cloud-native architecture**.
 
-- **Authentication**: JWT-based (Supabase Auth & Custom tokens).
-- **Security**: Rate limiting (Redis-backed), CSRF protection, Helmet headers, Input sanitization.
-- **Observability**: Sentry (Error Tracking), Jaeger (Tracing), Structured Logging.
+---
 
-## 🚀 Getting Started
+# 📸 Demo
 
-### Prerequisites
+| Feature          | Preview       |
+| ---------------- | ------------- |
+| Map Discovery    | *coming soon* |
+| Cat Gallery      | *coming soon* |
+| AI Cat Detection | *coming soon* |
 
-- Docker & Docker Compose
-- Node.js 20+ (for local frontend dev)
-- Python 3.12+ (for local backend dev)
+Live Demo
+👉 https://purrfect-spots.vercel.app
+👉 https://purrfectspots.xyz
 
-### Environment Setup
+---
 
-1. Copy the example environment file:
-   ```bash
-   cp .env.example .env
-   ```
-2. Fill in the required credentials (Supabase, Google Cloud, etc.).
+# ✨ Features
 
-### Running with Docker (Recommended)
+### 🗺️ Discover Cat Locations
+
+Explore cat sightings shared by the community through an interactive location-based map.
+
+### 🐱 AI Cat Detection
+
+Images uploaded by users are analyzed using **Google Vision AI** to verify the presence of cats.
+
+### 🔐 Enterprise-Grade Security
+
+* Rate Limiting (Redis)
+* CSRF Protection
+* Strict Input Validation (Pydantic / Zod)
+* GitHub Security Scanning
+* Automated Trivy vulnerability scanning
+* CodeQL static analysis
+
+### ⚡ Performance & Observability
+
+* Distributed tracing with **Jaeger**
+* Error monitoring with **Sentry**
+* Structured logging
+
+### 🗄️ Secure Data Layer
+
+* PostgreSQL (Supabase)
+* Row Level Security (RLS)
+* Object storage via AWS S3
+
+---
+
+# 🏗️ System Architecture
+
+```
+Frontend (Vue 3 + Vite + TypeScript)
+        │
+        ▼
+   FastAPI Backend
+        │
+        ├── PostgreSQL (Supabase)
+        ├── Redis Cache
+        ├── AWS S3 Storage
+        └── Google Vision AI
+```
+
+Infrastructure:
+
+```
+Docker
+Nginx
+GitHub Actions CI/CD
+Vercel Deployment
+```
+
+---
+
+# 🧰 Technology Stack
+
+## Frontend
+
+* Vue 3
+* Vite
+* TypeScript
+* Pinia
+* TailwindCSS
+
+## Backend
+
+* Python 3.12
+* FastAPI (Async)
+* SQLAlchemy
+* Pydantic
+
+## Infrastructure
+
+* Supabase (PostgreSQL)
+* Redis
+* AWS S3
+* Docker
+* Nginx
+* GitHub Actions
+
+---
+
+# 🚀 Quick Start
+
+## 1️⃣ Clone the repository
 
 ```bash
-docker-compose up -d --build
+git clone https://github.com/ChaLconner/purrfect-spots.git
+cd purrfect-spots
 ```
-- Frontend: http://localhost:3000
-- Backend: http://localhost:8000
-- API Docs: http://localhost:8000/docs (Development only)
 
-### Local Development
+---
 
-**Backend:**
+## 2️⃣ Setup Environment Variables
+
+```
+cp .env.example .env
+```
+
+Then configure:
+
+* Supabase credentials
+* Google Vision API
+* Sentry DSN
+* Redis URL
+
+See full configuration:
+
+```
+docs/ENV_SETUP.md
+```
+
+---
+
+# 🧑‍💻 Local Development
+
+## Backend
+
 ```bash
 cd backend
+
+python -m venv venv
+source venv/bin/activate
+
 pip install -r requirements.txt
+
 uvicorn main:app --reload
 ```
 
-**Frontend:**
+---
+
+## Frontend
+
 ```bash
 cd frontend
+
 npm install
 npm run dev
 ```
 
-## 🧪 Testing
+# 📚 Documentation
 
-We use `pytest` for backend and `vitest` for frontend.
+Full documentation lives inside the **docs directory**.
 
-**Run Backend Tests:**
-```bash
-cd backend
-pytest
-```
+| Document                                 | Description               |
+| ---------------------------------------- | ------------------------- |
+| docs/README.md                           | Documentation Hub         |
+| docs/DATABASE_SCHEMA.md                  | Database schema           |
+| docs/ENV_SETUP.md                        | Environment configuration |
+| docs/DEPLOYMENT_WORKFLOW_IMPROVEMENTS.md | CI/CD pipeline            |
+| docs/DESIGN_TOKENS.md                    | UI design system          |
 
-**Run Frontend Tests:**
-```bash
-cd frontend
-npm run test:unit
-```
+---
 
-## 📂 Project Structure
+# 📂 Project Structure
 
 ```
-/backend          # FastAPI Application
-  /middleware     # Auth, CSRF, Security middleware
-  /routes         # API endpoints (v1)
-  /services       # Business logic (Auth, Gallery, Storage)
-  /utils          # Helpers (Security, Logging, Config)
+backend/
+  middleware/
+  routes/
+  services/
+  utils/
 
-/frontend         # Vue 3 Application
-  /src/components # Reusable UI components
-  /src/views      # Page views
-  /src/stores     # Pinia state management
-  /src/composables# Shared state logic
+frontend/
+  src/components
+  src/views
+  src/stores
+  src/composables
+
+docs/
 ```
 
-## 🔒 Security Measures
+---
 
-- **Rate Limiting**: Per-IP and per-User limits on all endpoints.
-- **Input Validation**: Strict Pydantic models and manual sanitization.
-- **XSS Protection**: Content-Security-Policy and input encoding.
-- **CSRF**: Double Submit Cookie pattern.
+# 🔐 Security
 
-## 🤝 Contributing
+Security scanning is fully automated.
 
-Please read [CODING_STANDARDS.md](CODING_STANDARDS.md) before contributing.
+Tools used:
+
+* GitHub CodeQL
+* Trivy container scanning
+* Dependabot
+* Secret scanning
+
+All pull requests must pass security checks before merging.
+
+---
+
+# 📄 License
+
+MIT License
+
+---
+
+# 👨‍💻 Maintainer
+
+Maintained by:
+
+**ChaLconner**
+
+If you like the project, consider giving it a ⭐

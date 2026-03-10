@@ -283,6 +283,16 @@ const refreshQuota = async (): Promise<void> => {
 
 onMounted(refreshQuota);
 
+// Refresh quota when auth initializes (important for F5 refresh)
+watch(
+  () => authStore.isInitialized,
+  (isInit) => {
+    if (isInit) {
+      refreshQuota();
+    }
+  }
+);
+
 // Prevent selecting file if quota is full
 const canUpload = computed(() => {
   if (!quotaStatus.value) return true;

@@ -66,7 +66,7 @@ export function useDebounceFn<T extends (...args: Parameters<T>) => ReturnType<T
   };
 
   // Add cancel method
-  debouncedFn.cancel = () => {
+  debouncedFn.cancel = (): void => {
     if (timeoutId) {
       clearTimeout(timeoutId);
       timeoutId = null;

@@ -1,5 +1,5 @@
 /// <reference types="google.maps" />
-import { shallowRef, watch, type Ref, onUnmounted } from 'vue';
+import { shallowRef, watch, type Ref, onUnmounted, type ShallowRef } from 'vue';
 import type { CatLocation } from '../types/api';
 import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markerclusterer';
 
@@ -8,7 +8,13 @@ type GoogleMap = google.maps.Map;
 
 type GoogleMarker = google.maps.Marker | google.maps.marker.AdvancedMarkerElement;
 
-export function useMapMarkers(map: Ref<GoogleMap | null>) {
+export function useMapMarkers(map: Ref<GoogleMap | null>): {
+  markers: ShallowRef<Map<string, GoogleMarker>>;
+  userMarker: ShallowRef<GoogleMarker | null>;
+  updateMarkers: (locations: CatLocation[], onMarkerClick?: (cat: CatLocation) => void) => void;
+  updateUserMarker: (position: { lat: number; lng: number } | null) => void;
+  clearMarkers: () => void;
+} {
   // Use shallowRef for markers array to avoid deep reactivity overhead with Google Maps objects
   const markers = shallowRef<Map<string, GoogleMarker>>(new Map());
   const userMarker = shallowRef<GoogleMarker | null>(null);
@@ -21,7 +27,7 @@ export function useMapMarkers(map: Ref<GoogleMap | null>) {
   const clustererOptions = {
     algorithm: new SuperClusterAlgorithm({ radius: 60, maxZoom: 16 }),
     renderer: {
-      render: ({ count, position }: { count: number; position: google.maps.LatLng }) => {
+      render: ({ count, position }: { count: number; position: google.maps.LatLng }): google.maps.Marker => {
         return new google.maps.Marker({
           position,
           label: {
@@ -59,7 +65,7 @@ export function useMapMarkers(map: Ref<GoogleMap | null>) {
   /**
    * Update markers based on current locations list (Diffing logic)
    */
-  const getMarkerPosition = (marker: GoogleMarker) => {
+  const getMarkerPosition = (marker: GoogleMarker): { lat: number; lng: number } | null => {
     // Check if it's an AdvancedMarkerElement (has 'position' property directly accessible)
     // Legacy Marker uses getPosition()
     if (marker instanceof google.maps.Marker) {
@@ -77,7 +83,7 @@ export function useMapMarkers(map: Ref<GoogleMap | null>) {
     }
   };
 
-  const createMarker = (location: CatLocation, onMarkerClick?: (cat: CatLocation) => void) => {
+  const createMarker = (location: CatLocation, onMarkerClick?: (cat: CatLocation) => void): google.maps.Marker => {
     // Use Legacy Marker for consistent display of custom icons
     // AdvancedMarkerElement requires a valid Map ID and Vector Map, which can be flaky in some envs
 
@@ -100,7 +106,7 @@ export function useMapMarkers(map: Ref<GoogleMap | null>) {
     return marker;
   };
 
-  const updateExistingMarker = (marker: GoogleMarker, location: CatLocation) => {
+  const updateExistingMarker = (marker: GoogleMarker, location: CatLocation): void => {
     const currentPos = getMarkerPosition(marker);
     if (currentPos) {
       if (
@@ -116,7 +122,7 @@ export function useMapMarkers(map: Ref<GoogleMap | null>) {
     }
   };
 
-  const updateMarkers = (locations: CatLocation[], onMarkerClick?: (cat: CatLocation) => void) => {
+  const updateMarkers = (locations: CatLocation[], onMarkerClick?: (cat: CatLocation) => void): void => {
     if (!map.value) return;
 
     // Ensure clusterer is initialized with options if not already
@@ -170,7 +176,7 @@ export function useMapMarkers(map: Ref<GoogleMap | null>) {
   /**
    * Update user location marker (Blue Dot)
    */
-  const updateUserMarker = (position: { lat: number; lng: number } | null) => {
+  const updateUserMarker = (position: { lat: number; lng: number } | null): void => {
     if (!map.value) return;
 
     if (!position) {
@@ -229,7 +235,7 @@ export function useMapMarkers(map: Ref<GoogleMap | null>) {
   /**
    * Clear all markers
    */
-  const clearMarkers = () => {
+  const clearMarkers = (): void => {
     if (clusterer.value) {
       clusterer.value.clearMarkers();
     }

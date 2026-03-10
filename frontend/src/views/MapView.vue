@@ -20,7 +20,7 @@
           </div>
         </transition>
 
-        <!-- Data Loading State -->
+        <!-- Data Loading State (Subtle) -->
         <transition
           enter-active-class="transition-opacity duration-300"
           leave-active-class="transition-opacity duration-200"
@@ -29,9 +29,9 @@
         >
           <div
             v-if="isLoading && !isInitialLoading"
-            class="absolute inset-0 flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm z-20 rounded-xl"
+            class="absolute bottom-6 right-6 flex items-center gap-3 bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-lg z-20 border border-white/50 animate-bounce-subtle"
           >
-            <GhibliLoader :text="$t('map.findingCats')" />
+            <GhibliLoader size="small" :text="$t('map.findingCats')" />
           </div>
         </transition>
 
@@ -40,7 +40,7 @@
           v-if="error && !isLoading && !isInitialLoading"
           class="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md z-20 p-6 rounded-xl"
         >
-          <ErrorState :message="error" @retry="loadCatLocations" />
+          <ErrorState :message="error" @retry="fetchLocationsInViewport" />
         </div>
 
         <!-- Google Map -->
@@ -129,20 +129,20 @@ const isViewportFetching = ref(false);
 // Handlers
 // ==========================================
 
-const searchByTag = (tag: string) => {
+const searchByTag = (tag: string): void => {
   catsStore.setSearchQuery(`#${tag}`);
   closeModal();
 };
 
-const clearSearch = () => {
+const clearSearch = (): void => {
   catsStore.clearSearch();
 };
 
-const selectCat = (cat: CatLocation) => {
+const selectCat = (cat: CatLocation): void => {
   router.push({ query: { ...route.query, image: cat.id } });
 };
 
-const closeModal = () => {
+const closeModal = (): void => {
   const query = { ...route.query };
   delete query.image;
   router.push({ query });
@@ -152,7 +152,7 @@ const closeModal = () => {
 // Map Logic
 // ==========================================
 
-const initializeMap = async () => {
+const initializeMap = async (): Promise<void> => {
   await nextTick();
 
   // Progressive loading: Start map initialization in background
@@ -243,30 +243,7 @@ const initializeMap = async () => {
 // Data Fetching
 // ==========================================
 
-const loadCatLocations = async () => {
-  isLoading.value = true;
-  catsStore.setLoading(true);
-  error.value = null;
-
-  try {
-    const locations = await GalleryService.getLocations();
-
-    catsStore.setLocations(locations);
-
-    // sync state from URL if needed
-    syncStateFromUrl();
-  } catch {
-    // Error handling
-    const msg = t('map.errorLoadingLocations');
-    error.value = msg;
-    catsStore.setError(msg);
-  } finally {
-    isLoading.value = false;
-    catsStore.setLoading(false);
-  }
-};
-
-const fetchLocationsInViewport = async () => {
+const fetchLocationsInViewport = async (): Promise<void> => {
   if (!map.value || isViewportFetching.value) return;
 
   const bounds = map.value.getBounds();
@@ -277,6 +254,11 @@ const fetchLocationsInViewport = async () => {
   }
 
   isViewportFetching.value = true;
+  // Don't show full loading if we already have some data (better UX)
+  if (displayedLocations.value.length === 0) {
+    isLoading.value = true;
+  }
+  error.value = null;
 
   try {
     const ne = bounds.getNorthEast();
@@ -298,14 +280,20 @@ const fetchLocationsInViewport = async () => {
       // Create new array reference for reactivity
       catsStore.setLocations([...catsStore.locations, ...newLocations]);
     }
-  } catch (err) {
-    console.warn('Viewport fetch failed:', err);
+
+    // sync state from URL if needed
+    syncStateFromUrl();
+  } catch {
+    const msg = t('map.errorLoadingLocations');
+    error.value = msg;
+    catsStore.setError(msg);
   } finally {
     isViewportFetching.value = false;
+    isLoading.value = false;
   }
 };
 
-const debouncedViewportFetch = () => {
+const debouncedViewportFetch = (): void => {
   if (viewportFetchTimer.value) clearTimeout(viewportFetchTimer.value);
   viewportFetchTimer.value = setTimeout(
     fetchLocationsInViewport,
@@ -374,7 +362,7 @@ watch(
   }
 );
 
-const syncStateFromUrl = async () => {
+const syncStateFromUrl = async (): Promise<void> => {
   const imageId = route.query.image as string;
   if (!imageId) {
     selectedCat.value = null;
@@ -425,7 +413,7 @@ const syncStateFromUrl = async () => {
 // Control Handlers
 // ==========================================
 
-const openDirections = (cat: CatLocation) => {
+const openDirections = (cat: CatLocation): void => {
   let url = `${EXTERNAL_URLS.GOOGLE_MAPS_DIRECTIONS}`;
   if (userLocation.value) url += `&origin=${userLocation.value.lat},${userLocation.value.lng}`;
   url += `&destination=${cat.latitude},${cat.longitude}`;
@@ -453,8 +441,7 @@ onMounted(() => {
   // Start map initialization immediately to improve LCP
   initializeMap();
 
-  // Load data concurrently
-  loadCatLocations();
+  // Load data concurrently (handled by viewport observer instead)
 });
 
 onUnmounted(() => {

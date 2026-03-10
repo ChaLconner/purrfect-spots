@@ -26,16 +26,16 @@ export function useImageLoader(options: UseImageLoaderOptions): UseImageLoaderRe
   const imageRef = ref<HTMLElement | null>(null);
   let observer: IntersectionObserver | null = null;
 
-  const handleLoad = () => {
+  const handleLoad = (): void => {
     isLoaded.value = true;
   };
 
-  const handleError = (event: Event) => {
+  const handleError = (event: Event): void => {
     hasError.value = true;
     console.error('Image failed to load:', src, event);
   };
 
-  const retry = () => {
+  const retry = (): void => {
     hasError.value = false;
     isLoaded.value = false;
     // Force re-render if needed, but usually src change or just retry logic in component handles it.

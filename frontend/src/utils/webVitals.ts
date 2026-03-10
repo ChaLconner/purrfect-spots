@@ -47,7 +47,7 @@ function getRating(name: string, value: number): 'good' | 'needs-improvement' | 
 /**
  * Log metric to console in development
  */
-function logMetric(metric: WebVitalMetric) {
+function logMetric(metric: WebVitalMetric): void {
   const colors = {
     good: 'color: #0cce6b',
     'needs-improvement': 'color: #ffa400',
@@ -64,7 +64,7 @@ function logMetric(metric: WebVitalMetric) {
 /**
  * Send metric to analytics endpoint
  */
-function sendToAnalytics(metric: WebVitalMetric) {
+function sendToAnalytics(metric: WebVitalMetric): void {
   // Skip in development unless explicitly enabled
   if (isDev() && !import.meta.env.VITE_ENABLE_ANALYTICS) {
     return;
@@ -138,7 +138,7 @@ function sendToAnalytics(metric: WebVitalMetric) {
 /**
  * Create a metric reporter callback
  */
-function createReporter(name: string) {
+function createReporter(name: string): (entry: PerformanceEntry & { value?: number }) => void {
   return (entry: PerformanceEntry & { value?: number }) => {
     const value = entry.value ?? entry.duration ?? 0;
     const metric: WebVitalMetric = {
@@ -161,7 +161,7 @@ function createReporter(name: string) {
 /**
  * Observe Largest Contentful Paint
  */
-function observeLCP() {
+function observeLCP(): void {
   try {
     const observer = new PerformanceObserver((list) => {
       const entries = list.getEntries();
@@ -179,7 +179,7 @@ function observeLCP() {
 /**
  * Observe First Input Delay
  */
-function observeFID() {
+function observeFID(): void {
   try {
     const observer = new PerformanceObserver((list) => {
       const entries = list.getEntries();
@@ -203,7 +203,7 @@ function observeFID() {
 /**
  * Observe Cumulative Layout Shift
  */
-function observeCLS() {
+function observeCLS(): void {
   try {
     let clsValue = 0;
     const observer = new PerformanceObserver((list) => {
@@ -234,7 +234,7 @@ function observeCLS() {
 /**
  * Observe First Contentful Paint
  */
-function observeFCP() {
+function observeFCP(): void {
   try {
     const observer = new PerformanceObserver((list) => {
       const entries = list.getEntries();
@@ -254,7 +254,7 @@ function observeFCP() {
 /**
  * Observe Time to First Byte
  */
-function observeTTFB() {
+function observeTTFB(): void {
   try {
     const navigationEntry = performance.getEntriesByType(
       'navigation'
@@ -273,7 +273,7 @@ function observeTTFB() {
 /**
  * Observe Interaction to Next Paint
  */
-function observeINP() {
+function observeINP(): void {
   try {
     let maxINP = 0;
     const observer = new PerformanceObserver((list) => {
@@ -302,7 +302,7 @@ function observeINP() {
  * Initialize Web Vitals tracking
  * Call this in your main.ts after the app mounts
  */
-export function initWebVitals() {
+export function initWebVitals(): void {
   if (typeof globalThis === 'undefined' || !globalThis.performance) return;
 
   // Wait for idle to not block main thread

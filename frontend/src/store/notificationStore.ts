@@ -17,7 +17,7 @@ export const useNotificationStore = defineStore('notifications', () => {
   const hasMore = ref(true);
   const limit = 15;
 
-  async function fetchNotifications() {
+  async function fetchNotifications(): Promise<void> {
     if (!authStore.isAuthenticated) return;
     try {
       hasMore.value = true;
@@ -30,7 +30,7 @@ export const useNotificationStore = defineStore('notifications', () => {
     }
   }
 
-  async function fetchMoreNotifications() {
+  async function fetchMoreNotifications(): Promise<void> {
     if (!authStore.isAuthenticated || isLoadingMore.value || !hasMore.value) return;
     isLoadingMore.value = true;
     try {
@@ -52,7 +52,7 @@ export const useNotificationStore = defineStore('notifications', () => {
     }
   }
 
-  async function markRead(id: string) {
+  async function markRead(id: string): Promise<void> {
     try {
       await NotificationService.markAsRead(id);
       const n = notifications.value.find((x) => x.id === id);
@@ -62,7 +62,7 @@ export const useNotificationStore = defineStore('notifications', () => {
     }
   }
 
-  async function markAllRead() {
+  async function markAllRead(): Promise<void> {
     try {
       await NotificationService.markAllAsRead();
       notifications.value.forEach((n) => {
@@ -73,7 +73,7 @@ export const useNotificationStore = defineStore('notifications', () => {
     }
   }
 
-  function subscribeToNotifications() {
+  function subscribeToNotifications(): void {
     if (!authStore.user?.id) return;
     if (subscription) return; // Already subscribed
 
@@ -87,7 +87,7 @@ export const useNotificationStore = defineStore('notifications', () => {
           table: 'notifications',
           filter: `user_id=eq.${authStore.user.id}`,
         },
-        async (payload) => {
+        async (payload: { new: Notification }): Promise<void> => {
           const newNotification = payload.new as Notification;
 
           // Fetch actor details if available
@@ -107,7 +107,7 @@ export const useNotificationStore = defineStore('notifications', () => {
       .subscribe();
   }
 
-  function unsubscribe() {
+  function unsubscribe(): void {
     if (subscription) {
       supabase.removeChannel(subscription);
       subscription = null;

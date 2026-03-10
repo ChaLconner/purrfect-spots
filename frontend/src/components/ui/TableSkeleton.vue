@@ -61,7 +61,7 @@ withDefaults(defineProps<Props>(), {
 });
 
 // Helper to get random width string for more natural look
-const getRandomWidth = (min = 60, max = 90) => {
+const getRandomWidth = (min = 60, max = 90): string => {
   const width = Math.floor(Math.random() * (max - min + 1)) + min;
   return `${width}px`;
 };

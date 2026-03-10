@@ -1,13 +1,8 @@
 #!/usr/bin/env python3
 """
-Export OpenAPI schema to JSON file.
+Export OpenAPI Specification
 
-This script exports the current FastAPI OpenAPI schema to a JSON file.
-Used for API contract testing and client generation.
-
-Usage:
-    python scripts/export_openapi.py
-    python scripts/export_openapi.py --output ../docs/openapi.json
+Generates the OpenAPI JSON schema from the FastAPI application and saves it to a file.
 """
 
 import argparse
@@ -18,29 +13,46 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from main import app
+
+def get_current_schema() -> dict:
+    """Get current OpenAPI schema from FastAPI app."""
+    from main import app
+
+    return app.openapi()
 
 
-def export_openapi_schema(output_path: str = "openapi.json") -> None:
-    """Export OpenAPI schema to JSON file."""
-    schema = app.openapi()
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Export OpenAPI schema")
+    parser.add_argument(
+        "--output",
+        "-o",
+        required=True,
+        help="Path where the OpenAPI schema JSON will be saved",
+    )
+    args = parser.parse_args()
 
-    # Ensure the output directory exists
-    output_file = Path(output_path)
-    output_file.parent.mkdir(parents=True, exist_ok=True)
+    output_path = Path(args.output)
 
-    with output_file.open("w", encoding="utf-8") as f:
-        json.dump(schema, f, indent=2, ensure_ascii=False)
+    print("Getting current schema from FastAPI app...")
+    try:
+        schema = get_current_schema()
+    except Exception as e:
+        print(f"Failed to get schema: {e}", file=sys.stderr)
+        return 1
 
-    print(f"✅ OpenAPI schema exported to: {output_file.absolute()}")
-    print(f"   Version: {schema.get('info', {}).get('version', 'unknown')}")
-    print(f"   Title: {schema.get('info', {}).get('title', 'unknown')}")
-    print(f"   Paths: {len(schema.get('paths', {}))}")
+    # Ensure target directory exists
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        with output_path.open("w", encoding="utf-8") as f:
+            json.dump(schema, f, indent=2, ensure_ascii=False)
+        print(f"Exported OpenAPI schema successfully to {output_path}")
+    except Exception as e:
+        print(f"Failed to write schema to {output_path}: {e}", file=sys.stderr)
+        return 1
+
+    return 0
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Export OpenAPI schema")
-    parser.add_argument("--output", "-o", default="openapi.json", help="Output file path (default: openapi.json)")
-    args = parser.parse_args()
-
-    export_openapi_schema(args.output)
+    sys.exit(main())

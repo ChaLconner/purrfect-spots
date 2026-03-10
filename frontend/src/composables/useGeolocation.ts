@@ -1,11 +1,22 @@
-import { ref, onUnmounted } from 'vue';
+import { ref, onUnmounted, type Ref } from 'vue';
 
 export interface Coordinates {
   lat: number;
   lng: number;
 }
 
-export function useGeolocation() {
+export interface UseGeolocationReturn {
+  userLocation: Ref<Coordinates | null>;
+  error: Ref<string | null>;
+  isLoading: Ref<boolean>;
+  permissionDenied: Ref<boolean>;
+  getCurrentPosition: (options?: PositionOptions) => Promise<Coordinates | null>;
+  startWatchingPosition: (options?: PositionOptions) => Promise<void>;
+  stopWatchingPosition: () => void;
+}
+
+
+export function useGeolocation(): UseGeolocationReturn {
   const userLocation = ref<Coordinates | null>(null);
   const error = ref<string | null>(null);
   const isLoading = ref(false);
@@ -40,7 +51,7 @@ export function useGeolocation() {
 
     return new Promise((resolve) => {
       // Helper to handle success from native API
-      const handleSuccess = (position: GeolocationPosition) => {
+      const handleSuccess = (position: GeolocationPosition): void => {
         const coords = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
@@ -52,7 +63,7 @@ export function useGeolocation() {
       };
 
       // Helper to handle failure/fallback
-      const handleFailure = async (msg: string) => {
+      const handleFailure = async (msg: string): Promise<void> => {
         // If user denied, mark it so we don't try to watch
         if (msg.includes('denied') || msg.includes('permission')) {
           permissionDenied.value = true;
@@ -91,7 +102,7 @@ export function useGeolocation() {
   /**
    * Start watching position for continuous updates
    */
-  const startWatchingPosition = async (options?: PositionOptions) => {
+  const startWatchingPosition = async (options?: PositionOptions): Promise<void> => {
     if (typeof navigator === 'undefined' || !navigator.geolocation || watchId.value !== null)
       return;
 
@@ -138,7 +149,7 @@ export function useGeolocation() {
   /**
    * Stop watching position
    */
-  const stopWatchingPosition = () => {
+  const stopWatchingPosition = (): void => {
     if (typeof navigator !== 'undefined' && watchId.value !== null) {
       navigator.geolocation.clearWatch(watchId.value);
       watchId.value = null;

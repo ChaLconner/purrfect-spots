@@ -56,7 +56,7 @@ export function trapFocus(element: HTMLElement): () => void {
   const firstFocusable = focusableElements[0];
   const lastFocusable = focusableElements[focusableElements.length - 1];
 
-  function handleKeyDown(e: KeyboardEvent) {
+  function handleKeyDown(e: KeyboardEvent): void {
     if (e.key !== 'Tab') return;
 
     if (e.shiftKey) {
@@ -171,7 +171,7 @@ export function setupArrowKeyNavigation(
 ): () => void {
   const { vertical = true, wrap = true } = options;
 
-  function handleKeyDown(e: KeyboardEvent) {
+  function handleKeyDown(e: KeyboardEvent): void {
     const items = Array.from(container.querySelectorAll<HTMLElement>(itemSelector));
     const currentIndex = items.indexOf(document.activeElement as HTMLElement);
 

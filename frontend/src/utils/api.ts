@@ -7,7 +7,14 @@
  */
 
 import axios from 'axios';
-import type { AxiosInstance, AxiosRequestConfig, AxiosError, AxiosProgressEvent } from 'axios';
+import type {
+  AxiosInstance,
+  AxiosRequestConfig,
+  AxiosError,
+  AxiosProgressEvent,
+  InternalAxiosRequestConfig,
+  AxiosResponse,
+} from 'axios';
 import { isBrowserExtensionError, handleBrowserExtensionError } from './browserExtensionHandler';
 import { getEnvVar } from './env';
 import { getCsrfToken } from './security';
@@ -105,7 +112,7 @@ const createApiInstance = (): AxiosInstance => {
 
   // Request interceptor to add auth token
   instance.interceptors.request.use(
-    (config) => {
+    (config): InternalAxiosRequestConfig => {
       // 1. Add Auth Token
       if (currentAccessToken) {
         config.headers.Authorization = `Bearer ${currentAccessToken}`;
@@ -124,12 +131,12 @@ const createApiInstance = (): AxiosInstance => {
 
       return config;
     },
-    (error) => Promise.reject(error)
+    (error): Promise<never> => Promise.reject(error)
   );
 
   // Response interceptor
   instance.interceptors.response.use(
-    (response) => {
+    (response): AxiosResponse => {
       const contentType = response.headers['content-type'];
       if (contentType && !contentType.includes('application/json')) {
         // Warn removed
@@ -154,7 +161,7 @@ const createApiInstance = (): AxiosInstance => {
       }
       return response;
     },
-    async (error: AxiosError) => {
+    async (error: AxiosError): Promise<unknown> => {
       if (isBrowserExtensionError(error)) {
         return handleBrowserExtensionError(error, () => {
           if (!error.config) {

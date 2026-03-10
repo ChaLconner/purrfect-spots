@@ -19,10 +19,19 @@ const DEFAULT_DESCRIPTION =
   'Discover and share adorable cat photos from around the world. Find cat-friendly spots near you.';
 const DEFAULT_IMAGE = '/og-image.png';
 
+export interface UseSeoReturn {
+  setMetaTags: (options: MetaTagOptions) => void;
+  resetMetaTags: () => void;
+  SITE_NAME: string;
+  DEFAULT_TITLE: string;
+  DEFAULT_DESCRIPTION: string;
+}
+
+
 /**
  * Set document title and meta tags
  */
-export function setMetaTags(options: MetaTagOptions) {
+export function setMetaTags(options: MetaTagOptions): void {
   const {
     title = DEFAULT_TITLE,
     description = DEFAULT_DESCRIPTION,
@@ -35,7 +44,7 @@ export function setMetaTags(options: MetaTagOptions) {
   document.title = title;
 
   // Helper to set or create meta tag
-  const setMeta = (name: string, content: string, property = false) => {
+  const setMeta = (name: string, content: string, property = false): void => {
     const attr = property ? 'property' : 'name';
     let meta = document.querySelector(`meta[${attr}="${name}"]`) as HTMLMetaElement;
 
@@ -77,7 +86,7 @@ export function setMetaTags(options: MetaTagOptions) {
 /**
  * Reset meta tags to defaults
  */
-export function resetMetaTags() {
+export function resetMetaTags(): void {
   setMetaTags({
     title: DEFAULT_TITLE,
     description: DEFAULT_DESCRIPTION,
@@ -89,7 +98,7 @@ export function resetMetaTags() {
 /**
  * Composable for managing SEO in components
  */
-export function useSeo() {
+export function useSeo(): UseSeoReturn {
   return {
     setMetaTags,
     resetMetaTags,

@@ -193,7 +193,7 @@ const page = ref(1);
 const limit = 20;
 const isLoading = ref(false);
 
-const loadStats = async () => {
+const loadStats = async (): Promise<void> => {
   try {
     stats.value = await apiV1.get<Stats>('/admin/stats');
   } catch (e) {
@@ -201,7 +201,7 @@ const loadStats = async () => {
   }
 };
 
-const loadUsers = async (newPage: number = 1) => {
+const loadUsers = async (newPage: number = 1): Promise<void> => {
   isLoading.value = true;
   try {
     const offset = (newPage - 1) * limit;
@@ -223,12 +223,12 @@ const loadUsers = async (newPage: number = 1) => {
   }
 };
 
-const handleSearch = () => {
+const handleSearch = (): void => {
   // Simple debounce could be added here
   loadUsers(1);
 };
 
-const confirmDelete = async (user: User) => {
+const confirmDelete = async (user: User): Promise<void> => {
   if (
     // eslint-disable-next-line no-alert
     window.confirm(t('admin.confirmDelete', { name: user.name }))
