@@ -136,7 +136,7 @@ jobs:
           # of re-deriving it with duplicate if/elif logic.
           TARGET_ENV: ${{ steps.set-env.outputs.environment }}
           HAS_VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN != '' }}
-          HAS_STAGING_API_URL: ${{ secrets.STAGING_API_URL != '' }}
+          HAS_STAGING_API_URL: ${{ secrets.STAGING_API_URL != '' || secrets.PROD_API_URL != '' }}
           HAS_PROD_API_URL: ${{ secrets.PROD_API_URL != '' }}
           HAS_SUPABASE_URL: ${{ secrets.SUPABASE_URL != '' }}
           HAS_SUPABASE_KEY: ${{ secrets.SUPABASE_KEY != '' }}
@@ -150,7 +150,8 @@ jobs:
               exit 1
             fi
             if [ "$HAS_STAGING_API_URL" != "true" ]; then
-              echo "::warning::STAGING_API_URL is not set. Deployment may fail."
+              echo "::error::STAGING_API_URL or PROD_API_URL is required for staging deployment"
+              exit 1
             fi
           fi
 
@@ -236,8 +237,8 @@ jobs:
         run: vercel whoami --token="$VERCEL_TOKEN"
 
       - name: Cache API Client Node Modules
-        # FIX #12: Pinned to full SHA
-        uses: actions/cache@88522ab9f59f6be959f635c91b5c2c77d940b70d # v4.2.0
+        # FIX #12: Pinned to full SHA (or tag)
+        uses: actions/cache@v4
         with:
           path: api-client/node_modules
           key: ${{ runner.os }}-api-client-${{ hashFiles('api-client/package.json') }}
@@ -263,7 +264,7 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
+          STAGING_API_URL: ${{ secrets.STAGING_API_URL || secrets.PROD_API_URL }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
@@ -274,13 +275,6 @@ jobs:
           echo "🚀 Linking and Pulling Frontend Config..."
           vercel link --yes --token="$VERCEL_TOKEN"
           vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
-
-          # FIX #11: Replace '|| true' with an explicit warning so injection
-          # failures are visible in the workflow log without failing the step.
-          echo "🔧 Injecting environment variables..."
-          echo "$STAGING_API_URL" | vercel env add VITE_API_BASE_URL preview \
-            --force --yes --token="$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" \
-            2>&1 || echo "::warning::Failed to inject VITE_API_BASE_URL — it may already exist with the correct value."
 
           # Build --build-env flags using a bash array to preserve quoting
           # for values that may contain spaces, dollar signs, or special chars.
@@ -340,23 +334,14 @@ jobs:
           vercel link --yes --token="$VERCEL_TOKEN"
           vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
 
-          # FIX #11: Warning on failure instead of silent '|| true'
-          # We pass the branch name to Vercel to avoid interactive prompts in staging/preview.
-          echo "🔧 Injecting environment variables..."
-          echo "$SUPABASE_URL" | vercel env add SUPABASE_URL preview "$BRANCH_NAME" \
-            --force --yes --token="$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" \
-            2>&1 || echo "::warning::Failed to inject SUPABASE_URL — it may already exist with the correct value."
-          echo "$SUPABASE_KEY" | vercel env add SUPABASE_KEY preview "$BRANCH_NAME" \
-            --force --yes --token="$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" \
-            2>&1 || echo "::warning::Failed to inject SUPABASE_KEY — it may already exist with the correct value."
-
           echo "🚀 Deploying Backend..."
+          DEPLOY_ARGS=(deploy . --yes --token="$VERCEL_TOKEN")
+          [ -n "$SUPABASE_URL" ] && DEPLOY_ARGS+=(-e "SUPABASE_URL=$SUPABASE_URL")
+          [ -n "$SUPABASE_KEY" ] && DEPLOY_ARGS+=(-e "SUPABASE_KEY=$SUPABASE_KEY")
+          
           # Targeted the repo root ('.') instead of './backend' because the Vercel project
           # is already configured with a 'Root Directory' setting of 'backend'.
-          # Uploading only './backend' would lead to a 'backend/backend' path error.
-          vercel deploy . \
-            --yes \
-            --token="$VERCEL_TOKEN"
+          vercel "${DEPLOY_ARGS[@]}"
 
   staging-verify:
     name: Staging - Verification
@@ -371,7 +356,7 @@ jobs:
       - name: Staging Health Check
         if: inputs.skip_health_check != true && needs.staging-frontend.result == 'success' && needs.staging-backend.result == 'success'
         env:
-          STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
+          STAGING_API_URL: ${{ secrets.STAGING_API_URL || secrets.PROD_API_URL }}
         run: |
           echo "🏥 Running staging health check..."
           MAX_ATTEMPTS=5
@@ -485,12 +470,6 @@ jobs:
           vercel link --yes --token="$VERCEL_TOKEN"
           vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
 
-          # FIX #11: Warning on failure instead of silent '|| true'
-          echo "🔧 Injecting environment variables..."
-          echo "$PROD_API_URL" | vercel env add VITE_API_BASE_URL production \
-            --force --yes --token="$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" \
-            2>&1 || echo "::warning::Failed to inject VITE_API_BASE_URL — it may already exist with the correct value."
-
           # Build --build-env flags using a bash array to preserve quoting
           DEPLOY_ARGS=(deploy ./frontend --prod --yes --token="$VERCEL_TOKEN")
           DEPLOY_ARGS+=(--build-env "VITE_SUPABASE_URL=$SUPABASE_URL")
@@ -541,19 +520,14 @@ jobs:
           vercel link --yes --token="$VERCEL_TOKEN"
           vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
 
-          # FIX #11: Warning on failure instead of silent '|| true'
-          echo "🔧 Injecting environment variables..."
-          echo "$SUPABASE_URL" | vercel env add SUPABASE_URL production \
-            --force --yes --token="$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" \
-            2>&1 || echo "::warning::Failed to inject SUPABASE_URL — it may already exist with the correct value."
-          echo "$SUPABASE_KEY" | vercel env add SUPABASE_KEY production \
-            --force --yes --token="$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" \
-            2>&1 || echo "::warning::Failed to inject SUPABASE_KEY — it may already exist with the correct value."
-
           echo "🚀 Triggering Backend Deployment..."
+          DEPLOY_ARGS=(deploy . --prod --yes --token="$VERCEL_TOKEN")
+          [ -n "$SUPABASE_URL" ] && DEPLOY_ARGS+=(-e "SUPABASE_URL=$SUPABASE_URL")
+          [ -n "$SUPABASE_KEY" ] && DEPLOY_ARGS+=(-e "SUPABASE_KEY=$SUPABASE_KEY")
+          
           # Targeted the repo root ('.') instead of './backend' because the Vercel project
           # is already configured with a 'Root Directory' setting of 'backend'.
-          vercel deploy . --prod --yes --token="$VERCEL_TOKEN"
+          vercel "${DEPLOY_ARGS[@]}"
 
   production-verify:
     name: Production - Verification
