@@ -278,7 +278,9 @@ jobs:
 
           # Build --build-env flags using a bash array to preserve quoting
           # for values that may contain spaces, dollar signs, or special chars.
-          DEPLOY_ARGS=(deploy ./frontend --yes --token="$VERCEL_TOKEN")
+          # Targeted the repo root ('.') instead of './frontend' because the Vercel project
+          # is already configured with a 'Root Directory' setting of 'frontend'.
+          DEPLOY_ARGS=(deploy . --yes --token="$VERCEL_TOKEN")
           DEPLOY_ARGS+=(--build-env "VITE_SUPABASE_URL=$SUPABASE_URL")
           DEPLOY_ARGS+=(--build-env "VITE_SUPABASE_ANON_KEY=$SUPABASE_KEY")
           [ -n "$STAGING_API_URL" ] && DEPLOY_ARGS+=(--build-env "VITE_API_BASE_URL=$STAGING_API_URL")
@@ -471,7 +473,9 @@ jobs:
           vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
 
           # Build --build-env flags using a bash array to preserve quoting
-          DEPLOY_ARGS=(deploy ./frontend --prod --yes --token="$VERCEL_TOKEN")
+          # Targeted the repo root ('.') instead of './frontend' because the Vercel project
+          # is already configured with a 'Root Directory' setting of 'frontend'.
+          DEPLOY_ARGS=(deploy . --prod --yes --token="$VERCEL_TOKEN")
           DEPLOY_ARGS+=(--build-env "VITE_SUPABASE_URL=$SUPABASE_URL")
           DEPLOY_ARGS+=(--build-env "VITE_SUPABASE_ANON_KEY=$SUPABASE_KEY")
           [ -n "$PROD_API_URL" ] && DEPLOY_ARGS+=(--build-env "VITE_API_BASE_URL=$PROD_API_URL")
