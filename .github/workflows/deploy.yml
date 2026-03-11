@@ -568,7 +568,16 @@ jobs:
         if: needs.production-frontend.result == 'success' && needs.production-backend.result == 'success'
         env:
           PROD_API_URL: ${{ secrets.PROD_API_URL }}
-          FRONTEND_URL: ${{ needs.production-frontend.outputs.deployment_url }}
+          # PROD_FRONTEND_URL is the stable canonical alias (e.g. https://purrfect-spots.vercel.app).
+          # This avoids hitting a unique deployment URL which has Vercel Deployment Protection
+          # enabled and returns HTTP 401. Use vars.PROD_FRONTEND_URL (a GitHub Actions variable)
+          # as the primary target, and fall back to the dynamic deployment URL only if unset.
+          PROD_FRONTEND_URL: ${{ vars.PROD_FRONTEND_URL }}
+          DEPLOYMENT_URL: ${{ needs.production-frontend.outputs.deployment_url }}
+          # Optional: Vercel Deployment Protection bypass secret (set in GitHub Secrets).
+          # Allows the smoke test to access unique deployment URLs protected by Vercel.
+          # Generate via: Vercel Dashboard > Project > Settings > Deployment Protection.
+          VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
         run: |
           echo "🧪 Running Production Smoke Tests..."
           echo ""
@@ -606,13 +615,22 @@ jobs:
           echo ""
 
           # --- Frontend Health Check ---
+          # Prefer the stable canonical URL (set via vars.PROD_FRONTEND_URL) over the
+          # unique deployment URL to avoid Vercel Deployment Protection (HTTP 401).
           echo "=== Frontend Health Check ==="
+          FRONTEND_URL="${PROD_FRONTEND_URL:-$DEPLOYMENT_URL}"
           if [ -n "$FRONTEND_URL" ]; then
+            echo "🔗 Checking: ${FRONTEND_URL}"
             MAX_ATTEMPTS=3
             FRONTEND_OK=false
+            # Build curl args. If a protection bypass secret is configured, include
+            # the x-vercel-protection-bypass header so Vercel lets the request
+            # through even on unique deployment URLs with protection enabled.
+            CURL_ARGS=(-s -o /dev/null -w "%{http_code}" --max-time 15)
+            [ -n "$VERCEL_PROTECTION_BYPASS" ] && CURL_ARGS+=(-H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS")
             for i in $(seq 1 $MAX_ATTEMPTS); do
               echo "Attempt $i / $MAX_ATTEMPTS..."
-              HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "${FRONTEND_URL}")
+              HTTP_STATUS=$(curl "${CURL_ARGS[@]}" "${FRONTEND_URL}")
               if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 400 ]; then
                 echo "✅ Frontend is accessible (HTTP $HTTP_STATUS)"
                 FRONTEND_OK=true
