@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from utils.rate_limiter import RateLimiter, like_rate_limiter
+from utils.action_throttle import RateLimiter, like_rate_limiter
 
 
 @pytest.mark.asyncio

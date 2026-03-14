@@ -6,7 +6,7 @@ Tests for API contract checking scripts.
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "scripts"))
 
 from check_api_breaking_changes import check_non_breaking_changes, compare_schemas
 

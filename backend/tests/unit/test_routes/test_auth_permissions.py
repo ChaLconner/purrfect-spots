@@ -6,7 +6,7 @@ import pytest
 from fastapi import HTTPException
 
 from middleware.auth_middleware import require_permission
-from user_models.user import User
+from schemas.user import User
 
 
 @pytest.mark.asyncio

@@ -20,7 +20,7 @@ from schemas.cat_detection import (
     SpotAnalysisResult,
 )
 from services.cat_detection_service import CatDetectionService, cat_detection_service
-from user_models.user import User
+from schemas.user import User
 
 
 def get_cat_detection_service() -> CatDetectionService:

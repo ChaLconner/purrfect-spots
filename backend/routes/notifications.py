@@ -6,7 +6,7 @@ from dependencies import get_notification_service
 from middleware.auth_middleware import get_current_user_from_credentials
 from schemas.notification import NotificationResponse
 from services.notification_service import NotificationService
-from user_models.user import User
+from schemas.user import User
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 

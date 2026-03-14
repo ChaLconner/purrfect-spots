@@ -11,8 +11,8 @@ from logger import logger
 from middleware.auth_middleware import get_current_user_from_credentials
 from schemas.social import CommentCreate, CommentResponse, CommentUpdate, LikeResponse
 from services.social_service import SocialService
-from user_models.user import User
-from utils.rate_limiter import like_rate_limiter
+from schemas.user import User
+from utils.action_throttle import like_rate_limiter
 
 router = APIRouter(prefix="/social", tags=["Social"])
 

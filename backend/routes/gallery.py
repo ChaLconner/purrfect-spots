@@ -17,7 +17,7 @@ from middleware.auth_middleware import (
 )
 from schemas.location import CatLocation
 from services.gallery_service import GalleryService
-from user_models.user import User
+from schemas.user import User
 
 router = APIRouter(prefix="/gallery", tags=["Gallery"])
 

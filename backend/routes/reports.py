@@ -7,7 +7,7 @@ from limiter import limiter
 from logger import logger
 from schemas.report import ReportCreate, ReportResponse
 from services.report_service import ReportService
-from user_models.user import User
+from schemas.user import User
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
 

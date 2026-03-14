@@ -17,7 +17,7 @@ from httpx import ASGITransport, AsyncClient
 
 # Import routes
 from routes.auth import LoginRequest, RegisterInput, get_auth_service, router
-from user_models.user import User
+from schemas.user import User
 
 
 @pytest.fixture

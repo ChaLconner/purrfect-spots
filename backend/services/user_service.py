@@ -4,7 +4,7 @@ from supabase import AClient
 
 from exceptions import ConflictError, ExternalServiceError, PurrfectSpotsException
 from logger import logger
-from user_models.user import User
+from schemas.user import User
 from utils.datetime_utils import utc_now_iso
 from utils.supabase_client import get_async_supabase_admin_client
 

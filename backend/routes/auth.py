@@ -29,7 +29,7 @@ from schemas.auth import (
 from services.auth_service import AuthService
 from services.email_service import email_service
 from services.otp_service import get_otp_service
-from user_models.user import UserResponse
+from schemas.user import UserResponse
 from utils.auth_response_utils import create_login_response
 from utils.auth_utils import get_client_info, set_refresh_cookie
 from utils.security import log_security_event, sanitize_text

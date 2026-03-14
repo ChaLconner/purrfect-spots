@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 from fastapi import Request, Response
 
 from schemas.auth import LoginResponse
-from user_models.user import UserResponse
+from schemas.user import UserResponse
 from utils.auth_utils import get_client_info, set_refresh_cookie
 
 if TYPE_CHECKING:

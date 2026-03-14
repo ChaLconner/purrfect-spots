@@ -20,7 +20,7 @@ from logger import logger, sanitize_log_value
 from middleware.auth_middleware import get_current_user_from_credentials
 from schemas.location import CatLocation
 from services.storage_service import StorageService
-from user_models.user import User
+from schemas.user import User
 from utils.cache import invalidate_gallery_cache
 from utils.file_processing import process_uploaded_image
 

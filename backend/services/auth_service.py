@@ -14,7 +14,7 @@ from services.google_auth_service import google_auth_service
 from services.password_service import password_service
 from services.token_service import get_token_service
 from services.user_service import UserService
-from user_models.user import User, UserResponse
+from schemas.user import User, UserResponse
 from utils.datetime_utils import utc_now
 from utils.supabase_client import get_async_supabase_admin_client
 

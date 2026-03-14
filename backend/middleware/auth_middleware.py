@@ -14,7 +14,7 @@ from supabase import AClient
 from config import config
 from logger import logger
 from services.token_service import get_token_service
-from user_models.user import User
+from schemas.user import User
 from utils.auth_utils import decode_token
 from utils.supabase_client import (
     get_async_supabase_client,

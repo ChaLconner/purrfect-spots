@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from services.auth_service import AuthService
-from user_models.user import User
+from schemas.user import User
 
 
 @pytest.fixture

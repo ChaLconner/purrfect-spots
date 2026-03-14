@@ -13,7 +13,7 @@ from schemas.subscription import (
     SubscriptionStatus,
 )
 from services.subscription_service import SubscriptionService
-from user_models.user import User
+from schemas.user import User
 
 router = APIRouter(prefix="/subscription", tags=["Subscription"])
 

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field
 
-from user_models.user import UserResponse
+from schemas.user import UserResponse
 
 
 class RegisterInput(BaseModel):

@@ -18,7 +18,7 @@ from services.email_service import EmailService
 from services.gallery_service import GalleryService
 from services.notification_service import NotificationService
 from services.storage_service import storage_service
-from user_models.user import User
+from schemas.user import User
 
 router = APIRouter()
 

@@ -9,7 +9,7 @@ import pytest
 from dependencies import get_current_admin_user
 from main import app
 from middleware.auth_middleware import get_current_user
-from user_models.user import User
+from schemas.user import User
 
 
 class TestAdminRoutes:

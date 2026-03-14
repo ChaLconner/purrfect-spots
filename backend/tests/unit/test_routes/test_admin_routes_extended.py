@@ -12,7 +12,7 @@ from dependencies import (
 )
 from main import app
 from middleware.auth_middleware import get_current_user
-from user_models.user import User
+from schemas.user import User
 
 
 class TestAdminRoutesExtended:
