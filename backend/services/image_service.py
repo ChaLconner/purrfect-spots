@@ -29,12 +29,15 @@ class ImageService:
             final_url = url.replace(f"https://{s3_domain}", config.CDN_BASE_URL)
 
         # 2. Resizing and Compression
-        # Supabase Storage Native Transformation
-        if "supabase.co/storage/v1/object/public" in final_url:
-            separator = "&" if "?" in final_url else "?"
-            return f"{final_url}{separator}width={width}&quality=80&resize=cover&format=webp"
+        # 2.a Supabase Storage Native Transformation
+        if "supabase.co" in final_url:
+            # Apply translations if it's a storage object URL
+            if "/storage/v1/object/" in final_url:
+                separator = "&" if "?" in final_url else "?"
+                return f"{final_url}{separator}width={width}&quality=80&resize=cover&format=webp"
+            return final_url
 
-        # S3 / External Storage Proxy (using wsrv.nl)
+        # 2.b S3 / External Storage Proxy (using wsrv.nl)
         # This gives S3 'superpowers' to resize images on the fly
         # Only proxy if a specific width is requested and enabled in config
         if width and config.ENABLE_IMAGE_PROXY:

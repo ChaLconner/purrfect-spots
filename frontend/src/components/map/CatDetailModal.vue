@@ -3,7 +3,7 @@
     enter-active-class="transition-all duration-500 ease-out"
     leave-active-class="transition-all duration-300 ease-in"
     enter-from-class="opacity-0 translate-x-full"
-    leave-to-class="opacity-0 translate-x-12"
+    leave-to-class="opacity-0 translate-x-full"
   >
     <div
       v-if="cat"

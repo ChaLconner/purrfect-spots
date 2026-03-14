@@ -110,8 +110,8 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
     const currentPos = getMarkerPosition(marker);
     if (currentPos) {
       if (
-        Math.abs(currentPos.lat - location.latitude) > 0.001 ||
-        Math.abs(currentPos.lng - location.longitude) > 0.001
+        Math.abs(currentPos.lat - location.latitude) > 0.0001 ||
+        Math.abs(currentPos.lng - location.longitude) > 0.0001
       ) {
         if (marker instanceof google.maps.marker.AdvancedMarkerElement) {
           marker.position = { lat: location.latitude, lng: location.longitude };

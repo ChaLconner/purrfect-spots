@@ -11,7 +11,7 @@ from fastapi.responses import RedirectResponse
 
 from config import config
 from dependencies import get_auth_service
-from limiter import auth_limiter as limiter
+from limiter import auth_limiter, forgot_password_limiter, limiter
 from logger import logger, sanitize_log_value
 from middleware.auth_middleware import get_current_user, get_current_user_from_header
 from schemas.auth import (
@@ -46,7 +46,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 @router.post("/register", response_model=LoginResponse)
-@limiter.limit("5/minute")
+@auth_limiter.limit("5/minute")
 async def register(
     response: Response,  # noqa: ARG001
     request: Request,  # noqa: ARG001
@@ -99,7 +99,7 @@ async def register(
 
 
 @router.post("/verify-otp")
-@limiter.limit("10/minute")
+@auth_limiter.limit("10/minute")
 async def verify_otp(
     response: Response,
     request: Request,
@@ -144,7 +144,7 @@ async def verify_otp(
 
 
 @router.post("/resend-otp")
-@limiter.limit("3/minute")
+@auth_limiter.limit("3/minute")
 async def resend_otp(
     request: Request,  # noqa: ARG001
     req: ResendOTPRequest,
@@ -182,7 +182,7 @@ async def resend_otp(
 
 
 @router.post("/login", response_model=LoginResponse)
-@limiter.limit("5/minute")
+@auth_limiter.limit("5/minute")
 async def login(
     response: Response,
     request: Request,
@@ -285,7 +285,7 @@ async def logout(response: Response, request: Request, auth_service: AuthService
 
 
 @router.post("/forgot-password")
-@limiter.limit("3/minute")
+@forgot_password_limiter.limit(config.RATE_LIMIT_FORGOT_PASSWORD)
 async def forgot_password(
     request: Request,  # noqa: ARG001
     req: ForgotPasswordRequest,
@@ -301,7 +301,7 @@ async def forgot_password(
 
 
 @router.post("/reset-password")
-@limiter.limit("3/minute")
+@forgot_password_limiter.limit(config.RATE_LIMIT_FORGOT_PASSWORD)
 async def reset_password(
     request: Request,  # noqa: ARG001
     req: ResetPasswordRequest,
@@ -319,7 +319,7 @@ async def reset_password(
 
 
 @router.post("/session-exchange", response_model=LoginResponse)
-@limiter.limit("10/minute")
+@auth_limiter.limit("10/minute")
 async def exchange_session(
     response: Response,
     request: Request,

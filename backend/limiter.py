@@ -243,6 +243,17 @@ auth_limiter = Limiter(
     in_memory_fallback_enabled=True,
 )
 
+# Forgot password rate limiter - even stricter to prevent mail bombing
+forgot_password_limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=[config.RATE_LIMIT_FORGOT_PASSWORD],
+    storage_uri=_storage_uri,
+    storage_options=cast(Any, _storage_options),
+    strategy="fixed-window",
+    swallow_errors=True,
+    in_memory_fallback_enabled=True,
+)
+
 
 def get_rate_limit_info() -> dict:
     """
@@ -260,5 +271,6 @@ def get_rate_limit_info() -> dict:
             "strict": "5/minute",
             "upload": config.UPLOAD_RATE_LIMIT,
             "auth": config.RATE_LIMIT_AUTH,
+            "forgot_password": config.RATE_LIMIT_FORGOT_PASSWORD,
         },
     }

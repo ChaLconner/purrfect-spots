@@ -270,12 +270,23 @@ async function postComment(): Promise<void> {
 }
 
 async function deleteComment(id: string): Promise<void> {
-  // eslint-disable-next-line no-alert
-  if (!window.confirm('Delete this comment?')) return;
+  // Using toastStore for info/warning if we had a confirmation system, 
+  // but for now we follow the project's premium feel by avoiding native dialogs
+  // and potentially adding an "Undo" pattern or a BaseModal if it were available.
+  // Since we want to remove native confirm, we will trigger the delete and allow 
+  // the user to see a success/error message, or we can use a simpler toggle.
+  
+  // Implementation note: Ideally we'd use a BaseModal. 
+  // For this fix, let's keep it simple but non-native as requested.
   try {
+    const confirmed = await toastStore.confirmDeletion('Are you sure you want to delete this comment?');
+    if (!confirmed) return;
+
     await SocialService.deleteComment(id);
     comments.value = comments.value.filter((c) => c.id !== id);
-  } catch {
+    toastStore.addToast({ title: 'Success', message: 'Comment removed', type: 'success' });
+  } catch (e) {
+    if (e === 'cancelled') return;
     toastStore.addToast({ title: 'Error', message: 'Failed to delete', type: 'error' });
   }
 }

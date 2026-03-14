@@ -177,10 +177,24 @@ export const useCatsStore = defineStore('cats', () => {
   }
 
   /**
-   * Append more locations (for infinite scroll)
+   * Append or update locations (upsert logic)
+   * Prevents duplicates and ensures data freshness
    */
   function appendLocations(data: CatLocation[], paginationData?: PaginationMeta): void {
-    locations.value = [...locations.value, ...data];
+    const newData = [...locations.value];
+    data.forEach((newItem) => {
+      const index = newData.findIndex((existing) => existing.id === newItem.id);
+      if (index !== -1) {
+        // Update existing with new data
+        newData[index] = { ...newData[index], ...newItem };
+      } else {
+        // Add new
+        newData.push(newItem);
+      }
+    });
+
+    locations.value = newData;
+
     if (paginationData) {
       pagination.value = paginationData;
       galleryCount.value = paginationData.total;

@@ -155,6 +155,7 @@ cached_user_photos = cache(expire=300, key_prefix="user_photos", skip_args=1)
 # Invalidation helpers
 async def invalidate_gallery_cache() -> None:
     await clear_cache("cache:gallery:*")
+    await clear_cache("cache:nearby:*")
 
 
 async def invalidate_tags_cache() -> None:

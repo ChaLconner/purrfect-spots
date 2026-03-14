@@ -33,11 +33,11 @@ class SocialService:
             liked = row["liked"]
             likes_count = row["likes_count"]
 
-            # Invalidate caches to reflect new like status
-            from utils.cache import invalidate_gallery_cache, invalidate_user_cache
-
+            # Light invalidation (only for the user's view if needed)
+            # We avoid global invalidate_gallery_cache() here to prevent performance degradation
+            # The UI handles real-time sync via Supabase channels.
+            from utils.cache import invalidate_user_cache
             await invalidate_user_cache(user_id)
-            await invalidate_gallery_cache()
 
             return {"liked": liked, "likes_count": likes_count}
 
@@ -151,3 +151,34 @@ class SocialService:
         res = await admin_client.table("photo_comments").delete().eq("id", comment_id).eq("user_id", user_id).execute()
 
         return len(res.data) > 0
+
+    async def update_comment(
+        self, user_id: str, comment_id: str, content: str, jwt_token: str | None = None
+    ) -> dict[str, Any] | None:
+        """Update a comment's content."""
+        from utils.supabase_client import get_async_supabase_admin_client
+
+        # Update using admin client to ensure bypass of RLS issues if necessary
+        admin_client = await get_async_supabase_admin_client()
+        res = (
+            await admin_client.table("photo_comments")
+            .update({"content": content, "updated_at": "now()"})
+            .select("*, users(name, picture)")  # type: ignore[attr-defined]
+            .eq("id", comment_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
+
+        if not res.data:
+            return None
+
+        item = res.data[0]
+        user_data = item.get("users", {}) or {}
+
+        # Flatten structure for consistency with CommentResponse
+        item["user_name"] = user_data.get("name")
+        item["user_picture"] = user_data.get("picture")
+        if "users" in item:
+            del item["users"]
+
+        return cast(dict[str, Any], item)

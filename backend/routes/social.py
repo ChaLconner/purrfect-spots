@@ -9,7 +9,7 @@ from dependencies import (
 from exceptions import ExternalServiceError, NotFoundError
 from logger import logger
 from middleware.auth_middleware import get_current_user_from_credentials
-from schemas.social import CommentCreate, CommentResponse, LikeResponse
+from schemas.social import CommentCreate, CommentResponse, CommentUpdate, LikeResponse
 from services.social_service import SocialService
 from user_models.user import User
 from utils.rate_limiter import like_rate_limiter
@@ -99,3 +99,29 @@ async def delete_comment(
     except Exception as e:
         logger.error(f"Delete comment failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete comment")
+
+
+@router.put("/comments/{comment_id}", response_model=CommentResponse)
+async def update_comment(
+    comment_id: str,
+    comment: CommentUpdate,
+    current_user: User = Depends(get_current_user_from_credentials),
+    social_service: SocialService = Depends(get_social_service),
+    token: str = Depends(get_current_token),
+) -> dict[str, Any]:
+    """Update an existing comment."""
+    try:
+        updated_comment = await social_service.update_comment(
+            user_id=current_user.id,
+            comment_id=comment_id,
+            content=comment.content,
+            jwt_token=token,
+        )
+        if not updated_comment:
+            raise HTTPException(status_code=403, detail="Not authorized or comment not found")
+        return updated_comment
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Update comment failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update comment")

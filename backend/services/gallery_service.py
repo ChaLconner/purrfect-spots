@@ -366,7 +366,10 @@ class GalleryService:
                 .execute()
             )
             data = res.data or []
-            return data[0] if data else None
+            if data:
+                data = self._process_photos(data, width=1200)
+                return data[0]
+            return None
         except Exception as e:
             msg = str(e)
             logger.error("Resource retrieval failed for identifier %s: %s", photo_id, msg)
