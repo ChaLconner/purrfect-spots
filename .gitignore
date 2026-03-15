@@ -1,4 +1,4 @@
-﻿# ==========================================
+# ==========================================
 # Purrfect Spots - Comprehensive Gitignore
 # ==========================================
 
@@ -95,3 +95,8 @@ docs/archive/
 
 .gemini/
 gha-creds-*.jsondocs/openapi-current.json
+
+# --- Internal Tools & Agents ---
+.agent/
+.agents/
+resolve_dependencies.py
