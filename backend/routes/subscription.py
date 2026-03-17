@@ -12,8 +12,8 @@ from schemas.subscription import (
     PortalResponse,
     SubscriptionStatus,
 )
-from services.subscription_service import SubscriptionService
 from schemas.user import User
+from services.subscription_service import SubscriptionService
 
 router = APIRouter(prefix="/subscription", tags=["Subscription"])
 

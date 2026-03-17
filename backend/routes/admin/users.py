@@ -13,8 +13,8 @@ from limiter import limiter
 from logger import logger, sanitize_log_value
 from middleware.auth_middleware import require_permission
 from schemas.admin_schemas import RoleUpdateAdmin, UserBan, UserUpdateAdmin
-from services.email_service import EmailService
 from schemas.user import User
+from services.email_service import EmailService
 
 router = APIRouter()
 

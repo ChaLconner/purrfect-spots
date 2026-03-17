@@ -1,3 +1,4 @@
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from supabase import AClient
@@ -215,3 +216,115 @@ class UserService:
             return cast(dict[str, Any], result.data[0])
         except Exception as e:
             raise PurrfectSpotsException(f"Failed to update profile: {e!s}")
+
+    async def cancel_account_deletion(self, user_id: str) -> dict[str, str]:
+        """Cancel an ongoing account deletion request"""
+        try:
+            admin = await self._get_admin_client()
+
+            # Check if pending request exists
+            existing_reqs = await admin.table("account_deletion_requests").select("id").eq("user_id", user_id).eq("status", "pending").execute()
+            if not existing_reqs.data:
+                raise ConflictError("ไม่มีคำขอลบบัญชีที่รอดำเนินการ")
+
+            # Update users table to remove deleted_at
+            await admin.table("users").update({"deleted_at": None}).eq("id", user_id).execute()
+
+            # Update request status to cancelled
+            await admin.table("account_deletion_requests").update({"status": "cancelled"}).eq("user_id", user_id).eq("status", "pending").execute()
+
+            # Insert audit log
+            await admin.table("audit_logs").insert({
+                "action": "ACCOUNT_DELETION_CANCELLED",
+                "user_id": user_id,
+                "resource": "users",
+            }).execute()
+
+            logger.info("account_deletion_cancelled", extra={"user_id": user_id})
+            return {"status": "success", "message": "Account deletion request cancelled successfully."}
+        except Exception as e:
+            if isinstance(e, ConflictError):
+                raise
+            logger.error("Failed to cancel account deletion: %s", e)
+            raise PurrfectSpotsException("Failed to cancel account deletion")
+
+    async def request_account_deletion(self, user_id: str, client_ip: str) -> dict[str, str]:
+        """Request soft deletion of the user account"""
+        try:
+            admin = await self._get_admin_client()
+            user_record = await self.get_user_by_id(user_id)
+            if not user_record:
+                raise PurrfectSpotsException("User not found")
+        except Exception as e:
+            if isinstance(e, (ConflictError, PurrfectSpotsException)):
+                raise e
+            raise ConflictError("Failed to request account deletion")
+
+        scheduled_date = datetime.now(UTC) + timedelta(days=30)
+
+        try:
+            admin = await self._get_admin_client()
+            # Soft delete in users table
+            await admin.table("users").update({"deleted_at": datetime.now(UTC).isoformat()}).eq("id", user_id).execute()
+
+            # Disable related components if needed, e.g., if we want to immediately hide reviews, we could add deleted_at to reviews or just filter by user.deleted_at on read.
+
+            # Insert into account_deletion_requests
+            await admin.table("account_deletion_requests").insert({
+                "user_id": user_id,
+                "scheduled_deletion_at": scheduled_date.isoformat(),
+                "status": "pending",
+                "client_ip": client_ip
+            }).execute()
+
+            # Insert audit log
+            await admin.table("audit_logs").insert({
+                "action": "ACCOUNT_SOFT_DELETED",
+                "user_id": user_id,
+                "resource": "users",
+            }).execute()
+
+            logger.info(
+                "account_deletion_requested",
+                extra={
+                    "user_id": user_id,
+                    "scheduled_for": scheduled_date.isoformat(),
+                }
+            )
+            return {"status": "success", "message": "Account marked for deletion. You have 30 days to cancel."}
+        except Exception as e:
+            logger.error("Failed to request account deletion: %s", e)
+            raise PurrfectSpotsException("Failed to request account deletion")
+
+    async def execute_hard_delete(self) -> None:
+        """Service to be run by a Cron Job to permanently delete expired accounts"""
+        try:
+            admin = await self._get_admin_client()
+            now = datetime.now(UTC).isoformat()
+
+            expired_reqs = await admin.table("account_deletion_requests").select("user_id, id").eq("status", "pending").lte("scheduled_deletion_at", now).execute()
+
+            if not expired_reqs.data:
+                return
+
+            for req in expired_reqs.data:
+                user_id = req["user_id"]
+                try:
+                    # Note: You can add photo cleanup here: wait admin.storage.from_("avatars").remove([f"{user_id}/avatar.png"])
+
+                    # Hard delete user from Auth
+                    await admin.auth.admin.delete_user(user_id)
+
+                    await admin.table("account_deletion_requests").update({"status": "completed"}).eq("id", req["id"]).execute()
+
+                    await admin.table("audit_logs").insert({
+                        "action": "ACCOUNT_HARD_DELETED",
+                        "user_id": user_id,
+                        "resource": "users",
+                    }).execute()
+
+                    logger.info("account_hard_deleted", extra={"user_id": user_id})
+                except Exception as e:
+                    logger.error("account_hard_delete_failed", extra={"user_id": user_id, "error": str(e)})
+        except Exception as e:
+            logger.error("Failed to run execute_hard_delete: %s", e)

@@ -11,7 +11,7 @@ from fastapi.responses import RedirectResponse
 
 from config import config
 from dependencies import get_auth_service
-from limiter import auth_limiter, forgot_password_limiter, limiter
+from limiter import auth_limiter, forgot_password_limiter
 from logger import logger, sanitize_log_value
 from middleware.auth_middleware import get_current_user, get_current_user_from_header
 from schemas.auth import (
@@ -26,10 +26,10 @@ from schemas.auth import (
     SessionExchangeRequest,
     VerifyOTPRequest,
 )
+from schemas.user import UserResponse
 from services.auth_service import AuthService
 from services.email_service import email_service
 from services.otp_service import get_otp_service
-from schemas.user import UserResponse
 from utils.auth_response_utils import create_login_response
 from utils.auth_utils import get_client_info, set_refresh_cookie
 from utils.security import log_security_event, sanitize_text

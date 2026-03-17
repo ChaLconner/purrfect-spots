@@ -6,7 +6,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
-from limiter import limiter
+from limiter import strict_limiter
 from logger import logger
 from middleware.auth_middleware import get_current_user
 from utils.file_processing import read_file_for_detection
@@ -19,8 +19,8 @@ from schemas.cat_detection import (
     CombinedAnalysisResult,
     SpotAnalysisResult,
 )
-from services.cat_detection_service import CatDetectionService, cat_detection_service
 from schemas.user import User
+from services.cat_detection_service import CatDetectionService, cat_detection_service
 
 
 def get_cat_detection_service() -> CatDetectionService:
@@ -28,7 +28,7 @@ def get_cat_detection_service() -> CatDetectionService:
 
 
 @router.post("/cats", response_model=CatDetectionResult)
-@limiter.limit("5/minute")
+@strict_limiter.limit(None)
 async def detect_cats_in_image(
     request: Request,
     file: UploadFile = File(...),
@@ -67,7 +67,7 @@ async def detect_cats_in_image(
 
 
 @router.post("/spot-analysis", response_model=SpotAnalysisResult)
-@limiter.limit("5/minute")
+@strict_limiter.limit(None)
 async def analyze_cat_spot(
     request: Request,
     file: UploadFile = File(...),
@@ -99,7 +99,7 @@ async def analyze_cat_spot(
 
 
 @router.post("/combined", response_model=CombinedAnalysisResult)
-@limiter.limit("3/minute")
+@strict_limiter.limit(None)
 async def combined_cat_and_spot_analysis(
     request: Request,
     file: UploadFile = File(...),
@@ -148,7 +148,7 @@ async def combined_cat_and_spot_analysis(
 
 
 @router.post("/test-cats")
-@limiter.limit("10/minute")
+@strict_limiter.limit(None)
 async def test_detect_cats(
     request: Request,
     file: UploadFile = File(...),
@@ -182,7 +182,7 @@ async def test_detect_cats(
 
 
 @router.post("/test-spot")
-@limiter.limit("10/minute")
+@strict_limiter.limit(None)
 async def test_analyze_spot(
     request: Request,
     file: UploadFile = File(...),

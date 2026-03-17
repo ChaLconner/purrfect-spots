@@ -44,7 +44,7 @@ useStructuredData({
     name: 'Purrfect Spots Community',
     logo: {
       '@type': 'ImageObject',
-      url: 'https://purrfectspots.xyz/cat-icon-512.png',
+      url: 'https://purrfectspots.xyz/logo.png',
     },
   },
 });

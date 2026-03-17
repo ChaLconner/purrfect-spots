@@ -10,8 +10,8 @@ from exceptions import ExternalServiceError, NotFoundError
 from logger import logger
 from middleware.auth_middleware import get_current_user_from_credentials
 from schemas.social import CommentCreate, CommentResponse, CommentUpdate, LikeResponse
-from services.social_service import SocialService
 from schemas.user import User
+from services.social_service import SocialService
 from utils.action_throttle import like_rate_limiter
 
 router = APIRouter(prefix="/social", tags=["Social"])

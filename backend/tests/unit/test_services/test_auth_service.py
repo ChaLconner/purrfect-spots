@@ -8,8 +8,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from services.auth_service import AuthService
 from schemas.user import User
+from services.auth_service import AuthService
 from utils.datetime_utils import utc_now
 
 

@@ -16,8 +16,8 @@ from middleware.auth_middleware import (
     get_current_user_optional,
 )
 from schemas.location import CatLocation
-from services.gallery_service import GalleryService
 from schemas.user import User
+from services.gallery_service import GalleryService
 
 router = APIRouter(prefix="/gallery", tags=["Gallery"])
 
@@ -68,7 +68,7 @@ PhotoIdPath = Annotated[UUID, Path(title="The ID of the photo", description="Mus
     },
 )
 @router.get("/", response_model=PaginatedGalleryResponse, include_in_schema=False)
-@limiter.limit("120/minute")  # Rate limit for paginated endpoint
+@limiter.limit(None)  # Uses default_limits=[get_api_limit] defined in limiter
 async def get_gallery(
     request: Request,  # Required for rate limiting
     response: Response,
@@ -158,7 +158,7 @@ async def get_gallery(
 
 
 @router.get("/all", response_model=GalleryResponse)
-@limiter.limit("30/minute")  # Lower rate limit for heavy endpoint
+@limiter.limit(None)  # Uses tiered API limit
 async def get_all_gallery(
     request: Request,  # Required for rate limiting
     limit: int = Query(
@@ -267,7 +267,7 @@ async def get_locations_in_viewport(
 
 
 @router.get("/search", response_model=SearchResponse)
-@limiter.limit("60/minute")  # Rate limit for search
+@limiter.limit(None)
 async def search_locations(
     request: Request,  # Required for rate limiting
     q: str | None = Query(None, description="Text to search in location name and description"),
@@ -311,7 +311,7 @@ async def search_locations(
 
 
 @router.get("/popular-tags", response_model=PopularTagsResponse)
-@limiter.limit("60/minute")  # Rate limit for tags
+@limiter.limit(None)
 async def get_popular_tags(
     request: Request,  # Required for rate limiting
     response: Response,
@@ -341,7 +341,7 @@ async def get_popular_tags(
 
 
 @router.get("/{photo_id}", response_model=CatLocation)
-@limiter.limit("60/minute")
+@limiter.limit(None)
 async def get_photo(
     request: Request,
     photo_id: PhotoIdPath,

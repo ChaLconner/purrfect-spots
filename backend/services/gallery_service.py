@@ -17,7 +17,7 @@ from supabase import AClient
 from logger import logger
 from services.image_service import ImageService
 from services.search_service import SearchService
-from utils.cache import cache, cached_gallery, cached_tags
+from utils.cache import cache, cached_gallery, cached_tags, cached_user_likes
 
 if TYPE_CHECKING:
     from services.storage_service import StorageService
@@ -48,6 +48,7 @@ class GalleryService:
         """Process a list of photos with optimizations"""
         return ImageService.process_photos(photos, width)
 
+    @cached_gallery
     async def get_all_photos(
         self,
         limit: int = 20,
@@ -386,21 +387,7 @@ class GalleryService:
             return photos
 
         try:
-            from utils.supabase_client import get_async_supabase_admin_client
-
-            photo_ids = [p["id"] for p in photos]
-
-            # Use service role client to bypass RLS
-            admin_client = await get_async_supabase_admin_client()
-            res = await (
-                admin_client.table("photo_likes")
-                .select("photo_id")
-                .eq("user_id", user_id)
-                .in_("photo_id", photo_ids)
-                .execute()
-            )
-            likes_data = res.data or []
-            liked_ids = {like["photo_id"] for like in likes_data} if likes_data else set()
+            liked_ids = await self._get_user_liked_photo_ids(user_id)
 
             for photo in photos:
                 photo["liked"] = photo["id"] in liked_ids
@@ -409,6 +396,26 @@ class GalleryService:
         except Exception as e:
             logger.error(f"Failed to enrich photos with user data: {e!s}")
             return photos
+
+    @cached_user_likes
+    async def _get_user_liked_photo_ids(self, user_id: str) -> set[str]:
+        """
+        Fetch all photo IDs liked by a user.
+        Cached to avoid frequent DB hits during gallery enrichment.
+        """
+        try:
+            admin_client = await self.supabase_admin
+            res = await (
+                admin_client.table("photo_likes")
+                .select("photo_id")
+                .eq("user_id", user_id)
+                .execute()
+            )
+            data = res.data or []
+            return {item["photo_id"] for item in data}
+        except Exception as e:
+            logger.error(f"Failed to fetch user liked photo IDs: {e!s}")
+            return set()
 
     async def verify_photo_ownership(self, photo_id: str, user_id: str) -> dict[str, Any] | None:
         """

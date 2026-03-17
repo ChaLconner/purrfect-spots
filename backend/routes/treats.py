@@ -7,8 +7,8 @@ from dependencies import get_current_token, get_treats_service
 from logger import logger
 from middleware.auth_middleware import get_current_user_from_credentials
 from schemas.treats import GiveTreatRequest, PurchaseTreatsRequest, TreatBalanceResponse
-from services.treats_service import TreatsService
 from schemas.user import User
+from services.treats_service import TreatsService
 
 router = APIRouter(prefix="/treats", tags=["Treats"])
 

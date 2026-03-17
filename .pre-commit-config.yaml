@@ -3,7 +3,7 @@ repos:
   # Python Linting & Formatting
   # ==============================================================================
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.0
+    rev: v0.9.9
     hooks:
       - id: ruff
         name: Ruff Linting
@@ -19,13 +19,24 @@ repos:
   # Security Scanning
   # ==============================================================================
   - repo: https://github.com/PyCQA/bandit
-    rev: '1.7.10'
+    rev: '1.8.3'
     hooks:
       - id: bandit
         name: Bandit Security Scan
-        args: [-c, backend/pyproject.toml, -r, backend]
+        args: [-c, backend/pyproject.toml, -r, backend, -lll]
         files: ^backend/
         exclude: ^backend/tests/
+
+  # ==============================================================================
+  # Dependency Security Scanning (NEW)
+  # ==============================================================================
+  - repo: https://github.com/pypa/pip-audit
+    rev: v2.8.0
+    hooks:
+      - id: pip-audit
+        name: Pip Audit (Backend Dependencies)
+        args: ["-r", "backend/requirements.txt"]
+        files: ^backend/requirements.txt$
 
   # ==============================================================================
   # Secret Detection
@@ -36,13 +47,13 @@ repos:
       - id: detect-secrets
         name: Detect Secrets
         args: ['--baseline', '.secrets.baseline']
-        exclude: package-lock\.json|\.env\.example
+        exclude: package-lock\.json|\.env\.example|frontend/dist/
 
   # ==============================================================================
   # General Hooks
   # ==============================================================================
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v5.0.0
     hooks:
       - id: trailing-whitespace
         name: Trim Trailing Whitespace
@@ -56,7 +67,6 @@ repos:
         name: Check Large Files
         args: ['--maxkb=1000']
       - id: check-merge-conflict
-        name: Check Merge Conflicts
       - id: detect-private-key
         name: Detect Private Keys
 

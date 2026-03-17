@@ -253,7 +253,16 @@
     "editDetails": "แก้ไขรายละเอียด",
     "deletePhoto": "ลบรูปภาพ",
     "reportPhoto": "รายงานรูปภาพ",
-    "giveTreat": "ให้ขนม"
+    "giveTreat": "ให้ขนม",
+    "accountPendingDeletionTitle": "บัญชีอยู่ระหว่างรอการลบ",
+    "accountPendingDeletionDesc": "บัญชีของคุณมีกำหนดการลบ คุณสามารถยกเลิกคำขอนี้ได้ก่อนที่ระยะเวลาจะสิ้นสุดลง",
+    "cancelDeletion": "ยกเลิกการลบ",
+    "deleteAccount": "ลบบัญชี",
+    "deleteAccountWarning": "คำเตือน: การลบบัญชีจะเป็นการลบโปรไฟล์ รูปภาพอัปโหลด และข้อมูลของคุณอย่างถาวร การกระทำนี้ไม่สามารถย้อนกลับได้เมื่อพ้นระยะเวลาที่กำหนดแล้ว",
+    "confirmWithPassword": "ยืนยันด้วยรหัสผ่าน",
+    "requestDeletion": "คำขอลบ",
+    "confirmWithFormat": "พิมพ์คำว่า \"DELETE\" เพื่อยืนยัน",
+    "confirmDeleteMatchError": "โปรดพิมพ์คำว่า \"DELETE\" ให้ถูกต้องเพื่อยืนยัน"
   },
   "nav": {
     "home": "หน้าแรก",

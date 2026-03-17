@@ -184,6 +184,8 @@ class Config:
     UPLOAD_MAX_DIMENSION = int(os.getenv("UPLOAD_MAX_DIMENSION", "1920"))
     UPLOAD_ALLOWED_EXTENSIONS = os.getenv("UPLOAD_ALLOWED_EXTENSIONS", "jpg,jpeg,png,gif,webp").split(",")
     UPLOAD_RATE_LIMIT = os.getenv("UPLOAD_RATE_LIMIT", "5/minute")
+    RATE_LIMIT_UPLOAD_FREE = os.getenv("RATE_LIMIT_UPLOAD_FREE", "5/minute")
+    RATE_LIMIT_UPLOAD_PRO = os.getenv("RATE_LIMIT_UPLOAD_PRO", "20/minute")
 
     # ==========================================
     # Quota Configuration
@@ -203,6 +205,12 @@ class Config:
     RATE_LIMIT_AUTH = os.getenv("RATE_LIMIT_AUTH", "5/minute")
     RATE_LIMIT_FORGOT_PASSWORD = os.getenv("RATE_LIMIT_FORGOT_PASSWORD", "3/minute")
     RATE_LIMIT_API_DEFAULT = os.getenv("RATE_LIMIT_API_DEFAULT", "60/minute")
+
+    # Tiered API Limits
+    RATE_LIMIT_STRICT_FREE = os.getenv("RATE_LIMIT_STRICT_FREE", "10/minute")
+    RATE_LIMIT_STRICT_PRO = os.getenv("RATE_LIMIT_STRICT_PRO", "30/minute")
+    RATE_LIMIT_API_FREE = os.getenv("RATE_LIMIT_API_FREE", "60/minute")
+    RATE_LIMIT_API_PRO = os.getenv("RATE_LIMIT_API_PRO", "300/minute")
 
     # ==========================================
     # Security Configuration

@@ -75,6 +75,11 @@ coverage: {
         orientation: 'portrait',
         icons: [
           {
+            src: 'favicon-48x48.png',
+            sizes: '48x48',
+            type: 'image/png',
+          },
+          {
             src: 'cat-icon-192.png',
             sizes: '192x192',
             type: 'image/png',

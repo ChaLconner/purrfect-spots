@@ -99,4 +99,4 @@ gha-creds-*.jsondocs/openapi-current.json
 # --- Internal Tools & Agents ---
 .agent/
 .agents/
-resolve_dependencies.py
+backend/scripts/resolve_dependencies.py

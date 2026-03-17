@@ -15,12 +15,12 @@ from dependencies import (
     get_auth_service,
     get_current_token,
 )
-from limiter import auth_limiter
+from limiter import auth_limiter, limiter, strict_limiter
 from logger import logger, sanitize_log_value
 from middleware.auth_middleware import get_current_user_from_credentials
 from schemas.location import CatLocation
-from services.storage_service import StorageService
 from schemas.user import User
+from services.storage_service import StorageService
 from utils.cache import invalidate_gallery_cache
 from utils.file_processing import process_uploaded_image
 
@@ -40,7 +40,9 @@ def get_storage_service() -> StorageService:
 
 @router.put("")
 @router.put("/")
+@limiter.limit(None)
 async def update_profile(
+    request: Request,
     profile_data: ProfileUpdateRequest,
     current_user: User = Depends(get_current_user_from_credentials),
     auth_service: AuthService = Depends(get_auth_service),
@@ -120,7 +122,9 @@ async def update_profile(
 
 @router.get("")
 @router.get("/")
+@limiter.limit(None)
 async def get_profile(
+    request: Request,
     response: Response,
     current_user: User = Depends(get_current_user_from_credentials),
     auth_service: AuthService = Depends(get_auth_service),
@@ -284,7 +288,9 @@ async def get_user_uploads(
 
 
 @router.post("/picture")
+@strict_limiter.limit(None)
 async def upload_profile_picture(
+    request: Request,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user_from_credentials),
     auth_service: AuthService = Depends(get_auth_service),
@@ -465,3 +471,51 @@ async def delete_user_photo(
     except Exception:
         logger.error("Failed to delete photo %s", sanitize_log_value(photo_id_str))
         raise HTTPException(status_code=500, detail="Failed to delete photo")
+
+@router.post("/delete-request")
+@auth_limiter.limit("5/minute")
+async def request_account_deletion(
+    request: Request,
+    current_user: User = Depends(get_current_user_from_credentials),
+    auth_service: AuthService = Depends(get_auth_service),
+) -> dict[str, str]:
+    """
+    Request account deletion
+    """
+    client_ip = request.client.host if request.client else "unknown"
+    try:
+        return await auth_service.user_service.request_account_deletion(
+            user_id=current_user.id,
+            client_ip=client_ip
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        from exceptions import ConflictError
+        if isinstance(e, ConflictError):
+            raise HTTPException(status_code=400, detail=str(e))
+        logger.error("Failed to request account deletion")
+        raise HTTPException(status_code=500, detail="Failed to process account deletion request")
+
+@router.post("/cancel-deletion")
+@auth_limiter.limit("5/minute")
+async def cancel_account_deletion(
+    request: Request,
+    current_user: User = Depends(get_current_user_from_credentials),
+    auth_service: AuthService = Depends(get_auth_service),
+) -> dict[str, str]:
+    """
+    Cancel an ongoing account deletion request
+    """
+    try:
+        return await auth_service.user_service.cancel_account_deletion(
+            user_id=current_user.id
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        from exceptions import ConflictError
+        if isinstance(e, ConflictError):
+            raise HTTPException(status_code=400, detail=str(e))
+        logger.error("Failed to cancel account deletion")
+        raise HTTPException(status_code=500, detail="Failed to cancel account deletion")

@@ -13,10 +13,10 @@ class TestCleanupTasks:
             await start_cleanup_jobs()
             from tasks import cleanup_tasks
 
-            assert cleanup_tasks._task is not None
+            assert cleanup_tasks._notification_task is not None
 
             await stop_cleanup_jobs()
-            assert cleanup_tasks._task is None
+            assert cleanup_tasks._notification_task is None
 
     @pytest.mark.asyncio
     async def test_cleanup_notifications_job_execution(self):

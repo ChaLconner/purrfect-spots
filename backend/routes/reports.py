@@ -6,8 +6,8 @@ from dependencies import get_current_user, get_report_service
 from limiter import limiter
 from logger import logger
 from schemas.report import ReportCreate, ReportResponse
-from services.report_service import ReportService
 from schemas.user import User
+from services.report_service import ReportService
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
 

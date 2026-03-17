@@ -9,12 +9,12 @@ from supabase import AClient, acreate_client
 from config import config
 from logger import logger
 from schemas.auth import LoginResponse
+from schemas.user import User, UserResponse
 from services.email_service import email_service
 from services.google_auth_service import google_auth_service
 from services.password_service import password_service
 from services.token_service import get_token_service
 from services.user_service import UserService
-from schemas.user import User, UserResponse
 from utils.datetime_utils import utc_now
 from utils.supabase_client import get_async_supabase_admin_client
 

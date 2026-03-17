@@ -68,6 +68,26 @@ class TestCacheUtils:
         await decorated("client", user_id="u2")
         assert mock_func.call_count == 4
 
+    async def test_cached_user_likes_decorator(self):
+        mock_func = AsyncMock(return_value=["id1", "id2"])
+        mock_func.__name__ = "mock_func"
+        decorated = cache.cached_user_likes(mock_func)
+
+        # 1st call - miss
+        res1 = await decorated("client", user_id="u1")
+        assert res1 == ["id1", "id2"]
+        assert mock_func.call_count == 1
+
+        # 2nd call - hit
+        res2 = await decorated("client", user_id="u1")
+        assert res2 == ["id1", "id2"]
+        assert mock_func.call_count == 1
+
+        # Invalidate and check
+        await cache.invalidate_user_cache()
+        await decorated("client", user_id="u1")
+        assert mock_func.call_count == 2
+
     async def test_get_cache_stats(self):
         stats = cache.get_cache_stats()
         assert "mode" in stats

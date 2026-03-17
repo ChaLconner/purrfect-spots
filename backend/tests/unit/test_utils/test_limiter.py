@@ -235,3 +235,61 @@ class TestLimiterInstances:
         from limiter import auth_limiter
 
         assert auth_limiter is not None
+
+
+class TestTieredRateLimiting:
+    """Test tiered rate limiting logic"""
+
+    @pytest.fixture
+    def mock_request(self):
+        """Create a mock FastAPI request"""
+        request = MagicMock(spec=Request)
+        request.headers = {}
+        return request
+
+    def test_get_user_tier_free_default(self, mock_request):
+        """Test that default tier is free for unauthenticated/anonymous users"""
+        mock_request.headers = {}
+        from limiter import get_user_tier
+        assert get_user_tier(mock_request) == "free"
+
+    def test_get_user_tier_pro(self, mock_request):
+        """Test extracting pro tier from valid JWT token"""
+        with patch("config.config.JWT_SECRET", "secret_key_at_least_32_chars_long_for_security"):
+            test_token = jwt.encode(
+                {"sub": "user-123", "app_metadata": {"tier": "pro"}, "iss": "purrfect-spots"},
+                "secret_key_at_least_32_chars_long_for_security",
+                algorithm="HS256",
+            )
+            mock_request.headers = {"Authorization": f"Bearer {test_token}"}
+            from limiter import get_user_tier
+            assert get_user_tier(mock_request) == "pro"
+
+    def test_get_user_tier_free_explicit(self, mock_request):
+        """Test extracting free tier from valid JWT token"""
+        with patch("config.config.JWT_SECRET", "secret_key_at_least_32_chars_long_for_security"):
+            test_token = jwt.encode(
+                {"sub": "user-123", "app_metadata": {"tier": "free"}, "iss": "purrfect-spots"},
+                "secret_key_at_least_32_chars_long_for_security",
+                algorithm="HS256",
+            )
+            mock_request.headers = {"Authorization": f"Bearer {test_token}"}
+            from limiter import get_user_tier
+            assert get_user_tier(mock_request) == "free"
+
+    def test_dynamic_limit_resolvers(self, mock_request):
+        """Test dynamic limit resolver functions"""
+        from config import config
+        from limiter import get_api_limit, get_strict_limit, get_upload_limit
+
+        # Mock free user
+        with patch("limiter.get_user_tier", return_value="free"):
+            assert get_strict_limit(mock_request) == config.RATE_LIMIT_STRICT_FREE
+            assert get_upload_limit(mock_request) == config.RATE_LIMIT_UPLOAD_FREE
+            assert get_api_limit(mock_request) == config.RATE_LIMIT_API_FREE
+
+        # Mock pro user
+        with patch("limiter.get_user_tier", return_value="pro"):
+            assert get_strict_limit(mock_request) == config.RATE_LIMIT_STRICT_PRO
+            assert get_upload_limit(mock_request) == config.RATE_LIMIT_UPLOAD_PRO
+            assert get_api_limit(mock_request) == config.RATE_LIMIT_API_PRO

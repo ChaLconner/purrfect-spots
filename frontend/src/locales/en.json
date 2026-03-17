@@ -364,7 +364,16 @@
     "deletePhoto": "Delete Photo",
     "reportPhoto": "Report Photo",
     "giveTreat": "Give Treat",
-    "myProfile": "My Profile"
+    "myProfile": "My Profile",
+    "accountPendingDeletionTitle": "Account Scheduled for Deletion",
+    "accountPendingDeletionDesc": "Your account is scheduled for deletion. You can cancel this request before the grace period ends.",
+    "cancelDeletion": "Cancel Deletion",
+    "deleteAccount": "Delete Account",
+    "deleteAccountWarning": "Warning: Deleting your account will permanently remove your profile, uploads, and data. This action cannot be undone after the grace period.",
+    "confirmWithPassword": "Confirm with Password",
+    "requestDeletion": "Request Deletion",
+    "confirmWithFormat": "Type \"DELETE\" to confirm",
+    "confirmDeleteMatchError": "Please type \"DELETE\" correctly to confirm"
   },
   "nav": {
     "home": "Home",
