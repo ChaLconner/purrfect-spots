@@ -297,6 +297,36 @@ jobs:
           echo "deployment_url=${URL}" >> $GITHUB_OUTPUT
           echo "✅ Deployed to: ${URL}"
 
+      - name: Create Sentry Release (Staging)
+        if: success()
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+            echo "::notice::SENTRY_AUTH_TOKEN not set — skipping Sentry release"
+            exit 0
+          fi
+          npm install -g @sentry/cli --silent
+          echo "📦 Creating Sentry release: ${VERSION} (staging)"
+          sentry-cli releases new "${VERSION}" \
+            --org="$SENTRY_ORG" \
+            --project="$SENTRY_PROJECT"
+          sentry-cli releases set-commits "${VERSION}" \
+            --auto \
+            --org="$SENTRY_ORG" \
+            --project="$SENTRY_PROJECT"
+          sentry-cli releases deploys "${VERSION}" new \
+            --env staging \
+            --org="$SENTRY_ORG" \
+            --project="$SENTRY_PROJECT"
+          sentry-cli releases finalize "${VERSION}" \
+            --org="$SENTRY_ORG" \
+            --project="$SENTRY_PROJECT"
+          echo "✅ Sentry staging release created: ${VERSION}"
+
   staging-backend:
     name: Staging - Backend
     runs-on: ubuntu-latest
@@ -490,6 +520,36 @@ jobs:
           URL=$(echo "$DEPLOY_OUTPUT" | grep -oE 'https://[a-zA-Z0-9.-]+\.vercel\.app' | head -1)
           echo "deployment_url=${URL}" >> $GITHUB_OUTPUT
           echo "✅ Deployed to: ${URL}"
+
+      - name: Create Sentry Release (Production)
+        if: success()
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+            echo "::notice::SENTRY_AUTH_TOKEN not set — skipping Sentry release"
+            exit 0
+          fi
+          npm install -g @sentry/cli --silent
+          echo "📦 Creating Sentry release: ${VERSION} (production)"
+          sentry-cli releases new "${VERSION}" \
+            --org="$SENTRY_ORG" \
+            --project="$SENTRY_PROJECT"
+          sentry-cli releases set-commits "${VERSION}" \
+            --auto \
+            --org="$SENTRY_ORG" \
+            --project="$SENTRY_PROJECT"
+          sentry-cli releases deploys "${VERSION}" new \
+            --env production \
+            --org="$SENTRY_ORG" \
+            --project="$SENTRY_PROJECT"
+          sentry-cli releases finalize "${VERSION}" \
+            --org="$SENTRY_ORG" \
+            --project="$SENTRY_PROJECT"
+          echo "✅ Sentry production release created: ${VERSION}"
 
   production-backend:
     name: Production - Backend

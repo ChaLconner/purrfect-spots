@@ -15,7 +15,9 @@ from routes.auth import get_auth_service
 @pytest.fixture
 async def client():
     """Create test client using AsyncClient"""
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:  # NOSONAR python:S5332 - test base URL
         yield ac
 
 
@@ -53,7 +55,9 @@ class TestGoogleAuthRoutes:
     async def test_google_login_redirect(self, client):
         """Test redirect to Google login"""
         with patch("routes.auth.config") as mock_config:
-            mock_config.get_allowed_origins.return_value = ["http://localhost:5173"]
+            mock_config.get_allowed_origins.return_value = [
+                "http://localhost:5173"
+            ]  # NOSONAR python:S5332 - test fixture localhost origin
 
             with patch("os.getenv", return_value="google_id"):
                 response = await client.get("/api/v1/auth/google/login", follow_redirects=False)
@@ -92,14 +96,16 @@ class TestGoogleAuthRoutes:
         app.dependency_overrides[get_auth_service] = lambda: mock_service
 
         with patch("routes.auth.config") as mock_config:
-            mock_config.get_allowed_origins.return_value = ["http://localhost:5173"]
+            mock_config.get_allowed_origins.return_value = [
+                "http://localhost:5173"
+            ]  # NOSONAR python:S5332 - test fixture localhost origin
             mock_config.JWT_REFRESH_EXPIRATION_DAYS = 7
             mock_config.is_production.return_value = False
 
             payload = {
                 "code": "auth_code",
                 "code_verifier": "verifier",
-                "redirect_uri": "http://localhost:5173/auth/callback",
+                "redirect_uri": "http://localhost:5173/auth/callback",  # NOSONAR python:S5332 - test OAuth redirect URI
             }
             response = await client.post("/api/v1/auth/google/exchange", json=payload)
 

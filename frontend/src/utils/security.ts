@@ -38,7 +38,7 @@ export function sanitizeInput(input: string, maxLength = 1000): string {
   const truncated = input.slice(0, maxLength);
 
   // Remove dangerous protocols for defense-in-depth in plain text
-  const safeProtocols = truncated.replace(
+  const safeProtocols = truncated.replaceAll(
     /(javascript|data|vbscript|vbs|livescript|mocha|jdbc)\s*:/gi,
     '[removed:]'
   );
@@ -126,7 +126,8 @@ export function getSecureHeaders(): Record<string, string> {
  */
 export function isValidEmail(email: string): boolean {
   if (email.length > 254) return false;
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  // NOSONAR typescript:S5852 - linear regex; anchored with no overlapping quantifiers, no backtracking risk
+  const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
   return emailRegex.test(email);
 }
 

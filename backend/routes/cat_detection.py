@@ -6,7 +6,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
-from limiter import strict_limiter
+from limiter import get_strict_limit, strict_limiter
 from logger import logger
 from middleware.auth_middleware import get_current_user
 from utils.file_processing import read_file_for_detection
@@ -27,17 +27,25 @@ def get_cat_detection_service() -> CatDetectionService:
     return cat_detection_service
 
 
+from typing import Annotated
+
+
 @router.post("/cats", response_model=CatDetectionResult)
-@strict_limiter.limit(None)
+@strict_limiter.limit(get_strict_limit)
 async def detect_cats_in_image(
     request: Request,
-    file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
-    detection_service: CatDetectionService = Depends(get_cat_detection_service),
+    current_user: Annotated[User, Depends(get_current_user)],
+    detection_service: Annotated[CatDetectionService, Depends(get_cat_detection_service)],
+    file: Annotated[UploadFile, File(...)],
 ) -> dict[str, Any]:
     """
     Detect cats in images using Google Cloud Vision API.
     Rate Limit: 5 requests per minute per user.
+
+    Raises:
+        HTTPException: 413 - If file size exceeds 10MB.
+        HTTPException: 415 - If file type is unsupported.
+        HTTPException: 500 - If detection fails due to an internal error.
     """
     # Validate and read file using shared utility
     contents = await read_file_for_detection(file, max_size_mb=10)
@@ -67,16 +75,21 @@ async def detect_cats_in_image(
 
 
 @router.post("/spot-analysis", response_model=SpotAnalysisResult)
-@strict_limiter.limit(None)
+@strict_limiter.limit(get_strict_limit)
 async def analyze_cat_spot(
     request: Request,
-    file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
-    detection_service: CatDetectionService = Depends(get_cat_detection_service),
+    current_user: Annotated[User, Depends(get_current_user)],
+    detection_service: Annotated[CatDetectionService, Depends(get_cat_detection_service)],
+    file: Annotated[UploadFile, File(...)],
 ) -> dict[str, Any]:
     """
     Analyze suitability of locations for cats using Google Cloud Vision.
     Rate Limit: 5 requests per minute per user.
+
+    Raises:
+        HTTPException: 413 - If file size exceeds 10MB.
+        HTTPException: 415 - If file type is unsupported.
+        HTTPException: 500 - If spot analysis fails due to an internal error.
     """
     # Validate and read file using shared utility
     contents = await read_file_for_detection(file, max_size_mb=10)
@@ -99,16 +112,21 @@ async def analyze_cat_spot(
 
 
 @router.post("/combined", response_model=CombinedAnalysisResult)
-@strict_limiter.limit(None)
+@strict_limiter.limit(get_strict_limit)
 async def combined_cat_and_spot_analysis(
     request: Request,
-    file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
-    detection_service: CatDetectionService = Depends(get_cat_detection_service),
+    current_user: Annotated[User, Depends(get_current_user)],
+    detection_service: Annotated[CatDetectionService, Depends(get_cat_detection_service)],
+    file: Annotated[UploadFile, File(...)],
 ) -> dict[str, Any]:
     """
     Analyze both cat detection and location suitability using Google Cloud Vision.
     Rate Limit: 3 requests per minute per user.
+
+    Raises:
+        HTTPException: 413 - If file size exceeds 10MB.
+        HTTPException: 415 - If file type is unsupported.
+        HTTPException: 500 - If combined analysis fails due to an internal error.
     """
     # Validate and read file using shared utility
     contents = await read_file_for_detection(file, max_size_mb=10)
@@ -148,16 +166,19 @@ async def combined_cat_and_spot_analysis(
 
 
 @router.post("/test-cats")
-@strict_limiter.limit(None)
+@strict_limiter.limit(get_strict_limit)
 async def test_detect_cats(
     request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+    detection_service: Annotated[CatDetectionService, Depends(get_cat_detection_service)],
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
-    detection_service: CatDetectionService = Depends(get_cat_detection_service),
 ) -> dict[str, Any]:
     """
     Test cat detection using Google Cloud Vision (authentication required).
     Rate Limit: 10 requests per minute per user.
+
+    Raises:
+        HTTPException: 500 - If test detection fails.
     """
     # Validate and read file using shared utility
     contents = await read_file_for_detection(file, max_size_mb=10)
@@ -182,16 +203,19 @@ async def test_detect_cats(
 
 
 @router.post("/test-spot")
-@strict_limiter.limit(None)
+@strict_limiter.limit(get_strict_limit)
 async def test_analyze_spot(
     request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+    detection_service: Annotated[CatDetectionService, Depends(get_cat_detection_service)],
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
-    detection_service: CatDetectionService = Depends(get_cat_detection_service),
 ) -> dict[str, Any]:
     """
     Test location analysis using Google Cloud Vision (authentication required).
     Rate Limit: 10 requests per minute per user.
+
+    Raises:
+        HTTPException: 500 - If test spot analysis fails.
     """
     # Validate and read file using shared utility
     contents = await read_file_for_detection(file, max_size_mb=10)

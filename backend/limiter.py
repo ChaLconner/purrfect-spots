@@ -116,7 +116,7 @@ def get_user_tier(request: Request) -> str:
                 # Check for tier in app_metadata or user_metadata (Supabase standard)
                 # Supabase often puts it in app_metadata
                 app_metadata = payload.get("app_metadata", {})
-                return app_metadata.get("tier", "free").lower()
+                return str(app_metadata.get("tier", "free")).lower()
         except Exception:
             pass
     return "free"
@@ -141,7 +141,7 @@ def get_user_id_from_request(request: Request) -> str:
                 user_id = payload.get("sub") or payload.get("user_id")
                 if user_id:
                     clean_user_id = "".join(c for c in str(user_id) if c.isalnum() or c in "-_@.")
-                    return f"user:{clean_user_id[:128]}"
+                    return f"user:{clean_user_id[0:128]}"
         except Exception:
             pass
 

@@ -107,7 +107,7 @@ async def test_verify_refresh_token(auth_service):
 async def test_create_password_reset_token(auth_service):
     mock_admin = MagicMock()
     mock_res = MagicMock()
-    mock_res.properties.action_link = "http://link"
+    mock_res.properties.action_link = "http://link"  # NOSONAR python:S5332 - test fixture URL
     mock_admin.auth.admin.generate_link = AsyncMock(return_value=mock_res)
     with (
         patch.object(auth_service, "_get_admin_client", new_callable=AsyncMock) as mock_get_admin,

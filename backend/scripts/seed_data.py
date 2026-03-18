@@ -33,11 +33,11 @@ async def seed_data() -> None:
         {
             "email": fake.email(),
             "name": fake.name(),
-            "picture": f"https://i.pravatar.cc/150?u={random.randint(1, 1000)}",
+            "picture": f"https://i.pravatar.cc/150?u={random.randint(1, 1000)}",  # NOSONAR python:S2245 - PRNG for fake seed data only
             "bio": fake.sentence(),
             "email_verified": True,
             "provider": "email",
-            "treat_balance": random.randint(0, 50),
+            "treat_balance": random.randint(0, 50),  # NOSONAR python:S2245
         }
         # Note: We can't set passwords directly via Supabase client easily for auth schema,
         # so we'll just insert into public.users for now to simulate existence.
@@ -81,14 +81,14 @@ async def seed_data() -> None:
     ]
 
     for _i in range(10):
-        owner = random.choice(users)
+        owner = random.choice(users)  # NOSONAR python:S2245 - PRNG for fake seed data only
         photo_data = {
             "user_id": owner["id"],
-            "url": random.choice(cat_images),
+            "url": random.choice(cat_images),  # NOSONAR python:S2245
             "description": fake.text(),
             "latitude": float(fake.latitude()),
             "longitude": float(fake.longitude()),
-            "image_url": random.choice(cat_images),  # Actually use image_url not url based on schema
+            "image_url": random.choice(cat_images),  # NOSONAR python:S2245 - PRNG for fake seed data only
             "location_name": fake.city(),  # Required field
         }
         # Note: image_url is the correct column name, url should be removed.
@@ -105,15 +105,15 @@ async def seed_data() -> None:
     print("Creating interactions...")
     for photo in photos:
         # Random likes
-        for _ in range(random.randint(0, 5)):
-            actor = random.choice(users)
+        for _ in range(random.randint(0, 5)):  # NOSONAR python:S2245
+            actor = random.choice(users)  # NOSONAR python:S2245
             with contextlib.suppress(Exception):
                 supabase.table("photo_likes").insert({"user_id": actor["id"], "photo_id": photo["id"]}).execute()
 
         # Random comments
-        for _ in range(random.randint(0, 3)):
+        for _ in range(random.randint(0, 3)):  # NOSONAR python:S2245
             if users:
-                actor = random.choice(users)
+                actor = random.choice(users)  # NOSONAR python:S2245
                 supabase.table("photo_comments").insert(
                     {"user_id": actor["id"], "photo_id": photo["id"], "content": fake.sentence()}
                 ).execute()

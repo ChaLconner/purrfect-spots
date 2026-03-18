@@ -1,5 +1,5 @@
 import re
-from typing import Any, cast
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from postgrest.types import CountMethod
@@ -41,11 +41,14 @@ async def list_photos(
     offset: int = 0,
     search: str | None = None,
     reported: bool = False,
-    current_admin: User = Depends(require_permission("content:read")),
+    current_admin: Annotated[User | None, Depends(require_permission("content:read"))] = None,
 ) -> dict[str, Any]:
     """
     List all photos with pagination and optional search.
     Only accessible by admins with content:read permission.
+
+    Raises:
+        HTTPException: 500 - If fetching photos fails.
     """
     try:
         admin_client = await get_async_supabase_admin_client()
@@ -76,14 +79,19 @@ async def delete_photo_admin(
     photo_id: str,
     request: Request,
     background_tasks: BackgroundTasks,
-    current_admin: User = Depends(require_permission("content:delete")),
-    gallery_service: GalleryService = Depends(get_admin_gallery_service),
-    notification_service: NotificationService = Depends(get_notification_service),
-    email_service: EmailService = Depends(get_email_service),
+    current_admin: Annotated[User, Depends(require_permission("content:delete"))],
+    gallery_service: Annotated[GalleryService, Depends(get_admin_gallery_service)],
+    notification_service: Annotated[NotificationService, Depends(get_notification_service)],
+    email_service: Annotated[EmailService, Depends(get_email_service)],
 ) -> dict[str, str]:
     """
     Delete a photo as an admin (Content Moderation).
     No ownership check required.
+
+    Raises:
+        HTTPException: 400 - If photo_id format is invalid.
+        HTTPException: 404 - If photo is not found.
+        HTTPException: 500 - If deletion fails.
     """
     _validate_uuid(photo_id, "photo_id")
     try:
@@ -168,10 +176,15 @@ async def update_photo_admin(
     request: Request,
     photo_id: str,
     update_data: PhotoUpdateAdmin,
-    current_admin: User = Depends(require_permission("content:write")),
+    current_admin: Annotated[User, Depends(require_permission("content:write"))],
 ) -> dict[str, Any]:
     """
     Update photo details as an admin.
+
+    Raises:
+        HTTPException: 400 - If photo_id format is invalid or update data is missing.
+        HTTPException: 404 - If photo is not found.
+        HTTPException: 500 - If update fails.
     """
     _validate_uuid(photo_id, "photo_id")
     try:

@@ -124,14 +124,17 @@ async def test_get_user_from_payload_supabase_no_db(mock_env):
     payload = {
         "sub": "00000000-0000-4000-a000-000000000123",
         "email": "test@example.com",
-        "user_metadata": {"full_name": "Test User", "avatar_url": "http://img.com"},
+        "user_metadata": {
+            "full_name": "Test User",
+            "avatar_url": "http://img.com",
+        },  # NOSONAR python:S5332 - test fixture URL
     }
 
     with patch("utils.supabase_client.get_async_supabase_admin_client", side_effect=Exception("DB error")):
         user = await _get_user_from_payload(payload, "supabase")
         assert user.id == "00000000-0000-4000-a000-000000000123"
         assert user.name == "Test User"
-        assert user.picture == "http://img.com"
+        assert user.picture == "http://img.com"  # NOSONAR python:S5332 - asserts fixture URL
 
 
 @pytest.mark.asyncio
@@ -140,7 +143,7 @@ async def test_get_user_from_payload_custom(mock_env):
         "sub": "00000000-0000-4000-a000-000000000123",
         "name": "Custom User",
         "email": "custom@example.com",
-        "picture": "http://custom.com",
+        "picture": "http://custom.com",  # NOSONAR python:S5332 - test fixture URL
         "iat": 123456,
     }
 

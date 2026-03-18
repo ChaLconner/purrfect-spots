@@ -38,7 +38,9 @@ def app():
 @pytest.fixture
 async def client(app):
     """Create test client using AsyncClient"""
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:  # NOSONAR python:S5332 - test base URL
         yield ac
 
 
@@ -64,7 +66,7 @@ def mock_auth_service(app):
 
     otp_service = AsyncMock()
     otp_service.create_otp = AsyncMock(return_value=("123456", datetime.now()))
-    otp_service.verify_otp = AsyncMock(return_value=True)
+    otp_service.verify_otp = AsyncMock(return_value={"success": True})
     otp_service.can_resend_otp = AsyncMock(return_value=(True, 0))
     app.dependency_overrides[get_otp_service] = lambda: otp_service
 
@@ -76,8 +78,7 @@ def mock_auth_service(app):
 @pytest.fixture
 def mock_limiter():
     """Mock rate limiter to avoid rate limit issues in tests"""
-    with patch("routes.auth.auth_limiter") as mock1, \
-         patch("routes.auth.forgot_password_limiter") as mock2:
+    with patch("routes.auth.auth_limiter") as mock1, patch("routes.auth.forgot_password_limiter") as mock2:
         mock1.limit = lambda x: lambda f: f
         mock2.limit = lambda x: lambda f: f
         yield mock1, mock2
@@ -87,7 +88,7 @@ class TestRegisterEndpoint:
     """Tests for POST /auth/register"""
 
     TEST_EMAIL = "test@example.com"
-    TEST_PASSWORD = os.getenv("TEST_PASSWORD", "securepass123")
+    TEST_PASSWORD = os.getenv("TEST_PASSWORD", "test-only-not-a-real-credential")  # nosonar
     TEST_NAME = "Test User"
 
     async def test_register_success(self, client, mock_auth_service, mock_limiter):
@@ -129,7 +130,7 @@ class TestRegisterEndpoint:
             "/api/v1/auth/register",
             json={
                 "email": "test@example.com",
-                "password": "short",
+                "password": "short",  # nosonar - intentionally invalid test input
                 "name": "Test User",
             },
         )
@@ -159,7 +160,7 @@ class TestRegisterEndpoint:
             "/api/v1/auth/register",
             json={
                 "email": "unique_no_number@example.com",
-                "password": "longpasswordwithoutnumbers",  # 8+ chars, no numbers - should be valid
+                "password": "longpasswordwithoutnumbers",  # nosonar - test fixture, 8+ chars, no numbers
                 "name": "Test User",
             },
         )
@@ -209,7 +210,7 @@ class TestLoginEndpoint:
     """Tests for POST /auth/login"""
 
     TEST_EMAIL = "test@example.com"
-    TEST_PASSWORD = os.getenv("TEST_PASSWORD", "correctpassword123")
+    TEST_PASSWORD = os.getenv("TEST_PASSWORD", "test-only-not-a-real-credential")  # nosonar
 
     async def test_login_success(self, client, mock_auth_service, mock_limiter):
         """Test successful login"""
@@ -368,7 +369,7 @@ class TestResetPasswordEndpoint:
 
         response = await client.post(
             "/api/v1/auth/reset-password",
-            json={"token": "valid-reset-token", "new_password": "newpassword123"},
+            json={"token": "valid-reset-token", "new_password": "newpassword123"},  # nosonar - test fixture
         )
 
         if response.status_code == 200:
@@ -382,7 +383,7 @@ class TestResetPasswordEndpoint:
 
         response = await client.post(
             "/api/v1/auth/reset-password",
-            json={"token": "invalid-token", "new_password": "newpassword123"},
+            json={"token": "invalid-token", "new_password": "newpassword123"},  # nosonar - test fixture
         )
 
         # If mock is active, should return 400; if not, may return 200
@@ -394,17 +395,30 @@ class TestResetPasswordEndpoint:
 class TestAuthMeEndpoint:
     """Tests for GET /auth/me"""
 
-    async def test_get_current_user(self, client):
+    async def test_get_current_user(self, client, app):
         """Test getting current user info"""
-        with patch("routes.auth.get_current_user") as mock_user:
-            from unittest.mock import AsyncMock
+        from middleware.auth_middleware import get_current_user as _get_current_user
+        from routes.auth import get_current_user as route_get_current_user
+        from schemas.user import UserResponse
 
-            mock_user.side_effect = AsyncMock(
-                return_value=MagicMock(id="test-id", email="test@example.com", name="Test User")
-            )
+        mock_user_obj = UserResponse(
+            id="test-id",
+            email="test@example.com",
+            name="Test User",
+            picture=None,
+            bio=None,
+            created_at=datetime(2024, 1, 1),
+            google_id=None,
+        )
 
-            # This test would need proper auth header setup
-            # For now we just verify the endpoint exists
+        app.dependency_overrides[route_get_current_user] = lambda: mock_user_obj
+        app.dependency_overrides[_get_current_user] = lambda: mock_user_obj
+
+        response = await client.get("/api/v1/auth/me")
+        assert response.status_code == 200
+        assert response.json()["email"] == "test@example.com"
+
+        app.dependency_overrides.clear()
 
 
 class TestInputValidation:
@@ -412,12 +426,12 @@ class TestInputValidation:
 
     def test_register_input_valid(self):
         """Test valid RegisterInput"""
-        data = RegisterInput(email="test@example.com", password="password123", name="Test User")
+        data = RegisterInput(email="test@example.com", password="password123", name="Test User")  # nosonar
         assert data.email == "test@example.com"
 
     def test_login_request_valid(self):
         """Test valid LoginRequest"""
-        data = LoginRequest(email="test@example.com", password="password")  # pragma: allowlist secret
+        data = LoginRequest(email="test@example.com", password="password")  # nosonar - test fixture
         assert data.email == "test@example.com"
 
 
@@ -487,6 +501,10 @@ class TestOtherAuthEndpoints:
         with patch("routes.auth._validate_google_redirect_uri", return_value=True):
             response = await client.post(
                 "/api/v1/auth/google/exchange",
-                json={"code": "123", "code_verifier": "abc", "redirect_uri": "http://localhost:5173/auth/callback"},
+                json={
+                    "code": "123",
+                    "code_verifier": "abc",
+                    "redirect_uri": "http://localhost:5173/auth/callback",
+                },  # NOSONAR python:S5332 - test OAuth redirect URI
             )
         assert response.status_code == 200

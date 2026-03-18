@@ -34,21 +34,21 @@ async def test_create_checkout_session(mock_customer_create, mock_session_create
     )
 
     mock_customer_create.return_value.id = "cus_test123"
-    mock_session_create.return_value.url = "http://test.url"
+    mock_session_create.return_value.url = "http://test.url"  # NOSONAR python:S5332 - test fixture URL
     mock_session_create.return_value.id = "sess_123"
 
     res = await subscription_service.create_checkout_session(
         "00000000-0000-4000-a000-000000000123", "test@test.com", "price_123", "success", "cancel"
     )
 
-    assert res["checkout_url"] == "http://test.url"
+    assert res["checkout_url"] == "http://test.url"  # NOSONAR python:S5332 - test fixture URL assertion
     assert res["session_id"] == "sess_123"
 
 
 @patch("services.subscription_service.stripe.checkout.Session.create")
 async def test_create_checkout_session_with_existing_customer(mock_session_create, subscription_service):
     """Test checkout when user already has a Stripe customer ID."""
-    mock_session_create.return_value.url = "http://test.url"
+    mock_session_create.return_value.url = "http://test.url"  # NOSONAR python:S5332 - test fixture URL
     mock_session_create.return_value.id = "sess_456"
 
     res = await subscription_service.create_checkout_session(
@@ -60,7 +60,7 @@ async def test_create_checkout_session_with_existing_customer(mock_session_creat
         stripe_customer_id="cus_existing",
     )
 
-    assert res["checkout_url"] == "http://test.url"
+    assert res["checkout_url"] == "http://test.url"  # NOSONAR python:S5332 - test fixture URL assertion
     assert res["session_id"] == "sess_456"
 
 

@@ -1,135 +1,159 @@
 import { createRouter, createWebHistory, type RouteLocationRaw } from 'vue-router';
 import { useAuthStore } from '@/store/authStore';
 
+// Lazy-loaded route components (extracted for Vite code-splitting and to avoid duplication)
+const MapView = (): Promise<unknown> => import('@/views/MapView.vue');
+const UploadView = (): Promise<unknown> => import('@/views/UploadView.vue');
+const GalleryView = (): Promise<unknown> => import('@/views/GalleryView.vue');
+const ProfileView = (): Promise<unknown> => import('@/views/ProfileView.vue');
+const AuthView = (): Promise<unknown> => import('@/views/AuthView.vue');
+const ForgotPasswordView = (): Promise<unknown> => import('@/views/ForgotPasswordView.vue');
+const ResetPasswordView = (): Promise<unknown> => import('@/views/ResetPasswordView.vue');
+const VerifyEmailView = (): Promise<unknown> => import('@/views/VerifyEmailView.vue');
+const LeaderboardView = (): Promise<unknown> => import('@/views/LeaderboardView.vue');
+const SubscriptionView = (): Promise<unknown> => import('@/views/SubscriptionView.vue');
+const AuthCallback = (): Promise<unknown> => import('@/components/AuthCallback.vue');
+const AdminLayout = (): Promise<unknown> => import('@/views/admin/AdminLayout.vue');
+const AdminDashboard = (): Promise<unknown> => import('@/views/admin/AdminDashboard.vue');
+const AdminUsers = (): Promise<unknown> => import('@/views/admin/AdminUsers.vue');
+const AdminPhotos = (): Promise<unknown> => import('@/views/admin/AdminPhotos.vue');
+const AdminReports = (): Promise<unknown> => import('@/views/admin/AdminReports.vue');
+const AdminAuditLogs = (): Promise<unknown> => import('@/views/admin/AdminAuditLogs.vue');
+const PrivacyPolicyView = (): Promise<unknown> => import('@/views/PrivacyPolicyView.vue');
+const TermsOfServiceView = (): Promise<unknown> => import('@/views/TermsOfServiceView.vue');
+const NotFoundView = (): Promise<unknown> => import('@/views/NotFoundView.vue');
+
 const routes = [
   {
     path: '/',
     name: 'Home',
-    component: (): Promise<unknown> => import('@/views/MapView.vue'),
+    component: MapView,
     alias: '/map', // Allow /map to work but serve same content
   },
   {
     path: '/upload',
     name: 'Upload',
-    component: (): Promise<unknown> => import('@/views/UploadView.vue'),
+    component: UploadView,
   },
   {
     path: '/gallery/:id?',
     name: 'Gallery',
-    component: (): Promise<unknown> => import('@/views/GalleryView.vue'),
+    component: GalleryView,
     props: true,
   },
   {
     path: '/profile/:id?',
     name: 'Profile',
-    component: (): Promise<unknown> => import('@/views/ProfileView.vue'),
+    component: ProfileView,
     // meta: { requiresAuth: true }, // We'll handle auth logic inside for public profiles
   },
   {
     path: '/login',
     name: 'Login',
-    component: (): Promise<unknown> => import('@/views/AuthView.vue'),
+    component: AuthView,
     props: { mode: 'login' },
   },
   {
     path: '/register',
     name: 'Register',
-    component: (): Promise<unknown> => import('@/views/AuthView.vue'),
+    component: AuthView,
     props: { mode: 'register' },
   },
   {
     path: '/forgot-password',
     name: 'ForgotPassword',
-    component: (): Promise<unknown> => import('@/views/ForgotPasswordView.vue'),
+    component: ForgotPasswordView,
   },
   {
     path: '/reset-password',
     name: 'ResetPassword',
-    component: (): Promise<unknown> => import('@/views/ResetPasswordView.vue'),
+    component: ResetPasswordView,
   },
   {
     path: '/verify-email',
     name: 'VerifyEmail',
-    component: (): Promise<unknown> => import('@/views/VerifyEmailView.vue'),
+    component: VerifyEmailView,
     meta: { requiresGuest: true },
   },
   {
     path: '/leaderboard',
     name: 'Leaderboard',
-    component: (): Promise<unknown> => import('@/views/LeaderboardView.vue'),
+    component: LeaderboardView,
   },
   {
     path: '/subscription',
-    name: 'Subscription',
-    component: (): Promise<unknown> => import('@/views/SubscriptionView.vue'),
     meta: { requiresAuth: true },
+    children: [
+      {
+        path: '',
+        name: 'Subscription',
+        component: SubscriptionView,
+      },
+      {
+        path: 'success',
+        name: 'SubscriptionSuccess',
+        component: SubscriptionView,
+      },
+      {
+        path: 'cancel',
+        name: 'SubscriptionCancel',
+        component: SubscriptionView,
+      },
+    ],
   },
-  {
-    path: '/subscription/success',
-    name: 'SubscriptionSuccess',
-    component: (): Promise<unknown> => import('@/views/SubscriptionView.vue'),
-    meta: { requiresAuth: true },
-  },
-  {
-    path: '/subscription/cancel',
-    name: 'SubscriptionCancel',
-    component: (): Promise<unknown> => import('@/views/SubscriptionView.vue'),
-    meta: { requiresAuth: true },
-  },
-
   {
     path: '/auth/callback',
     name: 'AuthCallback',
-    component: (): Promise<unknown> => import('@/components/AuthCallback.vue'),
+    component: AuthCallback,
     meta: { isAuthCallback: true },
   },
   {
     path: '/admin',
-    component: (): Promise<unknown> => import('@/views/admin/AdminLayout.vue'),
+    component: AdminLayout,
     meta: { requiresAuth: true, requiresAdmin: true },
     children: [
       {
         path: '',
         name: 'AdminDashboard',
-        component: (): Promise<unknown> => import('@/views/admin/AdminDashboard.vue'),
+        component: AdminDashboard,
       },
       {
         path: 'users',
         name: 'AdminUsers',
-        component: (): Promise<unknown> => import('@/views/admin/AdminUsers.vue'),
+        component: AdminUsers,
       },
       {
         path: 'photos',
         name: 'AdminPhotos',
-        component: (): Promise<unknown> => import('@/views/admin/AdminPhotos.vue'),
+        component: AdminPhotos,
       },
       {
         path: 'reports',
         name: 'AdminReports',
-        component: (): Promise<unknown> => import('@/views/admin/AdminReports.vue'),
+        component: AdminReports,
       },
       {
         path: 'audit-logs',
         name: 'AdminAuditLogs',
-        component: (): Promise<unknown> => import('@/views/admin/AdminAuditLogs.vue'),
+        component: AdminAuditLogs,
       },
     ],
   },
   {
     path: '/privacy-policy',
     name: 'PrivacyPolicy',
-    component: (): Promise<unknown> => import('@/views/PrivacyPolicyView.vue'),
+    component: PrivacyPolicyView,
   },
   {
     path: '/terms-of-service',
     name: 'TermsOfService',
-    component: (): Promise<unknown> => import('@/views/TermsOfServiceView.vue'),
+    component: TermsOfServiceView,
   },
   // Catch-all 404 - Should always be the last route
   {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
-    component: (): Promise<unknown> => import('@/views/NotFoundView.vue'),
+    component: NotFoundView,
   },
 ];
 
@@ -143,6 +167,8 @@ const router = createRouter({
 
 // Global navigation guard
 router.beforeEach(async (to): Promise<RouteLocationRaw | boolean | void> => {
+  const authStore = useAuthStore();
+
   // 1. Handle Supabase Auth Redirects (e.g. Email Verification links landing on root)
   // If we see a hash with access_token, redirect to AuthCallback to process it
   if (to.hash && to.hash.includes('access_token=') && to.name !== 'AuthCallback') {
@@ -151,21 +177,19 @@ router.beforeEach(async (to): Promise<RouteLocationRaw | boolean | void> => {
 
   // 2. Auth Protection Guard
   if (to.meta.requiresAuth) {
-    const auth = useAuthStore();
-
     // Wait for auth initialization if needed
-    if (!auth.isInitialized) {
-      await auth.initializeAuth();
+    if (!authStore.isInitialized) {
+      await authStore.initializeAuth();
     }
 
-    if (!auth.isUserReady) {
+    if (!authStore.isUserReady) {
       // Store the intended destination
       sessionStorage.setItem('redirectAfterAuth', to.fullPath);
       return { name: 'Login' };
     }
 
     // 3. Admin Access Guard
-    if (to.meta.requiresAdmin && !auth.isAdmin) {
+    if (to.meta.requiresAdmin && !authStore.isAdmin) {
       // Security: Redirect users without admin access to 404
       return {
         name: 'NotFound',
@@ -176,7 +200,6 @@ router.beforeEach(async (to): Promise<RouteLocationRaw | boolean | void> => {
     }
   } else {
     // Check if user is already logged in and trying to access auth pages
-    const authStore = useAuthStore();
     if (
       (to.name === 'Login' || to.name === 'Register' || to.name === 'Auth') &&
       authStore.isUserReady

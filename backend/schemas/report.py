@@ -21,12 +21,12 @@ class ReportUpdate(BaseModel):
 
 class ReportResponse(ReportBase):
     id: UUID
-    reporter_id: UUID | None
+    reporter_id: UUID | None = None
     status: str
     created_at: datetime
     updated_at: datetime
-    resolved_at: datetime | None
-    resolved_by: UUID | None
-    resolution_notes: str | None
+    resolved_at: datetime | None = None
+    resolved_by: UUID | None = None
+    resolution_notes: str | None = None
 
     model_config = ConfigDict(from_attributes=True)

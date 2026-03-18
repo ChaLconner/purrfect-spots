@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Annotated, Any, cast
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path, Query, Request
 from postgrest.types import CountMethod
 
 from dependencies import (
@@ -26,16 +26,19 @@ RoleIdPath = Annotated[UUID, Path(title="The ID of the role", description="Must 
 @limiter.limit("60/minute")
 async def list_users(
     request: Request,
-    limit: int = 20,
-    offset: int = 0,
-    search: str | None = None,
-    sort_by: str = "created_at",
-    order: str = "desc",
-    current_admin: User = Depends(require_permission("users:read")),
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    search: Annotated[str | None, Query()] = None,
+    sort_by: Annotated[str, Query()] = "created_at",
+    order: Annotated[str, Query()] = "desc",
+    current_admin: Annotated[User | None, Depends(require_permission("users:read"))] = None,
 ) -> dict[str, Any]:
     """
     List all users with pagination, search, and sorting.
     Only accessible by admins with users:read permission.
+
+    Raises:
+        HTTPException: 500 - If fetching users fails.
     """
     try:
         admin_client = await get_async_supabase_admin_client()
@@ -96,11 +99,16 @@ async def delete_user(
     request: Request,
     user_id: UserIdPath,
     background_tasks: BackgroundTasks,
-    current_admin: User = Depends(require_permission("users:delete")),
-    email_service: EmailService = Depends(get_email_service),
+    current_admin: Annotated[User, Depends(require_permission("users:delete"))],
+    email_service: Annotated[EmailService, Depends(get_email_service)],
 ) -> dict[str, str]:
     """
     Permanently delete a user and their data.
+
+    Raises:
+        HTTPException: 404 - If user is not found.
+        HTTPException: 400 - If attempting to delete an admin.
+        HTTPException: 500 - If deletion fails.
     """
     user_id_str = str(user_id)
     try:
@@ -161,10 +169,15 @@ async def update_user_profile_admin(
     request: Request,
     user_id: UserIdPath,
     update_data: UserUpdateAdmin,
-    current_admin: User = Depends(require_permission("users:write")),
+    current_admin: Annotated[User, Depends(require_permission("users:write"))],
 ) -> dict[str, Any]:
     """
     Update a user's profile as an admin.
+
+    Raises:
+        HTTPException: 400 - If no valid fields are provided.
+        HTTPException: 404 - If user is not found.
+        HTTPException: 500 - If update fails.
     """
     user_id_str = str(user_id)
     try:
@@ -189,10 +202,14 @@ async def update_user_profile_admin(
 @router.get("/roles")
 @limiter.limit("60/minute")
 async def list_roles(
-    request: Request, current_admin: User = Depends(require_permission("roles:read"))
+    request: Request,
+    current_admin: Annotated[User, Depends(require_permission("roles:read"))],
 ) -> list[dict[str, Any]]:
     """
     List all available roles.
+
+    Raises:
+        HTTPException: 500 - If fetching roles fails.
     """
     try:
         admin_client = await get_async_supabase_admin_client()
@@ -209,10 +226,15 @@ async def update_user_role(
     request: Request,
     user_id: UserIdPath,
     role_data: RoleUpdateAdmin,
-    current_admin: User = Depends(require_permission("users:update")),
+    current_admin: Annotated[User, Depends(require_permission("users:update"))],
 ) -> dict[str, Any]:
     """
     Update a user's role.
+
+    Raises:
+        HTTPException: 400 - If role_id is missing.
+        HTTPException: 404 - If role or user is not found.
+        HTTPException: 500 - If update fails.
     """
     user_id_str = str(user_id)
     # The actual schema validation handles role_id format if we set it as UUID,
@@ -269,11 +291,16 @@ async def ban_user(
     user_id: UserIdPath,
     ban_data: UserBan,
     background_tasks: BackgroundTasks,
-    current_admin: User = Depends(require_permission("users:update")),
-    email_service: EmailService = Depends(get_email_service),
+    current_admin: Annotated[User, Depends(require_permission("users:update"))],
+    email_service: Annotated[EmailService, Depends(get_email_service)],
 ) -> dict[str, str]:
     """
     Ban a user.
+
+    Raises:
+        HTTPException: 404 - If user is not found.
+        HTTPException: 400 - If attempting to ban an admin.
+        HTTPException: 500 - If banning fails.
     """
     user_id_str = str(user_id)
 
@@ -336,11 +363,15 @@ async def unban_user(
     request: Request,
     user_id: UserIdPath,
     background_tasks: BackgroundTasks,
-    current_admin: User = Depends(require_permission("users:update")),
-    email_service: EmailService = Depends(get_email_service),
+    current_admin: Annotated[User, Depends(require_permission("users:update"))],
+    email_service: Annotated[EmailService, Depends(get_email_service)],
 ) -> dict[str, str]:
     """
     Unban a user.
+
+    Raises:
+        HTTPException: 404 - If user is not found.
+        HTTPException: 500 - If unbanning fails.
     """
     user_id_str = str(user_id)
 

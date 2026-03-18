@@ -13,12 +13,12 @@
 const starCount = 12; // Increased count for better distribution
 
 const getStarStyle = (_n: number): Record<string, string> => {
-  // nosec typescript:S2245 - Math.random() is safe here: used only for visual animation timing/positioning
+  // NOSONAR typescript:S2245 - Math.random() is safe here: used only for visual animation timing/positioning
   // PRNG is intentional for UI effects; cryptographic randomness not required for decorative animations
-  const top = Math.random() * 120 - 20; // Start from -20% to 100% height
-  const left = Math.random() * 140 - 20; // Start from -20% to 120% width
-  const delay = Math.random() * 10; // Slightly shorter max delay for more activity
-  const duration = 1.5 + Math.random() * 2; // Faster: 1.5-3.5s
+  const top = Math.random() * 120 - 20; // NOSONAR typescript:S2245
+  const left = Math.random() * 140 - 20; // NOSONAR typescript:S2245
+  const delay = Math.random() * 10; // NOSONAR typescript:S2245
+  const duration = 1.5 + Math.random() * 2; // NOSONAR typescript:S2245
 
   return {
     top: `${top}%`,

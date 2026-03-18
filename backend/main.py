@@ -246,12 +246,12 @@ from utils.exception_handlers import (
 )
 
 
-async def cancelled_error_handler(request: Request, exc: Exception) -> JSONResponse:
+def cancelled_error_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.info(f"Operation cancelled: {request.url.path}")
     return JSONResponse(status_code=499, content={"detail": "Request cancelled"})
 
 
-async def keyboard_interrupt_handler(request: Request, exc: Exception) -> JSONResponse:
+def keyboard_interrupt_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.info("Server shutting down...")
     return JSONResponse(status_code=503, content={"detail": "Service shutting down"})
 
@@ -399,4 +399,4 @@ app.add_middleware(
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)  # nosec B104
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

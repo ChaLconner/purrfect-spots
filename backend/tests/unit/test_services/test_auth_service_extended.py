@@ -71,7 +71,7 @@ class TestAuthServiceExtended:
                 "sub": "google123",
                 "email": "test@gmail.com",
                 "name": "Tester",
-                "picture": "http://pic",
+                "picture": "http://pic",  # NOSONAR python:S5332 - test fixture URL
                 "aud": "test_id",
             }
 
@@ -101,7 +101,9 @@ class TestAuthServiceExtended:
 
         # Create token with fingerprint
         token = auth_service.create_refresh_token(
-            "00000000-0000-4000-a000-000000000123", ip="1.2.3.4", user_agent="Mozilla"
+            "00000000-0000-4000-a000-000000000123",
+            ip="1.2.3.4",
+            user_agent="Mozilla",  # NOSONAR python:S1313 - test fixture IPs
         )
 
         assert token is not None
@@ -112,7 +114,9 @@ class TestAuthServiceExtended:
         assert payload["user_id"] == "00000000-0000-4000-a000-000000000123"
 
         # Verify with mismatching fingerprint
-        payload_mismatch = await auth_service.verify_refresh_token(token, ip="9.9.9.9", user_agent="Bot")
+        payload_mismatch = await auth_service.verify_refresh_token(
+            token, ip="9.9.9.9", user_agent="Bot"
+        )  # NOSONAR python:S1313 - test fixture IPs
         assert payload_mismatch is None
 
     @pytest.mark.asyncio

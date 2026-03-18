@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 
 from config import config
-from dependencies import get_auth_service
+from dependencies import get_auth_service, get_otp_service
 from limiter import auth_limiter, forgot_password_limiter
 from logger import logger, sanitize_log_value
 from middleware.auth_middleware import get_current_user, get_current_user_from_header
@@ -29,7 +29,7 @@ from schemas.auth import (
 from schemas.user import UserResponse
 from services.auth_service import AuthService
 from services.email_service import email_service
-from services.otp_service import get_otp_service
+from services.otp_service import OTPService
 from utils.auth_response_utils import create_login_response
 from utils.auth_utils import get_client_info, set_refresh_cookie
 from utils.security import log_security_event, sanitize_text
@@ -45,15 +45,25 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 # ==========================================
 
 
+from typing import Annotated
+
+
 @router.post("/register", response_model=LoginResponse)
 @auth_limiter.limit("5/minute")
 async def register(
     response: Response,  # noqa: ARG001
     request: Request,  # noqa: ARG001
     data: RegisterInput,
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    otp_service: Annotated[OTPService, Depends(get_otp_service)],
 ) -> LoginResponse | dict:
-    """Register new user with email and password, then send OTP for verification"""
+    """
+    Register new user with email and password, then send OTP for verification.
+
+    Raises:
+        HTTPException: 400 - If name is empty or email already in use.
+        HTTPException: 500 - If registration process fails.
+    """
     try:
         if not data.name.strip():
             raise HTTPException(status_code=400, detail="Please enter first and last name")
@@ -70,7 +80,6 @@ async def register(
             raise HTTPException(status_code=400, detail=error_msg)
 
         # Generate and send OTP
-        otp_service = await get_otp_service()
         otp_code, _ = await otp_service.create_otp(data.email)
 
         # Send OTP via email
@@ -104,11 +113,18 @@ async def verify_otp(
     response: Response,
     request: Request,
     req: VerifyOTPRequest,
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    otp_service: Annotated[OTPService, Depends(get_otp_service)],
 ) -> LoginResponse | dict:
-    """Verify email using 6-digit OTP code"""
+    """
+    Verify email using 6-digit OTP code.
+
+    Raises:
+        HTTPException: 400 - If OTP is invalid.
+        HTTPException: 404 - If user is not found.
+        HTTPException: 500 - If verification fails.
+    """
     try:
-        otp_service = await get_otp_service()
         result = await otp_service.verify_otp(req.email, req.otp)
 
         if not result["success"]:
@@ -149,11 +165,16 @@ async def resend_otp(
     request: Request,  # noqa: ARG001
     req: ResendOTPRequest,
     response: Response,  # noqa: ARG001
+    otp_service: Annotated[OTPService, Depends(get_otp_service)],
 ) -> dict:
-    """Resend verification OTP code"""
-    try:
-        otp_service = await get_otp_service()
+    """
+    Resend verification OTP code.
 
+    Raises:
+        HTTPException: 429 - If cooldown is active.
+        HTTPException: 500 - If sending fails.
+    """
+    try:
         # Check cooldown
         can_resend, seconds_remaining = await otp_service.can_resend_otp(req.email)
         if not can_resend:
@@ -168,7 +189,7 @@ async def resend_otp(
         email_sent = email_service.send_otp_email(req.email, otp_code)
 
         if not email_sent:
-            logger.warning("Failed to resend OTP email to %s", req.email)
+            logger.warning("Failed to send OTP email to %s", req.email)
 
         log_security_event("otp_resend", details={"email": req.email}, severity="INFO")
 
@@ -187,9 +208,15 @@ async def login(
     response: Response,
     request: Request,
     req: LoginRequest,
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> LoginResponse:
-    """Login with email and password via Supabase Auth"""
+    """
+    Login with email and password via Supabase Auth.
+
+    Raises:
+        HTTPException: 401 - If credentials are invalid.
+        HTTPException: 500 - If login fails.
+    """
     try:
         user_data = await auth_service.authenticate_user(req.email, req.password)
         if not user_data:
@@ -211,9 +238,14 @@ async def login(
 async def refresh_token(
     response: Response,
     request: Request,
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> dict:
-    """Refresh access token using long-lived refresh token from HttpOnly cookie"""
+    """
+    Refresh access token using long-lived refresh token from HttpOnly cookie.
+
+    Raises:
+        HTTPException: 500 - If token refresh fails fundamentally.
+    """
     refresh_token = request.cookies.get("refresh_token")
 
     if not refresh_token:
@@ -264,8 +296,17 @@ async def refresh_token(
 
 
 @router.post("/logout")
-async def logout(response: Response, request: Request, auth_service: AuthService = Depends(get_auth_service)) -> dict:
-    """Logout user (clear refresh token cookie and revoke it)"""
+async def logout(
+    response: Response,
+    request: Request,
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+) -> dict:
+    """
+    Logout user (clear refresh token cookie and revoke it).
+
+    Raises:
+        HTTPException: 500 - If logout process fails unexpectedly.
+    """
     refresh_token = request.cookies.get("refresh_token")
     if refresh_token:
         try:
@@ -289,9 +330,14 @@ async def logout(response: Response, request: Request, auth_service: AuthService
 async def forgot_password(
     request: Request,  # noqa: ARG001
     req: ForgotPasswordRequest,
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> dict:
-    """Request password reset (via Supabase Auth)"""
+    """
+    Request password reset (via Supabase Auth).
+
+    Raises:
+        HTTPException: 500 - If forgot password request fails.
+    """
     try:
         await auth_service.create_password_reset_token(req.email)
         return {"message": "If this email is registered, you will receive password reset instructions."}
@@ -305,9 +351,14 @@ async def forgot_password(
 async def reset_password(
     request: Request,  # noqa: ARG001
     req: ResetPasswordRequest,
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> dict:
-    """Reset password using token"""
+    """
+    Reset password using token.
+
+    Raises:
+        HTTPException: 400 - If reset token is invalid or expired.
+    """
     try:
         success = await auth_service.reset_password(req.token, req.new_password)
         if not success:
@@ -324,11 +375,14 @@ async def exchange_session(
     response: Response,
     request: Request,
     req: SessionExchangeRequest,
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> LoginResponse:
     """
     Exchange Supabase Session (from email verification redirect) for Backend Session.
     Validates the Supabase token and issues our own secure HttpOnly cookies.
+
+    Raises:
+        HTTPException: 401 - If Supabase session is invalid or exchange fails.
     """
     try:
         # 1. Verify Supabase Token (Async)
@@ -367,8 +421,13 @@ async def exchange_session(
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_info(current_user: UserResponse = Depends(get_current_user)) -> UserResponse:
-    """Get current user information (unified from bot manual and google auth)"""
+async def get_current_user_info(current_user: Annotated[UserResponse, Depends(get_current_user)]) -> UserResponse:
+    """
+    Get current user information (unified from both manual and google auth).
+
+    Raises:
+        HTTPException: 401 - If user is not authenticated.
+    """
     return UserResponse(
         id=current_user.id,
         email=current_user.email,
@@ -387,7 +446,12 @@ async def get_current_user_info(current_user: UserResponse = Depends(get_current
 
 @router.get("/google/login")
 async def google_login_redirect() -> RedirectResponse:
-    """Redirect to Google OAuth login page with PKCE support"""
+    """
+    Redirect to Google OAuth login page with PKCE support.
+
+    Raises:
+        HTTPException: 500 - If redirect generation fails.
+    """
     try:
         google_client_id = os.getenv("GOOGLE_CLIENT_ID")
         if not google_client_id:
@@ -434,9 +498,15 @@ async def google_login(
     response: Response,
     request: Request,
     token_data: GoogleTokenRequest,
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> LoginResponse:
-    """Login with Google OAuth token"""
+    """
+    Login with Google OAuth token.
+
+    Raises:
+        HTTPException: 400 - If token is invalid.
+        HTTPException: 500 - If login fails.
+    """
     try:
         user_data = auth_service.verify_google_token(token_data.token)
         user = await auth_service.create_or_get_user(user_data)
@@ -484,9 +554,15 @@ async def google_exchange_code(
     response: Response,
     request: Request,
     exchange_data: GoogleCodeExchangeRequest,
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> LoginResponse:
-    """Exchange Google authorization code for tokens (PKCE OAuth 2.0 flow)"""
+    """
+    Exchange Google authorization code for tokens (PKCE OAuth 2.0 flow)
+
+    Raises:
+        HTTPException: 400 - If redirect URI is invalid or exchange data is missing.
+        HTTPException: 500 - If code exchange fails.
+    """
     try:
         if not exchange_data.code:
             raise ValueError("Authorization code is required")
@@ -530,8 +606,15 @@ async def google_exchange_code(
 
 
 @router.post("/sync-user")
-async def sync_user_data(user: dict = Depends(get_current_user_from_header)) -> dict:
-    """Insert/Upsert user into Supabase Table from JWT payload (Supabase Auth compatible)"""
+async def sync_user_data(
+    user: Annotated[dict, Depends(get_current_user_from_header)],
+) -> dict:
+    """
+    Insert/Upsert user into Supabase Table from JWT payload (Supabase Auth compatible).
+
+    Raises:
+        HTTPException: 500 - If sync process fails.
+    """
     try:
         user_id = user["sub"]
         email = user.get("email")

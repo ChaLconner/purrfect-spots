@@ -120,6 +120,11 @@ class Config:
         "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SERVICE_KEY", "SUPABASE_SECRET_KEY"
     )
 
+    # Database
+    DATABASE_URL = os.getenv(
+        "DATABASE_URL", "postgresql+asyncpg://postgres:PASSWORD@db.poubdfhpujvqrkbcdzmc.supabase.co:5432/postgres"
+    )
+
     # Google Auth
     GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
     GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")

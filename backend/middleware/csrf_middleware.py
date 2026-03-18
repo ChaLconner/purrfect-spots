@@ -132,10 +132,10 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         """Set CSRF token cookie if not already present"""
         if self.CSRF_COOKIE_NAME not in request.cookies:
             token = secrets.token_urlsafe(32)
-            response.set_cookie(
+            response.set_cookie(  # NOSONAR python:S3330 - CSRF Double-Submit-Cookie pattern requires JS-readable token
                 key=self.CSRF_COOKIE_NAME,
                 value=token,
-                httponly=False,  # JavaScript needs to read this
+                httponly=False,  # NOSONAR python:S3330 - CSRF Double-Submit-Cookie pattern requires JS-readable token
                 secure=self.is_production,
                 # IMPORTANT: SameSite=None is required for cross-origin requests
                 # (frontend on purrfectspots.xyz, backend on vercel.app)

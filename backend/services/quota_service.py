@@ -2,6 +2,8 @@ import datetime
 from typing import Any
 
 from postgrest.types import CountMethod
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 from supabase import AClient
 
 from config import config
@@ -14,8 +16,9 @@ class QuotaService:
     PRO_LIMIT = config.QUOTA_PRO_LIMIT
     GLOBAL_SYSTEM_LIMIT = 2000  # System-wide safety buffer
 
-    def __init__(self, supabase: AClient) -> None:
+    def __init__(self, supabase: AClient, db: AsyncSession | None = None) -> None:
         self.supabase: AClient = supabase
+        self.db = db
 
     async def get_recent_upload_count(self, user_id: str) -> int:
         """
@@ -27,6 +30,15 @@ class QuotaService:
         twenty_four_hours_ago = (now - datetime.timedelta(hours=24)).isoformat()
 
         try:
+            if self.db:
+                query = text(
+                    "SELECT count(id) FROM cat_photos "
+                    "WHERE user_id = :u_id "
+                    "AND uploaded_at > :since "
+                    "AND deleted_at IS NULL"
+                )
+                result = await self.db.execute(query, {"u_id": user_id, "since": twenty_four_hours_ago})
+                return result.scalar() or 0
             # Query the main photos table for accurate rolling window count
             res = (
                 await self.supabase.table("cat_photos")
@@ -52,15 +64,21 @@ class QuotaService:
         # 1. Check Global usage (System-wide daily limit)
         today = datetime.date.today().isoformat()
         try:
-            sys_usage = (
-                await self.supabase.table("system_daily_stats")
-                .select("total_uploads")
-                .eq("date", today)
-                .maybe_single()
-                .execute()
-            )
+            if self.db:
+                query = text("SELECT total_uploads FROM system_daily_stats WHERE date = :today LIMIT 1")
+                result = await self.db.execute(query, {"today": today})
+                row = result.fetchone()
+                sys_total = row[0] if row else 0
+            else:
+                sys_usage = (
+                    await self.supabase.table("system_daily_stats")
+                    .select("total_uploads")
+                    .eq("date", today)
+                    .maybe_single()
+                    .execute()
+                )
+                sys_total = sys_usage.data["total_uploads"] if sys_usage and sys_usage.data else 0
 
-            sys_total = sys_usage.data["total_uploads"] if sys_usage and sys_usage.data else 0
             if sys_total >= self.GLOBAL_SYSTEM_LIMIT:
                 logger.critical(f"System Global Quota Reached: {sys_total}/{self.GLOBAL_SYSTEM_LIMIT}")
                 return False
@@ -92,6 +110,8 @@ class QuotaService:
         """Increment usage count for user and system via existing RPC for analytics."""
         today = datetime.date.today().isoformat()
         try:
+            # RPC call still uses Supabase client as it's easier than converting RPC to SQL
+            # unless it's a simple logic.
             await self.supabase.rpc("increment_usage", {"p_user_id": user_id, "p_date": today}).execute()
         except Exception as e:
             logger.error(f"Failed to increment legacy quota for user {user_id}: {e}")

@@ -195,13 +195,13 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
     )
 
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 
 
-def require_permission(permission_code: str) -> Callable[[User], Awaitable[User]]:
+def require_permission(permission_code: str) -> Callable[..., User]:
     """Dependency factory to check for specific permission"""
 
-    async def permission_checker(user: User = Depends(get_current_user)) -> User:
+    def permission_checker(user: User = Depends(get_current_user)) -> User:
         # 1. Direct permission check
         if permission_code in user.permissions:
             return user

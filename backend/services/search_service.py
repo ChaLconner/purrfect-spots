@@ -1,5 +1,7 @@
 from typing import Any
 
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 from supabase import AClient
 
 from logger import logger
@@ -7,8 +9,9 @@ from utils.db_security import escape_like_pattern, sanitize_search_input
 
 
 class SearchService:
-    def __init__(self, supabase_client: AClient) -> None:
+    def __init__(self, supabase_client: AClient, db: AsyncSession | None = None) -> None:
         self.supabase = supabase_client
+        self.db = db
         self._fulltext_available: bool | None = None
 
     @property
@@ -21,6 +24,13 @@ class SearchService:
     async def _check_fulltext_support(self) -> bool:
         """Check if full-text search column exists in database."""
         try:
+            if self.db:
+                query = text(
+                    "SELECT column_name FROM information_schema.columns WHERE table_name = 'cat_photos' AND column_name = 'search_vector'"
+                )
+                result = await self.db.execute(query)
+                return result.fetchone() is not None
+
             await self.supabase.table("cat_photos").select("search_vector").limit(1).execute()
             return True
         except Exception:
@@ -56,6 +66,30 @@ class SearchService:
     ) -> list[dict[str, Any]]:
         """Perform full-text search."""
         try:
+            if self.db:
+                # Try optimized websearch using SQLAlchemy
+                from sqlalchemy import text
+
+                # PostgreSQL websearch_to_tsquery example
+                sql = """
+                    SELECT * FROM cat_photos
+                    WHERE deleted_at IS NULL
+                    AND search_vector @@ websearch_to_tsquery('english', :query)
+                """
+                params: dict[str, Any] = {"query": query}
+
+                if tags:
+                    clean_tags = [tag.strip().lower().replace("#", "") for tag in tags]
+                    sql += " AND tags @> :tags"
+                    params["tags"] = clean_tags
+
+                sql += " ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
+                params["limit"] = limit
+                params["offset"] = offset
+
+                result = await self.db.execute(text(sql), params)
+                return [dict(row._mapping) for row in result.fetchall()]
+
             # Try optimized RPC first
             try:
                 resp = await self.supabase.rpc(
@@ -88,6 +122,27 @@ class SearchService:
         self, query: str | None = None, tags: list[str] | None = None, limit: int = 100, offset: int = 0
     ) -> list[dict[str, Any]]:
         """Fallback search using ILIKE."""
+        if self.db:
+            sql = "SELECT * FROM cat_photos WHERE deleted_at IS NULL"
+            params: dict[str, Any] = {}
+
+            if query:
+                safe_query = f"%{escape_like_pattern(query)}%"
+                sql += " AND (location_name ILIKE :query OR description ILIKE :query)"
+                params["query"] = safe_query
+
+            if tags:
+                clean_tags = [tag.strip().lower().replace("#", "") for tag in tags]
+                sql += " AND tags @> :tags"
+                params["tags"] = clean_tags
+
+            sql += " ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
+            params["limit"] = limit
+            params["offset"] = offset
+
+            result = await self.db.execute(text(sql), params)
+            return [dict(row._mapping) for row in result.fetchall()]
+
         db_query = self.supabase.table("cat_photos").select("*").is_("deleted_at", "null")
 
         if query:

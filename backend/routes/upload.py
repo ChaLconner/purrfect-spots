@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 from config import config
 from dependencies import get_gallery_service, get_quota_service
 from exceptions import ExternalServiceError
-from limiter import upload_limiter
+from limiter import get_upload_limit, upload_limiter
 from logger import logger, sanitize_log_value
 from middleware.auth_middleware import get_current_user
 from services.cat_detection_service import CatDetectionService, cat_detection_service
@@ -147,19 +147,27 @@ async def _perform_server_side_detection(
     }
 
 
+from typing import Annotated, Any
+
+
 @router.get("/quota")
 async def get_upload_quota(
-    current_user: Any = Depends(get_current_user),
-    quota_service: QuotaService = Depends(get_quota_service),
+    current_user: Annotated[Any, Depends(get_current_user)],
+    quota_service: Annotated[QuotaService, Depends(get_quota_service)],
 ) -> dict[str, Any]:
     """Get current user's upload quota status."""
     return await quota_service.get_user_quota_status(str(current_user.id), current_user.is_pro)
 
 
 @router.post("/cat")
-@upload_limiter.limit(None)  # Uses default_limits=[get_upload_limit] defined in upload_limiter
+@upload_limiter.limit(get_upload_limit)  # Uses default_limits=[get_upload_limit] defined in upload_limiter
 async def upload_cat_photo(
     request: Request,  # Required for rate limiting
+    current_user: Annotated[Any, Depends(get_current_user)],
+    gallery_service: Annotated[GalleryService, Depends(get_gallery_service)],
+    detection_service: Annotated[CatDetectionService, Depends(get_cat_detection_service)],
+    storage_service: Annotated[StorageService, Depends(get_storage_service)],
+    quota_service: Annotated[QuotaService, Depends(get_quota_service)],
     file: UploadFile = File(...),
     lat: str = Form(...),
     lng: str = Form(...),
@@ -168,11 +176,6 @@ async def upload_cat_photo(
     tags: str | None = Form(None),
     cat_detection_data: str | None = Form(None),
     location_blurred: str = Form("false"),
-    current_user: Any = Depends(get_current_user),
-    gallery_service: GalleryService = Depends(get_gallery_service),
-    detection_service: CatDetectionService = Depends(get_cat_detection_service),
-    storage_service: StorageService = Depends(get_storage_service),
-    quota_service: QuotaService = Depends(get_quota_service),
 ) -> JSONResponse:
     """
     Upload cat photo with location information.
@@ -184,6 +187,11 @@ async def upload_cat_photo(
     - Security event logging
 
     The image is automatically optimized (resized/compressed) before upload to S3.
+
+    Raises:
+        HTTPException: 400 - If no cats are detected in image.
+        HTTPException: 429 - If daily upload limit is reached.
+        HTTPException: 500 - If image processing or upload fails.
     """
     user_id = str(current_user.id)
 

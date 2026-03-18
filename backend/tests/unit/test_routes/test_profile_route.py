@@ -11,7 +11,9 @@ from routes.profile import get_admin_gallery_service, get_auth_service, get_stor
 @pytest.fixture
 async def client():
     """Create test client using AsyncClient"""
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:  # NOSONAR python:S5332 - test base URL
         yield ac
 
 

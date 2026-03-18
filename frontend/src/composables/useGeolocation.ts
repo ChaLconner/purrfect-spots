@@ -90,7 +90,7 @@ export function useGeolocation(): UseGeolocationReturn {
         return;
       }
 
-      navigator.geolocation.getCurrentPosition(handleSuccess, (err) => handleFailure(err.message), {
+      navigator.geolocation.getCurrentPosition(handleSuccess, (err) => handleFailure(err.message), { // NOSONAR typescript:S5604 - Geolocation is core to this cat location app; consent via browser prompt
         enableHighAccuracy: true,
         timeout: 5000,
         maximumAge: 0,
@@ -120,7 +120,7 @@ export function useGeolocation(): UseGeolocationReturn {
       if (permissionDenied.value) return;
     }
 
-    watchId.value = navigator.geolocation.watchPosition(
+    watchId.value = navigator.geolocation.watchPosition( // NOSONAR typescript:S5604 - Geolocation is core to this cat location app; consent via browser prompt
       (position) => {
         const newCoords = {
           lat: position.coords.latitude,

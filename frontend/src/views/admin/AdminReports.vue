@@ -183,7 +183,7 @@
                     report.reason === 'other' || report.reason === 'not_a_cat',
                 }"
               >
-                {{ report.reason.replace('_', ' ') }}
+                {{ report.reason.replaceAll('_', ' ') }}
               </span>
               <div
                 v-if="report.details"
@@ -354,8 +354,9 @@
         </div>
 
         <div class="mb-4">
-          <label class="block text-sm font-medium text-brown-700 mb-1">Standard Reason</label>
+          <label for="resolution-reason" class="block text-sm font-medium text-brown-700 mb-1">Standard Reason</label>
           <select
+            id="resolution-reason"
             v-model="selectedReason"
             class="w-full border border-sand-300 rounded-md shadow-sm p-2 focus:ring-terracotta-500 focus:border-terracotta-500"
           >
@@ -367,10 +368,11 @@
         </div>
 
         <div class="mb-6">
-          <label class="block text-sm font-medium text-brown-700 mb-1">
+          <label for="resolution-note" class="block text-sm font-medium text-brown-700 mb-1">
             Additional Notes (Optional)
           </label>
           <textarea
+            id="resolution-note"
             v-model="resolutionNote"
             rows="3"
             class="w-full border border-sand-300 rounded-md shadow-sm p-2 focus:ring-terracotta-500 focus:border-terracotta-500"
@@ -409,6 +411,7 @@ import { apiV1 } from '@/utils/api';
 import { RESOLUTION_REASONS, REPORT_REASONS } from '@/constants/moderation';
 import { useToast } from '@/components/toast/use-toast';
 import { useAuthStore } from '@/store/authStore';
+import { useAdminTable } from '@/composables/useAdminTable';
 import TableSkeleton from '@/components/ui/TableSkeleton.vue';
 
 const { toast } = useToast();
@@ -431,40 +434,58 @@ interface Report {
   };
 }
 
-const reports = ref<Report[]>([]);
-const totalReports = ref(0);
 const statusFilter = ref('');
 const reasonFilter = ref('');
 const startDate = ref('');
 const endDate = ref('');
-const page = ref(1);
-const limit = 20;
-const isLoading = ref(false);
 const previewImageUrl = ref<string | null>(null);
-const selectedReportIds = ref<string[]>([]);
-const isBulkAction = ref(false);
 
-const isAllSelected = computed(() => {
-  return reports.value.length > 0 && selectedReportIds.value.length === reports.value.length;
+const {
+  items: reports,
+  totalItems: totalReports,
+  page,
+  isLoading,
+  selectedIds: selectedReportIds,
+  isAllSelected,
+  toggleSelection,
+  toggleSelectAll,
+  loadData,
+  exportData,
+} = useAdminTable<Report>({
+  endpoint: '/admin/reports',
+  exportHeaders: ['ID', 'Date', 'Type', 'Status', 'Reporter', 'Details', 'Image URL'],
+  exportFileNamePrefix: 'reports_export',
+  formatExportRow: (r) => [
+    r.id,
+    r.created_at,
+    r.reason,
+    r.status,
+    r.reporter?.email || 'Anonymous',
+    `"${(r.details || '').replace(/"/g, '""')}"`,
+    r.photo?.image_url || '',
+  ],
 });
 
-const toggleSelection = (id: string): void => {
-  if (selectedReportIds.value.includes(id)) {
-    selectedReportIds.value = selectedReportIds.value.filter((item) => item !== id);
-  } else {
-    selectedReportIds.value.push(id);
-  }
+const loadReports = (newPage: number = 1): void => {
+  loadData(newPage, {
+    status: statusFilter.value,
+    reason: reasonFilter.value,
+    start_date: startDate.value,
+    end_date: endDate.value,
+  });
 };
 
-const toggleSelectAll = (): void => {
-  if (isAllSelected.value) {
-    selectedReportIds.value = [];
-  } else {
-    selectedReportIds.value = reports.value.map((r) => r.id);
-  }
+const exportReports = (): void => {
+  exportData({
+    status: statusFilter.value,
+    reason: reasonFilter.value,
+    start_date: startDate.value,
+    end_date: endDate.value,
+  });
 };
 
 // Action Modal State
+const isBulkAction = ref(false);
 const selectedReport = ref<Report | null>(null);
 const actionType = ref<'resolve' | 'dismiss' | 'delete'>('resolve');
 const selectedReason = ref('');
@@ -488,10 +509,10 @@ const openActionModal = (report: Report, type: 'resolve' | 'dismiss' | 'delete')
 
 const openBulkActionModal = (type: 'resolve' | 'dismiss' | 'delete'): void => {
   if (!canManageReports || selectedReportIds.value.length === 0) return;
-  selectedReport.value = reports.value.find((r) => r.id === selectedReportIds.value[0]) || null; // Just for context if needed, though bulk action ignores single report
+  selectedReport.value = reports.value.find((r) => r.id === selectedReportIds.value[0]) || null;
   isBulkAction.value = true;
   actionType.value = type;
-  selectedReason.value = 'Bulk Action'; // Default for bulk
+  selectedReason.value = 'Bulk Action';
   resolutionNote.value = '';
 };
 
@@ -500,90 +521,6 @@ const closeActionModal = (): void => {
   isBulkAction.value = false;
   selectedReason.value = '';
   resolutionNote.value = '';
-};
-
-const exportReports = async (): Promise<void> => {
-  try {
-    const params = new URLSearchParams({ limit: '1000', offset: '0' });
-    if (statusFilter.value) params.append('status', statusFilter.value);
-    if (reasonFilter.value) params.append('reason', reasonFilter.value);
-    if (startDate.value) params.append('start_date', startDate.value);
-    if (endDate.value) params.append('end_date', endDate.value);
-
-    const response = await apiV1.get<{ data: Report[]; total: number }>(
-      `/admin/reports?${params.toString()}`
-    );
-    const data = response.data;
-
-    if (!data || data.length === 0) {
-      toast({ description: 'No reports to export', variant: 'default' });
-      return;
-    }
-
-    const headers = ['ID', 'Date', 'Type', 'Status', 'Reporter', 'Details', 'Image URL'];
-    const csvContent = [
-      headers.join(','),
-      ...data.map((r) =>
-        [
-          r.id,
-          r.created_at,
-          r.reason,
-          r.status,
-          r.reporter?.email || 'Anonymous',
-          `"${(r.details || '').replace(/"/g, '""')}"`,
-          r.photo?.image_url || '',
-        ].join(',')
-      ),
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    if (link.download !== undefined) {
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `reports_export_${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-
-    toast({ description: 'Reports exported successfully', variant: 'success' });
-  } catch (e) {
-    console.error('Failed to export reports', e);
-    toast({
-      title: 'Error',
-      description: 'Failed to export reports',
-      variant: 'destructive',
-    });
-  }
-};
-
-const loadReports = async (newPage: number = 1): Promise<void> => {
-  isLoading.value = true;
-  try {
-    const offset = (newPage - 1) * limit;
-    const params = new URLSearchParams({
-      limit: limit.toString(),
-      offset: offset.toString(),
-    });
-    if (statusFilter.value) params.append('status', statusFilter.value);
-    if (reasonFilter.value) params.append('reason', reasonFilter.value);
-    if (startDate.value) params.append('start_date', startDate.value);
-    if (endDate.value) params.append('end_date', endDate.value);
-
-    const response = await apiV1.get<{ data: Report[]; total: number }>(
-      `/admin/reports?${params.toString()}`
-    );
-    reports.value = response.data;
-    totalReports.value = response.total;
-    selectedReportIds.value = []; // Clear selection on new load
-    page.value = newPage;
-  } catch (e) {
-    console.error('Failed to load reports', e);
-  } finally {
-    isLoading.value = false;
-  }
 };
 
 const confirmAction = async (): Promise<void> => {
@@ -595,7 +532,6 @@ const confirmAction = async (): Promise<void> => {
 
   try {
     if (isBulkAction.value) {
-      // Bulk Action Logic
       await apiV1.post('/admin/reports/bulk', {
         report_ids: selectedReportIds.value,
         status: actionType.value === 'dismiss' ? 'dismissed' : 'resolved',
@@ -606,18 +542,14 @@ const confirmAction = async (): Promise<void> => {
         description: `Successfully processed ${selectedReportIds.value.length} reports`,
         variant: 'default',
       });
-      selectedReportIds.value = [];
     } else {
-      // Single Action Logic
       if (actionType.value === 'delete') {
-        // Resolve Report WITH Content Deletion (Atomic)
         await apiV1.put(`/admin/reports/${selectedReport.value.id}`, {
           status: 'resolved',
           resolution_notes: finalNote,
           delete_content: true,
         });
       } else {
-        // Resolve or Dismiss
         await apiV1.put(`/admin/reports/${selectedReport.value.id}`, {
           status: actionType.value === 'dismiss' ? 'dismissed' : 'resolved',
           resolution_notes: finalNote,

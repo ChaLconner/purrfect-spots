@@ -335,7 +335,7 @@ class TestAuthUtils:
 
         from utils.auth_utils import decode_token
 
-        secret = "test_secret_key_at_least_32_chars"
+        secret = "test_secret_key_at_least_32_chars"  # nosonar - test-only JWT signing key
         payload = {"sub": "user123"}
         token = jwt.encode(payload, secret, algorithm="HS256")
 
@@ -351,7 +351,7 @@ class TestAuthUtils:
 
         from utils.auth_utils import decode_token
 
-        secret = "test_secret_key_at_least_32_chars"
+        secret = "test_secret_key_at_least_32_chars"  # nosonar - test-only JWT signing key
         payload = {"sub": "user123", "exp": int(time.time()) - 3600}
         token = jwt.encode(payload, secret, algorithm="HS256")
 
@@ -364,7 +364,7 @@ class TestAuthUtils:
 
         from utils.auth_utils import decode_token
 
-        secret = "test_secret_key_at_least_32_chars"
+        secret = "test_secret_key_at_least_32_chars"  # nosonar - test-only JWT signing key
         payload = {"sub": "user123"}
         token = jwt.encode(payload, secret, algorithm="HS256")
 

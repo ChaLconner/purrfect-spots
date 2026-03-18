@@ -6,8 +6,11 @@ from services.seo_service import SeoService
 router = APIRouter()
 
 
+from typing import Annotated
+
+
 @router.get("/sitemap.xml", response_class=Response)
-async def get_sitemap(service: SeoService = Depends(get_seo_service)) -> Response:
+async def get_sitemap(service: Annotated[SeoService, Depends(get_seo_service)]) -> Response:
     """
     Generate dynamic sitemap for search engines.
     Cached for 1 hour.

@@ -173,13 +173,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { CatLocation } from '@/types/api';
 import { extractTags, getCleanDescription } from '@/store/catsStore';
 import { useAuthStore } from '@/store/authStore';
 import { useSubscriptionStore } from '@/store/subscriptionStore';
 import { useToast } from '@/components/toast/use-toast';
+import { useModalFocus } from '@/composables/useModalFocus';
 import LikeButton from '@/components/social/LikeButton.vue';
 import ReportModal from '@/components/ui/ReportModal.vue';
 
@@ -201,7 +202,10 @@ const selectedAmount = ref(1);
 const isSendingTreat = ref(false);
 const isReportOpen = ref(false);
 const modalContainer = ref<HTMLElement | null>(null);
-const previousFocus = ref<HTMLElement | null>(null);
+
+const { handleKeydown } = useModalFocus(modalContainer, {
+  onClose: () => emit('close'),
+});
 
 function handleReportClick(): void {
   if (!authStore.isAuthenticated) {
@@ -261,57 +265,4 @@ async function handleGiveTreat(): Promise<void> {
     isSendingTreat.value = false;
   }
 }
-
-function trapFocus(e: KeyboardEvent): void {
-  if (!modalContainer.value) return;
-  const focusableElements = modalContainer.value.querySelectorAll<HTMLElement>(
-    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-  );
-  if (focusableElements.length === 0) return;
-
-  const firstElement = focusableElements[0];
-  const lastElement = focusableElements[focusableElements.length - 1];
-
-  if (e.shiftKey) {
-    // Shift + Tab
-    if (
-      document.activeElement === firstElement ||
-      document.activeElement === modalContainer.value
-    ) {
-      lastElement.focus();
-      e.preventDefault();
-    }
-  } else {
-    // Tab
-    if (document.activeElement === lastElement) {
-      firstElement.focus();
-      e.preventDefault();
-    }
-  }
-}
-
-const handleKeydown = (e: KeyboardEvent): void => {
-  if (e.key === 'Escape') {
-    emit('close');
-  } else if (e.key === 'Tab') {
-    trapFocus(e);
-  }
-};
-
-onMounted(() => {
-  previousFocus.value = document.activeElement as HTMLElement;
-  document.body.style.overflow = 'hidden';
-  // Note: we let the global unmount handle keydown if we bounded it to document,
-  // but since we bound it to the element now we don't strictly need document.addEventListener
-  nextTick(() => {
-    modalContainer.value?.focus();
-  });
-});
-
-onUnmounted(() => {
-  document.body.style.overflow = '';
-  if (previousFocus.value) {
-    previousFocus.value.focus();
-  }
-});
 </script>

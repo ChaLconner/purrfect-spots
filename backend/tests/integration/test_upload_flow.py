@@ -28,7 +28,7 @@ class TestUploadFlowIntegration:
     TEST_USER_ID = "test-user-123"
     TEST_EMAIL = "test@example.com"
     TEST_NAME = "Test User"
-    TEST_PASSWORD = os.getenv("TEST_PASSWORD", "password123")
+    TEST_PASSWORD = os.getenv("TEST_PASSWORD", "test-only-not-a-real-credential")  # nosonar
 
     @pytest.fixture
     def mock_auth_user(self):
@@ -258,7 +258,7 @@ class TestAuthFlowIntegration:
     """End-to-end tests for authentication flows"""
 
     TEST_EMAIL = "test@example.com"
-    TEST_PASSWORD = os.getenv("TEST_PASSWORD", "password123")
+    TEST_PASSWORD = os.getenv("TEST_PASSWORD", "test-only-not-a-real-credential")  # nosonar
 
     def test_register_creates_user(self, client):
         """Test: Registration creates a new user"""
@@ -288,7 +288,7 @@ class TestAuthFlowIntegration:
                 "/api/v1/auth/register",
                 json={
                     "email": "new@example.com",
-                    "password": "SecurePass123!@#",  # pragma: allowlist secret
+                    "password": "SecurePass123!@#",  # nosonar - test fixture, not a real credential
                     "name": "New User",
                 },
             )

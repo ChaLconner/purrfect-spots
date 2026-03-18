@@ -1,4 +1,3 @@
-
 import os
 import smtplib
 import unittest
@@ -8,7 +7,7 @@ from unittest.mock import MagicMock, patch
 os.environ["SMTP_SERVER"] = "smtp.resend.com"
 os.environ["SMTP_PORT"] = "587"
 os.environ["SMTP_USER"] = "resend"
-os.environ["SMTP_PASSWORD"] = "re_example_key"
+os.environ["SMTP_PASSWORD"] = os.getenv("SMTP_PASSWORD", "test-only-not-a-real-key")  # nosonar
 os.environ["SMTP_SENDER"] = "Purrfect Spots <onboarding@resend.dev>"
 
 from services.email_service import EmailService
@@ -31,7 +30,7 @@ class TestEmailServiceSMTP(unittest.TestCase):
         # Assertions
         self.assertTrue(result)
         mock_server.starttls.assert_called_once()
-        mock_server.login.assert_called_once_with("resend", "re_example_key")
+        mock_server.login.assert_called_once_with("resend", os.environ["SMTP_PASSWORD"])
         mock_server.send_message.assert_called_once()
 
     @patch("smtplib.SMTP")
@@ -46,6 +45,7 @@ class TestEmailServiceSMTP(unittest.TestCase):
 
         # Assertions
         self.assertFalse(result)
+
 
 if __name__ == "__main__":
     unittest.main()

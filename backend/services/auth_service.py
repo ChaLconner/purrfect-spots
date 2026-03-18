@@ -4,6 +4,8 @@ from datetime import datetime, timedelta
 from typing import Any, cast
 
 import jwt
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 from supabase import AClient, acreate_client
 
 from config import config
@@ -22,10 +24,16 @@ from utils.supabase_client import get_async_supabase_admin_client
 class AuthService:
     """Authentication service using Async Supabase Client"""
 
-    def __init__(self, supabase_client: AClient, supabase_admin: AClient | None = None) -> None:
+    def __init__(
+        self,
+        supabase_client: AClient,
+        supabase_admin: AClient | None = None,
+        db: AsyncSession | None = None,
+    ) -> None:
         self.supabase = supabase_client
         self.supabase_admin = supabase_admin
-        self.user_service = UserService(supabase_client, supabase_admin)
+        self.db = db
+        self.user_service = UserService(supabase_client, supabase_admin, db=db)
         self.jwt_secret = config.JWT_SECRET
         self.jwt_algorithm = config.JWT_ALGORITHM
         self.jwt_expiration_hours = config.JWT_ACCESS_EXPIRATION_HOURS
@@ -40,25 +48,20 @@ class AuthService:
 
     async def _find_or_create_google_user(self, user_info: dict[str, Any], google_id: str) -> dict[str, Any]:
         """Find existing user by Google ID or email to handle account linking (Async)"""
-        existing_user = None
         email = user_info.get("email")
+        user_id = None
+
         try:
-            admin = await self._get_admin_client()
-            # 1. Check by google_id
-            res = await admin.table("users").select("id").eq("google_id", google_id).execute()
-            if res.data:
-                existing_user = res.data[0]
-            elif email:
-                # 2. Check by email (account linking scenario)
-                res_email = await admin.table("users").select("id").eq("email", email).execute()
-                if res_email.data:
-                    existing_user = res_email.data[0]
-                    # Link account by updating google_id
-                    await admin.table("users").update({"google_id": google_id}).eq("id", existing_user["id"]).execute()
+            if self.db:
+                user_id = await self._find_user_sql(google_id, email)
+            else:
+                user_id = await self._find_user_supabase(google_id, email)
         except Exception as e:
             logger.debug("Identity check unsuccessful: %s", e)
 
-        user_id = existing_user["id"] if existing_user else str(uuid.uuid4())
+        if not user_id:
+            user_id = str(uuid.uuid4())
+
         return {
             "id": user_id,
             "sub": user_id,
@@ -67,6 +70,50 @@ class AuthService:
             "name": user_info.get("name", ""),
             "picture": user_info.get("picture", ""),
         }
+
+    async def _find_user_sql(self, google_id: str, email: str | None) -> str | None:
+        """Find user by Google ID or email using SQLAlchemy."""
+        if not self.db:
+            return None
+        db_session = self.db
+        # 1. Check by google_id
+        query = text("SELECT id FROM users WHERE google_id = :g_id")
+        result = await db_session.execute(query, {"g_id": google_id})
+        row = result.fetchone()
+        if row:
+            return cast(str | None, row[0])
+
+        # 2. Check by email (account linking scenario)
+        if email:
+            query_email = text("SELECT id FROM users WHERE email = :email")
+            result_email = await db_session.execute(query_email, {"email": email})
+            row_email = result_email.fetchone()
+            if row_email:
+                user_id = cast(str, row_email[0])
+                # Link account
+                update_query = text("UPDATE users SET google_id = :g_id WHERE id = :u_id")
+                await db_session.execute(update_query, {"g_id": google_id, "u_id": user_id})
+                await db_session.commit()
+                return user_id
+        return None
+
+    async def _find_user_supabase(self, google_id: str, email: str | None) -> str | None:
+        """Find user by Google ID or email using Supabase."""
+        admin = await self._get_admin_client()
+        # 1. Check by google_id
+        res = await admin.table("users").select("id").eq("google_id", google_id).execute()
+        if res.data:
+            return cast(str | None, res.data[0]["id"])
+
+        # 2. Check by email
+        if email:
+            res_email = await admin.table("users").select("id").eq("email", email).execute()
+            if res_email.data:
+                user_id = cast(str, res_email.data[0]["id"])
+                # Link account
+                await admin.table("users").update({"google_id": google_id}).eq("id", user_id).execute()
+                return user_id
+        return None
 
     def _generate_fingerprint(self, ip: str, user_agent: str) -> str:
         """Generate SHA256 fingerprint from IP (subnet) and User-Agent"""
@@ -132,12 +179,19 @@ class AuthService:
         try:
             admin = await self._get_admin_client()
             # 1. Find user ID from email since admin.update_user_by_id is preferred
-            res = await admin.table("users").select("id").eq("email", email).execute()
-            if not res.data:
-                # If not in users table, try auth metadata search
-                return False
-
-            user_id = res.data[0]["id"]
+            if self.db:
+                query = text("SELECT id FROM users WHERE email = :email")
+                result = await self.db.execute(query, {"email": email})
+                row = result.fetchone()
+                if not row:
+                    return False
+                user_id = row[0]
+            else:
+                res = await admin.table("users").select("id").eq("email", email).execute()
+                if not res.data:
+                    # If not in users table, try auth metadata search
+                    return False
+                user_id = res.data[0]["id"]
 
             # 2. Update auth user to confirm email
             # In Supabase Admin Auth, we can set email_confirm: True
@@ -171,14 +225,14 @@ class AuthService:
         """Create JWT access token"""
         expire = utc_now() + timedelta(hours=self.jwt_expiration_hours)
         jti = str(uuid.uuid4())
-        to_encode = {
+        to_encode: dict[str, Any] = {
             "user_id": user_id,
             "sub": user_id,
             "role": role,
             "permissions": permissions or [],
             "jti": jti,
-            "exp": expire,
-            "iat": utc_now(),
+            "exp": expire.isoformat(),
+            "iat": utc_now().isoformat(),
         }
         if user_data:
             to_encode.update(
@@ -244,8 +298,8 @@ class AuthService:
             "user_id": user_id,
             "sub": user_id,
             "jti": jti,
-            "exp": expire,
-            "iat": utc_now(),
+            "exp": expire.isoformat(),
+            "iat": utc_now().isoformat(),
             "type": "refresh",
         }
         if ip or user_agent:
@@ -288,11 +342,19 @@ class AuthService:
             }
             admin = await self._get_admin_client()
             res = await admin.auth.admin.generate_link(cast(Any, params))
-            if not res or not hasattr(res, "properties"):
+
+            if not res:
                 return False
-            action_link = getattr(res.properties, "action_link", None)
+
+            # Safely navigate the response object
+            properties = getattr(res, "properties", None)
+            if not properties:
+                return False
+
+            action_link = getattr(properties, "action_link", None)
             if not action_link:
                 return False
+
             return email_service.send_reset_email(email, action_link)
         except Exception:
             logger.error("Failed to process password reset")
@@ -314,8 +376,13 @@ class AuthService:
             user_id = user_res.user.id
             await temp_client.auth.update_user({"password": new_password})
 
-            admin = await self._get_admin_client()
-            await admin.table("users").update({"updated_at": utc_now().isoformat()}).eq("id", user_id).execute()
+            if self.db:
+                query = text("UPDATE users SET updated_at = :now WHERE id = :u_id")
+                await self.db.execute(query, {"now": utc_now().isoformat(), "u_id": user_id})
+                await self.db.commit()
+            else:
+                admin = await self._get_admin_client()
+                await admin.table("users").update({"updated_at": utc_now().isoformat()}).eq("id", user_id).execute()
 
             if user_res.user.email:
                 ts = await get_token_service()

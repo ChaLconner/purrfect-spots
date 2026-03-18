@@ -368,24 +368,57 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { apiV1 } from '@/utils/api';
-import type { User } from '@/types/auth';
-import { useAuthStore } from '@/store/authStore';
 import { useToast } from '@/components/toast/use-toast';
+import { useAuthStore } from '@/store/authStore';
+import { useAdminTable } from '@/composables/useAdminTable';
 import TableSkeleton from '@/components/ui/TableSkeleton.vue';
 
 const { toast } = useToast();
-
 const authStore = useAuthStore();
-const users = ref<User[]>([]);
+
+interface User {
+  id: string;
+  name: string | null;
+  email: string;
+  role: string;
+  created_at: string;
+  banned_at: string | null;
+  bio: string | null;
+  picture: string | null;
+}
+
 const searchQuery = ref('');
-const page = ref(1);
-const limit = 20;
-const isLoading = ref(false);
-const sortBy = ref('created_at');
-const sortOrder = ref('desc');
-const totalUsers = ref(0);
+
+const {
+  items: users,
+  totalItems: totalUsers,
+  page,
+  isLoading,
+  sortBy,
+  sortOrder,
+  loadData,
+  exportData,
+} = useAdminTable<User>({
+  endpoint: '/admin/users',
+  exportHeaders: ['ID', 'Name', 'Email', 'Role', 'Joined At', 'Banned At'],
+  exportFileNamePrefix: 'users_export',
+  formatExportRow: (user) => [
+    user.id,
+    `"${(user.name || '').replace(/"/g, '""')}"`,
+    `"${(user.email || '').replace(/"/g, '""')}"`,
+    user.role,
+    user.created_at,
+    user.banned_at || '',
+  ],
+  defaultSortBy: 'created_at',
+  defaultSortOrder: 'desc',
+});
+
+const loadUsers = (newPage: number = 1): void => {
+  loadData(newPage, { search: searchQuery.value });
+};
 
 const handleSort = (field: string): void => {
   if (sortBy.value === field) {
@@ -395,6 +428,17 @@ const handleSort = (field: string): void => {
     sortOrder.value = 'desc';
   }
   loadUsers(1);
+};
+
+// Debounced search
+const searchTimeoutId = ref<number | null>(null);
+watch(searchQuery, () => {
+  if (searchTimeoutId.value) clearTimeout(searchTimeoutId.value);
+  searchTimeoutId.value = window.setTimeout(() => loadUsers(1), 300);
+});
+
+const exportUsers = (): void => {
+  exportData({ search: searchQuery.value });
 };
 
 // Modals State
@@ -422,98 +466,7 @@ const formatRoleName = (role: string | undefined): string => {
 
 const isUserAdmin = (role: string | undefined): boolean => {
   if (!role) return false;
-  return role.toLowerCase() === 'admin';
-};
-
-const loadUsers = async (newPage: number = 1): Promise<void> => {
-  isLoading.value = true;
-  try {
-    const offset = (newPage - 1) * limit;
-    const params = new URLSearchParams({
-      limit: limit.toString(),
-      offset: offset.toString(),
-      sort: sortBy.value,
-      order: sortOrder.value,
-    });
-    if (searchQuery.value) {
-      params.append('search', searchQuery.value);
-    }
-
-    const response = await apiV1.get<{ data: User[]; total: number }>(
-      `/admin/users?${params.toString()}`
-    );
-    users.value = response.data;
-    totalUsers.value = response.total;
-    page.value = newPage;
-  } catch (e) {
-    console.error('Failed to load users', e);
-  } finally {
-    isLoading.value = false;
-  }
-};
-
-const searchTimeoutId = ref<number | null>(null);
-
-const handleSearch = (): void => {
-  if (searchTimeoutId.value) {
-    clearTimeout(searchTimeoutId.value);
-  }
-
-  // Debounce search for 300ms
-  searchTimeoutId.value = window.setTimeout(() => {
-    loadUsers(1);
-  }, 300);
-};
-
-const exportUsers = async (): Promise<void> => {
-  try {
-    // Fetch a larger set for export (e.g., 1000)
-    // Ideally backend should support streaming or specific export endpoint for massive data
-    const response = await apiV1.get<{ data: User[]; total: number }>('/admin/users?limit=1000');
-    const data = response.data;
-
-    if (!data || data.length === 0) {
-      toast({ description: 'No users to export', variant: 'default' });
-      return;
-    }
-
-    // CSV Header
-    const headers = ['ID', 'Name', 'Email', 'Role', 'Joined At', 'Banned At'];
-    const csvContent = [
-      headers.join(','),
-      ...data.map((user) =>
-        [
-          user.id,
-          `"${(user.name || '').replace(/"/g, '""')}"`,
-          `"${(user.email || '').replace(/"/g, '""')}"`,
-          user.role,
-          user.created_at,
-          user.banned_at || '',
-        ].join(',')
-      ),
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    if (link.download !== undefined) {
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `users_export_${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-
-    toast({ description: 'Users exported successfully', variant: 'success' });
-  } catch (e) {
-    console.error('Failed to export users', e);
-    toast({
-      title: 'Error',
-      description: 'Failed to export users',
-      variant: 'destructive',
-    });
-  }
+  return role.toLowerCase() === 'admin' || role.toLowerCase() === 'super_admin';
 };
 
 const canDeleteUser = (targetUser: User): boolean => {
@@ -643,11 +596,6 @@ const confirmUnban = (user: User): void => {
   );
 };
 
-onMounted(() => {
-  loadUsers();
-  loadRoles();
-});
-
 // Role Management
 interface Role {
   id: string;
@@ -760,4 +708,9 @@ const saveProfile = async (): Promise<void> => {
     isSavingProfile.value = false;
   }
 };
+
+onMounted(() => {
+  loadUsers();
+  loadRoles();
+});
 </script>

@@ -306,7 +306,7 @@ function calculateBackoffDelay(attempt: number, config: RetryConfig): number {
   const exponentialDelay = config.baseDelayMs * Math.pow(2, attempt);
   // nosec typescript:S2245 - Math.random() is intentional for retry jitter timing
   // PRNG is acceptable for network retry delays; cryptographic randomness not required
-  const jitter = Math.random() * 0.3 * exponentialDelay;
+  const jitter = Math.random() * 0.3 * exponentialDelay; // NOSONAR typescript:S2245 - PRNG acceptable for network retry jitter; not security-sensitive
   return Math.min(exponentialDelay + jitter, config.maxDelayMs);
 }
 

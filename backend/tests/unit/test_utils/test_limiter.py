@@ -23,7 +23,7 @@ class TestRateLimiterKeyFunctions:
         request.url = MagicMock()
         request.url.path = "/api/v1/gallery"
         request.client = MagicMock()
-        request.client.host = "192.168.1.1"
+        request.client.host = "192.168.1.1"  # NOSONAR python:S1313 - test fixture IP
         return request
 
     def test_get_user_id_from_request_with_valid_token(self, mock_request):
@@ -66,27 +66,27 @@ class TestRateLimiterKeyFunctions:
         mock_request.headers = {}
 
         with patch("limiter.get_remote_address") as mock_get_ip:
-            mock_get_ip.return_value = "192.168.1.1"
+            mock_get_ip.return_value = "192.168.1.1"  # NOSONAR python:S1313 - test fixture IP
 
             from limiter import get_user_id_from_request
 
             result = get_user_id_from_request(mock_request)
 
-            assert result == "192.168.1.1"
+            assert result == "192.168.1.1"  # NOSONAR python:S1313 - test fixture IP
 
     def test_get_user_id_from_request_invalid_token(self, mock_request):
         """Test fallback to IP when token is invalid"""
         mock_request.headers = {"Authorization": "Bearer invalid-token"}
 
         with patch("limiter.get_remote_address") as mock_get_ip:
-            mock_get_ip.return_value = "192.168.1.1"
+            mock_get_ip.return_value = "192.168.1.1"  # NOSONAR python:S1313 - test fixture IP
 
             from limiter import get_user_id_from_request
 
             result = get_user_id_from_request(mock_request)
 
             # Should fallback to IP
-            assert result == "192.168.1.1"
+            assert result == "192.168.1.1"  # NOSONAR python:S1313 - test fixture IP
 
     def test_get_identifier_with_endpoint(self, mock_request):
         """Test combined user/endpoint identifier"""
@@ -94,13 +94,13 @@ class TestRateLimiterKeyFunctions:
         mock_request.url.path = "/api/v1/upload/cat"
 
         with patch("limiter.get_remote_address") as mock_get_ip:
-            mock_get_ip.return_value = "10.0.0.1"
+            mock_get_ip.return_value = "10.0.0.1"  # NOSONAR python:S1313 - test fixture IP
 
             from limiter import get_identifier_with_endpoint
 
             result = get_identifier_with_endpoint(mock_request)
 
-            assert result == "10.0.0.1:/api/v1/upload/cat"
+            assert result == "10.0.0.1:/api/v1/upload/cat"  # NOSONAR python:S1313 - test fixture IP
 
 
 class TestRedisConfiguration:
@@ -125,7 +125,9 @@ class TestRedisConfiguration:
 
     def test_get_redis_url_invalid_format(self):
         """Test with invalid Redis URL format"""
-        with patch("config.config.REDIS_URL", "http://localhost:6379"):
+        with patch(
+            "config.config.REDIS_URL", "http://localhost:6379"
+        ):  # NOSONAR python:S5332 - tests rejection of non-redis URL format
             from limiter import get_redis_url
 
             result = get_redis_url()
@@ -251,6 +253,7 @@ class TestTieredRateLimiting:
         """Test that default tier is free for unauthenticated/anonymous users"""
         mock_request.headers = {}
         from limiter import get_user_tier
+
         assert get_user_tier(mock_request) == "free"
 
     def test_get_user_tier_pro(self, mock_request):
@@ -263,6 +266,7 @@ class TestTieredRateLimiting:
             )
             mock_request.headers = {"Authorization": f"Bearer {test_token}"}
             from limiter import get_user_tier
+
             assert get_user_tier(mock_request) == "pro"
 
     def test_get_user_tier_free_explicit(self, mock_request):
@@ -275,6 +279,7 @@ class TestTieredRateLimiting:
             )
             mock_request.headers = {"Authorization": f"Bearer {test_token}"}
             from limiter import get_user_tier
+
             assert get_user_tier(mock_request) == "free"
 
     def test_dynamic_limit_resolvers(self, mock_request):

@@ -16,7 +16,7 @@ async def _cleanup_notifications_job() -> None:
             await notification_service.cleanup_old_notifications(days=30)
         except asyncio.CancelledError:
             logger.info("Notification cleanup job cancelled.")
-            break
+            raise
         except Exception as e:
             logger.error(f"Error in notification cleanup job: {e}")
 
@@ -25,11 +25,12 @@ async def _cleanup_notifications_job() -> None:
             await asyncio.sleep(86400)
         except asyncio.CancelledError:
             logger.info("Notification cleanup job cancelled during sleep.")
-            break
+            raise
 
 
 _notification_task: asyncio.Task | None = None
 _account_deletion_task: asyncio.Task | None = None
+
 
 async def _cleanup_deleted_accounts_job() -> None:
     while True:
@@ -40,7 +41,7 @@ async def _cleanup_deleted_accounts_job() -> None:
             await user_service.execute_hard_delete()
         except asyncio.CancelledError:
             logger.info("Account deletion cleanup job cancelled.")
-            break
+            raise
         except Exception as e:
             logger.error(f"Error in account deletion cleanup job: {e}")
 
@@ -49,7 +50,8 @@ async def _cleanup_deleted_accounts_job() -> None:
             await asyncio.sleep(86400)
         except asyncio.CancelledError:
             logger.info("Account deletion cleanup job cancelled during sleep.")
-            break
+            raise
+
 
 async def start_cleanup_jobs() -> None:
     global _notification_task
@@ -59,6 +61,7 @@ async def start_cleanup_jobs() -> None:
         _notification_task = asyncio.create_task(_cleanup_notifications_job())
     if _account_deletion_task is None:
         _account_deletion_task = asyncio.create_task(_cleanup_deleted_accounts_job())
+
 
 async def stop_cleanup_jobs() -> None:
     global _notification_task

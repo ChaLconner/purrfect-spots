@@ -184,7 +184,11 @@ class TestAdminContentRoutes:
         """Test listing photos as admin"""
         photo_id = "00000000-0000-0000-0000-000000000001"
         mock_data = [
-            {"id": photo_id, "image_url": "http://img/1.jpg", "users": {"email": "u1@test.com", "name": "User 1"}}
+            {
+                "id": photo_id,
+                "image_url": "http://img/1.jpg",
+                "users": {"email": "u1@test.com", "name": "User 1"},
+            }  # NOSONAR python:S5332 - test data URL
         ]
 
         mock_supabase_admin.execute.return_value = MagicMock(data=mock_data)
@@ -220,7 +224,11 @@ class TestAdminContentRoutes:
         user_id = "00000000-0000-0000-0000-000000000002"
         # 1. Get photo details
         mock_supabase_admin.execute.return_value = MagicMock(
-            data={"id": photo_id, "image_url": "http://img.jpg", "user_id": user_id}
+            data={
+                "id": photo_id,
+                "image_url": "http://img.jpg",
+                "user_id": user_id,
+            }  # NOSONAR python:S5332 - test data URL
         )
 
         mock_gallery_service = MagicMock()
@@ -264,7 +272,7 @@ class TestAdminContentRoutes:
                 "id": "00000000-0000-0000-0000-000000000003",
                 "status": "pending",
                 "reporter": {"email": "reporter@test.com"},
-                "photo": {"image_url": "http://img.jpg"},
+                "photo": {"image_url": "http://img.jpg"},  # NOSONAR python:S5332 - test data URL
             }
         ]
         mock_supabase_admin.execute.return_value = MagicMock(data=mock_data)

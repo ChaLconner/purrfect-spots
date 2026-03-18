@@ -11,33 +11,42 @@ from services.notification_service import NotificationService
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
 
+from typing import Annotated
+
+
 @router.get("", response_model=list[NotificationResponse])
 async def get_notifications(
+    current_user: Annotated[User, Depends(get_current_user_from_credentials)],
+    service: Annotated[NotificationService, Depends(get_notification_service)],
     limit: int = Query(20, ge=1, le=50),
     offset: int = Query(0, ge=0),
-    current_user: User = Depends(get_current_user_from_credentials),
-    service: NotificationService = Depends(get_notification_service),
 ) -> list[dict[str, Any]]:
-    """Get user notifications"""
+    """
+    Get user notifications.
+    """
     return await service.get_notifications(current_user.id, limit, offset)
 
 
 @router.put("/{id}/read")
 async def mark_as_read(
     id: str,
-    current_user: User = Depends(get_current_user_from_credentials),
-    service: NotificationService = Depends(get_notification_service),
+    current_user: Annotated[User, Depends(get_current_user_from_credentials)],
+    service: Annotated[NotificationService, Depends(get_notification_service)],
 ) -> dict[str, str]:
-    """Mark notification as read"""
+    """
+    Mark notification as read.
+    """
     await service.mark_as_read(current_user.id, id)
     return {"status": "success"}
 
 
 @router.put("/read-all")
 async def mark_all_as_read(
-    current_user: User = Depends(get_current_user_from_credentials),
-    service: NotificationService = Depends(get_notification_service),
+    current_user: Annotated[User, Depends(get_current_user_from_credentials)],
+    service: Annotated[NotificationService, Depends(get_notification_service)],
 ) -> dict[str, str]:
-    """Mark all notifications as read"""
+    """
+    Mark all notifications as read.
+    """
     await service.mark_all_as_read(current_user.id)
     return {"status": "success"}
