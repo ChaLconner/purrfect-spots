@@ -253,7 +253,8 @@ export function useLocationPicker(options: LocationPickerOptions = {}): {
       maximumAge: 0,
     };
 
-    navigator.geolocation.getCurrentPosition( // NOSONAR typescript:S5604 - Geolocation required for cat location picking; user consent via browser prompt
+    navigator.geolocation.getCurrentPosition(
+      // NOSONAR typescript:S5604 - Geolocation required for cat location picking; user consent via browser prompt
       (position) => {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;

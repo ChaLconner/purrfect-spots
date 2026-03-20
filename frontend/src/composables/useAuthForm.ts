@@ -19,7 +19,6 @@ export interface UseAuthFormReturn {
   handleGoogleLogin: () => Promise<void>;
 }
 
-
 export function useAuthForm(initialMode: 'login' | 'register' = 'login'): UseAuthFormReturn {
   const router = useRouter();
   const authStore = useAuthStore();
@@ -59,7 +58,8 @@ export function useAuthForm(initialMode: 'login' | 'register' = 'login'): UseAut
     if (!form.email?.trim()) {
       formErrors.email = 'Email is required';
       isValid = false;
-    } else if (!/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(form.email)) { // NOSONAR typescript:S5852 - linear regex, no backtracking risk
+    } else if (!/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(form.email)) {
+      // NOSONAR typescript:S5852 - linear regex, no backtracking risk
       formErrors.email = 'Invalid email format';
       isValid = false;
     }

@@ -19,13 +19,16 @@
           class="font-accent text-sm font-medium text-btn-shade-a truncate flex-1 min-w-0 flex items-center gap-1.5 flex-wrap"
         >
           <template #count>
-            <strong class="text-btn-accent-a font-bold text-sm sm:text-base">{{ displayCount }}</strong>
+            <strong class="text-btn-accent-a font-bold text-sm sm:text-base">{{
+              displayCount
+            }}</strong>
           </template>
           <template #query>
             <span
               class="italic text-btn-brown-b truncate inline-block align-bottom max-w-[120px] sm:max-w-[180px]"
               :title="displayQuery"
-            >{{ displayQuery }}</span>
+              >{{ displayQuery }}</span
+            >
           </template>
         </i18n-t>
         <button

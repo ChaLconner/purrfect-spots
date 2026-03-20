@@ -5,10 +5,10 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from supabase import AClient
 
-from exceptions import ConflictError, ExternalServiceError, PurrfectSpotsException
 from logger import logger
 from schemas.user import User
 from utils.datetime_utils import utc_now_iso
+from utils.exceptions import ConflictError, ExternalServiceError, PurrfectSpotsException
 from utils.supabase_client import get_async_supabase_admin_client
 
 ERROR_FAILED_TO_CREATE_USER = "Failed to create user"
@@ -318,8 +318,9 @@ class UserService:
         try:
             if self.db:
                 # Construct dynamic UPDATE query
-                # SAFETY: Columns are from checked set or model keys
-                safe_cols = [k for k in update_data if k in {"name", "username", "bio", "picture", "role_id"}]
+                # SAFETY: Columns are from checked set or model keys.
+                # role_id is EXCLUDED here to prevent unauthorized privilege escalation via profile updates.
+                safe_cols = [k for k in update_data if k in {"name", "username", "bio", "picture"}]
                 cols = ", ".join([f"{k} = :{k}" for k in safe_cols])
                 query = text(f"UPDATE users SET {cols}, updated_at = NOW() WHERE id = :u_id RETURNING *")  # noqa: S608
                 params = {**{k: v for k, v in update_data.items() if k in safe_cols}, "u_id": user_id}

@@ -13,7 +13,6 @@ from fastapi.responses import JSONResponse
 
 from config import config
 from dependencies import get_gallery_service, get_quota_service
-from exceptions import ExternalServiceError
 from limiter import get_upload_limit, upload_limiter
 from logger import logger, sanitize_log_value
 from middleware.auth_middleware import get_current_user
@@ -22,6 +21,7 @@ from services.gallery_service import GalleryService
 from services.quota_service import QuotaService
 from services.storage_service import StorageService, storage_service
 from utils.cache import invalidate_gallery_cache, invalidate_tags_cache, invalidate_user_cache
+from utils.exceptions import ExternalServiceError
 from utils.file_processing import process_uploaded_image, validate_coordinates, validate_location_data
 from utils.security import (
     log_security_event,

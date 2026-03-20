@@ -4,7 +4,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import ProfileView from '@/views/ProfileView.vue';
 import { useAuthStore } from '@/store/authStore';
 import { ProfileService } from '@/services/profileService';
-import { nextTick, computed } from 'vue';
+import { nextTick } from 'vue';
 
 const mockPush = vi.fn();
 const mockReplace = vi.fn();

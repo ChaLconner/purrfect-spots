@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from exceptions import PurrfectSpotsException
 from services.user_service import UserService
+from utils.exceptions import PurrfectSpotsException
 
 
 @pytest.mark.asyncio

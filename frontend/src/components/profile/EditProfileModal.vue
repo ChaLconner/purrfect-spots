@@ -35,6 +35,7 @@ const isUploading = ref(false);
 const isUpdatingPassword = ref(false);
 const showPasswordSection = ref(false);
 const showPasswords = ref(false); // Toggle for password visibility
+const showUsernameEdit = ref(false); // Toggle for username edit
 
 const passwordRequirements = computed(() => {
   const p = passwordForm.new;
@@ -81,6 +82,7 @@ watch(
       editForm.username = props.initialUsername || '';
       editForm.bio = props.initialBio;
       editForm.picture = props.initialPicture;
+      showUsernameEdit.value = false;
       announce(t('profile.accessibility.editProfileOpened'));
     }
   }
@@ -165,7 +167,7 @@ const handleRequestDeletion = async (): Promise<void> => {
     showError(t('profile.confirmDeleteMatchError') || 'Please type "DELETE" to confirm');
     return;
   }
-  
+
   isDeletingAccount.value = true;
   try {
     await ProfileService.requestAccountDeletion();
@@ -173,7 +175,7 @@ const handleRequestDeletion = async (): Promise<void> => {
     announce(t('profile.accountDeletionScheduled'));
     showDeleteConfirm.value = false;
     deleteForm.confirmation = '';
-    
+
     // Update local user state
     if (authStore.user) {
       authStore.user.deleted_at = new Date().toISOString(); // Simulate scheduled deletion
@@ -192,7 +194,7 @@ const handleCancelDeletion = async (): Promise<void> => {
     await ProfileService.cancelAccountDeletion();
     showSuccess(t('profile.accountDeletionCancelled'));
     announce(t('profile.accountDeletionCancelled'));
-    
+
     // Update local user state
     if (authStore.user) {
       authStore.user.deleted_at = undefined;
@@ -206,12 +208,18 @@ const handleCancelDeletion = async (): Promise<void> => {
 };
 
 const handleSave = (): void => {
-  emit('save', {
+  const updateData: ProfileUpdateData = {
     name: editForm.name,
-    username: editForm.username,
     bio: editForm.bio,
     picture: editForm.picture,
-  });
+  };
+
+  // Only include username if explicitly editing AND it changed
+  if (showUsernameEdit.value && editForm.username !== props.initialUsername) {
+    updateData.username = editForm.username;
+  }
+
+  emit('save', updateData);
 };
 
 const handleClose = (): void => {
@@ -334,27 +342,53 @@ const handleKeydown = (event: KeyboardEvent): void => {
               </div>
 
               <div>
-                <label
-                  for="profile-username"
-                  class="block text-xs font-bold text-brown-light mb-2 uppercase tracking-widest pl-1"
+                <div class="flex items-center justify-between mb-2 pl-1">
+                  <label
+                    for="profile-username"
+                    class="block text-xs font-bold text-brown-light uppercase tracking-widest"
+                  >
+                    {{ t('profile.username') }}
+                  </label>
+                  <button
+                    type="button"
+                    class="text-[10px] font-bold text-terracotta hover:text-terracotta-dark uppercase tracking-wider transition-colors cursor-pointer"
+                    @click="showUsernameEdit = !showUsernameEdit"
+                  >
+                    {{ showUsernameEdit ? t('common.cancel') : t('profile.changeUsername') }}
+                  </button>
+                </div>
+
+                <div
+                  v-if="!showUsernameEdit"
+                  class="px-4 sm:px-5 py-3 sm:py-3.5 bg-stone-50/50 border-2 border-dashed border-stone-200 rounded-xl sm:rounded-2xl flex items-center justify-between group"
                 >
-                  {{ t('profile.username') }}
-                </label>
-                <input
-                  id="profile-username"
-                  v-model="editForm.username"
-                  type="text"
-                  class="w-full px-4 sm:px-5 py-2.5 sm:py-3 md:py-3.5 bg-white/60 border-2 border-stone-200 rounded-xl sm:rounded-2xl focus:outline-none focus:border-terracotta focus:bg-white focus:ring-4 focus:ring-terracotta/10 transition-all duration-300 text-sm sm:text-base text-brown font-medium placeholder-stone-400"
-                  :placeholder="t('profile.usernamePlaceholder')"
-                  autocomplete="username"
-                  pattern="^[a-zA-Z0-9_]+$"
-                  :title="t('profile.usernamePlaceholder')"
-                />
-                <p class="text-[10px] text-stone-400 mt-1 pl-1">
-                  {{ t('profile.publicProfileLink') }} /profile/{{
-                    editForm.username || 'username'
-                  }}
-                </p>
+                  <span class="text-sm sm:text-base text-stone-500 font-medium"
+                    >@{{ editForm.username || 'username' }}</span
+                  >
+                  <span
+                    class="text-[10px] text-stone-400 italic opacity-0 group-hover:opacity-100 transition-opacity"
+                    >{{ t('profile.usernameUpdateInfo') }}</span
+                  >
+                </div>
+
+                <div v-else class="space-y-2 animate-fadeIn">
+                  <input
+                    id="profile-username"
+                    v-model="editForm.username"
+                    type="text"
+                    class="w-full px-4 sm:px-5 py-2.5 sm:py-3 md:py-3.5 bg-white/60 border-2 border-terracotta/30 rounded-xl sm:rounded-2xl focus:outline-none focus:border-terracotta focus:bg-white focus:ring-4 focus:ring-terracotta/10 transition-all duration-300 text-sm sm:text-base text-brown font-medium placeholder-stone-400"
+                    :placeholder="t('profile.usernamePlaceholder')"
+                    autocomplete="username"
+                    pattern="^[a-zA-Z0-9_]+$"
+                    :title="t('profile.usernamePlaceholder')"
+                    autofocus
+                  />
+                  <p class="text-[10px] text-stone-400 mt-1 pl-1">
+                    {{ t('profile.publicProfileLink') }} /profile/{{
+                      editForm.username || 'username'
+                    }}
+                  </p>
+                </div>
               </div>
 
               <div>
@@ -516,9 +550,9 @@ const handleKeydown = (event: KeyboardEvent): void => {
                         type="button"
                         :disabled="
                           isUpdatingPassword ||
-                            !passwordForm.current ||
-                            !passwordForm.new ||
-                            !passwordForm.confirm
+                          !passwordForm.current ||
+                          !passwordForm.new ||
+                          !passwordForm.confirm
                         "
                         class="px-5 py-2.5 bg-[#C07040] text-white rounded-lg sm:rounded-xl text-sm font-bold hover:bg-[#A05030] shadow-md transition-all disabled:opacity-50 disabled:shadow-none cursor-pointer disabled:cursor-not-allowed"
                         @click="updatePassword"
@@ -535,10 +569,20 @@ const handleKeydown = (event: KeyboardEvent): void => {
               <!-- Delete Account Section -->
               <div class="border-t border-red-200/50 pt-6 mt-6">
                 <!-- If account is scheduled for deletion -->
-                <div v-if="isAccountScheduledForDeletion" class="bg-red-50 border border-red-200 p-4 rounded-xl shadow-sm">
-                  <h3 class="text-red-800 font-bold mb-2">{{ t('profile.accountPendingDeletionTitle') || 'Account Scheduled for Deletion' }}</h3>
+                <div
+                  v-if="isAccountScheduledForDeletion"
+                  class="bg-red-50 border border-red-200 p-4 rounded-xl shadow-sm"
+                >
+                  <h3 class="text-red-800 font-bold mb-2">
+                    {{
+                      t('profile.accountPendingDeletionTitle') || 'Account Scheduled for Deletion'
+                    }}
+                  </h3>
                   <p class="text-sm text-red-700 mb-4">
-                    {{ t('profile.accountPendingDeletionDesc') || 'Your account is scheduled for deletion. You can cancel this request before the grace period ends.' }}
+                    {{
+                      t('profile.accountPendingDeletionDesc') ||
+                      'Your account is scheduled for deletion. You can cancel this request before the grace period ends.'
+                    }}
                   </p>
                   <button
                     type="button"
@@ -546,10 +590,14 @@ const handleKeydown = (event: KeyboardEvent): void => {
                     class="px-5 py-2 min-w-[150px] bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700 shadow-md transition-all disabled:opacity-50 cursor-pointer"
                     @click="handleCancelDeletion"
                   >
-                    {{ isCancellingDeletion ? t('common.updating') : (t('profile.cancelDeletion') || 'Cancel Deletion') }}
+                    {{
+                      isCancellingDeletion
+                        ? t('common.updating')
+                        : t('profile.cancelDeletion') || 'Cancel Deletion'
+                    }}
                   </button>
                 </div>
-                
+
                 <!-- If account not scheduled for deletion -->
                 <div v-else>
                   <button
@@ -567,7 +615,10 @@ const handleKeydown = (event: KeyboardEvent): void => {
                     class="mt-4 space-y-4 bg-red-50/50 p-4 rounded-xl border border-red-100"
                   >
                     <p class="text-red-700 text-sm font-medium leading-relaxed">
-                      {{ t('profile.deleteAccountWarning') || 'Warning: Deleting your account will permanently remove your profile, uploads, and data. This action cannot be undone after the grace period.' }}
+                      {{
+                        t('profile.deleteAccountWarning') ||
+                        'Warning: Deleting your account will permanently remove your profile, uploads, and data. This action cannot be undone after the grace period.'
+                      }}
                     </p>
 
                     <div>
@@ -586,7 +637,7 @@ const handleKeydown = (event: KeyboardEvent): void => {
                         class="w-full px-4 py-2.5 bg-white border-2 border-red-200 rounded-xl focus:border-red-400 focus:ring-4 focus:ring-red-400/10 outline-none transition-all duration-300 text-sm text-brown uppercase"
                       />
                     </div>
-                    
+
                     <div class="flex justify-end mt-2">
                       <button
                         type="button"
@@ -594,7 +645,11 @@ const handleKeydown = (event: KeyboardEvent): void => {
                         class="px-5 py-2.5 bg-red-600 text-white rounded-lg sm:rounded-xl text-sm font-bold hover:bg-red-700 shadow-md transition-all disabled:opacity-50 disabled:shadow-none cursor-pointer disabled:cursor-not-allowed"
                         @click="handleRequestDeletion"
                       >
-                        {{ isDeletingAccount ? t('common.updating') : (t('profile.requestDeletion') || 'Request Deletion') }}
+                        {{
+                          isDeletingAccount
+                            ? t('common.updating')
+                            : t('profile.requestDeletion') || 'Request Deletion'
+                        }}
                       </button>
                     </div>
                   </div>

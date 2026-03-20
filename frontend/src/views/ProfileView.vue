@@ -87,6 +87,7 @@ import { isDev } from '../utils/env';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 import { useSeo } from '@/composables/useSeo';
 import type { User } from '@/types/auth';
+import type { CatLocation } from '@/types/api';
 
 // Sub-components
 import ProfileHeader from '@/components/profile/ProfileHeader.vue';
@@ -102,16 +103,6 @@ const route = useRoute();
 const { t } = useI18n();
 const { setMetaTags, resetMetaTags } = useSeo();
 const subscriptionStore = useSubscriptionStore();
-
-interface Upload {
-  id: string;
-  image_url: string;
-  description?: string;
-  location_name?: string;
-  latitude?: number;
-  longitude?: number;
-  uploaded_at: string;
-}
 
 // User State
 const viewedUser = ref<User | null>(null);
@@ -131,12 +122,12 @@ const isOwnProfile = computed(() => {
   return false;
 });
 
-const uploads = ref<Upload[]>([]);
+const uploads = ref<CatLocation[]>([]);
 const uploadsLoading = ref(false);
 const uploadsError = ref<string | null>(null);
 
 const showEditModal = ref(false);
-const selectedImage = ref<Upload | null>(null);
+const selectedImage = ref<CatLocation | null>(null);
 
 // Photo Edit State
 const showEditPhotoModal = ref(false);
@@ -144,14 +135,17 @@ const showDeleteConfirm = ref(false);
 const isSavingPhoto = ref(false);
 const isDeletingPhoto = ref(false);
 const isSendingTreat = ref(false);
-const photoToEdit = ref<Upload | null>(null);
+const photoToEdit = ref<CatLocation | null>(null);
 
-const openEditPhotoModal = (photo: Upload): void => {
+const openEditPhotoModal = (photo: CatLocation): void => {
   photoToEdit.value = photo;
   showEditPhotoModal.value = true;
 };
 
-const savePhotoChanges = async (data: { location_name: string; description: string }): Promise<void> => {
+const savePhotoChanges = async (data: {
+  location_name: string;
+  description: string;
+}): Promise<void> => {
   if (!photoToEdit.value) return;
   isSavingPhoto.value = true;
   try {
@@ -186,7 +180,7 @@ const savePhotoChanges = async (data: { location_name: string; description: stri
   }
 };
 
-const confirmDeletePhoto = (photo: Upload): void => {
+const confirmDeletePhoto = (photo: CatLocation): void => {
   photoToEdit.value = photo;
   showDeleteConfirm.value = true;
 };
@@ -210,7 +204,7 @@ const executeDeletePhoto = async (): Promise<void> => {
   }
 };
 
-const handleGiveTreat = async (photo: Upload): Promise<void> => {
+const handleGiveTreat = async (photo: CatLocation): Promise<void> => {
   if (!photo) return;
   if (!authStore.isAuthenticated) {
     showError(t('profile.signInToGiveTreats'));
@@ -327,7 +321,7 @@ watch(
   }
 );
 
-const openImageModal = (upload: Upload): void => {
+const openImageModal = (upload: CatLocation): void => {
   router.push({ query: { ...route.query, image: upload.id } });
 };
 

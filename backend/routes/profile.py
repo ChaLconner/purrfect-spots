@@ -574,7 +574,7 @@ async def request_account_deletion(
     except HTTPException:
         raise
     except Exception as e:
-        from exceptions import ConflictError
+        from utils.exceptions import ConflictError
 
         if isinstance(e, ConflictError):
             raise HTTPException(status_code=400, detail=str(e))
@@ -604,7 +604,7 @@ async def cancel_account_deletion(
     except HTTPException:
         raise
     except Exception as e:
-        from exceptions import ConflictError
+        from utils.exceptions import ConflictError
 
         if isinstance(e, ConflictError):
             raise HTTPException(status_code=400, detail=str(e))

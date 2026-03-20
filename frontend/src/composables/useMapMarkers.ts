@@ -27,7 +27,13 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
   const clustererOptions = {
     algorithm: new SuperClusterAlgorithm({ radius: 60, maxZoom: 16 }),
     renderer: {
-      render: ({ count, position }: { count: number; position: google.maps.LatLng }): google.maps.Marker => {
+      render: ({
+        count,
+        position,
+      }: {
+        count: number;
+        position: google.maps.LatLng;
+      }): google.maps.Marker => {
         return new google.maps.Marker({
           position,
           label: {
@@ -83,7 +89,10 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
     }
   };
 
-  const createMarker = (location: CatLocation, onMarkerClick?: (cat: CatLocation) => void): google.maps.Marker => {
+  const createMarker = (
+    location: CatLocation,
+    onMarkerClick?: (cat: CatLocation) => void
+  ): google.maps.Marker => {
     // Use Legacy Marker for consistent display of custom icons
     // AdvancedMarkerElement requires a valid Map ID and Vector Map, which can be flaky in some envs
 
@@ -122,7 +131,10 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
     }
   };
 
-  const updateMarkers = (locations: CatLocation[], onMarkerClick?: (cat: CatLocation) => void): void => {
+  const updateMarkers = (
+    locations: CatLocation[],
+    onMarkerClick?: (cat: CatLocation) => void
+  ): void => {
     if (!map.value) return;
 
     // Ensure clusterer is initialized with options if not already
