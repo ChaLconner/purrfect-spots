@@ -34,12 +34,10 @@ def create_login_response(
         user_id = str(user.get("id"))
         role = user.get("role", "user")
         permissions = user.get("permissions", [])
-        role_id = user.get("role_id")
     else:
         user_id = str(user.id)
         role = getattr(user, "role", "user")
         permissions = getattr(user, "permissions", [])
-        role_id = getattr(user, "role_id", None)
 
     # Generate tokens
     # Note: user data is optional if not updating claims
@@ -50,6 +48,7 @@ def create_login_response(
         set_refresh_cookie(response, refresh_token)
 
     # Standardize User object for response
+    # SEC-04: role_id and permissions are kept for JWT token signing only; NOT included in the public response.
     if isinstance(user, dict):
         user_response = UserResponse(
             id=user["id"],
@@ -60,8 +59,6 @@ def create_login_response(
             created_at=user.get("created_at"),
             google_id=user.get("google_id"),
             role=role,
-            role_id=role_id,
-            permissions=permissions,
         )
     else:
         user_response = UserResponse(
@@ -73,8 +70,6 @@ def create_login_response(
             created_at=user.created_at,
             google_id=user.google_id,
             role=role,
-            role_id=role_id,
-            permissions=permissions,
         )
 
     return LoginResponse(

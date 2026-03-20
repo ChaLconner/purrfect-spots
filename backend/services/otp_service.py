@@ -11,9 +11,9 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from supabase import AClient
 
-from exceptions import ExternalServiceError, PurrfectSpotsException
 from logger import logger
 from utils.datetime_utils import utc_now
+from utils.exceptions import ExternalServiceError, PurrfectSpotsException
 
 TIMEZONE_UTC_OFFSET = "+00:00"
 

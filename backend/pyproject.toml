@@ -77,12 +77,12 @@ warn_redundant_casts = true
 warn_unused_ignores = false
 explicit_package_bases = true
 exclude = [
-    "^tests/",
-    "^scripts/",
-    "^\\.venv/",
-    "^venv/",
-    "^__pycache__/",
-    "^migrations/",
+    "tests/",
+    "scripts/",
+    "\\.venv/",
+    "venv/",
+    "__pycache__/",
+    "migrations/",
 ]
 
 # Third-party library overrides (still missing stubs)
@@ -100,6 +100,7 @@ module = [
     "botocore.*",
 ]
 ignore_missing_imports = true
+disable_error_code = ["import-untyped"]
 
 
 [tool.bandit]

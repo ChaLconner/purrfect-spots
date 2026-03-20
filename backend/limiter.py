@@ -126,7 +126,9 @@ def get_user_id_from_request(request: Request) -> str:
     """
     Extract user identifier for rate limiting.
     Uses authenticated user ID if available, falls back to IP address.
+    Includes user tier in the identifier to support dynamic rate limits.
     """
+    tier = get_user_tier(request)
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
         try:
@@ -141,26 +143,32 @@ def get_user_id_from_request(request: Request) -> str:
                 user_id = payload.get("sub") or payload.get("user_id")
                 if user_id:
                     clean_user_id = "".join(c for c in str(user_id) if c.isalnum() or c in "-_@.")
-                    return f"user:{clean_user_id[0:128]}"
+                    # Return user identifier WITH tier for dynamic limit resolution
+                    return f"user:{clean_user_id[0:128]}:{tier}"
         except Exception:
             pass
 
-    return get_remote_address(request)
+    # Fallback to IP address with tier
+    return f"{get_remote_address(request)}:{tier}"
 
 
 # Dynamic Limit Resolvers
-def get_strict_limit(request: Request) -> str:
-    tier = get_user_tier(request)
+# These MUST accept a 'key' parameter to be correctly handled by slowapi's dynamic limits
+def get_strict_limit(key: str) -> str:
+    """Resolve tiered strict limit based on identifier key"""
+    tier = key.split(":")[-1] if ":" in key else "free"
     return config.RATE_LIMIT_STRICT_PRO if tier == "pro" else config.RATE_LIMIT_STRICT_FREE
 
 
-def get_upload_limit(request: Request) -> str:
-    tier = get_user_tier(request)
+def get_upload_limit(key: str) -> str:
+    """Resolve tiered upload limit based on identifier key"""
+    tier = key.split(":")[-1] if ":" in key else "free"
     return config.RATE_LIMIT_UPLOAD_PRO if tier == "pro" else config.RATE_LIMIT_UPLOAD_FREE
 
 
-def get_api_limit(request: Request) -> str:
-    tier = get_user_tier(request)
+def get_api_limit(key: str) -> str:
+    """Resolve tiered API limit based on identifier key"""
+    tier = key.split(":")[-1] if ":" in key else "free"
     return config.RATE_LIMIT_API_PRO if tier == "pro" else config.RATE_LIMIT_API_FREE
 
 

@@ -44,11 +44,10 @@ export function sanitizeInput(input: string, maxLength = 1000): string {
   );
 
   // Use DOMPurify to securely sanitize any HTML
-  // We use DOMPurify for this instead of regex because regex based HTML sanitization 
+  // We use DOMPurify for this instead of regex because regex based HTML sanitization
   // is error-prone and flagged by CodeQL as incomplete sanitization.
   return DOMPurify.sanitize(safeProtocols).trim();
 }
-
 
 /**
  * Sanitize URL to prevent javascript: protocol attacks

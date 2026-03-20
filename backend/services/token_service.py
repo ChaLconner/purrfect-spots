@@ -132,7 +132,10 @@ class TokenService:
             if result:
                 return True
         except Exception as e:
-            logger.warning(f"Redis check failed: {e}")
+            logger.warning(f"Redis read error: {e}")
+            # If connection is dead, invalidate the singleton so it reconnects next time
+            if _is_reconnect_error(e):
+                reset_token_service()
         return False
 
     def _check_memory_blacklist(self, token_hash: str) -> bool:
@@ -250,6 +253,21 @@ class TokenService:
 # Singleton instance
 _token_service: TokenService | None = None
 
+# Connection errors that warrant a full reconnect
+_RECONNECT_ERRORS = ("forcibly closed", "connection refused", "connection reset", "broken pipe", "eof occurred")
+
+
+def _is_reconnect_error(exc: Exception) -> bool:
+    """Returns True if the error suggests the Redis connection is dead."""
+    msg = str(exc).lower()
+    return any(pattern in msg for pattern in _RECONNECT_ERRORS)
+
+
+def reset_token_service() -> None:
+    """Force the singleton to reconnect on next request (call after Redis errors)."""
+    global _token_service
+    _token_service = None
+
 
 async def get_token_service(db: AsyncSession | None = None) -> TokenService:
     """Get or create token service (Async dependency)"""
@@ -263,7 +281,15 @@ async def get_token_service(db: AsyncSession | None = None) -> TokenService:
             try:
                 import redis.asyncio as aioredis
 
-                redis_client = aioredis.from_url(redis_url, encoding="utf-8", decode_responses=False)
+                redis_client = aioredis.from_url(
+                    redis_url,
+                    encoding="utf-8",
+                    decode_responses=False,
+                    socket_connect_timeout=5,
+                    socket_timeout=5,
+                    retry_on_timeout=True,
+                    health_check_interval=30,
+                )
                 await redis_client.ping()
                 logger.info("Token service initialized with Redis")
             except Exception as e:

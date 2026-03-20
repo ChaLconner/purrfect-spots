@@ -120,10 +120,12 @@ class Config:
         "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SERVICE_KEY", "SUPABASE_SECRET_KEY"
     )
 
-    # Database
-    DATABASE_URL = os.getenv(
-        "DATABASE_URL", "postgresql+asyncpg://postgres:PASSWORD@db.poubdfhpujvqrkbcdzmc.supabase.co:5432/postgres"
-    )
+    # Database (optional - if not set, services use Supabase client API directly)
+    # To enable direct DB access, set DATABASE_URL in .env with:
+    # postgresql+asyncpg://postgres:[YOUR-PASSWORD]@aws-0-[region].pooler.supabase.com:6543/postgres
+    _raw_db_url = os.getenv("DATABASE_URL", "")
+    # Ignore the placeholder default that ships in config templates
+    DATABASE_URL = _raw_db_url if _raw_db_url and "PASSWORD" not in _raw_db_url else ""
 
     # Google Auth
     GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
@@ -299,10 +301,13 @@ class Config:
         if vercel_url:
             allowed.append(f"https://{vercel_url}")
 
-        # Add frontend URL if present and not already in list
+        # Add frontend URL(s) if present — supports both single URLs and comma-separated lists
         frontend_url = os.getenv("FRONTEND_URL")
-        if frontend_url and frontend_url not in allowed:
-            allowed.append(frontend_url)
+        if frontend_url:
+            for url in frontend_url.split(","):
+                url = url.strip()
+                if url and url not in allowed:
+                    allowed.append(url)
 
         # Force add production frontend URL (Hardcoded safety net)
         prod_urls = ["https://purrfect-spots.vercel.app", "https://purrfectspots.xyz", "https://www.purrfectspots.xyz"]

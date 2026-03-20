@@ -116,19 +116,19 @@ class AuthService:
         return None
 
     def _generate_fingerprint(self, ip: str, user_agent: str) -> str:
-        """Generate SHA256 fingerprint from IP (subnet) and User-Agent"""
+        """
+        Generate SHA256 fingerprint from full IP address and User-Agent.
+
+        SEC-05 FIX: Uses the complete IP address rather than a /16 subnet prefix.
+        Previously, fingerprinting only matched the first two IPv4 octets (e.g. 192.168.x.x),
+        which allowed any device within the same ISP/subnet with an identical User-Agent
+        to reuse a stolen refresh token. Using the full IP maximises token binding to
+        the authenticated device/session.
+        """
         if not user_agent:
             user_agent = "unknown"
-        ip_segment = "unknown"
-        if ip:
-            if "." in ip:
-                parts = ip.split(".")
-                if len(parts) >= 2:
-                    ip_segment = f"{parts[0]}.{parts[1]}"
-            elif ":" in ip:
-                parts = ip.split(":")
-                if len(parts) >= 3:
-                    ip_segment = f"{parts[0]}:{parts[1]}:{parts[2]}"
+        # Use the full IP address for tighter binding
+        ip_segment = ip.strip() if ip else "unknown"
         raw = f"{user_agent}|{ip_segment}"
         return hashlib.sha256(raw.encode()).hexdigest()
 
@@ -231,8 +231,8 @@ class AuthService:
             "role": role,
             "permissions": permissions or [],
             "jti": jti,
-            "exp": expire.isoformat(),
-            "iat": utc_now().isoformat(),
+            "exp": int(expire.timestamp()),
+            "iat": int(utc_now().timestamp()),
         }
         if user_data:
             to_encode.update(
@@ -298,8 +298,8 @@ class AuthService:
             "user_id": user_id,
             "sub": user_id,
             "jti": jti,
-            "exp": expire.isoformat(),
-            "iat": utc_now().isoformat(),
+            "exp": int(expire.timestamp()),
+            "iat": int(utc_now().timestamp()),
             "type": "refresh",
         }
         if ip or user_agent:

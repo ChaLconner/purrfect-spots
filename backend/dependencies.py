@@ -216,7 +216,22 @@ async def get_token_service(db: AsyncSession = Depends(get_db)) -> TokenService:
 
 
 async def get_otp_service(db: AsyncSession = Depends(get_db)) -> OTPService:
+    """Dependency: Get OTPService instance"""
     from services.otp_service import OTPService
+
+    # CRITICAL: If db is still a 'Depends' object, it means it wasn't resolved by FastAPI.
+    # This shouldn't normally happen but was reported in Sentry.
+    if hasattr(db, "__class__") and db.__class__.__name__ == "Depends":
+        logger.error("Dependency Resolution Error: get_otp_service received unsolved 'Depends' object as 'db'!")
+        # Fallback to manual session if possible, though this is a last resort
+        from database import AsyncSessionLocal
+
+        if AsyncSessionLocal is not None:
+            async with AsyncSessionLocal() as session:
+                return OTPService(await get_async_supabase_admin_client(), db=session)
+        else:
+            logger.error("AsyncSessionLocal is None, cannot fallback to manual session")
+            return OTPService(await get_async_supabase_admin_client(), db=None)
 
     return OTPService(await get_async_supabase_admin_client(), db=db)
 

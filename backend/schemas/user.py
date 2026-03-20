@@ -50,6 +50,14 @@ class UserLogin(BaseModel):
 
 
 class UserResponse(BaseModel):
+    """
+    Public-facing user representation.
+
+    SEC-04: role_id and permissions are intentionally omitted to avoid
+    exposing the internal RBAC structure to clients. Those values are
+    embedded in the JWT claims used server-side only.
+    """
+
     id: str
     username: str | None = None
     google_id: str | None = None
@@ -61,8 +69,6 @@ class UserResponse(BaseModel):
     is_pro: bool = False
     treat_balance: int = 0
     role: str = "user"
-    role_id: str | None = None
-    permissions: list[str] = []
     banned_at: datetime | None = None
 
 
