@@ -142,6 +142,7 @@ onUnmounted(() => {
 });
 
 // Watch search query from store to update URL and fetch data
+let searchDebounce: ReturnType<typeof setTimeout> | null = null;
 watch(
   () => catsStore.gallerySearchQuery,
   (newQuery) => {
@@ -155,7 +156,10 @@ watch(
     // Replace to avoid cluttering history, preserve path params
     router.replace({ params: route.params, query });
 
-    fetchGalleryData(true);
+    if (searchDebounce) clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(() => {
+      fetchGalleryData(true);
+    }, 400); // 400ms debounce for smoother UX
   }
 );
 

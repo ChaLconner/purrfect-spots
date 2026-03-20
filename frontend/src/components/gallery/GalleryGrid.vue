@@ -275,18 +275,24 @@ async function handleGiveTreat(image: CatLocation): Promise<void> {
 
 // Infinite Scroll Observer
 function setupLoadMoreObserver(): void {
-  if (loadMoreObserver.value) loadMoreObserver.value.disconnect();
+  // Ensure we disconnect previous observer to avoid leaks
+  if (loadMoreObserver.value) {
+    loadMoreObserver.value.disconnect();
+    loadMoreObserver.value = null;
+  }
+
   if (!loadMoreTrigger.value || !props.hasMore) return;
 
   loadMoreObserver.value = new IntersectionObserver(
     (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting && props.hasMore && !props.loadingMore) {
-          emit('load-more');
-        }
-      });
+      const [entry] = entries;
+      // Added isIntersecting AND check if already loading to prevent race conditions
+      if (entry.isIntersecting && props.hasMore && !props.loadingMore) {
+        emit('load-more');
+      }
     },
     {
+      root: null, // Scanned viewport
       rootMargin: GALLERY_CONFIG.LOAD_MORE_ROOT_MARGIN,
       threshold: GALLERY_CONFIG.LAZY_LOAD_THRESHOLD,
     }
@@ -304,7 +310,10 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('resize', updateWidth);
-  if (loadMoreObserver.value) loadMoreObserver.value.disconnect();
+  if (loadMoreObserver.value) {
+    loadMoreObserver.value.disconnect();
+    loadMoreObserver.value = null;
+  }
   loadedImages.value = {};
 });
 

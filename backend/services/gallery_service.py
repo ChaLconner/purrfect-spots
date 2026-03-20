@@ -93,7 +93,7 @@ class GalleryService:
             }
         except Exception as e:
             logger.error(f"Failed to fetch gallery images: {e!s}", exc_info=True)
-            from exceptions import ExternalServiceError
+            from utils.exceptions import ExternalServiceError
 
             raise ExternalServiceError(f"Failed to fetch gallery images: {e!s}", service="Supabase")
 
@@ -195,7 +195,7 @@ class GalleryService:
             )
             return supa_res.data or []
         except Exception as e:
-            from exceptions import ExternalServiceError
+            from utils.exceptions import ExternalServiceError
 
             raise ExternalServiceError(f"Failed to fetch gallery images: {e!s}", service="Supabase")
 
@@ -239,7 +239,7 @@ class GalleryService:
                     photo["image_url"] = f"{photo['image_url']}{sep}width=100&resize=cover&format=webp"
             return data
         except Exception as e:
-            from exceptions import ExternalServiceError
+            from utils.exceptions import ExternalServiceError
 
             raise ExternalServiceError(f"Failed to fetch map locations: {e!s}", service="Supabase")
 
@@ -270,7 +270,7 @@ class GalleryService:
             return results
         except Exception as e:
             logger.error(f"Search error: {e}")
-            from exceptions import ExternalServiceError
+            from utils.exceptions import ExternalServiceError
 
             raise ExternalServiceError(f"Database error during photo retrieval: {e!s}", service="Supabase")
 
@@ -335,7 +335,7 @@ class GalleryService:
             return [{"tag": tag, "count": count} for tag, count in tag_list]
 
         except Exception as e:
-            from exceptions import ExternalServiceError
+            from utils.exceptions import ExternalServiceError
 
             raise ExternalServiceError(f"Failed to get popular tags: {e!s}", service="Supabase")
 
@@ -374,7 +374,7 @@ class GalleryService:
 
             return self._process_photos(data)
         except Exception as e:
-            from exceptions import ExternalServiceError
+            from utils.exceptions import ExternalServiceError
 
             raise ExternalServiceError(f"Failed to fetch user images: {e!s}", service="Supabase")
 
@@ -475,7 +475,7 @@ class GalleryService:
             return self._process_photos(data)
 
         except Exception as e:
-            from exceptions import ExternalServiceError
+            from utils.exceptions import ExternalServiceError
 
             raise ExternalServiceError(f"Failed to fetch nearby photos: {e!s}", service="Supabase")
 
@@ -508,7 +508,7 @@ class GalleryService:
         except Exception as e:
             msg = str(e)
             logger.error("Resource retrieval failed for identifier %s: %s", photo_id, msg)
-            from exceptions import ExternalServiceError
+            from utils.exceptions import ExternalServiceError
 
             raise ExternalServiceError(f"Failed to fetch photo {photo_id}", service="Supabase")
 
@@ -606,17 +606,23 @@ class GalleryService:
             # 2. Hard Delete from Database (Permanent deletion)
             from database import AsyncSessionLocal
 
-            async with AsyncSessionLocal() as db:
-                try:
-                    # Explicit transaction for deletion
-                    query = text("DELETE FROM cat_photos WHERE id = :id")
-                    await db.execute(query, {"id": photo_id})
-                    await db.commit()
-                except Exception as db_err:
-                    await db.rollback()
-                    logger.warning(f"SQLAlchemy background deletion failed, using Supabase fallback: {db_err}")
-                    admin_client = await self.supabase_admin
-                    await admin_client.table("cat_photos").delete().eq("id", photo_id).execute()
+            async_session_factory = AsyncSessionLocal
+            if async_session_factory is not None:
+                async with async_session_factory() as db:
+                    try:
+                        # Explicit transaction for deletion
+                        query = text("DELETE FROM cat_photos WHERE id = :id")
+                        await db.execute(query, {"id": photo_id})
+                        await db.commit()
+                    except Exception as db_err:
+                        await db.rollback()
+                        logger.warning(f"SQLAlchemy background deletion failed, using Supabase fallback: {db_err}")
+                        admin_client = await self.supabase_admin
+                        await admin_client.table("cat_photos").delete().eq("id", photo_id).execute()
+            else:
+                logger.warning("AsyncSessionLocal is None, using Supabase fallback for background deletion")
+                admin_client = await self.supabase_admin
+                await admin_client.table("cat_photos").delete().eq("id", photo_id).execute()
 
             # 3. Invalidate Caches
             from utils.cache import invalidate_gallery_cache, invalidate_tags_cache, invalidate_user_cache
@@ -653,7 +659,7 @@ class GalleryService:
                 result = await self.db.execute(query, photo_data)
                 row = result.fetchone()
                 if not row:
-                    from exceptions import ExternalServiceError
+                    from utils.exceptions import ExternalServiceError
 
                     raise ExternalServiceError("Database insert returned no data", service="PostgreSQL")
 
@@ -671,7 +677,7 @@ class GalleryService:
             res = await admin.table("cat_photos").insert(photo_data).execute()
 
             if not res.data:
-                from exceptions import ExternalServiceError
+                from utils.exceptions import ExternalServiceError
 
                 raise ExternalServiceError("Database insert returned no data", service="Supabase")
 

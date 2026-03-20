@@ -6,13 +6,13 @@ from dependencies import (
     get_current_token,
     get_social_service,
 )
-from exceptions import ExternalServiceError, NotFoundError
 from logger import logger
 from middleware.auth_middleware import get_current_user_from_credentials
 from schemas.social import CommentCreate, CommentResponse, CommentUpdate, LikeResponse
 from schemas.user import User
 from services.social_service import SocialService
 from utils.action_throttle import like_rate_limiter
+from utils.exceptions import ExternalServiceError, NotFoundError
 
 router = APIRouter(prefix="/social", tags=["Social"])
 

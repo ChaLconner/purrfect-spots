@@ -2,8 +2,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from exceptions import NotFoundError
 from services.social_service import SocialService
+from utils.exceptions import NotFoundError
 
 
 @pytest.fixture

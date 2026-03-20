@@ -4,10 +4,10 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from supabase import AClient
 
-from exceptions import ExternalServiceError, NotFoundError
 from logger import logger, sanitize_log_value
 from schemas.notification import NotificationType
 from services.notification_service import NotificationService
+from utils.exceptions import ExternalServiceError, NotFoundError
 
 PHOTO_NOT_FOUND = "Photo not found"
 

@@ -140,7 +140,7 @@ function openDirections(): void {
 
 <template>
   <div
-    class="flex flex-col bg-cream-bg p-5 sm:p-6 min-[900px]:py-6 min-[900px]:px-6 overflow-hidden overflow-x-hidden relative z-10 max-sm:rounded-none max-sm:mt-0 max-sm:shadow-none sm:mt-0 sm:rounded-none sm:shadow-none min-w-0 w-full"
+    class="flex flex-col bg-cream-bg p-5 sm:p-6 min-[900px]:py-6 min-[900px]:px-6 overflow-hidden overflow-x-hidden relative z-10 max-sm:rounded-none max-sm:mt-0 max-sm:shadow-none sm:mt-0 sm:rounded-none sm:shadow-none min-w-0 min-h-0 w-full flex-1"
   >
     <!-- Mobile Drag Handle Visual -->
     <div class="block sm:hidden w-full flex justify-center pb-2">
