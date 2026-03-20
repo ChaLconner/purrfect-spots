@@ -24,21 +24,28 @@ export const useToastStore = defineStore('toast', () => {
    * Add a new toast notification
    */
   function addToast(
-    message: string,
+    messageOrOptions: string | Omit<Toast, 'id'>,
     type: ToastType = 'info',
     duration: number = 5000,
     title?: string
   ): string {
     const id = `${Date.now()}-${idCounter++}`;
-    const toast: Toast = { id, type, message, duration, title };
+
+    let toast: Toast;
+    if (typeof messageOrOptions === 'string') {
+      toast = { id, type, message: messageOrOptions, duration, title };
+    } else {
+      toast = { ...messageOrOptions, id };
+    }
 
     toasts.value.push(toast);
 
     // Auto-remove after duration (if not 0)
-    if (duration > 0) {
+    const toastDuration = toast.duration ?? duration;
+    if (toastDuration > 0) {
       setTimeout(() => {
         removeToast(id);
-      }, duration);
+      }, toastDuration);
     }
 
     return id;
@@ -64,29 +71,50 @@ export const useToastStore = defineStore('toast', () => {
   /**
    * Show success toast
    */
-  function showSuccess(message: string, title: string = 'Success'): string {
-    return addToast(message, 'success', 4000, title);
+  function showSuccess(
+    messageOrOptions: string | Omit<Toast, 'id' | 'type'>,
+    title: string = 'Success'
+  ): string {
+    if (typeof messageOrOptions === 'string') {
+      return addToast(messageOrOptions, 'success', 4000, title);
+    }
+    return addToast({ ...messageOrOptions, type: 'success' }, 'success', 4000);
   }
 
   /**
    * Show error toast
    */
-  function showError(message: string, title: string = 'Error'): string {
-    return addToast(message, 'error', 6000, title);
+  function showError(
+    messageOrOptions: string | Omit<Toast, 'id' | 'type'>,
+    title: string = 'Error'
+  ): string {
+    if (typeof messageOrOptions === 'string') {
+      return addToast(messageOrOptions, 'error', 6000, title);
+    }
+    return addToast({ ...messageOrOptions, type: 'error' }, 'error', 6000);
   }
 
   /**
    * Show warning toast
    */
-  function showWarning(message: string, title: string = 'Warning'): string {
-    return addToast(message, 'warning', 5000, title);
+  function showWarning(
+    messageOrOptions: string | Omit<Toast, 'id' | 'type'>,
+    title: string = 'Warning'
+  ): string {
+    if (typeof messageOrOptions === 'string') {
+      return addToast(messageOrOptions, 'warning', 5000, title);
+    }
+    return addToast({ ...messageOrOptions, type: 'warning' }, 'warning', 5000);
   }
 
   /**
    * Show info toast
    */
-  function showInfo(message: string, title?: string): string {
-    return addToast(message, 'info', 5000, title);
+  function showInfo(messageOrOptions: string | Omit<Toast, 'id' | 'type'>, title?: string): string {
+    if (typeof messageOrOptions === 'string') {
+      return addToast(messageOrOptions, 'info', 5000, title);
+    }
+    return addToast({ ...messageOrOptions, type: 'info' }, 'info', 5000);
   }
 
   return {
@@ -132,22 +160,28 @@ export const toastState = {
 
 // Legacy function exports
 export function addToast(
-  message: string,
+  messageOrOptions: string | Omit<Toast, 'id'>,
   type: ToastType = 'info',
   duration: number = 5000,
   title?: string
 ): string {
-  return getStore()?.addToast(message, type, duration, title) ?? '';
+  return getStore()?.addToast(messageOrOptions, type, duration, title) ?? '';
 }
 
 export function removeToast(id: string): void {
   getStore()?.removeToast(id);
 }
 
-export function showError(message: string, title: string = 'Error'): string {
-  return getStore()?.showError(message, title) ?? '';
+export function showError(
+  messageOrOptions: string | Omit<Toast, 'id' | 'type'>,
+  title: string = 'Error'
+): string {
+  return getStore()?.showError(messageOrOptions, title) ?? '';
 }
 
-export function showSuccess(message: string, title: string = 'Success'): string {
-  return getStore()?.showSuccess(message, title) ?? '';
+export function showSuccess(
+  messageOrOptions: string | Omit<Toast, 'id' | 'type'>,
+  title: string = 'Success'
+): string {
+  return getStore()?.showSuccess(messageOrOptions, title) ?? '';
 }

@@ -64,8 +64,8 @@ except ImportError:
     sys.modules["slowapi.util"] = MagicMock()
     # Mock limiter instance since it's used in decorators
     sys.modules["limiter"] = MagicMock()
-    sys.modules["limiter"].limiter = MagicMock()
-    sys.modules["limiter"].limiter.limit = lambda x: lambda f: f  # Mock decorator
+    sys.modules["limiter"].limiter = MagicMock()  # type: ignore[attr-defined]
+    sys.modules["limiter"].limiter.limit = lambda x: lambda f: f  # type: ignore[attr-defined]
 
 
 # Mock mcp module if it causes issues (e.g. issues with anyio on windows)
@@ -93,7 +93,7 @@ try:
             pass
 except ImportError:
 
-    class MockMCPIntegration:
+    class MockMCPIntegration:  # type: ignore[no-redef]
         identifier = "mcp"
 
         @staticmethod

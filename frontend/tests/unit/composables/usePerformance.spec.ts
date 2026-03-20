@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { usePerformance, logMetric, measureAsync, measureSync, useRenderTime, useApiTiming, getMetrics, clearMetrics, getPerformanceSummary } from '@/composables/usePerformance';
+import { logMetric, measureAsync, measureSync, useRenderTime, useApiTiming, getMetrics, clearMetrics, getPerformanceSummary } from '@/composables/usePerformance';
 import { mount } from '@vue/test-utils';
 import { defineComponent } from 'vue';
 
@@ -268,7 +268,7 @@ describe('usePerformance', () => {
 
   describe('useApiTiming', () => {
     it('should track api calls', async () => {
-      const { apiCalls, trackApiCall } = useApiTiming();
+      const { trackApiCall } = useApiTiming();
       
       let time = 1000;
       (globalThis.performance.now as any).mockImplementation(() => {

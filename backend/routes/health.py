@@ -122,14 +122,21 @@ def check_s3() -> dict[str, Any]:
         start_time = datetime.now(UTC)
         account_id = os.getenv("AWS_ACCOUNT_ID")
 
-        # Create S3 client with timeout
-        s3 = boto3.client("s3", config=BotoConfig(connect_timeout=5, read_timeout=5))
+        # Create S3 client with timeout and explicit credentials
+        s3 = boto3.client(
+            "s3",
+            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+            region_name=os.getenv("AWS_REGION", "ap-southeast-2"),
+            config=BotoConfig(connect_timeout=5, read_timeout=5),
+        )
 
         # Check if bucket exists and is accessible
         # Using ExpectedBucketOwner to verify bucket ownership if account_id is provided
         head_kwargs = {"Bucket": bucket_name}
         if account_id:
-            head_kwargs["ExpectedBucketOwner"] = account_id
+            # ExpectedBucketOwner must be numeric string without dashes
+            head_kwargs["ExpectedBucketOwner"] = account_id.replace("-", "")
 
         s3.head_bucket(**head_kwargs)
 
@@ -145,7 +152,7 @@ def check_s3() -> dict[str, Any]:
         return {"status": "not_available", "error": "boto3 package not installed"}
     except Exception as e:
         logger.error(f"S3 health check failed: {e}")
-        return {"status": "unhealthy", "error": ERROR_CONNECTION_FAILED}
+        return {"status": "unhealthy", "error": f"{ERROR_CONNECTION_FAILED}: {str(e)}"}
 
 
 def check_google_vision() -> dict[str, Any]:

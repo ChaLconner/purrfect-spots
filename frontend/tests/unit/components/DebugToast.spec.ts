@@ -1,5 +1,5 @@
 import { showSuccess } from '@/store/toast';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 describe('Debug Toast', () => {
   it('should import', () => {

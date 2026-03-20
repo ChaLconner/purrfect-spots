@@ -15,7 +15,7 @@ onMounted(() => {
     isVisible.value = true;
   });
 
-  if (props.toast.duration > 0) {
+  if (props.toast.duration && props.toast.duration > 0) {
     setTimeout(() => {
       close();
     }, props.toast.duration);

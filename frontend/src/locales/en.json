@@ -355,6 +355,8 @@
     "socialAccountMessage": "You are signed in with a social account. You cannot change your password here.",
     "currentPassword": "Current Password",
     "updatePassword": "Update Password",
+    "changeUsername": "Change Username",
+    "usernameUpdateInfo": "Your username can be changed, but most users keep it the same.",
     "saveProfile": "Save Profile",
     "uploaded": "Uploaded",
     "noDescription": "No description available",

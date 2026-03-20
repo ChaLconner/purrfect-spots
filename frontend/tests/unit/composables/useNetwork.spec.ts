@@ -24,11 +24,11 @@ describe('useNetwork', () => {
 
     let result: any;
     const TestComponent = defineComponent({
-      template: '<div></div>',
       setup() {
         result = useNetwork();
         return {};
       },
+      template: '<div></div>',
     });
 
     mount(TestComponent);
@@ -41,11 +41,11 @@ describe('useNetwork', () => {
 
     let result: any;
     const TestComponent = defineComponent({
-      template: '<div></div>',
       setup() {
         result = useNetwork();
         return {};
       },
+      template: '<div></div>',
     });
 
     mount(TestComponent);
@@ -67,11 +67,11 @@ describe('useNetwork', () => {
 
     let result: any;
     const TestComponent = defineComponent({
-      template: '<div></div>',
       setup() {
         result = useNetwork();
         return {};
       },
+      template: '<div></div>',
     });
 
     mount(TestComponent);
@@ -90,11 +90,11 @@ describe('useNetwork', () => {
     const removeEventListenerSpy = vi.spyOn(globalThis, 'removeEventListener');
 
     const TestComponent = defineComponent({
-      template: '<div></div>',
       setup() {
         useNetwork();
         return {};
       },
+      template: '<div></div>',
     });
 
     const wrapper = mount(TestComponent);

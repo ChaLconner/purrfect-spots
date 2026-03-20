@@ -13,8 +13,8 @@ env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
 
 # Initialize Supabase
-url: str = os.environ.get("SUPABASE_URL")
-key: str = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+url = os.environ.get("SUPABASE_URL", "")
+key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 
 if not url or not key:
     raise ValueError("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY")

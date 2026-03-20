@@ -4,7 +4,7 @@ import SearchBox from '@/components/navbar/SearchBox.vue';
 import { createPinia, setActivePinia } from 'pinia';
 import { useCatsStore } from '@/store/catsStore';
 import { useRouter, useRoute } from 'vue-router';
-import { ref, reactive, nextTick } from 'vue';
+import { reactive, nextTick } from 'vue';
 
 // Mock dependencies
 vi.mock('vue-router', () => ({

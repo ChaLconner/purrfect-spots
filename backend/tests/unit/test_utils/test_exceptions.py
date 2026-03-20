@@ -1,6 +1,6 @@
 import pytest
 
-from exceptions import (
+from utils.exceptions import (
     AuthenticationError,
     AuthorizationError,
     CatDetectionError,

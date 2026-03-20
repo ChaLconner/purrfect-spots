@@ -27,7 +27,6 @@ export interface UseSeoReturn {
   DEFAULT_DESCRIPTION: string;
 }
 
-
 /**
  * Set document title and meta tags
  */

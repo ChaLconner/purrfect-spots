@@ -11,11 +11,11 @@ export function useModalFocus(
 
   const trapFocus = (e: KeyboardEvent): void => {
     if (!modalContainer.value) return;
-    
+
     const focusableElements = modalContainer.value.querySelectorAll<HTMLElement>(
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
     );
-    
+
     if (focusableElements.length === 0) return;
 
     const firstElement = focusableElements[0];
@@ -52,7 +52,7 @@ export function useModalFocus(
     if (options.lockScroll !== false) {
       document.body.style.overflow = 'hidden';
     }
-    
+
     nextTick(() => {
       modalContainer.value?.focus();
     });

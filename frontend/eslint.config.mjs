@@ -58,14 +58,10 @@ const config = [
           math: 'always',
         },
       ],
-      'vue/max-attributes-per-line': [
-        'warn',
-        {
-          singleline: 5,
-          multiline: 1,
-        },
-      ],
+      'vue/max-attributes-per-line': 'off',
+      'vue/html-indent': 'off',
       'vue/singleline-html-element-content-newline': 'off',
+      'vue/html-closing-bracket-newline': 'off',
 
       // ==============================================================================
       // Security Rules - Important (Warnings for gradual improvement)

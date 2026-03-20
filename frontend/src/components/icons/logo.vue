@@ -1,9 +1,5 @@
 <template>
-  <img
-    src="/logo.png"
-    alt="Purrfect Spots Logo"
-    class="purrfect-logo-img"
-  />
+  <img src="/logo.png" alt="Purrfect Spots Logo" class="purrfect-logo-img" />
 </template>
 
 <script lang="ts" setup>
@@ -25,4 +21,3 @@
   transform: scale(1.05) rotate(-2deg);
 }
 </style>
-

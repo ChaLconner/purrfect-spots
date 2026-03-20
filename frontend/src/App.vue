@@ -151,7 +151,7 @@ onErrorCaptured((err, instance, info) => {
       id="main-content"
       role="main"
       tabindex="-1"
-      class="flex-1 overflow-auto flex flex-col focus:outline-none w-full pb-20 xl:pb-0"
+      class="flex-1 flex flex-col focus:outline-none w-full pb-20 xl:pb-0"
     >
       <ErrorBoundary>
         <router-view />

@@ -10,6 +10,7 @@ export interface Notification {
   resource_type?: string;
   is_read: boolean;
   created_at: string;
+  actor_id?: string;
   actor_name?: string;
   actor_picture?: string;
 }

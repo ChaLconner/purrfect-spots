@@ -47,9 +47,9 @@ export const PAGINATION_CONFIG = {
 // ========== Gallery Constants ==========
 export const GALLERY_CONFIG = {
   IMAGES_PER_PAGE: 20,
-  LAZY_LOAD_ROOT_MARGIN: '100px',
-  LOAD_MORE_ROOT_MARGIN: '200px',
-  LAZY_LOAD_THRESHOLD: 0.1,
+  LAZY_LOAD_ROOT_MARGIN: '200px',
+  LOAD_MORE_ROOT_MARGIN: '600px',
+  LAZY_LOAD_THRESHOLD: 0.01,
   LOAD_MORE_DELAY_MS: 300,
   MAX_LOADED_IMAGES_CACHE: 200, // Max images to keep in memory cache
   LAZY_LOAD_DEBOUNCE_MS: 100, // Debounce delay for lazy loading setup

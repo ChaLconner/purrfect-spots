@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "scripts"))
 
-from check_api_breaking_changes import check_non_breaking_changes, compare_schemas
+from check_api_breaking_changes import check_non_breaking_changes, compare_schemas  # type: ignore[import-not-found]
 
 
 class TestCompareSchemas:
