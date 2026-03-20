@@ -126,7 +126,7 @@ class TestAuthServiceExtended:
         mock_token_service.is_blacklisted.side_effect = lambda jti: jti == "jti_123"
         mock_token_service.blacklist_token.return_value = True
 
-        with patch("services.auth_service.get_token_service", new_callable=AsyncMock) as mock_get_service:
+        with patch("services.auth.token_mixin.get_token_service", new_callable=AsyncMock) as mock_get_service:
             mock_get_service.return_value = mock_token_service
 
             # Test is_token_revoked

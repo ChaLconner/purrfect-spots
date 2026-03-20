@@ -69,7 +69,7 @@ class TestUploadRoute:
     @pytest.fixture
     def mock_limiter(self):
         """Mock the rate limiter"""
-        with patch("routes.upload.limiter") as mock:
+        with patch("routes.upload.upload_limiter") as mock:
             mock.limit = MagicMock(side_effect=lambda limit_value: lambda func: func)
             yield mock
 
@@ -259,7 +259,7 @@ class TestUploadValidation:
     @pytest.fixture
     def mock_limiter(self):
         """Mock the rate limiter"""
-        with patch("routes.upload.limiter") as mock:
+        with patch("routes.upload.upload_limiter") as mock:
             mock.limit = MagicMock(side_effect=lambda limit_value: lambda func: func)
             yield mock
 
@@ -362,7 +362,7 @@ class TestUploadWithPredetectedCats:
     @pytest.fixture
     def mock_limiter(self):
         """Mock the rate limiter"""
-        with patch("routes.upload.limiter") as mock:
+        with patch("routes.upload.upload_limiter") as mock:
             mock.limit = MagicMock(side_effect=lambda limit_value: lambda func: func)
             yield mock
 

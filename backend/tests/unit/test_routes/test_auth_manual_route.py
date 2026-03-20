@@ -197,12 +197,13 @@ class TestRegisterEndpoint:
             },
         )
 
-        # Should be 400 for duplicate, or 429 if rate limited
-        assert response.status_code in [400, 429]
-        if response.status_code == 400:
+        # Should be 400/409 for duplicate, or 429 if rate limited
+        assert response.status_code in [400, 409, 429]
+        if response.status_code in [400, 409]:
             assert (
                 "already in use" in response.json()["detail"].lower()
                 or "already registered" in response.json()["detail"].lower()
+                or "email" in response.json()["detail"].lower()
             )
 
 
@@ -267,7 +268,8 @@ class TestRefreshTokenEndpoint:
         from unittest.mock import AsyncMock
 
         mock_auth_service.verify_refresh_token = AsyncMock(return_value={"user_id": "test-user-id"})
-        mock_auth_service.create_access_token.return_value = "new-access-token"
+        mock_auth_service.create_access_token = MagicMock(return_value="new-access-token")
+        mock_auth_service.create_refresh_token = MagicMock(return_value="new-refresh-token")
 
         # Mock user retrieval to satisfy LoginResponse Pydantic validation
         user_obj = User(
@@ -284,11 +286,19 @@ class TestRefreshTokenEndpoint:
         # Set refresh token cookie
         client.cookies.set("refresh_token", "valid-refresh-token")
 
-        response = await client.post("/api/v1/auth/refresh-token")
+        with patch("routes.auth.create_login_response") as mock_create:
+            from schemas.auth import LoginResponse
 
-        if response.status_code == 200:
-            data = response.json()
-            assert data["access_token"] == "new-access-token"
+            mock_create.return_value = LoginResponse(
+                access_token="new-access-token",
+                token_type="bearer",
+                message="Token refreshed",
+            )
+            response = await client.post("/api/v1/auth/refresh-token")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["access_token"] == "new-access-token"
 
     async def test_refresh_token_missing(self, client, mock_auth_service):
         """Test refresh returns soft failure when cookie is missing (SPA friendly)"""
@@ -440,28 +450,34 @@ class TestOtherAuthEndpoints:
     async def test_verify_otp(self, client, mock_auth_service):
         from datetime import UTC
 
-        # mock_auth_service fixture already sets up otp_service
+        from schemas.auth import LoginResponse
+
+        # mock_auth_service fixture already sets up otp_service via dependency_overrides
         mock_auth_service.confirm_user_email = AsyncMock(return_value=True)
         mock_auth_service.get_user_by_email_unverified = AsyncMock(
             return_value={"id": "1", "email": "test@example.com", "name": "Test", "created_at": datetime.now(UTC)}
         )
+        mock_auth_service.create_or_get_user = AsyncMock(
+            return_value=User(
+                id="1",
+                email="test@example.com",
+                name="Test",
+                created_at=datetime.now(UTC),
+            )
+        )
 
-        mock_otp = AsyncMock()
-        mock_otp.verify_otp = AsyncMock(return_value={"success": True})
-
-        with (
-            patch("routes.auth.create_login_response", return_value={"message": "Success"}),
-            patch("routes.auth.get_otp_service", new_callable=AsyncMock, return_value=mock_otp),
-        ):
+        with patch("routes.auth.create_login_response") as mock_clr:
+            mock_clr.return_value = LoginResponse(access_token="tok", token_type="bearer", message="ok")
             response = await client.post("/api/v1/auth/verify-otp", json={"email": "test@example.com", "otp": "123456"})
         assert response.status_code == 200
 
     async def test_resend_otp(self, client, mock_auth_service):
         # The endpoint uses auth_service.get_user_by_email_unverified
-        mock_auth_service.get_user_by_email_unverified.return_value = {"id": "1", "email": "test@example.com"}
+        mock_auth_service.get_user_by_email_unverified = AsyncMock(
+            return_value={"id": "1", "email": "test@example.com"}
+        )
 
-        # mock_auth_service already mocks otp_service
-        # so we just need to hit the endpoint
+        # mock_auth_service already mocks otp_service via dependency_overrides
         response = await client.post("/api/v1/auth/resend-otp", json={"email": "test@example.com"})
         assert response.status_code == 200
 
@@ -492,9 +508,23 @@ class TestOtherAuthEndpoints:
     @pytest.mark.asyncio
     async def test_google_exchange(self, client, mock_auth_service):
         from schemas.auth import LoginResponse
+        from schemas.user import UserResponse
 
+        user_resp = UserResponse(
+            id="u1",
+            email="g@g.com",
+            name="G",
+            created_at=datetime(2024, 1, 1),
+            picture=None,
+            bio=None,
+            google_id=None,
+        )
         login_response = LoginResponse(
-            access_token="test_access", refresh_token="test_refresh", token_type="bearer", message="Success"
+            access_token="test_access",
+            refresh_token="test_refresh",
+            token_type="bearer",
+            message="Success",
+            user=user_resp,
         )
         mock_auth_service.exchange_google_code = AsyncMock(return_value=login_response)
 

@@ -32,8 +32,8 @@ def mock_supabase():
 
     class MockEq:
         def __init__(self): ...
-        def execute(self):
-            return mock_execute()
+        async def execute(self):
+            return await mock_execute()
 
         def maybe_single(self):
             return self
@@ -105,8 +105,8 @@ def mock_supabase():
         def textSearch(self, *a, **kw):
             return mock_eq
 
-        def execute(self):
-            return mock_execute()
+        async def execute(self):
+            return await mock_execute()
 
         def single(self):
             return mock_single

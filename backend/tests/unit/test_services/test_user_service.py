@@ -50,9 +50,9 @@ class TestUserService:
     @pytest.fixture
     async def user_service(self, mock_supabase, mock_supabase_admin):
         """Create UserService instance with mocked dependencies"""
-        # Patch the async getter
+        # Patch the async getter in the mixin where it's actually used
         with patch(
-            "services.user_service.get_async_supabase_admin_client", new=AsyncMock(return_value=mock_supabase_admin)
+            "services.user.base_mixin.get_async_supabase_admin_client", new=AsyncMock(return_value=mock_supabase_admin)
         ):
             service = UserService(mock_supabase)
             yield service

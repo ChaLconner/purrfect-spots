@@ -93,6 +93,7 @@ import { useGeolocation } from '../composables/useGeolocation';
 import { useMapMarkers } from '../composables/useMapMarkers';
 import { useSeo } from '../composables/useSeo';
 
+console.log('MAP VIEW SCRIPT SETUP');
 const route = useRoute();
 const router = useRouter();
 const catsStore = useCatsStore();
@@ -171,11 +172,10 @@ const initializeMap = async (): Promise<void> => {
         throw new Error('Google Maps API key is missing.');
       }
 
-      // Load Google Maps without blocking
       await loadGoogleMaps({
         apiKey,
-        libraries: 'places,marker',
-        version: 'weekly',
+        libraries: MAP_CONFIG.LIBRARIES,
+        version: MAP_CONFIG.VERSION,
       });
     } catch (err: unknown) {
       error.value = t('map.errorInitializing', { message: (err as Error).message });
@@ -187,9 +187,8 @@ const initializeMap = async (): Promise<void> => {
 
   try {
     let mapElement = document.getElementById('map');
-
-    // Ensure map container exists
     if (!mapElement) {
+      await nextTick();
       mapElement = document.getElementById('map');
     }
 

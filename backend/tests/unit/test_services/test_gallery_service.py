@@ -16,13 +16,8 @@ class TestGalleryService:
     @pytest.fixture
     def gallery_service(self, mock_supabase, mock_supabase_admin):
         """Create GalleryService instance with mocked dependencies"""
-        # Ensure imports are fresh
-        import importlib
-
-        import services.gallery_service
-
-        importlib.reload(services.gallery_service)
-
+        # We NO LONGER need importlib.reload here as conftest now clears all caches
+        # using an autouse fixture.
         with patch("dependencies.get_async_supabase_admin_client", return_value=mock_supabase_admin):
             service = GalleryService(mock_supabase)
             service._admin_client_lazy = mock_supabase_admin
@@ -202,7 +197,8 @@ class TestGalleryService:
         # So eventually it should raise exception.
 
         with pytest.raises(Exception) as excinfo:
-            await gallery_service.get_all_photos()
+            # Use unique parameters to ensure we don't hit a cached success from a previous test
+            await gallery_service.get_all_photos(limit=99, offset=99)
 
         assert "Failed to fetch gallery images" in str(excinfo.value)
 
@@ -216,10 +212,12 @@ class TestGalleryService:
         # Reset mock before call
         mock_supabase.rpc.reset_mock()
 
-        await gallery_service.get_all_photos(limit=10)
+        # Use unique parameters to ensure we don't hit the cache
+        # (Though autouse fixture in conftest should have cleared it)
+        await gallery_service.get_all_photos(limit=11, offset=11)
 
         # Validate that rpc was called
-        mock_supabase.rpc.assert_called_once()
+        mock_supabase.rpc.assert_called_with("get_gallery_photos_with_likes", {"p_limit": 11, "p_offset": 11})
 
     async def test_search_photos_error_handling(self, gallery_service, mock_supabase):
         """Test error handling in search_photos"""

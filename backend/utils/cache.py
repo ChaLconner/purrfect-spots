@@ -147,6 +147,7 @@ async def invalidate_all_caches() -> None:
 
 # Aliases for compatibility
 cached_gallery = cache(expire=300, key_prefix="gallery", skip_args=1)
+cached_gallery_simple = cache(expire=300, key_prefix="gallery_simple", skip_args=1)
 cached_tags = cache(expire=600, key_prefix="tags", skip_args=1)
 cached_leaderboard = cache(expire=300, key_prefix="leaderboard", skip_args=1)
 cached_user_photos = cache(expire=300, key_prefix="user_photos", skip_args=1)

@@ -25,7 +25,7 @@ async def test_toggle_like_insert(social_service):
             patch("utils.cache.invalidate_user_cache", new_callable=AsyncMock),
             patch("utils.cache.invalidate_gallery_cache", new_callable=AsyncMock),
         ):
-            res = await social_service.toggle_like("user1", "photo1", jwt_token="token")
+            res = await social_service.toggle_like("user1", "photo1")
 
             assert res["liked"] is True
             assert res["likes_count"] == 5
@@ -78,7 +78,7 @@ async def test_add_comment(social_service):
     with patch("utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
         mock_get_admin.return_value = admin_mock
 
-        res = await social_service.add_comment("user1", "photo1", "meow", jwt_token="token")
+        res = await social_service.add_comment("user1", "photo1", "meow")
 
         assert res["id"] == "c1"
         assert res["content"] == "meow"
@@ -135,6 +135,6 @@ async def test_delete_comment_success(social_service):
     with patch("utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
         mock_get_admin.return_value = mock_admin
 
-        result = await social_service.delete_comment("user1", "c1", jwt_token="token")
+        result = await social_service.delete_comment("user1", "c1")
 
         assert result is True

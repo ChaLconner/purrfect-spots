@@ -27,6 +27,7 @@ class TestCleanupTasks:
             patch("tasks.cleanup_tasks.get_async_supabase_admin_client", return_value=mock_client),
             patch("tasks.cleanup_tasks.NotificationService", return_value=mock_service),
             patch("asyncio.sleep", side_effect=asyncio.CancelledError),
+            pytest.raises(asyncio.CancelledError),
         ):
             await _cleanup_notifications_job()
 
@@ -37,6 +38,7 @@ class TestCleanupTasks:
         with (
             patch("tasks.cleanup_tasks.get_async_supabase_admin_client", side_effect=Exception("DB Error")),
             patch("asyncio.sleep", side_effect=asyncio.CancelledError),
+            pytest.raises(asyncio.CancelledError),
         ):
             await _cleanup_notifications_job()
             # Should log error and continue to sleep (which cancels it)

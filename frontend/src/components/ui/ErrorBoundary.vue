@@ -74,8 +74,8 @@ onErrorCaptured((error: Error, instance, info) => {
 
   emit('error', error);
 
-  // Prevent error from propagating (unless in test)
-  return import.meta.env.MODE === 'test';
+  // Prevent error from propagating
+  return false;
 });
 
 function handleRetry(): void {

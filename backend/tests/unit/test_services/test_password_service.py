@@ -45,7 +45,9 @@ class TestPasswordService:
     def test_validate_complexity(self):
         """Test password complexity validation"""
         assert password_service.validate_complexity("short") is False
-        assert password_service.validate_complexity("long_enough_123") is True
+        assert password_service.validate_complexity("NoSpecialChar123") is False
+        assert password_service.validate_complexity("no_upper_123!") is False
+        assert password_service.validate_complexity("ValidPass123!") is True
 
     @pytest.mark.asyncio
     async def test_is_password_pwned_leaked(self):
@@ -99,7 +101,7 @@ class TestPasswordService:
     async def test_validate_new_password_pwned(self):
         """Test new password validation with leaked password"""
         with patch.object(password_service, "is_password_pwned", return_value=True):
-            is_valid, error = await password_service.validate_new_password("password123")
+            is_valid, error = await password_service.validate_new_password("PwnedPass123!")
             assert is_valid is False
             assert "data breach" in error
 
@@ -107,6 +109,6 @@ class TestPasswordService:
     async def test_validate_new_password_success(self):
         """Test new password validation success"""
         with patch.object(password_service, "is_password_pwned", return_value=False):
-            is_valid, error = await password_service.validate_new_password("secure_password_123")
+            is_valid, error = await password_service.validate_new_password("SecurePass123!")
             assert is_valid is True
             assert error is None

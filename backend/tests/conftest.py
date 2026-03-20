@@ -133,6 +133,18 @@ def disable_rate_limit():
         limiter_instance.enabled = initial_states[i]
 
 
+@pytest.fixture(autouse=True)
+async def clear_all_caches():
+    """Clear all memory and redis caches before every test to ensure test isolation"""
+    import contextlib
+
+    from utils.cache import invalidate_all_caches
+
+    with contextlib.suppress(Exception):
+        await invalidate_all_caches()
+    yield
+
+
 from fastapi.testclient import TestClient
 
 from main import app

@@ -303,7 +303,7 @@ class TestRateLimiter:
 
             result = get_user_id_from_request(mock_request)
 
-        assert result == "user:user-123"
+        assert result == "user:user-123:free"
 
     def test_get_user_id_from_request_unauthenticated(self) -> None:
         """Test user ID extraction from unauthenticated request"""
@@ -316,7 +316,7 @@ class TestRateLimiter:
         result = get_user_id_from_request(mock_request)
 
         # Should fall back to IP
-        assert result == "192.168.1.1"
+        assert result == "192.168.1.1:free"
 
 
 class TestAuthUtils:

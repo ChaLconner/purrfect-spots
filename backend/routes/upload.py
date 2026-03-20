@@ -14,6 +14,8 @@ from fastapi.responses import JSONResponse
 from config import config
 from dependencies import get_gallery_service, get_quota_service
 from limiter import get_upload_limit, upload_limiter
+
+limiter = upload_limiter  # Alias for backward compatibility with tests
 from logger import logger, sanitize_log_value
 from middleware.auth_middleware import get_current_user
 from services.cat_detection_service import CatDetectionService, cat_detection_service

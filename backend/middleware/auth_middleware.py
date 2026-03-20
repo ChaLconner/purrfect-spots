@@ -201,7 +201,7 @@ from collections.abc import Callable
 def require_permission(permission_code: str) -> Callable[..., User]:
     """Dependency factory to check for specific permission"""
 
-    def permission_checker(user: User = Depends(get_current_user)) -> User:
+    async def permission_checker(user: User = Depends(get_current_user)) -> User:
         # 1. Direct permission check
         if permission_code in user.permissions:
             return user

@@ -42,7 +42,7 @@ class TestRateLimiterKeyFunctions:
 
             result = get_user_id_from_request(mock_request)
 
-        assert result == "user:user-123"
+        assert result == "user:user-123:free"
 
     def test_get_user_id_from_request_with_user_id_claim(self, mock_request):
         """Test extracting user ID from token with user_id claim"""
@@ -59,7 +59,7 @@ class TestRateLimiterKeyFunctions:
 
             result = get_user_id_from_request(mock_request)
 
-        assert result == "user:user-456"
+        assert result == "user:user-456:free"
 
     def test_get_user_id_from_request_no_auth_header(self, mock_request):
         """Test fallback to IP when no Authorization header"""
@@ -72,7 +72,7 @@ class TestRateLimiterKeyFunctions:
 
             result = get_user_id_from_request(mock_request)
 
-            assert result == "192.168.1.1"  # NOSONAR python:S1313 - test fixture IP
+            assert result == "192.168.1.1:free"  # NOSONAR python:S1313 - test fixture IP
 
     def test_get_user_id_from_request_invalid_token(self, mock_request):
         """Test fallback to IP when token is invalid"""
@@ -86,7 +86,7 @@ class TestRateLimiterKeyFunctions:
             result = get_user_id_from_request(mock_request)
 
             # Should fallback to IP
-            assert result == "192.168.1.1"  # NOSONAR python:S1313 - test fixture IP
+            assert result == "192.168.1.1:free"  # NOSONAR python:S1313 - test fixture IP
 
     def test_get_identifier_with_endpoint(self, mock_request):
         """Test combined user/endpoint identifier"""
@@ -100,7 +100,7 @@ class TestRateLimiterKeyFunctions:
 
             result = get_identifier_with_endpoint(mock_request)
 
-            assert result == "10.0.0.1:/api/v1/upload/cat"  # NOSONAR python:S1313 - test fixture IP
+            assert result == "10.0.0.1:free:/api/v1/upload/cat"  # NOSONAR python:S1313 - test fixture IP
 
 
 class TestRedisConfiguration:
@@ -288,13 +288,12 @@ class TestTieredRateLimiting:
         from limiter import get_api_limit, get_strict_limit, get_upload_limit
 
         # Mock free user
-        with patch("limiter.get_user_tier", return_value="free"):
-            assert get_strict_limit(mock_request) == config.RATE_LIMIT_STRICT_FREE
-            assert get_upload_limit(mock_request) == config.RATE_LIMIT_UPLOAD_FREE
-            assert get_api_limit(mock_request) == config.RATE_LIMIT_API_FREE
+        # Note: resolvers now expect the key string containing the tier
+        assert get_strict_limit("user:123:free") == config.RATE_LIMIT_STRICT_FREE
+        assert get_upload_limit("user:123:free") == config.RATE_LIMIT_UPLOAD_FREE
+        assert get_api_limit("user:123:free") == config.RATE_LIMIT_API_FREE
 
         # Mock pro user
-        with patch("limiter.get_user_tier", return_value="pro"):
-            assert get_strict_limit(mock_request) == config.RATE_LIMIT_STRICT_PRO
-            assert get_upload_limit(mock_request) == config.RATE_LIMIT_UPLOAD_PRO
-            assert get_api_limit(mock_request) == config.RATE_LIMIT_API_PRO
+        assert get_strict_limit("user:123:pro") == config.RATE_LIMIT_STRICT_PRO
+        assert get_upload_limit("user:123:pro") == config.RATE_LIMIT_UPLOAD_PRO
+        assert get_api_limit("user:123:pro") == config.RATE_LIMIT_API_PRO

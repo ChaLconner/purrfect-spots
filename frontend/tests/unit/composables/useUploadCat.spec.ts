@@ -90,20 +90,42 @@ describe('useUploadCat', () => {
     expect(api.uploadFile).toHaveBeenCalled();
   });
 
-  it('should handle API errors', async () => {
+  it('should handle different API error types', async () => {
     vi.spyOn(imageUtils, 'validateImageFile').mockReturnValue({ valid: true });
     vi.spyOn(imageUtils, 'getImageDimensions').mockResolvedValue({ width: 100, height: 100 });
     vi.spyOn(imageUtils, 'optimizeImage').mockResolvedValue(mockFile);
     
-    // Mock API error
-    const mockError = new api.ApiError(api.ApiErrorTypes.SERVER_ERROR, 'Server error');
-    vi.spyOn(api, 'uploadFile').mockRejectedValue(mockError);
-
     const { uploadCatPhoto, error } = useUploadCat();
-    const result = await uploadCatPhoto(mockFile, mockLocationData);
 
-    expect(result).toBeNull();
-    expect(error.value).toBe('Server error. Please try again later');
+    // Network Error
+    let mockError = new api.ApiError(api.ApiErrorTypes.NETWORK_ERROR, 'Offline');
+    vi.spyOn(api, 'uploadFile').mockRejectedValue(mockError);
+    await uploadCatPhoto(mockFile, mockLocationData);
+    expect(error.value).toContain('internet connection');
+
+    // Auth Error
+    mockError = new api.ApiError(api.ApiErrorTypes.AUTHENTICATION_ERROR, 'Expired');
+    vi.spyOn(api, 'uploadFile').mockRejectedValue(mockError);
+    await uploadCatPhoto(mockFile, mockLocationData);
+    expect(error.value).toContain('log in again');
+
+    // Validation Error
+    mockError = new api.ApiError(api.ApiErrorTypes.VALIDATION_ERROR, 'Invalid data');
+    vi.spyOn(api, 'uploadFile').mockRejectedValue(mockError);
+    await uploadCatPhoto(mockFile, mockLocationData);
+    expect(error.value).toBe('Invalid data');
+
+    // Default Error
+    // @ts-ignore
+    mockError = new api.ApiError('UNKNOWN', 'Something weird');
+    vi.spyOn(api, 'uploadFile').mockRejectedValue(mockError);
+    await uploadCatPhoto(mockFile, mockLocationData);
+    expect(error.value).toBe('Something weird');
+
+    // Generic Error (not ApiError)
+    vi.spyOn(api, 'uploadFile').mockRejectedValue(new Error('Generic fail'));
+    await uploadCatPhoto(mockFile, mockLocationData);
+    expect(error.value).toBe('Generic fail');
   });
 
   it('should update progress', async () => {
@@ -156,5 +178,18 @@ describe('useUploadCat', () => {
 
     expect(api.api.get).toHaveBeenCalledWith('/api/v1/upload/quota');
     expect(result).toEqual(mockQuota);
+  });
+
+  it('should handle quota fetch errors', async () => {
+    // @ts-ignore
+    vi.spyOn(api.api, 'get').mockRejectedValue(new Error('Quota fail'));
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { getUploadQuota } = useUploadCat();
+    const result = await getUploadQuota();
+
+    expect(result).toBeNull();
+    expect(consoleSpy).toHaveBeenCalled();
+    consoleSpy.mockRestore();
   });
 });

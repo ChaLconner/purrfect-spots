@@ -102,18 +102,18 @@ class TestAuthService:
         mock_user_service_instance.get_user_by_id.return_value = mock_user
 
         # Mock password validation
-        with patch("services.auth_service.password_service") as mock_pw_service:
+        with patch("services.auth.password_mixin.password_service") as mock_pw_service:
             mock_pw_service.validate_new_password = AsyncMock(return_value=(True, None))
             # AuthService now calls authenticate_user for verification instead of password_service.verify_password manually
             mock_user_service_instance.authenticate_user.return_value = {"id": user_id}
 
-            with patch("services.auth_service.get_token_service") as mock_ts_getter:
+            with patch("services.auth.password_mixin.get_token_service") as mock_ts_getter:
                 mock_token_service = MagicMock()
                 mock_token_service.blacklist_all_user_tokens = AsyncMock(return_value=None)
                 mock_ts_getter.return_value = mock_token_service
 
                 # Mock email service
-                with patch("services.auth_service.email_service"):
+                with patch("services.auth.password_mixin.email_service"):
                     # Mock admin client update
                     mock_supabase_admin.auth.admin.update_user_by_id = AsyncMock()
 
@@ -136,7 +136,7 @@ class TestAuthService:
         )
         mock_user_service_instance.get_user_by_id.return_value = mock_user
 
-        with patch("services.auth_service.password_service") as mock_pw_service:
+        with patch("services.auth.password_mixin.password_service") as mock_pw_service:
             mock_pw_service.validate_new_password = AsyncMock(return_value=(True, None))
 
             # Mock authentication failure
