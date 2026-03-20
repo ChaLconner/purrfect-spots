@@ -27,8 +27,7 @@
             <span
               class="italic text-btn-brown-b truncate inline-block align-bottom max-w-[120px] sm:max-w-[180px]"
               :title="displayQuery"
-              >{{ displayQuery }}</span
-            >
+            >{{ displayQuery }}</span>
           </template>
         </i18n-t>
         <button

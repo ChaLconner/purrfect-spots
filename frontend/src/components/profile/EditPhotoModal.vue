@@ -56,8 +56,7 @@ watch(
             <label
               for="edit-location-name"
               class="block text-xs font-bold text-brown-light mb-2 uppercase tracking-wide"
-              >{{ t('map.locationName') }}</label
-            >
+            >{{ t('map.locationName') }}</label>
             <input
               id="edit-location-name"
               v-model="form.location_name"
@@ -71,8 +70,7 @@ watch(
             <label
               for="edit-description"
               class="block text-xs font-bold text-brown-light mb-2 uppercase tracking-wide"
-              >{{ t('map.description') }}</label
-            >
+            >{{ t('map.description') }}</label>
             <textarea
               id="edit-description"
               v-model="form.description"

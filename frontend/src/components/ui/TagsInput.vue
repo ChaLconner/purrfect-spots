@@ -19,9 +19,7 @@
           :key="tag"
           class="inline-flex items-center gap-1 py-1 pl-3 pr-2 bg-gradient-to-br from-[#c1714f] to-[#a65d37] text-white rounded-full text-sm font-medium whitespace-nowrap sm:text-[0.8rem] sm:py-0.5 sm:pl-2.5 sm:pr-1.5 shadow-sm"
         >
-          <span class="max-w-[150px] sm:max-w-[100px] overflow-hidden text-ellipsis"
-            >#{{ tag }}</span
-          >
+          <span class="max-w-[150px] sm:max-w-[100px] overflow-hidden text-ellipsis">#{{ tag }}</span>
           <button
             type="button"
             class="flex items-center justify-center w-5 h-5 p-0 bg-white/20 border-none rounded-full cursor-pointer transition-all duration-150 text-white hover:bg-white/40 hover:scale-110 focus:outline-none"

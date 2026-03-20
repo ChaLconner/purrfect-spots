@@ -113,7 +113,7 @@
           <router-link
             v-if="
               authStore.hasPermission(PERMISSIONS.REPORTS_READ) ||
-              authStore.hasPermission(PERMISSIONS.CONTENT_READ)
+                authStore.hasPermission(PERMISSIONS.CONTENT_READ)
             "
             to="/admin/reports"
             class="flex items-center px-4 py-2 rounded-lg text-brown-600 hover:bg-sand-50 hover:text-brown-900 transition-colors group relative"

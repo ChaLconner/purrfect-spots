@@ -362,13 +362,10 @@ const handleKeydown = (event: KeyboardEvent): void => {
                   v-if="!showUsernameEdit"
                   class="px-4 sm:px-5 py-3 sm:py-3.5 bg-stone-50/50 border-2 border-dashed border-stone-200 rounded-xl sm:rounded-2xl flex items-center justify-between group"
                 >
-                  <span class="text-sm sm:text-base text-stone-500 font-medium"
-                    >@{{ editForm.username || 'username' }}</span
-                  >
+                  <span class="text-sm sm:text-base text-stone-500 font-medium">@{{ editForm.username || 'username' }}</span>
                   <span
                     class="text-[10px] text-stone-400 italic opacity-0 group-hover:opacity-100 transition-opacity"
-                    >{{ t('profile.usernameUpdateInfo') }}</span
-                  >
+                  >{{ t('profile.usernameUpdateInfo') }}</span>
                 </div>
 
                 <div v-else class="space-y-2 animate-fadeIn">
@@ -550,9 +547,9 @@ const handleKeydown = (event: KeyboardEvent): void => {
                         type="button"
                         :disabled="
                           isUpdatingPassword ||
-                          !passwordForm.current ||
-                          !passwordForm.new ||
-                          !passwordForm.confirm
+                            !passwordForm.current ||
+                            !passwordForm.new ||
+                            !passwordForm.confirm
                         "
                         class="px-5 py-2.5 bg-[#C07040] text-white rounded-lg sm:rounded-xl text-sm font-bold hover:bg-[#A05030] shadow-md transition-all disabled:opacity-50 disabled:shadow-none cursor-pointer disabled:cursor-not-allowed"
                         @click="updatePassword"
@@ -581,7 +578,7 @@ const handleKeydown = (event: KeyboardEvent): void => {
                   <p class="text-sm text-red-700 mb-4">
                     {{
                       t('profile.accountPendingDeletionDesc') ||
-                      'Your account is scheduled for deletion. You can cancel this request before the grace period ends.'
+                        'Your account is scheduled for deletion. You can cancel this request before the grace period ends.'
                     }}
                   </p>
                   <button
@@ -617,7 +614,7 @@ const handleKeydown = (event: KeyboardEvent): void => {
                     <p class="text-red-700 text-sm font-medium leading-relaxed">
                       {{
                         t('profile.deleteAccountWarning') ||
-                        'Warning: Deleting your account will permanently remove your profile, uploads, and data. This action cannot be undone after the grace period.'
+                          'Warning: Deleting your account will permanently remove your profile, uploads, and data. This action cannot be undone after the grace period.'
                       }}
                     </p>
 

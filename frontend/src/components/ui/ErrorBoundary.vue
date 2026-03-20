@@ -150,11 +150,9 @@ provide('errorBoundary', {
         <summary class="cursor-pointer text-sm font-medium text-gray-700 hover:text-gray-900">
           Technical Details
         </summary>
-        <pre class="mt-2 text-xs text-red-600 overflow-x-auto whitespace-pre-wrap"
-          >{{ errorMessage }}
+        <pre class="mt-2 text-xs text-red-600 overflow-x-auto whitespace-pre-wrap">{{ errorMessage }}
 
-        {{ errorStack }}</pre
-        >
+        {{ errorStack }}</pre>
       </details>
 
       <!-- Action Buttons -->
