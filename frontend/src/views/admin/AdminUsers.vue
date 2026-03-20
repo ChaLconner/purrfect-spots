@@ -107,7 +107,7 @@
                     class="h-10 w-10 rounded-full object-cover"
                     :src="
                       user.picture ||
-                        `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`
+                      `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`
                     "
                     :alt="user.name"
                   />
@@ -368,7 +368,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, reactive } from 'vue';
 import { apiV1 } from '@/utils/api';
 import { useToast } from '@/components/toast/use-toast';
 import { useAuthStore } from '@/store/authStore';
@@ -395,6 +395,7 @@ const {
   items: users,
   totalItems: totalUsers,
   page,
+  limit,
   isLoading,
   sortBy,
   sortOrder,

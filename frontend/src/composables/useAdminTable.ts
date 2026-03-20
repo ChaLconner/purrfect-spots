@@ -12,7 +12,9 @@ interface UseAdminTableOptions<T> {
   defaultSortOrder?: 'asc' | 'desc';
 }
 
-export function useAdminTable<T extends { id: string }>(options: UseAdminTableOptions<T>): {
+export function useAdminTable<T extends { id: string }>(
+  options: UseAdminTableOptions<T>
+): {
   items: ReturnType<typeof ref<T[]>>;
   totalItems: ReturnType<typeof ref<number>>;
   page: ReturnType<typeof ref<number>>;
@@ -24,21 +26,24 @@ export function useAdminTable<T extends { id: string }>(options: UseAdminTableOp
   sortOrder: ReturnType<typeof ref<'asc' | 'desc'>>;
   toggleSelection: (id: string) => void;
   toggleSelectAll: () => void;
-  loadData: (newPage?: number, extraParams?: Record<string, string | null | undefined>) => Promise<void>;
+  loadData: (
+    newPage?: number,
+    extraParams?: Record<string, string | null | undefined>
+  ) => Promise<void>;
   exportData: (extraParams?: Record<string, string | null | undefined>) => Promise<void>;
 } {
   const { toast } = useToast();
-  
+
   const items = ref<T[]>([]);
   const totalItems = ref(0);
   const page = ref(1);
   const limit = options.limit || 20;
   const isLoading = ref(false);
   const selectedIds = ref<string[]>([]);
-  
+
   const sortBy = ref(options.defaultSortBy || 'created_at');
   const sortOrder = ref<'asc' | 'desc'>(options.defaultSortOrder || 'desc');
-  
+
   const isAllSelected = computed(() => {
     return items.value.length > 0 && selectedIds.value.length === items.value.length;
   });
@@ -59,7 +64,10 @@ export function useAdminTable<T extends { id: string }>(options: UseAdminTableOp
     }
   };
 
-  const loadData = async (newPage: number = 1, extraParams: Record<string, string | null | undefined> = {}): Promise<void> => {
+  const loadData = async (
+    newPage: number = 1,
+    extraParams: Record<string, string | null | undefined> = {}
+  ): Promise<void> => {
     isLoading.value = true;
     try {
       const offset = (newPage - 1) * limit;
@@ -88,7 +96,9 @@ export function useAdminTable<T extends { id: string }>(options: UseAdminTableOp
     }
   };
 
-  const exportData = async (extraParams: Record<string, string | null | undefined> = {}): Promise<void> => {
+  const exportData = async (
+    extraParams: Record<string, string | null | undefined> = {}
+  ): Promise<void> => {
     try {
       const params = new URLSearchParams({ limit: '5000', offset: '0' });
       Object.entries(extraParams).forEach(([key, value]) => {
@@ -114,12 +124,15 @@ export function useAdminTable<T extends { id: string }>(options: UseAdminTableOp
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.setAttribute('href', url);
-      link.setAttribute('download', `${options.exportFileNamePrefix}_${new Date().toISOString().split('T')[0]}.csv`);
+      link.setAttribute(
+        'download',
+        `${options.exportFileNamePrefix}_${new Date().toISOString().split('T')[0]}.csv`
+      );
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       toast({ description: 'Data exported successfully', variant: 'success' });
     } catch (e) {
       console.error(`Failed to export data from ${options.endpoint}`, e);

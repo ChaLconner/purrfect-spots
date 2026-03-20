@@ -354,7 +354,9 @@
         </div>
 
         <div class="mb-4">
-          <label for="resolution-reason" class="block text-sm font-medium text-brown-700 mb-1">Standard Reason</label>
+          <label for="resolution-reason" class="block text-sm font-medium text-brown-700 mb-1"
+            >Standard Reason</label
+          >
           <select
             id="resolution-reason"
             v-model="selectedReason"
@@ -444,6 +446,7 @@ const {
   items: reports,
   totalItems: totalReports,
   page,
+  limit,
   isLoading,
   selectedIds: selectedReportIds,
   isAllSelected,
