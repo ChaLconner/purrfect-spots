@@ -19,13 +19,15 @@
           class="font-accent text-sm font-medium text-btn-shade-a truncate flex-1 min-w-0 flex items-center gap-1.5 flex-wrap"
         >
           <template #count>
-            <strong class="text-btn-accent-a font-bold text-sm sm:text-base">{{ count }}</strong>
+            <strong class="text-btn-accent-a font-bold text-sm sm:text-base">{{
+              displayCount
+            }}</strong>
           </template>
           <template #query>
             <span
               class="italic text-btn-brown-b truncate inline-block align-bottom max-w-[120px] sm:max-w-[180px]"
-              :title="query"
-            >{{ query }}</span>
+              :title="displayQuery"
+            >{{ displayQuery }}</span>
           </template>
         </i18n-t>
         <button
@@ -58,7 +60,9 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
+import { ref, watch } from 'vue';
+
+const props = defineProps<{
   show: boolean;
   count: number;
   query: string;
@@ -67,4 +71,19 @@ defineProps<{
 defineEmits<{
   (e: 'clear'): void;
 }>();
+
+// Lock values during transition to prevent flickering when search is cleared
+const displayCount = ref(props.count);
+const displayQuery = ref(props.query);
+
+watch(
+  () => [props.count, props.query, props.show],
+  ([newCount, newQuery, newShow]) => {
+    if (newShow) {
+      displayCount.value = newCount as number;
+      displayQuery.value = newQuery as string;
+    }
+  },
+  { immediate: true }
+);
 </script>

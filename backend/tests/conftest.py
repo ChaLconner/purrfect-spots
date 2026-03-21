@@ -64,8 +64,8 @@ except ImportError:
     sys.modules["slowapi.util"] = MagicMock()
     # Mock limiter instance since it's used in decorators
     sys.modules["limiter"] = MagicMock()
-    sys.modules["limiter"].limiter = MagicMock()
-    sys.modules["limiter"].limiter.limit = lambda x: lambda f: f  # Mock decorator
+    sys.modules["limiter"].limiter = MagicMock()  # type: ignore[attr-defined]
+    sys.modules["limiter"].limiter.limit = lambda x: lambda f: f  # type: ignore[attr-defined]
 
 
 # Mock mcp module if it causes issues (e.g. issues with anyio on windows)
@@ -93,7 +93,7 @@ try:
             pass
 except ImportError:
 
-    class MockMCPIntegration:
+    class MockMCPIntegration:  # type: ignore[no-redef]
         identifier = "mcp"
 
         @staticmethod
@@ -131,6 +131,18 @@ def disable_rate_limit():
     # Restore states
     for i, limiter_instance in enumerate(limiters):
         limiter_instance.enabled = initial_states[i]
+
+
+@pytest.fixture(autouse=True)
+async def clear_all_caches():
+    """Clear all memory and redis caches before every test to ensure test isolation"""
+    import contextlib
+
+    from utils.cache import invalidate_all_caches
+
+    with contextlib.suppress(Exception):
+        await invalidate_all_caches()
+    yield
 
 
 from fastapi.testclient import TestClient

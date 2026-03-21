@@ -98,62 +98,78 @@ def get_storage_uri() -> str | None:
     return "memory://"
 
 
-def get_user_id_from_request(request: Request) -> str:
+def get_user_tier(request: Request) -> str:
     """
-    Extract user identifier for rate limiting.
-    Uses authenticated user ID if available, falls back to IP address.
-    This enables per-user rate limiting instead of per-IP.
-
-    Args:
-        request: FastAPI Request object
-
-    Returns:
-        User identifier string (either "user:{id}" or IP address)
+    Extract user tier from JWT. Defaults to 'free'.
     """
-    # Try to get user ID from Authorization header
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
         try:
             token = auth_header.split(" ")[1]
-
-            # SECURITY: Always verify JWT signature before using user_id
-            # This prevents attackers from spoofing user_id in rate limiting
-            if not config.JWT_SECRET:
-                # No secret configured - fall back to IP-based rate limiting
-                # rather than decoding without verification
-                pass
-            else:
-                # Verify JWT signature with proper error handling
+            if config.JWT_SECRET:
                 payload = jwt.decode(
                     token,
                     config.JWT_SECRET,
                     algorithms=[config.JWT_ALGORITHM],
-                    options={
-                        "verify_signature": True,  # Always verify signature
-                        "verify_exp": True,  # Verify expiration
-                        "verify_iat": True,  # Verify issued at
-                    },
+                    options={"verify_signature": True, "verify_exp": True},
+                )
+                # Check for tier in app_metadata or user_metadata (Supabase standard)
+                # Supabase often puts it in app_metadata
+                app_metadata = payload.get("app_metadata", {})
+                return str(app_metadata.get("tier", "free")).lower()
+        except Exception:
+            pass
+    return "free"
+
+
+def get_user_id_from_request(request: Request) -> str:
+    """
+    Extract user identifier for rate limiting.
+    Uses authenticated user ID if available, falls back to IP address.
+    Includes user tier in the identifier to support dynamic rate limits.
+    """
+    tier = get_user_tier(request)
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        try:
+            token = auth_header.split(" ")[1]
+            if config.JWT_SECRET:
+                payload = jwt.decode(
+                    token,
+                    config.JWT_SECRET,
+                    algorithms=[config.JWT_ALGORITHM],
+                    options={"verify_signature": True, "verify_exp": True},
                 )
                 user_id = payload.get("sub") or payload.get("user_id")
                 if user_id:
-                    # Sanitize user_id to prevent injection if reflected in responses
-                    # Although user_id comes from a verified JWT, being safe is better
                     clean_user_id = "".join(c for c in str(user_id) if c.isalnum() or c in "-_@.")
-                    clean_user_id = clean_user_id[:128]
-
-                    # Return sanitized user identifier for rate limiting
-                    # nosemgrep: python.flask.security.audit.directly-returned-format-string.directly-returned-format-string
-                    return f"user:{clean_user_id}"
-        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
-            # Token is invalid or expired
-            # Treat as unauthenticated user (fall back to IP)
+                    # Return user identifier WITH tier for dynamic limit resolution
+                    return f"user:{clean_user_id[0:128]}:{tier}"
+        except Exception:
             pass
-        except Exception as e:
-            # SECURITY: Log all JWT verification failures for monitoring
-            logger.warning("JWT verification failed during rate limit check: %s", e)
 
-    # Fall back to IP address for unauthenticated requests
-    return get_remote_address(request)
+    # Fallback to IP address with tier
+    return f"{get_remote_address(request)}:{tier}"
+
+
+# Dynamic Limit Resolvers
+# These MUST accept a 'key' parameter to be correctly handled by slowapi's dynamic limits
+def get_strict_limit(key: str) -> str:
+    """Resolve tiered strict limit based on identifier key"""
+    tier = key.split(":")[-1] if ":" in key else "free"
+    return config.RATE_LIMIT_STRICT_PRO if tier == "pro" else config.RATE_LIMIT_STRICT_FREE
+
+
+def get_upload_limit(key: str) -> str:
+    """Resolve tiered upload limit based on identifier key"""
+    tier = key.split(":")[-1] if ":" in key else "free"
+    return config.RATE_LIMIT_UPLOAD_PRO if tier == "pro" else config.RATE_LIMIT_UPLOAD_FREE
+
+
+def get_api_limit(key: str) -> str:
+    """Resolve tiered API limit based on identifier key"""
+    tier = key.split(":")[-1] if ":" in key else "free"
+    return config.RATE_LIMIT_API_PRO if tier == "pro" else config.RATE_LIMIT_API_FREE
 
 
 def get_identifier_with_endpoint(request: Request) -> str:
@@ -202,18 +218,18 @@ elif _storage_uri and _storage_uri.startswith("redis://"):
 # Standard rate limiter for general API endpoints
 limiter = Limiter(
     key_func=get_user_id_from_request,
-    default_limits=[config.RATE_LIMIT_API_DEFAULT],
+    default_limits=[get_api_limit],
     storage_uri=_storage_uri,
     storage_options=cast(Any, _storage_options),
     strategy="fixed-window",
-    swallow_errors=True,  # Prevent 500 errors if Redis is down
-    in_memory_fallback_enabled=True,  # Fallback to memory if Redis fails
+    swallow_errors=True,
+    in_memory_fallback_enabled=True,
 )
 
 # Strict rate limiter for resource-intensive endpoints (cat detection, uploads)
 strict_limiter = Limiter(
     key_func=get_user_id_from_request,
-    default_limits=["5/minute"],
+    default_limits=[get_strict_limit],
     storage_uri=_storage_uri,
     storage_options=cast(Any, _storage_options),
     strategy="fixed-window",
@@ -224,7 +240,7 @@ strict_limiter = Limiter(
 # Upload rate limiter - moderate limits for file uploads
 upload_limiter = Limiter(
     key_func=get_user_id_from_request,
-    default_limits=[config.UPLOAD_RATE_LIMIT],
+    default_limits=[get_upload_limit],
     storage_uri=_storage_uri,
     storage_options=cast(Any, _storage_options),
     strategy="fixed-window",
@@ -236,6 +252,17 @@ upload_limiter = Limiter(
 auth_limiter = Limiter(
     key_func=get_remote_address,  # Use IP for auth to prevent credential stuffing
     default_limits=[config.RATE_LIMIT_AUTH],
+    storage_uri=_storage_uri,
+    storage_options=cast(Any, _storage_options),
+    strategy="fixed-window",
+    swallow_errors=True,
+    in_memory_fallback_enabled=True,
+)
+
+# Forgot password rate limiter - even stricter to prevent mail bombing
+forgot_password_limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=[config.RATE_LIMIT_FORGOT_PASSWORD],
     storage_uri=_storage_uri,
     storage_options=cast(Any, _storage_options),
     strategy="fixed-window",
@@ -257,8 +284,13 @@ def get_rate_limit_info() -> dict:
         "redis_configured": bool(config.REDIS_URL),
         "limits": {
             "default": config.RATE_LIMIT_API_DEFAULT,
-            "strict": "5/minute",
-            "upload": config.UPLOAD_RATE_LIMIT,
+            "strict_free": config.RATE_LIMIT_STRICT_FREE,
+            "strict_pro": config.RATE_LIMIT_STRICT_PRO,
+            "upload_free": config.RATE_LIMIT_UPLOAD_FREE,
+            "upload_pro": config.RATE_LIMIT_UPLOAD_PRO,
+            "api_free": config.RATE_LIMIT_API_FREE,
+            "api_pro": config.RATE_LIMIT_API_PRO,
             "auth": config.RATE_LIMIT_AUTH,
+            "forgot_password": config.RATE_LIMIT_FORGOT_PASSWORD,
         },
     }

@@ -68,8 +68,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, computed, nextTick } from 'vue';
+import { ref, watch, onMounted, computed } from 'vue';
 import type { CatLocation } from '@/types/api';
+import { useModalFocus } from '@/composables/useModalFocus';
 
 import GalleryModalImageStage from '@/components/gallery/GalleryModalImageStage.vue';
 import GalleryModalContent from '@/components/gallery/GalleryModalContent.vue';
@@ -89,6 +90,11 @@ const emit = defineEmits<{
 
 const isLoaded = ref(false);
 const hasError = ref(false);
+const modalContainer = ref<HTMLElement | null>(null);
+
+const { handleKeydown: handleModalFocusKeydown } = useModalFocus(modalContainer, {
+  onClose: () => emit('close'),
+});
 
 // Navigation computed properties
 const hasPrevious = computed(() => {
@@ -115,52 +121,18 @@ function navigateNext(): void {
   if (hasNext.value) handleNavigation('next');
 }
 
-// Keyboard navigation & Focus Trapping
-const previousFocus = ref<HTMLElement | null>(null);
-
-function trapFocus(e: KeyboardEvent): void {
-  if (!modalContainer.value) return;
-  const focusableElements = modalContainer.value.querySelectorAll<HTMLElement>(
-    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-  );
-  if (focusableElements.length === 0) return;
-
-  const firstElement = focusableElements[0];
-  const lastElement = focusableElements[focusableElements.length - 1];
-
-  if (e.shiftKey) {
-    // Shift + Tab
-    if (
-      document.activeElement === firstElement ||
-      document.activeElement === modalContainer.value
-    ) {
-      lastElement.focus();
-      e.preventDefault();
-    }
-  } else {
-    // Tab
-    if (document.activeElement === lastElement) {
-      firstElement.focus();
-      e.preventDefault();
-    }
-  }
-}
-
 function handleKeydown(e: KeyboardEvent): void {
   if (!props.image) return;
 
   switch (e.key) {
-    case 'Escape':
-      emit('close');
-      break;
     case 'ArrowLeft':
       navigatePrev();
       break;
     case 'ArrowRight':
       navigateNext();
       break;
-    case 'Tab':
-      trapFocus(e);
+    default:
+      handleModalFocusKeydown(e);
       break;
   }
 }
@@ -189,19 +161,6 @@ function preloadAdjacentImages(): void {
   }
 }
 
-function setupListeners(): void {
-  document.body.style.overflow = 'hidden';
-  preloadAdjacentImages();
-}
-
-function cleanupListeners(): void {
-  document.body.style.overflow = '';
-  // Restore focus for a11y
-  if (previousFocus.value) {
-    previousFocus.value.focus();
-  }
-}
-
 function onImageLoad(): void {
   isLoaded.value = true;
 }
@@ -211,16 +170,9 @@ function handleError(_event: Event): void {
   isLoaded.value = true;
 }
 
-const modalContainer = ref<HTMLElement | null>(null);
-
 onMounted(() => {
   if (props.image) {
-    previousFocus.value = document.activeElement as HTMLElement;
-    setupListeners();
-    // Focus for a11y
-    nextTick(() => {
-      modalContainer.value?.focus();
-    });
+    preloadAdjacentImages();
   }
 });
 
@@ -230,9 +182,7 @@ watch(
     if (newVal) {
       isLoaded.value = false;
       hasError.value = false;
-      setupListeners();
-    } else {
-      cleanupListeners();
+      preloadAdjacentImages();
     }
   }
 );
@@ -243,8 +193,4 @@ watch(
     preloadAdjacentImages();
   }
 );
-
-onUnmounted(() => {
-  cleanupListeners();
-});
 </script>

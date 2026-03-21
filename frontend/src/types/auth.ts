@@ -15,6 +15,7 @@ export interface User {
   permissions?: string[];
   stripe_customer_id?: string;
   banned_at?: string;
+  deleted_at?: string;
 }
 
 export interface LoginResponse {

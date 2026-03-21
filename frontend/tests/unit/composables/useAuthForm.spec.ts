@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useAuthForm } from '@/composables/useAuthForm';
 import { useAuthStore } from '@/store/authStore';
 import { AuthService } from '@/services/authService';
@@ -15,7 +15,7 @@ vi.mock('vue-router', () => ({
   useRouter: vi.fn(),
 }));
 vi.mock('@/utils/env', () => ({
-  getEnvVar: vi.fn((key) => 'mock-env-value'),
+  getEnvVar: vi.fn((_key) => 'mock-env-value'),
   isDev: vi.fn(() => true),
 }));
 vi.mock('@/utils/oauth', () => ({

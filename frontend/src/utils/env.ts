@@ -25,6 +25,5 @@ export const isProd = (): boolean => {
  * @returns The environment variable value or the default value
  */
 export const getEnvVar = (key: string, defaultValue = ''): string => {
-  return (import.meta.env as Record<string, unknown>)[key] as string || defaultValue;
+  return ((import.meta.env as Record<string, unknown>)[key] as string) || defaultValue;
 };
-

@@ -6,10 +6,13 @@ from dependencies import get_current_user, get_report_service
 from limiter import limiter
 from logger import logger
 from schemas.report import ReportCreate, ReportResponse
+from schemas.user import User
 from services.report_service import ReportService
-from user_models.user import User
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
+
+
+from typing import Annotated
 
 
 @router.post("/", response_model=ReportResponse, status_code=201)
@@ -17,11 +20,14 @@ router = APIRouter(prefix="/reports", tags=["Reports"])
 async def create_report(
     request: Request,
     report_data: ReportCreate,
-    current_user: User = Depends(get_current_user),
-    report_service: ReportService = Depends(get_report_service),
+    current_user: Annotated[User, Depends(get_current_user)],
+    report_service: Annotated[ReportService, Depends(get_report_service)],
 ) -> dict[str, Any]:
     """
     Submit a report for a photo.
+
+    Raises:
+        HTTPException: 500 - If report submission fails.
     """
     try:
         report = await report_service.create_report(
@@ -40,11 +46,14 @@ async def create_report(
 
 @router.get("/my-reports", response_model=list[ReportResponse])
 async def list_my_reports(
-    current_user: User = Depends(get_current_user),
-    report_service: ReportService = Depends(get_report_service),
+    current_user: Annotated[User, Depends(get_current_user)],
+    report_service: Annotated[ReportService, Depends(get_report_service)],
 ) -> list[dict[str, Any]]:
     """
     List reports submitted by the current user.
+
+    Raises:
+        HTTPException: 500 - If fetching reports fails.
     """
     try:
         return await report_service.get_user_reports(current_user.id)

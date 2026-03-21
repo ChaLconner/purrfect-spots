@@ -122,20 +122,26 @@ const displayedLocations = computed(() => catsStore.filteredLocations);
 
 // Viewport fetch logic
 // Using ref for proper cleanup
-const viewportFetchTimer = ref<ReturnType<typeof setTimeout> | null>(null);
 const isViewportFetching = ref(false);
+const latestImageRequestId = ref(0);
+const viewportFetchTimer = ref<ReturnType<typeof setTimeout> | null>(null);
 
 // ==========================================
 // Handlers
 // ==========================================
 
 const searchByTag = (tag: string): void => {
+  const query = { ...route.query, search: `#${tag}` };
+  delete query.image;
+  router.push({ query });
   catsStore.setSearchQuery(`#${tag}`);
-  closeModal();
 };
 
 const clearSearch = (): void => {
   catsStore.clearSearch();
+  const query = { ...route.query };
+  delete query.search;
+  router.push({ query });
 };
 
 const selectCat = (cat: CatLocation): void => {
@@ -165,11 +171,10 @@ const initializeMap = async (): Promise<void> => {
         throw new Error('Google Maps API key is missing.');
       }
 
-      // Load Google Maps without blocking
       await loadGoogleMaps({
         apiKey,
-        libraries: 'places,marker',
-        version: 'weekly',
+        libraries: MAP_CONFIG.LIBRARIES,
+        version: MAP_CONFIG.VERSION,
       });
     } catch (err: unknown) {
       error.value = t('map.errorInitializing', { message: (err as Error).message });
@@ -181,9 +186,8 @@ const initializeMap = async (): Promise<void> => {
 
   try {
     let mapElement = document.getElementById('map');
-
-    // Ensure map container exists
     if (!mapElement) {
+      await nextTick();
       mapElement = document.getElementById('map');
     }
 
@@ -272,14 +276,8 @@ const fetchLocationsInViewport = async (): Promise<void> => {
       limit: MAP_CONFIG.MAX_MARKERS_PER_VIEWPORT,
     });
 
-    // Merge only new locations
-    const existingIds = new Set(catsStore.locations.map((loc) => loc.id));
-    const newLocations = locations.filter((loc) => !existingIds.has(loc.id));
-
-    if (newLocations.length > 0) {
-      // Create new array reference for reactivity
-      catsStore.setLocations([...catsStore.locations, ...newLocations]);
-    }
+    // Use store action to merge locations (handles duplicates and updates)
+    catsStore.appendLocations(locations);
 
     // sync state from URL if needed
     syncStateFromUrl();
@@ -345,11 +343,14 @@ watch(map, (newMap) => {
   }
 });
 
-// Watch Search from URL
+// Watch Search from URL - ensure store syncs even when query is removed
 watch(
   () => route.query.search,
   (newSearch) => {
-    if (newSearch) catsStore.setSearchQuery(newSearch as string);
+    const query = (newSearch as string) || '';
+    if (query !== catsStore.searchQuery) {
+      catsStore.setSearchQuery(query);
+    }
   },
   { immediate: true }
 );
@@ -363,7 +364,9 @@ watch(
 );
 
 const syncStateFromUrl = async (): Promise<void> => {
+  const requestId = ++latestImageRequestId.value;
   const imageId = route.query.image as string;
+
   if (!imageId) {
     selectedCat.value = null;
     return;
@@ -378,18 +381,20 @@ const syncStateFromUrl = async (): Promise<void> => {
   }
 
   // 3. Fetch canonical fresh details (for liked status, full description, etc.)
-  // This is crucial because map markers are lightweight and cached.
   try {
     const fullCat = await GalleryService.getPhotoById(imageId);
 
-    // Update selectedCat with full data
+    // Guard against race conditions
+    if (requestId !== latestImageRequestId.value) return;
+
     if (fullCat) {
       selectedCat.value = fullCat;
-      found = fullCat; // Use full details for panning/validation
+      found = fullCat;
+      catsStore.appendLocations([fullCat]);
     }
   } catch (err) {
+    if (requestId !== latestImageRequestId.value) return;
     console.warn(`Could not fetch details for cat ${imageId}:`, err);
-    // If we failed to fetch AND confirm existence locally, clear selection
     if (!found) {
       const q = { ...route.query };
       delete q.image;
@@ -401,7 +406,6 @@ const syncStateFromUrl = async (): Promise<void> => {
   // 4. Pan to location if found
   if (found && map.value) {
     map.value.panTo({ lat: found.latitude, lng: found.longitude });
-    // Only zoom in if we're zoomed out too far
     const currentZoom = map.value.getZoom();
     if (currentZoom !== undefined && currentZoom < 15) {
       map.value.setZoom(15);

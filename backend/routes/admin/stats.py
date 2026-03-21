@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
 from postgrest.types import CountMethod
@@ -8,7 +8,7 @@ from dependencies import get_async_supabase_admin_client
 from limiter import limiter
 from logger import logger
 from middleware.auth_middleware import require_permission
-from user_models.user import User
+from schemas.user import User
 
 router = APIRouter()
 
@@ -20,7 +20,8 @@ CACHE_TTL_SECONDS = 300  # 5 minutes
 @router.get("/stats")
 @limiter.limit("20/minute")
 async def get_system_stats(
-    request: Request, current_admin: User = Depends(require_permission("users:read"))
+    request: Request,
+    current_admin: Annotated[User | None, Depends(require_permission("users:read"))] = None,
 ) -> dict[str, Any]:
     """
     Get basic system statistics.

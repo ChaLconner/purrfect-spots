@@ -9,9 +9,49 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from logger import logger
 from utils.security import log_security_event
 
+from .exceptions import PurrfectSpotsException
+
 SENTRY_DSN = os.getenv("SENTRY_DSN")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 CONTENT_TYPE_JSON = "application/json"
+
+
+async def purrfect_spots_exception_handler(request: Request, exc: PurrfectSpotsException) -> JSONResponse:
+    """Handle custom business-logic exceptions"""
+    # Capture exception in Sentry
+    if SENTRY_DSN:
+        sentry_sdk.capture_exception(exc)
+
+    logger.warning(
+        f"Custom Exception: {exc.status_code} - {exc.error_code}: {exc.message}",
+        extra={"details": exc.details, "user_id": getattr(request.state, "user_id", None)},
+    )
+
+    # Log security event for serious issues (4xx-5xx)
+    if exc.status_code >= 400:
+        log_security_event(
+            event_type="purrfect_spots_exception",
+            details={
+                "error_code": exc.error_code,
+                "status_code": exc.status_code,
+                "message": exc.message,
+                "details": exc.details,
+            },
+            severity="ERROR" if exc.status_code >= 500 else "WARNING",
+            user_id=getattr(request.state, "user_id", None),
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error_code": exc.error_code,
+            "message": exc.message,
+            "details": exc.details,
+        },
+        headers={"Content-Type": CONTENT_TYPE_JSON},
+    )
 
 
 async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:

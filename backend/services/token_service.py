@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import redis.asyncio as aioredis
 
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 from supabase import AClient
 
 from logger import logger
@@ -27,11 +29,17 @@ class TokenService:
     Manages JWT token lifecycle with blacklisting support. (Async)
     """
 
-    def __init__(self, redis_client: "aioredis.Redis | None" = None, supabase_client: AClient | None = None) -> None:
+    def __init__(
+        self,
+        redis_client: "aioredis.Redis | None" = None,
+        supabase_client: AClient | None = None,
+        db: AsyncSession | None = None,
+    ) -> None:
         """
         Initialize token service.
         """
         self.redis = redis_client
+        self.db = db
         self._memory_blacklist: dict[str, datetime] = {}  # Fallback storage
         self.default_ttl = 3600 * 24 * 7  # 7 days
         self.supabase_admin = supabase_client
@@ -80,19 +88,36 @@ class TokenService:
         # 3. Persist to Database (Supabase) if we have enough info
         if jti and user_id and expires_at:
             try:
-                admin_client = await self._get_admin_client()
-                await (
-                    admin_client.table("token_blacklist")
-                    .insert(
+                if self.db:
+                    db_session = self.db
+                    query = text(
+                        "INSERT INTO token_blacklist (token_jti, user_id, expires_at, revoked_at) "
+                        "VALUES (:jti, :user_id, :expires_at, :revoked_at)"
+                    )
+                    await db_session.execute(
+                        query,
                         {
-                            "token_jti": jti,
+                            "jti": jti,
                             "user_id": user_id,
                             "expires_at": expires_at.isoformat(),
                             "revoked_at": utc_now_iso(),
-                        }
+                        },
                     )
-                    .execute()
-                )
+                    await db_session.commit()
+                else:
+                    admin_client = await self._get_admin_client()
+                    await (
+                        admin_client.table("token_blacklist")
+                        .insert(
+                            {
+                                "token_jti": jti,
+                                "user_id": user_id,
+                                "expires_at": expires_at.isoformat(),
+                                "revoked_at": utc_now_iso(),
+                            }
+                        )
+                        .execute()
+                    )
             except Exception as e:
                 logger.error(f"Failed to persist blacklist to DB: {e}")
 
@@ -107,7 +132,10 @@ class TokenService:
             if result:
                 return True
         except Exception as e:
-            logger.warning(f"Redis check failed: {e}")
+            logger.warning(f"Redis read error: {e}")
+            # If connection is dead, invalidate the singleton so it reconnects next time
+            if _is_reconnect_error(e):
+                reset_token_service()
         return False
 
     def _check_memory_blacklist(self, token_hash: str) -> bool:
@@ -115,7 +143,7 @@ class TokenService:
         if token_hash in self._memory_blacklist:
             if self._memory_blacklist[token_hash] > datetime.now(UTC):
                 return True
-            del self._memory_blacklist[token_hash]
+            self._memory_blacklist.pop(token_hash, None)
         return False
 
     async def _check_db_blacklist(self, jti: str | None, token_hash: str) -> bool:
@@ -125,25 +153,42 @@ class TokenService:
             return False
 
         try:
-            admin_client = await self._get_admin_client()
-            result = (
-                await admin_client.table("token_blacklist")
-                .select("*")
-                .eq("token_jti", jti if jti else token_hash)
-                .execute()
-            )
+            target_jti = jti if jti else token_hash
+            if self.db:
+                return await self._check_db_blacklist_sql(target_jti)
 
-            if result.data and len(result.data) > 0:
-                # Check if token is still valid (not expired)
-                for entry in result.data:
-                    expires_at = datetime.fromisoformat(entry["expires_at"].replace("Z", "+00:00"))
-                    if datetime.now(UTC) < expires_at:
-                        return True
+            return await self._check_db_blacklist_supabase(target_jti)
         except Exception as e:
             logger.warning(f"Database check failed: {e}")
             if is_production:
                 logger.error("Database check failed - blocking token for security")
                 return True
+        return False
+
+    async def _check_db_blacklist_sql(self, jti: str) -> bool:
+        """Check database blacklist using SQLAlchemy."""
+        if not self.db:
+            return False
+        db_session = self.db
+        query = text("SELECT expires_at FROM token_blacklist WHERE token_jti = :jti")
+        result = await db_session.execute(query, {"jti": jti})
+        rows = result.fetchall()
+        for row in rows:
+            expires_at = datetime.fromisoformat(row[0].replace("Z", "+00:00"))
+            if datetime.now(UTC) < expires_at:
+                return True
+        return False
+
+    async def _check_db_blacklist_supabase(self, jti: str) -> bool:
+        """Check database blacklist using Supabase."""
+        admin_client = await self._get_admin_client()
+        supa_res = await admin_client.table("token_blacklist").select("*").eq("token_jti", jti).execute()
+
+        if supa_res.data:
+            for entry in supa_res.data:
+                expires_at = datetime.fromisoformat(entry["expires_at"].replace("Z", "+00:00"))
+                if datetime.now(UTC) < expires_at:
+                    return True
         return False
 
     async def is_blacklisted(self, token: str | None = None, jti: str | None = None) -> bool:
@@ -202,14 +247,29 @@ class TokenService:
         now = datetime.now(UTC)
         expired = [k for k, expiry in self._memory_blacklist.items() if expiry <= now]
         for k in expired:
-            del self._memory_blacklist[k]
+            self._memory_blacklist.pop(k, None)
 
 
 # Singleton instance
 _token_service: TokenService | None = None
 
+# Connection errors that warrant a full reconnect
+_RECONNECT_ERRORS = ("forcibly closed", "connection refused", "connection reset", "broken pipe", "eof occurred")
 
-async def get_token_service() -> TokenService:
+
+def _is_reconnect_error(exc: Exception) -> bool:
+    """Returns True if the error suggests the Redis connection is dead."""
+    msg = str(exc).lower()
+    return any(pattern in msg for pattern in _RECONNECT_ERRORS)
+
+
+def reset_token_service() -> None:
+    """Force the singleton to reconnect on next request (call after Redis errors)."""
+    global _token_service
+    _token_service = None
+
+
+async def get_token_service(db: AsyncSession | None = None) -> TokenService:
     """Get or create token service (Async dependency)"""
     global _token_service
 
@@ -221,7 +281,15 @@ async def get_token_service() -> TokenService:
             try:
                 import redis.asyncio as aioredis
 
-                redis_client = aioredis.from_url(redis_url, encoding="utf-8", decode_responses=False)
+                redis_client = aioredis.from_url(
+                    redis_url,
+                    encoding="utf-8",
+                    decode_responses=False,
+                    socket_connect_timeout=5,
+                    socket_timeout=5,
+                    retry_on_timeout=True,
+                    health_check_interval=30,
+                )
                 await redis_client.ping()
                 logger.info("Token service initialized with Redis")
             except Exception as e:
@@ -229,8 +297,12 @@ async def get_token_service() -> TokenService:
                 redis_client = None
 
         # Admin client will be lazily loaded
-        _token_service = TokenService(redis_client)
+        _token_service = TokenService(redis_client, db=db)
         if not redis_client:
             logger.info("Token service initialized with in-memory storage")
+    else:
+        # If singleton exists, update DB session if provided
+        if db:
+            _token_service.db = db
 
     return _token_service

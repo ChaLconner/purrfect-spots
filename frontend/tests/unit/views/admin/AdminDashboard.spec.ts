@@ -4,7 +4,7 @@ import AdminDashboard from '@/views/admin/AdminDashboard.vue';
 import { apiV1 } from '@/utils/api';
 import { nextTick } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
-import { useAdminStore } from '@/store/adminStore';
+
 
 vi.mock('@/utils/api', async (importOriginal) => {
   const actual = await importOriginal<any>();

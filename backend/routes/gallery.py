@@ -9,15 +9,15 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response
 
 from dependencies import get_current_token, get_gallery_service
-from limiter import limiter
+from limiter import get_api_limit, limiter
 from logger import logger, sanitize_log_value
 from middleware.auth_middleware import (
     get_current_user_from_credentials,
     get_current_user_optional,
 )
 from schemas.location import CatLocation
+from schemas.user import User
 from services.gallery_service import GalleryService
-from user_models.user import User
 
 router = APIRouter(prefix="/gallery", tags=["Gallery"])
 
@@ -68,16 +68,16 @@ PhotoIdPath = Annotated[UUID, Path(title="The ID of the photo", description="Mus
     },
 )
 @router.get("/", response_model=PaginatedGalleryResponse, include_in_schema=False)
-@limiter.limit("120/minute")  # Rate limit for paginated endpoint
+@limiter.limit(get_api_limit)  # Uses default_limits=[get_api_limit] defined in limiter
 async def get_gallery(
     request: Request,  # Required for rate limiting
     response: Response,
+    gallery_service: Annotated[GalleryService, Depends(get_gallery_service)],
+    current_user: Annotated[User | None, Depends(get_current_user_optional)],
+    token: Annotated[str | None, Depends(get_current_token)],
     limit: int = Query(20, ge=1, le=100, description="Number of items per page"),
     offset: int = Query(0, ge=0, description="Number of items to skip"),
     page: int | None = Query(None, ge=1, description="Page number (alternative to offset)"),
-    gallery_service: GalleryService = Depends(get_gallery_service),
-    current_user: User | None = Depends(get_current_user_optional),
-    token: str | None = Depends(get_current_token),
 ) -> PaginatedGalleryResponse:
     """
     Get cat images with pagination support.
@@ -89,6 +89,9 @@ async def get_gallery(
     Examples:
     - `/gallery?limit=20&offset=0` - First 20 images
     - `/gallery?limit=20&page=2` - Second page of 20 images
+
+    Raises:
+        HTTPException: 500 - If gallery fetch fails.
     """
     # Dynamic caching strategy
     if current_user:
@@ -158,22 +161,25 @@ async def get_gallery(
 
 
 @router.get("/all", response_model=GalleryResponse)
-@limiter.limit("30/minute")  # Lower rate limit for heavy endpoint
+@limiter.limit(get_api_limit)  # Uses tiered API limit
 async def get_all_gallery(
     request: Request,  # Required for rate limiting
+    gallery_service: Annotated[GalleryService, Depends(get_gallery_service)],
     limit: int = Query(
         1000,
         ge=1,
         le=5000,
         description="Maximum number of images to return (default: 1000)",
     ),
-    gallery_service: GalleryService = Depends(get_gallery_service),
 ) -> GalleryResponse:
     """
     Get all cat images with optional limit (use with caution for large datasets).
     For backward compatibility and map display.
 
     Consider using the paginated `/gallery` endpoint for better performance with large datasets.
+
+    Raises:
+        HTTPException: 500 - If gallery fetch fails.
     """
     try:
         photos = await gallery_service.get_all_photos_simple(limit=limit)
@@ -190,9 +196,14 @@ async def get_all_gallery(
 
 @router.get("/locations", response_model=list[CatLocation])
 async def get_locations(
-    response: Response, gallery_service: GalleryService = Depends(get_gallery_service)
+    response: Response,
+    gallery_service: Annotated[GalleryService, Depends(get_gallery_service)],
 ) -> list[CatLocation]:
-    """Get all cat locations from Supabase (for map display)."""
+    """Get all cat locations from Supabase (for map display).
+
+    Raises:
+        HTTPException: 500 - If locations fetch fails.
+    """
     # Cache for 5 minutes (300 seconds)
     response.headers["Cache-Control"] = "public, max-age=300"
 
@@ -210,13 +221,13 @@ async def get_locations(
 
 @router.get("/viewport", response_model=GalleryResponse)
 async def get_locations_in_viewport(
+    gallery_service: Annotated[GalleryService, Depends(get_gallery_service)],
+    current_user: Annotated[User | None, Depends(get_current_user_optional)],
     north: float = Query(..., description="North latitude bound"),
     south: float = Query(..., description="South latitude bound"),
     east: float = Query(..., description="East longitude bound"),
     west: float = Query(..., description="West longitude bound"),
     limit: int = Query(100, ge=1, le=500, description="Maximum number of results"),
-    gallery_service: GalleryService = Depends(get_gallery_service),
-    current_user: User | None = Depends(get_current_user_optional),
 ) -> GalleryResponse:
     """
     Get cat locations within a geographic viewport (bounding box).
@@ -225,6 +236,8 @@ async def get_locations_in_viewport(
     markers within the current visible area.
 
     Args:
+        gallery_service: Service to interact with the gallery.
+        current_user: The authenticated user profile (optional).
         north: Maximum latitude (top of viewport)
         south: Minimum latitude (bottom of viewport)
         east: Maximum longitude (right of viewport)
@@ -233,6 +246,9 @@ async def get_locations_in_viewport(
 
     Example:
         `/gallery/viewport?north=13.8&south=13.7&east=100.6&west=100.4`
+
+    Raises:
+        HTTPException: 500 - If viewport fetch fails.
     """
     try:
         # Calculate center for nearby search
@@ -267,19 +283,22 @@ async def get_locations_in_viewport(
 
 
 @router.get("/search", response_model=SearchResponse)
-@limiter.limit("60/minute")  # Rate limit for search
+@limiter.limit(get_api_limit)
 async def search_locations(
     request: Request,  # Required for rate limiting
+    gallery_service: Annotated[GalleryService, Depends(get_gallery_service)],
+    current_user: Annotated[User | None, Depends(get_current_user_optional)],
     q: str | None = Query(None, description="Text to search in location name and description"),
     tags: str | None = Query(None, description="Comma-separated list of tags to filter by"),
     limit: int = Query(100, ge=1, le=500, description="Maximum number of results"),
     offset: int = Query(0, ge=0, description="Number of items to skip"),
     page: int | None = Query(None, ge=1, description="Page number (alternative to offset)"),
-    gallery_service: GalleryService = Depends(get_gallery_service),
-    current_user: User | None = Depends(get_current_user_optional),
 ) -> SearchResponse:
     """
     Search cat locations with optional text query and/or tag filters.
+
+    Raises:
+        HTTPException: 500 - If search fails.
     """
     try:
         tag_list = None
@@ -311,12 +330,12 @@ async def search_locations(
 
 
 @router.get("/popular-tags", response_model=PopularTagsResponse)
-@limiter.limit("60/minute")  # Rate limit for tags
+@limiter.limit(get_api_limit)
 async def get_popular_tags(
     request: Request,  # Required for rate limiting
     response: Response,
+    gallery_service: Annotated[GalleryService, Depends(get_gallery_service)],
     limit: int = Query(20, ge=1, le=100, description="Number of top tags to return"),
-    gallery_service: GalleryService = Depends(get_gallery_service),
 ) -> PopularTagsResponse:
     """
     Get the most popular tags used across all cat photos.
@@ -325,6 +344,9 @@ async def get_popular_tags(
     - Tag autocomplete in upload form
     - Tag cloud visualization
     - Quick filter buttons
+
+    Raises:
+        HTTPException: 500 - If popular tags fetch fails.
     """
     # Cache for 1 hour (3600 seconds) - tags change slowly
     response.headers["Cache-Control"] = "public, max-age=3600"
@@ -341,16 +363,20 @@ async def get_popular_tags(
 
 
 @router.get("/{photo_id}", response_model=CatLocation)
-@limiter.limit("60/minute")
+@limiter.limit(get_api_limit)
 async def get_photo(
     request: Request,
     photo_id: PhotoIdPath,
-    gallery_service: GalleryService = Depends(get_gallery_service),
-    current_user: User | None = Depends(get_current_user_optional),
+    gallery_service: Annotated[GalleryService, Depends(get_gallery_service)],
+    current_user: Annotated[User | None, Depends(get_current_user_optional)],
 ) -> CatLocation:
     """
     Get a specific photo by its ID.
     Useful for deep linking and sharing.
+
+    Raises:
+        HTTPException: 404 - If photo not found.
+        HTTPException: 500 - If photo fetch fails.
     """
     photo_id_str = str(photo_id)
     try:
@@ -381,8 +407,8 @@ from services.storage_service import storage_service
 async def delete_photo(
     photo_id: PhotoIdPath,
     background_tasks: BackgroundTasks,
-    current_user: User = Depends(get_current_user_from_credentials),
-    gallery_service: GalleryService = Depends(get_gallery_service),
+    current_user: Annotated[User, Depends(get_current_user_from_credentials)],
+    gallery_service: Annotated[GalleryService, Depends(get_gallery_service)],
 ) -> dict[str, str]:
     """
     Delete a photo.
@@ -391,6 +417,10 @@ async def delete_photo(
     1. Quick ownership check (fast DB read)
     2. Scheduled background deletion (S3 + DB + Cache)
     3. Returns immediately (202 Accepted)
+
+    Raises:
+        HTTPException: 404 - If photo not found or access denied.
+        HTTPException: 500 - If deletion fails.
     """
     photo_id_str = str(photo_id)
     try:

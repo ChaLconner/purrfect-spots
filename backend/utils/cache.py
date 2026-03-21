@@ -147,14 +147,17 @@ async def invalidate_all_caches() -> None:
 
 # Aliases for compatibility
 cached_gallery = cache(expire=300, key_prefix="gallery", skip_args=1)
+cached_gallery_simple = cache(expire=300, key_prefix="gallery_simple", skip_args=1)
 cached_tags = cache(expire=600, key_prefix="tags", skip_args=1)
 cached_leaderboard = cache(expire=300, key_prefix="leaderboard", skip_args=1)
 cached_user_photos = cache(expire=300, key_prefix="user_photos", skip_args=1)
+cached_user_likes = cache(expire=300, key_prefix="user_likes", skip_args=1)
 
 
 # Invalidation helpers
 async def invalidate_gallery_cache() -> None:
     await clear_cache("cache:gallery:*")
+    await clear_cache("cache:nearby:*")
 
 
 async def invalidate_tags_cache() -> None:
@@ -168,6 +171,7 @@ async def invalidate_leaderboard_cache() -> None:
 async def invalidate_user_cache(user_id: str | None = None) -> None:
     # Always clear user_photos as user_id specific one is hard to match with hash
     await clear_cache("cache:user_photos:*")
+    await clear_cache("cache:user_likes:*")
 
 
 def get_cache_stats() -> dict[str, Any]:

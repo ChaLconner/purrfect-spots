@@ -18,22 +18,43 @@ vi.mock('vue-i18n', () => ({
   useI18n: (): { t: (key: string) => string } => ({ t: (key: string): string => key }),
 }));
 
-vi.mock('@/services/galleryService', () => ({
-  GalleryService: {
-    getLocations: vi.fn().mockResolvedValue([]),
-    getViewportLocations: vi.fn().mockResolvedValue([]),
-    getPhotoById: vi.fn().mockResolvedValue(null),
+vi.mock('@/utils/env', () => ({
+  getEnvVar: vi.fn((key: string) => {
+    console.log('getEnvVar called with:', key);
+    if (key === 'VITE_GOOGLE_MAPS_API_KEY') return 'test-key';
+    return '';
+  }),
+}));
+
+vi.mock('@/services/galleryService', () => {
+  return {
+    GalleryService: {
+      getLocations: vi.fn().mockResolvedValue([]),
+      getViewportLocations: vi.fn().mockResolvedValue([]),
+      getPhotoById: vi.fn().mockResolvedValue(null),
+    },
+  };
+});
+
+vi.mock('@googlemaps/markerclusterer', () => ({
+  MarkerClusterer: class {
+    addMarkers = vi.fn();
+    removeMarkers = vi.fn();
+    clearMarkers = vi.fn();
+    setMap = vi.fn();
+    render = vi.fn();
   },
+  SuperClusterAlgorithm: class {},
 }));
 
 // Mock Google Maps API
 const mockMap = {
   addListener: vi.fn(),
-  getBounds: vi.fn().mockReturnValue({
+  getBounds: vi.fn().mockImplementation(() => ({
     getNorthEast: () => ({ lat: (): number => 14, lng: (): number => 101 }),
     getSouthWest: () => ({ lat: (): number => 13, lng: (): number => 100 }),
-  }),
-  getZoom: vi.fn().mockReturnValue(15),
+  })),
+  getZoom: vi.fn().mockImplementation(() => 15),
   fitBounds: vi.fn(),
   panTo: vi.fn(),
   setZoom: vi.fn(),
@@ -41,12 +62,32 @@ const mockMap = {
 
 global.google = {
   maps: {
-    Map: vi.fn().mockImplementation(() => mockMap),
-    LatLngBounds: vi.fn().mockImplementation(() => ({
-      extend: vi.fn(),
-    })),
-    Marker: vi.fn(),
-    InfoWindow: vi.fn(),
+    Map: vi.fn(class {
+      constructor() {
+        return mockMap;
+      }
+    }),
+    LatLngBounds: vi.fn(class {
+      extend = vi.fn();
+    }),
+    Marker: vi.fn(class {
+      setMap = vi.fn();
+      setPosition = vi.fn();
+      addListener = vi.fn();
+    }),
+    InfoWindow: vi.fn(class {
+      open = vi.fn();
+      close = vi.fn();
+      setContent = vi.fn();
+    }),
+    OverlayView: class {},
+    Size: vi.fn(class {}),
+    Point: vi.fn(class {}),
+    event: {
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      trigger: vi.fn(),
+    },
   },
 } as any;
 
@@ -59,7 +100,7 @@ const mockGeolocation = {
 describe('MapView.vue', () => {
   let router: Router;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Mock navigator.geolocation
     Object.defineProperty(global, 'navigator', {
       value: {
@@ -72,25 +113,37 @@ describe('MapView.vue', () => {
     setActivePinia(createPinia());
     router = createRouter({
       history: createWebHistory(),
-      routes: [{ path: '/map', component: MapView }],
+      routes: [{ path: '/map', name: 'Map', component: MapView }, { path: '/', component: { template: '<div>Home</div>' } }],
     });
+    
+    await router.push('/map');
+    await router.isReady();
+
+    // Mock requestAnimationFrame for deterministic tests
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => cb(Date.now()));
+
+    // Mock requestAnimationFrame for deterministic tests
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => cb(Date.now()));
 
     // Mock env var manually if stubEnv is not available
     process.env.VITE_GOOGLE_MAPS_API_KEY = 'test-key';
-
-    // Create map container in DOM
-    const mapDiv = document.createElement('div');
-    mapDiv.id = 'map';
-    document.body.appendChild(mapDiv);
   });
 
+  let wrapper: any;
+
   afterEach(() => {
+    if (wrapper) {
+      wrapper.unmount();
+    }
     document.body.innerHTML = ''; // Clear the DOM after each test
     delete process.env.VITE_GOOGLE_MAPS_API_KEY;
+    vi.useRealTimers();
+    vi.clearAllMocks();
   });
 
   it('renders correctly and initializes map', async () => {
-    const wrapper = mount(MapView, {
+    wrapper = mount(MapView, {
+      attachTo: document.body,
       global: {
         plugins: [router],
         stubs: {
@@ -112,13 +165,13 @@ describe('MapView.vue', () => {
     
     await nextTick();
     await nextTick();
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await new Promise(resolve => setTimeout(resolve, 300));
 
     // Map initialization should be called
     expect(global.google.maps.Map).toHaveBeenCalled();
   });
 
-  it.skip('loads cat locations on mount', async () => {
+  it('loads cat locations on mount', async () => {
     const locations: CatLocation[] = [
       { 
         id: '1', 
@@ -136,22 +189,40 @@ describe('MapView.vue', () => {
     ];
     vi.mocked(GalleryService.getViewportLocations).mockResolvedValue(locations);
 
-    mount(MapView, {
-      global: { plugins: [router], stubs: { GhibliLoader: true, SearchBox: true, CatDetailModal: true, ErrorState: true, 'i18n-t': true, OnboardingBanner: true, MapSearchBadge: true }, mocks: { $t: (msg: string): string => msg } },
+    wrapper = mount(MapView, {
+      attachTo: document.body,
+      global: { 
+        plugins: [router], 
+        stubs: { 
+          GhibliLoader: true, 
+          SearchBox: true, 
+          CatDetailModal: true, 
+          ErrorState: true, 
+          'i18n-t': true, 
+          OnboardingBanner: true, 
+          MapSearchBadge: true 
+        }, 
+        mocks: { 
+          $t: (msg: string): string => msg 
+        } 
+      },
     });
 
+    // Wait for map initialization and listener attachment
+    await nextTick();
+    await nextTick();
+    await new Promise(resolve => setTimeout(resolve, 500));
+    await nextTick();
+
     // The component fetches on map 'idle' event which we trigger in the mock
-    // if listener was added. Our mockMap.addListener is vi.fn()
-    // We need to manually trigger the 'idle' callback if we want it to be deterministic
-    // or wait for the debounced call.
-    
-    // Let's find the idle listener and call it
     const idleCallback = mockMap.addListener.mock.calls.find(call => call[0] === 'idle')?.[1];
+    expect(idleCallback, 'Map idle callback should be registered').toBeDefined();
+    
     if (idleCallback) {
       idleCallback();
     }
 
-    // Wait for debounced fetch and any potential nextTicks
+    // Advance for debounced fetch (300ms)
     await new Promise(resolve => setTimeout(resolve, 500));
     
     expect(GalleryService.getViewportLocations).toHaveBeenCalled();
@@ -160,12 +231,31 @@ describe('MapView.vue', () => {
     expect(catsStore.locations).toEqual(expect.arrayContaining(locations));
   });
 
-  it.skip('handles map errors gracefully', async () => {
+  it('handles map errors gracefully', async () => {
     vi.mocked(GalleryService.getViewportLocations).mockRejectedValue(new Error('Fetch failed'));
     
-    const wrapper = mount(MapView, {
-      global: { plugins: [router], stubs: { GhibliLoader: true, SearchBox: true, CatDetailModal: true, ErrorState: true, 'i18n-t': true, OnboardingBanner: true, MapSearchBadge: true }, mocks: { $t: (msg: string): string => msg } },
+    wrapper = mount(MapView, {
+      attachTo: document.body,
+      global: { 
+        plugins: [router], 
+        stubs: { 
+          GhibliLoader: true, 
+          SearchBox: true, 
+          CatDetailModal: true, 
+          ErrorState: true, 
+          'i18n-t': true, 
+          OnboardingBanner: true, 
+          MapSearchBadge: true 
+        }, 
+        mocks: { 
+          $t: (msg: string): string => msg 
+        } 
+      },
     });
+
+    await nextTick();
+    await nextTick();
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     const idleCallback = mockMap.addListener.mock.calls.find(call => call[0] === 'idle')?.[1];
     if (idleCallback) {
@@ -177,12 +267,27 @@ describe('MapView.vue', () => {
     expect(wrapper.findComponent({ name: 'ErrorState' }).exists()).toBe(true);
   });
 
-  it.skip('clears search when clear button is clicked', async () => {
+  it('clears search when clear button is clicked', async () => {
     const catsStore = useCatsStore();
     catsStore.setSearchQuery('test search');
     
-    const wrapper = mount(MapView, {
-      global: { plugins: [router], stubs: { GhibliLoader: true, SearchBox: true, CatDetailModal: true, ErrorState: true, 'i18n-t': true, OnboardingBanner: true, MapSearchBadge: true }, mocks: { $t: (msg: string): string => msg } },
+    wrapper = mount(MapView, {
+      attachTo: document.body,
+      global: { 
+        plugins: [router], 
+        stubs: { 
+          GhibliLoader: true, 
+          SearchBox: true, 
+          CatDetailModal: true, 
+          ErrorState: true, 
+          'i18n-t': true, 
+          OnboardingBanner: true, 
+          MapSearchBadge: true 
+        }, 
+        mocks: { 
+          $t: (msg: string): string => msg 
+        } 
+      },
     });
 
     (wrapper.vm as any).isInitialLoading = false;

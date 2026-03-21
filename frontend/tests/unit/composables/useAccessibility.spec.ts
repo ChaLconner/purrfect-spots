@@ -1,8 +1,14 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ref, nextTick } from 'vue';
-import { announce, useFocusTrap, useArrowKeyNavigation, useSkipLink } from '@/composables/useAccessibility';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { ref, nextTick, defineComponent } from 'vue';
+import { mount } from '@vue/test-utils';
+import { announce, useFocusTrap, useArrowKeyNavigation, useSkipLink, useModalFocus } from '@/composables/useAccessibility';
 
 describe('useAccessibility composables', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    vi.clearAllMocks();
+  });
+
   describe('announce', () => {
     it('should create and update announcer element', () => {
       // Use requestAnimationFrame mock
@@ -71,13 +77,21 @@ describe('useAccessibility composables', () => {
         container.appendChild(item1);
         container.appendChild(item2);
         document.body.appendChild(container);
+        
+        // JSDOM mock for visibility
+        Object.defineProperty(item1, 'offsetParent', { get: () => document.body });
+        Object.defineProperty(item2, 'offsetParent', { get: () => document.body });
 
         const items = ref([item1, item2]);
         const { handleKeyDown } = useArrowKeyNavigation(items);
         
         item1.focus();
+        console.log('Active after focus:', (document.activeElement as any).tagName, (document.activeElement as any).id);
+        expect(document.activeElement).toBe(item1);
+        
         const event = new KeyboardEvent('keydown', { key: 'ArrowDown' });
         handleKeyDown(event);
+        console.log('Active after handleKeyDown:', (document.activeElement as any).tagName, (document.activeElement as any).id);
         expect(document.activeElement).toBe(item2);
         
         const eventUp = new KeyboardEvent('keydown', { key: 'ArrowUp' });
@@ -85,6 +99,75 @@ describe('useAccessibility composables', () => {
         expect(document.activeElement).toBe(item1);
 
         document.body.removeChild(container);
+    });
+
+    it('should loop around when loop is true', () => {
+      const item1 = document.createElement('button');
+      const item2 = document.createElement('button');
+      document.body.appendChild(item1);
+      document.body.appendChild(item2);
+      Object.defineProperty(item1, 'offsetParent', { get: () => document.body });
+      Object.defineProperty(item2, 'offsetParent', { get: () => document.body });
+      const items = ref([item1, item2]);
+      const { handleKeyDown } = useArrowKeyNavigation(items, { loop: true });
+      
+      item2.focus();
+      const event = new KeyboardEvent('keydown', { key: 'ArrowDown' });
+      handleKeyDown(event);
+      expect(document.activeElement).toBe(item1);
+    });
+
+    it('should not loop around when loop is false', () => {
+      const item1 = document.createElement('button');
+      const item2 = document.createElement('button');
+      document.body.appendChild(item1);
+      document.body.appendChild(item2);
+      Object.defineProperty(item1, 'offsetParent', { get: () => document.body });
+      Object.defineProperty(item2, 'offsetParent', { get: () => document.body });
+      const items = ref([item1, item2]);
+      const { handleKeyDown } = useArrowKeyNavigation(items, { loop: false });
+      
+      item2.focus();
+      const event = new KeyboardEvent('keydown', { key: 'ArrowDown' });
+      handleKeyDown(event);
+      expect(document.activeElement).toBe(item2);
+    });
+
+    it('should respect orientation', () => {
+      const item1 = document.createElement('button');
+      const item2 = document.createElement('button');
+      document.body.appendChild(item1);
+      document.body.appendChild(item2);
+      Object.defineProperty(item1, 'offsetParent', { get: () => document.body });
+      Object.defineProperty(item2, 'offsetParent', { get: () => document.body });
+      const items = ref([item1, item2]);
+      const { handleKeyDown } = useArrowKeyNavigation(items, { orientation: 'vertical' });
+      
+      item1.focus();
+      const event = new KeyboardEvent('keydown', { key: 'ArrowRight' });
+      handleKeyDown(event);
+      expect(document.activeElement).toBe(item1); 
+    });
+
+    it('should handle Home and End keys', () => {
+      const item1 = document.createElement('button');
+      const item2 = document.createElement('button');
+      const item3 = document.createElement('button');
+      document.body.appendChild(item1);
+      document.body.appendChild(item2);
+      document.body.appendChild(item3);
+      Object.defineProperty(item1, 'offsetParent', { get: () => document.body });
+      Object.defineProperty(item2, 'offsetParent', { get: () => document.body });
+      Object.defineProperty(item3, 'offsetParent', { get: () => document.body });
+      const items = ref([item1, item2, item3]);
+      const { handleKeyDown } = useArrowKeyNavigation(items);
+      
+      item2.focus();
+      handleKeyDown(new KeyboardEvent('keydown', { key: 'Home' }));
+      expect(document.activeElement).toBe(item1);
+
+      handleKeyDown(new KeyboardEvent('keydown', { key: 'End' }));
+      expect(document.activeElement).toBe(item3);
     });
   });
 
@@ -103,6 +186,38 @@ describe('useAccessibility composables', () => {
         expect(target.scrollIntoView).toHaveBeenCalled();
         
         document.body.removeChild(target);
+    });
+  });
+
+  describe('useModalFocus', () => {
+    it('should activate and deactivate focus trap', async () => {
+      const container = document.createElement('div');
+      container.innerHTML = '<button id="m1">Modal Btn</button>';
+      document.body.appendChild(container);
+      
+      const isOpen = ref(false);
+      const modalRef = ref(container);
+      
+      const TestComponent = defineComponent({
+        setup() {
+          return useModalFocus(isOpen, modalRef);
+        },
+        template: '<div></div>'
+      });
+      
+      const wrapper = mount(TestComponent);
+      const { activateFocusTrap, deactivateFocusTrap } = wrapper.vm as any;
+      
+      const btn = document.getElementById('m1');
+      if (btn) Object.defineProperty(btn, 'offsetParent', { get: () => document.body });
+
+      activateFocusTrap();
+      await nextTick();
+      
+      expect(document.activeElement).toBe(btn);
+      
+      deactivateFocusTrap();
+      document.body.removeChild(container);
     });
   });
 });

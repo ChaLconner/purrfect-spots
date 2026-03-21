@@ -242,20 +242,23 @@ from starlette.types import ExceptionHandler
 from utils.exception_handlers import (
     custom_http_exception_handler,
     generic_exception_handler,
+    purrfect_spots_exception_handler,
     validation_exception_handler,
 )
+from utils.exceptions import PurrfectSpotsException
 
 
-async def cancelled_error_handler(request: Request, exc: Exception) -> JSONResponse:
+def cancelled_error_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.info(f"Operation cancelled: {request.url.path}")
     return JSONResponse(status_code=499, content={"detail": "Request cancelled"})
 
 
-async def keyboard_interrupt_handler(request: Request, exc: Exception) -> JSONResponse:
+def keyboard_interrupt_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.info("Server shutting down...")
     return JSONResponse(status_code=503, content={"detail": "Service shutting down"})
 
 
+app.add_exception_handler(PurrfectSpotsException, cast(ExceptionHandler, purrfect_spots_exception_handler))
 app.add_exception_handler(Exception, cast(ExceptionHandler, generic_exception_handler))
 app.add_exception_handler(StarletteHTTPException, cast(ExceptionHandler, custom_http_exception_handler))
 app.add_exception_handler(RequestValidationError, cast(ExceptionHandler, validation_exception_handler))
@@ -399,4 +402,4 @@ app.add_middleware(
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)  # nosec B104
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

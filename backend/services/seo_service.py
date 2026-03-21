@@ -1,13 +1,16 @@
 import datetime
 
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 from supabase import AClient
 
 from utils.cache import cache
 
 
 class SeoService:
-    def __init__(self, supabase_client: AClient) -> None:
+    def __init__(self, supabase_client: AClient, db: AsyncSession | None = None) -> None:
         self.supabase = supabase_client
+        self.db = db
         self.base_url = "https://purrfectspots.xyz"
 
     @cache(expire=3600, key_prefix="sitemap", skip_args=1)
@@ -53,6 +56,10 @@ class SeoService:
 
     async def _get_all_photo_ids(self) -> list[str]:
         try:
+            if self.db:
+                query = text("SELECT id FROM cat_photos WHERE deleted_at IS NULL ORDER BY uploaded_at DESC LIMIT 1000")
+                result = await self.db.execute(query)
+                return [row[0] for row in result.fetchall()]
             # Fetch visible photos, limit to most recent 1000 to avoid huge sitemap
             res = (
                 await self.supabase.table("cat_photos")
@@ -70,6 +77,10 @@ class SeoService:
 
     async def _get_all_user_ids(self) -> list[str]:
         try:
+            if self.db:
+                query = text("SELECT id FROM users LIMIT 1000")
+                result = await self.db.execute(query)
+                return [row[0] for row in result.fetchall()]
             # Fetch active users
             res = await self.supabase.table("users").select("id").limit(1000).execute()
             return [row["id"] for row in res.data]

@@ -12,20 +12,26 @@ from schemas.subscription import (
     PortalResponse,
     SubscriptionStatus,
 )
+from schemas.user import User
 from services.subscription_service import SubscriptionService
-from user_models.user import User
 
 router = APIRouter(prefix="/subscription", tags=["Subscription"])
+
+
+from typing import Annotated
 
 
 @router.post("/checkout", response_model=CheckoutSessionResponse)
 async def create_checkout_session(
     checkout_req: CreateCheckoutRequest,
-    current_user: User = Depends(get_current_user_from_credentials),
-    subscription_service: SubscriptionService = Depends(get_subscription_service),
+    current_user: Annotated[User, Depends(get_current_user_from_credentials)],
+    subscription_service: Annotated[SubscriptionService, Depends(get_subscription_service)],
 ) -> dict[str, Any]:
     """
-    Create a Stripe Checkout Session for subscription
+    Create a Stripe Checkout Session for subscription.
+
+    Raises:
+        HTTPException: 500 - If checkout session creation fails.
     """
     try:
         return await subscription_service.create_checkout_session(
@@ -44,11 +50,14 @@ async def create_checkout_session(
 @router.post("/webhook")
 async def stripe_webhook(
     request: Request,
-    stripe_signature: str = Header(None, alias="stripe-signature"),
-    subscription_service: SubscriptionService = Depends(get_subscription_service),
+    subscription_service: Annotated[SubscriptionService, Depends(get_subscription_service)],
+    stripe_signature: Annotated[str | None, Header(alias="stripe-signature")] = None,
 ) -> dict[str, str]:
     """
-    Handle Stripe Webhooks
+    Handle Stripe Webhooks.
+
+    Raises:
+        HTTPException: 400 - If Stripe signature is missing or payload is invalid.
     """
     if not stripe_signature:
         raise HTTPException(status_code=400, detail="Missing Stripe Signature")
@@ -67,22 +76,26 @@ async def stripe_webhook(
 
 @router.get("/status", response_model=SubscriptionStatus)
 async def get_subscription_status(
-    current_user: User = Depends(get_current_user_from_credentials),
-    subscription_service: SubscriptionService = Depends(get_subscription_service),
+    current_user: Annotated[User, Depends(get_current_user_from_credentials)],
+    subscription_service: Annotated[SubscriptionService, Depends(get_subscription_service)],
 ) -> dict[str, Any]:
     """
-    Get current user's subscription status
+    Get current user's subscription status.
     """
     return await subscription_service.get_subscription_status(current_user.id)
 
 
 @router.post("/cancel")
 async def cancel_subscription(
-    current_user: User = Depends(get_current_user_from_credentials),
-    subscription_service: SubscriptionService = Depends(get_subscription_service),
+    current_user: Annotated[User, Depends(get_current_user_from_credentials)],
+    subscription_service: Annotated[SubscriptionService, Depends(get_subscription_service)],
 ) -> dict[str, str]:
     """
-    Cancel subscription
+    Cancel subscription.
+
+    Raises:
+        HTTPException: 400 - If cancellation fails due to validation error.
+        HTTPException: 500 - If cancellation fails due to internal error.
     """
     try:
         await subscription_service.cancel_subscription(current_user.id)
@@ -96,12 +109,16 @@ async def cancel_subscription(
 
 @router.post("/portal", response_model=PortalResponse)
 async def create_portal_session(
-    req: CreatePortalRequest,
-    current_user: User = Depends(get_current_user_from_credentials),
-    subscription_service: SubscriptionService = Depends(get_subscription_service),
+    req: Annotated[CreatePortalRequest, Depends()],
+    current_user: Annotated[User, Depends(get_current_user_from_credentials)],
+    subscription_service: Annotated[SubscriptionService, Depends(get_subscription_service)],
 ) -> dict[str, str]:
     """
-    Create Stripe Customer Portal session
+    Create Stripe Customer Portal session.
+
+    Raises:
+        HTTPException: 400 - If portal session creation fails due to validation error.
+        HTTPException: 500 - If portal session creation fails due to internal error.
     """
     try:
         url = await subscription_service.create_portal_session(current_user.id, req.return_url)

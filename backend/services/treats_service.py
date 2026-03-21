@@ -1,6 +1,6 @@
 import os
 import time
-from typing import Any
+from typing import Any, cast
 
 import stripe
 from starlette.concurrency import run_in_threadpool
@@ -19,9 +19,14 @@ _packages_cache_ts: float = 0.0
 _PACKAGES_CACHE_TTL = 300  # 5 minutes
 
 
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+
 class TreatsService:
-    def __init__(self, supabase_client: AClient) -> None:
+    def __init__(self, supabase_client: AClient, db: AsyncSession | None = None) -> None:
         self.supabase = supabase_client
+        self.db = db
         self.notification_service = NotificationService(supabase_client)
 
     # ── Give treats ──────────────────────────────────────────────────
@@ -31,33 +36,16 @@ class TreatsService:
     ) -> dict[str, Any]:
         """Give treats to a photo owner (fully atomic via DB RPC)."""
         try:
-            from utils.supabase_client import get_async_supabase_admin_client
+            if self.db:
+                result = await self._give_treat_sql(from_user_id, photo_id, amount)
+            else:
+                result = await self._give_treat_supabase(from_user_id, photo_id, amount)
 
-            # Use admin client to bypass RLS/JWT issues
-            admin_client = await get_async_supabase_admin_client()
-
-            res = await admin_client.rpc(
-                "give_treat_atomic",
-                {
-                    "p_from_user_id": from_user_id,
-                    "p_photo_id": photo_id,
-                    "p_amount": amount,
-                },
-            ).execute()
-
-            if not res.data or len(res.data) == 0:
-                raise ValueError("Unknown error (no response from RPC)")
-
-            result = res.data[0]
-            if not result.get("success"):
-                raise ValueError(result.get("error", "Unknown error"))
-
-            # Fire-and-forget notification (don't fail the transaction)
+            # Fire-and-forget notification
             to_user_id = result.get("to_user_id")
             if to_user_id:
                 await self._send_treat_notification(from_user_id, to_user_id, photo_id, amount)
             else:
-                # Fallback: query photo owner (only if RPC didn't return it)
                 await self._send_treat_notification_fallback(from_user_id, photo_id, amount)
 
             return {
@@ -67,17 +55,79 @@ class TreatsService:
             }
 
         except ValueError:
+            if self.db:
+                await self.db.rollback()
             raise
         except Exception as e:
+            if self.db:
+                await self.db.rollback()
             logger.error("Give treat failed: %s", e, exc_info=True)
             raise
+
+    async def _give_treat_sql(self, from_user_id: str, photo_id: str, amount: int) -> dict[str, Any]:
+        """Give treats using SQLAlchemy RPC call."""
+        if not self.db:
+            raise ValueError("Database session is required for SQL RPC")
+        db_session = self.db
+        query = text(
+            "SELECT success, error, to_user_id, new_balance FROM give_treat_atomic(:p_from_user_id, :p_photo_id, :p_amount)"
+        )
+        result = await db_session.execute(
+            query,
+            {
+                "p_from_user_id": from_user_id,
+                "p_photo_id": photo_id,
+                "p_amount": amount,
+            },
+        )
+        row = result.fetchone()
+        if not row:
+            raise ValueError("Unknown error (no response from RPC)")
+
+        await db_session.commit()
+
+        if not row[0]:  # success
+            raise ValueError(row[1] or "Unknown error")  # error
+
+        return {"to_user_id": row[2], "new_balance": row[3]}
+
+    async def _give_treat_supabase(self, from_user_id: str, photo_id: str, amount: int) -> dict[str, Any]:
+        """Give treats using Supabase RPC call."""
+        from utils.supabase_client import get_async_supabase_admin_client
+
+        admin_client = await get_async_supabase_admin_client()
+
+        res = await admin_client.rpc(
+            "give_treat_atomic",
+            {
+                "p_from_user_id": from_user_id,
+                "p_photo_id": photo_id,
+                "p_amount": amount,
+            },
+        ).execute()
+
+        if not res.data:
+            raise ValueError("Unknown error (no response from RPC)")
+
+        result = res.data[0]
+        if not result.get("success"):
+            raise ValueError(result.get("error", "Unknown error"))
+
+        return cast(dict[str, Any], result)
 
     async def _send_treat_notification(self, from_user_id: str, to_user_id: str, photo_id: str, amount: int) -> None:
         """Send notification when treats are given."""
         try:
-            actor_res = await self.supabase.table("users").select("name").eq("id", from_user_id).single().execute()
-
-            actor_name = actor_res.data.get("name") if actor_res.data else "Someone"
+            actor_name = "Someone"
+            if self.db:
+                query = text("SELECT name FROM users WHERE id = :u_id LIMIT 1")
+                result = await self.db.execute(query, {"u_id": from_user_id})
+                row = result.fetchone()
+                if row:
+                    actor_name = row[0]
+            else:
+                actor_res = await self.supabase.table("users").select("name").eq("id", from_user_id).single().execute()
+                actor_name = actor_res.data.get("name") if actor_res.data else "Someone"
 
             await self.notification_service.create_notification(
                 user_id=to_user_id,
@@ -94,10 +144,21 @@ class TreatsService:
     async def _send_treat_notification_fallback(self, from_user_id: str, photo_id: str, amount: int) -> None:
         """Fallback notification path when to_user_id not returned by RPC."""
         try:
-            photo_res = await self.supabase.table("cat_photos").select("user_id").eq("id", photo_id).single().execute()
+            to_user_id = None
+            if self.db:
+                query = text("SELECT user_id FROM cat_photos WHERE id = :p_id LIMIT 1")
+                result = await self.db.execute(query, {"p_id": photo_id})
+                row = result.fetchone()
+                if row:
+                    to_user_id = row[0]
+            else:
+                photo_res = (
+                    await self.supabase.table("cat_photos").select("user_id").eq("id", photo_id).single().execute()
+                )
+                if photo_res.data:
+                    to_user_id = photo_res.data["user_id"]
 
-            if photo_res.data:
-                to_user_id = photo_res.data["user_id"]
+            if to_user_id:
                 await self._send_treat_notification(from_user_id, to_user_id, photo_id, amount)
         except Exception as e:
             logger.error("Failed to send treat notification (fallback): %s", e)
@@ -135,15 +196,23 @@ class TreatsService:
                 session_params["customer"] = stripe_customer_id
             else:
                 # Try to find existing customer
-                user_res = (
-                    await self.supabase.table("users")
-                    .select("stripe_customer_id")
-                    .eq("id", user_id)
-                    .maybe_single()
-                    .execute()
-                )
+                db_customer_id = None
+                if self.db:
+                    query = text("SELECT stripe_customer_id FROM users WHERE id = :u_id LIMIT 1")
+                    result = await self.db.execute(query, {"u_id": user_id})
+                    row = result.fetchone()
+                    if row:
+                        db_customer_id = row[0]
+                else:
+                    user_res = (
+                        await self.supabase.table("users")
+                        .select("stripe_customer_id")
+                        .eq("id", user_id)
+                        .maybe_single()
+                        .execute()
+                    )
+                    db_customer_id = user_res.data.get("stripe_customer_id") if user_res and user_res.data else None
 
-                db_customer_id = user_res.data.get("stripe_customer_id") if user_res and user_res.data else None
                 if db_customer_id:
                     session_params["customer"] = db_customer_id
 
@@ -159,11 +228,37 @@ class TreatsService:
     # ── Balance & Transactions ───────────────────────────────────────
 
     async def get_balance(self, user_id: str) -> dict[str, Any]:
-        user_res = await self.supabase.table("users").select("treat_balance").eq("id", user_id).single().execute()
+        if self.db:
+            try:
+                # Get balance
+                balance_query = text("SELECT treat_balance FROM users WHERE id = :u_id LIMIT 1")
+                balance_res = await self.db.execute(balance_query, {"u_id": user_id})
+                balance_row = balance_res.fetchone()
+                balance = balance_row[0] if balance_row else 0
 
-        balance = user_res.data["treat_balance"] if user_res.data else 0
+                # Get recent transactions
+                trans_query = text(
+                    "SELECT * FROM treats_transactions "
+                    "WHERE from_user_id = :u_id OR to_user_id = :u_id "
+                    "ORDER BY created_at DESC "
+                    "LIMIT 10"
+                )
+                trans_res = await self.db.execute(trans_query, {"u_id": user_id})
+                recent_transactions = [dict(row._mapping) for row in trans_res]
 
-        trans_res = (
+                return {
+                    "balance": balance,
+                    "recent_transactions": recent_transactions,
+                }
+            except Exception as e:
+                logger.error(f"SQLAlchemy get_balance failed: {e}")
+                # Fallback to Supabase
+
+        supa_user_res = await self.supabase.table("users").select("treat_balance").eq("id", user_id).single().execute()
+
+        balance = supa_user_res.data["treat_balance"] if supa_user_res.data else 0
+
+        supa_trans_res = (
             await self.supabase.table("treats_transactions")
             .select("*")
             .or_(f"from_user_id.eq.{user_id},to_user_id.eq.{user_id}")
@@ -174,7 +269,7 @@ class TreatsService:
 
         return {
             "balance": balance,
-            "recent_transactions": trans_res.data or [],
+            "recent_transactions": supa_trans_res.data or [],
         }
 
     # ── Leaderboard ──────────────────────────────────────────────────
@@ -183,6 +278,10 @@ class TreatsService:
     async def get_leaderboard(self, period: str = "all_time") -> list[dict[str, Any]]:
         """Top treat receivers (Most Spoiled Cats owners)."""
         try:
+            if self.db:
+                query = text("SELECT * FROM get_leaderboard(:p_period)")
+                result = await self.db.execute(query, {"p_period": period})
+                return [dict(row._mapping) for row in result]
             res = await self.supabase.rpc("get_leaderboard", {"p_period": period}).execute()
             data: list[dict[str, Any]] = res.data or []
             return data
@@ -194,6 +293,19 @@ class TreatsService:
             return []
 
     async def _get_leaderboard_fallback(self) -> list[dict[str, Any]]:
+        if self.db:
+            try:
+                query = text(
+                    "SELECT id, name, username, picture, total_treats_received "
+                    "FROM users "
+                    "ORDER BY total_treats_received DESC "
+                    "LIMIT 10"
+                )
+                result = await self.db.execute(query)
+                return [dict(row._mapping) for row in result]
+            except Exception as e:
+                logger.error(f"SQLAlchemy _get_leaderboard_fallback failed: {e}")
+
         res = (
             await self.supabase.table("users")
             .select("id, name, username, picture, total_treats_received")
@@ -214,9 +326,17 @@ class TreatsService:
             return _packages_cache
 
         try:
-            res = await self.supabase.table("treat_packages").select("*").eq("is_active", True).execute()
+            data = []
+            if self.db:
+                query = text("SELECT * FROM treat_packages WHERE is_active = TRUE")
+                result = await self.db.execute(query)
+                data = [dict(row._mapping) for row in result]
+            else:
+                res = await self.supabase.table("treat_packages").select("*").eq("is_active", True).execute()
+                data = res.data or []
+
             packages: dict[str, dict[str, Any]] = {}
-            for row in res.data or []:
+            for row in data:
                 packages[row["id"]] = {
                     "amount": row["amount"],
                     "price": float(row["price"]),
@@ -246,23 +366,32 @@ class TreatsService:
 
         # Direct DB fallback (in case cache is stale)
         try:
-            res = (
-                await self.supabase.table("treat_packages")
-                .select("*")
-                .eq("id", package_id)
-                .eq("is_active", True)
-                .maybe_single()
-                .execute()
-            )
+            data = None
+            if self.db:
+                query = text("SELECT * FROM treat_packages WHERE id = :p_id AND is_active = TRUE LIMIT 1")
+                result = await self.db.execute(query, {"p_id": package_id})
+                row = result.fetchone()
+                if row:
+                    data = dict(row._mapping)
+            else:
+                res = (
+                    await self.supabase.table("treat_packages")
+                    .select("*")
+                    .eq("id", package_id)
+                    .eq("is_active", True)
+                    .maybe_single()
+                    .execute()
+                )
+                data = res.data if res is not None else None
 
-            if res is not None and res.data:
+            if data:
                 return {
-                    "amount": res.data["amount"],
-                    "price": float(res.data["price"]),
-                    "name": res.data["name"],
-                    "bonus": res.data["bonus"],
-                    "price_per_treat": (float(res.data["price_per_treat"]) if res.data["price_per_treat"] else None),
-                    "price_id": res.data["price_id"],
+                    "amount": data["amount"],
+                    "price": float(data["price"]),
+                    "name": data["name"],
+                    "bonus": data["bonus"],
+                    "price_per_treat": (float(data["price_per_treat"]) if data["price_per_treat"] else None),
+                    "price_id": data["price_id"],
                 }
             return None
         except Exception as e:
@@ -278,49 +407,76 @@ class TreatsService:
         session_id = session.get("id")
 
         if not user_id or not package_id:
-            logger.error(
-                "Fulfillment failed: missing metadata. user_id=%r, package=%r",
-                user_id,
-                package_id,
-            )
+            logger.error("Fulfillment failed: missing metadata. user_id=%r, package=%r", user_id, package_id)
             return
 
-        # Determine treat amount
         package = await self.get_package_by_id(package_id)
-        if not package:
-            logger.error("Fulfillment failed: package %r not found", package_id)
+        if not package or package.get("amount", 0) <= 0:
+            logger.error("Fulfillment failed: package %r not found or invalid", package_id)
             return
 
-        amount = package.get("amount", 0)
-
-        if amount <= 0:
-            logger.error("Fulfillment failed: invalid amount for package %r", package_id)
-            return
+        amount = package["amount"]
+        description = f"Purchased {package['name']} pack"
 
         try:
-            # Add treats ATOMICALLY (idempotent via stripe_session_id)
-            res = await self.supabase.rpc(
-                "purchase_treats_atomic",
-                {
-                    "p_user_id": user_id,
-                    "p_amount": amount,
-                    "p_description": f"Purchased {package['name']} pack",
-                    "p_stripe_session_id": session_id,
-                },
-            ).execute()
-
-            result = res.data or {}
-
-            if result.get("error"):
-                logger.error("Failed to process purchase: %s", result.get("error"))
-            elif result.get("duplicate"):
-                logger.info("Duplicate webhook processed for session %s", session_id)
+            if self.db:
+                await self._fulfill_purchase_sql(user_id, amount, description, str(session_id))
             else:
-                logger.info(
-                    "Added %d treats to user %r. New balance: %s",
-                    amount,
-                    user_id,
-                    result.get("new_balance"),
-                )
+                await self._fulfill_purchase_supabase(user_id, amount, description, str(session_id))
         except Exception as e:
+            if self.db:
+                await self.db.rollback()
             logger.error("Failed to add treats in fulfillment: %s", e, exc_info=True)
+
+    async def _fulfill_purchase_sql(self, user_id: str, amount: int, description: str, session_id: str) -> None:
+        """Fulfill treat purchase using SQLAlchemy."""
+        if not self.db:
+            logger.error("Database session is required for fulfillment")
+            return
+        db_session = self.db
+        query = text(
+            "SELECT error, duplicate, new_balance FROM purchase_treats_atomic(:p_user_id, :p_amount, :p_description, :p_stripe_session_id)"
+        )
+        result = await db_session.execute(
+            query,
+            {
+                "p_user_id": user_id,
+                "p_amount": amount,
+                "p_description": description,
+                "p_stripe_session_id": session_id,
+            },
+        )
+        row = result.fetchone()
+        if not row:
+            logger.error("Failed to process purchase: No response from RPC")
+            return
+
+        await db_session.commit()
+
+        error, duplicate, new_balance = row
+        if error:
+            logger.error("Failed to process purchase: %s", error)
+        elif duplicate:
+            logger.info("Duplicate webhook processed for session %s", session_id)
+        else:
+            logger.info("Added %d treats to user %r. New balance: %s", amount, user_id, new_balance)
+
+    async def _fulfill_purchase_supabase(self, user_id: str, amount: int, description: str, session_id: str) -> None:
+        """Fulfill treat purchase using Supabase."""
+        res = await self.supabase.rpc(
+            "purchase_treats_atomic",
+            {
+                "p_user_id": user_id,
+                "p_amount": amount,
+                "p_description": description,
+                "p_stripe_session_id": session_id,
+            },
+        ).execute()
+
+        data = res.data or {}
+        if data.get("error"):
+            logger.error("Failed to process purchase: %s", data.get("error"))
+        elif data.get("duplicate"):
+            logger.info("Duplicate webhook processed for session %s", session_id)
+        else:
+            logger.info("Added %d treats to user %r. New balance: %s", amount, user_id, data.get("new_balance"))

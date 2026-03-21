@@ -135,9 +135,13 @@ describe('GalleryView.vue', () => {
     });
 
     await nextTick();
+    await nextTick();
     
     // Trigger search
     catsStore.setGallerySearchQuery('cute cats');
+    
+    // Wait for the 400ms debounce + a little extra padding
+    await new Promise(resolve => setTimeout(resolve, 450));
     
     await nextTick();
     await nextTick();

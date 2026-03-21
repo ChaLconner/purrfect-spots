@@ -29,8 +29,20 @@
   "homepage": "https://github.com/ChaLconner/purrfect-spots#readme",
   "devDependencies": {
     "husky": "^9.1.7",
-    "k6": "^0.0.0",
+    "lint-staged": "^15.5.2",
     "vite": "^7.0.0"
+  },
+  "lint-staged": {
+    "backend/**/*.py": [
+      "ruff check --fix",
+      "ruff format"
+    ],
+    "frontend/src/**/*.{ts,vue}": [
+      "bash -c 'cd frontend && npx eslint --fix'"
+    ],
+    "frontend/src/**/*.css": [
+      "bash -c 'cd frontend && npx prettier --write'"
+    ]
   },
   "overrides": {
     "js-beautify": {
@@ -43,9 +55,9 @@
     "serialize-javascript": ">=7.0.3"
   },
   "optionalDependencies": {
-    "@tailwindcss/oxide-linux-x64-gnu": "4.2.1",
-    "@tailwindcss/oxide-linux-arm64-gnu": "4.2.1",
     "@tailwindcss/oxide-darwin-arm64": "4.2.1",
-    "@tailwindcss/oxide-darwin-x64": "4.2.1"
+    "@tailwindcss/oxide-darwin-x64": "4.2.1",
+    "@tailwindcss/oxide-linux-arm64-gnu": "4.2.1",
+    "@tailwindcss/oxide-linux-x64-gnu": "4.2.1"
   }
 }

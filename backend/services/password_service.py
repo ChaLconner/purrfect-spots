@@ -37,8 +37,20 @@ class PasswordService:
         """
         Validate password complexity:
         - At least 8 characters
+        - Includes uppercase, lowercase, numbers, and special characters
         """
-        return not len(password) < self.MIN_PASSWORD_LENGTH
+        if len(password) < self.MIN_PASSWORD_LENGTH:
+            return False
+
+        import re
+
+        # Regex for uppercase, lowercase, digit, and special char
+        has_upper = re.search(r"[A-Z]", password)
+        has_lower = re.search(r"[a-z]", password)
+        has_digit = re.search(r"\d", password)
+        has_special = re.search(r"[!@#$%^&*(),.?\":{}|<>]", password)
+
+        return all([has_upper, has_lower, has_digit, has_special])
 
     async def is_password_pwned(self, password: str) -> bool:
         """

@@ -1,7 +1,9 @@
 import re
 from datetime import UTC
-from typing import Any
+from typing import Any, cast
 
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 from supabase import AClient
 
 from logger import logger
@@ -20,8 +22,9 @@ def _is_valid_uuid(value: str | None) -> bool:
 
 
 class NotificationService:
-    def __init__(self, supabase_client: AClient) -> None:
+    def __init__(self, supabase_client: AClient, db: AsyncSession | None = None) -> None:
         self.supabase = supabase_client
+        self.db = db
 
     async def create_notification(
         self,
@@ -80,6 +83,17 @@ class NotificationService:
         }
 
         try:
+            if self.db:
+                db_session = self.db
+                query = text(
+                    "INSERT INTO notifications (user_id, type, message, title, actor_id, resource_id, resource_type) "
+                    "VALUES (:user_id, :type, :message, :title, :actor_id, :resource_id, :resource_type) "
+                    "RETURNING *"
+                )
+                result = await db_session.execute(query, data)
+                await db_session.commit()
+                row = result.fetchone()
+                return dict(row._mapping) if row else {}
             res = await self.supabase.table("notifications").insert(data).execute()
             return res.data[0] if res.data else {}
         except Exception as e:
@@ -100,48 +114,84 @@ class NotificationService:
 
         thirty_days_ago = (datetime.now(UTC) - timedelta(days=30)).isoformat()
 
-        res = await (
-            self.supabase.table("notifications")
-            .select("*, actor:users!actor_id(name, picture)")
-            .eq("user_id", user_id)
-            .gte("created_at", thirty_days_ago)
-            .order("created_at", desc=True)
-            .limit(limit)
-            .offset(offset)
-            .execute()
-        )
+        try:
+            if self.db:
+                db_session = self.db
+                query = text(
+                    "SELECT n.*, u.name as actor_name, u.picture as actor_picture "
+                    "FROM notifications n "
+                    "LEFT JOIN users u ON n.actor_id = u.id "
+                    "WHERE n.user_id = :u_id AND n.created_at >= :since "
+                    "ORDER BY n.created_at DESC LIMIT :lim OFFSET :off"
+                )
+                db_res = await db_session.execute(
+                    query, {"u_id": user_id, "since": thirty_days_ago, "lim": limit, "off": offset}
+                )
+                notifications = []
+                for row in db_res.fetchall():
+                    notifications.append(dict(row._mapping))
+                return notifications
+            supa_res = await (
+                self.supabase.table("notifications")
+                .select("*, actor:users!actor_id(name, picture)")
+                .eq("user_id", user_id)
+                .gte("created_at", thirty_days_ago)
+                .order("created_at", desc=True)
+                .limit(limit)
+                .offset(offset)
+                .execute()
+            )
 
-        notifications = []
-        for item in res.data:
-            actor = item.get("actor", {}) or {}
-            item["actor_name"] = actor.get("name")
-            item["actor_picture"] = actor.get("picture")
-            del item["actor"]
-            notifications.append(item)
+            notifications = []
+            for item in supa_res.data:
+                actor = item.get("actor", {}) or {}
+                item["actor_name"] = actor.get("name")
+                item["actor_picture"] = actor.get("picture")
+                item.pop("actor", None)
+                notifications.append(item)
 
-        return notifications
+            return notifications
+        except Exception as e:
+            logger.error(f"Failed to fetch notifications for user {user_id}: {e}")
+            return []
 
     async def mark_as_read(self, user_id: str, notification_id: str) -> None:
         """Mark single notification as read."""
-
-        await (
-            self.supabase.table("notifications")
-            .update({"is_read": True})
-            .eq("id", notification_id)
-            .eq("user_id", user_id)
-            .execute()
-        )
+        try:
+            if self.db:
+                db_session = self.db
+                query = text("UPDATE notifications SET is_read = True WHERE id = :n_id AND user_id = :u_id")
+                await db_session.execute(query, {"n_id": notification_id, "u_id": user_id})
+                await db_session.commit()
+            else:
+                await (
+                    self.supabase.table("notifications")
+                    .update({"is_read": True})
+                    .eq("id", notification_id)
+                    .eq("user_id", user_id)
+                    .execute()
+                )
+        except Exception as e:
+            logger.error(f"Failed to mark notification as read: {e}")
 
     async def mark_all_as_read(self, user_id: str) -> None:
         """Mark all notifications as read."""
-
-        await (
-            self.supabase.table("notifications")
-            .update({"is_read": True})
-            .eq("user_id", user_id)
-            .eq("is_read", False)
-            .execute()
-        )
+        try:
+            if self.db:
+                db_session = self.db
+                query = text("UPDATE notifications SET is_read = True WHERE user_id = :u_id AND is_read = False")
+                await db_session.execute(query, {"u_id": user_id})
+                await db_session.commit()
+            else:
+                await (
+                    self.supabase.table("notifications")
+                    .update({"is_read": True})
+                    .eq("user_id", user_id)
+                    .eq("is_read", False)
+                    .execute()
+                )
+        except Exception as e:
+            logger.error(f"Failed to mark all notifications as read: {e}")
 
     async def cleanup_old_notifications(self, days: int = 30) -> None:
         """Delete notifications older than specified days."""
@@ -150,8 +200,15 @@ class NotificationService:
         cutoff_date = (datetime.now(UTC) - timedelta(days=days)).isoformat()
 
         try:
-            res = await self.supabase.table("notifications").delete().lt("created_at", cutoff_date).execute()
-            deleted_count = len(res.data) if res.data else 0
+            if self.db:
+                db_session = self.db
+                query = text("DELETE FROM notifications WHERE created_at < :cutoff")
+                result = await db_session.execute(query, {"cutoff": cutoff_date})
+                await db_session.commit()
+                deleted_count = cast(Any, result).rowcount
+            else:
+                res = await self.supabase.table("notifications").delete().lt("created_at", cutoff_date).execute()
+                deleted_count = len(res.data) if res.data else 0
             logger.info(f"Successfully cleaned up {deleted_count} notifications older than {days} days")
         except Exception as e:
             logger.error(f"Failed to clean up old notifications: {e}")

@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from postgrest.types import CountMethod
@@ -7,7 +7,7 @@ from dependencies import get_async_supabase_admin_client
 from limiter import limiter
 from logger import logger
 from middleware.auth_middleware import require_permission
-from user_models.user import User
+from schemas.user import User
 
 router = APIRouter()
 
@@ -20,10 +20,13 @@ async def list_audit_logs(
     offset: int = 0,
     user_id: str | None = None,
     action: str | None = None,
-    current_admin: User = Depends(require_permission("system:audit_logs")),
+    current_admin: Annotated[User | None, Depends(require_permission("system:audit_logs"))] = None,
 ) -> dict[str, Any]:
     """
     List audit logs.
+
+    Raises:
+        HTTPException: 500 - If fetching audit logs fails.
     """
     try:
         admin_client = await get_async_supabase_admin_client()

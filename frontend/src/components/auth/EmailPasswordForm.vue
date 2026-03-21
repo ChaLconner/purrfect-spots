@@ -10,7 +10,7 @@ interface Props {
 const props = defineProps<Props>();
 
 const emit = defineEmits<{
-  submit: (form: { email: string; password: string; name: string }) => void;
+  submit: [form: { email: string; password: string; name: string }];
 }>();
 
 const showPassword = ref(false);

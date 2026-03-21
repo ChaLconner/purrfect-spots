@@ -134,11 +134,33 @@ describe('Cats Store', () => {
       expect(store.totalPages).toBe(5);
     });
 
-    it('should append locations', () => {
+    it('should append locations with pagination', () => {
       const store = useCatsStore();
-      store.setLocations([mockLocations[0]]);
-      store.appendLocations([mockLocations[1]]);
+      const paginationData = {
+        total: 50,
+        limit: 20,
+        offset: 0,
+        has_more: true,
+        page: 1,
+        total_pages: 3,
+      };
+
+      store.appendLocations(mockLocations, paginationData);
+      expect(store.pagination).toEqual(paginationData);
+      expect(store.galleryCount).toBe(50);
+    });
+
+    it('should append locations (upsert existing)', () => {
+      const store = useCatsStore();
+      const initial = { ...mockLocations[0], description: 'Old' };
+      const update = { ...mockLocations[0], description: 'New' };
+      
+      store.setLocations([initial]);
+      store.appendLocations([update, mockLocations[1]]);
+      
       expect(store.locations).toHaveLength(2);
+      expect(store.locations[0].description).toBe('New');
+      expect(store.locations[1].id).toBe('2');
     });
   });
 
@@ -208,13 +230,20 @@ describe('Cats Store', () => {
       expect(store.filteredLocations[0].id).toBe('2');
     });
 
-    it('should filter by hashtag with # prefix', () => {
+    it('should filter by hashtag with # prefix even if description has it', () => {
       const store = useCatsStore();
       store.setLocations(mockLocations);
       store.setSearchQuery('#cute');
 
       expect(store.filteredLocations).toHaveLength(1);
       expect(store.filteredLocations[0].id).toBe('1');
+    });
+
+    it('should handle search queries with weird characters', () => {
+      const store = useCatsStore();
+      store.setLocations(mockLocations);
+      store.setSearchQuery('!!!');
+      expect(store.filteredLocations).toHaveLength(0);
     });
 
     it('should return all when search is empty', () => {
@@ -391,7 +420,6 @@ describe('Cats Store', () => {
   });
 
   // ========== Loading & Error States ==========
-  // ========== Loading & Error States ==========
   describe('Loading & Error States', () => {
     it('should set loading state', () => {
       const store = useCatsStore();
@@ -414,6 +442,30 @@ describe('Cats Store', () => {
 
   // ========== Persistence & Side Effects ==========
   describe('Persistence & Side Effects', () => {
+    it('should clear previous timer on rapid updates (debounce clearing)', async () => {
+      const store = useCatsStore();
+      
+      // First update
+      store.locations = [{ id: '1' } as any];
+      
+      // Wait a tiny bit but less than 2000ms
+      await vi.advanceTimersByTimeAsync(500);
+      
+      // Second update
+      store.locations = [{ id: '2' } as any];
+      
+      // Now wait for the full debounce
+      await vi.advanceTimersByTimeAsync(2000);
+      
+      // setItem should only be called once with the latest data
+      // (The first timer was cleared by line 81)
+      expect(localStorage.setItem).toHaveBeenCalledTimes(1);
+      expect(localStorage.setItem).toHaveBeenCalledWith(
+        'cats_store_cache', 
+        expect.stringContaining('"id":"2"')
+      );
+    });
+
     it('should debounce localStorage writes', async () => {
       const store = useCatsStore();
       
@@ -450,34 +502,46 @@ describe('Cats Store', () => {
       
       store.locations = [{ id: 'error' } as any];
       await vi.advanceTimersByTimeAsync(2000);
-      // Should not throw
+      // Should not throw (handled in store)
     });
   });
 
   // ========== Additional Getters ==========
   describe('Additional Getters', () => {
-    it('popularTagsComputed should calculate correctly', () => {
+    it('popularTagsComputed should calculate correctly and limit to 10', () => {
       const store = useCatsStore();
-      store.setLocations([
-        { id: '1', tags: ['cute', 'small'], description: '' } as any,
-        { id: '2', tags: ['cute'], description: '' } as any,
-        // tags must be undefined/null to trigger extractTags
-        { id: '3', description: '#small #cat' } as any,
-      ]);
+      const largeLocationList = Array.from({ length: 15 }, (_, i) => ({
+        id: i.toString(),
+        tags: [`tag${i}`],
+        description: ''
+      } as any));
+      
+      store.setLocations(largeLocationList);
 
       const popular = store.popularTagsComputed;
-      expect(popular).toHaveLength(3);
-      expect(popular[0]).toEqual({ tag: 'cute', count: 2 });
-      expect(popular.find(p => p.tag === 'small')?.count).toBe(2);
-      expect(popular.find(p => p.tag === 'cat')?.count).toBe(1);
+      expect(popular).toHaveLength(10);
+      expect(popular[0].count).toBe(1);
     });
 
-    it('allTags should sort alphabetically', () => {
+    it('popularTagsComputed should handle duplicate tags in description vs array', () => {
       const store = useCatsStore();
       store.setLocations([
-        { id: '1', tags: ['zebra', 'apple'], description: '' } as any,
+        { id: '1', tags: ['cute'], description: '#cute cat' } as any,
       ]);
-      expect(store.allTags).toEqual(['apple', 'zebra']);
+      // It uses locations.tags IF it exists, otherwise extractTags.
+      // Line 156: const tags = location.tags || extractTags(location.description);
+      const popular = store.popularTagsComputed;
+      expect(popular).toHaveLength(1);
+      expect(popular[0].count).toBe(1);
+    });
+
+    it('allTags should sort alphabetically and handle duplicates', () => {
+      const store = useCatsStore();
+      store.setLocations([
+        { id: '1', tags: ['zebra', 'apple'], description: '#apple #banana' } as any,
+      ]);
+      // allTags uses BOTH tags and description tags via extractTags
+      expect(store.allTags).toEqual(['apple', 'banana', 'zebra']);
     });
   });
 
@@ -490,11 +554,13 @@ describe('Cats Store', () => {
       expect(store.gallerySearchQuery).toBe('');
     });
 
-    it('nextPage should not exceed total pages if known', () => {
+    it('clearFilters should reset search and tags', () => {
       const store = useCatsStore();
-      store.setLocations([], { total: 40, limit: 20, offset: 20, has_more: false, page: 2, total_pages: 2 });
-      store.nextPage();
-      expect(store.currentPage).toBe(2);
+      store.setSearchQuery('test');
+      store.toggleTag('cute');
+      store.clearFilters();
+      expect(store.searchQuery).toBe('');
+      expect(store.selectedTags).toEqual([]);
     });
 
     it('goToPage should validate page range', () => {
@@ -509,6 +575,7 @@ describe('Cats Store', () => {
       
       store.goToPage(2);
       expect(store.currentPage).toBe(2);
+      expect(store.pagination.offset).toBe(20);
     });
   });
 

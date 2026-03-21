@@ -11,8 +11,6 @@ import NotificationBell from './ui/NotificationBell.vue';
 import LanguageSwitcher from './LanguageSwitcher.vue';
 
 // Icons
-import Logo from './icons/logo.vue';
-import Paw from './icons/paw.vue';
 import MapIcon from './icons/map.vue';
 import Upload from './icons/upload.vue';
 import Gallery from './icons/gallery.vue';
@@ -26,9 +24,9 @@ const catsStore = useCatsStore();
 </script>
 
 <template>
-  <nav class="sticky top-0 z-50 m-2 sm:m-3 md:m-4 xl:my-4 xl:mx-8" aria-label="Main Navigation">
+  <nav class="sticky top-0 z-50 m-3 sm:mx-6 md:mx-8 xl:mx-12 xl:my-5" aria-label="Main Navigation">
     <div
-      class="relative flex justify-between items-center px-3 sm:px-4 md:px-5 xl:px-6 py-2 md:py-2.5 xl:py-3 bg-btn-bg rounded-[1.25rem] border-2 border-btn-shade-a gap-2 md:gap-4 xl:gap-8 min-w-0"
+      class="relative flex justify-between items-center px-4 sm:px-6 md:px-8 xl:px-10 py-2 bg-btn-bg rounded-[1.5rem] border-2 border-btn-shade-a gap-2 md:gap-4 xl:gap-8 min-w-0"
       style="transform-style: preserve-3d"
     >
       <!-- 3D Base -->
@@ -38,23 +36,25 @@ const catsStore = useCatsStore();
       ></div>
 
       <!-- Left Section: Logo + Brand + Cat Counter -->
-      <div class="flex items-center gap-4 shrink-0">
+      <div class="flex items-center gap-2 lg:gap-3 shrink-0">
         <button
-          class="relative flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-2xl border-2 border-btn-shade-a bg-btn-shade-e transition-all duration-200 ease-in-out hover:bg-btn-shade-d hover:-translate-y-0.5 active:translate-y-0"
+          class="relative flex items-center cursor-pointer p-0.5 rounded-2xl bg-transparent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-btn-shade-a"
           aria-label="Go to home"
           @click="router.push('/')"
         >
-          <Logo class="relative z-10 w-9 h-9 drop-shadow-[0_2px_4px_rgba(106,163,137,0.3)]" />
-          <span
-            class="relative z-10 font-accent font-bold text-lg text-btn-shade-a whitespace-nowrap hidden md:block"
-          >
-            Purrfect Spots
-          </span>
+          <img
+            src="/logo.png"
+            alt="Purrfect Spots — Discover cat-friendly locations"
+            class="relative z-10 w-auto object-contain drop-shadow-sm h-14 -my-3 sm:h-16 sm:-my-4 md:h-20 md:-my-6 xl:h-28 xl:-my-10 max-w-[180px] sm:max-w-[220px] md:max-w-[280px] xl:max-w-[380px]"
+            loading="eager"
+            fetchpriority="high"
+            decoding="async"
+          />
         </button>
 
         <div
           v-if="route.path === '/map' || route.path === '/'"
-          class="relative items-center gap-2 px-3 py-1.5 rounded-2xl bg-btn-shade-e border-2 border-btn-shade-a hidden 2xl:flex"
+          class="relative items-center gap-1.5 px-2 py-1 rounded-2xl bg-btn-shade-e border-2 border-btn-shade-a hidden 2xl:flex"
           style="transform-style: preserve-3d"
         >
           <div
@@ -62,7 +62,7 @@ const catsStore = useCatsStore();
             style="transform: translate3d(0, 0.2rem, -1em)"
           ></div>
           <div class="relative z-10 w-7 h-7 flex items-center justify-center">
-            <Paw class="w-6 h-6 text-btn-shade-a" />
+            <img src="/cat-icon.png" alt="Cat count icon" class="w-6 h-6 object-contain" />
           </div>
           <div class="relative z-10 flex flex-col leading-tight">
             <span class="font-accent font-bold text-xs text-btn-shade-a">

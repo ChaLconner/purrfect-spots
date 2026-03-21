@@ -127,4 +127,14 @@ export class ProfileService {
     const result = await apiV1.get<{ uploads: CatLocation[] }>(`/profile/public/${userId}/uploads`);
     return result.uploads || [];
   }
+
+  // Request account deletion
+  static async requestAccountDeletion(): Promise<{ status: string; message: string }> {
+    return await apiV1.post<{ status: string; message: string }>('/profile/delete-request', {});
+  }
+
+  // Cancel account deletion
+  static async cancelAccountDeletion(): Promise<{ status: string; message: string }> {
+    return await apiV1.post<{ status: string; message: string }>('/profile/cancel-deletion', {});
+  }
 }

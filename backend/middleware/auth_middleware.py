@@ -13,8 +13,8 @@ from supabase import AClient
 
 from config import config
 from logger import logger
+from schemas.user import User
 from services.token_service import get_token_service
-from user_models.user import User
 from utils.auth_utils import decode_token
 from utils.supabase_client import (
     get_async_supabase_client,
@@ -195,10 +195,10 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
     )
 
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 
 
-def require_permission(permission_code: str) -> Callable[[User], Awaitable[User]]:
+def require_permission(permission_code: str) -> Callable[..., User]:
     """Dependency factory to check for specific permission"""
 
     async def permission_checker(user: User = Depends(get_current_user)) -> User:

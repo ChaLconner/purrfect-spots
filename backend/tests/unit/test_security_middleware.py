@@ -19,7 +19,9 @@ def test_https_redirect_production():
         client = TestClient(app)
 
         # Should redirect if HTTP
-        response = client.get("http://testserver/test", headers={"X-Forwarded-Proto": "http"}, follow_redirects=False)
+        response = client.get(
+            "http://testserver/test", headers={"X-Forwarded-Proto": "http"}, follow_redirects=False
+        )  # NOSONAR python:S5332 - tests HTTP-to-HTTPS redirect behavior
         assert response.status_code == 301
         assert response.headers["location"] == "https://testserver/test"
 
@@ -40,7 +42,9 @@ def test_https_redirect_development():
         client = TestClient(app)
 
         # Should not redirect in dev
-        response = client.get("http://testserver/test", headers={"X-Forwarded-Proto": "http"}, follow_redirects=False)
+        response = client.get(
+            "http://testserver/test", headers={"X-Forwarded-Proto": "http"}, follow_redirects=False
+        )  # NOSONAR python:S5332 - validates that dev mode does NOT redirect http
         assert response.status_code == 200
 
 

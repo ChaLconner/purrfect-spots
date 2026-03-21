@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Any, cast
+from typing import Annotated, Any, cast
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from postgrest.types import CountMethod
 
 from dependencies import (
@@ -14,11 +14,11 @@ from limiter import limiter
 from logger import logger
 from middleware.auth_middleware import require_permission
 from schemas.admin_schemas import BulkReportUpdate
+from schemas.user import User
 from services.email_service import EmailService
 from services.gallery_service import GalleryService
 from services.notification_service import NotificationService
 from services.storage_service import storage_service
-from user_models.user import User
 
 router = APIRouter()
 
@@ -37,16 +37,21 @@ def _validate_uuid(value: str, label: str = "ID") -> None:
 @limiter.limit("60/minute")
 async def list_reports(
     request: Request,
-    limit: int = 50,
-    offset: int = 0,
-    status: str | None = None,
-    reason: str | None = None,
-    start_date: str | None = None,
-    end_date: str | None = None,
-    reporter_id: str | None = None,
-    current_admin: User = Depends(require_permission("content:read")),
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    status: Annotated[str | None, Query()] = None,
+    reason: Annotated[str | None, Query()] = None,
+    start_date: Annotated[str | None, Query()] = None,
+    end_date: Annotated[str | None, Query()] = None,
+    reporter_id: Annotated[str | None, Query()] = None,
+    current_admin: Annotated[User | None, Depends(require_permission("content:read"))] = None,
 ) -> dict[str, Any]:
-    """List submitted reports."""
+    """
+    List submitted reports.
+
+    Raises:
+        HTTPException: 500 - If fetching reports fails.
+    """
     try:
         admin_client = await get_async_supabase_admin_client()
         query = (
@@ -84,12 +89,19 @@ async def update_report(
     update_data: dict[str, Any],
     background_tasks: BackgroundTasks,
     request: Request,
-    current_admin: User = Depends(require_permission("content:delete")),
-    notification_service: NotificationService = Depends(get_notification_service),
-    gallery_service: GalleryService = Depends(get_admin_gallery_service),
-    email_service: EmailService = Depends(get_email_service),
+    current_admin: Annotated[User, Depends(require_permission("content:delete"))],
+    notification_service: Annotated[NotificationService, Depends(get_notification_service)],
+    gallery_service: Annotated[GalleryService, Depends(get_admin_gallery_service)],
+    email_service: Annotated[EmailService, Depends(get_email_service)],
 ) -> dict[str, Any]:
-    """Resolve or dismiss a report."""
+    """
+    Resolve or dismiss a report.
+
+    Raises:
+        HTTPException: 400 - If report_id format is invalid.
+        HTTPException: 404 - If report is not found.
+        HTTPException: 500 - If update fails.
+    """
     _validate_uuid(report_id, "report_id")
     try:
         admin_client = await get_async_supabase_admin_client()
@@ -216,12 +228,17 @@ async def bulk_update_reports(
     bulk_data: BulkReportUpdate,
     background_tasks: BackgroundTasks,
     request: Request,
-    current_admin: User = Depends(require_permission("content:delete")),
-    notification_service: NotificationService = Depends(get_notification_service),
-    gallery_service: GalleryService = Depends(get_admin_gallery_service),
-    email_service: EmailService = Depends(get_email_service),
+    current_admin: Annotated[User, Depends(require_permission("content:delete"))],
+    notification_service: Annotated[NotificationService, Depends(get_notification_service)],
+    gallery_service: Annotated[GalleryService, Depends(get_admin_gallery_service)],
+    email_service: Annotated[EmailService, Depends(get_email_service)],
 ) -> dict[str, Any]:
-    """Bulk resolve or dismiss reports."""
+    """
+    Bulk resolve or dismiss reports.
+
+    Raises:
+        HTTPException: 500 - If bulk update fails.
+    """
     try:
         admin_client = await get_async_supabase_admin_client()
         report_ids_str = [str(uid) for uid in bulk_data.report_ids]

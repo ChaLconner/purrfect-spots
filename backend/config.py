@@ -120,6 +120,13 @@ class Config:
         "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SERVICE_KEY", "SUPABASE_SECRET_KEY"
     )
 
+    # Database (optional - if not set, services use Supabase client API directly)
+    # To enable direct DB access, set DATABASE_URL in .env with:
+    # postgresql+asyncpg://postgres:[YOUR-PASSWORD]@aws-0-[region].pooler.supabase.com:6543/postgres
+    _raw_db_url = os.getenv("DATABASE_URL", "")
+    # Ignore the placeholder default that ships in config templates
+    DATABASE_URL = _raw_db_url if _raw_db_url and "PASSWORD" not in _raw_db_url else ""
+
     # Google Auth
     GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
     GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
@@ -184,6 +191,8 @@ class Config:
     UPLOAD_MAX_DIMENSION = int(os.getenv("UPLOAD_MAX_DIMENSION", "1920"))
     UPLOAD_ALLOWED_EXTENSIONS = os.getenv("UPLOAD_ALLOWED_EXTENSIONS", "jpg,jpeg,png,gif,webp").split(",")
     UPLOAD_RATE_LIMIT = os.getenv("UPLOAD_RATE_LIMIT", "5/minute")
+    RATE_LIMIT_UPLOAD_FREE = os.getenv("RATE_LIMIT_UPLOAD_FREE", "5/minute")
+    RATE_LIMIT_UPLOAD_PRO = os.getenv("RATE_LIMIT_UPLOAD_PRO", "20/minute")
 
     # ==========================================
     # Quota Configuration
@@ -203,6 +212,12 @@ class Config:
     RATE_LIMIT_AUTH = os.getenv("RATE_LIMIT_AUTH", "5/minute")
     RATE_LIMIT_FORGOT_PASSWORD = os.getenv("RATE_LIMIT_FORGOT_PASSWORD", "3/minute")
     RATE_LIMIT_API_DEFAULT = os.getenv("RATE_LIMIT_API_DEFAULT", "60/minute")
+
+    # Tiered API Limits
+    RATE_LIMIT_STRICT_FREE = os.getenv("RATE_LIMIT_STRICT_FREE", "10/minute")
+    RATE_LIMIT_STRICT_PRO = os.getenv("RATE_LIMIT_STRICT_PRO", "30/minute")
+    RATE_LIMIT_API_FREE = os.getenv("RATE_LIMIT_API_FREE", "60/minute")
+    RATE_LIMIT_API_PRO = os.getenv("RATE_LIMIT_API_PRO", "300/minute")
 
     # ==========================================
     # Security Configuration
@@ -286,10 +301,13 @@ class Config:
         if vercel_url:
             allowed.append(f"https://{vercel_url}")
 
-        # Add frontend URL if present and not already in list
+        # Add frontend URL(s) if present — supports both single URLs and comma-separated lists
         frontend_url = os.getenv("FRONTEND_URL")
-        if frontend_url and frontend_url not in allowed:
-            allowed.append(frontend_url)
+        if frontend_url:
+            for url in frontend_url.split(","):
+                url = url.strip()
+                if url and url not in allowed:
+                    allowed.append(url)
 
         # Force add production frontend URL (Hardcoded safety net)
         prod_urls = ["https://purrfect-spots.vercel.app", "https://purrfectspots.xyz", "https://www.purrfectspots.xyz"]

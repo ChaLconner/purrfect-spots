@@ -9,6 +9,7 @@ import { ref, computed, watch } from 'vue';
 import { supabase } from '../lib/supabase';
 import { PERMISSIONS } from '../constants/permissions';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import type { User, LoginResponse } from '../types/auth';
 
 import { apiV1, setAccessToken, setAuthCallbacks } from '../utils/api';
 import { ProfileService } from '../services/profileService';
@@ -91,11 +92,12 @@ export const useAuthStore = defineStore('auth', () => {
    */
   async function initializeAuth(): Promise<void> {
     // Restore user data for UX while checking auth
-    const storedUser = localStorage.getItem('user_data') || localStorage.getItem('user');
+    const storedUser: string | null =
+      localStorage.getItem('user_data') || localStorage.getItem('user');
 
     if (storedUser) {
       try {
-        const parsedUser = JSON.parse(storedUser);
+        const parsedUser: unknown = JSON.parse(storedUser);
         if (isValidUser(parsedUser)) {
           user.value = parsedUser;
         }
@@ -105,7 +107,6 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     // Always try to refresh token on init to check valid session
-    // This effectively restores the session using the HttpOnly cookie
     await refreshToken();
 
     if (isAuthenticated.value) {
@@ -262,7 +263,6 @@ export const useAuthStore = defineStore('auth', () => {
       console.warn('Logout API call failed', e);
     } finally {
       clearAuth();
-      // Navigation should be handled by the component calling this
     }
   }
 

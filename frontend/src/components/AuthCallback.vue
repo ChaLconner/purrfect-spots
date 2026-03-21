@@ -138,7 +138,7 @@ const processAuthCallback = async (): Promise<boolean> => {
   if (hash && !hash.includes('access_token=')) {
     const params = new URLSearchParams(hash.substring(1));
     const errorMsg = params.get('error_description');
-    if (errorMsg) throw new Error(decodeURIComponent(errorMsg.replace(/\+/g, ' ')));
+    if (errorMsg) throw new Error(decodeURIComponent(errorMsg.replaceAll(/\+/g, ' ')));
   }
   return false;
 };

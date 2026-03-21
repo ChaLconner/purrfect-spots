@@ -35,7 +35,6 @@ export const isBrowserExtensionError = (error: unknown): boolean => {
   const errorString =
     (err?.message as string) || (typeof error?.toString === 'function' ? error.toString() : '');
 
-
   if (
     typeof errorString === 'string' &&
     BROWSER_EXTENSION_ERROR_PATTERNS.some((p) => errorString.includes(p))
@@ -57,7 +56,9 @@ export const isBrowserExtensionError = (error: unknown): boolean => {
 export const logBrowserExtensionError = (error: unknown, context: string = ''): void => {
   if (isDev()) {
     const err = error as Record<string, unknown>;
-    const message = (err?.message as string) || (typeof error === 'string' ? error : 'Unknown browser extension error');
+    const message =
+      (err?.message as string) ||
+      (typeof error === 'string' ? error : 'Unknown browser extension error');
     console.warn('⚠️ Browser extension error', context ? `(${context})` : '', ':', message);
   }
 };

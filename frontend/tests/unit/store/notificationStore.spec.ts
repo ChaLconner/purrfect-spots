@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { useNotificationStore } from '@/store/notificationStore';
-import type { RealtimeChannel } from '@supabase/supabase-js';
+
 
 const mockGetNotifications = vi.fn();
 const mockMarkAsRead = vi.fn();

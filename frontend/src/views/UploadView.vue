@@ -420,6 +420,7 @@ const getCurrentLocation = (): void => {
 
   gettingLocation.value = true;
   navigator.geolocation.getCurrentPosition(
+    // NOSONAR typescript:S5604 - Geolocation required for upload location step; user consent via browser prompt
     (pos) => {
       const { latitude, longitude } = pos.coords;
       updateLocation(latitude, longitude);

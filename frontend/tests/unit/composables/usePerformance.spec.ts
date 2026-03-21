@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { usePerformance, logMetric, measureAsync, measureSync, useRenderTime, useApiTiming, getMetrics, clearMetrics, getPerformanceSummary } from '@/composables/usePerformance';
+import { logMetric, measureAsync, measureSync, useRenderTime, useApiTiming, getMetrics, clearMetrics, getPerformanceSummary, useWebVitals } from '@/composables/usePerformance';
 import { mount } from '@vue/test-utils';
-import { defineComponent } from 'vue';
+import { defineComponent, nextTick } from 'vue';
 
 describe('usePerformance', () => {
   let originalImportMeta: any;
@@ -24,13 +24,27 @@ describe('usePerformance', () => {
       getEntriesByName: vi.fn(() => []),
     } as any;
     
-    // Mock PerformanceObserver
-    globalThis.PerformanceObserver = vi.fn().mockImplementation(function() {
+    // Mock PerformanceObserver to handle multiple observers
+    const callbacks = new Map<string, any>();
+    globalThis.PerformanceObserver = vi.fn().mockImplementation(function(cb) {
       return {
-        observe: vi.fn(),
+        observe: vi.fn().mockImplementation((options) => {
+          if (options.type) {
+            callbacks.set(options.type, cb);
+          }
+        }),
         disconnect: vi.fn()
       };
     }) as any;
+
+    (globalThis as any).triggerPerformanceObserver = (type: string, entries: any[]) => {
+      const cb = callbacks.get(type);
+      if (cb) {
+        cb({
+          getEntries: () => entries
+        });
+      }
+    };
 
     // Setup now() sequence via mock implementation if needed
     (globalThis.performance.now as any).mockReturnValue(1000);
@@ -151,20 +165,41 @@ describe('usePerformance', () => {
   });
 
   describe('useWebVitals', () => {
-    it('should initialize observers', async () => {
-      const { useWebVitals } = await import('@/composables/usePerformance');
-      
+    it('should track Web Vitals from observers', async () => {
+      let vitalsRef: any;
       const TestComponent = defineComponent({
         setup() {
-          useWebVitals();
+          const { vitals } = useWebVitals();
+          vitalsRef = vitals;
           return {};
         },
-        template: '<div></div>',
+        template: '<div></div>'
       });
-
+      
       mount(TestComponent);
+      await nextTick();
       
       expect(globalThis.PerformanceObserver).toHaveBeenCalled();
+      
+      // Trigger LCP
+      const lcpEntry = { name: 'LCP', startTime: 2000, entryType: 'largest-contentful-paint' };
+      (globalThis as any).triggerPerformanceObserver('largest-contentful-paint', [lcpEntry]);
+      expect(vitalsRef.value.LCP).toBe(2000);
+      
+      // Trigger FID
+      const fidEntry = { name: 'FID', startTime: 1000, processingStart: 1150, entryType: 'first-input' };
+      (globalThis as any).triggerPerformanceObserver('first-input', [fidEntry]);
+      expect(vitalsRef.value.FID).toBe(150);
+      
+      // Trigger CLS
+      const clsEntry = { name: 'CLS', value: 0.05, hadRecentInput: false, entryType: 'layout-shift' };
+      (globalThis as any).triggerPerformanceObserver('layout-shift', [clsEntry]);
+      expect(vitalsRef.value.CLS).toBe(0.05);
+
+      const metrics = getMetrics();
+      expect(metrics.some(m => m.name === 'LCP')).toBe(true);
+      expect(metrics.some(m => m.name === 'FID')).toBe(true);
+      expect(metrics.some(m => m.name === 'CLS')).toBe(true);
     });
     
     it('should handle missing globalThis gracefully', async () => {
@@ -268,7 +303,7 @@ describe('usePerformance', () => {
 
   describe('useApiTiming', () => {
     it('should track api calls', async () => {
-      const { apiCalls, trackApiCall } = useApiTiming();
+      const { trackApiCall } = useApiTiming();
       
       let time = 1000;
       (globalThis.performance.now as any).mockImplementation(() => {

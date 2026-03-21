@@ -193,6 +193,12 @@ export function useWebVitals(): { vitals: Ref<Record<string, number>> } {
           if (!entry.hadRecentInput) {
             clsValue += entry.value;
             vitals.value.CLS = clsValue;
+            logMetric({
+              name: 'CLS',
+              value: clsValue,
+              unit: 'score',
+              timestamp: Date.now(),
+            });
           }
         });
       });

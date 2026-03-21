@@ -15,7 +15,6 @@ export interface UseGeolocationReturn {
   stopWatchingPosition: () => void;
 }
 
-
 export function useGeolocation(): UseGeolocationReturn {
   const userLocation = ref<Coordinates | null>(null);
   const error = ref<string | null>(null);
@@ -91,6 +90,7 @@ export function useGeolocation(): UseGeolocationReturn {
       }
 
       navigator.geolocation.getCurrentPosition(handleSuccess, (err) => handleFailure(err.message), {
+        // NOSONAR typescript:S5604 - Geolocation is core to this cat location app; consent via browser prompt
         enableHighAccuracy: true,
         timeout: 5000,
         maximumAge: 0,
@@ -121,6 +121,7 @@ export function useGeolocation(): UseGeolocationReturn {
     }
 
     watchId.value = navigator.geolocation.watchPosition(
+      // NOSONAR typescript:S5604 - Geolocation is core to this cat location app; consent via browser prompt
       (position) => {
         const newCoords = {
           lat: position.coords.latitude,
