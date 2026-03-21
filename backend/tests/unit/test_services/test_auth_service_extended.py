@@ -46,7 +46,6 @@ class TestAuthServiceExtended:
     def auth_service(self, mock_supabase, mock_user_service_instance):
         with (
             patch("services.auth_service.UserService", return_value=mock_user_service_instance),
-            patch("services.auth_service.get_async_supabase_admin_client", new=AsyncMock(return_value=mock_supabase)),
             patch.dict(
                 "os.environ",
                 {

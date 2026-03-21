@@ -97,14 +97,14 @@ propcache==0.4.1
 proto-plus==1.27.1
 protobuf==5.29.6
 py-serializable==2.1.0
-pyasn1==0.6.2
+pyasn1==0.6.3
 pyasn1_modules==0.4.2
 pycparser==2.23
 pydantic==2.12.5
 pydantic-settings==2.13.1
 pydantic_core==2.41.5
 Pygments==2.19.2
-PyJWT==2.11.0
+PyJWT==2.12.1
 pyparsing==3.3.2
 pyproject_hooks==1.2.0
 pytest==9.0.2
