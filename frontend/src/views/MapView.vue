@@ -93,7 +93,6 @@ import { useGeolocation } from '../composables/useGeolocation';
 import { useMapMarkers } from '../composables/useMapMarkers';
 import { useSeo } from '../composables/useSeo';
 
-console.log('MAP VIEW SCRIPT SETUP');
 const route = useRoute();
 const router = useRouter();
 const catsStore = useCatsStore();

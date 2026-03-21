@@ -223,7 +223,7 @@ jobs:
 
       - name: Setup Node.js
         # FIX #12: Pinned to full SHA
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v4.2.0
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with:
           node-version: "22"
           cache: "npm"
@@ -238,7 +238,7 @@ jobs:
 
       - name: Cache API Client Node Modules
         # FIX #12: Pinned to full SHA (or tag)
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: api-client/node_modules
           key: ${{ runner.os }}-api-client-${{ hashFiles('api-client/package.json') }}
@@ -342,7 +342,7 @@ jobs:
 
       - name: Setup Node.js
         # FIX #12: Pinned to full SHA
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v4.2.0
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with:
           node-version: "22"
           cache: "npm"
@@ -481,7 +481,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
       - name: Setup Node.js
         # FIX #12: Pinned to full SHA
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v4.2.0
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with: { node-version: "22", cache: "npm" }
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
@@ -565,7 +565,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
       - name: Setup Node.js
         # FIX #12: Pinned to full SHA
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v4.2.0
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with: { node-version: "22", cache: "npm" }
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
@@ -615,7 +615,7 @@ jobs:
 
       - name: Setup Node.js
         # Need node for Vercel CLI (which is used in rollback)
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v4.2.0
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with:
           node-version: "22"
 
