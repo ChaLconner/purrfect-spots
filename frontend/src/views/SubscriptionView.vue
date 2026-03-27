@@ -138,9 +138,14 @@
             </div>
 
             <div
-              class="h-16 mb-4 flex items-center justify-center transition-transform group-hover:scale-110"
+              class="h-20 mb-4 flex items-center justify-center transition-transform group-hover:scale-110 overflow-hidden"
             >
-              <img src="/give-treat.png" alt="Treat" loading="lazy" class="h-full object-contain" />
+              <img
+                src="/give-treat.png"
+                alt="Treat"
+                loading="lazy"
+                class="h-full object-contain scale-[1.05] [image-rendering:high-quality] [clip-path:inset(2px)] will-change-transform"
+              />
             </div>
             <h4 class="text-lg font-bold text-brown mb-1">{{ pkg.name }}</h4>
             <p class="text-3xl font-extrabold text-brown mb-1">

@@ -47,7 +47,7 @@ class GalleryWriteMixin(GalleryBaseMixin):
             try:
                 columns = ", ".join(photo_data.keys())
                 placeholders = ", ".join([f":{k}" for k in photo_data])
-                query = text(f"INSERT INTO cat_photos ({columns}) VALUES ({placeholders}) RETURNING *")  # noqa: S608
+                query = text(f"INSERT INTO cat_photos ({columns}) VALUES ({placeholders}) RETURNING {self.PHOTO_COLUMNS}")  # noqa: S608
                 result = await self.db.execute(query, photo_data)
                 row = result.fetchone()
                 if not row:
@@ -62,7 +62,7 @@ class GalleryWriteMixin(GalleryBaseMixin):
                 raise e
         try:
             admin = await self.supabase_admin
-            res = await admin.table("cat_photos").insert(photo_data).execute()
+            res = await admin.table("cat_photos").insert(photo_data).select(self.PHOTO_COLUMNS).execute()
             if not res.data:
                 from utils.exceptions import ExternalServiceError
 

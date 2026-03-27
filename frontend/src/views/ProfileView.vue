@@ -75,7 +75,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
+import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '../store/authStore';
@@ -86,8 +86,9 @@ import { useSubscriptionStore } from '@/store/subscriptionStore';
 import { isDev } from '../utils/env';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 import { useSeo } from '@/composables/useSeo';
-import type { User } from '@/types/auth';
 import type { CatLocation } from '@/types/api';
+
+import { useProfileData } from '@/composables/useProfileData';
 
 // Sub-components
 import ProfileHeader from '@/components/profile/ProfileHeader.vue';
@@ -101,30 +102,11 @@ const authStore = useAuthStore();
 const router = useRouter();
 const route = useRoute();
 const { t } = useI18n();
-const { setMetaTags, resetMetaTags } = useSeo();
+const { resetMetaTags } = useSeo();
 const subscriptionStore = useSubscriptionStore();
 
-// User State
-const viewedUser = ref<User | null>(null);
-const loadingUser = ref(true);
-const isOwnProfile = computed(() => {
-  // If no ID param, it's intended to be my profile (even if not logged in yet)
-  if (!route.params.id) return true;
-
-  if (!authStore.user) return false;
-
-  // Check against ID
-  if (route.params.id === authStore.user.id) return true;
-
-  // Check against Username (if available)
-  if (authStore.user.username && route.params.id === authStore.user.username) return true;
-
-  return false;
-});
-
-const uploads = ref<CatLocation[]>([]);
-const uploadsLoading = ref(false);
-const uploadsError = ref<string | null>(null);
+const { viewedUser, isOwnProfile, uploads, uploadsLoading, uploadsError, loadProfileData } =
+  useProfileData();
 
 const showEditModal = ref(false);
 const selectedImage = ref<CatLocation | null>(null);
@@ -242,55 +224,6 @@ const handleLogout = async (): Promise<void> => {
   }
 };
 
-const loadProfileData = async (): Promise<void> => {
-  loadingUser.value = true;
-  uploadsLoading.value = true;
-  uploadsError.value = null;
-
-  try {
-    // Load profile data
-    const targetUserId = route.params.id as string;
-
-    if (isOwnProfile.value) {
-      // Viewing my own profile
-      if (!authStore.isAuthenticated && !targetUserId) {
-        router.push('/login');
-        return;
-      }
-
-      viewedUser.value = authStore.user;
-      uploads.value = await ProfileService.getUserUploads();
-    } else {
-      // Viewing someone else's profile
-      if (!targetUserId) return;
-      viewedUser.value = await ProfileService.getPublicProfile(targetUserId);
-      uploads.value = await ProfileService.getPublicUserUploads(targetUserId);
-    }
-
-    // Set SEO
-    if (viewedUser.value) {
-      setMetaTags({
-        title: `${viewedUser.value.name || t('profile.unknownUser')} | Purrfect Spots`,
-        description: viewedUser.value.bio || t('profile.defaultDescription'),
-        image: viewedUser.value.picture,
-      });
-    }
-
-    // Sync from URL AFTER data is loaded
-    syncStateFromUrl();
-  } catch (error) {
-    if (isDev()) {
-      console.error('Error loading profile:', error);
-    }
-    uploadsError.value = t('profile.userNotFound');
-    uploads.value = [];
-    viewedUser.value = null;
-  } finally {
-    loadingUser.value = false;
-    uploadsLoading.value = false;
-  }
-};
-
 // Sync modal state from URL
 const syncStateFromUrl = (): void => {
   const imageId = route.query.image as string;
@@ -317,7 +250,7 @@ watch(
 watch(
   () => route.params.id,
   () => {
-    loadProfileData();
+    loadProfileData(() => syncStateFromUrl());
   }
 );
 
@@ -380,7 +313,7 @@ onMounted(() => {
   // If auth is already initialized, load data immediately
   // Otherwise, the watcher below will handle it
   if (authStore.isInitialized) {
-    loadProfileData();
+    loadProfileData(() => syncStateFromUrl());
   }
 });
 
@@ -390,7 +323,7 @@ watch(
   ([isInit]): void => {
     // Only fetch if initialized
     if (isInit) {
-      loadProfileData();
+      loadProfileData(() => syncStateFromUrl());
     }
   },
   { immediate: false }

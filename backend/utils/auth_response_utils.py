@@ -59,6 +59,7 @@ def create_login_response(
             created_at=user.get("created_at"),
             google_id=user.get("google_id"),
             role=role,
+            permissions=permissions,
         )
     else:
         user_response = UserResponse(
@@ -70,6 +71,7 @@ def create_login_response(
             created_at=user.created_at,
             google_id=user.google_id,
             role=role,
+            permissions=permissions,
         )
 
     return LoginResponse(

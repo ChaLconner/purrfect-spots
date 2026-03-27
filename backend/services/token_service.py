@@ -43,6 +43,7 @@ class TokenService:
         self._memory_blacklist: dict[str, datetime] = {}  # Fallback storage
         self.default_ttl = 3600 * 24 * 7  # 7 days
         self.supabase_admin = supabase_client
+        self.TOKEN_COLUMNS = "id, token_jti, user_id, expires_at, revoked_at"
 
     async def _get_admin_client(self) -> AClient:
         """Lazy load admin client if not provided"""
@@ -182,7 +183,7 @@ class TokenService:
     async def _check_db_blacklist_supabase(self, jti: str) -> bool:
         """Check database blacklist using Supabase."""
         admin_client = await self._get_admin_client()
-        supa_res = await admin_client.table("token_blacklist").select("*").eq("token_jti", jti).execute()
+        supa_res = await admin_client.table("token_blacklist").select(self.TOKEN_COLUMNS).eq("token_jti", jti).execute()
 
         if supa_res.data:
             for entry in supa_res.data:

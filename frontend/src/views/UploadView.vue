@@ -230,9 +230,8 @@ import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '@/store/authStore';
 import { showError, showSuccess } from '@/store/toast';
 import { catDetectionService as CatDetectionService } from '@/services/catDetectionService';
-import { loadGoogleMaps } from '@/utils/googleMapsLoader';
-import { getEnvVar } from '@/utils/env';
 import { useUploadCat } from '@/composables/useUploadCat';
+import { useUploadMap } from '@/composables/useUploadMap';
 
 // Components
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
@@ -253,9 +252,6 @@ const currentStep = ref(1);
 const isDetectingCats = ref(false);
 const isSubmitting = ref(false);
 const showLoginModal = ref(false);
-const gettingLocation = ref(false);
-const map = ref<google.maps.Map | null>(null);
-const marker = ref<google.maps.Marker | null>(null);
 
 const uploadResult = ref<unknown>(null);
 
@@ -364,83 +360,24 @@ const handleFileSelected = async ({ file, url }: { file: File; url: string }): P
   }
 };
 
-// Map Logic
+// Use Composables
+const { uploadCatPhoto, isUploading, uploadProgress, getUploadQuota, error } = useUploadCat();
+
+const { gettingLocation, initMap, getCurrentLocation } = useUploadMap({
+  onLocationUpdate: (lat, lng) => {
+    uploadData.value.latitude = lat;
+    uploadData.value.longitude = lng;
+  },
+});
+
+// Sync loading state for template compatibility
+// Sync Map watch
 watch(currentStep, (step) => {
   if (step === 3) {
     nextTick(() => initMap());
   }
 });
 
-const initMap = async (): Promise<void> => {
-  try {
-    await loadGoogleMaps({ apiKey: getEnvVar('VITE_GOOGLE_MAPS_API_KEY') });
-
-    const mapEl = document.getElementById('uploadMap');
-    if (!mapEl) return;
-
-    const defaultCenter = { lat: 13.7563, lng: 100.5018 }; // Bangkok default
-
-    map.value = new google.maps.Map(mapEl, {
-      center: defaultCenter,
-      zoom: 12,
-      disableDefaultUI: true,
-      clickableIcons: false,
-    });
-
-    map.value.addListener('click', (e: google.maps.MapMouseEvent) => {
-      if (e.latLng) {
-        updateLocation(e.latLng.lat(), e.latLng.lng());
-      }
-    });
-  } catch {
-    showError(t('upload.errorMapLoad'), t('common.error'));
-  }
-};
-
-const updateLocation = (lat: number, lng: number): void => {
-  uploadData.value.latitude = lat;
-  uploadData.value.longitude = lng;
-
-  if (marker.value) {
-    marker.value.setPosition({ lat, lng });
-  } else if (map.value) {
-    marker.value = new google.maps.Marker({
-      position: { lat, lng },
-      map: map.value,
-      animation: google.maps.Animation.DROP,
-    });
-  }
-};
-
-const getCurrentLocation = (): void => {
-  if (!navigator.geolocation) {
-    showError(t('upload.errorGeolocation'), t('common.error'));
-    return;
-  }
-
-  gettingLocation.value = true;
-  navigator.geolocation.getCurrentPosition(
-    // NOSONAR typescript:S5604 - Geolocation required for upload location step; user consent via browser prompt
-    (pos) => {
-      const { latitude, longitude } = pos.coords;
-      updateLocation(latitude, longitude);
-      if (map.value) {
-        map.value.panTo({ lat: latitude, lng: longitude });
-        map.value.setZoom(15);
-      }
-      gettingLocation.value = false;
-    },
-    (err) => {
-      showError(err.message, 'Location Error');
-      gettingLocation.value = false;
-    }
-  );
-};
-
-// Use Composable
-const { uploadCatPhoto, isUploading, uploadProgress, getUploadQuota, error } = useUploadCat();
-
-// Sync loading state for template compatibility
 watch(isUploading, (val) => {
   isSubmitting.value = val;
 });

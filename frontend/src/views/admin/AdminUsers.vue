@@ -1,11 +1,10 @@
 <template>
   <div class="bg-white rounded-2xl shadow-sm border border-sand-100 overflow-hidden">
-    <!-- Existing code... -->
     <div
       class="p-6 border-b border-sand-100 flex flex-col sm:flex-row justify-between items-center gap-4"
     >
       <div class="flex items-center gap-4">
-        <h2 class="text-xl font-bold text-brown-900">Users</h2>
+        <h2 class="text-xl font-bold text-brown-900">{{ t('admin.users.title_simple') }}</h2>
         <button
           class="px-3 py-1.5 text-sm font-medium text-brown-600 bg-sand-50 border border-sand-200 rounded-lg hover:bg-sand-100 transition-colors flex items-center gap-2"
           @click="exportUsers"
@@ -24,16 +23,15 @@
               d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
             />
           </svg>
-          Export CSV
+          {{ t('common.exportCsv') }}
         </button>
       </div>
       <div class="relative max-w-xs w-full">
         <input
           v-model="searchQuery"
           type="text"
-          placeholder="Search users..."
+          :placeholder="t('admin.users.search_placeholder')"
           class="w-full pl-10 pr-4 py-2 border border-sand-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 transition-colors"
-          @input="handleSearch"
         />
         <div class="absolute left-3 top-1/2 -translate-y-1/2 text-brown-400">
           <svg
@@ -64,7 +62,7 @@
               @click="handleSort('name')"
             >
               <div class="flex items-center gap-1">
-                User
+                {{ t('admin.users.table.user') }}
                 <span v-if="sortBy === 'name'" class="text-terracotta-500">
                   {{ sortOrder === 'asc' ? '↑' : '↓' }}
                 </span>
@@ -75,7 +73,7 @@
               scope="col"
               class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-wider"
             >
-              Role
+              {{ t('admin.users.table.role') }}
             </th>
             <th
               scope="col"
@@ -83,7 +81,7 @@
               @click="handleSort('created_at')"
             >
               <div class="flex items-center gap-1">
-                Joined
+                {{ t('admin.users.table.joined') }}
                 <span v-if="sortBy === 'created_at'" class="text-terracotta-500">
                   {{ sortOrder === 'asc' ? '↑' : '↓' }}
                 </span>
@@ -94,7 +92,7 @@
               scope="col"
               class="px-6 py-3 text-right text-xs font-medium text-brown-500 uppercase tracking-wider"
             >
-              Actions
+              {{ t('admin.users.table.actions') }}
             </th>
           </tr>
         </thead>
@@ -107,9 +105,15 @@
                     class="h-10 w-10 rounded-full object-cover"
                     :src="
                       user.picture ||
-                        `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`
+                      `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || '')}&background=random`
                     "
-                    :alt="user.name"
+                    :alt="user.name || ''"
+                    @error="
+                      (e: Event) => {
+                        (e.target as HTMLImageElement).src =
+                          `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || '')}&background=random`;
+                      }
+                    "
                   />
                 </div>
                 <div class="ml-4">
@@ -131,8 +135,8 @@
                   ]"
                   @change="(e) => handleRoleChange(user, (e.target as HTMLSelectElement).value)"
                 >
-                  <option value="user">User</option>
-                  <option value="admin">Admin</option>
+                  <option value="user">{{ t('admin.users.roles.user') }}</option>
+                  <option value="admin">{{ t('admin.users.roles.admin') }}</option>
                 </select>
                 <div
                   class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-brown-400"
@@ -172,7 +176,7 @@
                 v-if="user.banned_at"
                 class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-800 text-white"
               >
-                BANNED
+                {{ t('admin.users.banned') }}
               </span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-500">
@@ -186,7 +190,7 @@
                 class="text-brown-600 hover:text-brown-900 font-medium transition-colors"
                 @click="openProfileModal(user)"
               >
-                Profile
+                {{ t('admin.users.profile') }}
               </button>
 
               <!-- Ban/Unban -->
@@ -195,14 +199,14 @@
                 class="text-orange-600 hover:text-orange-900 font-medium transition-colors disabled:opacity-50"
                 @click="openBanModal(user)"
               >
-                Ban
+                {{ t('admin.users.banUser') }}
               </button>
               <button
                 v-if="canBanUser(user) && user.banned_at"
                 class="text-green-600 hover:text-green-900 font-medium transition-colors disabled:opacity-50"
                 @click="confirmUnban(user)"
               >
-                Unban
+                {{ t('admin.users.unban') }}
               </button>
 
               <!-- Delete -->
@@ -211,12 +215,14 @@
                 class="text-red-600 hover:text-red-900 font-medium transition-colors disabled:opacity-50"
                 @click="confirmDelete(user)"
               >
-                Delete
+                {{ t('admin.users.deleteUser') }}
               </button>
             </td>
           </tr>
           <tr v-if="users.length === 0 && !isLoading">
-            <td colspan="4" class="px-6 py-12 text-center text-brown-500">No users found.</td>
+            <td colspan="4" class="px-6 py-12 text-center text-brown-500">
+              {{ t('admin.users.table.noUsers') }}
+            </td>
           </tr>
           <TableSkeleton v-if="isLoading" :columns="4" :avatar-column="1" />
         </tbody>
@@ -233,15 +239,17 @@
         class="px-4 py-2 border border-sand-300 rounded-md text-sm font-medium text-brown-700 bg-white hover:bg-sand-50 disabled:opacity-50 disabled:cursor-not-allowed"
         @click="page > 1 && loadUsers(page - 1)"
       >
-        Previous
+        {{ t('admin.pagination.previous') }}
       </button>
-      <span class="text-sm text-brown-600">Page {{ page }}</span>
+      <span class="text-sm text-brown-600">
+        {{ t('admin.pagination.page_number', { page }) }}
+      </span>
       <button
         :disabled="users.length < limit || page * limit >= totalUsers"
         class="px-4 py-2 border border-sand-300 rounded-md text-sm font-medium text-brown-700 bg-white hover:bg-sand-50 disabled:opacity-50 disabled:cursor-not-allowed"
         @click="loadUsers(page + 1)"
       >
-        Next
+        {{ t('admin.pagination.next') }}
       </button>
     </div>
 
@@ -252,12 +260,14 @@
     >
       <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
         <h3 class="text-lg font-bold text-brown-900 mb-4">
-          Edit Profile: {{ editingProfileUser.name }}
+          {{ t('admin.users.editProfile_title', { name: editingProfileUser.name }) }}
         </h3>
 
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-brown-700 mb-1">Full Name</label>
+            <label class="block text-sm font-medium text-brown-700 mb-1">
+              {{ t('admin.users.fullName') }}
+            </label>
             <input
               v-model="profileForm.name"
               type="text"
@@ -265,7 +275,9 @@
             />
           </div>
           <div>
-            <label class="block text-sm font-medium text-brown-700 mb-1">Bio</label>
+            <label class="block text-sm font-medium text-brown-700 mb-1">
+              {{ t('admin.users.bio') }}
+            </label>
             <textarea
               v-model="profileForm.bio"
               rows="3"
@@ -273,14 +285,16 @@
             ></textarea>
           </div>
           <div>
-            <label class="block text-sm font-medium text-brown-700 mb-1">Picture URL</label>
+            <label class="block text-sm font-medium text-brown-700 mb-1">
+              {{ t('admin.users.pictureUrl') }}
+            </label>
             <input
               v-model="profileForm.picture"
               type="text"
               class="w-full border-sand-300 rounded-lg shadow-sm focus:border-terracotta-500 focus:ring-terracotta-500"
               placeholder="https://..."
             />
-            <p class="mt-1 text-xs text-brown-400">Clear to revert to default avatar.</p>
+            <p class="mt-1 text-xs text-brown-400">{{ t('admin.users.clearToRevert') }}</p>
           </div>
         </div>
 
@@ -289,14 +303,14 @@
             class="px-4 py-2 border border-sand-300 rounded-lg text-brown-600 hover:bg-sand-50"
             @click="editingProfileUser = null"
           >
-            Cancel
+            {{ t('common.cancel') }}
           </button>
           <button
             :disabled="isSavingProfile"
             class="px-4 py-2 bg-terracotta-600 text-white rounded-lg hover:bg-terracotta-700 disabled:opacity-50"
             @click="saveProfile"
           >
-            {{ isSavingProfile ? 'Saving...' : 'Save Changes' }}
+            {{ isSavingProfile ? t('common.saving') : t('common.saveChanges') }}
           </button>
         </div>
       </div>
@@ -307,15 +321,19 @@
       class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
     >
       <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-        <h3 class="text-lg font-bold text-brown-900 mb-4">Ban User: {{ banModal.user?.name }}</h3>
-        <p class="text-sm text-brown-600 mb-4">Please provide a reason for banning this user.</p>
+        <h3 class="text-lg font-bold text-brown-900 mb-4">
+          {{ t('admin.users.banUser_title', { name: banModal.user?.name }) }}
+        </h3>
+        <p class="text-sm text-brown-600 mb-4">{{ t('admin.users.provideBanReason') }}</p>
         <div class="mb-6">
-          <label class="block text-sm font-medium text-brown-700 mb-2">Reason</label>
+          <label class="block text-sm font-medium text-brown-700 mb-2">
+            {{ t('admin.users.banReason') }}
+          </label>
           <input
             v-model="banModal.reason"
             type="text"
             class="w-full border-sand-300 rounded-lg shadow-sm focus:border-terracotta-500 focus:ring-terracotta-500"
-            placeholder="Violation of Terms of Service"
+            :placeholder="t('admin.users.banReasonPlaceholder')"
           />
         </div>
         <div class="flex justify-end gap-3">
@@ -323,13 +341,13 @@
             class="px-4 py-2 border border-sand-300 rounded-lg text-brown-600 hover:bg-sand-50"
             @click="closeBanModal"
           >
-            Cancel
+            {{ t('common.cancel') }}
           </button>
           <button
             class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
             @click="processBan"
           >
-            Ban User
+            {{ t('admin.users.confirmBan') }}
           </button>
         </div>
       </div>
@@ -340,7 +358,7 @@
       v-if="confirmModal.isOpen"
       class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
     >
-      <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 text-center">
+      <div class="bg-white rounded-xl shadow-xl max-sm w-full p-6 text-center">
         <h3 class="text-lg font-bold text-brown-900 mb-2">{{ confirmModal.title }}</h3>
         <p class="text-brown-600 mb-6">{{ confirmModal.message }}</p>
         <div class="flex justify-center gap-3">
@@ -348,7 +366,7 @@
             class="px-4 py-2 border border-sand-300 rounded-lg text-brown-600 hover:bg-sand-50"
             @click="closeConfirmModal"
           >
-            Cancel
+            {{ t('common.cancel') }}
           </button>
           <button
             class="px-4 py-2 rounded-lg text-white"
@@ -369,12 +387,14 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch, reactive } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { apiV1 } from '@/utils/api';
 import { useToast } from '@/components/toast/use-toast';
 import { useAuthStore } from '@/store/authStore';
 import { useAdminTable } from '@/composables/useAdminTable';
 import TableSkeleton from '@/components/ui/TableSkeleton.vue';
 
+const { t } = useI18n();
 const { toast } = useToast();
 const authStore = useAuthStore();
 
@@ -446,34 +466,36 @@ const exportUsers = (): void => {
 const banModal = reactive({
   isOpen: false,
   user: null as User | null,
-  reason: 'Violation of Terms of Service',
+  reason: t('admin.users.banReasonPlaceholder'),
 });
 
 const confirmModal = reactive({
   isOpen: false,
   title: '',
   message: '',
-  confirmText: 'Confirm',
+  confirmText: t('common.confirm'),
   isDestructive: false,
   onConfirm: () => {},
 });
 
 const formatRoleName = (role: string | undefined): string => {
-  if (!role) return 'User';
-  // Capitalize first letter and handle 'admin' vs 'super_admin' display
+  if (!role) return t('admin.users.roles.user');
+  const roleKey = role.toLowerCase().replace(/_/g, '');
+  // Try to use translation if available
+  const translation = t(`admin.users.roles.${roleKey}`);
+  if (translation !== `admin.users.roles.${roleKey}`) return translation;
+
   const name = role.toLowerCase().replace(/_/g, ' ');
   return name.charAt(0).toUpperCase() + name.slice(1);
 };
 
 const isUserAdmin = (role: string | undefined): boolean => {
   if (!role) return false;
-  return role.toLowerCase() === 'admin' || role.toLowerCase() === 'super_admin';
+  return role.toLowerCase() === 'admin' || role.toLowerCase() === 'superadmin';
 };
 
 const canDeleteUser = (targetUser: User): boolean => {
-  // Check if current user has delete permission
   if (!authStore.hasPermission('users:delete')) return false;
-  // Prevent deleting any admin
   if (isUserAdmin(targetUser.role)) return false;
   return true;
 };
@@ -487,7 +509,7 @@ const canBanUser = (targetUser: User): boolean => {
 // --- Ban Modal Logic ---
 const openBanModal = (user: User): void => {
   banModal.user = user;
-  banModal.reason = 'Violation of Terms of Service';
+  banModal.reason = t('admin.users.banReasonPlaceholder');
   banModal.isOpen = true;
 };
 
@@ -499,20 +521,20 @@ const closeBanModal = (): void => {
 const processBan = async (): Promise<void> => {
   if (!banModal.user) return;
   const user = banModal.user;
-  const reason = banModal.reason || 'Violation of Terms of Service';
+  const reason = banModal.reason || t('admin.users.banReasonPlaceholder');
 
   try {
     await apiV1.post(`/admin/users/${user.id}/ban`, { reason });
     loadUsers(page.value);
     toast({
-      description: `User ${user.name} has been banned.`,
+      description: t('admin.users.actions.userBanned', { name: user.name }),
       variant: 'success',
     });
     closeBanModal();
   } catch (e) {
     toast({
-      title: 'Error',
-      description: 'Failed to ban user',
+      title: t('common.error'),
+      description: t('admin.users.actions.failedToBan'),
       variant: 'destructive',
     });
     console.error(e);
@@ -546,23 +568,22 @@ const processConfirm = (): void => {
 
 const confirmDelete = (user: User): void => {
   openConfirmModal(
-    'Delete User',
-    `Are you sure you want to PERMANENTLY DELETE user ${user.name}? This action CANNOT be undone and will remove all their data.`,
-    'Yes, Delete',
+    t('admin.users.deleteUser'),
+    t('admin.users.confirmDelete', { name: user.name }),
+    t('admin.users.yesDelete'),
     true,
     async () => {
       try {
         await apiV1.delete(`/admin/users/${user.id}`);
-        // Refresh list
         loadUsers(page.value);
         toast({
-          description: `User ${user.name} has been deleted.`,
+          description: t('admin.users.actions.userDeleted', { name: user.name }),
           variant: 'success',
         });
       } catch (e) {
         toast({
-          title: 'Error',
-          description: 'Failed to delete user',
+          title: t('common.error'),
+          description: t('admin.users.actions.failedToDelete'),
           variant: 'destructive',
         });
         console.error(e);
@@ -573,22 +594,22 @@ const confirmDelete = (user: User): void => {
 
 const confirmUnban = (user: User): void => {
   openConfirmModal(
-    'Unban User',
-    `Are you sure you want to unban user ${user.name}?`,
-    'Unban',
+    t('admin.users.unbanUser'),
+    t('admin.users.confirmUnban', { name: user.name }),
+    t('admin.users.unban'),
     false,
     async () => {
       try {
         await apiV1.post(`/admin/users/${user.id}/unban`, {});
         loadUsers(page.value);
         toast({
-          description: `User ${user.name} has been unbanned.`,
+          description: t('admin.users.actions.userUnbanned', { name: user.name }),
           variant: 'success',
         });
       } catch (e) {
         toast({
-          title: 'Error',
-          description: 'Failed to unban user',
+          title: t('common.error'),
+          description: t('admin.users.actions.failedToUnban'),
           variant: 'destructive',
         });
         console.error(e);
@@ -611,8 +632,8 @@ const handleRoleChange = async (user: User, targetRoleName: string): Promise<voi
   const roleObj = roles.value.find((r) => r.name.toLowerCase() === targetRoleName.toLowerCase());
   if (!roleObj) {
     toast({
-      title: 'Error',
-      description: 'Target role not found in system',
+      title: t('common.error'),
+      description: t('admin.users.actions.roleNotFound'),
       variant: 'destructive',
     });
     return;
@@ -625,14 +646,14 @@ const handleRoleChange = async (user: User, targetRoleName: string): Promise<voi
     });
     user.role = targetRoleName;
     toast({
-      description: `Role updated to ${formatRoleName(targetRoleName)}`,
+      description: t('admin.users.actions.roleUpdated', { role: formatRoleName(targetRoleName) }),
       variant: 'success',
     });
   } catch (e) {
     console.error('Failed to update role', e);
     toast({
-      title: 'Error',
-      description: 'Failed to update user role',
+      title: t('common.error'),
+      description: t('admin.users.actions.failedToUpdateRole'),
       variant: 'destructive',
     });
   } finally {
@@ -654,16 +675,9 @@ const isSavingProfile = ref(false);
 const canEditRole = authStore.hasPermission('users:update');
 const canEditProfile = authStore.hasPermission('users:write');
 
-const filteredRoles = ref<Role[]>([]);
-
 const loadRoles = async (): Promise<void> => {
   try {
     const data = await apiV1.get<Role[]>('/admin/roles');
-    // Filter to only show user and admin (or super_admin) roles
-    filteredRoles.value = data.filter((r) => {
-      const name = r.name.toLowerCase();
-      return name === 'user' || name === 'admin' || name === 'super_admin';
-    });
     roles.value = data;
   } catch (e) {
     console.error('Failed to load roles', e);
@@ -689,20 +703,19 @@ const saveProfile = async (): Promise<void> => {
       profileForm.value
     );
 
-    // Update local object
     Object.assign(editingProfileUser.value, updated);
 
     editingProfileUser.value = null;
     loadUsers(page.value);
     toast({
-      description: 'User profile updated successfully',
+      description: t('admin.users.actions.profileUpdated'),
       variant: 'success',
     });
   } catch (e) {
     console.error('Failed to update profile', e);
     toast({
-      title: 'Error',
-      description: 'Failed to update profile',
+      title: t('common.error'),
+      description: t('admin.users.actions.failedToUpdateProfile'),
       variant: 'destructive',
     });
   } finally {

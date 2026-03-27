@@ -16,6 +16,12 @@ class UserBaseMixin:
 
     _cached_user_role_id: str | None = None
     SERVICE_SUPABASE_AUTH = "Supabase Auth"
+    # Centralized user column selection to avoid over-fetching
+    USER_COLUMNS = "id, email, name, username, picture, bio, google_id, treat_balance, total_treats_received, is_pro, role_id, created_at, updated_at, banned_at"
+
+    def _prefixed_user_columns(self, prefix: str) -> str:
+        """Helper to prefix user columns for JOIN queries."""
+        return ", ".join([f"{prefix}.{c}" for c in self.USER_COLUMNS.split(", ")])
 
     @property
     def supabase(self) -> AClient:

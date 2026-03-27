@@ -56,6 +56,7 @@ class GalleryReadMixin(GalleryBaseMixin):
             raise ExternalServiceError(f"Failed to fetch gallery images: {e!s}", service="Supabase")
 
     async def _fetch_photos(self, limit: int, offset: int, user_id: str | None) -> list[dict[str, Any]]:
+        """Fetch photos with hydrated user details where possible."""
         if self.db:
             return await self._fetch_photos_sql(limit, offset, user_id)
         return await self._fetch_photos_supabase(limit, offset, user_id)
@@ -64,13 +65,14 @@ class GalleryReadMixin(GalleryBaseMixin):
         if not self.db:
             return []
         try:
+            # RPC handles column selection internally; SQL fallback updated
             query = text("SELECT * FROM get_gallery_photos_with_likes(:p_limit, :p_offset, :p_user_id)")
             result = await self.db.execute(query, {"p_limit": limit, "p_offset": offset, "p_user_id": user_id})
             return [dict(row._asdict()) for row in result.fetchall()]
         except Exception as db_err:
             logger.warning(f"SQLAlchemy RPC failed, falling back to direct query: {db_err}")
             query = text(
-                "SELECT * FROM cat_photos WHERE deleted_at IS NULL ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
+                f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE deleted_at IS NULL ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
             )
             result = await self.db.execute(query, {"limit": limit, "offset": offset})
             return [dict(row._asdict()) for row in result.fetchall()]
@@ -84,9 +86,11 @@ class GalleryReadMixin(GalleryBaseMixin):
             return res.data or []
         except Exception as rpc_error:
             logger.warning(f"Async RPC failed, falling back to direct query: {rpc_error}")
+            # JOIN user info to avoid N+1 waterfalls in the frontend
+            select_str = f"{self.PHOTO_COLUMNS}, user:users!user_id(name, picture)"
             res_direct = await (
                 self.supabase.table("cat_photos")
-                .select("*")
+                .select(select_str)
                 .is_("deleted_at", "null")
                 .order("uploaded_at", desc=True)
                 .range(offset, offset + limit - 1)
@@ -149,16 +153,17 @@ class GalleryReadMixin(GalleryBaseMixin):
         try:
             data = None
             if self.db:
-                result = await self.db.execute(
-                    text("SELECT * FROM cat_photos WHERE id = :id AND deleted_at IS NULL LIMIT 1"), {"id": photo_id}
-                )
+                sql = f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE id = :id AND deleted_at IS NULL LIMIT 1"
+                result = await self.db.execute(text(sql), {"id": photo_id})
                 row = result.fetchone()
                 if row:
                     data = [dict(row._asdict())]
             if not data:
+                # JOIN user info for single photo view as well
+                select_str = f"{self.PHOTO_COLUMNS}, user:users!user_id({self.USER_COLUMNS})"
                 res = await (
                     self.supabase.table("cat_photos")
-                    .select("*")
+                    .select(select_str)
                     .eq("id", photo_id)
                     .is_("deleted_at", "null")
                     .limit(1)
@@ -201,13 +206,13 @@ class GalleryReadMixin(GalleryBaseMixin):
         try:
             if self.db:
                 db_res = await self.db.execute(
-                    text("SELECT * FROM cat_photos WHERE deleted_at IS NULL ORDER BY uploaded_at DESC LIMIT :limit"),
+                    text(f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE deleted_at IS NULL ORDER BY uploaded_at DESC LIMIT :limit"),
                     {"limit": limit},
                 )
                 return [dict(row._asdict()) for row in db_res.fetchall()]
             supa_res = await (
                 self.supabase.table("cat_photos")
-                .select("*")
+                .select(self.PHOTO_COLUMNS)
                 .is_("deleted_at", "null")
                 .order("uploaded_at", desc=True)
                 .limit(limit)

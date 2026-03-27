@@ -68,14 +68,14 @@ const clearSearch = (): void => {
 
 <template>
   <div
-    class="group/search relative flex items-center gap-2 bg-btn-shade-e border-2 border-btn-shade-a rounded-full py-[0.35rem] pr-[0.35rem] pl-5 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] w-full max-w-[400px] shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.25em_0_0_var(--color-btn-shade-a)] focus-within:bg-white focus-within:shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.35em_0_0_var(--color-btn-shade-a)] focus-within:-translate-y-0.5"
+    class="group/search relative flex items-center gap-1.5 sm:gap-2 bg-btn-shade-e border-2 border-btn-shade-a rounded-full py-[0.35rem] pr-[0.35rem] pl-3 sm:pl-5 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] w-full max-w-[400px] shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.25em_0_0_var(--color-btn-shade-a)] focus-within:bg-white focus-within:shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.35em_0_0_var(--color-btn-shade-a)] focus-within:-translate-y-0.5"
     style="transform-style: preserve-3d"
   >
     <input
       v-model="searchQuery"
       type="text"
       placeholder="Find a spot..."
-      class="border-none bg-transparent outline-none font-accent text-[0.9rem] font-medium text-btn-shade-a flex-1 py-1 min-w-0 placeholder-btn-shade-b placeholder:italic placeholder:opacity-100"
+      class="border-none bg-transparent outline-none font-accent text-[0.8rem] sm:text-[0.9rem] font-medium text-btn-shade-a flex-1 py-1 min-w-0 placeholder-btn-shade-b placeholder:italic placeholder:opacity-100"
       autocomplete="off"
       @keyup.enter="handleSearch"
     />

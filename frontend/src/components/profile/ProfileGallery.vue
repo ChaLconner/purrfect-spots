@@ -87,8 +87,6 @@ const rows = computed(() => {
         :title="t('profile.welcomeHome')"
         :message="t('profile.emptyGalleryMessage')"
         :sub-message="t('profile.emptyGallerySubMessage')"
-        :action-text="isOwnProfile ? t('profile.shareFirstSpot') : undefined"
-        :action-link="isOwnProfile ? '/upload' : undefined"
       />
 
       <!-- Uploads Grid with Virtual Scrolling -->

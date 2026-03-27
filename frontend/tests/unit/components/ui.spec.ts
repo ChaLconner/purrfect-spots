@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { describe, it, expect, vi } from 'vitest';
+import { mount, config } from '@vue/test-utils';
 import ErrorBoundary from '@/components/ui/ErrorBoundary.vue';
 import SkeletonLoader from '@/components/ui/SkeletonLoader.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
@@ -9,6 +9,34 @@ import ErrorState from '@/components/ui/ErrorState.vue';
 import CardSkeleton from '@/components/ui/CardSkeleton.vue';
 import GhibliLoader from '@/components/ui/GhibliLoader.vue';
 import { generateResponsiveSources } from '@/utils/imageUtils';
+
+vi.mock('vue-router', async (importOriginal) => {
+  const actual = await importOriginal<any>();
+  return {
+    ...actual,
+    useRouter: () => ({
+      push: vi.fn(),
+    }),
+    useRoute: () => ({
+      path: '/'
+    })
+  };
+});
+
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({ t: (key: string) => key }),
+}));
+
+vi.mock('@/components/toast/use-toast', () => ({
+  useToast: () => ({
+    toast: vi.fn(),
+  }),
+}));
+
+config.global.stubs = {
+  RouterLink: true,
+  RouterView: true
+};
 
 describe('ErrorBoundary Component', () => {
   it('should render slot content when no error', () => {
@@ -81,9 +109,9 @@ describe('BaseButton Component', () => {
     const wrapper = mount(BaseButton, {
       props: { to: '/test' }
     });
-    // When 'to' is provided, the component should render a RouterLink
-    // which is stubbed globally as 'true'
-    expect(wrapper.props('to')).toBe('/test');
+    
+    expect(wrapper.find('router-link-stub').exists()).toBe(true);
+    expect(wrapper.find('router-link-stub').attributes('to')).toBe('/test');
   });
 
   it('renders as external link when href provided', () => {

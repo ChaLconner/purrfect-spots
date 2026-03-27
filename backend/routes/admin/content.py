@@ -54,7 +54,10 @@ async def list_photos(
         admin_client = await get_async_supabase_admin_client()
         query = (
             admin_client.table("cat_photos")
-            .select("*, users!cat_photos_user_id_fkey(email, name)", count=CountMethod.exact)
+            .select(
+                "id, image_url, description, location_name, latitude, longitude, uploaded_at, user_id, users!cat_photos_user_id_fkey(email, name)",
+                count=CountMethod.exact,
+            )
             .range(offset, offset + limit - 1)
             .order("uploaded_at", desc=True)
         )

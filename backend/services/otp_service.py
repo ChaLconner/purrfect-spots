@@ -27,8 +27,9 @@ class OTPService:
     LOCKOUT_DURATION_MINUTES = 15  # Account lockout duration after max attempts
 
     def __init__(self, supabase_client: AClient, db: AsyncSession | None = None) -> None:
-        self.supabase = supabase_client
         self.db = db
+        # Consistent column selection for OTPs
+        self.OTP_COLUMNS = "id, otp_hash, attempts, max_attempts, expires_at"
 
     def _generate_otp(self) -> str:
         """Generate cryptographically secure 6-digit OTP"""
@@ -266,7 +267,7 @@ class OTPService:
             record = None
             if self.db:
                 query = text(
-                    "SELECT * FROM email_verifications WHERE email = :email "
+                    f"SELECT {self.OTP_COLUMNS} FROM email_verifications WHERE email = :email "
                     "AND verified_at IS NULL ORDER BY created_at DESC LIMIT 1"
                 )
                 result = await self.db.execute(query, {"email": email_lower})
@@ -276,7 +277,7 @@ class OTPService:
             else:
                 supa_res = (
                     await self.supabase.table("email_verifications")
-                    .select("*")
+                    .select(self.OTP_COLUMNS)
                     .eq("email", email_lower)
                     .is_("verified_at", "null")
                     .order("created_at", desc=True)

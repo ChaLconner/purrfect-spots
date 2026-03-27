@@ -18,6 +18,10 @@ class GalleryBaseMixin:
     db: AsyncSession | None
     _admin_client_lazy: AClient | None
 
+    # Standard column selections to avoid select(*)
+    PHOTO_COLUMNS = "id, image_url, latitude, longitude, description, location_name, uploaded_at, tags, likes_count, comments_count, user_id"
+    USER_COLUMNS = "id, name, username, picture, total_treats_received, role_id"
+
     @property
     async def supabase_admin(self) -> AClient:
         """Lazy load admin client only when absolutely necessary"""

@@ -14,11 +14,13 @@ from logger import logger
 class CatDetectionService:
     """Service for cat detection and spot analysis using Google Cloud Vision API"""
 
-    def __init__(self) -> None:
+    def __init__(self, vision_service=None) -> None:
         """Initialize the service"""
-        from services.google_vision import GoogleVisionService
-
-        self.vision_service = GoogleVisionService()
+        if vision_service:
+            self.vision_service = vision_service
+        else:
+            from services.google_vision import GoogleVisionService
+            self.vision_service = GoogleVisionService()
 
     def prepare_image(self, image_data: bytes) -> Image.Image:
         """Prepare image for analysis"""

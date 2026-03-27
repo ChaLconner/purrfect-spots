@@ -29,3 +29,8 @@ class BulkReportUpdate(BaseModel):
 
 class UserBan(BaseModel):
     reason: str = Field(..., min_length=1, max_length=255)
+
+
+class BulkUserAction(BaseModel):
+    user_ids: list[UUID] = Field(..., min_length=1, max_length=50)
+    reason: str | None = Field(None, max_length=255)

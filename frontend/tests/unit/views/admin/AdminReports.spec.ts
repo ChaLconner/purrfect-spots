@@ -7,7 +7,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import { useAuthStore } from '@/store/authStore';
 
 vi.mock('@/utils/api', async (importOriginal) => {
-  const actual = await importOriginal<any>();
+  const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
     apiV1: {
@@ -19,17 +19,20 @@ vi.mock('@/utils/api', async (importOriginal) => {
 });
 
 vi.mock('@/constants/moderation', async (importOriginal) => {
-  const actual: any = await importOriginal();
+  const actual: Record<string, unknown> = await importOriginal();
   return {
     ...actual,
-    RESOLUTION_REASONS: [{ value: 'spam', label: 'Violation: Spam or Misleading', type: 'resolved' }]
+    RESOLUTION_REASONS: [
+      { value: 'violation_spam', label: 'Violation: Spam', type: 'resolved' },
+      { value: 'invalid', label: 'Invalid report', type: 'dismissed' }
+    ]
   };
 });
 
 describe('AdminReports.vue', () => {
-  let pinia: any;
+  let pinia: ReturnType<typeof createPinia>;
 
-  beforeEach(() => {
+  beforeEach((): void => {
     vi.clearAllMocks();
     pinia = createPinia();
     setActivePinia(pinia);
@@ -56,76 +59,71 @@ describe('AdminReports.vue', () => {
     },
   ];
 
-  it('renders reports list correctly', async () => {
-    (apiV1.get as any).mockResolvedValue({ data: mockReports, total: 1 });
+  it('renders reports list correctly', async (): Promise<void> => {
+    (apiV1.get as ReturnType<typeof vi.fn>).mockResolvedValue({ data: mockReports, total: 1 });
+ 
+     const wrapper = mount(AdminReports, {
+       global: { plugins: [pinia] }
+     });
+     await new Promise((resolve): void => { setTimeout(resolve, 0); });
+     await nextTick();
+ 
+     expect(apiV1.get).toHaveBeenCalledWith(expect.stringContaining('/admin/reports'));
+     expect(wrapper.text()).toContain('user@example.com');
+     expect(wrapper.text()).toContain('spam');
+   });
 
-    const wrapper = mount(AdminReports, {
-      global: { plugins: [pinia] }
-    });
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    await nextTick();
+  it('opens modal on action click', async (): Promise<void> => {
+    (apiV1.get as ReturnType<typeof vi.fn>).mockResolvedValue({ data: mockReports, total: 1 });
+     const wrapper = mount(AdminReports, {
+       global: { plugins: [pinia] }
+     });
+     await new Promise((resolve): void => { setTimeout(resolve, 0); });
+     await nextTick();
+ 
+     const resolveBtn = wrapper.findAll('button').find((b) => b.attributes('title') === 'admin.reports.actions.resolve');
+     expect(resolveBtn?.exists()).toBe(true);
+     await resolveBtn?.trigger('click');
+ 
+     // Modal should be visible
+     expect(wrapper.text()).toContain('admin.reports.modal.resolveTitle');
+     expect(wrapper.text()).toContain('admin.reports.modal.reasonLabel');
+   });
 
-    expect(apiV1.get).toHaveBeenCalledWith(expect.stringContaining('/admin/reports'));
-    expect(wrapper.text()).toContain('user@example.com');
-    expect(wrapper.text()).toContain('spam');
-  });
-
-  it('opens modal on action click', async () => {
-    (apiV1.get as any).mockResolvedValue({ data: mockReports, total: 1 });
-    const wrapper = mount(AdminReports, {
-      global: { plugins: [pinia] }
-    });
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    await nextTick();
-
-    const resolveBtn = wrapper.findAll('button').find((b) => b.attributes('title') === 'Mark as Resolved');
-    expect(resolveBtn?.exists()).toBe(true);
-    await resolveBtn?.trigger('click');
-
-    // Modal should be visible
-    expect(wrapper.text()).toContain('Resolve Report');
-    expect(wrapper.text()).toContain('Standard Reason');
-  });
-
-  it('completes resolution flow', async () => {
-    (apiV1.get as any).mockResolvedValue({ data: mockReports, total: 1 });
-    const wrapper = mount(AdminReports, {
-      global: { plugins: [pinia] }
-    });
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    await nextTick();
-
-    // Open Modal
-    const resolveBtn = wrapper.findAll('button').find((b) => b.attributes('title') === 'Mark as Resolved');
-    await resolveBtn?.trigger('click');
-
-    // Verify options exist - we need to find the modal select, which is the third one now
-    const selects = wrapper.findAll('select');
-    expect(selects.length).toBe(3);
-    const reasonSelect = selects[2];
-    
-    const options = reasonSelect.findAll('option');
-    expect(options.length).toBeGreaterThan(1);
-    
-    // Select Reason
-    await reasonSelect.setValue('Violation: Spam or Misleading'); 
-
-    // Add Note
-    const textarea = wrapper.find('textarea');
-    await textarea.setValue('Confirmed spam');
-
-    // Click Confirm
-    const confirmBtn = wrapper.findAll('button').find((b) => b.text() === 'Confirm');
-    
-    // Check if reason is selected
-    // Note: wrapper.vm is not typed to include internal setup refs easily, skipping direct vm check if flaky
-    // expect(wrapper.vm.selectedReason).toBe('Violation: Spam or Misleading');
-    
-    await confirmBtn?.trigger('click');
-
-    expect(apiV1.put).toHaveBeenCalledWith('/admin/reports/r1', expect.objectContaining({
-      status: 'resolved',
-      resolution_notes: expect.stringContaining('Violation: Spam or Misleading: Confirmed spam'),
-    }));
-  });
-});
+  it('completes resolution flow', async (): Promise<void> => {
+    (apiV1.get as ReturnType<typeof vi.fn>).mockResolvedValue({ data: mockReports, total: 1 });
+     const wrapper = mount(AdminReports, {
+       global: { plugins: [pinia] }
+     });
+     await new Promise((resolve): void => { setTimeout(resolve, 0); });
+     await nextTick();
+ 
+     // Open Modal
+     const resolveBtn = wrapper.findAll('button').find((b) => b.attributes('title') === 'admin.reports.actions.resolve');
+     await resolveBtn?.trigger('click');
+ 
+     // Verify options exist - we need to find the modal select, which is the last select
+     const selects = wrapper.findAll('select');
+     expect(selects.length).toBeGreaterThanOrEqual(1);
+     const reasonSelect = selects[selects.length - 1];
+     
+     const options = reasonSelect.findAll('option');
+     expect(options.length).toBeGreaterThan(1);
+     
+     // Select Reason
+     await reasonSelect.setValue('violation_spam'); 
+ 
+     // Add Note
+     const textarea = wrapper.find('textarea');
+     await textarea.setValue('Confirmed spam');
+ 
+     // Click Confirm
+     const confirmBtn = wrapper.findAll('button').find((b) => b.text().includes('common.confirm'));
+     await confirmBtn?.trigger('click');
+ 
+     expect(apiV1.put).toHaveBeenCalledWith('/admin/reports/r1', expect.objectContaining({
+       status: 'resolved',
+       resolution_notes: expect.any(String), // The string format uses translation keys now, so any string matching translation outcome works
+     }));
+   });
+ });

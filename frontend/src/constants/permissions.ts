@@ -18,7 +18,12 @@ export const PERMISSIONS = {
 
   // System
   SYSTEM_STATS: 'system:stats',
+  SYSTEM_SETTINGS: 'system:settings',
   AUDIT_READ: 'audit:read',
+  TREATS_MANAGE: 'treats:manage',
+  CAT_MANAGE: 'cat:manage',
+  COMMENTS_MANAGE: 'comments:manage',
+  ROLES_MANAGE: 'roles:manage',
 
   // General Access
   ACCESS_ADMIN: 'access:admin',

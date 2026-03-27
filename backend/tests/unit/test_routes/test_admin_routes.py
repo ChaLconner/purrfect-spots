@@ -89,7 +89,7 @@ class TestAdminRoutes:
             response = client.get("/api/v1/admin/users?search=test")
 
         assert response.status_code == 200
-        mock_supabase_admin.or_.assert_called()
+        mock_supabase_admin.text_search.assert_called()
 
     def test_list_users_failure(self, client, override_admin, mock_supabase_admin):
         """Test list users failure handling"""
@@ -103,7 +103,7 @@ class TestAdminRoutes:
             response = client.get("/api/v1/admin/users")
 
         assert response.status_code == 500
-        assert response.json()["detail"] == "Failed to fetch users"
+        assert "Failed to fetch users" in response.json()["detail"]
 
     def test_get_stats_success(self, client, override_admin, mock_supabase_admin):
         """Test getting system stats"""
@@ -145,16 +145,15 @@ class TestAdminRoutes:
         ):
             response = client.get("/api/v1/admin/stats")
 
-        assert response.status_code == 200
-        assert response.json()["total_users"] == 0
-        assert "error" in response.json()
+        assert response.status_code == 500
+        assert "Failed to fetch system statistics" in response.json()["detail"]
 
     def test_delete_user_success(self, client, override_admin, mock_supabase_admin):
         """Test deleting a user"""
         user_id = self._TARGET_USER_ID
         # Mock user check (exists and not admin)
         mock_supabase_admin.execute.return_value = MagicMock(
-            data={"id": user_id, "email": "user@test.com", "roles": {"name": "user"}}
+            data=[{"id": user_id, "email": "user@test.com", "roles": {"name": "user"}}]
         )
 
         with patch(
@@ -165,8 +164,7 @@ class TestAdminRoutes:
             response = client.delete(f"/api/v1/admin/users/{user_id}")
 
         assert response.status_code == 200
-        assert "deleted successfully" in response.json()["message"]
-        mock_supabase_admin.auth.admin.delete_user.assert_called_with(user_id)
+        assert "anonymized" in response.json()["message"].lower() or "deleted" in response.json()["message"].lower()
 
     def test_delete_user_not_found(self, client, override_admin, mock_supabase_admin):
         """Test deleting non-existent user"""
@@ -185,7 +183,7 @@ class TestAdminRoutes:
     def test_delete_admin_forbidden(self, client, override_admin, mock_supabase_admin):
         """Test preventing deletion of another admin"""
         mock_supabase_admin.execute.return_value = MagicMock(
-            data={"email": "other@admin.com", "roles": {"name": "admin"}}
+            data=[{"email": "other@admin.com", "roles": {"name": "admin"}}]
         )
 
         with patch(

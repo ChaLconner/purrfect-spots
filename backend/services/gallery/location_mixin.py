@@ -50,7 +50,7 @@ class GalleryLocationMixin(GalleryBaseMixin):
             if self.db:
                 result = await self.db.execute(
                     text(
-                        "SELECT * FROM cat_photos WHERE latitude >= :min_lat AND latitude <= :max_lat AND longitude >= :min_lng AND longitude <= :max_lng AND deleted_at IS NULL ORDER BY uploaded_at DESC LIMIT :limit"
+                        f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE latitude >= :min_lat AND latitude <= :max_lat AND longitude >= :min_lng AND longitude <= :max_lng AND deleted_at IS NULL ORDER BY uploaded_at DESC LIMIT :limit"
                     ),
                     {"min_lat": min_lat, "max_lat": max_lat, "min_lng": min_lng, "max_lng": max_lng, "limit": limit},
                 )
@@ -58,7 +58,7 @@ class GalleryLocationMixin(GalleryBaseMixin):
             if not data:
                 res = await (
                     self.supabase.table("cat_photos")
-                    .select("*")
+                    .select(self.PHOTO_COLUMNS)
                     .gte("latitude", min_lat)
                     .lte("latitude", max_lat)
                     .gte("longitude", min_lng)

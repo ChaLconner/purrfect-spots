@@ -10,6 +10,7 @@ from limiter import get_strict_limit, strict_limiter
 from logger import logger
 from middleware.auth_middleware import get_current_user
 from utils.file_processing import read_file_for_detection
+from dependencies import get_cat_detection_service
 
 router = APIRouter(prefix="/detect", tags=["Cat Detection"])
 
@@ -20,11 +21,9 @@ from schemas.cat_detection import (
     SpotAnalysisResult,
 )
 from schemas.user import User
-from services.cat_detection_service import CatDetectionService, cat_detection_service
+from services.cat_detection_service import CatDetectionService
 
-
-def get_cat_detection_service() -> CatDetectionService:
-    return cat_detection_service
+# local function removed
 
 
 from typing import Annotated

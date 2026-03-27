@@ -6,40 +6,50 @@ import ErrorBoundary from '@/components/ui/ErrorBoundary.vue';
 // A component that throws an error
 const BuggyComponent = defineComponent({
   methods: {
-    throwError() {
-      throw new Error('Test Error');
-    }
-  },
+    throwError(): never {
+       throw new Error('Test Error');
+     }
+   },
   template: '<div>{{ throwError() }}</div>'
 });
 
 // Mock useRouter
-vi.mock('vue-router', () => ({
-  useRouter: () => ({
+vi.mock('vue-router', (): Record<string, unknown> => ({
+  useRouter: (): Record<string, unknown> => ({
     push: vi.fn(),
   }),
 }));
 
-describe('ErrorBoundary', () => {
-  beforeEach(() => {
+vi.mock('vue-i18n', (): Record<string, unknown> => ({
+  useI18n: (): { t: (key: string) => string } => ({ t: (key: string): string => key }),
+}));
+
+vi.mock('@/components/toast/use-toast', (): Record<string, unknown> => ({
+  useToast: (): Record<string, unknown> => ({
+    toast: vi.fn(),
+  }),
+}));
+
+describe('ErrorBoundary', (): void => {
+  beforeEach((): void => {
     vi.clearAllMocks();
   });
 
-  it('renders slot content when no error occurs', () => {
+  it('renders slot content when no error occurs', (): void => {
     const wrapper = mount(ErrorBoundary, {
       slots: {
         default: '<div class="content">Fine</div>',
       },
     });
-
+ 
     expect(wrapper.find('.content').exists()).toBe(true);
     expect(wrapper.find('[role="alert"]').exists()).toBe(false);
   });
 
-  it('captures errors from child components and shows error UI', async () => {
+  it('captures errors from child components and shows error UI', async (): Promise<void> => {
     // We need to suppress console.error for this test to keep the logs clean
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation((): void => {});
+ 
     const wrapper = mount(ErrorBoundary, {
       slots: {
         default: h(BuggyComponent),
@@ -47,10 +57,11 @@ describe('ErrorBoundary', () => {
     });
     
     await nextTick();
-
+ 
     // In Vue 3, ErrorBoundary (onErrorCaptured) should react immediately
     expect(wrapper.find('[role="alert"]').exists()).toBe(true);
-    expect(wrapper.text()).toContain('Something went wrong');
+    expect(wrapper.text()).toContain('common.somethingWentWrong');
+    expect(wrapper.text()).toContain('Test Error');
     
     consoleSpy.mockRestore();
   });
@@ -58,12 +69,17 @@ describe('ErrorBoundary', () => {
   it('shows custom fallback message', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     
+    // Create a component that throws an error without a message
+    const NoMessageBuggy = defineComponent({
+      template: '<div>{{ (() => { throw new Error() })() }}</div>'
+    });
+
     const wrapper = mount(ErrorBoundary, {
       props: {
         fallbackMessage: 'Custom Error Msg',
       },
       slots: {
-        default: h(BuggyComponent),
+        default: h(NoMessageBuggy),
       },
     });
 
@@ -71,18 +87,19 @@ describe('ErrorBoundary', () => {
     expect(wrapper.text()).toContain('Custom Error Msg');
   });
 
-  it('emits error event when an error is caught', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+  it('emits error event when an error is caught', async (): Promise<void> => {
+    vi.spyOn(console, 'error').mockImplementation((): void => {});
     
     const wrapper = mount(ErrorBoundary, {
       slots: {
         default: h(BuggyComponent),
       },
     });
-
+ 
     await nextTick();
     expect(wrapper.emitted('error')).toBeTruthy();
-    expect(wrapper.emitted('error')![0][0]).toBeInstanceOf(Error);
+    const emitted = wrapper.emitted('error');
+    expect(emitted && emitted[0][0]).toBeInstanceOf(Error);
   });
 
   it('resets state when retry button is clicked', async () => {
@@ -101,8 +118,11 @@ describe('ErrorBoundary', () => {
     // but handleRetry just sets hasError = false. If we stay on the same page with the same buggy component,
     // it will just throw again.
     
-    const retryButton = wrapper.find('button');
-    await retryButton.trigger('click');
+    const buttons = wrapper.findAll('button');
+    const retryButton = buttons.find(b => b.text().includes('common.tryAgain'));
+    
+    expect(retryButton).toBeDefined();
+    await retryButton!.trigger('click');
     
     expect(wrapper.emitted('retry')).toBeTruthy();
   });

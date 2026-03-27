@@ -13,6 +13,8 @@ class SearchService:
         self.supabase = supabase_client
         self.db = db
         self._fulltext_available: bool | None = None
+        # Explicit column selection to avoid over-fetching
+        self.PHOTO_COLUMNS = "id, image_url, latitude, longitude, description, location_name, uploaded_at, tags, likes_count, comments_count, user_id"
 
     @property
     async def fulltext_available(self) -> bool:
@@ -71,8 +73,8 @@ class SearchService:
                 from sqlalchemy import text
 
                 # PostgreSQL websearch_to_tsquery example
-                sql = """
-                    SELECT * FROM cat_photos
+                sql = f"""
+                    SELECT {self.PHOTO_COLUMNS} FROM cat_photos
                     WHERE deleted_at IS NULL
                     AND search_vector @@ websearch_to_tsquery('english', :query)
                 """
@@ -102,7 +104,7 @@ class SearchService:
             except Exception:
                 db_query = (
                     self.supabase.table("cat_photos")
-                    .select("*")
+                    .select(self.PHOTO_COLUMNS)
                     .is_("deleted_at", "null")
                     .text_search("search_vector", query, options={"type": "websearch"})
                     .order("uploaded_at", desc=True)  # type: ignore
@@ -123,7 +125,7 @@ class SearchService:
     ) -> list[dict[str, Any]]:
         """Fallback search using ILIKE."""
         if self.db:
-            sql = "SELECT * FROM cat_photos WHERE deleted_at IS NULL"
+            sql = f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE deleted_at IS NULL"
             params: dict[str, Any] = {}
 
             if query:
@@ -143,7 +145,7 @@ class SearchService:
             result = await self.db.execute(text(sql), params)
             return [dict(row._mapping) for row in result.fetchall()]
 
-        db_query = self.supabase.table("cat_photos").select("*").is_("deleted_at", "null")
+        db_query = self.supabase.table("cat_photos").select(self.PHOTO_COLUMNS).is_("deleted_at", "null")
 
         if query:
             safe_query = escape_like_pattern(query)

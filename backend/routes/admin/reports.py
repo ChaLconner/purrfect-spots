@@ -37,14 +37,14 @@ def _validate_uuid(value: str, label: str = "ID") -> None:
 @limiter.limit("60/minute")
 async def list_reports(
     request: Request,
-    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    limit: Annotated[int, Query(ge=1, le=1000)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     status: Annotated[str | None, Query()] = None,
     reason: Annotated[str | None, Query()] = None,
     start_date: Annotated[str | None, Query()] = None,
     end_date: Annotated[str | None, Query()] = None,
     reporter_id: Annotated[str | None, Query()] = None,
-    current_admin: Annotated[User | None, Depends(require_permission("content:read"))] = None,
+    current_admin: Annotated[User | None, Depends(require_permission("reports:read"))] = None,
 ) -> dict[str, Any]:
     """
     List submitted reports.
@@ -89,7 +89,7 @@ async def update_report(
     update_data: dict[str, Any],
     background_tasks: BackgroundTasks,
     request: Request,
-    current_admin: Annotated[User, Depends(require_permission("content:delete"))],
+    current_admin: Annotated[User, Depends(require_permission("reports:update"))],
     notification_service: Annotated[NotificationService, Depends(get_notification_service)],
     gallery_service: Annotated[GalleryService, Depends(get_admin_gallery_service)],
     email_service: Annotated[EmailService, Depends(get_email_service)],
@@ -228,7 +228,7 @@ async def bulk_update_reports(
     bulk_data: BulkReportUpdate,
     background_tasks: BackgroundTasks,
     request: Request,
-    current_admin: Annotated[User, Depends(require_permission("content:delete"))],
+    current_admin: Annotated[User, Depends(require_permission("reports:update"))],
     notification_service: Annotated[NotificationService, Depends(get_notification_service)],
     gallery_service: Annotated[GalleryService, Depends(get_admin_gallery_service)],
     email_service: Annotated[EmailService, Depends(get_email_service)],

@@ -82,11 +82,11 @@ export function useAdminTable<T extends { id: string }>(
         if (value) params.append(key, value);
       });
 
-      const response = await apiV1.get<{ data: T[]; total: number }>(
+      const response = await apiV1.get<{ data?: T[]; items?: T[]; total?: number }>(
         `${options.endpoint}?${params.toString()}`
       );
-      items.value = response.data;
-      totalItems.value = response.total;
+      items.value = response.data || response.items || [];
+      totalItems.value = response.total || items.value.length;
       selectedIds.value = [];
       page.value = newPage;
     } catch (e) {
@@ -99,28 +99,79 @@ export function useAdminTable<T extends { id: string }>(
   const exportData = async (
     extraParams: Record<string, string | null | undefined> = {}
   ): Promise<void> => {
+    isLoading.value = true;
     try {
-      const params = new URLSearchParams({ limit: '5000', offset: '0' });
-      Object.entries(extraParams).forEach(([key, value]) => {
-        if (value) params.append(key, value);
+      const MAX_BATCH_SIZE = 100;
+      let allData: T[] = [];
+      let total = 0;
+      let offset = 0;
+
+      // Initial fetch to get total and first batch
+      const params = new URLSearchParams({
+        limit: MAX_BATCH_SIZE.toString(),
+        offset: offset.toString(),
+        sort: sortBy.value,
+        order: sortOrder.value,
       });
 
-      const response = await apiV1.get<{ data: T[]; total: number }>(
+      Object.entries(extraParams).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) params.append(key, value);
+      });
+
+      const firstResponse = await apiV1.get<{ data?: T[]; items?: T[]; total?: number }>(
         `${options.endpoint}?${params.toString()}`
       );
-      const data = response.data;
 
-      if (!data || data.length === 0) {
+      const firstBatch = firstResponse.data || firstResponse.items || [];
+      allData = [...firstBatch];
+      total = firstResponse.total || firstBatch.length;
+
+      // Fetch subsequent batches if needed
+      offset += MAX_BATCH_SIZE;
+      while (offset < total) {
+        const nextParams = new URLSearchParams({
+          limit: MAX_BATCH_SIZE.toString(),
+          offset: offset.toString(),
+          sort: sortBy.value,
+          order: sortOrder.value,
+        });
+
+        Object.entries(extraParams).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) nextParams.append(key, value);
+        });
+
+        const nextResponse = await apiV1.get<{ data?: T[]; items?: T[]; total?: number }>(
+          `${options.endpoint}?${nextParams.toString()}`
+        );
+        const nextBatch = nextResponse.data || nextResponse.items || [];
+        allData = [...allData, ...nextBatch];
+        offset += MAX_BATCH_SIZE;
+      }
+
+      if (allData.length === 0) {
         toast({ description: 'No data to export', variant: 'default' });
         return;
       }
 
+      // Helper to escape CSV values
+      const escapeCSV = (val: unknown): string => {
+        if (val === null || val === undefined) return '';
+        const s = String(val);
+        if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+          return `"${s.replace(/"/g, '""')}"`;
+        }
+        return s;
+      };
+
       const csvContent = [
         options.exportHeaders.join(','),
-        ...data.map((item) => options.formatExportRow(item).join(',')),
+        ...allData.map((item) => options.formatExportRow(item).map(escapeCSV).join(',')),
       ].join('\n');
 
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      // Use BOM for UTF-8 visibility in Excel
+      const blob = new Blob([new Uint8Array([0xef, 0xbb, 0xbf]), csvContent], {
+        type: 'text/csv;charset=utf-8;',
+      });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.setAttribute('href', url);
@@ -132,6 +183,7 @@ export function useAdminTable<T extends { id: string }>(
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
       toast({ description: 'Data exported successfully', variant: 'success' });
     } catch (e) {
@@ -141,6 +193,8 @@ export function useAdminTable<T extends { id: string }>(
         description: 'Failed to export data',
         variant: 'destructive',
       });
+    } finally {
+      isLoading.value = false;
     }
   };
 

@@ -1,7 +1,12 @@
 <template>
-  <router-link
-    :to="`/profile/${user.username || user.id}`"
-    class="flex items-center p-3 md:p-6 hover:bg-white/50 transition-colors duration-300 gap-3 md:gap-6 group cursor-pointer"
+  <div
+    class="flex items-center p-3 md:p-6 transition-colors duration-300 gap-3 md:gap-6 group cursor-pointer"
+    :class="[
+      isCurrentUser
+        ? 'bg-yellow-50 hover:bg-yellow-100/70 border-l-4 border-yellow-400'
+        : 'hover:bg-white/50',
+    ]"
+    @click="$emit('click', $event)"
   >
     <!-- Rank -->
     <div class="flex-shrink-0 w-8 md:w-12 text-center">
@@ -13,7 +18,8 @@
           'text-orange-400': rank === 3,
           'text-stone-300': rank > 3,
         }"
-      >#{{ rank }}</span>
+        >#{{ rank }}</span
+      >
     </div>
 
     <!-- Avatar -->
@@ -34,11 +40,19 @@
 
     <!-- Info -->
     <div class="flex-grow min-w-0">
-      <h3
-        class="text-base md:text-xl font-bold text-brown truncate font-heading group-hover:text-terracotta transition-colors"
-      >
-        {{ user.name || 'Anonymous Spotter' }}
-      </h3>
+      <div class="flex items-center gap-2">
+        <h3
+          class="text-base md:text-xl font-bold text-brown truncate font-heading group-hover:text-terracotta transition-colors"
+        >
+          {{ user.name || 'Anonymous Spotter' }}
+        </h3>
+        <span
+          v-if="isCurrentUser"
+          class="px-2 py-0.5 text-[10px] bg-yellow-400 text-white font-bold rounded-full uppercase tracking-tighter"
+        >
+          {{ $t('common.you') || 'You' }}
+        </span>
+      </div>
       <p class="text-xs md:text-sm text-stone-500 font-medium truncate">
         {{ getRankTitle(rank - 1) }}
       </p>
@@ -58,7 +72,7 @@
         <span class="sm:hidden">Treats</span>
       </p>
     </div>
-  </router-link>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -75,6 +89,11 @@ export interface LeaderboardUser {
 defineProps<{
   user: LeaderboardUser;
   rank: number;
+  isCurrentUser?: boolean;
+}>();
+
+defineEmits<{
+  (e: 'click', event: MouseEvent): void;
 }>();
 
 const getRankTitle = (index: number): string => {

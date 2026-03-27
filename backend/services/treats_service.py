@@ -27,6 +27,9 @@ class TreatsService:
     def __init__(self, supabase_client: AClient, db: AsyncSession | None = None) -> None:
         self.supabase = supabase_client
         self.db = db
+        # Consistent column selection for treats
+        self.TREAT_COLUMNS = "id, sender_id, receiver_id, amount, message, created_at"
+        self.TRANSACTION_COLUMNS = "id, from_user_id, to_user_id, amount, type, created_at, metadata"
         self.notification_service = NotificationService(supabase_client)
 
     # ── Give treats ──────────────────────────────────────────────────
@@ -238,7 +241,7 @@ class TreatsService:
 
                 # Get recent transactions
                 trans_query = text(
-                    "SELECT * FROM treats_transactions "
+                    f"SELECT {self.TRANSACTION_COLUMNS} FROM treats_transactions "
                     "WHERE from_user_id = :u_id OR to_user_id = :u_id "
                     "ORDER BY created_at DESC "
                     "LIMIT 10"
@@ -260,7 +263,7 @@ class TreatsService:
 
         supa_trans_res = (
             await self.supabase.table("treats_transactions")
-            .select("*")
+            .select(self.TRANSACTION_COLUMNS)
             .or_(f"from_user_id.eq.{user_id},to_user_id.eq.{user_id}")
             .order("created_at", desc=True)
             .limit(10)

@@ -19,6 +19,10 @@ const AdminUsers = (): Promise<unknown> => import('@/views/admin/AdminUsers.vue'
 const AdminPhotos = (): Promise<unknown> => import('@/views/admin/AdminPhotos.vue');
 const AdminReports = (): Promise<unknown> => import('@/views/admin/AdminReports.vue');
 const AdminAuditLogs = (): Promise<unknown> => import('@/views/admin/AdminAuditLogs.vue');
+const AdminSettings = (): Promise<unknown> => import('@/views/admin/AdminSettings.vue');
+const AdminTreats = (): Promise<unknown> => import('@/views/admin/AdminTreats.vue');
+const AdminRoles = (): Promise<unknown> => import('@/views/admin/AdminRoles.vue');
+const AdminComments = (): Promise<unknown> => import('@/views/admin/AdminComments.vue');
 const PrivacyPolicyView = (): Promise<unknown> => import('@/views/PrivacyPolicyView.vue');
 const TermsOfServiceView = (): Promise<unknown> => import('@/views/TermsOfServiceView.vue');
 const NotFoundView = (): Promise<unknown> => import('@/views/NotFoundView.vue');
@@ -136,6 +140,26 @@ const routes = [
         path: 'audit-logs',
         name: 'AdminAuditLogs',
         component: AdminAuditLogs,
+      },
+      {
+        path: 'settings',
+        name: 'AdminSettings',
+        component: AdminSettings,
+      },
+      {
+        path: 'treats',
+        name: 'AdminTreats',
+        component: AdminTreats,
+      },
+      {
+        path: 'roles',
+        name: 'AdminRoles',
+        component: AdminRoles,
+      },
+      {
+        path: 'comments',
+        name: 'AdminComments',
+        component: AdminComments,
       },
     ],
   },

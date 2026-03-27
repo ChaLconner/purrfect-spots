@@ -442,6 +442,8 @@ async def get_current_user_info(current_user: Annotated[UserResponse, Depends(ge
         bio=current_user.bio,
         created_at=current_user.created_at,
         google_id=current_user.google_id,
+        role=current_user.role,
+        permissions=current_user.permissions,
     )
 
 

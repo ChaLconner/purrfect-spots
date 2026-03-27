@@ -335,6 +335,87 @@ class EmailService:
             logger.error(f"Failed to send password change notification: {e}")
             return False
 
+    def send_admin_config_request(self, admin_email: str, requester_name: str, config_key: str) -> bool:
+        """
+        Send notification to admins when a config change requires approval.
+        """
+        if not self.smtp_user or not self.smtp_password:
+            logger.warning("SMTP credentials not set. Skipping admin config request notification.")
+            logger.debug(f"CONFIG REQUEST NOTIFICATION to {admin_email}. Key: {config_key}, From: {requester_name}")
+            return True
+
+        try:
+            msg = MIMEMultipart()
+            msg["From"] = self.sender_email
+            msg["To"] = admin_email
+            msg["Subject"] = f"⚠️ Approval Required: {config_key} - Purrfect Spots Admin"
+
+            body = f"""
+            <html>
+              <body style="font-family: Arial, sans-serif; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #7FB7A4; border-radius: 10px;">
+                    <h2 style="color: #7FB7A4;">⚙️ Configuration Approval Required</h2>
+                    <p>Hello Admin,</p>
+                    <p>An administrator has proposed a change to a protected system setting that requires your review.</p>
+                    <div style="background-color: #f7fcfb; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #7FB7A4;">
+                        <strong>Setting:</strong> {config_key}<br>
+                        <strong>Requested by:</strong> {requester_name}<br>
+                        <strong>Time:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+                    </div>
+                    <p>Please log in to the Admin Dashboard to review the proposed value and decide whether to approve or reject the change.</p>
+                    <a href="{self.frontend_url}/admin/settings" style="display: inline-block; background-color: #7FB7A4; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 20px 0;">Go to Settings</a>
+                </div>
+              </body>
+            </html>
+            """
+            msg.attach(MIMEText(body, "html"))
+            self._send(msg)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send admin config request: {e}")
+            return False
+
+    def send_admin_config_result(self, requester_email: str, config_key: str, status: str, checker_name: str, reason: str = "") -> bool:
+        """
+        Notify the requester about the approval/rejection result.
+        """
+        if not self.smtp_user or not self.smtp_password:
+            logger.warning("SMTP credentials not set. Skipping config result notification.")
+            logger.debug(f"CONFIG RESULT to {requester_email}. Key: {config_key}, Status: {status}")
+            return True
+
+        try:
+            color = "#5cb85c" if status == "approved" else "#d9534f"
+            msg = MIMEMultipart()
+            msg["From"] = self.sender_email
+            msg["To"] = requester_email
+            msg["Subject"] = f"Update: Your configuration request for {config_key} was {status}"
+
+            reason_html = f"<p><strong>Reason:</strong> {reason}</p>" if reason else ""
+
+            body = f"""
+            <html>
+              <body style="font-family: Arial, sans-serif; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid {color}; border-radius: 10px;">
+                    <h2 style="color: {color};">Config Request {status.capitalize()}</h2>
+                    <p>Your request to update <strong>{config_key}</strong> has been processed.</p>
+                    <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                        <strong>Status:</strong> <span style="color: {color};">{status.upper()}</span><br>
+                        <strong>Processed by:</strong> {checker_name}
+                        {reason_html}
+                    </div>
+                    <p>If you have any questions, please coordinate with the authorizing administrator.</p>
+                </div>
+              </body>
+            </html>
+            """
+            msg.attach(MIMEText(body, "html"))
+            self._send(msg)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send config result notification: {e}")
+            return False
+
     def _send(self, msg: MIMEMultipart) -> None:
         """Helper to send SMTP message with proper resource management."""
         if not self.smtp_user or not self.smtp_password:
@@ -346,5 +427,8 @@ class EmailService:
             server.send_message(msg)
             # quit() is called automatically via __exit__ in smtplib.SMTP context manager
 
+
+# Add missing import for datetime at top
+from datetime import datetime
 
 email_service = EmailService()

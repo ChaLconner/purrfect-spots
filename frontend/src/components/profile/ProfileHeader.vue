@@ -17,6 +17,7 @@ defineProps<{
   isPro?: boolean;
   treatBalance?: number;
   isOwnProfile?: boolean;
+  isDrawer?: boolean;
 }>();
 
 defineEmits<{
@@ -178,6 +179,7 @@ const formatJoinDate = (dateString?: string): string => {
             {{ t('profile.upgradeToPro') }}
           </router-link>
           <router-link
+            v-if="!isDrawer"
             to="/leaderboard"
             class="text-xs bg-sage/10 text-sage-dark hover:bg-sage hover:text-white px-3 py-1 rounded-lg transition-all font-bold border border-sage/20"
           >

@@ -53,7 +53,24 @@ __all__ = [
     "get_otp_service",
     "get_search_service",
     "get_db",
+    "get_storage_service",
+    "get_vision_service",
+    "get_cat_detection_service",
 ]
+
+def get_storage_service() -> "StorageService":
+    from services.storage_service import StorageService
+    return StorageService()
+
+def get_vision_service() -> "GoogleVisionService":
+    from services.google_vision import GoogleVisionService
+    return GoogleVisionService()
+
+def get_cat_detection_service(
+    vision_service: "GoogleVisionService" = Depends(get_vision_service)
+) -> "CatDetectionService":
+    from services.cat_detection_service import CatDetectionService
+    return CatDetectionService(vision_service=vision_service)
 
 
 async def get_user_service(db: AsyncSession = Depends(get_db)) -> UserService:

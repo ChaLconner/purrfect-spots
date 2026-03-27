@@ -7,7 +7,7 @@ import { createPinia, setActivePinia } from 'pinia';
 
 
 vi.mock('@/utils/api', async (importOriginal) => {
-  const actual = await importOriginal<any>();
+  const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
     apiV1: {
@@ -17,9 +17,9 @@ vi.mock('@/utils/api', async (importOriginal) => {
 });
 
 describe('AdminDashboard.vue', () => {
-  let pinia: any;
+  let pinia: ReturnType<typeof createPinia>;
 
-  beforeEach(() => {
+  beforeEach((): void => {
     vi.clearAllMocks();
     pinia = createPinia();
     setActivePinia(pinia);
@@ -33,9 +33,24 @@ describe('AdminDashboard.vue', () => {
     generated_at: new Date().toISOString(),
   };
 
-  it('renders stats correctly', async () => {
+  it('renders stats correctly', async (): Promise<void> => {
     // Mock api implementation
-    (apiV1.get as any).mockResolvedValue(mockStats);
+    (apiV1.get as ReturnType<typeof vi.fn>).mockImplementation(async (url: string): Promise<unknown> => {
+       if (url === '/admin/stats') {
+         return mockStats;
+       }
+       if (url === '/admin/stats/trends') {
+         return {
+           users: [{ date: '2023-01-01', count: 5 }],
+           photos: [{ date: '2023-01-01', count: 2 }],
+           reports: [{ date: '2023-01-01', count: 1 }],
+         };
+       }
+       if (url.startsWith('/admin/stats/monthly')) {
+         return { data: [] };
+       }
+       return {};
+     });
 
     const wrapper = mount(AdminDashboard, {
       global: { plugins: [pinia] }
@@ -48,40 +63,40 @@ describe('AdminDashboard.vue', () => {
     expect(apiV1.get).toHaveBeenCalledWith('/admin/stats');
     
     // Check if new stats are displayed
-    expect(wrapper.text()).toContain('Total Users');
+    expect(wrapper.text()).toContain('admin.dashboard.stats.totalUsers');
     expect(wrapper.text()).toContain('100');
     
-    expect(wrapper.text()).toContain('Total Photos');
+    expect(wrapper.text()).toContain('admin.dashboard.stats.totalPhotos');
     expect(wrapper.text()).toContain('50');
 
-    expect(wrapper.text()).toContain('Pending Reports');
+    expect(wrapper.text()).toContain('admin.dashboard.stats.pendingReports');
     expect(wrapper.text()).toContain('5');
 
-    expect(wrapper.text()).toContain('Total Reports');
+    expect(wrapper.text()).toContain('admin.dashboard.stats.totalReports');
     expect(wrapper.text()).toContain('10');
   });
 
-  it('handles loading state', async () => {
-    // Return a promise that never resolves (or delays) to test loading state if needed
-    (apiV1.get as any).mockImplementation(() => new Promise(() => {}));
-    
-    const wrapper = mount(AdminDashboard, {
-      global: { plugins: [pinia] }
-    });
-    await nextTick();
-    expect(wrapper.html()).toContain('animate-shimmer');
-  });
-
-  it('handles error state', async () => {
-    (apiV1.get as any).mockRejectedValue(new Error('Failed'));
-
-    const wrapper = mount(AdminDashboard, {
-      global: { plugins: [pinia] }
-    });
-    
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    await nextTick();
-
-    expect(wrapper.text()).toContain('No stats available or failed to load.');
-  });
-});
+  it('handles loading state', async (): Promise<void> => {
+     // Return a promise that never resolves (or delays) to test loading state if needed
+     (apiV1.get as ReturnType<typeof vi.fn>).mockImplementation((): Promise<void> => new Promise((): void => {}));
+     
+     const wrapper = mount(AdminDashboard, {
+       global: { plugins: [pinia] }
+     });
+     await nextTick();
+     expect(wrapper.html()).toContain('animate-shimmer');
+   });
+ 
+   it('handles error state', async (): Promise<void> => {
+     (apiV1.get as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Failed'));
+ 
+     const wrapper = mount(AdminDashboard, {
+       global: { plugins: [pinia] }
+     });
+     
+     await new Promise((resolve): void => { setTimeout(resolve, 0); });
+     await nextTick();
+ 
+     expect(wrapper.text()).toContain('admin.dashboard.monthly.error');
+   });
+ });

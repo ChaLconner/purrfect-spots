@@ -89,7 +89,7 @@ class GallerySearchMixin(GalleryBaseMixin):
             if self.db:
                 result = await self.db.execute(
                     text(
-                        "SELECT * FROM cat_photos WHERE user_id = :u_id AND deleted_at IS NULL ORDER BY uploaded_at DESC"
+                        f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE user_id = :u_id AND deleted_at IS NULL ORDER BY uploaded_at DESC"
                     ),
                     {"u_id": user_id},
                 )
@@ -97,7 +97,7 @@ class GallerySearchMixin(GalleryBaseMixin):
             if not data:
                 res = await (
                     self.supabase.table("cat_photos")
-                    .select("*")
+                    .select(self.PHOTO_COLUMNS)
                     .eq("user_id", user_id)
                     .is_("deleted_at", "null")
                     .order("uploaded_at", desc=True)

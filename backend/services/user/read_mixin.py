@@ -17,7 +17,7 @@ class UserReadMixin(UserBaseMixin):
         try:
             if self.db:
                 query = text(
-                    "SELECT u.*, r.name as role_name "
+                    f"SELECT {self._prefixed_user_columns('u')}, r.name as role_name "
                     "FROM users u "
                     "LEFT JOIN roles r ON u.role_id = r.id "
                     "WHERE u.id = :u_id LIMIT 1"
@@ -39,7 +39,7 @@ class UserReadMixin(UserBaseMixin):
                     user_data["role"] = data.get("role_name")
                     return User(**user_data, permissions=permissions)
             else:
-                query_str = "*, roles(name, role_permissions(permissions(code)))"
+                query_str = f"{self.USER_COLUMNS}, roles(name, role_permissions(permissions(code)))"
                 admin = await self._get_admin_client()
                 supa_res = await admin.table("users").select(query_str).eq("id", user_id).execute()
                 if supa_res.data:
@@ -53,12 +53,12 @@ class UserReadMixin(UserBaseMixin):
         """Get user by email from database (Async)"""
         try:
             if self.db:
-                query = text("SELECT * FROM users WHERE email = :email LIMIT 1")
+                query = text(f"SELECT {self.USER_COLUMNS} FROM users WHERE email = :email LIMIT 1")
                 db_res = await self.db.execute(query, {"email": email})
                 row = db_res.fetchone()
                 return dict(row._mapping) if row else None
             admin = await self._get_admin_client()
-            supa_res = await admin.table("users").select("*").eq("email", email).maybe_single().execute()
+            supa_res = await admin.table("users").select(self.USER_COLUMNS).eq("email", email).maybe_single().execute()
             return supa_res.data if supa_res and supa_res.data else None
         except Exception as e:
             logger.debug("Failed to retrieve profile by email: %s", e)
@@ -69,10 +69,10 @@ class UserReadMixin(UserBaseMixin):
         try:
             if self.db:
                 query = text(
-                    "SELECT u.*, r.name as role_name "
+                    f"SELECT {self._prefixed_user_columns('u')}, r.name as role_name "
                     "FROM users u "
                     "LEFT JOIN roles r ON u.role_id = r.id "
-                    "WHERE u.username = :username LIMIT 1"
+                    "WHERE LOWER(u.username) = LOWER(:username) LIMIT 1"
                 )
                 result = await self.db.execute(query, {"username": username})
                 row = result.fetchone()
@@ -82,7 +82,7 @@ class UserReadMixin(UserBaseMixin):
                         "SELECT p.code FROM permissions p "
                         "JOIN role_permissions rp ON p.id = rp.permission_id "
                         "JOIN users u ON rp.role_id = u.role_id "
-                        "WHERE u.username = :username"
+                        "WHERE LOWER(u.username) = LOWER(:username)"
                     )
                     perm_res = await self.db.execute(perm_query, {"username": username})
                     permissions = [r[0] for r in perm_res]
@@ -92,9 +92,9 @@ class UserReadMixin(UserBaseMixin):
                     return User(**user_data, permissions=permissions)
             else:
                 admin = await self._get_admin_client()
-                query_str = "*, roles(name, role_permissions(permissions(code)))"
+                query_str = f"{self.USER_COLUMNS}, roles(name, role_permissions(permissions(code)))"
                 supa_res = (
-                    await admin.table("users").select(query_str).eq("username", username).maybe_single().execute()
+                    await admin.table("users").select(query_str).ilike("username", username).maybe_single().execute()
                 )
                 if supa_res and supa_res.data:
                     return self._map_db_user_to_model(supa_res.data)

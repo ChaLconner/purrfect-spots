@@ -34,6 +34,13 @@ class JSONEncoder(json.JSONEncoder):
             return o.model_dump()
         if hasattr(o, "isoformat"):
             return o.isoformat()
+        if isinstance(o, set):
+            return list(o)
+        if isinstance(o, bytes):
+            return o.decode("utf-8", errors="replace")
+        from uuid import UUID
+        if isinstance(o, UUID):
+            return str(o)
         return super().default(o)
 
 

@@ -69,6 +69,7 @@ class UserResponse(BaseModel):
     is_pro: bool = False
     treat_balance: int = 0
     role: str = "user"
+    permissions: list[str] = []
     banned_at: datetime | None = None
 
 

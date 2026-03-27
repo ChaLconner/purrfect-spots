@@ -2,6 +2,7 @@ import { createApp } from 'vue';
 import './styles/main.css';
 import App from './App.vue';
 import router from './router';
+import VueApexCharts from 'vue3-apexcharts';
 import { pinia } from './store';
 import { useAuthStore } from './store/authStore';
 import { isDev } from './utils/env';
@@ -11,6 +12,8 @@ import {
   handleVueError,
 } from './utils/browserExtensionHandler';
 import i18n from './i18n';
+import VueVirtualScroller from 'vue-virtual-scroller';
+import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
 
 // ========== Sentry Initialization ==========
 // Only initialize in production or if explicitly enabled
@@ -75,13 +78,14 @@ await initSentry(app);
 // Install Pinia BEFORE using any stores
 app.use(pinia);
 
-// Initialize auth state (now using Pinia store internally)
-// Initialize auth by creating the store instance
+// Initialize auth state
 const authStore = useAuthStore();
-// Don't block app mount - initialize auth in background
-authStore.initializeAuth().catch((e) => {
+// Wait for auth initialization to prevent flashes of unauthenticated state
+try {
+  await authStore.initializeAuth();
+} catch (e) {
   console.warn('[Auth] Failed to initialize auth:', e);
-});
+}
 
 // Handle browser extension conflicts globally
 globalThis.addEventListener('unhandledrejection', handleUnhandledRejection);
@@ -120,6 +124,12 @@ app.config.errorHandler = (err, _instance, info): void => {
 
 app.use(router);
 app.use(i18n);
+app.use(VueApexCharts);
+app.use(VueVirtualScroller);
+
+// Wait for router to be ready (resolves initial navigation and guards) before mounting
+await router.isReady();
+
 app.mount('#app');
 
 // Web Vitals tracking is handled below

@@ -53,16 +53,26 @@
             :key="user.id"
             :user="user"
             :rank="index + 1"
+            :is-current-user="authStore.user?.id === user.id"
+            @click.prevent="openProfileDrawer(user.username || user.id)"
           />
         </div>
       </div>
     </div>
+
+    <!-- Profile Drawer -->
+    <ProfileDrawer
+      :is-open="isDrawerOpen"
+      :user-id="selectedUserId"
+      @close="isDrawerOpen = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useAuthStore } from '../store/authStore';
 import { TreatsService } from '../services/treatsService';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 import GhibliLoader from '@/components/ui/GhibliLoader.vue';
@@ -70,13 +80,24 @@ import { useSeo } from '@/composables/useSeo';
 import LeaderboardItem, {
   type LeaderboardUser,
 } from '@/components/leaderboard/LeaderboardItem.vue';
+import ProfileDrawer from '@/components/profile/ProfileDrawer.vue';
 import { showError } from '@/store/toast';
 
 const { setMetaTags } = useSeo();
 const { t } = useI18n();
+const authStore = useAuthStore();
 const loading = ref(true);
 const users = ref<LeaderboardUser[]>([]);
 const period = ref<'weekly' | 'monthly' | 'all_time'>('all_time');
+
+// Drawer State
+const isDrawerOpen = ref(false);
+const selectedUserId = ref<string | null>(null);
+
+const openProfileDrawer = (userId: string): void => {
+  selectedUserId.value = userId;
+  isDrawerOpen.value = true;
+};
 
 const periods = computed(() => [
   { label: t('leaderboardPage.periods.weekly'), value: 'weekly' },

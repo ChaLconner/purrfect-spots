@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../store/authStore';
-import { useCatsStore } from '../store';
 
 // Child Components
 import SearchBox from './navbar/SearchBox.vue';
@@ -20,13 +19,12 @@ import ProfileIcon from './icons/profile.vue';
 const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
-const catsStore = useCatsStore();
 </script>
 
 <template>
   <nav class="sticky top-0 z-50 m-3 sm:mx-6 md:mx-8 xl:mx-12 xl:my-5" aria-label="Main Navigation">
     <div
-      class="relative flex justify-between items-center px-4 sm:px-6 md:px-8 xl:px-10 py-2 bg-btn-bg rounded-[1.5rem] border-2 border-btn-shade-a gap-2 md:gap-4 xl:gap-8 min-w-0"
+      class="relative flex justify-between items-center px-4 sm:px-6 md:px-8 xl:px-10 py-2 bg-btn-bg rounded-[2rem] border-2 border-btn-shade-a gap-1.5 sm:gap-4 xl:gap-8 min-w-0"
       style="transform-style: preserve-3d"
     >
       <!-- 3D Base -->
@@ -42,37 +40,24 @@ const catsStore = useCatsStore();
           aria-label="Go to home"
           @click="router.push('/')"
         >
+          <!-- Mobile Logo (Icon only) -->
+          <img
+            src="/cat-icon.png"
+            alt="Logo"
+            class="relative z-10 w-9 h-9 sm:hidden object-contain"
+            loading="eager"
+            fetchpriority="high"
+          />
+          <!-- Desktop Logo (Full logo) -->
           <img
             src="/logo.png"
             alt="Purrfect Spots — Discover cat-friendly locations"
-            class="relative z-10 w-auto object-contain drop-shadow-sm h-14 -my-3 sm:h-16 sm:-my-4 md:h-20 md:-my-6 xl:h-28 xl:-my-10 max-w-[180px] sm:max-w-[220px] md:max-w-[280px] xl:max-w-[380px]"
+            class="relative z-10 hidden sm:block w-auto object-contain drop-shadow-sm h-14 -my-3 md:h-20 md:-my-6 xl:h-28 xl:-my-10 max-w-[180px] sm:max-w-[220px] md:max-w-[280px] xl:max-w-[380px]"
             loading="eager"
             fetchpriority="high"
             decoding="async"
           />
         </button>
-
-        <div
-          v-if="route.path === '/map' || route.path === '/'"
-          class="relative items-center gap-1.5 px-2 py-1 rounded-2xl bg-btn-shade-e border-2 border-btn-shade-a hidden 2xl:flex"
-          style="transform-style: preserve-3d"
-        >
-          <div
-            class="absolute inset-0 bg-btn-shade-c rounded-[inherit] shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.2rem_0_0_var(--color-btn-shade-a)]"
-            style="transform: translate3d(0, 0.2rem, -1em)"
-          ></div>
-          <div class="relative z-10 w-7 h-7 flex items-center justify-center">
-            <img src="/cat-icon.png" alt="Cat count icon" class="w-6 h-6 object-contain" />
-          </div>
-          <div class="relative z-10 flex flex-col leading-tight">
-            <span class="font-accent font-bold text-xs text-btn-shade-a">
-              {{ catsStore.galleryCount || catsStore.catCount }} {{ $t('cats.cats') }}
-            </span>
-            <span class="font-accent text-[0.6rem] text-btn-shade-b">{{
-              $t('cats.spottedNearby')
-            }}</span>
-          </div>
-        </div>
       </div>
 
       <!-- Center Section: Search Box -->

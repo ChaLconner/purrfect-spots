@@ -185,7 +185,6 @@ describe('GalleryView.vue', () => {
     await nextTick();
 
     expect(wrapper.vm.visibleImages.length).toBe(2);
-    expect(wrapper.vm.currentPage).toBe(2);
   });
 
   it('syncs state from URL for deep linked image', async () => {

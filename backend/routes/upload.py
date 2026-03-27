@@ -12,16 +12,16 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.responses import JSONResponse
 
 from config import config
-from dependencies import get_gallery_service, get_quota_service
+from dependencies import get_gallery_service, get_quota_service, get_storage_service, get_cat_detection_service
 from limiter import get_upload_limit, upload_limiter
 
 limiter = upload_limiter  # Alias for backward compatibility with tests
 from logger import logger, sanitize_log_value
 from middleware.auth_middleware import get_current_user
-from services.cat_detection_service import CatDetectionService, cat_detection_service
+from services.cat_detection_service import CatDetectionService
 from services.gallery_service import GalleryService
 from services.quota_service import QuotaService
-from services.storage_service import StorageService, storage_service
+from services.storage_service import StorageService
 from utils.cache import invalidate_gallery_cache, invalidate_tags_cache, invalidate_user_cache
 from utils.exceptions import ExternalServiceError
 from utils.file_processing import process_uploaded_image, validate_coordinates, validate_location_data
@@ -37,14 +37,7 @@ router = APIRouter(prefix="/upload", tags=["Upload"])
 def parse_tags(tags_json: str | None) -> list[str]:
     """Backward compatible alias for parse_and_sanitize_tags"""
     return parse_and_sanitize_tags(tags_json)
-
-
-def get_storage_service() -> StorageService:
-    return storage_service
-
-
-def get_cat_detection_service() -> CatDetectionService:
-    return cat_detection_service
+# local dependency functions removed
 
 
 def parse_and_sanitize_tags(tags_json: str | None) -> list[str]:

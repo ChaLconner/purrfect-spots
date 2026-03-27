@@ -59,8 +59,7 @@ class TestOTPService:
 
         # Need to mock invalidate_existing_otps which is called inside
         with patch.object(otp_service, "invalidate_existing_otps", new_callable=AsyncMock):
-            otp, expires_at = await otp_service.create_otp(email)  # Its async now?
-            # Checking view_file: async def create_otp
+            otp, expires_at = await otp_service.create_otp(email)
 
             assert len(otp) == 6
             assert expires_at is not None
@@ -142,9 +141,9 @@ class TestOTPService:
         # 1. Lockout check -> returns locked record
         # 2. Get OTP record (should not happen if locked)
 
-        mock_supabase_admin.table.return_value.execute.side_effect = [
-            MagicMock(data=[{"locked_until": locked_until}]),
-            MagicMock(data=[]),
+        mock_supabase_admin.table.return_value.select.return_value.eq.return_value.execute.side_effect = [
+            AsyncMock(data=[{"locked_until": locked_until}]),
+            AsyncMock(data=[]),
         ]
 
         result = await otp_service.verify_otp(email, "111111")
@@ -159,9 +158,9 @@ class TestOTPService:
         # 1. Lockout check -> empty
         # 2. Get OTP record -> max attempts reached
 
-        mock_supabase_admin.table.return_value.execute.side_effect = [
-            MagicMock(data=[]),  # Not locked out yet
-            MagicMock(
+        mock_supabase_admin.table.return_value.select.return_value.eq.return_value.execute.side_effect = [
+            AsyncMock(data=[]),  # Not locked out yet
+            AsyncMock(
                 data=[
                     {
                         "id": "rec-1",
@@ -174,7 +173,7 @@ class TestOTPService:
             ),
         ]
         # Also need update to handle await
-        mock_supabase_admin.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_supabase_admin.table.return_value.update.return_value.eq.return_value.execute = AsyncMock(return_value=MagicMock())
 
         result = await otp_service.verify_otp(email, "123456")
         assert result["success"] is False
@@ -186,13 +185,13 @@ class TestOTPService:
         email = "resend@example.com"
 
         # Case 1: No previous OTP
-        mock_supabase_admin.table.return_value.execute.return_value = MagicMock(data=[])
+        mock_supabase_admin.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute = AsyncMock(return_value=MagicMock(data=[]))
         can, remaining = await otp_service.can_resend_otp(email)
         assert can is True
 
         # Case 2: Just sent (cooldown active)
         created_at = datetime.now(UTC).isoformat()
-        mock_supabase_admin.table.return_value.execute.return_value = MagicMock(data=[{"created_at": created_at}])
+        mock_supabase_admin.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = AsyncMock(data=[{"created_at": created_at}])
         can, remaining = await otp_service.can_resend_otp(email)
         assert can is False
         assert remaining >= 0
@@ -228,7 +227,7 @@ class TestOTPService:
     async def test_clear_lockout_db(self, otp_service, mock_supabase_admin, mock_redis_none):
         """Test clearing lockout in DB"""
         email = "clear@example.com"
-        mock_supabase_admin.table.return_value.execute.return_value = MagicMock(data=[{"id": "rec-1"}])
+        mock_supabase_admin.table.return_value.select.return_value.eq.return_value.is_.return_value.order.return_value.limit.return_value.execute = AsyncMock(return_value=MagicMock(data=[{"id": "rec-1"}]))
         await otp_service._clear_email_lockout(email)
         mock_supabase_admin.table.return_value.update.assert_called()
         # assert "locked_until" in mock_supabase_admin.table.return_value.update.call_args[0][0]

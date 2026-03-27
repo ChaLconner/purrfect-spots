@@ -13,13 +13,13 @@ from dependencies import (
     get_admin_gallery_service,
     get_async_supabase_admin_client,
     get_auth_service,
+    get_storage_service,
 )
 from limiter import auth_limiter, get_api_limit, get_strict_limit, limiter, strict_limiter
 from logger import logger, sanitize_log_value
 from middleware.auth_middleware import get_current_user_from_credentials
 from schemas.location import CatLocation
 from schemas.user import User
-from services.storage_service import StorageService
 from utils.cache import invalidate_gallery_cache
 from utils.file_processing import process_uploaded_image
 
@@ -29,12 +29,12 @@ router = APIRouter(prefix="/profile", tags=["Profile"])
 from schemas.profile import ChangePasswordRequest, ProfileUpdateRequest, UpdatePhotoRequest
 from services.auth_service import AuthService
 from services.gallery_service import GalleryService
+from services.storage_service import StorageService
 
 # Services are now imported from dependencies
 
 
-def get_storage_service() -> StorageService:
-    return StorageService()
+# local function removed
 
 
 @router.put(
