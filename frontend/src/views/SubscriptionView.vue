@@ -285,10 +285,7 @@ async function handleSubscribe(): Promise<void> {
   if (isLoading.value) return;
   isLoading.value = true;
   try {
-    const priceId = config.stripe.proPriceId;
-    if (!priceId) throw new Error('Price ID not configured');
-
-    const { checkout_url } = await SubscriptionService.createCheckout(priceId);
+    const { checkout_url } = await SubscriptionService.createCheckout();
     window.location.href = checkout_url;
   } catch (e: unknown) {
     console.error(e);
@@ -306,9 +303,7 @@ async function handleManageSubscription(): Promise<void> {
   if (isLoading.value) return;
   isLoading.value = true;
   try {
-    // Use clean URL for return to avoid stale query params
-    const returnUrl = `${window.location.origin}/subscription`;
-    const { url } = await SubscriptionService.createPortalSession(returnUrl);
+    const { url } = await SubscriptionService.createPortalSession('/subscription');
     window.location.href = url;
   } catch (e) {
     console.error(e);

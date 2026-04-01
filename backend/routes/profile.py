@@ -276,7 +276,7 @@ async def get_public_user_uploads(
     response.headers["Cache-Control"] = "public, max-age=60"
     try:
         user_id = user.id
-        photos = await gallery_service.get_user_photos(user_id)
+        photos = await gallery_service.get_user_photos(user_id, include_unapproved=False)
 
         # Format data
         uploads = []
@@ -318,7 +318,7 @@ async def get_user_uploads(
     # Prevent caching of user uploads
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     try:
-        photos = await gallery_service.get_user_photos(current_user.id)
+        photos = await gallery_service.get_user_photos(current_user.id, include_unapproved=True)
 
         # Use central schema for consistent data structure
         uploads = [CatLocation(**photo).model_dump() for photo in photos]
@@ -453,7 +453,7 @@ async def update_user_photo(
     photo_id_str = str(photo_id)
     try:
         # 1. Check ownership
-        photo = await gallery_service.get_photo_by_id(photo_id_str)
+        photo = await gallery_service.get_photo_by_id(photo_id_str, include_unapproved=True)
         if not photo:
             raise HTTPException(status_code=404, detail="Photo not found")
 

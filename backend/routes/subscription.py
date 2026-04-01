@@ -1,13 +1,13 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request
 
+from config import config
 from dependencies import get_subscription_service
 from logger import logger
 from middleware.auth_middleware import get_current_user_from_credentials
 from schemas.subscription import (
     CheckoutSessionResponse,
-    CreateCheckoutRequest,
     CreatePortalRequest,
     PortalResponse,
     SubscriptionStatus,
@@ -23,7 +23,6 @@ from typing import Annotated
 
 @router.post("/checkout", response_model=CheckoutSessionResponse)
 async def create_checkout_session(
-    checkout_req: CreateCheckoutRequest,
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     subscription_service: Annotated[SubscriptionService, Depends(get_subscription_service)],
 ) -> dict[str, Any]:
@@ -33,13 +32,16 @@ async def create_checkout_session(
     Raises:
         HTTPException: 500 - If checkout session creation fails.
     """
+    if not config.STRIPE_PRO_PRICE_ID:
+        raise HTTPException(status_code=503, detail="Subscription checkout is not configured")
+
     try:
         return await subscription_service.create_checkout_session(
             user_id=current_user.id,
             email=current_user.email,
-            price_id=checkout_req.price_id,
-            success_url=checkout_req.success_url,
-            cancel_url=checkout_req.cancel_url,
+            price_id=config.STRIPE_PRO_PRICE_ID,
+            success_url=config.resolve_frontend_url(default_path="/subscription?purchase=success"),
+            cancel_url=config.resolve_frontend_url(default_path="/subscription?purchase=cancel"),
             stripe_customer_id=current_user.stripe_customer_id,
         )
     except Exception as e:
@@ -109,9 +111,9 @@ async def cancel_subscription(
 
 @router.post("/portal", response_model=PortalResponse)
 async def create_portal_session(
-    req: Annotated[CreatePortalRequest, Depends()],
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     subscription_service: Annotated[SubscriptionService, Depends(get_subscription_service)],
+    req: Annotated[CreatePortalRequest | None, Body()] = None,
 ) -> dict[str, str]:
     """
     Create Stripe Customer Portal session.
@@ -121,7 +123,7 @@ async def create_portal_session(
         HTTPException: 500 - If portal session creation fails due to internal error.
     """
     try:
-        url = await subscription_service.create_portal_session(current_user.id, req.return_url)
+        url = await subscription_service.create_portal_session(current_user.id, req.return_url if req else None)
         return {"url": url}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

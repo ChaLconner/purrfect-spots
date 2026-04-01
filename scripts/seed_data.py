@@ -82,12 +82,13 @@ async def seed_data() -> None:
 
     for _i in range(10):
         owner = random.choice(users)  # NOSONAR python:S2245 - PRNG for fake seed data only
+        # Use coordinates within Thailand (Bangkok area approx: Lat 13-14, Lng 100-101)
         photo_data = {
             "user_id": owner["id"],
             "url": random.choice(cat_images),  # NOSONAR python:S2245
             "description": fake.text(),
-            "latitude": float(fake.latitude()),
-            "longitude": float(fake.longitude()),
+            "latitude": float(fake.latitude()) % 2 + 13.0, # Around Bangkok
+            "longitude": float(fake.longitude()) % 2 + 100.0,
             "image_url": random.choice(cat_images),  # NOSONAR python:S2245 - PRNG for fake seed data only
             "location_name": fake.city(),  # Required field
         }

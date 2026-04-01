@@ -2,8 +2,8 @@ import hashlib
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
-from supabase import AClient
 
+from supabase import AClient
 from utils.supabase_client import get_async_supabase_admin_client
 
 logger = structlog.get_logger(__name__)

@@ -3,9 +3,9 @@ from typing import Any
 import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from supabase import AClient
 
 from schemas.user import User
+from supabase import AClient
 from utils.supabase_client import get_async_supabase_admin_client
 
 logger = structlog.get_logger(__name__)

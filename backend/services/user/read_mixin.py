@@ -17,7 +17,7 @@ class UserReadMixin(UserBaseMixin):
         try:
             if self.db:
                 query = text(
-                    f"SELECT {self._prefixed_user_columns('u')}, r.name as role_name "
+                    f"SELECT {self._prefixed_user_columns('u')}, r.name as role_name "  # noqa: S608
                     "FROM users u "
                     "LEFT JOIN roles r ON u.role_id = r.id "
                     "WHERE u.id = :u_id LIMIT 1"
@@ -53,7 +53,7 @@ class UserReadMixin(UserBaseMixin):
         """Get user by email from database (Async)"""
         try:
             if self.db:
-                query = text(f"SELECT {self.USER_COLUMNS} FROM users WHERE email = :email LIMIT 1")
+                query = text(f"SELECT {self.USER_COLUMNS} FROM users WHERE email = :email LIMIT 1")  # noqa: S608
                 db_res = await self.db.execute(query, {"email": email})
                 row = db_res.fetchone()
                 return dict(row._mapping) if row else None
@@ -69,7 +69,7 @@ class UserReadMixin(UserBaseMixin):
         try:
             if self.db:
                 query = text(
-                    f"SELECT {self._prefixed_user_columns('u')}, r.name as role_name "
+                    f"SELECT {self._prefixed_user_columns('u')}, r.name as role_name "  # noqa: S608
                     "FROM users u "
                     "LEFT JOIN roles r ON u.role_id = r.id "
                     "WHERE LOWER(u.username) = LOWER(:username) LIMIT 1"

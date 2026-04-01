@@ -2,10 +2,10 @@
   <div class="min-h-screen pb-12">
     <!-- Header Section: Simplified and aligned with other Admin views -->
     <div class="mb-8">
-      <h1 class="text-3xl font-bold text-brown-900 font-display transition-all duration-300">
+      <h1 class="text-3xl font-bold text-brown-900 font-display">
         {{ t('admin.settings.title') }}
       </h1>
-      <p class="mt-1 text-brown-600 opacity-80 italic">{{ t('admin.settings.subtitle') }}</p>
+      <p class="mt-1 text-brown-500">{{ t('admin.settings.subtitle') }}</p>
     </div>
 
     <!-- Stats & Actions Bar -->
@@ -15,28 +15,28 @@
           {{ t('admin.settings.config_management') }}
         </h2>
         <div class="flex items-center gap-2">
-          <button
-            class="px-3 py-1.5 text-xs font-bold text-brown-600 bg-sand-50 border border-sand-200 rounded-lg hover:bg-sand-100 transition-all flex items-center gap-2 uppercase tracking-wider"
-            :disabled="loading"
-            @click="fetchSettings"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="h-3.5 w-3.5"
-              :class="{ 'animate-spin': loading }"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+            <button
+              class="px-3 py-1.5 text-sm font-medium text-brown-600 bg-sand-50 border border-sand-200 rounded-lg hover:bg-sand-100 transition-colors flex items-center gap-2"
+              :disabled="loading"
+              @click="fetchSettings"
             >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            {{ t('common.refresh') }}
-          </button>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-4 w-4"
+                :class="{ 'animate-spin': loading }"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              {{ t('common.refresh') }}
+            </button>
         </div>
       </div>
     </div>
@@ -48,7 +48,7 @@
       <button
         v-for="cat in navCategories"
         :key="cat"
-        class="px-6 py-2 rounded-xl text-xs font-bold transition-all duration-300 uppercase tracking-wider"
+        class="px-5 py-2 rounded-lg text-xs font-medium transition-all duration-300 uppercase tracking-wider"
         :class="
           activeTab === cat
             ? 'bg-white text-terracotta-600 shadow-sm border border-sand-200'
@@ -59,7 +59,7 @@
         {{ t(`admin.settings.categories.${cat}`) }}
         <span
           v-if="cat === 'pending' && pendingCount > 0"
-          class="ml-2 px-1.5 py-0.5 bg-terracotta-500 text-white text-[9px] rounded-full animate-pulse"
+          class="ml-2 px-1.5 py-0.5 bg-terracotta-500 text-white text-xs rounded-full"
         >
           {{ pendingCount }}
         </span>
@@ -75,29 +75,27 @@
           class="col-span-full py-20 text-center bg-white rounded-2xl border border-sand-100 shadow-sm"
         >
           <div class="text-6xl mb-4">📜</div>
-          <h3 class="text-xl font-bold text-brown-800 font-display">
+          <h3 class="text-xl font-bold text-brown-800">
             {{ t('admin.settings.approval.no_pending') }}
           </h3>
           <p class="text-brown-500 mt-2 text-sm italic">
             {{ t('admin.settings.approval.all_processed') }}
           </p>
-        </div>
-
-        <div
+        </div>        <div
           v-for="req in pendingRequests"
           :key="req.id"
-          class="bg-white rounded-2xl shadow-sm border border-orange-100 overflow-hidden hover:shadow-md transition-all border-l-4 border-l-orange-400 group"
+          class="bg-white rounded-2xl shadow-sm border border-sand-100 overflow-hidden hover:shadow-md transition-all border-l-4 border-l-orange-400 group"
         >
           <div class="p-6">
             <div class="flex justify-between items-start mb-4">
               <div>
                 <span
-                  class="px-2 py-1 bg-orange-50 text-orange-700 text-[10px] font-bold rounded-lg uppercase tracking-wider mb-2 inline-block"
+                  class="px-2 py-1 bg-orange-50 text-orange-700 text-xs font-semibold rounded-lg uppercase tracking-wider mb-2 inline-block"
                 >
                   {{ t('admin.settings.requires_approval') }}
                 </span>
                 <h3 class="text-lg font-bold text-brown-800">
-                  {{ t(`admin.settings.labels.${req.key}`, req.key) }}
+                  {{ t(`admin.settings.labels.${req.config_key}`, req.config_key) }}
                 </h3>
               </div>
               <div class="text-right text-xs text-brown-400 font-mono">
@@ -106,22 +104,22 @@
             </div>
 
             <div
-              class="grid grid-cols-2 gap-4 mb-6 p-4 bg-sand-50 rounded-xl border border-sand-100 italic"
+              class="grid grid-cols-2 gap-4 mb-6 p-4 bg-sand-50/50 rounded-xl border border-sand-100 italic"
             >
               <div>
-                <p class="text-[10px] text-brown-400 uppercase font-bold mb-1">
+                <p class="text-xs text-brown-500 uppercase font-medium mb-1">
                   {{ t('admin.settings.history.old_value') }}
                 </p>
                 <code class="text-sm text-brown-600 truncate block">{{
-                  formatValue(req.old_value)
+                  formatValue(req.current_value)
                 }}</code>
               </div>
               <div>
-                <p class="text-[10px] text-orange-600 uppercase font-bold mb-1">
+                <p class="text-xs text-orange-600 uppercase font-medium mb-1">
                   {{ t('admin.settings.history.new_value') }}
                 </p>
                 <code class="text-sm text-orange-700 font-bold truncate block">{{
-                  formatValue(req.new_value)
+                  formatValue(req.proposed_value)
                 }}</code>
               </div>
             </div>
@@ -131,23 +129,23 @@
                 <div
                   class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-bold"
                 >
-                  {{ (req.maker_email ?? 'U').charAt(0).toUpperCase() }}
+                  {{ (req.requester_email ?? 'U').charAt(0).toUpperCase() }}
                 </div>
                 <div class="text-xs">
                   <p class="text-brown-400">{{ t('admin.settings.approval.maker') }}</p>
-                  <p class="text-brown-700 font-medium">{{ req.maker_email }}</p>
+                  <p class="text-brown-700 font-medium">{{ req.requester_email }}</p>
                 </div>
               </div>
 
               <div class="flex gap-2">
                 <button
-                  class="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm font-bold transition-colors"
+                  class="px-4 py-2 text-brown-500 hover:text-red-500 hover:bg-red-50 rounded-lg text-sm font-medium transition-all"
                   @click="rejectRequest(req.id)"
                 >
                   {{ t('admin.settings.approval.reject') }}
                 </button>
                 <button
-                  class="px-4 py-2 bg-brown-900 hover:bg-brown-800 text-white rounded-lg text-sm font-bold shadow-sm transition-all hover:-translate-y-0.5"
+                  class="px-4 py-2 bg-terracotta-600 hover:bg-terracotta-700 text-white rounded-lg text-sm font-medium shadow-sm transition-all"
                   @click="approveRequest(req.id)"
                 >
                   {{ t('admin.settings.approval.approve') }}
@@ -167,16 +165,16 @@
           :class="{ 'opacity-60 scale-[0.98]': saving === config.key }"
         >
           <div class="p-6">
-            <div class="flex justify-between items-start mb-4">
-              <div class="space-y-1">
+            <div class="flex justify-between items-start mb-6">
+              <div class="space-y-1.5 min-w-0 flex-1">
                 <div class="flex items-center gap-2">
                   <h3
-                    class="text-lg font-bold text-brown-800 hover:text-terracotta-600 transition-colors"
+                    class="text-lg font-bold text-brown-900 truncate group-hover:text-terracotta-600 transition-colors"
                   >
                     {{ t(`admin.settings.labels.${config.key}`, config.key) }}
                   </h3>
                   <button
-                    class="p-1 text-brown-300 hover:text-brown-600 transition-colors"
+                    class="p-1.5 text-brown-300 hover:text-brown-600 hover:bg-sand-50 rounded-lg transition-all"
                     @click="showHistory(config.key)"
                   >
                     <svg
@@ -195,24 +193,24 @@
                     </svg>
                   </button>
                 </div>
-                <p class="text-sm text-brown-500 line-clamp-2 italic leading-relaxed">
+                <p class="text-xs text-brown-500 line-clamp-2 leading-relaxed opacity-80">
                   {{ config.description || t('admin.settings.no_description') }}
                 </p>
               </div>
-              <div class="flex flex-col items-end gap-2">
+              <div class="flex flex-col items-end gap-2 ml-4 flex-shrink-0">
                 <span
-                  class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border"
+                  class="px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider border"
                   :class="
                     config.is_public
                       ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                      : 'bg-brown-50 text-brown-500 border-brown-100'
+                      : 'bg-sand-100 text-brown-500 border-sand-200'
                   "
                 >
                   {{ config.is_public ? t('common.public') : t('common.private') }}
                 </span>
                 <span
                   v-if="config.requires_approval"
-                  class="px-2 py-0.5 bg-orange-50 text-orange-600 border border-orange-100 rounded-full text-[9px] font-black uppercase tracking-widest"
+                  class="px-2 py-0.5 bg-orange-50 text-orange-600 border border-orange-100 rounded-full text-xs font-semibold uppercase tracking-wider"
                 >
                   🛡️ {{ t('admin.settings.shielded') }}
                 </span>
@@ -224,12 +222,12 @@
               <div class="w-full flex-1">
                 <template v-if="config.type === 'boolean'">
                   <div
-                    class="flex items-center justify-between p-3 bg-sand-50/50 rounded-xl border border-sand-100"
+                    class="flex items-center justify-between p-3.5 bg-sand-50/50 rounded-xl border border-sand-100"
                   >
-                    <span class="text-sm font-medium text-brown-700">{{
+                    <span class="text-sm font-bold text-brown-700">{{
                       editValues[config.key]
-                        ? t('common.enabled', 'Enabled')
-                        : t('common.disabled', 'Disabled')
+                        ? t('common.enabled')
+                        : t('common.disabled')
                     }}</span>
                     <label class="relative inline-flex items-center cursor-pointer">
                       <input
@@ -239,7 +237,7 @@
                         @change="markDirty(config.key)"
                       />
                       <div
-                        class="w-12 h-6 bg-brown-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"
+                        class="w-12 h-6 bg-sand-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-terracotta-500"
                       ></div>
                     </label>
                   </div>
@@ -250,7 +248,7 @@
                     <input
                       v-model.number="editValues[config.key]"
                       type="number"
-                      class="w-full px-4 py-3 bg-sand-50 border border-sand-200 rounded-xl focus:ring-2 focus:ring-terracotta-500/20 focus:border-terracotta-500 transition-all text-brown-800 font-medium"
+                      class="w-full px-4 py-2.5 bg-white border border-sand-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 transition-all text-brown-800 font-medium outline-none"
                       @input="markDirty(config.key)"
                     />
                   </div>
@@ -259,8 +257,8 @@
                 <template v-else-if="config.type === 'json'">
                   <textarea
                     v-model="editValues[config.key]"
-                    rows="3"
-                    class="w-full px-4 py-3 bg-brown-900 text-sand-50 border-none rounded-xl focus:ring-2 focus:ring-terracotta-500/30 transition-all font-mono text-xs"
+                    rows="4"
+                    class="w-full px-4 py-2.5 bg-brown-900 text-sand-50 border-none rounded-lg focus:ring-2 focus:ring-terracotta-500/30 transition-all font-mono text-xs outline-none"
                     @input="markDirty(config.key)"
                   ></textarea>
                 </template>
@@ -269,7 +267,7 @@
                   <input
                     v-model="editValues[config.key]"
                     type="text"
-                    class="w-full px-4 py-3 bg-sand-50 border border-sand-200 rounded-xl focus:ring-2 focus:ring-terracotta-500/20 focus:border-terracotta-500 transition-all text-brown-800 font-medium"
+                    class="w-full px-4 py-2.5 bg-white border border-sand-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 transition-all text-brown-800 font-medium outline-none"
                     @input="markDirty(config.key)"
                   />
                 </template>
@@ -278,7 +276,7 @@
               <div class="flex gap-2 min-w-fit">
                 <button
                   v-if="dirtyKeys.has(config.key)"
-                  class="p-3 text-brown-400 hover:text-brown-600 bg-brown-50 hover:bg-brown-100 rounded-xl transition-all"
+                  class="p-2 text-brown-400 hover:text-red-500 bg-sand-50 hover:bg-red-50 rounded-lg border border-sand-300 transition-colors"
                   @click="resetSetting(config.key)"
                 >
                   <svg
@@ -299,7 +297,7 @@
                 <button
                   v-if="dirtyKeys.has(config.key)"
                   :disabled="saving === config.key"
-                  class="px-6 py-3 bg-brown-900 hover:bg-brown-800 text-white rounded-xl font-bold shadow-lg transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                  class="px-4 py-2 bg-terracotta-600 hover:bg-terracotta-700 text-white rounded-lg text-sm font-medium shadow-sm transition-colors disabled:opacity-50 flex items-center gap-2"
                   @click="saveSetting(config.key)"
                 >
                   <svg
@@ -323,11 +321,11 @@
                       d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                     />
                   </svg>
-                  {{
+                  <span v-else>{{
                     config.requires_approval
                       ? t('admin.settings.approval.approve')
                       : t('common.save')
-                  }}
+                  }}</span>
                 </button>
               </div>
             </div>
@@ -340,13 +338,13 @@
     <Teleport to="body">
       <div
         v-if="historyKey"
-        class="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-sm bg-black/50"
+        class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black bg-opacity-50"
       >
         <div
-          class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden border border-sand-100 animate-in fade-in zoom-in duration-300"
+          class="bg-white w-full max-w-2xl rounded-xl shadow-xl overflow-hidden border border-sand-100"
         >
           <div class="p-6 border-b border-sand-100 flex justify-between items-center bg-sand-50">
-            <h3 class="text-xl font-bold text-brown-900 font-display flex items-center gap-2">
+            <h3 class="text-xl font-bold text-brown-900 flex items-center gap-2">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 class="h-5 w-5 text-terracotta-500"
@@ -419,7 +417,7 @@
 
               <div class="grid grid-cols-2 gap-3">
                 <div class="p-2 bg-red-50/30 rounded-lg border border-red-50">
-                  <p class="text-[9px] text-red-400 uppercase font-black mb-1">
+                  <p class="text-xs text-red-500 uppercase font-medium mb-1">
                     {{ t('common.from') }}
                   </p>
                   <code class="text-xs text-red-700 truncate block">{{
@@ -427,7 +425,7 @@
                   }}</code>
                 </div>
                 <div class="p-2 bg-emerald-50/30 rounded-lg border border-emerald-50">
-                  <p class="text-[9px] text-emerald-400 uppercase font-black mb-1">
+                  <p class="text-xs text-emerald-500 uppercase font-medium mb-1">
                     {{ t('common.to') }}
                   </p>
                   <code class="text-xs text-emerald-700 font-bold truncate block">{{
@@ -454,7 +452,7 @@
       <div class="mt-4">
         <textarea
           v-model="rejectionReason"
-          class="w-full px-4 py-3 bg-sand-50 border border-sand-200 rounded-xl focus:ring-2 focus:ring-terracotta-500/20 focus:border-terracotta-500 transition-all text-brown-800 font-medium"
+          class="w-full px-4 py-2.5 bg-white border border-sand-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 transition-colors text-brown-800 font-medium"
           :placeholder="t('admin.settings.approval.reason_placeholder')"
           rows="3"
         ></textarea>
@@ -477,21 +475,22 @@ interface SystemConfig {
   description: string | null;
   category: string;
   is_public: boolean;
+  is_encrypted: boolean;
   requires_approval: boolean;
   updated_at: string;
 }
 
 interface PendingRequest {
   id: string;
-  key: string;
-  old_value: unknown;
-  new_value: unknown;
-  maker_email: string;
+  config_key: string;
+  current_value: unknown;
+  proposed_value: unknown;
+  requester_email: string | null;
   created_at: string;
 }
 
 interface ConfigHistory {
-  id: number;
+  id: string;
   old_value: unknown;
   new_value: unknown;
   user_email: string | null;
@@ -597,14 +596,18 @@ const saveSetting = async (key: string): Promise<void> => {
       }
     }
 
-    const response = await apiV1.put<{ requires_approval: boolean }>(`/admin/settings/${key}`, {
+    const response = await apiV1.put<SystemConfig | PendingRequest & { status: string }>(`/admin/settings/${key}`, {
       value,
     });
 
-    if (response.requires_approval) {
+    if ('status' in response && response.status === 'pending') {
       toast({ description: t('admin.settings.approval.request_sent'), variant: 'success' });
-      fetchSettings();
+      void fetchSettings();
     } else {
+      const updatedConfig = response as SystemConfig;
+      settings.value = settings.value.map((configItem) =>
+        configItem.key === key ? updatedConfig : configItem
+      );
       dirtyKeys.value.delete(key);
       toast({ description: t('admin.settings.save_success'), variant: 'success' });
     }
@@ -644,7 +647,7 @@ const confirmReject = async (): Promise<void> => {
 
   try {
     await apiV1.post(`/admin/settings/reject/${pendingRejectId.value}`, {
-      reason: rejectionReason.value,
+      rejection_reason: rejectionReason.value,
     });
     toast({ description: t('admin.settings.approval.reject_success'), variant: 'success' });
     isRejectModalOpen.value = false;

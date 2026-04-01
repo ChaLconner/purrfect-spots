@@ -50,7 +50,7 @@ class GallerySearchMixin(GalleryBaseMixin):
             return None
         try:
             query = text(
-                "SELECT tag, count(*) FROM (SELECT unnest(tags) as tag FROM cat_photos WHERE deleted_at IS NULL) as t GROUP BY tag ORDER BY count(*) DESC LIMIT :limit"
+                f"SELECT tag, count(*) FROM (SELECT unnest(tags) as tag FROM cat_photos WHERE {self._sql_visibility_clause()}) as t GROUP BY tag ORDER BY count(*) DESC LIMIT :limit"  # noqa: S608
             )
             result = await self.db.execute(query, {"limit": limit})
             return [{"tag": row[0], "count": row[1]} for row in result.fetchall()]
@@ -67,6 +67,7 @@ class GallerySearchMixin(GalleryBaseMixin):
                 .select("tags")
                 .not_.is_("tags", "null")
                 .is_("deleted_at", "null")
+                .eq("status", GallerySearchMixin.APPROVED_STATUS)
                 .limit(1000)
                 .execute()
             )
@@ -83,23 +84,24 @@ class GallerySearchMixin(GalleryBaseMixin):
             raise ExternalServiceError(f"Failed to get popular tags: {e!s}", service="Supabase")
 
     @cache(expire=300, key_prefix="user_photos", skip_args=1)
-    async def get_user_photos(self, user_id: str) -> list[dict[str, Any]]:
+    async def get_user_photos(self, user_id: str, include_unapproved: bool = False) -> list[dict[str, Any]]:
         try:
             data = []
             if self.db:
                 result = await self.db.execute(
                     text(
-                        f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE user_id = :u_id AND deleted_at IS NULL ORDER BY uploaded_at DESC"
+                        f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE user_id = :u_id AND {self._sql_visibility_clause(include_unapproved)} ORDER BY uploaded_at DESC"  # noqa: S608
                     ),
                     {"u_id": user_id},
                 )
                 data = [dict(row._asdict()) for row in result.fetchall()]
             if not data:
-                res = await (
-                    self.supabase.table("cat_photos")
-                    .select(self.PHOTO_COLUMNS)
+                res = (
+                    await self._apply_visibility_filter(
+                        self.supabase.table("cat_photos").select(self.PHOTO_COLUMNS),
+                        include_unapproved=include_unapproved,
+                    )
                     .eq("user_id", user_id)
-                    .is_("deleted_at", "null")
                     .order("uploaded_at", desc=True)
                     .execute()
                 )

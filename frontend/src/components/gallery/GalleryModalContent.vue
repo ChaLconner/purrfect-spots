@@ -18,6 +18,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'close'): void;
+  (e: 'update:liked', val: boolean): void;
+  (e: 'update:likesCount', val: number): void;
 }>();
 
 const router = useRouter();
@@ -77,17 +79,11 @@ const showGiveTreats = computed((): boolean => {
 });
 
 function handleUpdateLiked(val: boolean): void {
-  if (props.image) {
-    // eslint-disable-next-line vue/no-mutating-props
-    props.image.liked = val;
-  }
+  emit('update:liked', val);
 }
 
 function handleUpdateLikesCount(val: number): void {
-  if (props.image) {
-    // eslint-disable-next-line vue/no-mutating-props
-    props.image.likes_count = val;
-  }
+  emit('update:likesCount', val);
 }
 
 // Watch for image changes to log debug info

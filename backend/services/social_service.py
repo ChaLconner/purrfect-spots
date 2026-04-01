@@ -2,11 +2,11 @@ from typing import Any, cast
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from supabase import AClient
 
 from logger import logger, sanitize_log_value
 from schemas.notification import NotificationType
 from services.notification_service import NotificationService
+from supabase import AClient
 from utils.exceptions import ExternalServiceError, NotFoundError
 
 PHOTO_NOT_FOUND = "Photo not found"
@@ -311,7 +311,6 @@ class SocialService:
         res = (
             await admin_client.table("photo_comments")
             .update({"content": content, "updated_at": "now()"})
-            .select("*, users(name, picture)")  # type: ignore[attr-defined]
             .eq("id", comment_id)
             .eq("user_id", user_id)
             .execute()
@@ -320,12 +319,14 @@ class SocialService:
         if not res.data:
             return None
 
-        item = res.data[0]
-        user_data = item.get("users", {}) or {}
+        comment_data = res.data[0]
 
-        # Flatten structure for consistency with CommentResponse
-        item["user_name"] = user_data.get("name")
-        item["user_picture"] = user_data.get("picture")
-        item.pop("users", None)
+        # Enrichment (fetch user info separately or via another select if needed,
+        # but let's do a separate fetch to be safe and avoid chain errors)
+        user_res = await self.supabase.table("users").select("name, picture").eq("id", user_id).limit(1).execute()
 
-        return cast(dict[str, Any] | None, item)
+        if user_res.data:
+            comment_data["user_name"] = user_res.data[0].get("name")
+            comment_data["user_picture"] = user_res.data[0].get("picture")
+
+        return cast(dict[str, Any] | None, comment_data)

@@ -3,17 +3,22 @@
     <Transition
       enter-active-class="transition-all duration-300 ease-out"
       leave-active-class="transition-all duration-300 ease-out"
-      enter-from-class="opacity-0 max-sm:translate-y-full sm:translate-y-2.5 sm:scale-[0.98]"
-      leave-to-class="opacity-0 max-sm:translate-y-full sm:translate-y-2.5 sm:scale-[0.98]"
+      enter-from-class="opacity-0 max-sm:translate-y-full"
+      leave-to-class="opacity-0 max-sm:translate-y-full"
     >
       <dialog
         v-if="image"
-        class="fixed inset-0 bg-[#0a0a0c]/90 backdrop-blur-[20px] flex items-center justify-center z-[1000] p-0 sm:p-3 min-[900px]:p-1 border-none m-0 w-screen h-screen overflow-hidden"
+        class="fixed inset-0 flex items-center justify-center z-[1000] p-0 sm:p-3 min-[900px]:p-1 border-none m-0 w-screen h-screen overflow-hidden bg-transparent"
         :open="true"
         aria-modal="true"
         aria-labelledby="modal-title"
         @click="$emit('close')"
       >
+        <!-- Ghibli-themed Blurred Backdrop -->
+        <div class="absolute inset-0 z-[-1] overflow-hidden">
+          <GhibliBackground />
+          <div class="absolute inset-0 bg-[#0a0a0c]/60 backdrop-blur-[32px]"></div>
+        </div>
         <div
           ref="modalContainer"
           class="w-full h-full flex items-center justify-center outline-none sm:h-auto sm:max-h-[96vh] overflow-hidden"
@@ -59,7 +64,12 @@
             </button>
 
             <!-- Right Side: Content -->
-            <GalleryModalContent :image="image" @close="$emit('close')" />
+            <GalleryModalContent
+              :image="image"
+              @close="$emit('close')"
+              @update:liked="$emit('update:liked', $event)"
+              @update:likes-count="$emit('update:likesCount', $event)"
+            />
           </div>
         </div>
       </dialog>
@@ -74,6 +84,7 @@ import { useModalFocus } from '@/composables/useModalFocus';
 
 import GalleryModalImageStage from '@/components/gallery/GalleryModalImageStage.vue';
 import GalleryModalContent from '@/components/gallery/GalleryModalContent.vue';
+import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 
 const props = defineProps<{
   image: CatLocation | null;
@@ -86,6 +97,8 @@ const emit = defineEmits<{
   (e: 'close'): void;
   (e: 'navigate', direction: 'prev' | 'next'): void;
   (e: 'deleted', id: string): void;
+  (e: 'update:liked', val: boolean): void;
+  (e: 'update:likesCount', val: number): void;
 }>();
 
 const isLoaded = ref(false);

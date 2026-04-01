@@ -115,7 +115,7 @@
               <button
                 class="text-terracotta hover:text-terracotta-dark transition-colors p-1"
                 title="Remove comment"
-                @click="deleteComment(comment.id)"
+                @click.stop="confirmDeleteComment(comment.id)"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -147,6 +147,19 @@
         </button>
       </div>
     </div>
+
+    <!-- Confirm Delete Modal -->
+    <BaseConfirmModal
+      :is-open="showDeleteModal"
+      :title="t('admin.comments.delete_hint')"
+      :message="t('admin.comments.delete_desc')"
+      :confirm-text="t('common.delete')"
+      :cancel-text="t('common.cancel')"
+      :is-loading="isDeleting"
+      variant="danger"
+      @close="closeDeleteModal"
+      @confirm="handleConfirmDelete"
+    />
 
     <!-- Add Comment Form -->
     <div v-if="isAuthenticated" class="mt-6 border-t border-cream-dark/50 pt-6">
@@ -190,9 +203,11 @@ import { ref, onMounted, computed } from 'vue';
 import { SocialService, type Comment } from '@/services/socialService';
 import { useAuthStore } from '@/store';
 import { useToastStore } from '@/store';
-import { BaseButton, BaseCard, BaseInput } from '@/components/ui';
+import { BaseButton, BaseCard, BaseInput, BaseConfirmModal } from '@/components/ui';
 import { EXTERNAL_URLS } from '@/utils/constants';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const props = defineProps<{
   photoId: string;
 }>();
@@ -211,6 +226,11 @@ const editingId = ref<string | null>(null);
 const editContent = ref('');
 const isUpdating = ref(false);
 const showAll = ref(false);
+
+// Delete confirmation logic
+const showDeleteModal = ref(false);
+const commentToDelete = ref<string | null>(null);
+const isDeleting = ref(false);
 
 const isAuthenticated = computed(() => authStore.isAuthenticated);
 const currentUserId = computed(() => authStore.user?.id);
@@ -261,8 +281,8 @@ async function postComment(): Promise<void> {
   } catch (e) {
     console.error(e);
     toastStore.addToast({
-      title: 'Error',
-      message: 'Failed to post comment',
+      title: t('toast.error'),
+      message: t('social.failedToPost'),
       type: 'error',
     });
   } finally {
@@ -270,27 +290,38 @@ async function postComment(): Promise<void> {
   }
 }
 
-async function deleteComment(id: string): Promise<void> {
-  // Using toastStore for info/warning if we had a confirmation system,
-  // but for now we follow the project's premium feel by avoiding native dialogs
-  // and potentially adding an "Undo" pattern or a BaseModal if it were available.
-  // Since we want to remove native confirm, we will trigger the delete and allow
-  // the user to see a success/error message, or we can use a simpler toggle.
+function confirmDeleteComment(id: string): void {
+  commentToDelete.value = id;
+  showDeleteModal.value = true;
+}
 
-  // Implementation note: Ideally we'd use a BaseModal.
-  // For this fix, let's keep it simple but non-native as requested.
+function closeDeleteModal(): void {
+  showDeleteModal.value = false;
+  commentToDelete.value = null;
+}
+
+async function handleConfirmDelete(): Promise<void> {
+  if (!commentToDelete.value) return;
+
+  isDeleting.value = true;
   try {
-    const confirmed = await toastStore.confirmDeletion(
-      'Are you sure you want to delete this comment?'
-    );
-    if (!confirmed) return;
-
-    await SocialService.deleteComment(id);
-    comments.value = comments.value.filter((c) => c.id !== id);
-    toastStore.addToast({ title: 'Success', message: 'Comment removed', type: 'success' });
+    await SocialService.deleteComment(commentToDelete.value);
+    comments.value = comments.value.filter((c) => c.id !== commentToDelete.value);
+    toastStore.addToast({
+      title: t('toast.success'),
+      message: t('admin.comments.delete_success'),
+      type: 'success',
+    });
+    closeDeleteModal();
   } catch (e) {
-    if (e === 'cancelled') return;
-    toastStore.addToast({ title: 'Error', message: 'Failed to delete', type: 'error' });
+    console.error('Delete failed', e);
+    toastStore.addToast({
+      title: t('toast.error'),
+      message: t('social.failedToDelete'),
+      type: 'error',
+    });
+  } finally {
+    isDeleting.value = false;
   }
 }
 
@@ -317,8 +348,8 @@ async function saveEdit(id: string): Promise<void> {
     cancelEdit();
   } catch {
     toastStore.addToast({
-      title: 'Error',
-      message: 'Failed to update comment',
+      title: t('toast.error'),
+      message: t('social.failedToUpdate'),
       type: 'error',
     });
   } finally {

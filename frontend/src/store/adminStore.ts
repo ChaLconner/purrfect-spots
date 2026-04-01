@@ -51,6 +51,46 @@ export const useAdminStore = defineStore('admin', {
     reportChannel: null as RealtimeChannel | null,
   }),
   actions: {
+    async fetchSummary(force: boolean = false) {
+      const now = Date.now();
+      // Cache for 30 seconds unless forced
+      if (!force && this.lastFetched > 0 && now - this.lastFetched < 30000) {
+        return;
+      }
+
+      this.isLoading = true;
+      this.isTrendsLoading = true;
+      this.isMonthlyLoading = true;
+      const start = performance.now();
+      try {
+        const response = await apiV1.get<{
+          stats: AdminStats;
+          trends: AdminTrends;
+          monthly: MonthlyStat[];
+          generated_at: string;
+        }>('/admin/summary');
+
+        // Bulk update all dashboard metrics
+        this.stats = response.stats;
+        this.trends = response.trends;
+        this.monthlyData = response.monthly;
+
+        this.lastFetched = now;
+        this.lastTrendsFetched = now;
+        this.lastMonthlyFetched = now;
+
+        const time = Math.round(performance.now() - start);
+        this.statsLoadTime = time;
+        this.trendsLoadTime = time;
+      } catch (error) {
+        console.error('Failed to fetch admin dashboard summary:', error);
+      } finally {
+        this.isLoading = false;
+        this.isTrendsLoading = false;
+        this.isMonthlyLoading = false;
+      }
+    },
+
     async fetchMonthlyStats(force: boolean = false, year?: number) {
       const now = Date.now();
       if (!force && this.monthlyData.length > 0 && now - this.lastMonthlyFetched < 600000) {

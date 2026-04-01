@@ -267,14 +267,8 @@ const { t, locale } = useI18n();
 const adminStore = useAdminStore();
 
 onMounted(async () => {
-  // Parallel fetch for speed
-  await Promise.all([
-    adminStore.fetchStats(),
-    adminStore.fetchTrends(),
-    adminStore.fetchMonthlyStats(),
-  ]);
-
-  // end trace
+  // Use consolidated fetch for speed
+  await adminStore.fetchSummary();
 });
 
 const chartRef = ref(null);

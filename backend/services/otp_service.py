@@ -9,9 +9,9 @@ from datetime import datetime, timedelta
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from supabase import AClient
 
 from logger import logger
+from supabase import AClient
 from utils.datetime_utils import utc_now
 from utils.exceptions import ExternalServiceError, PurrfectSpotsException
 
@@ -27,6 +27,7 @@ class OTPService:
     LOCKOUT_DURATION_MINUTES = 15  # Account lockout duration after max attempts
 
     def __init__(self, supabase_client: AClient, db: AsyncSession | None = None) -> None:
+        self.supabase = supabase_client
         self.db = db
         # Consistent column selection for OTPs
         self.OTP_COLUMNS = "id, otp_hash, attempts, max_attempts, expires_at"
@@ -267,7 +268,7 @@ class OTPService:
             record = None
             if self.db:
                 query = text(
-                    f"SELECT {self.OTP_COLUMNS} FROM email_verifications WHERE email = :email "
+                    f"SELECT {self.OTP_COLUMNS} FROM email_verifications WHERE email = :email "  # noqa: S608
                     "AND verified_at IS NULL ORDER BY created_at DESC LIMIT 1"
                 )
                 result = await self.db.execute(query, {"email": email_lower})

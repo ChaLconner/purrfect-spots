@@ -29,6 +29,7 @@ class TestUserService:
         chain_mock = MagicMock()
         chain_mock.select.return_value = chain_mock
         chain_mock.eq.return_value = chain_mock
+        chain_mock.ilike.return_value = chain_mock
         chain_mock.maybe_single.return_value = chain_mock
         chain_mock.single.return_value = chain_mock
         chain_mock.update.return_value = chain_mock
@@ -91,7 +92,7 @@ class TestUserService:
         mock_result = MagicMock(data={"id": "u1", "username": username, "email": "e@t.com", "name": "Test User"})
 
         chain = mock_supabase_admin.table.return_value
-        chain.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = mock_result
+        chain.select.return_value.ilike.return_value.maybe_single.return_value.execute.return_value = mock_result
 
         user = await user_service.get_user_by_username(username)
 

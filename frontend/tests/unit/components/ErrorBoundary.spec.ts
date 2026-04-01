@@ -3,14 +3,17 @@ import { mount } from '@vue/test-utils';
 import { defineComponent, h, nextTick } from 'vue';
 import ErrorBoundary from '@/components/ui/ErrorBoundary.vue';
 
+ 
 // A component that throws an error
 const BuggyComponent = defineComponent({
   methods: {
     throwError(): never {
-       throw new Error('Test Error');
-     }
-   },
-  template: '<div>{{ throwError() }}</div>'
+      throw new Error('Test Error');
+    },
+  },
+  render() {
+    return h('div', this.throwError());
+  },
 });
 
 // Mock useRouter
@@ -66,12 +69,16 @@ describe('ErrorBoundary', (): void => {
     consoleSpy.mockRestore();
   });
 
-  it('shows custom fallback message', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+  it('shows custom fallback message', async (): Promise<void> => {
+    vi.spyOn(console, 'error').mockImplementation((): void => {});
     
     // Create a component that throws an error without a message
     const NoMessageBuggy = defineComponent({
-      template: '<div>{{ (() => { throw new Error() })() }}</div>'
+      render(): any {
+        return h('div', (() => {
+          throw new Error();
+        })());
+      },
     });
 
     const wrapper = mount(ErrorBoundary, {
@@ -102,8 +109,8 @@ describe('ErrorBoundary', (): void => {
     expect(emitted && emitted[0][0]).toBeInstanceOf(Error);
   });
 
-  it('resets state when retry button is clicked', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+  it('resets state when retry button is clicked', async (): Promise<void> => {
+    vi.spyOn(console, 'error').mockImplementation((): void => {});
     
     const wrapper = mount(ErrorBoundary, {
       slots: {
@@ -122,7 +129,9 @@ describe('ErrorBoundary', (): void => {
     const retryButton = buttons.find(b => b.text().includes('common.tryAgain'));
     
     expect(retryButton).toBeDefined();
-    await retryButton!.trigger('click');
+    if (retryButton) {
+      await retryButton.trigger('click');
+    }
     
     expect(wrapper.emitted('retry')).toBeTruthy();
   });

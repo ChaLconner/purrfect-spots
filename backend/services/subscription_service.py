@@ -6,10 +6,11 @@ import stripe
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
-from supabase import AClient
 
+from config import config
 from logger import logger
 from services.treats_service import TreatsService
+from supabase import AClient
 
 # Initialize Stripe
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
@@ -87,6 +88,29 @@ class SubscriptionService:
 
     # ── Helpers ──────────────────────────────────────────────────────
 
+    def _extract_subscription_price_ids(self, subscription: Any) -> set[str]:
+        """Extract Stripe price IDs from a subscription payload/object."""
+        items = subscription.get("items") if isinstance(subscription, dict) else getattr(subscription, "items", None)
+        raw_items = items.get("data", []) if isinstance(items, dict) else getattr(items, "data", []) if items else []
+
+        price_ids: set[str] = set()
+        for item in raw_items or []:
+            price = item.get("price") if isinstance(item, dict) else getattr(item, "price", None)
+            price_id = price.get("id") if isinstance(price, dict) else getattr(price, "id", None)
+            if price_id:
+                price_ids.add(str(price_id))
+
+        return price_ids
+
+    def _subscription_matches_pro_plan(self, subscription: Any) -> bool:
+        """Validate that the subscription contains the configured Pro plan price."""
+        expected_price_id = config.STRIPE_PRO_PRICE_ID
+        if not expected_price_id:
+            logger.error("STRIPE_PRO_PRICE_ID is missing; refusing to activate subscription benefits")
+            return False
+
+        return expected_price_id in self._extract_subscription_price_ids(subscription)
+
     async def _get_or_create_stripe_customer(
         self, user_id: str, email: str, existing_customer_id: str | None = None
     ) -> str:
@@ -128,6 +152,9 @@ class SubscriptionService:
     ) -> dict[str, str]:
         """Creates a Stripe Checkout Session for a subscription."""
         try:
+            if not price_id:
+                raise ValueError("Missing Stripe price configuration for Pro plan")
+
             customer_id = await self._get_or_create_stripe_customer(user_id, email, stripe_customer_id)
 
             checkout_session = await run_in_threadpool(
@@ -216,6 +243,14 @@ class SubscriptionService:
 
         # Retrieve subscription details (sync SDK → threadpool)
         sub = await run_in_threadpool(stripe.Subscription.retrieve, subscription_id)
+        if not self._subscription_matches_pro_plan(sub):
+            logger.warning(
+                "Ignoring subscription activation for unexpected price(s): subscription=%s prices=%s",
+                subscription_id,
+                sorted(self._extract_subscription_price_ids(sub)),
+            )
+            return
+
         current_period_end = datetime.fromtimestamp(
             cast(Any, sub).current_period_end,
             UTC,  # type: ignore[arg-type]
@@ -297,7 +332,7 @@ class SubscriptionService:
             "treat_balance": 0,
         }
 
-    async def create_portal_session(self, user_id: str, return_url: str) -> str:
+    async def create_portal_session(self, user_id: str, return_url: str | None = None) -> str:
         """Create a Stripe Customer Portal session."""
         user_data = await self._get_user_data({"id": user_id}, "stripe_customer_id")
         customer_id = user_data.get("stripe_customer_id") if user_data else None
@@ -305,10 +340,11 @@ class SubscriptionService:
         if not customer_id:
             raise ValueError("No customer ID found for user or user not found")
 
+        safe_return_url = config.resolve_frontend_url(return_url, default_path="/subscription")
         portal_session = await run_in_threadpool(
             stripe.billing_portal.Session.create,
             customer=customer_id,
-            return_url=return_url,
+            return_url=safe_return_url,
         )
         return portal_session.url
 

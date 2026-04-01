@@ -1,13 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Body, Query
-from typing import Annotated, Any, List
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from postgrest.types import CountMethod
+from pydantic import BaseModel, Field
+
 from dependencies import get_async_supabase_admin_client
+from logger import logger
 from middleware.auth_middleware import require_permission
 from schemas.user import User
-from services.treats_service import TreatsService
-from logger import logger
-from pydantic import BaseModel, Field
-from datetime import datetime
-from postgrest.types import CountMethod
 
 router = APIRouter()
 
@@ -58,13 +58,41 @@ async def list_treat_transactions(
 
 
 async def _fetch_treat_stats_fallback(admin_client) -> dict:
-    """Fallback: fetch aggregated columns from users table."""
-    balance_res = await admin_client.table("users").select("treat_balance, total_treats_received").execute()
-    rows = balance_res.data or []
+    """Fallback: fetch aggregated columns from users table in batches to avoid memory issues."""
+    total_in_circulation = 0
+    total_given_to_cats = 0
+    user_count_with_balance = 0
+
+    batch_size = 1000
+    offset = 0
+
+    while True:
+        balance_res = (
+            await admin_client.table("users")
+            .select("treat_balance, total_treats_received")
+            .range(offset, offset + batch_size - 1)
+            .execute()
+        )
+
+        rows = balance_res.data or []
+        if not rows:
+            break
+
+        for u in rows:
+            balance = u.get("treat_balance") or 0
+            total_in_circulation += balance
+            total_given_to_cats += u.get("total_treats_received") or 0
+            if balance > 0:
+                user_count_with_balance += 1
+
+        if len(rows) < batch_size:
+            break
+        offset += batch_size
+
     return {
-        "total_in_circulation": sum(u.get("treat_balance", 0) or 0 for u in rows),
-        "total_given_to_cats": sum(u.get("total_treats_received", 0) or 0 for u in rows),
-        "user_count_with_balance": len([u for u in rows if (u.get("treat_balance") or 0) > 0]),
+        "total_in_circulation": total_in_circulation,
+        "total_given_to_cats": total_given_to_cats,
+        "user_count_with_balance": user_count_with_balance,
     }
 
 

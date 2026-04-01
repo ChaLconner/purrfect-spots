@@ -1,18 +1,19 @@
 import csv
 import io
 import json
-from typing import Any, List
+from typing import Any
 
-def data_to_csv(data: List[dict[str, Any]], fieldnames: List[str] | None = None) -> str:
+
+def data_to_csv(data: list[dict[str, Any]], fieldnames: list[str] | None = None) -> str:
     """
     Convert a list of dictionaries to a CSV string.
     """
     if not data:
         return ""
-    
+
     if not fieldnames:
         fieldnames = list(data[0].keys())
-        
+
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=fieldnames)
     writer.writeheader()
@@ -25,10 +26,11 @@ def data_to_csv(data: List[dict[str, Any]], fieldnames: List[str] | None = None)
             else:
                 flat_row[k] = v
         writer.writerow(flat_row)
-        
+
     return output.getvalue()
 
-def data_to_json(data: List[dict[str, Any]]) -> str:
+
+def data_to_json(data: list[dict[str, Any]]) -> str:
     """
     Convert a list of dictionaries to a JSON string.
     """

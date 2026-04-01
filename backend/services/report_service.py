@@ -2,9 +2,9 @@ from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from supabase import AClient
 
 from logger import logger
+from supabase import AClient
 
 
 class ReportService:
@@ -15,19 +15,19 @@ class ReportService:
         self.REPORT_COLUMNS = "id, photo_id, comment_id, reporter_id, reason, details, status, created_at"
 
     async def create_report(
-        self, 
-        photo_id: str | None = None, 
+        self,
+        photo_id: str | None = None,
         comment_id: str | None = None,
-        reporter_id: str | None = None, 
-        reason: str | None = None, 
-        details: str | None = None
+        reporter_id: str | None = None,
+        reason: str | None = None,
+        details: str | None = None,
     ) -> dict[str, Any]:
         """
         Create a new report for a photo or comment.
         """
         if not photo_id and not comment_id:
             raise ValueError("Either photo_id or comment_id must be provided")
-            
+
         try:
             data = {
                 "photo_id": photo_id,
@@ -40,7 +40,7 @@ class ReportService:
             if self.db:
                 # Basic SQL for reports table
                 query_str = (
-                    "INSERT INTO reports (photo_id, comment_id, reporter_id, reason, details, status) "
+                    f"INSERT INTO reports (photo_id, comment_id, reporter_id, reason, details, status) "  # noqa: S608
                     "VALUES (:photo_id, :comment_id, :reporter_id, :reason, :details, :status) "
                     f"RETURNING {self.REPORT_COLUMNS}"
                 )
@@ -51,7 +51,7 @@ class ReportService:
                 if not row:
                     raise ValueError("Failed to create report")
                 return dict(row._mapping)
-            
+
             res = await self.supabase.table("reports").insert(data).select(self.REPORT_COLUMNS).execute()
             if not res or not res.data:
                 raise ValueError("Failed to create report")
@@ -68,7 +68,9 @@ class ReportService:
         """
         try:
             if self.db:
-                query = text(f"SELECT {self.REPORT_COLUMNS} FROM reports WHERE reporter_id = :u_id ORDER BY created_at DESC")
+                query = text(
+                    f"SELECT {self.REPORT_COLUMNS} FROM reports WHERE reporter_id = :u_id ORDER BY created_at DESC"
+                )  # noqa: S608
                 result = await self.db.execute(query, {"u_id": user_id})
                 reports = []
                 for row in result.fetchall():

@@ -1,32 +1,32 @@
 <template>
   <div class="space-y-6">
-    <div class="flex justify-between items-center sm:flex-row flex-col gap-4">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
       <div class="flex flex-col">
-        <h1 class="text-3xl font-bold text-brown-900 font-display">
+        <h1 class="text-3xl font-bold text-brown-900 font-display tracking-tight">
           {{ t('admin.comments.title') }}
         </h1>
-        <p class="text-brown-500 mt-1">{{ t('admin.comments.subtitle') }}</p>
+        <p class="text-brown-500 font-medium mt-1">{{ t('admin.comments.subtitle') }}</p>
       </div>
 
       <div class="flex items-center gap-3 w-full sm:w-auto">
-        <div class="flex bg-sand-100 p-1 rounded-xl">
+        <div class="flex bg-sand-100/50 p-1.5 rounded-2xl border border-sand-100">
           <button
-            class="px-4 py-1.5 rounded-lg text-sm font-bold transition-all"
+            class="px-5 py-2 rounded-lg text-xs font-medium uppercase tracking-wider transition-all"
             :class="
               !showReportedOnly
                 ? 'bg-white text-terracotta-600 shadow-sm'
-                : 'text-brown-500 hover:text-brown-700'
+                : 'text-brown-400 hover:text-brown-600'
             "
             @click="showReportedOnly = false"
           >
             {{ t('admin.comments.all') }}
           </button>
           <button
-            class="px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-1.5"
+            class="px-5 py-2 rounded-lg text-xs font-medium uppercase tracking-wider transition-all flex items-center gap-2"
             :class="
               showReportedOnly
                 ? 'bg-white text-terracotta-600 shadow-sm'
-                : 'text-brown-500 hover:text-brown-700'
+                : 'text-brown-400 hover:text-brown-600'
             "
             @click="showReportedOnly = true"
           >
@@ -52,33 +52,33 @@
 
     <!-- Filters & Search -->
     <div
-      class="bg-white rounded-2xl shadow-sm border border-sand-200 p-4 flex flex-col sm:flex-row gap-4 justify-between items-center"
+      class="bg-white rounded-2xl shadow-sm border border-sand-100 p-5 flex flex-col sm:flex-row gap-6 justify-between items-center"
     >
-      <div class="flex items-center gap-4 w-full sm:w-auto">
-        <label class="flex items-center gap-3 cursor-pointer group">
+      <div class="flex flex-wrap items-center gap-6 w-full sm:w-auto">
+        <label class="flex items-center gap-3 cursor-pointer group select-none">
           <input
             type="checkbox"
-            class="w-5 h-5 rounded border-sand-300 text-terracotta-500 focus:ring-terracotta-400 cursor-pointer"
+            class="w-5 h-5 rounded-lg border-sand-200 text-terracotta-500 focus:ring-terracotta-400/20 focus:ring-offset-0 cursor-pointer transition-all bg-sand-50"
             :checked="isAllSelected"
             @change="toggleSelectAll"
           />
           <span
-            class="text-sm font-bold text-brown-600 group-hover:text-brown-900 transition-colors"
+            class="text-xs font-medium text-brown-500 group-hover:text-brown-600 transition-colors"
             >{{ t('common.selectAll') }}</span
           >
         </label>
 
         <div
           v-if="selectedCommentIds.length > 0"
-          class="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-300"
+          class="flex items-center gap-3 animate-in fade-in slide-in-from-left-4 duration-500"
         >
           <button
-            class="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors border border-red-100 flex items-center gap-1.5"
+            class="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-500 hover:text-white transition-colors border border-red-200 flex items-center gap-2"
             @click="bulkAction('delete')"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              class="h-3.5 w-3.5"
+              class="h-4 w-4"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -93,12 +93,12 @@
             {{ t('admin.comments.bulk_delete') }} ({{ selectedCommentIds.length }})
           </button>
           <button
-            class="px-3 py-1.5 bg-green-50 text-green-600 rounded-lg text-xs font-bold hover:bg-green-100 transition-colors border border-green-100 flex items-center gap-1.5"
+            class="px-3 py-1.5 bg-green-50 text-green-600 rounded-lg text-sm font-medium hover:bg-green-500 hover:text-white transition-colors border border-green-200 flex items-center gap-2"
             @click="bulkAction('dismiss')"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              class="h-3.5 w-3.5"
+              class="h-4 w-4"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -115,9 +115,9 @@
         </div>
       </div>
 
-      <div class="relative w-full sm:max-w-md">
+      <div class="relative w-full sm:max-w-md group">
         <svg
-          class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-brown-400"
+          class="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-brown-400 group-focus-within:text-terracotta-500 transition-colors pointer-events-none"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
@@ -134,12 +134,12 @@
           v-model="searchQuery"
           type="text"
           :placeholder="t('admin.comments.search')"
-          class="w-full pl-10 pr-4 py-2.5 border border-sand-300 rounded-xl bg-sand-50 focus:bg-white focus:ring-2 focus:ring-terracotta-400 focus:border-terracotta-400 transition-all font-medium text-brown-800 placeholder-brown-400 outline-none"
+          class="w-full pl-10 pr-10 py-2 border border-sand-300 rounded-lg bg-white focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 transition-colors font-medium text-brown-800 outline-none"
           @input="handleSearch"
         />
         <button
           v-if="searchQuery"
-          class="absolute right-3 top-1/2 -translate-y-1/2 text-brown-400 hover:text-brown-700"
+          class="absolute right-4 top-1/2 -translate-y-1/2 text-brown-400 hover:text-brown-700 p-1 rounded-full hover:bg-sand-100 transition-colors"
           @click="clearSearch"
         >
           <svg
@@ -159,47 +159,47 @@
         </button>
       </div>
 
-      <div class="flex items-center gap-2 text-sm font-bold text-brown-600">
+      <div class="flex items-center gap-2 text-sm text-brown-600">
         <span>{{ totalItems }}</span>
-        <span class="text-brown-400 uppercase tracking-wider text-xs">{{
-          t('admin.comments.total')
-        }}</span>
+        <span>{{ t('admin.comments.total') }}</span>
       </div>
     </div>
 
     <!-- Comments List -->
     <div class="bg-white rounded-2xl shadow-sm border border-sand-200 overflow-hidden">
       <!-- Loading State -->
-      <div v-if="loading" class="flex flex-col items-center justify-center p-24 text-brown-400">
+      <div v-if="loading" class="flex flex-col items-center justify-center p-12 text-brown-400">
         <div
-          class="w-10 h-10 border-4 border-sand-200 border-t-terracotta-500 rounded-full animate-spin mb-4"
+          class="w-12 h-12 border-4 border-sand-100 border-t-terracotta-500 rounded-full animate-spin mb-6"
         ></div>
-        <p class="font-bold">{{ t('common.loading') }}</p>
+        <p class="text-sm text-brown-500">{{ t('common.loading') }}</p>
       </div>
 
       <!-- Empty State -->
       <div
         v-else-if="comments.length === 0"
-        class="flex flex-col items-center justify-center p-24 text-center"
+        class="flex flex-col items-center justify-center p-12 text-center"
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          class="h-24 w-24 text-sand-300 mb-6"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="1.5"
-            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-          />
-        </svg>
-        <h3 class="text-xl font-bold text-brown-800 mb-2 font-display">
+        <div class="w-24 h-24 bg-sand-50 rounded-full flex items-center justify-center mb-6">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-12 w-12 text-sand-300"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.5"
+              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+            />
+          </svg>
+        </div>
+        <h3 class="text-xl font-bold text-brown-800 mb-2">
           {{ t('admin.comments.no_results') }}
         </h3>
-        <p class="text-brown-500 max-w-sm">{{ t('admin.comments.no_results_desc') }}</p>
+        <p class="text-brown-500 max-w-sm font-medium">{{ t('admin.comments.no_results_desc') }}</p>
       </div>
 
       <!-- Comments List -->
@@ -212,14 +212,14 @@
           key-field="id"
         >
           <div
-            class="p-6 transition-all border-b border-sand-100 hover:bg-sand-50 flex flex-col sm:flex-row gap-6 relative"
-            :class="selectedCommentIds.includes(comment.id) ? 'bg-terracotta-50/50' : ''"
+            class="px-6 py-4 transition-colors border-b border-sand-100 hover:bg-sand-50 flex flex-col sm:flex-row gap-6 relative group/item"
+            :class="selectedCommentIds.includes(comment.id) ? 'bg-terracotta-50/30' : ''"
           >
             <!-- Checkbox -->
-            <div class="flex-shrink-0 pt-2">
+            <div class="flex-shrink-0 pt-1.5">
               <input
                 type="checkbox"
-                class="w-5 h-5 rounded border-sand-300 text-terracotta-500 focus:ring-terracotta-400 cursor-pointer transition-transform"
+                class="w-5 h-5 rounded-lg border-sand-200 text-terracotta-500 focus:ring-terracotta-400/20 focus:ring-offset-0 cursor-pointer transition-all bg-sand-50"
                 :checked="selectedCommentIds.includes(comment.id)"
                 @change="toggleSelection(comment.id)"
               />
@@ -241,7 +241,7 @@
                               comment.user_display_name,
                           },
                         }"
-                        class="font-bold text-brown-900 text-base truncate hover:text-brown-500 transition-colors"
+                        class="text-sm font-medium text-brown-900 truncate hover:text-brown-500 transition-colors"
                         :title="t('admin.users.view_profile')"
                       >
                         {{
@@ -252,19 +252,19 @@
                       </router-link>
                       <span
                         v-if="comment.is_user_banned"
-                        class="px-2 py-0.5 bg-red-100 text-red-600 rounded text-[10px] font-bold uppercase tracking-wider border border-red-200"
+                        class="px-2 py-0.5 bg-red-50 text-red-500 rounded-full text-xs font-semibold border border-red-100"
                       >
                         {{ t('admin.comments.banned_status') }}
                       </span>
                     </div>
-                    <div class="flex items-center gap-3 mt-0.5">
+                    <div class="flex items-center gap-3 mt-1">
                       <span
-                        class="text-[10px] text-brown-400 font-medium uppercase tracking-tight"
+                        class="text-xs text-brown-500"
                         >{{ formatDate(comment.created_at) }}</span
                       >
                       <span
                         v-if="comment.violation_count > 0"
-                        class="text-[10px] text-red-500 font-bold bg-red-50 px-1.5 py-0.5 rounded border border-red-100 uppercase tracking-tighter"
+                        class="text-xs text-red-500 font-semibold bg-red-50 px-2 py-0.5 rounded-full border border-red-100"
                       >
                         {{ t('admin.comments.violations', { n: comment.violation_count }) }}
                       </span>
@@ -273,12 +273,12 @@
 
                   <div
                     v-if="comment.report_count > 0"
-                    class="flex items-center gap-1.5 px-2.5 py-1 bg-red-50 text-red-600 rounded-lg text-xs font-bold whitespace-nowrap border border-red-100 shadow-sm cursor-pointer hover:bg-red-100 transition-colors"
+                    class="flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-600 rounded-full text-xs font-semibold whitespace-nowrap border border-red-100 cursor-pointer hover:bg-red-500 hover:text-white transition-colors group/report"
                     @click="viewReports(comment)"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      class="h-3.5 w-3.5"
+                      class="h-3.5 w-3.5 group-hover/report:scale-110 transition-transform"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -294,7 +294,7 @@
                   </div>
                 </div>
                 <p
-                  class="text-brown-700 leading-relaxed text-sm break-words line-clamp-3 sm:line-clamp-none"
+                  class="text-brown-700 leading-relaxed text-sm break-words line-clamp-3 sm:line-clamp-none font-medium"
                 >
                   {{ comment.content }}
                 </p>
@@ -305,11 +305,11 @@
                   v-if="comment.cat_photo_id"
                   :to="`/photos/${comment.cat_photo_id}`"
                   target="_blank"
-                  class="mr-auto px-3 py-1.5 text-brown-500 hover:text-terracotta-600 hover:bg-sand-50 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
+                  class="mr-auto text-brown-600 hover:text-terracotta-600 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    class="h-3.5 w-3.5"
+                    class="h-4 w-4"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -326,12 +326,12 @@
 
                 <button
                   v-if="!comment.is_user_banned"
-                  class="px-3 py-1.5 text-brown-400 hover:text-red-500 hover:bg-red-50 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 group"
+                  class="text-brown-600 hover:text-red-600 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 group/ban"
                   @click="handleBanUser(comment)"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    class="h-3.5 w-3.5 group-hover:scale-110 transition-transform"
+                    class="h-4 w-4 group-hover/ban:scale-110 transition-transform"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -348,7 +348,7 @@
 
                 <button
                   v-if="comment.report_count > 0"
-                  class="px-4 py-1.5 text-green-600 hover:bg-green-50 hover:text-green-700 rounded-xl text-sm font-bold transition-all flex items-center gap-1.5"
+                  class="px-3 py-1.5 bg-green-50 text-green-600 rounded-lg text-sm font-medium hover:bg-green-500 hover:text-white transition-colors border border-green-200 flex items-center gap-2"
                   @click="dismissReports(comment)"
                 >
                   <svg
@@ -369,7 +369,7 @@
                 </button>
 
                 <button
-                  class="px-4 py-1.5 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-xl text-sm font-bold transition-all flex items-center gap-1.5"
+                  class="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-500 hover:text-white transition-colors border border-red-200 flex items-center gap-2"
                   @click="confirmDelete(comment)"
                 >
                   <svg
@@ -397,68 +397,30 @@
       <!-- Pagination -->
       <div
         v-if="totalPages > 1"
-        class="px-6 py-4 border-t border-sand-100 bg-sand-50/50 flex justify-center items-center gap-2"
+        class="px-6 py-4 border-t border-sand-200 flex items-center justify-between"
       >
-        <button
-          :disabled="currentPage === 1"
-          class="w-10 h-10 flex items-center justify-center rounded-xl border border-sand-200 bg-white text-brown-600 hover:bg-sand-50 hover:border-terracotta-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
-          @click="changePage(currentPage - 1)"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="h-5 w-5 group-hover:-translate-x-0.5 transition-transform"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M15 19l-7-7 7-7"
-            />
-          </svg>
-        </button>
-
-        <div class="flex items-center gap-1">
+        <span class="text-sm text-brown-600">
+          {{ t('admin.comments.total') }}: {{ totalItems }}
+        </span>
+        <div class="flex items-center gap-3">
           <button
-            v-for="page in displayedPages"
-            :key="page"
-            class="min-w-[40px] h-10 px-2 flex items-center justify-center rounded-xl text-sm font-bold transition-all"
-            :class="
-              page === currentPage
-                ? 'bg-terracotta-500 text-white shadow-sm'
-                : page === '...'
-                  ? 'cursor-default text-brown-400'
-                  : 'bg-white border border-sand-200 text-brown-600 hover:bg-sand-50 hover:border-terracotta-200'
-            "
-            :disabled="page === '...'"
-            @click="page !== '...' ? changePage(page as number) : null"
+            :disabled="currentPage === 1"
+            class="px-4 py-2 border border-sand-300 rounded-md text-sm font-medium text-brown-700 bg-white hover:bg-sand-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            @click="changePage(currentPage - 1)"
           >
-            {{ page }}
+            {{ t('admin.pagination.previous') }}
+          </button>
+          <span class="text-sm text-brown-600">
+            {{ currentPage }} / {{ totalPages }}
+          </span>
+          <button
+            :disabled="currentPage === totalPages"
+            class="px-4 py-2 border border-sand-300 rounded-md text-sm font-medium text-brown-700 bg-white hover:bg-sand-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            @click="changePage(currentPage + 1)"
+          >
+            {{ t('admin.pagination.next') }}
           </button>
         </div>
-
-        <button
-          :disabled="currentPage === totalPages"
-          class="w-10 h-10 flex items-center justify-center rounded-xl border border-sand-200 bg-white text-brown-600 hover:bg-sand-50 hover:border-terracotta-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
-          @click="changePage(currentPage + 1)"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="h-5 w-5 group-hover:translate-x-0.5 transition-transform"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M9 5l7 7-7 7"
-            />
-          </svg>
-        </button>
       </div>
     </div>
 
@@ -466,52 +428,35 @@
     <Teleport to="body">
       <div
         v-if="deleteModalOpen"
-        class="fixed inset-0 bg-brown-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+        class="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center p-4"
       >
         <div
-          class="bg-white rounded-3xl shadow-xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200"
+          class="bg-white rounded-xl shadow-xl max-w-md w-full overflow-hidden border border-sand-100"
         >
-          <div class="p-6 sm:p-8">
-            <div
-              class="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-6 transform -rotate-6"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-8 w-8 text-red-500"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                />
-              </svg>
-            </div>
-
-            <h3 class="text-2xl font-bold text-center text-brown-900 mb-2 font-display">
+          <div class="p-6">
+            <h3 class="text-lg font-bold text-center text-brown-900 mb-2">
               {{ t('admin.comments.delete_confirm') }}
             </h3>
-            <p class="text-center text-brown-500 mb-6">{{ t('admin.comments.delete_desc') }}</p>
+            <p class="text-center text-sm text-brown-600 mb-4">
+              {{ t('admin.comments.delete_desc') }}
+            </p>
 
-            <div class="bg-sand-50 rounded-xl p-4 mb-8 border border-sand-100">
-              <p class="text-sm text-brown-800 italic line-clamp-3">
+            <div class="bg-sand-50 rounded-lg p-4 mb-6 border border-sand-100">
+              <p class="text-sm text-brown-700 italic line-clamp-4 font-medium leading-relaxed">
                 "{{ commentToDelete?.content }}"
               </p>
             </div>
 
-            <div class="flex gap-4">
+            <div class="flex justify-end gap-3 mt-6">
               <button
-                class="flex-1 px-4 py-3 bg-white border-2 border-sand-200 text-brown-700 font-bold rounded-xl hover:bg-sand-50 hover:border-sand-300 transition-all"
+                class="px-4 py-2 border border-sand-300 rounded-lg text-brown-600 hover:bg-sand-50"
                 :disabled="deleting"
                 @click="cancelDelete"
               >
                 {{ t('common.cancel') }}
               </button>
               <button
-                class="flex-1 px-4 py-3 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600 shadow-sm hover:shadow-md transition-all flex items-center justify-center gap-2"
+                class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 shadow-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                 :disabled="deleting"
                 @click="executeDelete"
               >
@@ -548,18 +493,18 @@
     <Teleport to="body">
       <div
         v-if="reportDetailsModalOpen"
-        class="fixed inset-0 bg-brown-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+        class="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center p-4"
       >
         <div
-          class="bg-white rounded-3xl shadow-xl max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-200"
+          class="bg-white rounded-xl shadow-xl max-w-lg w-full overflow-hidden border border-sand-100"
         >
-          <div class="p-6 sm:p-8">
-            <div class="flex justify-between items-center mb-6">
-              <h3 class="text-2xl font-bold text-brown-900 font-display">
+          <div class="p-6">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-lg font-bold text-brown-900">
                 {{ t('admin.comments.report_details') }}
               </h3>
               <button
-                class="text-brown-400 hover:text-brown-600 p-2"
+                class="text-brown-300 hover:text-brown-600 hover:bg-sand-50 p-2 rounded-xl transition-all active:scale-90"
                 @click="reportDetailsModalOpen = false"
               >
                 <svg
@@ -579,71 +524,85 @@
               </button>
             </div>
 
-            <div v-if="loadingReports" class="py-12 flex flex-col items-center">
+            <div v-if="loadingReports" class="py-16 flex flex-col items-center">
               <div
-                class="w-8 h-8 border-3 border-sand-200 border-t-terracotta-500 rounded-full animate-spin mb-3"
+                class="w-12 h-12 border-4 border-sand-100 border-t-terracotta-500 rounded-full animate-spin mb-6"
               ></div>
-              <p class="text-sm text-brown-500">{{ t('common.loading') }}</p>
+              <p class="text-sm text-brown-500">
+                {{ t('common.loading') }}
+              </p>
             </div>
 
-            <div v-else-if="activeReports.length === 0" class="py-12 text-center text-brown-400">
-              <p>{{ t('admin.comments.no_reports_found') }}</p>
+            <div v-else-if="activeReports.length === 0" class="py-16 text-center text-brown-400">
+              <p class="font-medium">{{ t('admin.comments.no_reports_found') }}</p>
             </div>
 
-            <div v-else class="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+            <div v-else class="space-y-4 max-h-[50vh] overflow-y-auto pr-3 custom-scrollbar">
               <div
                 v-for="report in activeReports"
                 :key="report.created_at"
-                class="bg-sand-50 rounded-2xl p-4 border border-sand-100"
+                class="bg-sand-50 rounded-lg p-4 border border-sand-100 hover:bg-sand-50 transition-colors"
               >
-                <div class="flex justify-between items-start mb-2">
+                <div class="flex justify-between items-start mb-4">
                   <router-link
                     :to="{
                       path: '/admin/users',
                       query: { search: report.reporter?.username || report.reporter?.display_name },
                     }"
-                    class="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                    class="flex items-center gap-3 hover:opacity-80 transition-opacity min-w-0"
                   >
-                    <OptimizedImage
-                      :src="report.reporter?.avatar_url || '/default-avatar.png'"
-                      alt="avatar"
-                      class="w-8 h-8 rounded-full border border-sand-dark"
-                      :width="32"
-                      :height="32"
-                    />
-                    <div class="flex flex-col">
-                      <span class="font-bold text-brown">{{
+                    <div class="relative">
+                      <OptimizedImage
+                        :src="report.reporter?.avatar_url || '/default-avatar.png'"
+                        alt="avatar"
+                        class="w-10 h-10 rounded-2xl border-2 border-white shadow-sm object-cover"
+                        :width="40"
+                        :height="40"
+                      />
+                      <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-terracotta-500 rounded-full border-2 border-white flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-2 w-2 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                      </div>
+                    </div>
+                    <div class="flex flex-col min-w-0">
+                      <span class="font-bold text-brown-900 truncate">{{
                         report.reporter?.display_name || t('admin.comments.unknown_user')
                       }}</span>
-                      <span v-if="report.reporter?.username" class="text-xs text-brown/60"
+                      <span v-if="report.reporter?.username" class="text-xs text-brown-500"
                         >@{{ report.reporter.username }}</span
                       >
                     </div>
                   </router-link>
                   <span
-                    class="px-2 py-0.5 bg-red-100 text-red-600 rounded text-[10px] font-bold uppercase tracking-wider"
+                    class="px-2 py-0.5 bg-red-50 text-red-500 rounded-full text-xs font-semibold border border-red-100"
                   >
                     {{ report.reason }}
                   </span>
                 </div>
-                <p
-                  v-if="report.details"
-                  class="text-sm text-brown-700 italic border-l-2 border-red-200 pl-3 py-1 mt-2"
-                >
-                  "{{ report.details }}"
-                </p>
+                <div v-if="report.details" class="relative">
+                  <div class="absolute inset-y-0 left-0 w-1 bg-red-200 rounded-full"></div>
+                  <p class="text-sm text-brown-700 italic pl-5 py-1.5 font-medium leading-relaxed">
+                    "{{ report.details }}"
+                  </p>
+                </div>
+                <div class="mt-3 flex justify-end">
+                   <span class="text-xs text-brown-400">
+                     {{ formatDate(report.created_at) }}
+                   </span>
+                </div>
               </div>
             </div>
 
-            <div class="mt-8 flex gap-3">
+            <div class="mt-6 flex justify-end gap-3">
               <button
-                class="flex-1 px-4 py-3 bg-white border-2 border-sand-200 text-brown-700 font-bold rounded-xl hover:bg-sand-50 transition-all"
+                class="px-4 py-2 border border-sand-300 rounded-lg text-brown-600 hover:bg-sand-50"
                 @click="reportDetailsModalOpen = false"
               >
                 {{ t('common.close') }}
               </button>
               <button
-                class="flex-1 px-4 py-3 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600 shadow-sm transition-all"
+                class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 shadow-sm transition-colors flex items-center justify-center gap-2"
                 @click="
                   () => {
                     reportDetailsModalOpen = false;
@@ -651,6 +610,20 @@
                   }
                 "
               >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
                 {{ t('common.delete') }}
               </button>
             </div>
@@ -723,7 +696,7 @@ const loading = ref(true);
 const totalItems = ref(0);
 const totalPages = ref(1);
 const currentPage = ref(1);
-const limit = ref(500); // Increased for virtual scrolling
+const limit = ref(100); // Reduced for better initial load performance while maintaining scroll fluidity
 const searchQuery = ref('');
 const showReportedOnly = ref(false);
 
@@ -980,37 +953,6 @@ const formatDate = (dateStr: string): string => {
   }).format(date);
 };
 
-const displayedPages = computed(() => {
-  const current = currentPage.value;
-  const total = totalPages.value;
-  const delta = 1; // How many pages to show on each side of current
-
-  const left = current - delta;
-  const right = current + delta;
-  const range = [];
-  const rangeWithDots = [];
-  let l;
-
-  for (let i = 1; i <= total; i++) {
-    if (i === 1 || i === total || (i >= left && i <= right)) {
-      range.push(i);
-    }
-  }
-
-  for (const i of range) {
-    if (l) {
-      if (i - l === 2) {
-        rangeWithDots.push(l + 1);
-      } else if (i - l !== 1) {
-        rangeWithDots.push('...');
-      }
-    }
-    rangeWithDots.push(i);
-    l = i;
-  }
-
-  return rangeWithDots;
-});
 
 watch(showReportedOnly, () => {
   currentPage.value = 1;
@@ -1041,34 +983,6 @@ onMounted(() => {
   background: #d1d5db;
 }
 
-/* Modal Animations */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes zoomIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95) translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-.animate-in.fade-in {
-  animation: fadeIn 0.2s ease-out forwards;
-}
-
-.animate-in.zoom-in-95 {
-  animation: zoomIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
 
 .scroller {
   height: 100%;

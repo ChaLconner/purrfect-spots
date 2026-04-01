@@ -7,6 +7,7 @@ import ReportModal from '@/components/ui/ReportModal.vue';
 import { useToast } from '@/components/toast/use-toast';
 import { useI18n } from 'vue-i18n';
 import { getAvatarFallback, handleAvatarError } from '@/utils/avatar';
+import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 
 const props = defineProps<{
   image: CatLocation | null;
@@ -50,17 +51,22 @@ const handleReportClick = (): void => {
 <template>
   <Transition
     enter-active-class="transition duration-300 ease-out"
-    enter-from-class="opacity-0 scale-95"
-    enter-to-class="opacity-100 scale-100"
+    enter-from-class="opacity-0"
+    enter-to-class="opacity-100"
     leave-active-class="transition duration-200 ease-in"
-    leave-from-class="opacity-100 scale-100"
-    leave-to-class="opacity-0 scale-95"
+    leave-from-class="opacity-100"
+    leave-to-class="opacity-0"
   >
     <div
       v-if="isOpen && image"
-      class="fixed inset-0 bg-stone-900/80 backdrop-blur-md z-[150] flex items-center justify-center p-4 md:p-8"
+      class="fixed inset-0 z-[150] flex items-center justify-center p-4 md:p-8 overflow-hidden"
       @click="$emit('close')"
     >
+      <!-- Ghibli-themed Blurred Backdrop -->
+      <div class="absolute inset-0 z-[-1] overflow-hidden">
+        <GhibliBackground />
+        <div class="absolute inset-0 bg-[#0a0a0c]/60 backdrop-blur-[32px]"></div>
+      </div>
       <BaseCard
         variant="white"
         padding="none"

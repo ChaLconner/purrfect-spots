@@ -116,7 +116,7 @@ describe('useUploadCat', () => {
     expect(error.value).toBe('Invalid data');
 
     // Default Error
-    // @ts-ignore
+    // @ts-expect-error test unknown error type
     mockError = new api.ApiError('UNKNOWN', 'Something weird');
     vi.spyOn(api, 'uploadFile').mockRejectedValue(mockError);
     await uploadCatPhoto(mockFile, mockLocationData);
@@ -168,9 +168,9 @@ describe('useUploadCat', () => {
     expect(uploadProgress.value).toBe(0);
   });
 
-  it('should fetch quota status', async () => {
+  it('should fetch quota status', async (): Promise<void> => {
     const mockQuota = { used: 1, limit: 5, remaining: 4, is_pro: false };
-    // @ts-ignore
+    // @ts-expect-error mock private API
     vi.spyOn(api.api, 'get').mockResolvedValue(mockQuota);
 
     const { getUploadQuota } = useUploadCat();
@@ -180,10 +180,10 @@ describe('useUploadCat', () => {
     expect(result).toEqual(mockQuota);
   });
 
-  it('should handle quota fetch errors', async () => {
-    // @ts-ignore
+  it('should handle quota fetch errors', async (): Promise<void> => {
+    // @ts-expect-error mock private API
     vi.spyOn(api.api, 'get').mockRejectedValue(new Error('Quota fail'));
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation((): void => {});
 
     const { getUploadQuota } = useUploadCat();
     const result = await getUploadQuota();

@@ -4,10 +4,10 @@ from typing import Any
 from postgrest.types import CountMethod
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from supabase import AClient
 
 from config import config
 from logger import logger
+from supabase import AClient
 
 
 class QuotaService:

@@ -31,8 +31,7 @@ function updateApiHeader(accessToken: string | null): void {
 function sanitizeUserForCache(userData: User | null): Partial<User> | null {
   if (!userData) return null;
   // Omit sensitive/volatile fields that should only be trusted from the verified token/API
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { stripe_customer_id, treat_balance, ...safeData } = userData;
+  const { stripe_customer_id: _stripe, treat_balance: _balance, ...safeData } = userData;
   return safeData;
 }
 
@@ -259,8 +258,8 @@ export const useAuthStore = defineStore('auth', () => {
   async function logout(): Promise<void> {
     try {
       await apiV1.post('/auth/logout');
-    } catch (e) {
-      console.warn('Logout API call failed', e);
+    } catch {
+      // Logout failure silently handled
     } finally {
       clearAuth();
     }

@@ -334,10 +334,10 @@ app.include_router(health_router)
 app.add_middleware(HTTPSRedirectMiddleware)
 
 # Trust X-Forwarded-For headers from proxies (e.g. AWS LB, Vercel)
-# This prevents IP spoofing in rate limiting
+# Only explicitly trusted proxies may rewrite client IP information
 app.add_middleware(
     ProxyHeadersMiddleware,
-    trusted_hosts=os.getenv("TRUSTED_HOSTS", "*").split(","),
+    trusted_hosts=config.get_trusted_proxy_hosts(),
 )
 
 # Security headers (CSP, HSTS, X-Frame-Options, etc.)

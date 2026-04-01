@@ -48,7 +48,7 @@ class TestAdminRoutesExtended:
         )
 
         with patch(
-            "routes.admin.users.get_async_supabase_admin_client",
+            "routes.admin.roles.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):

@@ -64,51 +64,27 @@ class GalleryReadMixin(GalleryBaseMixin):
     async def _fetch_photos_sql(self, limit: int, offset: int, user_id: str | None) -> list[dict[str, Any]]:
         if not self.db:
             return []
-        try:
-            # RPC handles column selection internally; SQL fallback updated
-            query = text("SELECT * FROM get_gallery_photos_with_likes(:p_limit, :p_offset, :p_user_id)")
-            result = await self.db.execute(query, {"p_limit": limit, "p_offset": offset, "p_user_id": user_id})
-            return [dict(row._asdict()) for row in result.fetchall()]
-        except Exception as db_err:
-            logger.warning(f"SQLAlchemy RPC failed, falling back to direct query: {db_err}")
-            query = text(
-                f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE deleted_at IS NULL ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
-            )
-            result = await self.db.execute(query, {"limit": limit, "offset": offset})
-            return [dict(row._asdict()) for row in result.fetchall()]
+        query = text(
+            f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE {self._sql_visibility_clause()} ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"  # noqa: S608
+        )
+        result = await self.db.execute(query, {"limit": limit, "offset": offset})
+        return [dict(row._asdict()) for row in result.fetchall()]
 
     async def _fetch_photos_supabase(self, limit: int, offset: int, user_id: str | None) -> list[dict[str, Any]]:
-        rpc_params: dict[str, Any] = {"p_limit": limit, "p_offset": offset}
-        if user_id:
-            rpc_params["p_user_id"] = user_id
-        try:
-            res = await self.supabase.rpc("get_gallery_photos_with_likes", rpc_params).execute()
-            return res.data or []
-        except Exception as rpc_error:
-            logger.warning(f"Async RPC failed, falling back to direct query: {rpc_error}")
-            # JOIN user info to avoid N+1 waterfalls in the frontend
-            select_str = f"{self.PHOTO_COLUMNS}, user:users!user_id(name, picture)"
-            res_direct = await (
-                self.supabase.table("cat_photos")
-                .select(select_str)
-                .is_("deleted_at", "null")
-                .order("uploaded_at", desc=True)
-                .range(offset, offset + limit - 1)
-                .execute()
-            )
-            return res_direct.data or []
+        query = self._apply_visibility_filter(self.supabase.table("cat_photos").select(self.PHOTO_COLUMNS))
+        res = await query.order("uploaded_at", desc=True).range(offset, offset + limit - 1).execute()
+        return res.data or []
 
     async def _fetch_total_count(self, data: list[dict[str, Any]]) -> int:
         try:
             if self.db:
-                total_res = await self.db.execute(text("SELECT count(*) FROM cat_photos WHERE deleted_at IS NULL"))
+                total_res = await self.db.execute(
+                    text(f"SELECT count(*) FROM cat_photos WHERE {self._sql_visibility_clause()}")  # noqa: S608
+                )
                 return total_res.scalar() or 0
-            res_count = await (
-                self.supabase.table("cat_photos")
-                .select("id", count=CountMethod.exact)
-                .is_("deleted_at", "null")
-                .execute()
-            )
+            res_count = await self._apply_visibility_filter(
+                self.supabase.table("cat_photos").select("id", count=CountMethod.exact)
+            ).execute()
             return res_count.count or 0
         except Exception as e:
             logger.error(f"Count fetch failed: {e}")
@@ -120,15 +96,17 @@ class GalleryReadMixin(GalleryBaseMixin):
             if self.db:
                 result = await self.db.execute(
                     text(
-                        "SELECT id, latitude, longitude, location_name, image_url, user_id FROM cat_photos WHERE deleted_at IS NULL ORDER BY uploaded_at DESC LIMIT 2000"
+                        f"SELECT id, latitude, longitude, location_name, image_url, user_id FROM cat_photos WHERE {self._sql_visibility_clause()} ORDER BY uploaded_at DESC LIMIT 2000"  # noqa: S608
                     )
                 )
                 data = [dict(row._asdict()) for row in result.fetchall()]
             else:
-                res = await (
-                    self.supabase.table("cat_photos")
-                    .select("id,latitude,longitude,location_name,image_url,user_id")
-                    .is_("deleted_at", "null")
+                res = (
+                    await self._apply_visibility_filter(
+                        self.supabase.table("cat_photos").select(
+                            "id,latitude,longitude,location_name,image_url,user_id"
+                        )
+                    )
                     .order("uploaded_at", desc=True)
                     .limit(2000)
                     .execute()
@@ -149,23 +127,22 @@ class GalleryReadMixin(GalleryBaseMixin):
 
             raise ExternalServiceError(f"Failed to fetch map locations: {e!s}", service="Supabase")
 
-    async def get_photo_by_id(self, photo_id: str) -> dict[str, Any] | None:
+    async def get_photo_by_id(self, photo_id: str, include_unapproved: bool = False) -> dict[str, Any] | None:
         try:
             data = None
             if self.db:
-                sql = f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE id = :id AND deleted_at IS NULL LIMIT 1"
+                sql = f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE id = :id AND {self._sql_visibility_clause(include_unapproved)} LIMIT 1"  # noqa: S608
                 result = await self.db.execute(text(sql), {"id": photo_id})
                 row = result.fetchone()
                 if row:
                     data = [dict(row._asdict())]
             if not data:
-                # JOIN user info for single photo view as well
-                select_str = f"{self.PHOTO_COLUMNS}, user:users!user_id({self.USER_COLUMNS})"
-                res = await (
-                    self.supabase.table("cat_photos")
-                    .select(select_str)
+                res = (
+                    await self._apply_visibility_filter(
+                        self.supabase.table("cat_photos").select(self.PHOTO_COLUMNS),
+                        include_unapproved=include_unapproved,
+                    )
                     .eq("id", photo_id)
-                    .is_("deleted_at", "null")
                     .limit(1)
                     .execute()
                 )
@@ -206,14 +183,14 @@ class GalleryReadMixin(GalleryBaseMixin):
         try:
             if self.db:
                 db_res = await self.db.execute(
-                    text(f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE deleted_at IS NULL ORDER BY uploaded_at DESC LIMIT :limit"),
+                    text(
+                        f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE {self._sql_visibility_clause()} ORDER BY uploaded_at DESC LIMIT :limit"  # noqa: S608
+                    ),
                     {"limit": limit},
                 )
                 return [dict(row._asdict()) for row in db_res.fetchall()]
-            supa_res = await (
-                self.supabase.table("cat_photos")
-                .select(self.PHOTO_COLUMNS)
-                .is_("deleted_at", "null")
+            supa_res = (
+                await self._apply_visibility_filter(self.supabase.table("cat_photos").select(self.PHOTO_COLUMNS))
                 .order("uploaded_at", desc=True)
                 .limit(limit)
                 .execute()

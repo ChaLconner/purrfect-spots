@@ -20,12 +20,15 @@ class TestReportService:
         mock_select.execute = mock_execute
 
         service = ReportService(mock_supabase)
-        result = await service.create_report("photo-123", "user-123", "spam", "detail")
+        result = await service.create_report(
+            photo_id="photo-123", reporter_id="user-123", reason="spam", details="detail"
+        )
 
         assert result["id"] == "report-123"
         mock_table.insert.assert_called_once_with(
             {
                 "photo_id": "photo-123",
+                "comment_id": None,
                 "reporter_id": "user-123",
                 "reason": "spam",
                 "details": "detail",

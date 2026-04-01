@@ -138,15 +138,18 @@ class TestAdminRoutes:
         """Test stats failure handling"""
         mock_supabase_admin.execute.side_effect = Exception("Stats error")
 
-        with patch(
-            "routes.admin.stats.get_async_supabase_admin_client",
-            new_callable=AsyncMock,
-            return_value=mock_supabase_admin,
+        with (
+            patch("routes.admin.stats.redis_service.get", return_value=None),
+            patch(
+                "routes.admin.stats.get_async_supabase_admin_client",
+                new_callable=AsyncMock,
+                return_value=mock_supabase_admin,
+            ),
         ):
             response = client.get("/api/v1/admin/stats")
 
         assert response.status_code == 500
-        assert "Failed to fetch system statistics" in response.json()["detail"]
+        assert "Failed to fetch statistics" in response.json()["detail"]
 
     def test_delete_user_success(self, client, override_admin, mock_supabase_admin):
         """Test deleting a user"""

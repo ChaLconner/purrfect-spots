@@ -2,8 +2,8 @@ import datetime
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from supabase import AClient
 
+from supabase import AClient
 from utils.cache import cache
 
 

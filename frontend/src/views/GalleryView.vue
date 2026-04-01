@@ -44,6 +44,8 @@
         :total-images="modalTotalImages"
         @close="closeModal"
         @navigate="handleModalNavigate"
+        @update:liked="handleImageLikedUpdate"
+        @update:likes-count="handleImageLikesCountUpdate"
       />
     </div>
   </div>
@@ -204,6 +206,18 @@ const modalTotalImages = computed(() => {
 const modalCurrentIndex = computed(() => {
   return isDeepLinked.value ? 0 : currentImageIndex.value;
 });
+
+function handleImageLikedUpdate(val: boolean): void {
+  if (selectedImage.value) {
+    selectedImage.value.liked = val;
+  }
+}
+
+function handleImageLikesCountUpdate(val: number): void {
+  if (selectedImage.value) {
+    selectedImage.value.likes_count = val;
+  }
+}
 
 async function syncStateFromUrl(): Promise<void> {
   // Wait for auth before syncing to avoid context issues or 401s

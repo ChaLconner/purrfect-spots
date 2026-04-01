@@ -81,7 +81,7 @@
               <span
                 class="font-accent font-bold text-[0.85rem] text-[var(--color-btn-shade-a)] tracking-tight uppercase"
               >
-                {{ catsStore.galleryCount || catsStore.catCount }} {{ $t('cats.cats') }}
+                {{ catsStore.searchQuery ? (catsStore.galleryCount || visibleCount) : visibleCount }} {{ $t('cats.cats') }}
               </span>
               <span
                 class="font-accent text-[0.65rem] font-bold text-[var(--color-btn-shade-a)]/70 mt-0.5"
@@ -160,6 +160,28 @@ const displayedLocations = computed(() => catsStore.filteredLocations);
 const isViewportFetching = ref(false);
 const latestImageRequestId = ref(0);
 const viewportFetchTimer = ref<ReturnType<typeof setTimeout> | null>(null);
+
+// Map bounds tracking for visible counter
+const mapBounds = ref<google.maps.LatLngBounds | null>(null);
+
+/**
+ * Filter markers to only those visible in the current viewport
+ * Used for the "Spotted Nearby" badge to ensure the number matches what the user sees
+ */
+const visibleCount = computed(() => {
+  if (!map.value || !mapBounds.value) return displayedLocations.value.length;
+  
+  const currentBounds = mapBounds.value;
+  return displayedLocations.value.filter(loc => {
+    try {
+      // Use Google Maps LatLngBounds.contains API for accurate geometric check
+      return currentBounds.contains({ lat: loc.latitude, lng: loc.longitude });
+    } catch {
+      // Fallback to inclusion if geometric check fails
+      return true;
+    }
+  }).length;
+});
 
 // ==========================================
 // Handlers
@@ -253,8 +275,14 @@ const initializeMap = async (): Promise<void> => {
       // styles: ghibliMapStyle, // Disabled: styles are controlled via Cloud Console when mapId is set
     });
 
+    // Initialize bounds immediately
+    mapBounds.value = map.value.getBounds() || null;
+
     // Listeners with requestAnimationFrame for smooth performance
     map.value.addListener('idle', () => {
+      if (map.value) {
+        mapBounds.value = map.value.getBounds() || null;
+      }
       requestAnimationFrame(() => {
         debouncedViewportFetch();
       });
@@ -480,7 +508,15 @@ onMounted(() => {
   // Start map initialization immediately to improve LCP
   initializeMap();
 
-  // Load data concurrently (handled by viewport observer instead)
+  // Load all marker locations once for a better initial discovery experience
+  // This ensures the badge count is "reasonable" even before the first viewport fetch
+  GalleryService.getLocations().then(allLocations => {
+    if (allLocations && allLocations.length > 0) {
+      catsStore.appendLocations(allLocations);
+    }
+  }).catch(err => {
+    console.warn('Failed to pre-fetch marker locations:', err);
+  });
 });
 
 onUnmounted(() => {

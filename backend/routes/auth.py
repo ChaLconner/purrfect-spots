@@ -27,10 +27,11 @@ from schemas.auth import (
     SessionExchangeRequest,
     VerifyOTPRequest,
 )
-from schemas.user import UserResponse
+from schemas.user import User, UserResponse
 from services.auth_service import AuthService
 from services.email_service import email_service
 from services.otp_service import OTPService
+from services.password_service import password_service
 from utils.auth_response_utils import create_login_response
 from utils.auth_utils import get_client_info, set_refresh_cookie
 from utils.exceptions import ConflictError
@@ -40,6 +41,13 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 # AuthService is now imported from dependencies
+
+
+def _ensure_user_not_banned(user: User | dict[str, Any] | Any) -> None:
+    """Block token issuance for suspended accounts."""
+    banned_at = user.get("banned_at") if isinstance(user, dict) else getattr(user, "banned_at", None)
+    if banned_at:
+        raise HTTPException(status_code=403, detail="Account suspended")
 
 
 # ==========================================
@@ -65,6 +73,12 @@ async def register(
     try:
         if not data.name.strip():
             raise HTTPException(status_code=400, detail="Please enter first and last name")
+
+        is_valid, password_error = await password_service.validate_new_password(data.password, check_breach=False)
+        if not is_valid:
+            raise HTTPException(
+                status_code=400, detail=password_error or "Password does not meet security requirements"
+            )
 
         sanitized_name = sanitize_text(data.name.strip(), max_length=100)
 
@@ -158,6 +172,7 @@ async def verify_otp(
         # 4. Success - Create login response
         # This will create or update the user in our DB and generate both tokens
         user = await auth_service.create_or_get_user(user_info)
+        _ensure_user_not_banned(user)
 
         log_security_event("otp_verified", details={"user_id": user.id, "email": req.email}, severity="INFO")
 
@@ -233,6 +248,7 @@ async def login(
         if not user_data:
             log_security_event("login_failed_invalid_credentials", details={"email": req.email}, severity="WARNING")
             raise HTTPException(status_code=401, detail="Invalid email or password.")
+        _ensure_user_not_banned(user_data)
 
         # user_data now contains data from Supabase, but we want our own tokens
         return create_login_response(auth_service, user_data, request, response)
@@ -274,6 +290,10 @@ async def refresh_token(
             logger.warning("User not found during token refresh: %s", user_id)
             response.delete_cookie("refresh_token")
             return LoginResponse(access_token=None, token_type=None, message="User not found")
+        if user_obj.banned_at:
+            logger.info("Blocked refresh for suspended user: %s", user_id)
+            response.delete_cookie("refresh_token")
+            return LoginResponse(access_token=None, token_type=None, message="Account suspended")
 
         # Rotate token: revoke old one if it has a JTI
         old_jti = payload.get("jti")
@@ -405,6 +425,7 @@ async def exchange_session(
         # Prepare data for responders (handle both models and dicts)
         user_payload: Any
         if db_user:
+            _ensure_user_not_banned(db_user)
             user_payload = db_user
         else:
             user_payload = {
@@ -514,10 +535,13 @@ async def google_login(
     try:
         user_data = auth_service.verify_google_token(token_data.token)
         user = await auth_service.create_or_get_user(user_data)
+        _ensure_user_not_banned(user)
 
         log_security_event("google_login_success", details={"user_id": user.id}, severity="INFO")
         return create_login_response(auth_service, user, request, response)
 
+    except HTTPException:
+        raise
     except ValueError as e:
         logger.warning("Google token verification failed: %s", e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
@@ -593,6 +617,8 @@ async def google_exchange_code(
             login_response = await auth_service.exchange_google_code(
                 exchange_data.code, exchange_data.code_verifier, exchange_data.redirect_uri, ip, ua
             )
+        except PermissionError as e:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
         except ValueError as e:
             logger.warning("[OAuth] Invalid code exchange: %s", e)
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e

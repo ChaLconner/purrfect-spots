@@ -31,6 +31,7 @@ def mock_supabase():
 
     mock_select_user = MagicMock()
     mock_select_user.eq.return_value = mock_eq_user
+    mock_select_user.ilike.return_value = mock_eq_user
 
     mock_select_role = MagicMock()
     mock_select_role.eq.return_value = mock_eq_role
@@ -102,8 +103,14 @@ async def test_get_user_by_username(user_service):
 
 @pytest.mark.asyncio
 async def test_create_unverified_user(user_service):
-    user = await user_service.create_unverified_user("a@a.com", "pass", "A")
+    user = await user_service.create_unverified_user("a@a.com", "ValidPass123!", "A")
     assert user["id"] == "1"
+
+
+@pytest.mark.asyncio
+async def test_create_unverified_user_rejects_weak_password(user_service):
+    with pytest.raises(ValueError, match="Password must be at least"):
+        await user_service.create_unverified_user("a@a.com", "weakpass", "A")
 
 
 @pytest.mark.asyncio

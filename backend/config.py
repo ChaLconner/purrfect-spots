@@ -8,6 +8,7 @@ Uses fail-fast approach for required variables in production.
 import os
 import warnings
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
 
@@ -248,6 +249,10 @@ class Config:
     # ==========================================
     STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
     STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
+    STRIPE_PRO_PRICE_ID = os.getenv("STRIPE_PRO_PRICE_ID")
+
+    # Operational controls
+    EXPOSE_DETAILED_HEALTH = os.getenv("EXPOSE_DETAILED_HEALTH", "").lower() in ("true", "1", "yes")
 
     # Treat packages are now managed in the database (public.treat_packages)
     # Use TreatsService.get_packages() to fetch them.
@@ -316,6 +321,63 @@ class Config:
                 allowed.append(url)
 
         return list(set(allowed))
+
+    @staticmethod
+    def get_trusted_proxy_hosts() -> list[str]:
+        """
+        Get the proxy IPs/CIDRs allowed to set forwarded headers.
+
+        Wildcard trust is intentionally rejected because it allows any client
+        to spoof X-Forwarded-* headers.
+        """
+        default_hosts = ["127.0.0.1", "::1"]
+        raw_hosts = get_env_with_fallback("TRUSTED_PROXY_HOSTS", "TRUSTED_HOSTS")
+
+        if not raw_hosts:
+            return default_hosts
+
+        hosts = [host.strip() for host in raw_hosts.split(",") if host.strip()]
+        if not hosts or "*" in hosts:
+            warnings.warn(
+                "Wildcard trusted proxy configuration is unsafe. Falling back to loopback-only trusted proxies.",
+                UserWarning,
+                stacklevel=2,
+            )
+            return default_hosts
+
+        return hosts
+
+    @staticmethod
+    def get_frontend_origin() -> str:
+        """Return the canonical frontend origin without any path component."""
+        parsed = urlsplit(Config.FRONTEND_URL)
+        if parsed.scheme and parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}"
+        return Config.FRONTEND_URL.rstrip("/")
+
+    @staticmethod
+    def resolve_frontend_url(candidate_url: str | None = None, default_path: str = "/") -> str:
+        """
+        Build a safe frontend redirect URL.
+
+        Only same-origin absolute URLs or local paths are accepted; everything
+        else falls back to the configured frontend URL.
+        """
+        base_origin = Config.get_frontend_origin()
+        safe_path = default_path if default_path.startswith("/") else f"/{default_path}"
+
+        if candidate_url:
+            parsed = urlsplit(candidate_url)
+            if parsed.scheme and parsed.netloc:
+                candidate_origin = f"{parsed.scheme}://{parsed.netloc}"
+                if candidate_origin == base_origin:
+                    safe_path = parsed.path or "/"
+                    if parsed.query:
+                        safe_path = f"{safe_path}?{parsed.query}"
+            elif candidate_url.startswith("/") and not candidate_url.startswith("//"):
+                safe_path = candidate_url
+
+        return f"{base_origin}{safe_path}"
 
     @staticmethod
     def get_redirect_uris() -> list[str]:

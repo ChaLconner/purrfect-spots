@@ -4,11 +4,11 @@ from typing import Any, cast
 
 import stripe
 from starlette.concurrency import run_in_threadpool
-from supabase import AClient
 
 from logger import logger, sanitize_log_value
 from schemas.notification import NotificationType
 from services.notification_service import NotificationService
+from supabase import AClient
 from utils.cache import cached_leaderboard
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
@@ -241,7 +241,7 @@ class TreatsService:
 
                 # Get recent transactions
                 trans_query = text(
-                    f"SELECT {self.TRANSACTION_COLUMNS} FROM treats_transactions "
+                    f"SELECT {self.TRANSACTION_COLUMNS} FROM treats_transactions "  # noqa: S608
                     "WHERE from_user_id = :u_id OR to_user_id = :u_id "
                     "ORDER BY created_at DESC "
                     "LIMIT 10"

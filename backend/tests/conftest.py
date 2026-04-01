@@ -19,6 +19,7 @@ os.environ["REDIS_URL"] = ""
 # Set JWT secrets for testing
 os.environ["JWT_SECRET"] = "test-secret-key-at-least-32-chars-long"
 os.environ["JWT_REFRESH_SECRET"] = "test-refresh-secret-key-at-least-32-chars-long"
+os.environ["STRIPE_PRO_PRICE_ID"] = "price_pro_test"
 
 # Add backend directory to path so imports work
 sys.path.append(str(Path(__file__).parent.parent))
@@ -75,6 +76,14 @@ sys.modules["mcp"] = mock_mcp
 sys.modules["mcp.server"] = MagicMock()
 sys.modules["mcp.server.lowlevel"] = MagicMock()
 sys.modules["mcp.server.fastmcp"] = MagicMock()
+
+# Mock structlog if it is not installed in the local test environment
+try:
+    import structlog  # noqa: F401
+except ImportError:
+    mock_structlog = MagicMock()
+    mock_structlog.get_logger.return_value = MagicMock()
+    sys.modules["structlog"] = mock_structlog
 
 # Mock sentry_sdk.integrations.mcp to prevent "MCP SDK not installed" error in main.py
 mock_sentry_mcp = MagicMock()

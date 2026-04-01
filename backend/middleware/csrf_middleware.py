@@ -12,11 +12,13 @@ import os
 import secrets
 from collections.abc import Awaitable, Callable
 from typing import Any
+from urllib.parse import urlsplit
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
 
+from config import config
 from logger import logger
 
 
@@ -40,10 +42,12 @@ class CSRFMiddleware(BaseHTTPMiddleware):
     CSRF_COOKIE_NAME = "csrf_token"
     CSRF_HEADER_NAME = "X-CSRF-Token"
     SAFE_METHODS: set[str] = {"GET", "HEAD", "OPTIONS", "TRACE"}
+    COOKIE_AUTH_PATHS: set[str] = {"/api/v1/auth/refresh-token", "/api/v1/auth/logout"}
 
     def __init__(self, app: Any, exempt_paths: list[str] | None = None) -> None:
         super().__init__(app)
         self.is_production = os.getenv("ENVIRONMENT", "development").lower() == "production"
+        self.allowed_origins = {origin.rstrip("/") for origin in config.get_allowed_origins()}
         # Default exempt paths - APIs that don't need CSRF
         # (they use other auth mechanisms like OAuth tokens)
         # SECURITY REVIEW: Only exempt endpoints that are truly stateless or use other auth mechanisms
@@ -80,6 +84,24 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             return response
 
         # Skip exempt paths
+        if self._requires_same_origin_check(request):
+            origin = self._extract_request_origin(request)
+            if not origin or origin not in self.allowed_origins:
+                logger.warning(
+                    "Blocked cross-site cookie-auth request: path=%s origin=%s referer=%s",
+                    request.url.path,
+                    origin,
+                    request.headers.get("referer"),
+                )
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "error": True,
+                        "error_code": "CSRF_ORIGIN_MISMATCH",
+                        "message": "Cross-site request blocked. Please retry from the Purrfect Spots app.",
+                    },
+                )
+
         if self._is_exempt_path(request.url.path):
             return await call_next(request)
 
@@ -127,6 +149,30 @@ class CSRFMiddleware(BaseHTTPMiddleware):
     def _is_exempt_path(self, path: str) -> bool:
         """Check if path is exempt from CSRF validation"""
         return any(path.startswith(exempt) for exempt in self.exempt_paths)
+
+    def _requires_same_origin_check(self, request: Request) -> bool:
+        """Require same-origin validation for cookie-authenticated exempt endpoints."""
+        return (
+            self.is_production
+            and request.url.path in self.COOKIE_AUTH_PATHS
+            and bool(request.cookies.get("refresh_token"))
+        )
+
+    def _extract_request_origin(self, request: Request) -> str | None:
+        """Extract the request origin from Origin or Referer headers."""
+        origin = request.headers.get("origin")
+        if origin:
+            return origin.rstrip("/")
+
+        referer = request.headers.get("referer")
+        if not referer:
+            return None
+
+        parsed = urlsplit(referer)
+        if not parsed.scheme or not parsed.netloc:
+            return None
+
+        return f"{parsed.scheme}://{parsed.netloc}"
 
     def _set_csrf_cookie(self, request: Request, response: Response) -> Response:
         """Set CSRF token cookie if not already present"""

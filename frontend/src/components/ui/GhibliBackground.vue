@@ -1,6 +1,6 @@
 <template>
   <div
-    class="fixed inset-0 z-0 pointer-events-none overflow-hidden box-border"
+    class="absolute inset-0 z-0 pointer-events-none overflow-hidden box-border translate-z-0"
     style="background: linear-gradient(180deg, #eaf6f3 0%, #ffffff 100%)"
   >
     <!-- Decorative Background Elements -->

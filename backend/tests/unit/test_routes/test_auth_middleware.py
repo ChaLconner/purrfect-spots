@@ -130,7 +130,10 @@ async def test_get_user_from_payload_supabase_no_db(mock_env):
         },  # NOSONAR python:S5332 - test fixture URL
     }
 
-    with patch("utils.supabase_client.get_async_supabase_admin_client", side_effect=Exception("DB error")):
+    with (
+        patch("services.redis_service.redis_service.get", return_value=None),
+        patch("utils.supabase_client.get_async_supabase_admin_client", side_effect=Exception("DB error")),
+    ):
         user = await _get_user_from_payload(payload, "supabase")
         assert user.id == "00000000-0000-4000-a000-000000000123"
         assert user.name == "Test User"
@@ -147,7 +150,10 @@ async def test_get_user_from_payload_custom(mock_env):
         "iat": 123456,
     }
 
-    with patch("utils.supabase_client.get_async_supabase_admin_client", side_effect=Exception("DB error")):
+    with (
+        patch("services.redis_service.redis_service.get", return_value=None),
+        patch("utils.supabase_client.get_async_supabase_admin_client", side_effect=Exception("DB error")),
+    ):
         user = await _get_user_from_payload(payload, "custom")
         assert user.id == "00000000-0000-4000-a000-000000000123"
         assert user.name == "Custom User"
@@ -177,6 +183,37 @@ async def test_get_user_from_payload_db_success(mock_env):
         user = await _get_user_from_payload(payload, "supabase")
         assert user.email == "db@example.com"
         assert user.bio == "Hello"
+
+
+@pytest.mark.asyncio
+async def test_get_user_from_payload_blocks_banned_user(mock_env):
+    payload = {"sub": "00000000-0000-4000-a000-000000000123"}
+
+    mock_sb = MagicMock()
+    mock_sb.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute = AsyncMock(
+        return_value=MagicMock(
+            data={
+                "id": "00000000-0000-4000-a000-000000000123",
+                "email": "banned@example.com",
+                "name": "Banned User",
+                "banned_at": "2026-03-28T00:00:00Z",
+            }
+        )
+    )
+
+    with (
+        patch("services.redis_service.redis_service.get", return_value=None),
+        patch(
+            "utils.supabase_client.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+        ) as mock_get_admin,
+    ):
+        mock_get_admin.return_value = mock_sb
+        with pytest.raises(HTTPException) as exc:
+            await _get_user_from_payload(payload, "supabase")
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "Account suspended"
 
 
 # --- Tests for verify_and_decode_token ---

@@ -34,6 +34,41 @@ def test_csrf_middleware_exempt_path():
         assert response.status_code == 200
 
 
+def test_csrf_middleware_prod_blocks_cross_site_cookie_auth_requests():
+    with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
+        app = FastAPI()
+        app.add_middleware(CSRFMiddleware)
+
+        @app.post("/api/v1/auth/refresh-token")
+        def refresh_route():
+            return {"status": "ok"}
+
+        client = TestClient(app)
+        client.cookies.set("refresh_token", "refresh-token")
+
+        response = client.post("/api/v1/auth/refresh-token", headers={"Origin": "https://evil.example"})
+
+        assert response.status_code == 403
+        assert response.json()["error_code"] == "CSRF_ORIGIN_MISMATCH"
+
+
+def test_csrf_middleware_prod_allows_same_origin_cookie_auth_requests():
+    with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
+        app = FastAPI()
+        app.add_middleware(CSRFMiddleware)
+
+        @app.post("/api/v1/auth/logout")
+        def logout_route():
+            return {"status": "ok"}
+
+        client = TestClient(app)
+        client.cookies.set("refresh_token", "refresh-token")
+
+        response = client.post("/api/v1/auth/logout", headers={"Origin": "http://localhost:5173"})
+
+        assert response.status_code == 200
+
+
 def test_csrf_middleware_dev_mode():
     with patch.dict(os.environ, {"ENVIRONMENT": "development"}):
         app = FastAPI()

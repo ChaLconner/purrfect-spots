@@ -47,18 +47,8 @@ function getRating(name: string, value: number): 'good' | 'needs-improvement' | 
 /**
  * Log metric to console in development
  */
-function logMetric(metric: WebVitalMetric): void {
-  const colors = {
-    good: 'color: #0cce6b',
-    'needs-improvement': 'color: #ffa400',
-    poor: 'color: #ff4e42',
-  };
-
-  // eslint-disable-next-line no-console
-  console.log(
-    `%c[Web Vitals] ${metric.name}: ${metric.value.toFixed(2)} (${metric.rating})`, // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring
-    colors[metric.rating]
-  );
+function logMetric(_metric: WebVitalMetric): void {
+  // Metric logging removed
 }
 
 /**
@@ -329,10 +319,7 @@ export function initWebVitals(): void {
     }, 100);
   }
 
-  if (isDev()) {
-    // eslint-disable-next-line no-console
-    console.log('[Web Vitals] Monitoring initialized');
-  }
+  // Web Vitals Monitoring initialized
 }
 
 /**

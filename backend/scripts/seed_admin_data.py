@@ -5,9 +5,8 @@ from pathlib import Path
 # Add parent directory to path to import services/config
 sys.path.append(str(Path(__file__).parent.parent))
 
-from supabase import Client, create_client
-
 from config import config
+from supabase import Client, create_client
 
 # Initialize Supabase Client (Service Role for seeding)
 # Check if service role key exists, otherwise warn

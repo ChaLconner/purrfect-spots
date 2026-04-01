@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.responses import JSONResponse
 
 from config import config
-from dependencies import get_gallery_service, get_quota_service, get_storage_service, get_cat_detection_service
+from dependencies import get_cat_detection_service, get_gallery_service, get_quota_service, get_storage_service
 from limiter import get_upload_limit, upload_limiter
 
 limiter = upload_limiter  # Alias for backward compatibility with tests
@@ -37,6 +37,8 @@ router = APIRouter(prefix="/upload", tags=["Upload"])
 def parse_tags(tags_json: str | None) -> list[str]:
     """Backward compatible alias for parse_and_sanitize_tags"""
     return parse_and_sanitize_tags(tags_json)
+
+
 # local dependency functions removed
 
 

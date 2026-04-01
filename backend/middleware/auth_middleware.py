@@ -9,23 +9,43 @@ import httpx
 import jwt
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from supabase import AClient
 
 from config import config
 from logger import logger
 from schemas.user import User
 from services.token_service import get_token_service
+from supabase import AClient
 from utils.auth_utils import decode_token
 from utils.supabase_client import (
     get_async_supabase_client,
 )
 
 security = HTTPBearer(auto_error=False)
+USER_AUTH_CACHE_TTL = 300
 
 # JWKS Cache
 _jwks_cache: dict | None = None
 _jwks_last_update: int = 0
 JWKS_CACHE_TTL = 3600  # 1 hour
+
+
+def get_user_auth_cache_key(user_id: str) -> str:
+    """Build the Redis cache key used for authenticated user snapshots."""
+    return f"user_auth_cache:{user_id}"
+
+
+def invalidate_user_auth_cache(user_id: str) -> None:
+    """Invalidate the cached auth snapshot for a user."""
+    from services.redis_service import redis_service
+
+    redis_service.delete(get_user_auth_cache_key(user_id))
+
+
+def _assert_user_not_banned(user: User) -> User:
+    """Reject requests for users whose account has been suspended."""
+    if user.banned_at:
+        raise HTTPException(status_code=403, detail="Account suspended")
+    return user
 
 
 async def get_jwks() -> dict | None:
@@ -107,6 +127,14 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid token payload")
 
+    # Try Redis Cache first
+    from services.redis_service import redis_service
+
+    cache_key = get_user_auth_cache_key(user_id)
+    cached_data = redis_service.get(cache_key)
+    if cached_data:
+        return _assert_user_not_banned(User(**cached_data))
+
     # Try to get user from database (bypassing RLS)
     try:
         from utils.supabase_client import get_async_supabase_admin_client
@@ -134,7 +162,7 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
                     if perm and "code" in perm:
                         permissions.append(perm["code"])
 
-            return User(
+            user_obj = User(
                 id=data["id"],
                 username=data.get("username"),
                 email=data.get("email", ""),
@@ -151,7 +179,15 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
                 permissions=permissions,
                 created_at=data.get("created_at"),
                 google_id=data.get("google_id"),
+                banned_at=data.get("banned_at"),
             )
+
+            # Save to Redis
+            redis_service.set(cache_key, user_obj.model_dump(), expire=USER_AUTH_CACHE_TTL)
+
+            return _assert_user_not_banned(user_obj)
+    except HTTPException:
+        raise
     except Exception as e:
         # Fallback to payload data if DB lookup fails
         import traceback
@@ -169,29 +205,35 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
     # Construct User from payload
     if source == "supabase":
         user_metadata = payload.get("user_metadata", {})
-        return User(
-            id=user_id,
-            email=payload.get("email", ""),
-            name=user_metadata.get("name", user_metadata.get("full_name", "")),
-            picture=user_metadata.get("avatar_url", user_metadata.get("picture", "")),
-            bio=None,
-            created_at=created_at,
-            google_id=user_metadata.get("provider_id")
-            if payload.get("app_metadata", {}).get("provider") == "google"
-            else None,
-            permissions=permissions,
+        return _assert_user_not_banned(
+            User(
+                id=user_id,
+                email=payload.get("email", ""),
+                name=user_metadata.get("name", user_metadata.get("full_name", "")),
+                picture=user_metadata.get("avatar_url", user_metadata.get("picture", "")),
+                bio=None,
+                created_at=created_at,
+                google_id=user_metadata.get("provider_id")
+                if payload.get("app_metadata", {}).get("provider") == "google"
+                else None,
+                permissions=permissions,
+                banned_at=payload.get("banned_at"),
+            )
         )
     # custom
-    return User(
-        id=user_id,
-        email=payload.get("email", ""),
-        name=payload.get("name", ""),
-        picture=payload.get("picture", ""),
-        bio=payload.get("bio"),
-        created_at=created_at,
-        google_id=payload.get("google_id"),
-        permissions=permissions,
-        role=payload.get("role", "user"),
+    return _assert_user_not_banned(
+        User(
+            id=user_id,
+            email=payload.get("email", ""),
+            name=payload.get("name", ""),
+            picture=payload.get("picture", ""),
+            bio=payload.get("bio"),
+            created_at=created_at,
+            google_id=payload.get("google_id"),
+            permissions=permissions,
+            role=payload.get("role", "user"),
+            banned_at=payload.get("banned_at"),
+        )
     )
 
 

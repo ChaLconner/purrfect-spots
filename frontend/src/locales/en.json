@@ -432,6 +432,11 @@
     "warning": "Warning",
     "info": "Info"
   },
+  "social": {
+    "failedToDelete": "Failed to delete comment",
+    "failedToPost": "Failed to post comment",
+    "failedToUpdate": "Failed to update comment"
+  },
   "subscription": {
     "title": "Support the Purrfect Community",
     "subtitle": "Choose a way to support our furry friends and unlock exclusive features.",

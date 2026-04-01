@@ -357,7 +357,7 @@ const photos = ref<AdminPhoto[]>([]);
 const totalPhotos = ref(0);
 const searchQuery = ref('');
 const page = ref(1);
-const limit = 20;
+const limit = 50;
 const isLoading = ref(false);
 const previewImage = ref<AdminPhoto | null>(null);
 

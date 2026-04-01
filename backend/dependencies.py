@@ -4,8 +4,10 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from services.auth_service import AuthService
+    from services.cat_detection_service import CatDetectionService
     from services.email_service import EmailService
     from services.gallery_service import GalleryService
+    from services.google_vision import GoogleVisionService
     from services.notification_service import NotificationService
     from services.otp_service import OTPService
     from services.quota_service import QuotaService
@@ -13,6 +15,7 @@ if TYPE_CHECKING:
     from services.search_service import SearchService
     from services.seo_service import SeoService
     from services.social_service import SocialService
+    from services.storage_service import StorageService
     from services.subscription_service import SubscriptionService
     from services.token_service import TokenService
     from services.treats_service import TreatsService
@@ -58,18 +61,22 @@ __all__ = [
     "get_cat_detection_service",
 ]
 
-def get_storage_service() -> "StorageService":
+
+def get_storage_service() -> StorageService:
     from services.storage_service import StorageService
+
     return StorageService()
 
-def get_vision_service() -> "GoogleVisionService":
+
+def get_vision_service() -> GoogleVisionService:
     from services.google_vision import GoogleVisionService
+
     return GoogleVisionService()
 
-def get_cat_detection_service(
-    vision_service: "GoogleVisionService" = Depends(get_vision_service)
-) -> "CatDetectionService":
+
+def get_cat_detection_service(vision_service: GoogleVisionService = Depends(get_vision_service)) -> CatDetectionService:
     from services.cat_detection_service import CatDetectionService
+
     return CatDetectionService(vision_service=vision_service)
 
 

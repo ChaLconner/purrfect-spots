@@ -1,14 +1,14 @@
 <template>
   <div class="space-y-6">
-    <div class="flex justify-between items-center">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
       <div>
         <h1 class="text-3xl font-bold text-brown-900 font-display">
           {{ t('admin.treats.title') }}
         </h1>
-        <p class="text-brown-600 mt-1">{{ t('admin.treats.subtitle') }}</p>
+        <p class="text-brown-500 mt-1">{{ t('admin.treats.subtitle') }}</p>
       </div>
       <button
-        class="px-4 py-2 bg-terracotta-500 text-white rounded-lg hover:bg-terracotta-600 transition-all shadow-sm hover:shadow-md flex items-center gap-2"
+        class="px-4 py-2 bg-terracotta-600 text-white rounded-lg font-medium hover:bg-terracotta-700 transition-colors shadow-sm flex items-center gap-2"
         @click="openGrantModal"
       >
         <svg
@@ -28,75 +28,84 @@
     </div>
 
     <!-- Stats summary cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
       <template v-if="statsLoading">
         <div
           v-for="i in 3"
           :key="i"
-          class="bg-white p-6 rounded-xl shadow-sm border border-sand-200 animate-pulse"
+          class="bg-white p-6 rounded-2xl shadow-sm border border-sand-100 animate-pulse"
         >
-          <div class="h-3 w-24 bg-sand-200 rounded mb-3"></div>
-          <div class="h-8 w-32 bg-sand-200 rounded"></div>
+          <div class="h-3 w-24 bg-sand-100 rounded mb-3"></div>
+          <div class="h-8 w-32 bg-sand-100 rounded"></div>
         </div>
       </template>
       <template v-else>
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-sand-200">
-          <p class="text-xs text-brown-500 uppercase tracking-widest font-semibold mb-1">
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-sand-100 hover:border-terracotta-200 transition-colors group">
+          <p class="text-xs text-brown-500 uppercase tracking-wider font-medium mb-2">
             {{ t('admin.treats.total_in_circulation') }}
           </p>
           <p class="text-3xl font-bold text-terracotta-600">
             {{ stats.total_in_circulation?.toLocaleString() || 0 }}
           </p>
         </div>
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-sand-200">
-          <p class="text-xs text-brown-500 uppercase tracking-widest font-semibold mb-1">
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-sand-100 hover:border-sand-200 transition-colors group">
+          <p class="text-xs text-brown-500 uppercase tracking-wider font-medium mb-2">
             {{ t('admin.treats.given_to_cats') }}
           </p>
-          <p class="text-3xl font-bold text-brown-800">
+          <p class="text-3xl font-bold text-brown-900">
             {{ stats.total_given_to_cats?.toLocaleString() || 0 }}
           </p>
         </div>
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-sand-200">
-          <p class="text-xs text-brown-500 uppercase tracking-widest font-semibold mb-1">
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-sand-100 hover:border-sand-200 transition-colors group">
+          <p class="text-xs text-brown-500 uppercase tracking-wider font-medium mb-2">
             {{ t('admin.treats.users_with_treats') }}
           </p>
-          <p class="text-3xl font-bold text-brown-800">{{ stats.user_count_with_balance || 0 }}</p>
+          <p class="text-3xl font-bold text-brown-900">
+            {{ stats.user_count_with_balance || 0 }}
+          </p>
         </div>
       </template>
     </div>
 
     <!-- Transactions section -->
-    <div class="bg-white rounded-xl shadow-sm border border-sand-200 overflow-hidden">
+    <div class="bg-white rounded-2xl shadow-sm border border-sand-100 overflow-hidden">
       <div
-        class="px-6 py-4 border-b border-sand-100 flex flex-wrap justify-between items-center gap-3 bg-sand-50/50"
+        class="p-6 border-b border-sand-100 flex flex-wrap justify-between items-center gap-4"
       >
-        <h2 class="text-lg font-bold text-brown-800">
+        <h2 class="text-xl font-bold text-brown-900">
           {{ t('admin.treats.transaction_history') }}
         </h2>
         <div class="flex items-center gap-3">
           <!-- Filter by type -->
-          <select
-            v-model="filterType"
-            class="text-sm border border-sand-300 rounded-lg px-3 py-1.5 bg-white text-brown-700 focus:ring-2 focus:ring-terracotta-400 outline-none"
-            @change="onFilterChange"
-          >
-            <option value="">{{ t('admin.treats.filter_all_types') }}</option>
-            <option value="purchase">{{ t('admin.treats.type_purchase') }}</option>
-            <option value="give">{{ t('admin.treats.type_give') }}</option>
-            <option value="system_grant">{{ t('admin.treats.type_system_grant') }}</option>
-            <option value="daily_bonus">{{ t('admin.treats.type_daily_bonus') }}</option>
-          </select>
+          <div class="relative">
+            <select
+              v-model="filterType"
+              class="text-sm border border-sand-300 rounded-lg px-4 py-2 bg-white text-brown-700 focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 outline-none transition-colors appearance-none pr-10 min-w-[180px] font-medium"
+              @change="onFilterChange"
+            >
+              <option value="">{{ t('admin.treats.filter_all_types') }}</option>
+              <option value="purchase">{{ t('admin.treats.type_purchase') }}</option>
+              <option value="give">{{ t('admin.treats.type_give') }}</option>
+              <option value="system_grant">{{ t('admin.treats.type_system_grant') }}</option>
+              <option value="daily_bonus">{{ t('admin.treats.type_daily_bonus') }}</option>
+            </select>
+            <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-brown-400">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
           <button
-            class="text-sm text-brown-500 hover:text-brown-700 transition-colors flex items-center gap-1"
+            class="px-3 py-1.5 text-sm font-medium text-brown-600 bg-sand-50 border border-sand-200 rounded-lg hover:bg-sand-100 transition-colors flex items-center gap-2"
             @click="fetchTransactions"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
+              :class="{ 'animate-spin': loading }"
               class="h-4 w-4"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
-              :class="{ 'animate-spin': loading }"
             >
               <path
                 stroke-linecap="round"
@@ -113,16 +122,16 @@
       <div class="overflow-x-auto">
         <table class="w-full text-left">
           <thead>
-            <tr class="bg-sand-50/30 text-xs font-bold text-brown-600 uppercase tracking-wider">
-              <th class="px-6 py-3">{{ t('admin.treats.table.date') }}</th>
-              <th class="px-6 py-3">{{ t('admin.treats.table.type') }}</th>
-              <th class="px-6 py-3 text-right">{{ t('admin.treats.table.amount') }}</th>
-              <th class="px-6 py-3">{{ t('admin.treats.table.from') }}</th>
-              <th class="px-6 py-3">{{ t('admin.treats.table.to') }}</th>
-              <th class="px-6 py-3">{{ t('admin.treats.table.description') }}</th>
+            <tr class="bg-sand-50">
+              <th class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-wider">{{ t('admin.treats.table.date') }}</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-wider">{{ t('admin.treats.table.type') }}</th>
+              <th class="px-6 py-3 text-right text-xs font-medium text-brown-500 uppercase tracking-wider">{{ t('admin.treats.table.amount') }}</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-wider">{{ t('admin.treats.table.from') }}</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-wider">{{ t('admin.treats.table.to') }}</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-wider">{{ t('admin.treats.table.description') }}</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-sand-100">
+          <tbody class="bg-white divide-y divide-sand-200">
             <tr v-if="loading">
               <td colspan="6" class="px-6 py-4">
                 <div v-for="i in 5" :key="i" class="flex gap-4 py-3 animate-pulse">
@@ -148,7 +157,7 @@
               </td>
               <td class="px-6 py-4">
                 <span
-                  class="px-2 py-0.5 rounded-full text-[10px] uppercase font-bold tracking-wider"
+                  class="px-2 py-0.5 rounded-full text-xs uppercase font-semibold leading-5 inline-flex items-center"
                   :class="{
                     'bg-green-100 text-green-700': txn.transaction_type === 'purchase',
                     'bg-blue-100 text-blue-700': txn.transaction_type === 'give',
@@ -195,7 +204,7 @@
       <!-- Pagination -->
       <div
         v-if="totalTransactions > 0"
-        class="px-6 py-4 border-t border-sand-100 flex justify-between items-center bg-sand-50/30"
+        class="px-6 py-4 border-t border-sand-200 flex items-center justify-between"
       >
         <p class="text-sm text-brown-500">
           {{
@@ -209,20 +218,22 @@
         <div class="flex items-center gap-2">
           <button
             :disabled="currentPage === 1"
-            class="px-3 py-1.5 text-sm border border-sand-300 rounded-lg text-brown-600 hover:bg-sand-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            :title="t('common.previous')"
+            class="px-4 py-2 border border-sand-300 rounded-md text-sm font-medium text-brown-700 bg-white hover:bg-sand-50 disabled:opacity-50 disabled:cursor-not-allowed"
             @click="prevPage"
           >
-            {{ t('common.previous') }}
+            {{ t('admin.pagination.previous') }}
           </button>
-          <span class="text-sm text-brown-600 font-medium">
+          <span class="text-sm text-brown-600">
             {{ t('admin.treats.pagination_page', { page: currentPage, total: totalPages }) }}
           </span>
           <button
             :disabled="currentPage >= totalPages"
-            class="px-3 py-1.5 text-sm border border-sand-300 rounded-lg text-brown-600 hover:bg-sand-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            :title="t('common.next')"
+            class="px-4 py-2 border border-sand-300 rounded-md text-sm font-medium text-brown-700 bg-white hover:bg-sand-50 disabled:opacity-50 disabled:cursor-not-allowed"
             @click="nextPage"
           >
-            {{ t('common.next') }}
+            {{ t('admin.pagination.next') }}
           </button>
         </div>
       </div>
@@ -231,36 +242,53 @@
     <!-- Manual Grant Modal -->
     <div
       v-if="showGrantModal"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-brown-900/60 backdrop-blur-sm"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50"
       @click.self="closeGrantModal"
     >
       <div
-        class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 border border-sand-200 transform transition-all"
+        class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 border border-sand-100 relative overflow-hidden"
         @click.stop
       >
-        <h3 class="text-2xl font-bold text-brown-900 mb-6 font-display">
-          {{ t('admin.treats.grant_treats') }}
-        </h3>
+        <!-- Decorative elements -->
+
+        
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-bold text-brown-900">
+            {{ t('admin.treats.grant_treats') }}
+          </h3>
+          <button class="p-2 hover:bg-sand-50 rounded-full transition-colors text-brown-400 hover:text-brown-600" @click="closeGrantModal">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
         <form class="space-y-4" @submit.prevent="submitGrant">
           <!-- User search -->
           <div class="relative">
-            <label class="block text-sm font-bold text-brown-700 mb-1">{{
+            <label class="block text-sm font-medium text-brown-700 mb-1">{{
               t('admin.treats.user_search_label')
             }}</label>
-            <input
-              v-model="userSearchQuery"
-              type="text"
-              :placeholder="t('admin.treats.user_search_placeholder')"
-              class="w-full px-4 py-2 border border-sand-300 rounded-lg focus:ring-2 focus:ring-terracotta-400 outline-none text-brown-800 bg-sand-50"
-              autocomplete="off"
-              @input="onUserSearch"
-              @focus="showUserDropdown = true"
-            />
+            <div class="relative group">
+              <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brown-400 group-focus-within:text-terracotta-500 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <input
+                v-model="userSearchQuery"
+                type="text"
+                :placeholder="t('admin.treats.user_search_placeholder')"
+                class="w-full pl-10 pr-4 py-2 border border-sand-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 transition-colors text-brown-800"
+                autocomplete="off"
+                @input="onUserSearch"
+                @focus="showUserDropdown = true"
+              />
+            </div>
             <!-- User dropdown -->
             <div
               v-if="showUserDropdown && (userSearchResults.length || userSearching)"
-              class="absolute z-10 w-full mt-1 bg-white border border-sand-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+              class="absolute z-10 w-full mt-1 bg-white border border-sand-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"
             >
               <div v-if="userSearching" class="px-4 py-3 text-sm text-brown-400 italic">
                 {{ t('common.searching') }}
@@ -288,7 +316,7 @@
           <!-- Selected user display -->
           <div
             v-if="grantForm.user_id"
-            class="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg"
+            class="flex items-center gap-3 px-4 py-3 bg-green-50/50 border border-green-100 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -324,7 +352,7 @@
           </div>
 
           <div>
-            <label class="block text-sm font-bold text-brown-700 mb-1">{{
+            <label class="block text-sm font-medium text-brown-700 mb-1">{{
               t('admin.treats.amount')
             }}</label>
             <input
@@ -333,11 +361,11 @@
               required
               min="1"
               max="10000"
-              class="w-full px-4 py-2 border border-sand-300 rounded-lg focus:ring-2 focus:ring-terracotta-400 outline-none text-brown-800 bg-sand-50"
+              class="w-full px-4 py-2 border border-sand-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 transition-colors text-brown-800 font-medium"
             />
           </div>
           <div>
-            <label class="block text-sm font-bold text-brown-700 mb-1">{{
+            <label class="block text-sm font-medium text-brown-700 mb-1">{{
               t('admin.treats.reason')
             }}</label>
             <textarea
@@ -346,7 +374,7 @@
               rows="3"
               maxlength="500"
               :placeholder="t('admin.treats.reason_placeholder')"
-              class="w-full px-4 py-2 border border-sand-300 rounded-lg focus:ring-2 focus:ring-terracotta-400 outline-none text-brown-800 bg-sand-50 resize-y"
+              class="w-full px-4 py-2 border border-sand-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 transition-colors text-brown-800 font-medium resize-none"
             ></textarea>
             <p class="text-xs text-brown-400 mt-1 text-right">{{ grantForm.reason.length }}/500</p>
           </div>
@@ -354,7 +382,7 @@
           <div class="flex gap-4 pt-4">
             <button
               type="button"
-              class="flex-1 px-4 py-2 border border-sand-300 text-brown-600 rounded-lg hover:bg-sand-50 transition-colors font-bold"
+              class="flex-1 px-4 py-2 border border-sand-300 rounded-lg text-brown-600 hover:bg-sand-50 transition-colors"
               @click="closeGrantModal"
             >
               {{ t('common.cancel') }}
@@ -362,11 +390,11 @@
             <button
               type="submit"
               :disabled="submitting || !grantForm.user_id"
-              class="flex-1 px-4 py-2 bg-terracotta-500 text-white rounded-lg hover:bg-terracotta-600 transition-all font-bold disabled:opacity-50 flex justify-center items-center"
+              class="flex-1 px-4 py-2 bg-terracotta-600 text-white rounded-lg hover:bg-terracotta-700 transition-colors disabled:opacity-50 shadow-sm flex justify-center items-center gap-2"
             >
               <svg
                 v-if="submitting"
-                class="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                class="animate-spin h-4 w-4 text-white"
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
@@ -422,7 +450,7 @@ interface UserSearchResult {
   email: string;
 }
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 50;
 
 const { toast } = useToast();
 const { t } = useI18n();

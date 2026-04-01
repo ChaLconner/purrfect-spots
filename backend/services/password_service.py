@@ -89,7 +89,10 @@ class PasswordService:
         """
         # Check complexity
         if not self.validate_complexity(password):
-            return False, f"Password must be at least {self.MIN_PASSWORD_LENGTH} characters long"
+            return (
+                False,
+                f"Password must be at least {self.MIN_PASSWORD_LENGTH} characters long and include uppercase, lowercase, number, and special character.",
+            )
 
         # Check for data breaches
         if check_breach and await self.is_password_pwned(password):

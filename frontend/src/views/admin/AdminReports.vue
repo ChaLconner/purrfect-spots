@@ -480,6 +480,7 @@ const {
     `"${(r.details || '').replace(/"/g, '""')}"`,
     r.photo?.image_url || '',
   ],
+  limit: 50,
 });
 
 const loadReports = (newPage: number = 1): void => {

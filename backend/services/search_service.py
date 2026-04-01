@@ -2,9 +2,9 @@ from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from supabase import AClient
 
 from logger import logger
+from supabase import AClient
 from utils.db_security import escape_like_pattern, sanitize_search_input
 
 
@@ -15,6 +15,7 @@ class SearchService:
         self._fulltext_available: bool | None = None
         # Explicit column selection to avoid over-fetching
         self.PHOTO_COLUMNS = "id, image_url, latitude, longitude, description, location_name, uploaded_at, tags, likes_count, comments_count, user_id"
+        self.APPROVED_STATUS = "approved"
 
     @property
     async def fulltext_available(self) -> bool:
@@ -73,11 +74,11 @@ class SearchService:
                 from sqlalchemy import text
 
                 # PostgreSQL websearch_to_tsquery example
-                sql = f"""
-                    SELECT {self.PHOTO_COLUMNS} FROM cat_photos
-                    WHERE deleted_at IS NULL
-                    AND search_vector @@ websearch_to_tsquery('english', :query)
-                """
+                sql = (
+                    f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos "  # noqa: S608
+                    f"WHERE deleted_at IS NULL AND status = '{self.APPROVED_STATUS}' "  # noqa: S608
+                    "AND search_vector @@ websearch_to_tsquery('english', :query)"
+                )
                 params: dict[str, Any] = {"query": query}
 
                 if tags:
@@ -92,30 +93,21 @@ class SearchService:
                 result = await self.db.execute(text(sql), params)
                 return [dict(row._mapping) for row in result.fetchall()]
 
-            # Try optimized RPC first
-            try:
-                resp = await self.supabase.rpc(
-                    "search_cat_photos", {"search_query": query, "result_limit": limit, "result_offset": offset}
-                ).execute()
-                results = resp.data if resp.data else []
-                if tags and results:
-                    results = self._filter_by_tags(results, tags)
-                return results
-            except Exception:
-                db_query = (
-                    self.supabase.table("cat_photos")
-                    .select(self.PHOTO_COLUMNS)
-                    .is_("deleted_at", "null")
-                    .text_search("search_vector", query, options={"type": "websearch"})
-                    .order("uploaded_at", desc=True)  # type: ignore
-                    .range(offset, offset + limit - 1)
-                )
-                if tags:
-                    clean_tags = [tag.strip().lower().replace("#", "") for tag in tags]
-                    db_query = db_query.contains("tags", clean_tags)
+            db_query = (
+                self.supabase.table("cat_photos")
+                .select(self.PHOTO_COLUMNS)
+                .is_("deleted_at", "null")
+                .eq("status", self.APPROVED_STATUS)
+                .text_search("search_vector", query, options={"type": "websearch"})
+                .order("uploaded_at", desc=True)  # type: ignore
+                .range(offset, offset + limit - 1)
+            )
+            if tags:
+                clean_tags = [tag.strip().lower().replace("#", "") for tag in tags]
+                db_query = db_query.contains("tags", clean_tags)
 
-                resp = await db_query.execute()
-                return resp.data if resp.data else []
+            resp = await db_query.execute()
+            return resp.data if resp.data else []
         except Exception as e:
             logger.warning("Advanced search failed: %s", e)
             raise
@@ -125,7 +117,7 @@ class SearchService:
     ) -> list[dict[str, Any]]:
         """Fallback search using ILIKE."""
         if self.db:
-            sql = f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE deleted_at IS NULL"
+            sql = f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE deleted_at IS NULL AND status = '{self.APPROVED_STATUS}'"  # noqa: S608
             params: dict[str, Any] = {}
 
             if query:
@@ -145,7 +137,12 @@ class SearchService:
             result = await self.db.execute(text(sql), params)
             return [dict(row._mapping) for row in result.fetchall()]
 
-        db_query = self.supabase.table("cat_photos").select(self.PHOTO_COLUMNS).is_("deleted_at", "null")
+        db_query = (
+            self.supabase.table("cat_photos")
+            .select(self.PHOTO_COLUMNS)
+            .is_("deleted_at", "null")
+            .eq("status", self.APPROVED_STATUS)
+        )
 
         if query:
             safe_query = escape_like_pattern(query)

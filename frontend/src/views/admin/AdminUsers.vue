@@ -435,6 +435,7 @@ const {
   ],
   defaultSortBy: 'created_at',
   defaultSortOrder: 'desc',
+  limit: 50,
 });
 
 const loadUsers = (newPage: number = 1): void => {
@@ -723,8 +724,11 @@ const saveProfile = async (): Promise<void> => {
   }
 };
 
-onMounted(() => {
-  loadUsers();
-  loadRoles();
+onMounted(async () => {
+  // Parallelize initial data fetching to improve load speed
+  await Promise.all([
+    loadUsers(),
+    loadRoles()
+  ]);
 });
 </script>

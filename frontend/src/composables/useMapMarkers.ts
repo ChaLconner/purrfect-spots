@@ -63,7 +63,6 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
       clusterer.value ??= new MarkerClusterer({ map: newMap, ...clustererOptions });
     } else if (clusterer.value) {
       clusterer.value.clearMarkers();
-      (clusterer.value as any).setMap(null); // eslint-disable-line @typescript-eslint/no-explicit-any
       clusterer.value = null;
     }
   });
@@ -271,7 +270,7 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
   onUnmounted(() => {
     clearMarkers();
     if (clusterer.value) {
-      (clusterer.value as any).setMap(null); // eslint-disable-line @typescript-eslint/no-explicit-any
+      clusterer.value.clearMarkers();
       clusterer.value = null;
     }
   });
