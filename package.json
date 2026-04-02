@@ -55,9 +55,9 @@
     "serialize-javascript": ">=7.0.3"
   },
   "optionalDependencies": {
-    "@tailwindcss/oxide-darwin-arm64": "4.2.1",
-    "@tailwindcss/oxide-darwin-x64": "4.2.1",
-    "@tailwindcss/oxide-linux-arm64-gnu": "4.2.1",
-    "@tailwindcss/oxide-linux-x64-gnu": "4.2.1"
+    "@tailwindcss/oxide-darwin-arm64": "4.2.2",
+    "@tailwindcss/oxide-darwin-x64": "4.2.2",
+    "@tailwindcss/oxide-linux-arm64-gnu": "4.2.2",
+    "@tailwindcss/oxide-linux-x64-gnu": "4.2.2"
   }
 }
