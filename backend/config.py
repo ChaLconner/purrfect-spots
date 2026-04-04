@@ -152,15 +152,15 @@ class Config:
                 "Please set JWT_REFRESH_SECRET environment variable."
             )
         else:
-            import secrets
-
+            # SECURITY: Use a deterministic fallback for development stability
+            # This ensures sessions persist across dev server restarts
             warnings.warn(
-                "JWT_REFRESH_SECRET not set. Generating a random secret for this session (NOT PERSISTENT). "
-                "For stable sessions, please set a separate JWT_REFRESH_SECRET in your .env.",
+                "JWT_REFRESH_SECRET not set. Using a deterministic development secret. "
+                "For production, please set a separate JWT_REFRESH_SECRET environment variable.",
                 UserWarning,
                 stacklevel=2,
             )
-            JWT_REFRESH_SECRET = secrets.token_hex(32)
+            JWT_REFRESH_SECRET = "dev-refresh-secret-do-not-use-in-production-32chars"  # nosec S105
 
     JWT_REFRESH_EXPIRATION_DAYS = int(os.getenv("JWT_REFRESH_EXPIRATION_DAYS", "7"))
     JWT_ACCESS_EXPIRATION_HOURS = int(os.getenv("JWT_ACCESS_EXPIRATION_HOURS", "1"))

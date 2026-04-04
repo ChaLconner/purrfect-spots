@@ -1,4 +1,4 @@
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -17,8 +17,8 @@ router = APIRouter(prefix="/treats", tags=["Treats"])
 async def get_balance(
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     treats_service: Annotated[TreatsService, Depends(get_treats_service)],
-) -> dict[str, Any]:
-    """Get current user's treat balance and recent history"""
+) -> TreatBalanceResponse:
+    """Get current user's treat balance and recent history."""
     return await treats_service.get_balance(current_user.id)
 
 
@@ -29,13 +29,7 @@ async def give_treat(
     treats_service: Annotated[TreatsService, Depends(get_treats_service)],
     token: Annotated[str, Depends(get_current_token)],
 ) -> dict[str, Any]:
-    """
-    Give treats to a photo owner.
-
-    Raises:
-        HTTPException: 400 - If giving treats fails due to validation error.
-        HTTPException: 500 - If giving treats fails due to internal error.
-    """
+    """Give treats to a photo owner."""
     try:
         return await treats_service.give_treat(current_user.id, req.photo_id, req.amount, jwt_token=token)
     except ValueError as e:
@@ -51,14 +45,7 @@ async def purchase_treats_checkout(
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     treats_service: Annotated[TreatsService, Depends(get_treats_service)],
 ) -> dict[str, str]:
-    """
-    Purchase treats pack.
-
-    Raises:
-        HTTPException: 400 - If package is invalid or price is not configured.
-        HTTPException: 500 - If purchase checkout initiation fails.
-    """
-    # Fetch package data from DB (uses cache internally)
+    """Purchase treats pack."""
     package_data = await treats_service.get_package_by_id(req.package)
     price_id = package_data.get("price_id") if package_data else None
 
@@ -84,7 +71,7 @@ async def purchase_treats_checkout(
 async def get_treat_packages(
     treats_service: Annotated[TreatsService, Depends(get_treats_service)],
 ) -> dict[str, dict[str, Any]]:
-    """Get available treat packages from database"""
+    """Get available treat packages from database."""
     return await treats_service.get_packages()
 
 
@@ -93,14 +80,7 @@ async def get_leaderboard(
     treats_service: Annotated[TreatsService, Depends(get_treats_service)],
     period: str = "all_time",
 ) -> list[dict[str, Any]]:
-    """
-    Get top treat receivers.
-
-    Raises:
-        HTTPException: 400 - If the period is invalid.
-    """
+    """Get top treat receivers."""
     if period not in ["weekly", "monthly", "all_time"]:
         raise HTTPException(status_code=400, detail="Invalid period")
-    from typing import cast
-
     return cast(list[dict[str, Any]], await treats_service.get_leaderboard(period))

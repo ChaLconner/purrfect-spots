@@ -20,6 +20,7 @@ class CatDetectionService:
             self.vision_service = vision_service
         else:
             from services.google_vision import GoogleVisionService
+
             self.vision_service = GoogleVisionService()
 
     def prepare_image(self, image_data: bytes) -> Image.Image:

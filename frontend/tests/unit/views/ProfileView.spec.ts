@@ -70,6 +70,15 @@ vi.mock('@/components/profile/DeleteConfirmModal.vue', () => ({
   default: { template: '<div></div>' },
 }));
 vi.mock('@/components/ui/GhibliBackground.vue', () => ({ default: { template: '<div></div>' } }));
+vi.mock('@/lib/supabase', () => ({
+  supabase: {
+    channel: vi.fn(() => ({
+      on: vi.fn().mockReturnThis(),
+      subscribe: vi.fn().mockReturnThis(),
+    })),
+    removeChannel: vi.fn(),
+  },
+}));
 
 describe('ProfileView.vue', (): void => {
   let authStore: ReturnType<typeof useAuthStore>;

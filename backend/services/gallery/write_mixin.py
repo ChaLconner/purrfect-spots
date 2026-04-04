@@ -45,10 +45,29 @@ class GalleryWriteMixin(GalleryBaseMixin):
         """Save photo metadata to database."""
         if self.db:
             try:
-                columns = ", ".join(photo_data.keys())
-                placeholders = ", ".join([f":{k}" for k in photo_data])
-                query = text(f"INSERT INTO cat_photos ({columns}) VALUES ({placeholders}) RETURNING {self.PHOTO_COLUMNS}")  # noqa: S608
-                result = await self.db.execute(query, photo_data)
+                # Explicitly list allowed columns to satisfy security checks and improve quality
+                allowed_columns = [
+                    "id",
+                    "image_url",
+                    "latitude",
+                    "longitude",
+                    "description",
+                    "location_name",
+                    "user_id",
+                    "status",
+                    "tags",
+                    "metadata",
+                ]
+                final_data = {k: v for k, v in photo_data.items() if k in allowed_columns}
+
+                columns_str = ", ".join(final_data.keys())
+                placeholders_str = ", ".join([f":{k}" for k in final_data])
+
+                query = text(
+                    f"INSERT INTO cat_photos ({columns_str}) VALUES ({placeholders_str}) "  # noqa: S608
+                    "RETURNING id, image_url, latitude, longitude, description, location_name, uploaded_at, tags, likes_count, comments_count, user_id"
+                )
+                result = await self.db.execute(query, final_data)
                 row = result.fetchone()
                 if not row:
                     from utils.exceptions import ExternalServiceError

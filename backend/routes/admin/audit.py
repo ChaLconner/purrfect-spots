@@ -12,7 +12,7 @@ from schemas.user import User
 router = APIRouter()
 
 
-@router.get("/audit-logs", response_model=dict[str, Any])
+@router.get("/audit-logs/", response_model=dict[str, Any])
 @limiter.limit("60/minute")
 async def list_audit_logs(
     request: Request,

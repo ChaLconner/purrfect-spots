@@ -55,7 +55,7 @@ class TestPasswordService:
         import hashlib
 
         password = "password123"
-        sha1 = hashlib.sha1(password.encode()).hexdigest().upper()
+        sha1 = hashlib.sha1(password.encode()).hexdigest().upper()  # nosec S324
         sha1[:5]
         suffix = sha1[5:]
 
@@ -73,7 +73,7 @@ class TestPasswordService:
         import hashlib
 
         password = "very_unique_password_2024"
-        hashlib.sha1(password.encode()).hexdigest().upper()
+        hashlib.sha1(password.encode()).hexdigest().upper()  # nosec S324
 
         mock_response = MagicMock()
         mock_response.status_code = 200

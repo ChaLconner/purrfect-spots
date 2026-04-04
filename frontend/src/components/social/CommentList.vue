@@ -199,7 +199,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { SocialService, type Comment } from '@/services/socialService';
 import { useAuthStore } from '@/store';
 import { useToastStore } from '@/store';
@@ -253,6 +253,18 @@ function getAvatarUrl(comment: Comment): string {
 function handleAvatarError(commentId: string): void {
   avatarErrors.value[commentId] = true;
 }
+
+// Watch for photo selection changes to reset and re-fetch comments
+watch(
+  () => props.photoId,
+  (newId) => {
+    if (newId) {
+      comments.value = [];
+      showAll.value = false;
+      fetchComments();
+    }
+  }
+);
 
 onMounted(() => {
   fetchComments();

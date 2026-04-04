@@ -15,12 +15,19 @@ from middleware.auth_middleware import invalidate_user_auth_cache, require_permi
 from schemas.admin_schemas import BulkUserAction, RoleUpdateAdmin, UserBan, UserUpdateAdmin
 from schemas.user import User
 from services.email_service import EmailService
+from services.redis_service import redis_service
 from services.token_service import get_token_service
+from utils.security_alerts import track_bulk_operation
 
 router = APIRouter()
 
 UserIdPath = Annotated[UUID, Path(title="The ID of the user", description="Must be a valid UUID")]
 RoleIdPath = Annotated[UUID, Path(title="The ID of the role", description="Must be a valid UUID")]
+
+
+async def _invalidate_user_list_cache() -> None:
+    """Invalidate all admin user list cache pages after any mutation."""
+    await redis_service.delete_pattern("admin_users:*")
 
 
 def _invalidate_auth_cache_for_users(user_ids: list[str]) -> None:
@@ -37,7 +44,7 @@ async def _invalidate_banned_user_auth_state(user_ids: list[str], reason: str) -
         await token_service.blacklist_all_user_tokens(user_id, reason=reason)
 
 
-@router.get("/users", response_model=dict[str, Any])
+@router.get("/users/", response_model=dict[str, Any])
 @limiter.limit("60/minute")
 async def list_users(
     request: Request,
@@ -51,6 +58,13 @@ async def list_users(
     """
     List all users with pagination, search, and sorting.
     """
+    # Skip cache for search queries — results must be accurate and fresh.
+    # Cache paginated list views for 60s to reduce DB load on the common case.
+    cache_key = f"admin_users:{offset}:{limit}:{sort_by}:{order}" if not search else None
+    if cache_key:
+        cached = await redis_service.get(cache_key)
+        if cached:
+            return cached
     try:
         admin_client = await get_async_supabase_admin_client()
         query = (
@@ -94,13 +108,16 @@ async def list_users(
             user_copy["role"] = role_name
             processed_data.append(user_copy)
 
-        return {"data": processed_data, "total": total_count}
+        result_data = {"data": processed_data, "total": total_count}
+        if cache_key:
+            await redis_service.set(cache_key, result_data, expire=60)  # 60-second TTL
+        return result_data
     except Exception as e:
         logger.error(f"Failed to list users: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to fetch users")
 
 
-@router.post("/users/bulk-ban")
+@router.post("/users/bulk-ban/")
 @limiter.limit("5/minute")
 async def bulk_ban_users(
     request: Request,
@@ -137,6 +154,15 @@ async def bulk_ban_users(
         if not target_uids:
             return {"message": "No valid users found to ban.", "skipped": skipped_admins}
 
+        # SECURITY: Track bulk operations for alerting
+        ip_address = request.client.host if request.client else "unknown"
+        track_bulk_operation(
+            user_id=current_admin.id,
+            operation="bulk_ban",
+            record_count=len(target_uids),
+            ip_address=ip_address,
+        )
+
         # Perform bulk update
         await (
             admin_client.table("users")
@@ -168,13 +194,14 @@ async def bulk_ban_users(
             .execute()
         )
 
+        await _invalidate_user_list_cache()
         return {"message": f"Successfully banned {len(target_uids)} users.", "skipped": skipped_admins}
     except Exception as e:
         logger.error(f"Bulk ban failed: {e}")
         raise HTTPException(status_code=500, detail="Bulk action failed")
 
 
-@router.post("/users/bulk-unban")
+@router.post("/users/bulk-unban/")
 @limiter.limit("5/minute")
 async def bulk_unban_users(
     request: Request,
@@ -207,13 +234,14 @@ async def bulk_unban_users(
             .execute()
         )
 
+        await _invalidate_user_list_cache()
         return {"message": f"Successfully unbanned {len(user_ids_str)} users."}
     except Exception as e:
         logger.error(f"Bulk unban failed: {e}")
         raise HTTPException(status_code=500, detail="Bulk action failed")
 
 
-@router.delete("/users/{user_id}")
+@router.delete("/users/{user_id}/")
 @limiter.limit("10/minute")
 async def delete_user(
     request: Request,
@@ -274,6 +302,7 @@ async def delete_user(
             .execute()
         )
 
+        await _invalidate_user_list_cache()
         return {"message": f"User {user_id_str} data anonymized"}
     except HTTPException:
         raise
@@ -282,7 +311,7 @@ async def delete_user(
         raise HTTPException(status_code=500, detail="Failed to delete user")
 
 
-@router.patch("/users/{user_id}/profile", response_model=dict[str, Any])
+@router.patch("/users/{user_id}/profile/", response_model=dict[str, Any])
 @limiter.limit("20/minute")
 async def update_user_profile_admin(
     request: Request,
@@ -305,6 +334,7 @@ async def update_user_profile_admin(
         if not result.data:
             raise HTTPException(status_code=404, detail="User not found")
         invalidate_user_auth_cache(user_id_str)
+        await _invalidate_user_list_cache()
 
         return cast(dict[str, Any], result.data[0])
     except HTTPException:
@@ -314,7 +344,7 @@ async def update_user_profile_admin(
         raise HTTPException(status_code=500, detail="Failed to update user profile")
 
 
-@router.put("/users/{user_id}/role")
+@router.put("/users/{user_id}/role/")
 @limiter.limit("20/minute")
 async def update_user_role(
     request: Request,
@@ -341,6 +371,7 @@ async def update_user_role(
         if not result.data:
             raise HTTPException(status_code=404, detail="User not found")
         invalidate_user_auth_cache(user_id_str)
+        await _invalidate_user_list_cache()
 
         await (
             admin_client.table("audit_logs")
@@ -364,7 +395,7 @@ async def update_user_role(
         raise HTTPException(status_code=500, detail="Failed to update role")
 
 
-@router.post("/users/{user_id}/ban")
+@router.post("/users/{user_id}/ban/")
 @limiter.limit("5/minute")
 async def ban_user(
     request: Request,
@@ -416,6 +447,7 @@ async def ban_user(
             .execute()
         )
 
+        await _invalidate_user_list_cache()
         return {"message": "User banned"}
     except HTTPException:
         raise
@@ -424,7 +456,7 @@ async def ban_user(
         raise HTTPException(status_code=500, detail="Failed to ban user")
 
 
-@router.post("/users/{user_id}/unban")
+@router.post("/users/{user_id}/unban/")
 @limiter.limit("5/minute")
 async def unban_user(
     request: Request,
@@ -454,105 +486,8 @@ async def unban_user(
             .execute()
         )
 
+        await _invalidate_user_list_cache()
         return {"message": "User unbanned"}
     except Exception:
         logger.error("Failed to unban user")
         raise HTTPException(status_code=500, detail="Failed to unban user")
-
-
-import csv
-import io
-import json
-
-from fastapi.responses import StreamingResponse
-
-
-@router.get("/export")
-@limiter.limit("5/minute")
-async def export_users(
-    request: Request,
-    format: str = "csv",
-    current_admin: Annotated[User, Depends(require_permission("users:read"))] = None,
-):
-    """
-    Export all user data to CSV or JSON.
-    """
-
-    async def user_generator():
-        try:
-            admin_client = await get_async_supabase_admin_client()
-            batch_size = 1000
-            offset = 0
-            first_batch = True
-            fieldnames = ["id", "email", "name", "treat_balance", "is_pro", "created_at", "banned_at"]
-
-            if format.lower() == "json":
-                yield "["
-                while True:
-                    result = (
-                        await admin_client.table("users")
-                        .select(", ".join(fieldnames))
-                        .range(offset, offset + batch_size - 1)
-                        .execute()
-                    )
-                    batch_data = result.data
-                    if not batch_data:
-                        break
-
-                    for i, row in enumerate(batch_data):
-                        # Simple manual JSON chunking for speed
-                        sep = "" if first_batch and i == 0 else ","
-                        yield sep + json.dumps(row, default=str)
-
-                    first_batch = False
-                    if len(batch_data) < batch_size:
-                        break
-                    offset += batch_size
-                yield "]"
-            else:
-                # CSV Export
-                output = io.StringIO()
-                writer = csv.DictWriter(output, fieldnames=fieldnames)
-
-                while True:
-                    result = (
-                        await admin_client.table("users")
-                        .select(", ".join(fieldnames))
-                        .range(offset, offset + batch_size - 1)
-                        .execute()
-                    )
-                    batch_data = result.data
-                    if not batch_data:
-                        break
-
-                    if first_batch:
-                        writer.writeheader()
-
-                    for row in batch_data:
-                        # Flatten for CSV consistent with utils
-                        flat_row = {k: (json.dumps(v) if isinstance(v, (dict, list)) else v) for k, v in row.items()}
-                        writer.writerow(flat_row)
-
-                    # Get value and clear buffer for next batch
-                    yield output.getvalue()
-                    output.seek(0)
-                    output.truncate(0)
-
-                    first_batch = False
-                    if len(batch_data) < batch_size:
-                        break
-                    offset += batch_size
-        except Exception as gen_err:
-            logger.error("Error in user_generator: %s", gen_err)
-            raise
-
-    try:
-        media_type = "application/json" if format.lower() == "json" else "text/csv"
-        filename = f"users_export.{'json' if format.lower() == 'json' else 'csv'}"
-
-        return StreamingResponse(
-            user_generator(), media_type=media_type, headers={"Content-Disposition": f"attachment; filename={filename}"}
-        )
-    except Exception as e:
-        logger.error("Export failed: %s", e)
-        raise HTTPException(status_code=500, detail="Export failed")

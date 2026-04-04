@@ -10,6 +10,13 @@ vi.mock('@/utils/api', () => ({
   }
 }));
 
+const makeSummaryResponse = (stats: Record<string, unknown>) => ({
+  stats,
+  trends: { users: [], photos: [], reports: [] },
+  monthly: [],
+  generated_at: new Date().toISOString()
+});
+
 describe('Admin Store', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
@@ -31,7 +38,7 @@ describe('Admin Store', () => {
       total_reports: 50
     };
 
-    mockApiGet.mockResolvedValueOnce(mockStats);
+    mockApiGet.mockResolvedValueOnce(makeSummaryResponse(mockStats));
 
     await store.fetchStats();
 
@@ -39,12 +46,12 @@ describe('Admin Store', () => {
     expect(store.isLoading).toBe(false);
     expect(mockApiGet).toHaveBeenCalledTimes(1);
 
-    // Call again - should use cache
+    // Call again - should use cache (stats.total_users > 0)
     await store.fetchStats();
     expect(mockApiGet).toHaveBeenCalledTimes(1);
 
     // Force fetch
-    mockApiGet.mockResolvedValueOnce(mockStats);
+    mockApiGet.mockResolvedValueOnce(makeSummaryResponse(mockStats));
     await store.fetchStats(true);
     expect(mockApiGet).toHaveBeenCalledTimes(2);
   });

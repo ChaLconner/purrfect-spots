@@ -6,7 +6,7 @@ from sqlalchemy import text
 
 from services.gallery.base_mixin import GalleryBaseMixin
 from services.image_service import ImageService
-from utils.cache import cached_gallery, cached_gallery_simple, cached_user_likes
+from utils.cache import cached_gallery, cached_user_likes
 
 logger = structlog.get_logger(__name__)
 
@@ -178,25 +178,91 @@ class GalleryReadMixin(GalleryBaseMixin):
             logger.error(f"Failed to fetch user liked photo IDs: {e!s}")
             return set()
 
-    @cached_gallery_simple
-    async def get_all_photos_simple(self, limit: int = 100) -> list[dict[str, Any]]:
+    async def get_all_photos_cursor(
+        self,
+        limit: int = 20,
+        after_id: str | None = None,
+        sort_field: str = "uploaded_at",
+        sort_order: str = "desc",
+        user_id: str | None = None,
+        jwt_token: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Get photos with cursor-based pagination.
+
+        Uses the photo_id as a cursor anchor. Fetches records after the given
+        cursor photo based on the sort field ordering.
+
+        Args:
+            limit: Number of records to fetch (fetches +1 internally for has_more).
+            after_id: Cursor — fetch records after this photo_id.
+            sort_field: Field to sort by (uploaded_at, likes_count, comments_count).
+            sort_order: asc or desc.
+            user_id: Optional user ID for enrichment.
+            jwt_token: Optional JWT token.
+
+        Returns:
+            dict with 'data' list and 'has_more' flag.
+        """
+        limit = min(max(1, limit), 200)
+        is_desc = sort_order.lower() == "desc"
+
         try:
+            # Get the anchor record's sort value if cursor is provided
+            anchor_value = None
+            if after_id:
+                anchor = await self.get_photo_by_id(after_id)
+                if anchor:
+                    anchor_value = anchor.get(sort_field)
+
             if self.db:
-                db_res = await self.db.execute(
-                    text(
-                        f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE {self._sql_visibility_clause()} ORDER BY uploaded_at DESC LIMIT :limit"  # noqa: S608
-                    ),
-                    {"limit": limit},
-                )
-                return [dict(row._asdict()) for row in db_res.fetchall()]
-            supa_res = (
-                await self._apply_visibility_filter(self.supabase.table("cat_photos").select(self.PHOTO_COLUMNS))
-                .order("uploaded_at", desc=True)
-                .limit(limit)
-                .execute()
-            )
-            return supa_res.data or []
+                # SQL-based cursor pagination
+                sql = f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE {self._sql_visibility_clause()}"  # noqa: S608
+
+                params: dict[str, Any] = {"limit": limit}
+
+                if anchor_value is not None:
+                    op = "<" if is_desc else ">"
+                    sql += f" AND {sort_field} {op} :anchor_value"
+                    params["anchor_value"] = anchor_value
+                elif after_id:
+                    # Fallback: use id ordering if sort field value is missing
+                    sql += " AND id > :after_id" if not is_desc else " AND id < :after_id"
+                    params["after_id"] = after_id
+
+                order_dir = "DESC" if is_desc else "ASC"
+                sql += f" ORDER BY {sort_field} {order_dir}, id {order_dir} LIMIT :limit"
+
+                result = await self.db.execute(text(sql), params)
+                data = [dict(row._asdict()) for row in result.fetchall()]
+            else:
+                # Supabase client cursor pagination
+                query = self._apply_visibility_filter(self.supabase.table("cat_photos").select(self.PHOTO_COLUMNS))
+
+                if anchor_value is not None:
+                    query = query.order(sort_field, desc=is_desc).order("id", desc=is_desc)
+                    query = query.lt(sort_field, anchor_value) if is_desc else query.gt(sort_field, anchor_value)
+                elif after_id:
+                    query = query.order("id", desc=is_desc)
+                    query = query.lt("id", after_id) if is_desc else query.gt("id", after_id)
+                else:
+                    query = query.order(sort_field, desc=is_desc).order("id", desc=is_desc)
+
+                res = await query.limit(limit).execute()
+                data = res.data or []
+
+            # Enrich with user data if applicable
+            if data and user_id:
+                data = await self.enrich_with_user_data(data, user_id)
+
+            data = self._process_photos(data)
+
+            return {
+                "data": data,
+                "has_more": len(data) >= limit,
+            }
         except Exception as e:
+            logger.error(f"Cursor pagination fetch failed: {e!s}", exc_info=True)
             from utils.exceptions import ExternalServiceError
 
             raise ExternalServiceError(f"Failed to fetch gallery images: {e!s}", service="Supabase")

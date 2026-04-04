@@ -7,6 +7,7 @@ from dependencies import get_async_supabase_admin_client
 from logger import logger
 from middleware.auth_middleware import require_permission
 from schemas.user import User
+from services.redis_service import redis_service
 
 router = APIRouter()
 
@@ -16,35 +17,45 @@ class RolePermissionUpdate(BaseModel):
     permission_ids: list[str]
 
 
-@router.get("")
+@router.get("/")
 async def list_roles(
     current_admin: Annotated[User, Depends(require_permission("roles:read"))] = None,
 ):
     """List all available roles."""
+    cache_key = "admin_roles_list"
+    cached = await redis_service.get(cache_key)
+    if cached:
+        return cached
     try:
         admin_client = await get_async_supabase_admin_client()
         result = await admin_client.table("roles").select("*").execute()
+        await redis_service.set(cache_key, result.data, expire=600)  # 10 minutes
         return result.data
     except Exception as e:
         logger.error("Failed to list roles: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch roles")
 
 
-@router.get("/permissions")
+@router.get("/permissions/")
 async def list_permissions(
     current_admin: Annotated[User, Depends(require_permission("roles:manage"))] = None,
 ):
     """List all available permissions."""
+    cache_key = "admin_permissions_list"
+    cached = await redis_service.get(cache_key)
+    if cached:
+        return cached
     try:
         admin_client = await get_async_supabase_admin_client()
         result = await admin_client.table("permissions").select("*").order("group").execute()
+        await redis_service.set(cache_key, result.data, expire=600)  # 10 minutes
         return result.data
     except Exception as e:
         logger.error("Failed to list permissions: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch permissions")
 
 
-@router.get("/{role_id}/permissions")
+@router.get("/{role_id}/permissions/")
 async def get_role_permissions(
     role_id: str,
     current_admin: Annotated[User, Depends(require_permission("roles:read"))] = None,
@@ -59,7 +70,7 @@ async def get_role_permissions(
         raise HTTPException(status_code=500, detail="Failed to fetch role permissions")
 
 
-@router.post("/{role_id}/permissions")
+@router.post("/{role_id}/permissions/")
 async def update_role_permissions(
     role_id: str,
     request: Request,
@@ -93,6 +104,10 @@ async def update_role_permissions(
             )
             .execute()
         )
+
+        # Invalidate role/permission caches so next request gets fresh data
+        await redis_service.delete("admin_roles_list")
+        await redis_service.delete("admin_permissions_list")
 
         return {"message": "Role permissions updated successfully"}
     except Exception as e:

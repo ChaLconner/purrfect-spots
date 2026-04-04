@@ -12,14 +12,12 @@ if TYPE_CHECKING:
     from services.otp_service import OTPService
     from services.quota_service import QuotaService
     from services.report_service import ReportService
-    from services.search_service import SearchService
     from services.seo_service import SeoService
     from services.social_service import SocialService
     from services.storage_service import StorageService
     from services.subscription_service import SubscriptionService
     from services.token_service import TokenService
     from services.treats_service import TreatsService
-    from services.user_service import UserService
 
 from fastapi import Depends, Header, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,7 +38,6 @@ __all__ = [
     "get_current_admin_user",
     "get_current_token",
     "get_current_user",
-    "get_user_service",
     "get_auth_service",
     "get_gallery_service",
     "get_admin_gallery_service",
@@ -54,7 +51,6 @@ __all__ = [
     "get_seo_service",
     "get_token_service",
     "get_otp_service",
-    "get_search_service",
     "get_db",
     "get_storage_service",
     "get_vision_service",
@@ -78,16 +74,6 @@ def get_cat_detection_service(vision_service: GoogleVisionService = Depends(get_
     from services.cat_detection_service import CatDetectionService
 
     return CatDetectionService(vision_service=vision_service)
-
-
-async def get_user_service(db: AsyncSession = Depends(get_db)) -> UserService:
-    from services.user_service import UserService
-
-    return UserService(
-        supabase_client=await get_async_supabase_client(),
-        supabase_admin=await get_async_supabase_admin_client(),
-        db=db,
-    )
 
 
 async def get_auth_service(db: AsyncSession = Depends(get_db)) -> AuthService:
@@ -258,9 +244,3 @@ async def get_otp_service(db: AsyncSession = Depends(get_db)) -> OTPService:
             return OTPService(await get_async_supabase_admin_client(), db=None)
 
     return OTPService(await get_async_supabase_admin_client(), db=db)
-
-
-async def get_search_service(db: AsyncSession = Depends(get_db)) -> SearchService:
-    from services.search_service import SearchService
-
-    return SearchService(await get_async_supabase_client(), db=db)

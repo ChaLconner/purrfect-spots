@@ -15,11 +15,10 @@ router = APIRouter()
 
 from services.redis_service import redis_service
 
-# Deprecated: using redis_service instead. kept for test compatibility.
-_stats_cache: dict[str, Any] = {}
+# Legacy stats cache removed
 
 
-@router.get("/summary")
+@router.get("/summary/")
 @limiter.limit("10/minute")
 async def get_dashboard_summary(
     request: Request,
@@ -30,7 +29,7 @@ async def get_dashboard_summary(
     Uses Redis for distributed caching.
     """
     cache_key = "admin_dashboard_summary_v1"
-    cached = redis_service.get(cache_key)
+    cached = await redis_service.get(cache_key)
     if cached:
         return cached
 
@@ -63,52 +62,14 @@ async def get_dashboard_summary(
         }
 
         # Cache for 5 minutes
-        redis_service.set(cache_key, result, expire=300)
+        await redis_service.set(cache_key, result, expire=300)
         return result
     except Exception as e:
         logger.error(f"Failed to fetch dashboard summary: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch dashboard summary")
 
 
-@router.get("/stats")
-@limiter.limit("20/minute")
-async def get_system_stats(
-    request: Request,
-    current_admin: Annotated[User | None, Depends(require_permission("system:stats"))] = None,
-) -> dict[str, Any]:
-    """
-    Get basic system statistics.
-    """
-    cache_key = "admin_stats_v1"
-    cached = redis_service.get(cache_key)
-    if cached:
-        return cached
-
-    try:
-        admin_client = await get_async_supabase_admin_client()
-        tasks = [
-            admin_client.table("users").select("id", count=CountMethod.estimated).limit(1).execute(),
-            admin_client.table("cat_photos").select("id", count=CountMethod.estimated).limit(1).execute(),
-            admin_client.table("reports").select("id", count=CountMethod.exact).eq("status", "pending").execute(),
-            admin_client.table("reports").select("id", count=CountMethod.estimated).limit(1).execute(),
-        ]
-        user_res, photo_res, pending_res, total_res = await asyncio.gather(*tasks)
-
-        result = {
-            "total_users": user_res.count or 0,
-            "total_photos": photo_res.count or 0,
-            "pending_reports": pending_res.count or 0,
-            "total_reports": total_res.count or 0,
-            "generated_at": datetime.now().isoformat(),
-        }
-        redis_service.set(cache_key, result, expire=300)
-        return result
-    except Exception as e:
-        logger.error(f"Failed to get stats: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to fetch statistics")
-
-
-@router.get("/stats/trends")
+@router.get("/stats/trends/")
 @limiter.limit("5/minute")
 async def get_system_trends(
     request: Request,
@@ -118,7 +79,7 @@ async def get_system_trends(
     Get 30-day activity trends.
     """
     cache_key = "admin_trends_v1"
-    cached = redis_service.get(cache_key)
+    cached = await redis_service.get(cache_key)
     if cached:
         return cached
 
@@ -127,14 +88,14 @@ async def get_system_trends(
         result = await admin_client.rpc("get_admin_trends", {"days_back": 30}).execute()
 
         trends_data = result.data or {}
-        redis_service.set(cache_key, trends_data, expire=600)
+        await redis_service.set(cache_key, trends_data, expire=600)
         return trends_data
     except Exception as e:
         logger.error(f"Failed to get trends: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch activity trends")
 
 
-@router.get("/stats/monthly")
+@router.get("/stats/monthly/")
 @limiter.limit("5/minute")
 async def get_monthly_stats(
     request: Request,
@@ -145,7 +106,7 @@ async def get_monthly_stats(
     Get monthly system performance report.
     """
     cache_key = f"admin_monthly_{year or datetime.now().year}"
-    cached = redis_service.get(cache_key)
+    cached = await redis_service.get(cache_key)
     if cached:
         return cached
 
@@ -155,7 +116,7 @@ async def get_monthly_stats(
         result = await admin_client.rpc("get_monthly_report", params).execute()
 
         data = {"data": result.data or [], "year": year or datetime.now().year}
-        redis_service.set(cache_key, data, expire=1800)  # Cache longer
+        await redis_service.set(cache_key, data, expire=1800)  # Cache longer
         return data
     except Exception as e:
         logger.error(f"Failed to fetch monthly stats: {e}", exc_info=True)

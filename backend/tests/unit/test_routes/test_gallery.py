@@ -67,29 +67,9 @@ def test_get_gallery_error(client):
 
     response = client.get("/api/v1/gallery/")
     assert response.status_code == 500
-    assert "Failed to fetch gallery images" in response.json()["detail"]
+    assert "Failed to fetch gallery images" in response.json()["message"]
 
     app.dependency_overrides = {}
-
-
-def test_get_all_gallery(client):
-    mock_service = MagicMock()
-    mock_service.get_all_photos_simple = AsyncMock(
-        return_value=[
-            {
-                "id": "1",
-                "image_url": "url",
-                "latitude": 10,
-                "longitude": 10,
-                "location_name": "loc",
-                "uploaded_at": "2024-03-20T10:00:00Z",
-            }
-        ]
-    )
-    app.dependency_overrides[get_gallery_service] = lambda: mock_service
-    response = client.get("/api/v1/gallery/all")
-    assert response.status_code == 200
-    assert len(response.json()["images"]) == 1
 
 
 def test_get_locations(client):

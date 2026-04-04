@@ -167,6 +167,12 @@
       "dragAndDrop": "Drag and drop your photo here",
       "orClickToBrowse": "or click to browse",
       "verifyingCatContent": "Verifying...",
+      "catDetected": "Cat Content Verified",
+      "foundCats": "Found {count} cats",
+      "confidence": "confidence",
+      "noCatDetected": "No Cats Detected",
+      "noCatMessage": "Our deep learning AI couldn't find any cats in this photo. Please try a clearer shot!",
+      "tryAnother": "Try Another Photo",
       "aspectRatioMessage": "Please upload a photo with a standard aspect ratio (between 0.5 and 2.0).",
       "invalidAspectRatio": "Invalid Aspect Ratio",
       "preview": "Preview",
@@ -244,7 +250,7 @@
     "forgotPasswordTitle": "Forgot Password?",
     "forgotPasswordSubtitle": "Enter your email to receive reset instructions",
     "forgotPasswordIllustration": "Don't worry! We'll help you get back to the cute cats in no time.",
-    "checkInbox": "Check your inbox! 📧",
+    "checkInbox": "Check your inbox!",
     "resetInstructionsSent": "If an account exists for {email}, you will receive an email shortly with instructions to reset your password.",
     "backToSignIn": "Back to Sign In",
     "sendResetLink": "Send Reset Link",
@@ -526,6 +532,7 @@
       "systemSettings": "System Settings",
       "treatManagement": "Treat Management",
       "roleManagement": "Role Management",
+      "security": "Security",
       "commentModeration": "Comment Moderation",
       "backToSite": "Back to Site"
     },
@@ -569,7 +576,8 @@
         "statsLoad": "Stats Load",
         "trendsLoad": "Trends Load",
         "status": "Status",
-        "optimized": "OPTIMIZED"
+        "optimized": "OPTIMIZED",
+        "updating": "Updating..."
       }
     },
     "pagination": {
@@ -806,6 +814,43 @@
       "violations": "{n} previous violations",
       "failed_to_ban": "Failed to ban user",
       "bulk_action_failed": "Bulk action failed"
+    },
+    "security": {
+      "title": "Security Overview",
+      "subtitle": "Monitor system security and active sessions.",
+      "alertsTitle": "Security Alerts",
+      "sessionsTitle": "Session Tracking",
+      "totalAlerts": "Total Alerts",
+      "criticalAlerts": "Critical",
+      "warnings": "Warnings",
+      "activeSessions": "Active Sessions",
+      "concurrent": "Concurrent Users",
+      "protectionStatus": "System Status",
+      "protected": "Protected",
+      "activeMonitoring": "Active Monitoring",
+      "lastUpdated": "Last Updated",
+      "dailyRecord": "Daily Record",
+      "liveFeed": "Live feed of security events",
+      "peakToday": "Peak Today",
+      "resetAlerts": "Reset Alerts",
+      "resetSessions": "Reset Sessions",
+      "alertsReset": "Security alerts have been reset",
+      "sessionsReset": "Session tracking has been reset",
+      "errorLoad": "Failed to load security summary",
+      "errorReset": "Failed to reset",
+      "recentAlertsTitle": "Recent Alerts",
+      "noRecentAlerts": "No recent security alerts found",
+      "table": {
+        "type": "Type",
+        "status": "Status",
+        "time": "Time",
+        "details": "Details"
+      },
+      "status": {
+        "critical": "Critical",
+        "warning": "Warning",
+        "info": "Info"
+      }
     },
     "settings": {
       "title": "System Settings",
@@ -1288,6 +1333,39 @@
       "no_violation": "No Violation Found",
       "duplicate": "Duplicate Report",
       "context_verified": "Context Verified (Safe)"
+    }
+  },
+  "myReports": {
+    "title": "My Reports",
+    "subtitle": "View the status of reports you have submitted",
+    "loading": "Loading reports...",
+    "empty": "You haven't submitted any reports yet.",
+    "errorLoad": "Failed to load reports",
+    "resolutionNotes": "Resolution notes",
+    "status": {
+      "pending": "Pending",
+      "resolved": "Resolved",
+      "dismissed": "Dismissed"
+    },
+    "reasons": {
+      "spam": "Spam",
+      "nudity": "Nudity / Inappropriate",
+      "not_a_cat": "Not a Cat",
+      "animal_welfare": "Animal Welfare Concern",
+      "privacy": "Privacy Violation",
+      "harassment": "Harassment",
+      "other": "Other"
+    }
+  },
+  "consent": {
+    "settingsTitle": "Privacy & Consent",
+    "granted": "Consent granted",
+    "withdrawn": "Consent withdrawn",
+    "error": "Failed to update consent",
+    "types": {
+      "tos": "Terms of Service",
+      "privacy": "Privacy Policy",
+      "marketing": "Marketing Communications"
     }
   }
 }

@@ -23,11 +23,11 @@
           ref="modalContainer"
           class="w-full h-full flex items-center justify-center outline-none sm:h-auto sm:max-h-[96vh] overflow-hidden"
           tabindex="-1"
-          @click.stop
           @keydown="handleKeydown"
         >
           <div
             class="flex flex-col bg-white w-full h-full overflow-hidden relative shadow-[0_30px_60px_-12px_rgba(0,0,0,0.5)] rounded-none sm:rounded-3xl sm:h-auto sm:min-h-[670px] sm:max-h-[96vh] sm:w-[840px] sm:max-w-[97vw] min-[900px]:grid min-[900px]:grid-cols-[1fr_360px] min-[1200px]:grid-cols-[1fr_400px] min-[900px]:rounded-[2rem] min-[900px]:min-h-[820px] min-[900px]:max-h-[98vh] min-[900px]:w-full min-[900px]:max-w-full"
+            @click.stop
           >
             <!-- Left Side: Image Stage -->
             <GalleryModalImageStage

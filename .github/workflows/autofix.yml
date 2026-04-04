@@ -71,44 +71,40 @@ jobs:
           fetch-depth: 0
 
       # -----------------------------------------------------------------------
-      # Backend Auto-fix (Python / Ruff)
+      # Backend Auto-fix (Python / Ruff) - Optimized using ruff-action
       # -----------------------------------------------------------------------
-      - name: Setup Python
-        if: inputs.scope != 'frontend-only'
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: "pip"
-
-      - name: Install Ruff
-        if: inputs.scope != 'frontend-only'
-        run: pip install ruff
-
       - name: Auto-fix Python — Ruff (lint + format)
-        if: inputs.scope != 'frontend-only'
-        run: |
-          cd backend
-          echo "🐍 Running Ruff auto-fix..."
-          ruff check . --fix || true
-          ruff format .
-          echo "✅ Ruff done."
+        if: github.event_name == 'push' || (inputs.scope != 'frontend-only')
+        uses: astral-sh/ruff-action@v1
+        with:
+          args: "check --fix --exit-zero"
+          src: "./backend"
+
+      - name: Format Python — Ruff
+        if: github.event_name == 'push' || (inputs.scope != 'frontend-only')
+        uses: astral-sh/ruff-action@v1
+        with:
+          args: "format"
+          src: "./backend"
 
       # -----------------------------------------------------------------------
       # Frontend Auto-fix (TypeScript / Vue / CSS — ESLint + Prettier)
       # -----------------------------------------------------------------------
       - name: Setup Node.js
-        if: inputs.scope != 'backend-only'
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        if: github.event_name == 'push' || (inputs.scope != 'backend-only')
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
+          cache-dependency-path: "frontend/package-lock.json"
 
       - name: Install Node dependencies
-        if: inputs.scope != 'backend-only'
+        if: github.event_name == 'push' || (inputs.scope != 'backend-only')
+        working-directory: ./frontend
         run: npm ci
 
       - name: Auto-fix Frontend — ESLint
-        if: inputs.scope != 'backend-only'
+        if: github.event_name == 'push' || (inputs.scope != 'backend-only')
         run: |
           echo "🖼️ Running ESLint auto-fix..."
           npm run lint -w frontend -- --fix || true

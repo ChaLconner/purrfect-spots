@@ -117,7 +117,8 @@ def get_user_tier(request: Request) -> str:
                 # Supabase often puts it in app_metadata
                 app_metadata = payload.get("app_metadata", {})
                 return str(app_metadata.get("tier", "free")).lower()
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to extract user tier from JWT: {e}")
             pass
     return "free"
 
@@ -145,7 +146,8 @@ def get_user_id_from_request(request: Request) -> str:
                     clean_user_id = "".join(c for c in str(user_id) if c.isalnum() or c in "-_@.")
                     # Return user identifier WITH tier for dynamic limit resolution
                     return f"user:{clean_user_id[0:128]}:{tier}"
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to extract user ID from JWT: {e}")
             pass
 
     # Fallback to IP address with tier

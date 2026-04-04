@@ -1,11 +1,11 @@
 <template>
-  <div class="space-y-6">
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+  <div class="space-y-4">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
       <div class="flex flex-col">
-        <h1 class="text-3xl font-bold text-brown-900 font-display tracking-tight">
+        <h1 class="text-2xl font-bold text-brown-900 font-display tracking-tight">
           {{ t('admin.comments.title') }}
         </h1>
-        <p class="text-brown-500 font-medium mt-1">{{ t('admin.comments.subtitle') }}</p>
+        <p class="text-sm text-brown-500 font-medium mt-0.5">{{ t('admin.comments.subtitle') }}</p>
       </div>
 
       <div class="flex items-center gap-3 w-full sm:w-auto">
@@ -52,9 +52,9 @@
 
     <!-- Filters & Search -->
     <div
-      class="bg-white rounded-2xl shadow-sm border border-sand-100 p-5 flex flex-col sm:flex-row gap-6 justify-between items-center"
+      class="bg-white rounded-xl shadow-sm border border-sand-100 p-4 flex flex-col sm:flex-row gap-4 justify-between items-center"
     >
-      <div class="flex flex-wrap items-center gap-6 w-full sm:w-auto">
+      <div class="flex flex-wrap items-center gap-4 w-full sm:w-auto">
         <label class="flex items-center gap-3 cursor-pointer group select-none">
           <input
             type="checkbox"
@@ -166,7 +166,7 @@
     </div>
 
     <!-- Comments List -->
-    <div class="bg-white rounded-2xl shadow-sm border border-sand-200 overflow-hidden">
+    <div class="bg-white rounded-xl shadow-sm border border-sand-200 overflow-hidden">
       <!-- Loading State -->
       <div v-if="loading" class="flex flex-col items-center justify-center p-12 text-brown-400">
         <div
@@ -300,7 +300,7 @@
                 </p>
               </div>
 
-              <div class="mt-4 flex items-center justify-end gap-2 border-t border-sand-100 pt-3">
+              <div class="mt-2 flex items-center justify-end gap-2 border-t border-sand-100 pt-2">
                 <router-link
                   v-if="comment.cat_photo_id"
                   :to="`/photos/${comment.cat_photo_id}`"

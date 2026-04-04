@@ -1,5 +1,6 @@
 import os
 import smtplib
+from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -360,7 +361,7 @@ class EmailService:
                     <div style="background-color: #f7fcfb; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #7FB7A4;">
                         <strong>Setting:</strong> {config_key}<br>
                         <strong>Requested by:</strong> {requester_name}<br>
-                        <strong>Time:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+                        <strong>Time:</strong> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
                     </div>
                     <p>Please log in to the Admin Dashboard to review the proposed value and decide whether to approve or reject the change.</p>
                     <a href="{self.frontend_url}/admin/settings" style="display: inline-block; background-color: #7FB7A4; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 20px 0;">Go to Settings</a>
@@ -375,7 +376,9 @@ class EmailService:
             logger.error(f"Failed to send admin config request: {e}")
             return False
 
-    def send_admin_config_result(self, requester_email: str, config_key: str, status: str, checker_name: str, reason: str = "") -> bool:
+    def send_admin_config_result(
+        self, requester_email: str, config_key: str, status: str, checker_name: str, reason: str = ""
+    ) -> bool:
         """
         Notify the requester about the approval/rejection result.
         """
@@ -427,8 +430,5 @@ class EmailService:
             server.send_message(msg)
             # quit() is called automatically via __exit__ in smtplib.SMTP context manager
 
-
-# Add missing import for datetime at top
-from datetime import datetime
 
 email_service = EmailService()

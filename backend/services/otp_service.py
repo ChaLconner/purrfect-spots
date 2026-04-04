@@ -63,7 +63,8 @@ class OTPService:
                         lockout_key = f"otp_lockout:{email}"
                         exists = await redis_client.exists(lockout_key)
                         return bool(exists)
-                except Exception:  # nosec B110
+                except Exception as e:
+                    logger.debug(f"Redis lockout check failed, falling back to DB: {e}")
                     pass
 
             # Fallback to database check
@@ -123,7 +124,8 @@ class OTPService:
                         )
                     logger.info("Email locked out in Redis: %s until %s", email, locked_until.isoformat())
                     return
-                except Exception:  # nosec B110
+                except Exception as e:
+                    logger.debug(f"Redis lockout record failed, falling back to DB: {e}")
                     pass
 
             # Fallback to database
@@ -176,7 +178,8 @@ class OTPService:
                         lockout_key = f"otp_lockout:{email}"
                         await redis_client.delete(lockout_key)
                     return
-                except Exception:  # nosec B110
+                except Exception as e:
+                    logger.debug(f"Redis lockout deletion failed, falling back to DB: {e}")
                     pass
 
             # Fallback to database

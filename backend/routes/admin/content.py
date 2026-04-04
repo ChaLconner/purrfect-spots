@@ -33,7 +33,7 @@ def _validate_uuid(value: str, label: str = "ID") -> None:
         raise HTTPException(status_code=400, detail=f"Invalid {label} format: expected UUID")
 
 
-@router.get("/photos", response_model=dict[str, Any])
+@router.get("/photos/", response_model=dict[str, Any])
 @limiter.limit("60/minute")
 async def list_photos(
     request: Request,
@@ -76,7 +76,7 @@ async def list_photos(
         raise HTTPException(status_code=500, detail=f"Failed to fetch photos: {e}")
 
 
-@router.delete("/photos/{photo_id}")
+@router.delete("/photos/{photo_id}/")
 @limiter.limit("20/minute")
 async def delete_photo_admin(
     photo_id: str,
@@ -173,7 +173,7 @@ async def delete_photo_admin(
         raise HTTPException(status_code=500, detail=f"Failed to delete photo: {e}")
 
 
-@router.patch("/photos/{photo_id}", response_model=dict[str, Any])
+@router.patch("/photos/{photo_id}/", response_model=dict[str, Any])
 @limiter.limit("20/minute")
 async def update_photo_admin(
     request: Request,

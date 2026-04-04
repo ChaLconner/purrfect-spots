@@ -146,12 +146,14 @@ async def _perform_server_side_detection(
 
 from typing import Annotated, Any
 
+from schemas.gallery import UploadQuotaResponse
 
-@router.get("/quota")
+
+@router.get("/quota", response_model=UploadQuotaResponse)
 async def get_upload_quota(
     current_user: Annotated[Any, Depends(get_current_user)],
     quota_service: Annotated[QuotaService, Depends(get_quota_service)],
-) -> dict[str, Any]:
+) -> UploadQuotaResponse:
     """Get current user's upload quota status."""
     return await quota_service.get_user_quota_status(str(current_user.id), current_user.is_pro)
 
@@ -353,12 +355,4 @@ async def upload_cat_photo(
         raise HTTPException(status_code=500, detail="Upload failed due to an internal error")
 
 
-@router.get("/test")
-async def test_upload_endpoint() -> dict[str, Any]:
-    """
-    Test if upload endpoint is working
-    """
-    return {
-        "message": "Upload endpoint is working!",
-        "timestamp": datetime.now().isoformat(),
-    }
+# Test endpoint removed for security

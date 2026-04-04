@@ -1,7 +1,7 @@
 <template>
-  <div class="bg-white rounded-2xl shadow-sm border border-sand-100 overflow-hidden">
+  <div class="bg-white rounded-xl shadow-sm border border-sand-100 overflow-hidden">
     <div
-      class="p-6 border-b border-sand-100 flex flex-col sm:flex-row justify-between items-center gap-4"
+      class="p-4 border-b border-sand-100 flex flex-col sm:flex-row justify-between items-center gap-4"
     >
       <div class="flex items-center gap-4">
         <h2 class="text-xl font-bold text-brown-900">{{ t('admin.reports.title') }}</h2>
@@ -119,37 +119,37 @@
             </th>
             <th
               scope="col"
-              class="px-6 py-4 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.15em]"
+              class="px-6 py-2 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.15em]"
             >
               {{ t('admin.reports.table.timestamp') }}
             </th>
             <th
               scope="col"
-              class="px-6 py-4 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.15em]"
+              class="px-6 py-2 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.15em]"
             >
               {{ t('admin.reports.table.category') }}
             </th>
             <th
               scope="col"
-              class="px-6 py-4 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.15em]"
+              class="px-6 py-2 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.15em]"
             >
               {{ t('admin.reports.table.subject') }}
             </th>
             <th
               scope="col"
-              class="px-6 py-4 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.15em]"
+              class="px-6 py-2 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.15em]"
             >
               {{ t('admin.reports.table.author') }}
             </th>
             <th
               scope="col"
-              class="px-6 py-4 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.15em]"
+              class="px-6 py-2 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.15em]"
             >
               {{ t('admin.reports.table.status') }}
             </th>
             <th
               scope="col"
-              class="px-6 py-4 text-right text-[10px] font-black text-brown-400 uppercase tracking-[0.15em]"
+              class="px-6 py-2 text-right text-[10px] font-black text-brown-400 uppercase tracking-[0.15em]"
             >
               {{ t('admin.reports.table.controls') }}
             </th>
@@ -157,7 +157,7 @@
         </thead>
         <tbody class="bg-white divide-y divide-sand-200">
           <tr v-for="report in reports" :key="report.id" class="hover:bg-sand-50 transition-colors">
-            <td class="px-6 py-4 w-10">
+            <td class="px-6 py-3 w-10">
               <input
                 type="checkbox"
                 class="rounded border-sand-300 text-terracotta-600 focus:ring-terracotta-500"
@@ -165,7 +165,7 @@
                 @change="toggleSelection(report.id)"
               />
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-500">
+            <td class="px-6 py-3 whitespace-nowrap text-sm text-brown-500">
               {{ new Date(report.created_at).toLocaleDateString(locale) }}<br />
               <span class="text-xs text-brown-400">{{
                 new Date(report.created_at).toLocaleTimeString(locale)
@@ -193,7 +193,7 @@
                 "{{ report.details }}"
               </div>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap">
+            <td class="px-6 py-3 whitespace-nowrap">
               <div class="flex items-center">
                 <div
                   class="h-10 w-10 flex-shrink-0 cursor-pointer"
@@ -225,10 +225,10 @@
                 </div>
               </div>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-600">
+            <td class="px-6 py-3 whitespace-nowrap text-sm text-brown-600">
               {{ report.reporter?.email || t('admin.audit.unknown') }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap">
+            <td class="px-6 py-3 whitespace-nowrap">
               <span
                 class="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider leading-none shadow-sm border"
                 :class="{
@@ -240,7 +240,7 @@
                 {{ t('admin.reports.statuses.' + report.status) }}
               </span>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+            <td class="px-6 py-3 whitespace-nowrap text-right text-sm font-medium">
               <div
                 v-if="report.status === 'pending' && canManageReports"
                 class="flex justify-end gap-2"

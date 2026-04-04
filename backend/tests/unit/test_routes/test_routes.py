@@ -147,19 +147,6 @@ class TestGalleryRoutes:
 
         app.dependency_overrides = {}
 
-    def test_get_gallery_all_endpoint(self, client, mock_cat_photo):
-        """Test /gallery/all endpoint for backward compatibility"""
-        mock_service = MagicMock()
-        mock_service.get_all_photos_simple = AsyncMock(return_value=[mock_cat_photo])
-
-        app.dependency_overrides[get_gallery_service] = lambda: mock_service
-
-        response = client.get("/api/v1/gallery/all")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["images"]) == 1
-
         app.dependency_overrides = {}
 
     def test_get_locations(self, client, mock_cat_photo):
@@ -241,7 +228,7 @@ class TestGalleryRoutes:
         response = client.get("/api/v1/gallery/")
 
         assert response.status_code == 500
-        assert "Failed to fetch gallery images" in response.json()["detail"]
+        assert "Failed to fetch gallery images" in response.json()["message"]
 
         app.dependency_overrides = {}
 

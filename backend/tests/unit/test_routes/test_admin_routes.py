@@ -23,13 +23,6 @@ class TestAdminRoutes:
         mock_supabase_admin.auth.admin.delete_user = AsyncMock()
         return mock_supabase_admin
 
-    @pytest.fixture(autouse=True)
-    def clear_stats_cache(self):
-        """Clear the stats cache before each test"""
-        from routes.admin.stats import _stats_cache
-
-        _stats_cache.clear()
-
     # Standard test UUIDs
     _ADMIN_ID = "00000000-0000-4000-a000-000000000aaa"
     _TARGET_USER_ID = "00000000-0000-4000-a000-000000000bbb"
@@ -103,53 +96,7 @@ class TestAdminRoutes:
             response = client.get("/api/v1/admin/users")
 
         assert response.status_code == 500
-        assert "Failed to fetch users" in response.json()["detail"]
-
-    def test_get_stats_success(self, client, override_admin, mock_supabase_admin):
-        """Test getting system stats"""
-        # Endpoint calls execute() 4 times:
-        # 1. users count
-        # 2. cat_photos count
-        # 3. pending reports count
-        # 4. total reports count
-        mock_supabase_admin.execute.side_effect = [
-            MagicMock(count=100),
-            MagicMock(count=500),
-            MagicMock(count=5),
-            MagicMock(count=10),
-        ]
-
-        with patch(
-            "routes.admin.stats.get_async_supabase_admin_client",
-            new_callable=AsyncMock,
-            return_value=mock_supabase_admin,
-        ):
-            response = client.get("/api/v1/admin/stats")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["total_users"] == 100
-        assert data["total_photos"] == 500
-        assert data["pending_reports"] == 5
-        assert data["total_reports"] == 10
-        assert "generated_at" in data
-
-    def test_get_stats_failure(self, client, override_admin, mock_supabase_admin):
-        """Test stats failure handling"""
-        mock_supabase_admin.execute.side_effect = Exception("Stats error")
-
-        with (
-            patch("routes.admin.stats.redis_service.get", return_value=None),
-            patch(
-                "routes.admin.stats.get_async_supabase_admin_client",
-                new_callable=AsyncMock,
-                return_value=mock_supabase_admin,
-            ),
-        ):
-            response = client.get("/api/v1/admin/stats")
-
-        assert response.status_code == 500
-        assert "Failed to fetch statistics" in response.json()["detail"]
+        assert "Failed to fetch users" in response.json()["message"]
 
     def test_delete_user_success(self, client, override_admin, mock_supabase_admin):
         """Test deleting a user"""
@@ -181,7 +128,7 @@ class TestAdminRoutes:
             response = client.delete(f"/api/v1/admin/users/{self._GHOST_USER_ID}")
 
         assert response.status_code == 404
-        assert response.json()["detail"] == "User not found"
+        assert response.json()["message"] == "User not found"
 
     def test_delete_admin_forbidden(self, client, override_admin, mock_supabase_admin):
         """Test preventing deletion of another admin"""
@@ -197,7 +144,7 @@ class TestAdminRoutes:
             response = client.delete(f"/api/v1/admin/users/{self._OTHER_ADMIN_ID}")
 
         assert response.status_code == 400
-        assert "Cannot delete an admin user" in response.json()["detail"]
+        assert "Cannot delete an admin user" in response.json()["message"]
 
     def test_delete_user_exception(self, client, override_admin, mock_supabase_admin):
         """Test delete user exception handling"""
@@ -211,7 +158,7 @@ class TestAdminRoutes:
             response = client.delete(f"/api/v1/admin/users/{self._ERROR_USER_ID}")
 
         assert response.status_code == 500
-        assert "Failed to delete user" in response.json()["detail"]
+        assert "Failed to delete user" in response.json()["message"]
 
     def test_unauthorized_access(self, client):
         """Test that non-authenticated (or non-admin) users cannot access admin routes"""

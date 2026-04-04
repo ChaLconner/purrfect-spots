@@ -16,6 +16,10 @@ from schemas.user import User
 from services.token_service import get_token_service
 from supabase import AClient
 from utils.auth_utils import decode_token
+from utils.security_alerts import (
+    track_failed_permission_check,
+    track_suspicious_user_agent,
+)
 from utils.supabase_client import (
     get_async_supabase_client,
 )
@@ -131,7 +135,7 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
     from services.redis_service import redis_service
 
     cache_key = get_user_auth_cache_key(user_id)
-    cached_data = redis_service.get(cache_key)
+    cached_data = await redis_service.get(cache_key)
     if cached_data:
         return _assert_user_not_banned(User(**cached_data))
 
@@ -183,7 +187,7 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
             )
 
             # Save to Redis
-            redis_service.set(cache_key, user_obj.model_dump(), expire=USER_AUTH_CACHE_TTL)
+            await redis_service.set(cache_key, user_obj.model_dump(), expire=USER_AUTH_CACHE_TTL)
 
             return _assert_user_not_banned(user_obj)
     except HTTPException:
@@ -243,7 +247,7 @@ from collections.abc import Callable
 def require_permission(permission_code: str) -> Callable[..., User]:
     """Dependency factory to check for specific permission"""
 
-    async def permission_checker(user: User = Depends(get_current_user)) -> User:
+    async def permission_checker(request: Request, user: User = Depends(get_current_user)) -> User:
         # 1. Direct permission check
         if permission_code in user.permissions:
             return user
@@ -251,6 +255,19 @@ def require_permission(permission_code: str) -> Callable[..., User]:
         # 2. General admin permission or role check
         if "admin_access" in user.permissions or user.role.lower() in ("admin", "super_admin"):
             return user
+
+        # SECURITY: Track failed permission checks for alerting
+        ip_address = request.client.host if request.client else "unknown"
+        user_agent = request.headers.get("user-agent", "unknown")
+        track_failed_permission_check(
+            user_id=user.id,
+            required_permission=permission_code,
+            ip_address=ip_address,
+            endpoint=str(request.url.path),
+        )
+
+        # Track suspicious user agents
+        track_suspicious_user_agent(user_agent, ip_address)
 
         raise HTTPException(status_code=403, detail=f"Insufficient permissions. Required: {permission_code}")
 
@@ -287,7 +304,7 @@ async def _attempt_token_decoding(token: str, supabase: AClient | None) -> tuple
     # 1. Try Supabase JWT (Standard)
     try:
         payload = await decode_supabase_token(token)
-        logger.info("Token decoded successfully using Supabase JWKS")
+        logger.debug("Token decoded successfully using Supabase JWKS")
         return payload, "supabase"
     except (HTTPException, ValueError):
         logger.debug("Supabase token decoding attempted but failed")
@@ -296,7 +313,7 @@ async def _attempt_token_decoding(token: str, supabase: AClient | None) -> tuple
     try:
         # decode_token handles both config.SUPABASE_KEY and config.JWT_SECRET
         payload = decode_token(token)
-        logger.info("Token decoded successfully using verify_token utility")
+        logger.debug("Token decoded successfully using verify_token utility")
 
         # Determine source - if it has app_metadata it's likely Supabase
         source = "supabase" if "app_metadata" in payload else "custom"

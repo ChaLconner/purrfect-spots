@@ -49,6 +49,7 @@ export const useAdminStore = defineStore('admin', {
     trendsLoadTime: 0,
     showPerformanceStats: true,
     reportChannel: null as RealtimeChannel | null,
+    _realtimeDebounceTimer: null as ReturnType<typeof setTimeout> | null,
   }),
   actions: {
     async fetchSummary(force: boolean = false) {
@@ -121,9 +122,23 @@ export const useAdminStore = defineStore('admin', {
       this.isLoading = true;
       const start = performance.now();
       try {
-        const response = await apiV1.get<AdminStats>('/admin/stats');
-        this.stats = response;
+        // Redirection: /admin/stats was removed in backend cleanup.
+        // We now use /admin/summary which returns the full dashboard dataset.
+        const response = await apiV1.get<{
+          stats: AdminStats;
+          trends: AdminTrends;
+          monthly: MonthlyStat[];
+        }>('/admin/summary');
+
+        // Populate everything since we have it
+        this.stats = response.stats;
+        this.trends = response.trends;
+        this.monthlyData = response.monthly;
+
         this.lastFetched = now;
+        this.lastTrendsFetched = now;
+        this.lastMonthlyFetched = now;
+
         this.statsLoadTime = Math.round(performance.now() - start);
       } catch (error) {
         console.error('Failed to fetch admin stats:', error);
@@ -158,15 +173,24 @@ export const useAdminStore = defineStore('admin', {
 
       this.reportChannel = supabase
         .channel('admin-reports')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'reports' }, () => {
-          // Re-fetch stats when reports change for accurate counts
-          // Using force=true ensures we bypass cache
-          this.fetchStats(true);
+        // FIX: Listen only to INSERT (new reports), not UPDATE/DELETE
+        // to avoid unnecessary refreshes on resolution/dismissal actions.
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reports' }, () => {
+          // FIX: Debounce to avoid backend hammering when multiple reports arrive quickly.
+          // FIX: force=false so the 30-second frontend cache still applies.
+          if (this._realtimeDebounceTimer) clearTimeout(this._realtimeDebounceTimer);
+          this._realtimeDebounceTimer = setTimeout(() => {
+            this.fetchStats(false);
+          }, 5000);
         })
         .subscribe();
     },
 
     unsubscribeReports() {
+      if (this._realtimeDebounceTimer) {
+        clearTimeout(this._realtimeDebounceTimer);
+        this._realtimeDebounceTimer = null;
+      }
       if (this.reportChannel) {
         this.reportChannel.unsubscribe();
         this.reportChannel = null;

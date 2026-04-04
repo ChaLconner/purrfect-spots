@@ -29,7 +29,7 @@ class TreatsService:
         self.db = db
         # Consistent column selection for treats
         self.TREAT_COLUMNS = "id, sender_id, receiver_id, amount, message, created_at"
-        self.TRANSACTION_COLUMNS = "id, from_user_id, to_user_id, amount, type, created_at, metadata"
+        self.TRANSACTION_COLUMNS = "id, from_user_id, to_user_id, photo_id, amount, transaction_type, created_at"
         self.notification_service = NotificationService(supabase_client)
 
     # ── Give treats ──────────────────────────────────────────────────

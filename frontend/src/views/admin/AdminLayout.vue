@@ -248,6 +248,30 @@
           </router-link>
 
           <router-link
+            v-if="authStore.hasPermission(PERMISSIONS.SYSTEM_STATS)"
+            to="/admin/security"
+            class="flex items-center px-4 py-2 rounded-lg text-brown-600 hover:bg-sand-50 hover:text-brown-900 transition-colors group"
+            active-class="bg-terracotta-50 text-terracotta-700 font-medium"
+            @click="isSidebarOpen = false"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5 mr-3 text-brown-400 group-hover:text-brown-500 group-[.router-link-active]:text-terracotta-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+              />
+            </svg>
+            {{ t('admin.nav.security') }}
+          </router-link>
+
+          <router-link
             v-if="authStore.hasPermission(PERMISSIONS.COMMENTS_MANAGE)"
             to="/admin/comments"
             class="flex items-center px-4 py-2 rounded-lg text-brown-600 hover:bg-sand-50 hover:text-brown-900 transition-colors group"
@@ -299,7 +323,7 @@
 
     <!-- Main Content -->
     <div class="flex-1 flex flex-col md:pl-64 min-w-0 transition-all duration-500 ease-in-out">
-      <main class="flex-1 py-10 px-6 sm:px-10 lg:px-12 mt-8 md:mt-0 max-w-7xl mx-auto w-full">
+      <main class="flex-1 py-6 px-4 sm:px-6 lg:px-8 mt-4 md:mt-0 max-w-7xl mx-auto w-full">
         <!-- Dashboard Content Container with subtle fade-in -->
         <div class="animate-in fade-in slide-in-from-bottom-4 duration-700">
           <router-view />
@@ -324,8 +348,9 @@ const isSidebarOpen = ref(false);
 const pendingReportsCount = computed(() => adminStore.stats.pending_reports);
 
 onMounted(() => {
-  adminStore.fetchStats();
-  // Start real-time subscription for reports
+  // NOTE: fetchStats() removed — AdminDashboard.vue handles its own data via fetchSummary().
+  // Calling fetchStats() here caused a double /admin/summary request on every page load.
+  // Start real-time subscription for reports (sidebar badge needs pending count)
   adminStore.subscribeToReports();
 });
 

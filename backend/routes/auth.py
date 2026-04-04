@@ -21,10 +21,14 @@ from schemas.auth import (
     GoogleTokenRequest,
     LoginRequest,
     LoginResponse,
+    LogoutResponse,
+    PasswordResetResponse,
     RegisterInput,
     ResendOTPRequest,
+    ResendOTPResponse,
     ResetPasswordRequest,
     SessionExchangeRequest,
+    SyncUserResponse,
     VerifyOTPRequest,
 )
 from schemas.user import User, UserResponse
@@ -185,14 +189,14 @@ async def verify_otp(
         raise HTTPException(status_code=500, detail="Verification process failed. Please try again.") from e
 
 
-@router.post("/resend-otp")
+@router.post("/resend-otp", response_model=ResendOTPResponse)
 @auth_limiter.limit("3/minute")
 async def resend_otp(
     request: Request,  # noqa: ARG001
     req: ResendOTPRequest,
     response: Response,  # noqa: ARG001
     otp_service: Annotated[OTPService, Depends(get_otp_service)],
-) -> dict:
+) -> ResendOTPResponse:
     """
     Resend verification OTP code.
 
@@ -219,7 +223,7 @@ async def resend_otp(
 
         log_security_event("otp_resend", details={"email": req.email}, severity="INFO")
 
-        return {"message": "Verification code sent. Please check your email.", "expires_at": expires_at}
+        return ResendOTPResponse(message="Verification code sent. Please check your email.", expires_at=expires_at)
 
     except HTTPException:
         raise
@@ -318,12 +322,12 @@ async def refresh_token(
         return LoginResponse(access_token=None, token_type=None, message="Refresh failed")
 
 
-@router.post("/logout")
+@router.post("/logout", response_model=LogoutResponse)
 async def logout(
     response: Response,
     request: Request,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> dict:
+) -> LogoutResponse:
     """
     Logout user (clear refresh token cookie and revoke it).
 
@@ -345,16 +349,16 @@ async def logout(
             logger.warning("Logout cleanup failed (ignore)")
 
     response.delete_cookie("refresh_token")
-    return {"message": "Logged out successfully"}
+    return LogoutResponse(message="Logged out successfully")
 
 
-@router.post("/forgot-password")
+@router.post("/forgot-password", response_model=PasswordResetResponse)
 @forgot_password_limiter.limit(config.RATE_LIMIT_FORGOT_PASSWORD)
 async def forgot_password(
     request: Request,  # noqa: ARG001
     req: ForgotPasswordRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> dict:
+) -> PasswordResetResponse:
     """
     Request password reset (via Supabase Auth).
 
@@ -363,19 +367,23 @@ async def forgot_password(
     """
     try:
         await auth_service.create_password_reset_token(req.email)
-        return {"message": "If this email is registered, you will receive password reset instructions."}
+        return PasswordResetResponse(
+            message="If this email is registered, you will receive password reset instructions."
+        )
     except Exception:
         logger.error("Forgot password processing failed")
-        return {"message": "If this email is registered, you will receive password reset instructions."}
+        return PasswordResetResponse(
+            message="If this email is registered, you will receive password reset instructions."
+        )
 
 
-@router.post("/reset-password")
+@router.post("/reset-password", response_model=PasswordResetResponse)
 @forgot_password_limiter.limit(config.RATE_LIMIT_FORGOT_PASSWORD)
 async def reset_password(
     request: Request,  # noqa: ARG001
     req: ResetPasswordRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> dict:
+) -> PasswordResetResponse:
     """
     Reset password using token.
 
@@ -389,7 +397,7 @@ async def reset_password(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    return {"message": "Password updated successfully"}
+    return PasswordResetResponse(message="Password updated successfully")
 
 
 @router.post("/session-exchange", response_model=LoginResponse)
@@ -654,10 +662,10 @@ async def google_exchange_code(
         )
 
 
-@router.post("/sync-user")
+@router.post("/sync-user", response_model=SyncUserResponse)
 async def sync_user_data(
     user_payload: Annotated[dict, Depends(get_current_user_from_header)],
-) -> dict:
+) -> SyncUserResponse:
     """
     Sync user data from JWT payload to database.
     """
@@ -703,7 +711,7 @@ async def sync_user_data(
         sync_result = getattr(res, "data", [upsert_data])[0] if getattr(res, "data", None) else upsert_data
 
         logger.info("User synced successfully: %s", user_id)
-        return {"message": "User synced", "data": sync_result}
+        return SyncUserResponse(message="User synced", data=sync_result)
 
     except Exception as e:
         logger.error("Sync failed for user: %s", e)

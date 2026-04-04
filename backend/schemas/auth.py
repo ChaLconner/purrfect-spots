@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import BaseModel, EmailStr, Field
 
 from schemas.user import UserResponse
@@ -20,7 +22,7 @@ class LoginRequest(BaseModel):
 
 class LoginResponse(BaseModel):
     access_token: str | None = None
-    token_type: str | None = "bearer"
+    token_type: str | None = "bearer"  # nosec S105
     user: UserResponse | None = None
     message: str | None = None
     requires_verification: bool = False
@@ -35,6 +37,11 @@ class VerifyOTPRequest(BaseModel):
 
 class ResendOTPRequest(BaseModel):
     email: EmailStr
+
+
+class ResendOTPResponse(BaseModel):
+    message: str
+    expires_at: str | None = None
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -59,3 +66,16 @@ class GoogleCodeExchangeRequest(BaseModel):
     code: str
     code_verifier: str
     redirect_uri: str
+
+
+class SyncUserResponse(BaseModel):
+    message: str
+    data: dict[str, Any]
+
+
+class LogoutResponse(BaseModel):
+    message: str
+
+
+class PasswordResetResponse(BaseModel):
+    message: str

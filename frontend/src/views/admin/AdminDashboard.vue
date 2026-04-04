@@ -1,19 +1,19 @@
 <template>
   <div>
-    <h1 class="text-3xl font-bold text-brown-900 font-display transition-all duration-300">
+    <h1 class="text-2xl font-bold text-brown-900 font-display transition-all duration-300">
       {{ t('admin.dashboard.title') }}
     </h1>
-    <p class="mt-1 text-brown-600">{{ t('admin.dashboard.subtitle') }}</p>
+    <p class="mt-0.5 text-sm text-brown-600">{{ t('admin.dashboard.subtitle') }}</p>
 
     <!-- Stats Cards -->
     <div
       v-if="!adminStore.isLoading && adminStore.stats.total_users > 0"
-      class="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+      class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"
     >
       <div
         v-for="(card, i) in statCards"
         :key="i"
-        class="bg-white p-6 rounded-2xl shadow-sm border border-sand-100 transition-all hover:shadow-md hover:border-terracotta-100 group"
+        class="bg-white p-4 rounded-xl shadow-sm border border-sand-100 transition-all hover:shadow-md hover:border-terracotta-100 group"
       >
         <h3
           class="text-sm font-medium text-brown-500 uppercase tracking-wider group-hover:text-brown-700 transition-colors"
@@ -29,12 +29,12 @@
     <!-- Loading State for Stats -->
     <div
       v-else-if="adminStore.isLoading"
-      class="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+      class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"
     >
       <div
         v-for="n in 4"
         :key="n"
-        class="bg-white p-6 rounded-2xl shadow-sm border border-sand-100"
+        class="bg-white p-4 rounded-xl shadow-sm border border-sand-100"
       >
         <SkeletonLoader width="50%" height="0.875rem" />
         <div class="mt-2">
@@ -44,8 +44,8 @@
     </div>
 
     <!-- Trends Visualization -->
-    <div class="mt-8 bg-white p-6 rounded-3xl shadow-sm border border-sand-200 transition-all">
-      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
+    <div class="mt-4 bg-white p-5 rounded-2xl shadow-sm border border-sand-200 transition-all">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
         <div>
           <h3 class="text-xl font-bold text-brown-900 font-display">
             {{ t('admin.dashboard.trends.title') }}
@@ -120,12 +120,16 @@
         </div>
       </div>
 
+      <!-- Chart Container -->
       <div
-        v-else-if="hasTrendsData && !adminStore.isTrendsLoading"
-        class="transition-all duration-500 overflow-hidden"
+        v-show="hasTrendsData"
+        class="transition-all duration-700 overflow-hidden min-h-[350px]"
+        :class="{ 'opacity-60 grayscale-[0.4] pointer-events-none blur-[1px]': adminStore.isTrendsLoading }"
       >
         <apexchart
+          id="admin-trends-chart"
           ref="chartRef"
+          :key="`trends-${adminStore.lastFetched}`"
           height="350"
           type="area"
           :options="chartOptions"
@@ -133,18 +137,26 @@
         />
       </div>
 
-      <div v-else class="h-80 flex items-center justify-center text-brown-400 italic">
-        {{
-          adminStore.isTrendsLoading
-            ? t('admin.dashboard.trends.refreshing')
-            : t('admin.dashboard.trends.noData')
-        }}
+      <!-- Empty State -->
+      <div 
+        v-if="!hasTrendsData && !adminStore.isTrendsLoading" 
+        class="h-80 flex items-center justify-center text-brown-400 italic bg-sand-50/30 rounded-2xl border border-dashed border-sand-200"
+      >
+        {{ t('admin.dashboard.trends.noData') }}
+      </div>
+
+      <!-- Progress Indicator when refreshing existing data -->
+      <div 
+        v-if="hasTrendsData && adminStore.isTrendsLoading" 
+        class="text-center py-4 text-[10px] text-brown-400 font-bold uppercase tracking-[0.2em] animate-pulse"
+      >
+        {{ t('admin.dashboard.trends.refreshing') }}
       </div>
     </div>
 
     <!-- Monthly Performance Deep-dive -->
-    <div class="mt-8 bg-white p-8 rounded-3xl shadow-sm border border-sand-200 transition-all">
-      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
+    <div class="mt-4 bg-white p-5 rounded-2xl shadow-sm border border-sand-200 transition-all">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
         <div>
           <h3 class="text-xl font-bold text-brown-900 font-display">
             {{ t('admin.dashboard.monthly.title') }}
@@ -161,13 +173,18 @@
         <div class="bg-sand-50 rounded-2xl p-4 h-[300px] animate-pulse"></div>
       </div>
 
+      <!-- Monthly Performance Container -->
       <div
-        v-else-if="adminStore.monthlyData.length > 0"
-        class="grid grid-cols-1 lg:grid-cols-3 gap-8"
+        v-show="adminStore.monthlyData.length > 0"
+        key="monthly-stats-container"
+        class="grid grid-cols-1 lg:grid-cols-3 gap-8 transition-all duration-500"
+        :class="{ 'opacity-60 pointer-events-none grayscale-[0.2]': adminStore.isMonthlyLoading }"
       >
         <!-- Monthly Chart -->
-        <div class="lg:col-span-2">
+        <div class="lg:col-span-2 min-h-[300px]">
           <apexchart
+            id="admin-monthly-chart"
+            :key="`monthly-${adminStore.lastFetched}`"
             height="300"
             type="bar"
             :options="monthlyChartOptions"
@@ -212,8 +229,18 @@
         </div>
       </div>
 
-      <div v-else class="h-64 flex items-center justify-center text-brown-400 italic">
+      <div 
+        v-if="!adminStore.isMonthlyLoading && adminStore.monthlyData.length === 0" 
+        class="h-64 flex items-center justify-center text-brown-400 italic bg-sand-50/20 rounded-2xl border border-dashed border-sand-200"
+      >
         {{ t('admin.dashboard.monthly.error') }}
+      </div>
+
+      <div 
+        v-if="adminStore.monthlyData.length > 0 && adminStore.isMonthlyLoading" 
+        class="text-center py-4 text-[10px] text-brown-400 font-bold uppercase tracking-[0.2em] animate-pulse"
+      >
+        {{ t('admin.dashboard.performance.updating') || 'Updating performance metrics...' }}
       </div>
     </div>
   </div>
@@ -348,6 +375,7 @@ const chartSeries = computed(() => [
 
 const chartOptions = computed(() => ({
   chart: {
+    id: 'admin-trends-chart',
     type: 'area',
     toolbar: { show: false },
     zoom: { enabled: false },
@@ -419,6 +447,7 @@ const monthlyChartSeries = computed(() => [
 
 const monthlyChartOptions = computed(() => ({
   chart: {
+    id: 'admin-monthly-chart',
     type: 'bar',
     stacked: false,
     toolbar: { show: false },

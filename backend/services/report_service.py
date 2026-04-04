@@ -40,9 +40,9 @@ class ReportService:
             if self.db:
                 # Basic SQL for reports table
                 query_str = (
-                    f"INSERT INTO reports (photo_id, comment_id, reporter_id, reason, details, status) "  # noqa: S608
+                    "INSERT INTO reports (photo_id, comment_id, reporter_id, reason, details, status) "
                     "VALUES (:photo_id, :comment_id, :reporter_id, :reason, :details, :status) "
-                    f"RETURNING {self.REPORT_COLUMNS}"
+                    "RETURNING id, photo_id, comment_id, reporter_id, reason, details, status, created_at"
                 )
                 query = text(query_str)
                 result = await self.db.execute(query, data)
@@ -69,8 +69,9 @@ class ReportService:
         try:
             if self.db:
                 query = text(
-                    f"SELECT {self.REPORT_COLUMNS} FROM reports WHERE reporter_id = :u_id ORDER BY created_at DESC"
-                )  # noqa: S608
+                    "SELECT id, photo_id, comment_id, reporter_id, reason, details, status, created_at "
+                    "FROM reports WHERE reporter_id = :u_id ORDER BY created_at DESC"
+                )
                 result = await self.db.execute(query, {"u_id": user_id})
                 reports = []
                 for row in result.fetchall():

@@ -1,7 +1,7 @@
 <template>
-  <div class="bg-white rounded-2xl shadow-sm border border-sand-100 overflow-hidden">
+  <div class="bg-white rounded-xl shadow-sm border border-sand-100 overflow-hidden">
     <div
-      class="p-6 border-b border-sand-100 flex flex-col sm:flex-row justify-between items-center gap-4"
+      class="p-4 border-b border-sand-100 flex flex-col sm:flex-row justify-between items-center gap-4"
     >
       <div class="flex items-center gap-4">
         <h2 class="text-xl font-bold text-brown-900">{{ t('admin.users.title_simple') }}</h2>
@@ -98,7 +98,7 @@
         </thead>
         <tbody class="bg-white divide-y divide-sand-200">
           <tr v-for="user in users" :key="user.id" class="hover:bg-sand-50 transition-colors">
-            <td class="px-6 py-4 whitespace-nowrap">
+            <td class="px-6 py-3 whitespace-nowrap">
               <div class="flex items-center">
                 <div class="h-10 w-10 flex-shrink-0">
                   <img
@@ -183,7 +183,7 @@
               {{ user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A' }}
             </td>
             <td
-              class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex gap-2 justify-end"
+              class="px-6 py-3 whitespace-nowrap text-right text-sm font-medium flex gap-2 justify-end"
             >
               <button
                 v-if="canEditProfile"

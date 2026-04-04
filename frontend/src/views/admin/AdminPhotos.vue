@@ -1,7 +1,7 @@
 <template>
-  <div class="bg-white rounded-2xl shadow-sm border border-sand-200 overflow-hidden">
+  <div class="bg-white rounded-xl shadow-sm border border-sand-200 overflow-hidden">
     <div
-      class="p-6 border-b border-sand-100 flex flex-col sm:flex-row justify-between items-center gap-4 bg-white"
+      class="p-4 border-b border-sand-100 flex flex-col sm:flex-row justify-between items-center gap-4 bg-white"
     >
       <div>
         <h2 class="text-xl font-bold text-brown-900">{{ $t('admin.photos.title') }}</h2>
@@ -40,31 +40,31 @@
           <tr>
             <th
               scope="col"
-              class="px-6 py-4 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.2em]"
+              class="px-6 py-2 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.2em]"
             >
               {{ $t('admin.photos.table.media') }}
             </th>
             <th
               scope="col"
-              class="px-6 py-4 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.2em]"
+              class="px-6 py-2 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.2em]"
             >
               {{ $t('admin.photos.table.owner') }}
             </th>
             <th
               scope="col"
-              class="px-6 py-4 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.2em]"
+              class="px-6 py-2 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.2em]"
             >
               {{ $t('admin.photos.table.location_profile') }}
             </th>
             <th
               scope="col"
-              class="px-6 py-4 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.2em]"
+              class="px-6 py-2 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.2em]"
             >
               {{ $t('admin.photos.table.timeline') }}
             </th>
             <th
               scope="col"
-              class="px-6 py-4 text-right text-[10px] font-black text-brown-400 uppercase tracking-[0.2em]"
+              class="px-6 py-2 text-right text-[10px] font-black text-brown-400 uppercase tracking-[0.2em]"
             >
               {{ $t('admin.photos.table.actions') }}
             </th>
@@ -76,7 +76,7 @@
             :key="adminPhoto.id"
             class="hover:bg-sand-50/30 transition-colors"
           >
-            <td class="px-6 py-5 whitespace-nowrap">
+            <td class="px-6 py-2 whitespace-nowrap">
               <div
                 class="h-16 w-16 flex-shrink-0 cursor-pointer group/img relative"
                 @click="openImage(adminPhoto)"

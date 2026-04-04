@@ -25,7 +25,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import JSONResponse, ORJSONResponse
+from fastapi.responses import JSONResponse
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.mcp import MCPIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
@@ -40,6 +40,8 @@ from config import config
 from limiter import limiter
 from logger import logger
 from middleware.csrf_middleware import CSRFMiddleware
+from middleware.etag_middleware import ETagMiddleware
+from middleware.idempotency_middleware import IdempotencyMiddleware
 from middleware.request_id_middleware import RequestIdMiddleware
 from middleware.security_middleware import (
     HTTPSRedirectMiddleware,
@@ -181,7 +183,7 @@ if ENVIRONMENT == "production":
         docs_url=None,  # SECURITY: Disabled in production
         redoc_url=None,  # SECURITY: Disabled in production
         openapi_url=None,  # SECURITY: Disabled in production
-        default_response_class=ORJSONResponse,
+        default_response_class=JSONResponse,
         contact={
             "name": "Purrfect Spots Team",
             "email": "support@purrfectspots.com",
@@ -213,7 +215,7 @@ else:
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
-        default_response_class=ORJSONResponse,
+        default_response_class=JSONResponse,
         contact={
             "name": "Purrfect Spots Team",
             "email": "support@purrfectspots.com",
@@ -299,22 +301,7 @@ async def health_check() -> JSONResponse:
     )
 
 
-# Test endpoint - DISABLED IN PRODUCTION
-# @app.get("/api/test-json")
-# async def test_json_response():
-#     """Test endpoint to verify JSON responses are working correctly"""
-#     return JSONResponse(
-#         content={
-#             "success": True,
-#             "message": "JSON response test successful (Reloaded)",
-#             "api_version": "v1",
-#             "data": {
-#                 "test": "JSON parsing should work correctly",
-#                 "content_type": "application/json",
-#             },
-#         },
-#         headers={"Content-Type": CONTENT_TYPE_JSON},
-#     )
+# Test endpoint removed for security
 
 
 # ========== API Routes ==========
@@ -328,7 +315,7 @@ app.include_router(health_router)
 
 # ========== Security Middleware ==========
 # Order matters: First added = Last executed
-# Execution order: GZip -> RequestId -> CSRF -> SecurityHeaders -> HTTPSRedirect
+# Execution order: GZip -> RequestId -> Idempotency -> ETag -> CSRF -> SecurityHeaders -> HTTPSRedirect
 
 # HTTPS redirect (must be added last to run first)
 app.add_middleware(HTTPSRedirectMiddleware)
@@ -345,6 +332,14 @@ app.add_middleware(SecurityHeadersMiddleware)
 
 # CSRF protection for state-changing requests
 app.add_middleware(CSRFMiddleware)
+
+# ETag support for conditional GET requests (304 Not Modified)
+# SECURITY: Enable in production for performance, disable in dev for easier debugging
+if ENVIRONMENT != "development":
+    app.add_middleware(ETagMiddleware)
+
+# Idempotency key support for POST operations
+app.add_middleware(IdempotencyMiddleware)
 
 # Request ID for tracing and audit logs
 app.add_middleware(RequestIdMiddleware)
@@ -403,3 +398,4 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+# triggering reload

@@ -15,6 +15,7 @@ from schemas.settings_schemas import (
 )
 from schemas.user import User
 from services.email_service import email_service
+from services.encryption_service import encryption_service
 from services.line_service import line_service
 
 router = APIRouter()
@@ -39,13 +40,27 @@ async def get_all_settings(
         if category:
             query = query.eq("category", category)
         result = await query.execute()
-        return result.data or []
+
+        # SECURITY: Decrypt encrypted values before returning
+        decrypted_data = []
+        for item in result.data or []:
+            if item.get("is_encrypted") and isinstance(item.get("value"), dict):
+                try:
+                    item["value"] = encryption_service.decrypt_value(item["value"])
+                    item["is_encrypted_display"] = True
+                except Exception as e:
+                    logger.warning(f"Failed to decrypt setting {item.get('key')}: {e}")
+                    item["value"] = "[ENCRYPTED - Unable to decrypt]"
+                    item["is_encrypted_display"] = True
+            decrypted_data.append(item)
+
+        return decrypted_data
     except Exception as e:
         logger.error("Failed to fetch settings: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch system settings")
 
 
-@router.get("/history/{key}", response_model=list[ConfigHistoryResponse])
+@router.get("/history/{key}/", response_model=list[ConfigHistoryResponse])
 async def get_setting_history(key: str, current_admin: Annotated[User, Depends(require_permission("system:settings"))]):
     """Get evolution history for a specific setting."""
     try:
@@ -70,7 +85,7 @@ async def get_setting_history(key: str, current_admin: Annotated[User, Depends(r
         raise HTTPException(status_code=500, detail="Failed to fetch config history")
 
 
-@router.put("/{key}", response_model=ConfigResponse | PendingConfigChangeResponse)
+@router.put("/{key}/", response_model=ConfigResponse | PendingConfigChangeResponse)
 async def update_setting(
     request: Request,
     key: str,
@@ -81,10 +96,9 @@ async def update_setting(
     try:
         admin_client = await get_async_supabase_admin_client()
 
-        # Check if setting exists and if it requires approval
         check = (
             await admin_client.table("system_configs")
-            .select("value, requires_approval")
+            .select("value, requires_approval, type, is_encrypted")
             .eq("key", key)
             .single()
             .execute()
@@ -94,15 +108,25 @@ async def update_setting(
 
         setting = check.data
 
+        # SECURITY: Encrypt value if setting is marked as encrypted
+        value_to_store = update_data.value
+        old_value_for_history = setting["value"]
+        if setting.get("is_encrypted", False):
+            try:
+                encrypted = encryption_service.encrypt_value(update_data.value, setting.get("type", "string"))
+                value_to_store = encrypted
+            except Exception as e:
+                logger.error(f"Failed to encrypt setting {key}: {e}")
+                raise HTTPException(status_code=500, detail="Failed to encrypt sensitive setting")
+
         # Check if approval is required (Maker-Checker)
         if setting.get("requires_approval", False):
-            # Create a pending change
             pending = (
                 await admin_client.table("pending_config_changes")
                 .insert(
                     {
                         "config_key": key,
-                        "proposed_value": update_data.value,
+                        "proposed_value": value_to_store,
                         "requester_id": current_admin.id,
                         "status": "pending",
                     }
@@ -110,18 +134,14 @@ async def update_setting(
                 .execute()
             )
 
-            # Trigger Notifications (Phase 3)
             requester_name = current_admin.name or current_admin.email
             msg = f"\n[PURRFECT ADMIN]\n⚠️ Approval Required\nSetting: {key}\nRequested by: {requester_name}"
             await line_service.send_notification(msg)
 
-            # Email Notification to other admins (optional, using placeholder for simplicity)
-            # email_service.send_admin_config_request("admin@purrfectspots.com", requester_name, key)
-
             return pending.data[0]
 
         # Immediate update if no approval needed
-        update_values = {"value": update_data.value, "updated_by": current_admin.id}
+        update_values = {"value": value_to_store, "updated_by": current_admin.id}
         if update_data.description is not None:
             update_values["description"] = update_data.description
         if update_data.category is not None:
@@ -144,8 +164,8 @@ async def update_setting(
             .insert(
                 {
                     "config_key": key,
-                    "old_value": setting["value"],
-                    "new_value": update_data.value,
+                    "old_value": old_value_for_history,
+                    "new_value": value_to_store,
                     "changed_by": current_admin.id,
                     "change_reason": "Direct administrative update",
                 }
@@ -154,14 +174,14 @@ async def update_setting(
         )
 
         return result.data
+    except HTTPException:
+        raise
     except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
         logger.error("Failed to update setting %s: %s", key, e)
         raise HTTPException(status_code=500, detail="Failed to update system setting")
 
 
-@router.get("/pending", response_model=list[PendingConfigChangeResponse])
+@router.get("/pending/", response_model=list[PendingConfigChangeResponse])
 async def get_pending_changes(current_admin: Annotated[User, Depends(require_permission("system:settings"))]):
     """Get all pending config changes (Checkers)"""
     try:
@@ -198,7 +218,7 @@ async def get_pending_changes(current_admin: Annotated[User, Depends(require_per
         raise HTTPException(status_code=500, detail="Failed to fetch pending changes")
 
 
-@router.post("/approve/{change_id}", response_model=ConfigResponse)
+@router.post("/approve/{change_id}/", response_model=ConfigResponse)
 async def approve_change(
     change_id: str,
     current_admin: Annotated[User, Depends(require_permission("system:settings"))],
@@ -282,7 +302,7 @@ async def approve_change(
         raise HTTPException(status_code=500, detail="Approval process failed")
 
 
-@router.post("/reject/{change_id}", response_model=dict)
+@router.post("/reject/{change_id}/", response_model=dict)
 async def reject_change(
     change_id: str,
     current_admin: Annotated[User, Depends(require_permission("system:settings"))],

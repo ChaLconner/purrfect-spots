@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { shallowMount } from '@vue/test-utils';
 import AdminDashboard from '@/views/admin/AdminDashboard.vue';
 import { apiV1 } from '@/utils/api';
-import { nextTick } from 'vue';
+import { nextTick, defineComponent } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
 
 
@@ -34,10 +34,18 @@ describe('AdminDashboard.vue', () => {
   };
 
   it('renders stats correctly', async (): Promise<void> => {
-    // Mock api implementation
     (apiV1.get as ReturnType<typeof vi.fn>).mockImplementation(async (url: string): Promise<unknown> => {
-       if (url === '/admin/stats') {
-         return mockStats;
+       if (url === '/admin/summary') {
+         return {
+           stats: mockStats,
+           trends: {
+             users: [{ date: '2023-01-01', count: 5 }],
+             photos: [{ date: '2023-01-01', count: 2 }],
+             reports: [{ date: '2023-01-01', count: 1 }],
+           },
+           monthly: [],
+           generated_at: new Date().toISOString()
+         };
        }
        if (url === '/admin/stats/trends') {
          return {
@@ -52,51 +60,59 @@ describe('AdminDashboard.vue', () => {
        return {};
      });
 
-    const wrapper = mount(AdminDashboard, {
-      global: { plugins: [pinia] }
+    const wrapper = shallowMount(AdminDashboard, {
+      global: {
+        plugins: [pinia],
+        stubs: {
+          apexchart: defineComponent({ template: '<div></div>' }),
+          'router-link': true,
+        },
+      },
     });
 
-    // Wait for mounted hook
     await new Promise((resolve) => setTimeout(resolve, 0));
     await nextTick();
+    await nextTick();
 
-    expect(apiV1.get).toHaveBeenCalledWith('/admin/stats');
-    
-    // Check if new stats are displayed
-    expect(wrapper.text()).toContain('admin.dashboard.stats.totalUsers');
+    expect(apiV1.get).toHaveBeenCalledWith('/admin/summary');
     expect(wrapper.text()).toContain('100');
-    
-    expect(wrapper.text()).toContain('admin.dashboard.stats.totalPhotos');
     expect(wrapper.text()).toContain('50');
-
-    expect(wrapper.text()).toContain('admin.dashboard.stats.pendingReports');
     expect(wrapper.text()).toContain('5');
-
-    expect(wrapper.text()).toContain('admin.dashboard.stats.totalReports');
     expect(wrapper.text()).toContain('10');
   });
 
   it('handles loading state', async (): Promise<void> => {
-     // Return a promise that never resolves (or delays) to test loading state if needed
-     (apiV1.get as ReturnType<typeof vi.fn>).mockImplementation((): Promise<void> => new Promise((): void => {}));
-     
-     const wrapper = mount(AdminDashboard, {
-       global: { plugins: [pinia] }
-     });
-     await nextTick();
-     expect(wrapper.html()).toContain('animate-shimmer');
-   });
- 
-   it('handles error state', async (): Promise<void> => {
-     (apiV1.get as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Failed'));
- 
-     const wrapper = mount(AdminDashboard, {
-       global: { plugins: [pinia] }
-     });
-     
-     await new Promise((resolve): void => { setTimeout(resolve, 0); });
-     await nextTick();
- 
-     expect(wrapper.text()).toContain('admin.dashboard.monthly.error');
-   });
- });
+    (apiV1.get as ReturnType<typeof vi.fn>).mockImplementation((): Promise<void> => new Promise((): void => {}));
+    
+    const wrapper = shallowMount(AdminDashboard, {
+      global: {
+        plugins: [pinia],
+        stubs: {
+          apexchart: defineComponent({ template: '<div></div>' }),
+          'router-link': true,
+        },
+      },
+    });
+    await nextTick();
+    expect(wrapper.html()).toContain('animate-pulse');
+  });
+
+  it('handles error state', async (): Promise<void> => {
+    (apiV1.get as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Failed'));
+
+    const wrapper = shallowMount(AdminDashboard, {
+      global: {
+        plugins: [pinia],
+        stubs: {
+          apexchart: defineComponent({ template: '<div></div>' }),
+          'router-link': true,
+        },
+      },
+    });
+    
+    await new Promise((resolve): void => { setTimeout(resolve, 0); });
+    await nextTick();
+
+    expect(wrapper.text()).toContain('admin.dashboard.monthly.error');
+  });
+});

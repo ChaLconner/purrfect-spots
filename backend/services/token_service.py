@@ -43,7 +43,7 @@ class TokenService:
         self._memory_blacklist: dict[str, datetime] = {}  # Fallback storage
         self.default_ttl = 3600 * 24 * 7  # 7 days
         self.supabase_admin = supabase_client
-        self.TOKEN_COLUMNS = "id, token_jti, user_id, expires_at, revoked_at"
+        self.TOKEN_COLUMNS = "id, token_jti, user_id, expires_at, revoked_at"  # nosec S105
 
     async def _get_admin_client(self) -> AClient:
         """Lazy load admin client if not provided"""
@@ -282,6 +282,7 @@ async def get_token_service(db: AsyncSession | None = None) -> TokenService:
             try:
                 import redis.asyncio as aioredis
 
+                # Use a specific pool name if possible or handle singleton initialization carefully
                 redis_client = aioredis.from_url(
                     redis_url,
                     encoding="utf-8",
@@ -292,7 +293,7 @@ async def get_token_service(db: AsyncSession | None = None) -> TokenService:
                     health_check_interval=30,
                 )
                 await redis_client.ping()
-                logger.info("Token service initialized with Redis")
+                logger.info("Initializing Token Service singleton with Redis backend")
             except Exception as e:
                 logger.warning(f"Could not connect to Redis: {e}")
                 redis_client = None
@@ -300,7 +301,7 @@ async def get_token_service(db: AsyncSession | None = None) -> TokenService:
         # Admin client will be lazily loaded
         _token_service = TokenService(redis_client, db=db)
         if not redis_client:
-            logger.info("Token service initialized with in-memory storage")
+            logger.info("Initializing Token Service singleton with in-memory storage")
     else:
         # If singleton exists, update DB session if provided
         if db:

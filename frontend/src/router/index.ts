@@ -11,6 +11,7 @@ const ForgotPasswordView = (): Promise<unknown> => import('@/views/ForgotPasswor
 const ResetPasswordView = (): Promise<unknown> => import('@/views/ResetPasswordView.vue');
 const VerifyEmailView = (): Promise<unknown> => import('@/views/VerifyEmailView.vue');
 const LeaderboardView = (): Promise<unknown> => import('@/views/LeaderboardView.vue');
+const MyReportsView = (): Promise<unknown> => import('@/views/MyReportsView.vue');
 const SubscriptionView = (): Promise<unknown> => import('@/views/SubscriptionView.vue');
 const AuthCallback = (): Promise<unknown> => import('@/components/AuthCallback.vue');
 const AdminLayout = (): Promise<unknown> => import('@/views/admin/AdminLayout.vue');
@@ -23,6 +24,7 @@ const AdminSettings = (): Promise<unknown> => import('@/views/admin/AdminSetting
 const AdminTreats = (): Promise<unknown> => import('@/views/admin/AdminTreats.vue');
 const AdminRoles = (): Promise<unknown> => import('@/views/admin/AdminRoles.vue');
 const AdminComments = (): Promise<unknown> => import('@/views/admin/AdminComments.vue');
+const AdminSecurity = (): Promise<unknown> => import('@/views/admin/AdminSecurity.vue');
 const PrivacyPolicyView = (): Promise<unknown> => import('@/views/PrivacyPolicyView.vue');
 const TermsOfServiceView = (): Promise<unknown> => import('@/views/TermsOfServiceView.vue');
 const NotFoundView = (): Promise<unknown> => import('@/views/NotFoundView.vue');
@@ -83,6 +85,12 @@ const routes = [
     path: '/leaderboard',
     name: 'Leaderboard',
     component: LeaderboardView,
+  },
+  {
+    path: '/my-reports',
+    name: 'MyReports',
+    component: MyReportsView,
+    meta: { requiresAuth: true },
   },
   {
     path: '/subscription',
@@ -160,6 +168,11 @@ const routes = [
         path: 'comments',
         name: 'AdminComments',
         component: AdminComments,
+      },
+      {
+        path: 'security',
+        name: 'AdminSecurity',
+        component: AdminSecurity,
       },
     ],
   },

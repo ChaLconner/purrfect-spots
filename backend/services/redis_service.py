@@ -2,7 +2,7 @@ import json
 from datetime import datetime
 from typing import Any
 
-import redis
+import redis.asyncio as aioredis
 
 from config import Config
 from logger import logger
@@ -30,49 +30,75 @@ class JSONSerializer(json.JSONEncoder):
 class RedisService:
     def __init__(self):
         self.url = Config.REDIS_URL
-        self.client = None
+        self.client: aioredis.Redis | None = None
         if self.url:
             try:
-                # Use standard redis client
-                self.client = redis.from_url(self.url, decode_responses=True)
-                # Test connection
-                self.client.ping()
-                logger.info("Connected to Redis at %s", self.url.split("@")[-1] if "@" in self.url else self.url)
+                # FIX: Use async Redis client to avoid blocking FastAPI's event loop.
+                # Previous implementation used synchronous redis.Redis which blocked
+                # the event loop on every cache read/write operation.
+                self.client = aioredis.from_url(self.url, decode_responses=True)
+                logger.info(
+                    "Redis (async) configured at %s",
+                    self.url.split("@")[-1] if "@" in self.url else self.url,
+                )
             except Exception as e:
-                logger.error("Failed to connect to Redis: %s. Falling back to no-cache.", e)
+                logger.error("Failed to configure async Redis client: %s. Falling back to no-cache.", e)
                 self.client = None
 
-    def get(self, key: str) -> Any | None:
+    async def ping(self) -> bool:
+        """Test connection to Redis. Replaces the synchronous ping() on init."""
+        if not self.client:
+            return False
+        try:
+            return await self.client.ping()
+        except Exception as e:
+            logger.error("Redis ping failed: %s", e)
+            return False
+
+    async def get(self, key: str) -> Any | None:
         if not self.client:
             return None
         try:
-            val = self.client.get(key)
+            val = await self.client.get(key)
             return json.loads(val) if val else None
         except Exception as e:
             logger.error("Redis get error for %s: %s", key, e)
             return None
 
-    def set(self, key: str, value: Any, expire: int = 300) -> bool:
+    async def set(self, key: str, value: Any, expire: int = 300) -> bool:
         """expire in seconds, default 5 mins"""
         if not self.client:
             return False
         try:
             serialized_value = json.dumps(value, cls=JSONSerializer)
-            self.client.set(key, serialized_value, ex=expire)
+            await self.client.set(key, serialized_value, ex=expire)
             return True
         except Exception as e:
             logger.error("Redis set error for %s: %s", key, e)
             return False
 
-    def delete(self, key: str) -> bool:
+    async def delete(self, key: str) -> bool:
         if not self.client:
             return False
         try:
-            self.client.delete(key)
+            await self.client.delete(key)
             return True
         except Exception as e:
             logger.error("Redis delete error for %s: %s", key, e)
             return False
+
+    async def delete_pattern(self, pattern: str) -> int:
+        """Delete all keys matching a pattern. Returns count of deleted keys."""
+        if not self.client:
+            return 0
+        try:
+            keys = await self.client.keys(pattern)
+            if keys:
+                return await self.client.delete(*keys)
+            return 0
+        except Exception as e:
+            logger.error("Redis delete_pattern error for %s: %s", pattern, e)
+            return 0
 
 
 redis_service = RedisService()

@@ -48,7 +48,30 @@
     "viewDetails": "ดูรายละเอียด",
     "copyJson": "คัดลอก JSON",
     "page": "หน้า {n}",
-    "copiedToClipboard": "คัดลอกเรียบร้อยแล้ว"
+    "copiedToClipboard": "คัดลอกเรียบร้อยแล้ว",
+    "somethingWentWrongDesc": "Something went wrong. Please try again.",
+    "technicalDetails": "Technical Details",
+    "copyFailed": "Failed to copy",
+    "copyTechnicalDetails": "Copy technical details",
+    "tryAgain": "Try Again",
+    "goHome": "Go Home",
+    "reloadPage": "Reload Page",
+    "export": "Export",
+    "exportCsv": "Export CSV",
+    "import": "Import",
+    "filter": "Filter",
+    "sort": "Sort",
+    "ascending": "Ascending",
+    "descending": "Descending",
+    "view": "View",
+    "details": "Details",
+    "settings": "Settings",
+    "profile": "Profile",
+    "logout": "Logout",
+    "login": "Login",
+    "register": "Register",
+    "signUp": "Sign Up",
+    "signIn": "Sign In"
   },
   "upload": {
     "pageTitle": "แบ่งปันพิกัดแมวเหมียว",
@@ -70,8 +93,16 @@
       "dragAndDrop": "ลากและวางรูปภาพที่นี่",
       "orClickToBrowse": "หรือคลิกเพื่อเลือกไฟล์",
       "verifyingCatContent": "กำลังตรวจสอบ...",
+      "catDetected": "ยืนยันการพบแมวแล้ว",
+      "foundCats": "พบแมว {count} ตัว",
+      "confidence": "ความมั่นใจ",
+      "noCatDetected": "ไม่พบแมวในรูป",
+      "noCatMessage": "AI ของเราไม่พบแมวในรูปนี้ โปรดลองอัปโหลดรูปที่เห็นน้องแมวชัดๆ อีกครั้ง!",
+      "tryAnother": "ลองรูปอื่น",
       "aspectRatioMessage": "กรุณาอัปโหลดรูปภาพในอัตราส่วนมาตรฐาน (ระหว่าง 0.5 ถึง 2.0)",
-      "invalidAspectRatio": "อัตราส่วนภาพไม่ถูกต้อง"
+      "invalidAspectRatio": "อัตราส่วนภาพไม่ถูกต้อง",
+      "preview": "Preview",
+      "removePhoto": "Remove Photo"
     },
     "detailsSection": {
       "title": "รายละเอียดน้องแมว",
@@ -81,7 +112,8 @@
       "description": "คำอธิบาย",
       "descriptionPlaceholder": "เล่าเรื่องราวของจุดนี้...",
       "tagsOptional": "แท็ก (ไม่บังคับ)",
-      "tagsPlaceholder": "เพิ่มแท็ก..."
+      "tagsPlaceholder": "เพิ่มแท็ก...",
+      "maxTags": "Max tags reached"
     },
     "locationSection": {
       "title": "เพิ่มสถานที่",
@@ -89,7 +121,10 @@
       "useMyLocation": "ใช้ตำแหน่งของฉัน",
       "loginToUseMap": "เข้าสู่ระบบเพื่อใช้แผนที่",
       "tapToPin": "จิ้มที่แผนที่เพื่อปักหมุด",
-      "dragMarker": "ลากหมุดเพื่อปรับตำแหน่ง"
+      "dragMarker": "ลากหมุดเพื่อปรับตำแหน่ง",
+      "locationRequired": "Please select a location on the map",
+      "locationFound": "Location found!",
+      "locationNotFound": "Location not found. Please try again."
     },
     "uploadingProgress": "กำลังอัปโหลด...",
     "errorVerifyCat": "ไม่สามารถตรวจสอบเนื้อหาแมวได้",
@@ -107,6 +142,11 @@
       "confidence": "ความมั่นใจ",
       "uploadAnother": "อัปโหลดรูปอื่น",
       "viewMap": "ดูในแผนที่"
+    },
+    "quota": {
+      "remaining": "เหลือการอัปโหลดอีก {count} ครั้งในวันนี้",
+      "exceeded": "ถึงขีดจำกัดการอัปโหลดประจำวันแล้ว",
+      "upgradePrompt": "อัปเกรดเป็น Pro เพื่ออัปโหลดได้มากขึ้น"
     }
   },
   "auth": {
@@ -135,7 +175,7 @@
     "forgotPasswordTitle": "ลืมรหัสผ่าน?",
     "forgotPasswordSubtitle": "กรอกอีเมลเพื่อรับคำแนะนำในการรีเซ็ตรหัสผ่าน",
     "forgotPasswordIllustration": "ไม่ต้องกังวล! เราจะช่วยให้คุณกลับไปหาเจ้าเหมียวได้ในไม่ช้า",
-    "checkInbox": "ตรวจสอบกล่องจดหมายของคุณ! 📧",
+    "checkInbox": "ตรวจสอบกล่องจดหมายของคุณ!",
     "resetInstructionsSent": "หากมีบัญชีสำหรับ {email} คุณจะได้รับอีเมลพร้อมคำแนะนำในการรีเซ็ตรหัสผ่านในไม่ช้า",
     "backToSignIn": "กลับไปหน้าเข้าสู่ระบบ",
     "sendResetLink": "ส่งลิงก์รีเซ็ต",
@@ -170,7 +210,9 @@
       "codeSentMessage": "ส่งรหัสยืนยันแล้ว!",
       "verificationFailed": "การยืนยันล้มเหลว",
       "resendFailedTitle": "ส่งใหม่ล้มเหลว",
-      "resendFailedMessage": "ไม่สามารถส่งรหัสใหม่ได้"
+      "resendFailedMessage": "ไม่สามารถส่งรหัสใหม่ได้",
+      "enterCode": "Enter 6-digit code",
+      "codePlaceholder": "••••••"
     },
     "callback": {
       "passwordResetVerified": "ยืนยันการรีเซ็ตรหัสผ่านแล้ว",
@@ -185,7 +227,8 @@
       "extensionError": "เกิดข้อผิดพลาดจากส่วนขยายเบราว์เซอร์ โปรดปิดส่วนขยายแล้วลองอีกครั้ง",
       "loginErrorTitle": "ข้อผิดพลาดในการเข้าสู่ระบบ",
       "loginFailedTitle": "เข้าสู่ระบบล้มเหลว"
-    }
+    },
+    "catIllustrationAlt": "Cute cat illustration"
   },
   "map": {
     "loadingMap": "กำลังโหลดแผนที่...",
@@ -206,6 +249,13 @@
       "ariaClose": "ปิด",
       "ariaReport": "รายงาน",
       "reportTitle": "รายงานรูปภาพนี้"
+    },
+    "metaTitle": "Cat Map",
+    "metaDescription": "Explore cat sightings on an interactive map. Find cat-friendly spots near you.",
+    "markers": {
+      "yourLocation": "Your location",
+      "catSpot": "Cat spot",
+      "verifiedSpot": "Verified spot"
     }
   },
   "profile": {
@@ -301,17 +351,57 @@
   },
   "cats": {
     "cats": "แมว",
-    "spottedNearby": "ที่พบใกล้เคียง"
+    "spottedNearby": "ที่พบใกล้เคียง",
+    "cat": "cat",
+    "kitten": "kitten",
+    "kittens": "kittens"
   },
   "toast": {
     "loggedOut": "ออกจากระบบสำเร็จ",
     "success": "สำเร็จ",
-    "error": "เกิดข้อผิดพลาด"
+    "error": "เกิดข้อผิดพลาด",
+    "warning": "Warning",
+    "info": "Info"
   },
   "social": {
     "failedToDelete": "ไม่สามารถลบความคิดเห็นได้",
     "failedToPost": "ไม่สามารถเพิ่มความคิดเห็นได้",
-    "failedToUpdate": "ไม่สามารถอัปเดตความคิดเห็นได้"
+    "failedToUpdate": "ไม่สามารถอัปเดตความคิดเห็นได้",
+    "comments": {
+      "title": "ความคิดเห็น",
+      "placeholder": "แสดงความคิดเห็น...",
+      "post": "โพสต์",
+      "posting": "กำลังโพสต์...",
+      "delete": "ลบ",
+      "reply": "ตอบกลับ",
+      "noComments": "ยังไม่มีความคิดเห็น มาเป็นคนแรกสิ!",
+      "error": "ไม่สามารถโหลดความคิดเห็นได้",
+      "signInToComment": "เข้าสู่ระบบเพื่อแสดงความคิดเห็น"
+    },
+    "share": {
+      "title": "แบ่งปัน",
+      "copyLink": "คัดลอกลิงก์",
+      "linkCopied": "คัดลอกลิงก์แล้ว!",
+      "twitter": "ทวิตเตอร์",
+      "facebook": "เฟซบุ๊ก"
+    },
+    "like": "Like",
+    "unlike": "Unlike",
+    "comment": "Comment",
+    "postComment": "Post Comment",
+    "posting": "Posting...",
+    "showAll": "Show all {count} comments",
+    "showLess": "Show less",
+    "viewAll": "View all {count} comments",
+    "anonymous": "Anonymous",
+    "userAvatar": "User avatar",
+    "actor": "Actor",
+    "preview": "Preview",
+    "loginRequired": "Login required",
+    "serverError": "Our servers are taking a short break. Try again soon!",
+    "catNap": "Cat Nap in Progress",
+    "hairballError": "Something went wrong. Please try liking again.",
+    "failedToLoad": "Failed to load comments"
   },
   "subscription": {
     "title": "สนับสนุนชุมชน Purrfect",
@@ -384,7 +474,13 @@
       "title": "กระดานผู้นำ",
       "description": "ดูแมวที่ได้รับความนิยมสูงสุดและผู้มีส่วนร่วมสูงสุดในชุมชน Purrfect Spots"
     },
-    "errorLoad": "โหลดข้อมูลกระดานผู้นำไม่สำเร็จ"
+    "errorLoad": "โหลดข้อมูลกระดานผู้นำไม่สำเร็จ",
+    "ranks": {
+      "first": "The Cat Whisperer",
+      "second": "Treat Master",
+      "third": "Feline Friend",
+      "default": "Spotter"
+    }
   },
   "admin": {
     "nav": {
@@ -396,6 +492,7 @@
       "systemSettings": "ตั้งค่าระบบ",
       "treatManagement": "การจัดการขนม",
       "roleManagement": "การจัดการบทบาท",
+      "security": "ความปลอดภัย",
       "commentModeration": "การจัดการความคิดเห็น",
       "backToSite": "กลับสู่เว็บไซต์"
     },
@@ -439,7 +536,8 @@
         "statsLoad": "โหลดสถิติ",
         "trendsLoad": "โหลดแนวโน้ม",
         "status": "สถานะ",
-        "optimized": "ปรับปรุงแล้ว"
+        "optimized": "ปรับปรุงแล้ว",
+        "updating": "กำลังอัปเดต..."
       }
     },
     "pagination": {
@@ -468,8 +566,6 @@
       "bio": "แนะนำตัว",
       "pictureUrl": "URL รูปภาพ",
       "clearToRevert": "ล้างเพื่อใช้รูปพื้นฐาน",
-      "title_simple": "ผู้ใช้",
-      "editProfile_title": "แก้ไขโปรไฟล์: {name}",
       "banUser": "แบนผู้ใช้",
       "banUser_title": "แบนผู้ใช้: {name}",
       "banReason": "เหตุผล",
@@ -506,7 +602,8 @@
         "failedToDelete": "ลบผู้ใช้ไม่สำเร็จ",
         "failedToUpdateRole": "อัปเดตบทบาทไม่สำเร็จ",
         "failedToUpdateProfile": "อัปเดตโปรไฟล์ไม่สำเร็จ"
-      }
+      },
+      "editProfile": "Edit Profile"
     },
     "audit": {
       "title": "บันทึกการตรวจสอบ",
@@ -672,7 +769,48 @@
       "reporter": "ผู้รายงาน",
       "reason": "เหตุผล",
       "no_reports_found": "ไม่พบรายงานที่ค้างอยู่สำหรับความคิดเห็นนี้",
-      "violations": "เคยทำผิด {n} ครั้ง"
+      "violations": "เคยทำผิด {n} ครั้ง",
+      "history": "Moderation History",
+      "banned": "Banned",
+      "failed_to_ban": "Failed to ban user",
+      "bulk_action_failed": "Bulk action failed"
+    },
+    "security": {
+      "title": "ภาพรวมความปลอดภัย",
+      "subtitle": "ตรวจสอบความปลอดภัยและเซสชันที่ใช้งานอยู่",
+      "alertsTitle": "การแจ้งเตือนความปลอดภัย",
+      "sessionsTitle": "การติดตามเซสชัน",
+      "totalAlerts": "การแจ้งเตือนทั้งหมด",
+      "criticalAlerts": "วิกฤต",
+      "warnings": "คำเตือน",
+      "activeSessions": "เซสชันที่ใช้งานอยู่",
+      "concurrent": "ผู้ใช้พร้อมกัน",
+      "protectionStatus": "สถานะระบบ",
+      "protected": "ได้รับการป้องกัน",
+      "activeMonitoring": "กำลังตรวจสอบ",
+      "lastUpdated": "อัปเดตล่าสุด",
+      "dailyRecord": "สถิติสูงสุดรายวัน",
+      "liveFeed": "ฟีดเหตุการณ์",
+      "peakToday": "สูงสุดวันนี้",
+      "resetAlerts": "รีเซ็ตการแจ้งเตือน",
+      "resetSessions": "รีเซ็ตเซสชัน",
+      "alertsReset": "รีเซ็ตการแจ้งเตือนความปลอดภัยเรียบร้อยแล้ว",
+      "sessionsReset": "รีเซ็ตการติดตามเซสชันเรียบร้อยแล้ว",
+      "errorLoad": "ไม่สามารถโหลดข้อมูลความปลอดภัยได้",
+      "errorReset": "ไม่สามารถรีเซ็ตได้",
+      "recentAlertsTitle": "การแจ้งเตือนล่าสุด",
+      "noRecentAlerts": "ไม่พบการแจ้งเตือนใหม่",
+      "table": {
+        "type": "ประเภท",
+        "status": "สถานะ",
+        "time": "เวลา",
+        "details": "รายละเอียด"
+      },
+      "status": {
+        "critical": "วิกฤต",
+        "warning": "คำเตือน",
+        "info": "ทั่วไป"
+      }
     },
     "settings": {
       "title": "ตั้งค่าระบบ",
@@ -887,5 +1025,354 @@
     "title": "404",
     "message": "ไม่พบหน้าที่ต้องการ",
     "goHome": "กลับหน้าหลัก"
+  },
+  "myReports": {
+    "title": "รายงานของฉัน",
+    "subtitle": "ดูสถานะรายงานที่คุณได้ส่งไป",
+    "loading": "กำลังโหลดรายงาน...",
+    "empty": "คุณยังไม่ได้ส่งรายงานใดๆ",
+    "errorLoad": "ไม่สามารถโหลดรายงานได้",
+    "resolutionNotes": "หมายเหตุการตัดสิน",
+    "status": {
+      "pending": "รอดำเนินการ",
+      "resolved": "ดำเนินการแล้ว",
+      "dismissed": "ยกเลิก"
+    },
+    "reasons": {
+      "spam": "สแปม",
+      "nudity": "เนื้อหาไม่เหมาะสม",
+      "not_a_cat": "ไม่ใช่แมว",
+      "animal_welfare": "กังวลเรื่องสวัสดิภาพสัตว์",
+      "privacy": "ละเมิดความเป็นส่วนตัว",
+      "harassment": "การคุกคาม",
+      "other": "อื่นๆ"
+    }
+  },
+  "consent": {
+    "settingsTitle": "ความเป็นส่วนตัวและความยินยอม",
+    "granted": "ให้ความยินยอมแล้ว",
+    "withdrawn": "ถอนความยินยอมแล้ว",
+    "error": "ไม่สามารถอัปเดตความยินยอมได้",
+    "types": {
+      "tos": "ข้อกำหนดการใช้บริการ",
+      "privacy": "นโยบายความเป็นส่วนตัว",
+      "marketing": "การสื่อสารทางการตลาด"
+    }
+  },
+  "privacyPolicy": {
+    "title": "นโยบายความเป็นส่วนตัว",
+    "subtitle": "เราปกป้องข้อมูลของคุณอย่างไร",
+    "lastUpdated": "อัปเดตล่าสุด: {date}",
+    "sections": {
+      "introduction": "บทนำ",
+      "dataCollection": "การเก็บรวบรวมข้อมูล",
+      "dataUsage": "การใช้ข้อมูล",
+      "dataSharing": "การแบ่งปันข้อมูล",
+      "security": "ความปลอดภัย",
+      "yourRights": "สิทธิ์ของคุณ",
+      "cookies": "คุ้กกี้",
+      "contact": "ติดต่อเรา"
+    },
+    "backHome": "← Back to Home",
+    "content": "<p>At Purrfect Spots (\"we\", \"us\", or \"our\"), we respect your privacy and are committed to protecting your personal data. This Privacy Policy explains how we collect, use, and safeguard your information when you visit our website <a href=\"https://purrfectspots.xyz\" class=\"text-terracotta-600 hover:text-terracotta-700\">purrfectspots.xyz</a>.</p><h3>1. Information We Collect</h3><p>We collect information that you voluntarily provide to us when you register on the website, use our services, or contact us.</p><ul><li><strong>Personal Data:</strong> Name, email address, and profile picture (via Google Login or manual registration).</li><li><strong>Content Data:</strong> Photos, comments, likes, and location data you upload to the platform.</li><li><strong>Usage Data:</strong> Information about how you interact with our website (e.g., pages visited, time spent).</li></ul><h3>2. How We Use Your Information</h3><p>We use the collected information for the following purposes:</p><ul><li>To provide and maintain our Service.</li><li>To notify you about changes to our Service.</li><li>To allow you to participate in interactive features (e.g., uploading photos, commenting).</li><li>To provide customer support.</li><li>To detect, prevent, and address technical issues.</li></ul><h3>3. Data Sharing and Disclosure</h3><p>We do not sell your personal data. We may share your information with third-party service providers (e.g., Google Cloud, Supabase, Stripe) solely for the purpose of operating our Service. These providers are obligated to protect your data.</p><h3>4. Cookies and Tracking Technologies</h3><p>We use cookies and similar tracking technologies to track the activity on our Service and hold certain information. You can instruct your browser to refuse all cookies or to indicate when a cookie is being sent.</p><h3>5. User Rights</h3><p>Depending on your location, you may have the following rights regarding your personal data:</p><ul><li>The right to access, update, or delete the information we have on you.</li><li>The right of rectification.</li><li>The right to object.</li><li>The right of restriction.</li></ul><p>To exercise these rights, please contact us at support{'@'}purrfectspots.com.</p><h3>6. Changes to This Privacy Policy</h3><p>We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page.</p><h3>7. Contact Us</h3><p>If you have any questions about this Privacy Policy, please contact us by email: support{'@'}purrfectspots.com.</p>"
+  },
+  "termsOfService": {
+    "title": "เงื่อนไขการให้บริการ",
+    "subtitle": "ข้อกำหนดในการใช้งาน Purrfect Spots",
+    "lastUpdated": "อัปเดตล่าสุด: {date}",
+    "sections": {
+      "acceptance": "การยอมรับข้อตกลง",
+      "userContent": "เนื้อหาของผู้ใช้",
+      "prohibitedConduct": "ข้อห้ามในการใช้งาน",
+      "intellectualProperty": "ทรัพย์สินทางปัญญา",
+      "disclaimer": "การปฏิเสธความรับผิดชอบ",
+      "limitationOfLiability": "ข้อจำกัดความรับผิดชอบ",
+      "governingLaw": "กฎหมายที่ใช้บังคับ"
+    },
+    "backHome": "← Back to Home",
+    "content": "<p>Welcome to Purrfect Spots (\"Services\"). By using our website <a href=\"https://purrfectspots.xyz\" class=\"text-terracotta-600 hover:text-terracotta-700\">purrfectspots.xyz</a>, you agree to be bound by these Terms of Service. If you disagree with any part of the terms, you must not use our Services.</p><h3>1. Acceptance of Terms</h3><p>By accessing or using the Service, you agree to be bound by these Terms. If you disagree with any part of the terms, then you may not access the Service.</p><h3>2. Description of Service</h3><p>Purrfect Spots is a platform for users to upload, share, and discover photos and locations of cats. We reserve the right to modify or discontinue the Service at any time without notice.</p><h3>3. User Accounts</h3><p>When you create an account with us, you must provide accurate and complete information. You are solely responsible for safeguarding your account password and for all activities that occur under your account. You must notify us immediately of any unauthorized use of your account.</p><h3>4. User Content and Conduct</h3><p>You retain ownership of the content you upload (\"User Content\"), but you grant us a worldwide, royalty-free license to use, reproduce, modify, adapt, publish, and display such content.</p><p><strong>You agree NOT to upload content that:</strong></p><ul><li>Is illegal, harmful, threatening, abusive, harassing, defamatory, vulgar, obscene, or invasive of another's privacy.</li><li>Infringes on any patent, trademark, trade secret, copyright, or other proprietary rights of any party.</li><li>Contains software viruses or any other computer code designed to interrupt, destroy, or limit the functionality of any computer software or hardware.</li><li>Promotes hate speech, violence, or discrimination.</li><li>Is sexually explicit or pornographic.</li></ul><p>We reserve the right to remove any content that violates these Terms or is otherwise objectionable, at our sole discretion.</p><h3>5. Intellectual Property</h3><p>The Service and its original content (excluding User Content), features, and functionality are and will remain the exclusive property of Purrfect Spots and its licensors.</p><h3>6. Termination</h3><p>We may terminate or suspend your account immediately, without prior notice or liability, for any reason whatsoever, including without limitation if you breach the Terms.</p><h3>7. Limitation of Liability</h3><p>In no event shall Purrfect Spots, nor its directors, employees, partners, agents, suppliers, or affiliates, be liable for any indirect, incidental, special, consequential or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses, resulting from (i) your access to or use of or inability to access or use the Service; (ii) any conduct or content of any third party on the Service; (iii) any content obtained from the Service; and (iv) unauthorized access, use or alteration of your transmissions or content, whether based on warranty, contract, tort (including negligence) or any other legal theory, whether or not we have been informed of the possibility of such damage.</p><h3>8. Disclaimer</h3><p>Your use of the Service is at your sole risk. The Service is provided on an \"AS IS\" and \"AS AVAILABLE\" basis. The Service is provided without warranties of any kind, whether express or implied.</p><h3>9. Governing Law</h3><p>These Terms shall be governed and construed in accordance with the laws of Thailand, without regard to its conflict of law provisions.</p><h3>10. Changes</h3><p>We reserve the right, at our sole discretion, to modify or replace these Terms at any time. By continuing to access or use our Service after those revisions become effective, you agree to be bound by the revised terms.</p><h3>11. Contact Us</h3><p>If you have any questions about these Terms, please contact us by email: support{'@'}purrfectspots.com.</p>"
+  },
+  "galleryPage": {
+    "title": "แกลเลอรีน้องแมว",
+    "subtitle": "รวมภาพความน่ารักจากทั่วทุกมุมโลก",
+    "searchPlaceholder": "ค้นหาแมว...",
+    "filters": "ตัวกรอง",
+    "sortBy": "เรียงตาม",
+    "sortOptions": {
+      "newest": "ใหม่ที่สุด",
+      "popular": "ยอดนิยม",
+      "treats": "ขนมพุ่งปรี๊ด"
+    },
+    "noResults": "ไม่พบรูปภาพที่คุณกำลังมองหา",
+    "tryDifferentSearch": "ลองค้นหาด้วยคำอื่นสิ",
+    "viewMore": "ดูเพิ่มเติม",
+    "loading": "กำลังโหลดแกลเลอรี...",
+    "error": "โหลดแกลเลอรีล้มเหลว",
+    "stats": {
+      "viewing": "แสดง",
+      "of": "จาก",
+      "photos": "รูปภาพ",
+      "totalPhotos": "Total photos",
+      "photo": "photo | photos",
+      "showing": "showing"
+    },
+    "header": {
+      "title": "Cat Photo Gallery",
+      "subtitle": "Discover adorable cats from around the world",
+      "searchPlaceholder": "Search for cats...",
+      "searchAriaLabel": "Search for cat photos"
+    },
+    "aria": {
+      "galleryChunk": "Cat photo gallery chunk",
+      "viewCat": "View {location}",
+      "giveTreat": "Give a treat to this cat"
+    },
+    "modal": {
+      "catDetails": "Cat Details",
+      "openInMaps": "Open in Google Maps",
+      "noDescription": "No description available for this spot.",
+      "giveTreats": "Give Treats",
+      "reportContent": "Report this content",
+      "close": "Close",
+      "signInToTreat": "Please sign in to give treats!",
+      "notEnoughTreats": "Not enough treats in your bag!",
+      "treatsGiven": "You gave {amount} treat(s)!",
+      "treatFailed": "Failed to give treat",
+      "imageNotFound": "Image Not Found",
+      "imageHiding": "This spot's photo seems to be hiding.",
+      "aCatAt": "A cat at {location}",
+      "aCat": "A cat",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "seo": {
+      "title": "Gallery",
+      "description": "Browse our collection of adorable cat photos from around the world. Find your favorite feline friends and discover cat-friendly locations.",
+      "defaultTitle": "A Cute Cat",
+      "defaultImageDescription": "Check out this adorable cat I found on Purrfect Spots!"
+    },
+    "empty": {
+      "title": "A Quiet Spot",
+      "message": "No photos have been discovered here yet.",
+      "subMessage": "Be the first to share a moment in this collection.",
+      "action": "Upload Photo"
+    }
+  },
+  "accessibility": {
+    "skipToContent": "ข้ามไปยังเนื้อหาหลัก",
+    "navMenu": "เมนูนำทาง",
+    "closeDialog": "ปิดหน้าต่าง",
+    "backToTop": "กลับขึ้นด้านบน",
+    "loading": "กำลังโหลดเนื้อหา...",
+    "labels": {
+      "profilePicture": "รูปโปรไฟล์ของ {name}",
+      "catPhoto": "รูปภาพแมวที่ {location}",
+      "giveTreat": "ปุ่มให้ขนม",
+      "commentInput": "พิมพ์ความคิดเห็นของคุณ",
+      "search": "ช่องค้นหา"
+    },
+    "mainNavigation": "Main Navigation",
+    "goToHome": "Go to home",
+    "notifications": "Notifications",
+    "userMenu": "User menu",
+    "search": "Search",
+    "clearSearch": "Clear search",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "removeTag": "Remove tag",
+    "closeModal": "Close modal",
+    "editComment": "Edit comment",
+    "removeComment": "Remove comment",
+    "like": "Like",
+    "unlike": "Unlike",
+    "giveTreat": "Give treat",
+    "report": "Report",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "error": "Error",
+    "success": "Success"
+  },
+  "notifications": {
+    "title": "การแจ้งเตือน",
+    "empty": "คุณไม่มีการแจ้งเตือนในขณะนี้",
+    "markAllAsRead": "ทำเครื่องหมายว่าอ่านแล้วทั้งหมด",
+    "viewAll": "ดูทั้งหมด",
+    "settings": "ตั้งค่าการแจ้งเตือน",
+    "types": {
+      "treatReceived": "{user} ให้ขนมแมวของคุณ!",
+      "commentReceived": "{user} แสดงความคิดเห็นในรูปของคุณ",
+      "followed": "{user} เริ่มติดตามคุณ"
+    },
+    "noNotifications": "No notifications",
+    "markAsRead": "Mark as read",
+    "loadMore": "Load more",
+    "failedToLoad": "Failed to load notifications"
+  },
+  "ui": {
+    "back": "กลับ",
+    "next": "ถัดไป",
+    "save": "บันทึก",
+    "cancel": "ยกเลิก",
+    "close": "ปิด",
+    "loading": "กำลังโหลด...",
+    "error": "เกิดข้อผิดพลาด",
+    "success": "สำเร็จ",
+    "empty": "ไม่มีข้อมูล",
+    "search": "ค้นหา...",
+    "noResults": "ไม่พบผลลัพธ์",
+    "loadMore": "โหลดเพิ่ม",
+    "confirm": "ยืนยัน",
+    "delete": "ลบ",
+    "tryAgain": "Try Again",
+    "retry": "Retry",
+    "noData": "No data available",
+    "emptyState": {
+      "title": "A Quiet Spot",
+      "message": "No items found here yet."
+    },
+    "errorState": {
+      "defaultTitle": "Oops!",
+      "defaultMessage": "Something went wrong."
+    },
+    "skeleton": {
+      "loading": "Loading..."
+    },
+    "loginRequired": {
+      "title": "Login Required",
+      "message": "Please log in to continue",
+      "action": "Log In"
+    },
+    "optimizedImage": {
+      "failedToLoad": "Failed to load: {alt}",
+      "retry": "Retry loading image"
+    },
+    "passwordStrength": {
+      "weak": "Weak",
+      "fair": "Fair",
+      "good": "Good",
+      "strong": "Strong"
+    },
+    "tagsInput": {
+      "maxTagsReached": "Max tags reached",
+      "addTag": "Add tag",
+      "removeTag": "Remove tag"
+    },
+    "reportModal": {
+      "submitFailed": "Failed to submit report"
+    }
+  },
+  "googleAuth": {
+    "signInWithGoogle": "เข้าสู่ระบบด้วย Google",
+    "continueWithGoogle": "ดำเนินการต่อด้วย Google",
+    "error": "ไม่สามารถเข้าสู่ระบบด้วย Google ได้ในขณะนี้",
+    "title": "Sign in with Google",
+    "connecting": "Connecting...",
+    "unableToConnect": "Unable to connect to Google service.",
+    "loginError": "Google Login Error"
+  },
+  "constants": {
+    "catColors": {
+      "white": "สีขาว",
+      "black": "สีดำ",
+      "ginger": "สีส้ม",
+      "calico": "สามสี",
+      "tuxedo": "ทักซิโด้",
+      "gray": "สีเทา",
+      "tabby": "ลายสลิด",
+      "tortie": "เปรอะ",
+      "cream": "สีครีม",
+      "pointed": "วิเชียรมาศ",
+      "other": "อื่นๆ"
+    },
+    "reportReasons": {
+      "not_a_cat": "Not a Cat / Irrelevant",
+      "animal_welfare": "Animal Abuse / Distress",
+      "privacy": "Privacy Violation / Private Property",
+      "inappropriate": "Inappropriate Content (Nudity/Gore)",
+      "spam": "Spam / Advertising",
+      "harassment": "Harassment / Hate Speech",
+      "other": "Other"
+    },
+    "resolutionReasons": {
+      "violation_content": "Violation: Inappropriate Content",
+      "violation_irrelevant": "Violation: Not a Cat / Irrelevant",
+      "violation_safety": "Violation: Safety / Animal Welfare",
+      "violation_privacy": "Violation: Privacy",
+      "violation_spam": "Violation: Spam",
+      "warning_issued": "Warning Issued",
+      "no_violation": "No Violation Found",
+      "duplicate": "Duplicate Report",
+      "context_verified": "Context Verified (Safe)"
+    }
+  },
+  "time": {
+    "second": {
+      "one": "{count} second",
+      "other": "{count} seconds"
+    },
+    "minute": {
+      "one": "{count} minute",
+      "other": "{count} minutes"
+    },
+    "hour": {
+      "one": "{count} hour",
+      "other": "{count} hours"
+    },
+    "day": {
+      "one": "{count} day",
+      "other": "{count} days"
+    },
+    "week": {
+      "one": "{count} week",
+      "other": "{count} weeks"
+    },
+    "month": {
+      "one": "{count} month",
+      "other": "{count} months"
+    },
+    "year": {
+      "one": "{count} year",
+      "other": "{count} years"
+    },
+    "justNow": "Just now",
+    "ago": "{time} ago",
+    "in": "in {time}"
+  },
+  "errors": {
+    "network": "Unable to connect. Please check your internet connection.",
+    "server": "Server is temporarily unavailable. Please try again later.",
+    "unauthorized": "You are not authorized to perform this action.",
+    "forbidden": "You don't have permission to access this resource.",
+    "notFound": "The requested resource was not found.",
+    "validation": "Please check your input and try again.",
+    "timeout": "Request timed out. Please try again.",
+    "unknown": "An unexpected error occurred. Please try again.",
+    "sessionExpired": "Your session has expired. Please log in again.",
+    "rateLimit": "Too many requests. Please wait a moment and try again.",
+    "uploadFailed": "Failed to upload file. Please try again.",
+    "downloadFailed": "Failed to download file. Please try again.",
+    "invalidFile": "Invalid file format. Please upload a valid file.",
+    "fileTooLarge": "File is too large. Maximum size is {maxSize}.",
+    "invalidEmail": "Please enter a valid email address.",
+    "invalidPassword": "Password must be at least {minLength} characters.",
+    "passwordMismatch": "Passwords do not match.",
+    "emailExists": "An account with this email already exists.",
+    "invalidCredentials": "Invalid email or password.",
+    "tokenExpired": "This link has expired. Please request a new one.",
+    "invalidToken": "Invalid token. Please try again.",
+    "googleAuthFailed": "Failed to authenticate with Google. Please try again.",
+    "oauthError": "OAuth configuration error. Please contact support.",
+    "connectionError": "Cannot connect to server. Please check your internet connection.",
+    "serviceUnavailable": "Service temporarily unavailable.",
+    "extensionError": "An error occurred from browser extensions. Please disable extensions and try again.",
+    "detectionFailed": "Failed to detect cat in image.",
+    "locationError": "Failed to get location. Please enable location services.",
+    "mapError": "Failed to load map. Please try again.",
+    "paymentFailed": "Payment failed. Please try again.",
+    "subscriptionFailed": "Failed to process subscription. Please try again.",
+    "treatPurchaseFailed": "Failed to purchase treats. Please try again."
   }
 }

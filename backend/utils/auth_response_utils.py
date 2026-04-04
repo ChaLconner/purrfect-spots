@@ -76,7 +76,7 @@ def create_login_response(
 
     return LoginResponse(
         access_token=access_token,
-        token_type="bearer",
+        token_type="bearer",  # nosec S106
         user=user_response,
         refresh_token=refresh_token,  # nosec B106
     )
