@@ -3359,14 +3359,14 @@
         }
       }
     },
-    "/api/v1/admin/stats/summary": {
+    "/api/v1/admin/summary": {
       "get": {
         "tags": [
           "admin"
         ],
         "summary": "Get Dashboard Summary",
         "description": "Consolidated dashboard summary: stats, trends, and monthly data.\nUses Redis for distributed caching.",
-        "operationId": "get_dashboard_summary_api_v1_admin_stats_summary_get",
+        "operationId": "get_dashboard_summary_api_v1_admin_summary_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -3375,7 +3375,7 @@
                 "schema": {
                   "additionalProperties": true,
                   "type": "object",
-                  "title": "Response Get Dashboard Summary Api V1 Admin Stats Summary Get"
+                  "title": "Response Get Dashboard Summary Api V1 Admin Summary Get"
                 }
               }
             }
@@ -3388,43 +3388,14 @@
         ]
       }
     },
-    "/api/v1/admin/stats": {
-      "get": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Get Dashboard Summary",
-        "description": "Consolidated dashboard summary: stats, trends, and monthly data.\nUses Redis for distributed caching.",
-        "operationId": "get_dashboard_summary_api_v1_admin_stats_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Get Dashboard Summary Api V1 Admin Stats Get"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/v1/admin/stats/trends": {
+    "/api/v1/admin/trends": {
       "get": {
         "tags": [
           "admin"
         ],
         "summary": "Get System Trends",
         "description": "Get 30-day activity trends.",
-        "operationId": "get_system_trends_api_v1_admin_stats_trends_get",
+        "operationId": "get_system_trends_api_v1_admin_trends_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -3433,7 +3404,7 @@
                 "schema": {
                   "additionalProperties": true,
                   "type": "object",
-                  "title": "Response Get System Trends Api V1 Admin Stats Trends Get"
+                  "title": "Response Get System Trends Api V1 Admin Trends Get"
                 }
               }
             }
@@ -3446,14 +3417,14 @@
         ]
       }
     },
-    "/api/v1/admin/stats/monthly": {
+    "/api/v1/admin/monthly": {
       "get": {
         "tags": [
           "admin"
         ],
         "summary": "Get Monthly Stats",
         "description": "Get monthly system performance report.",
-        "operationId": "get_monthly_stats_api_v1_admin_stats_monthly_get",
+        "operationId": "get_monthly_stats_api_v1_admin_monthly_get",
         "security": [
           {
             "HTTPBearer": []
@@ -3485,7 +3456,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Get Monthly Stats Api V1 Admin Stats Monthly Get"
+                  "title": "Response Get Monthly Stats Api V1 Admin Monthly Get"
                 }
               }
             }
@@ -6381,7 +6352,11 @@
       },
       "LeaderboardEntry": {
         "properties": {
-          "user_id": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
             "anyOf": [
               {
                 "type": "string"
@@ -6390,9 +6365,9 @@
                 "type": "null"
               }
             ],
-            "title": "User Id"
+            "title": "Name"
           },
-          "user_name": {
+          "username": {
             "anyOf": [
               {
                 "type": "string"
@@ -6401,15 +6376,29 @@
                 "type": "null"
               }
             ],
-            "title": "User Name"
+            "title": "Username"
           },
-          "total_received": {
+          "picture": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Picture"
+          },
+          "total_treats_received": {
             "type": "integer",
-            "title": "Total Received",
+            "title": "Total Treats Received",
             "default": 0
           }
         },
         "type": "object",
+        "required": [
+          "id"
+        ],
         "title": "LeaderboardEntry",
         "description": "Single leaderboard entry."
       },

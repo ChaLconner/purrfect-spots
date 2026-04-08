@@ -176,8 +176,8 @@ def main() -> int:
     parser.add_argument(
         "--baseline",
         "-b",
-        default="docs/openapi-baseline.json",
-        help="Path to baseline OpenAPI schema (default: docs/openapi-baseline.json)",
+        default="../docs/openapi-baseline.json",
+        help="Path to baseline OpenAPI schema (default: ../docs/openapi-baseline.json)",
     )
     parser.add_argument(
         "--fail-on-breaking",
