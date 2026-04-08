@@ -16,6 +16,7 @@ class TestReportService:
 
         mock_supabase.table.return_value = mock_table
         mock_table.insert.return_value = mock_insert
+        mock_insert.execute = mock_execute
         mock_insert.select.return_value = mock_select
         mock_select.execute = mock_execute
 
@@ -40,7 +41,7 @@ class TestReportService:
     async def test_create_report_failure(self):
         mock_supabase = MagicMock()
         mock_execute = AsyncMock(return_value=MagicMock(data=[]))
-        mock_supabase.table.return_value.insert.return_value.select.return_value.execute = mock_execute
+        mock_supabase.table.return_value.insert.return_value.execute = mock_execute
 
         service = ReportService(mock_supabase)
         with pytest.raises(ValueError, match="Failed to create report"):

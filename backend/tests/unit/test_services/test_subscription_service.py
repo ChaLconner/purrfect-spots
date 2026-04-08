@@ -71,6 +71,7 @@ async def test_handle_webhook_checkout_completed(mock_retrieve, subscription_ser
     session = {"metadata": {"user_id": "00000000-0000-4000-a000-000000000123"}, "subscription": "sub_123"}
 
     mock_sub = MagicMock()
+    mock_sub.status = "active"
     mock_sub.current_period_end = 1700000000
     mock_sub.cancel_at_period_end = False
     mock_sub.items = {"data": [{"price": {"id": config.STRIPE_PRO_PRICE_ID}}]}
@@ -88,6 +89,7 @@ async def test_handle_webhook_checkout_completed_ignores_unexpected_price(mock_r
     session = {"metadata": {"user_id": "00000000-0000-4000-a000-000000000123"}, "subscription": "sub_123"}
 
     mock_sub = MagicMock()
+    mock_sub.status = "active"
     mock_sub.current_period_end = 1700000000
     mock_sub.cancel_at_period_end = False
     mock_sub.items = {"data": [{"price": {"id": "price_unexpected"}}]}
@@ -103,6 +105,7 @@ async def test_handle_subscription_updated(mock_retrieve, subscription_service):
     """Test subscription update sync."""
     subscription = {
         "customer": "cus_123",
+        "status": "active",
         "cancel_at_period_end": True,
         "current_period_end": 1700000000,
     }

@@ -17,7 +17,8 @@ os.environ["SENTRY_DSN"] = ""
 # Disable Redis to prevent connection hangs
 os.environ["REDIS_URL"] = ""
 # Set JWT secrets for testing
-os.environ["JWT_SECRET"] = "test-secret-key-at-least-32-chars-long"
+os.environ["ENVIRONMENT"] = "testing"
+os.environ["JWT_SECRET"] = "test-secret-key-at-least-32-characters-long!!"
 os.environ["JWT_REFRESH_SECRET"] = "test-refresh-secret-key-at-least-32-chars-long"
 os.environ["STRIPE_PRO_PRICE_ID"] = "price_pro_test"
 
@@ -143,14 +144,31 @@ def disable_rate_limit():
 
 
 @pytest.fixture(autouse=True)
-async def clear_all_caches():
+def mock_redis_service():
+    """Globally mock redis_service to prevent external connections and hangs during tests"""
+    from unittest.mock import AsyncMock, patch
+
+    from services.redis_service import redis_service
+
+    # Methods to mock based on RedisService implementation
+    mocks = {
+        "get": AsyncMock(return_value=None),
+        "set": AsyncMock(return_value=True),
+        "delete": AsyncMock(return_value=True),
+        "delete_pattern": AsyncMock(return_value=0),
+        "ping": AsyncMock(return_value=True),
+    }
+
+    with patch.multiple(redis_service, **mocks):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def clear_all_caches():
     """Clear all memory and redis caches before every test to ensure test isolation"""
-    import contextlib
+    from utils.cache import memory_cache
 
-    from utils.cache import invalidate_all_caches
-
-    with contextlib.suppress(Exception):
-        await invalidate_all_caches()
+    memory_cache.clear()
     yield
 
 
@@ -260,6 +278,7 @@ class MockUser:
         self.bio = "Test bio"
         self.is_pro = False
         self.created_at = "2024-01-01T00:00:00Z"
+        self.banned_at = None
 
 
 @pytest.fixture

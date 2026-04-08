@@ -14,7 +14,7 @@ from .users import router as users_router
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 router.include_router(users_router)
-router.include_router(stats_router)
+router.include_router(stats_router, prefix="/stats")
 router.include_router(content_router)
 router.include_router(reports_router)
 router.include_router(audit_router)

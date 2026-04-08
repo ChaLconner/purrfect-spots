@@ -162,6 +162,7 @@ class TestAuthServiceExtended:
             fake_user.bio = None
             fake_user.created_at = None
             fake_user.google_id = "goog_sub"
+            fake_user.banned_at = None
 
             mock_user_service_instance.create_or_get_user.return_value = fake_user
 

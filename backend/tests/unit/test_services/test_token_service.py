@@ -24,6 +24,7 @@ class TestTokenService:
         # Mock chainable methods
         chain_mock = MagicMock()
         chain_mock.insert.return_value = chain_mock
+        chain_mock.update.return_value = chain_mock
         chain_mock.select.return_value = chain_mock
         chain_mock.eq.return_value = chain_mock
         # execute must be async

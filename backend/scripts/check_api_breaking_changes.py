@@ -207,7 +207,10 @@ def main() -> int:
         return 1
 
     # Load schemas
-    print(f"📋 Loading baseline from: {baseline_path}")
+    try:
+        print(f"Loading baseline from: {baseline_path}")
+    except UnicodeEncodeError:
+        print(f"Loading baseline from: {baseline_path}")
     baseline = load_schema(str(baseline_path))
 
     print("📋 Getting current schema from FastAPI app...")

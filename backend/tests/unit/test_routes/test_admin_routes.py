@@ -14,13 +14,19 @@ from schemas.user import User
 
 class TestAdminRoutes:
     @pytest.fixture(autouse=True)
-    def make_supabase_async(self, mock_supabase_admin):
-        """Ensure execute and other methods are AsyncMock for async calls"""
+    def setup(self, mock_supabase_admin):
         mock_supabase_admin.execute = AsyncMock()
+        mock_supabase_admin.table.return_value = mock_supabase_admin
+        mock_supabase_admin.select.return_value = mock_supabase_admin
+        mock_supabase_admin.eq.return_value = mock_supabase_admin
+        mock_supabase_admin.single.return_value = mock_supabase_admin
+        mock_supabase_admin.order.return_value = mock_supabase_admin
+        mock_supabase_admin.range.return_value = mock_supabase_admin
+
         # Mock auth.admin.delete_user
         mock_supabase_admin.auth = MagicMock()
         mock_supabase_admin.auth.admin = MagicMock()
-        mock_supabase_admin.auth.admin.delete_user = AsyncMock()
+        mock_supabase_admin.auth.admin.delete_user = AsyncMock(return_value=MagicMock())
         return mock_supabase_admin
 
     # Standard test UUIDs

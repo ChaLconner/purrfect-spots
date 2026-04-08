@@ -25,7 +25,7 @@ async def _invalidate_banned_user_auth_state(user_id: str) -> None:
     await token_service.blacklist_all_user_tokens(user_id, reason="comment_moderation_ban")
 
 
-@router.get("/")
+@router.get("")
 async def list_all_comments(
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=1000)] = 20,

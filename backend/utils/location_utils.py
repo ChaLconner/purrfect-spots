@@ -1,22 +1,22 @@
-import secrets
 from typing import Any
+
+from utils.security import protect_public_coordinates
 
 
 def protect_photo_location(photo: dict[str, Any]) -> dict[str, Any]:
     """
     Apply coordinate fuzzing to protect user privacy.
-    Offsets latitude and longitude by a random small amount (~100m).
+    Uses deterministic fuzzing based on photo ID to ensure markers don't jump.
     """
     fuzzed = photo.copy()
-    cryptogen = secrets.SystemRandom()
-    if "latitude" in fuzzed and fuzzed["latitude"] is not None:
-        # Roughly 100-200m fuzzing (0.001 deg is ~111m)
-        offset_lat = (cryptogen.random() - 0.5) * 0.002
-        fuzzed["latitude"] = float(fuzzed["latitude"]) + offset_lat
+    lat = fuzzed.get("latitude")
+    lng = fuzzed.get("longitude")
+    photo_id = str(fuzzed.get("id", ""))
 
-    if "longitude" in fuzzed and fuzzed["longitude"] is not None:
-        offset_lng = (cryptogen.random() - 0.5) * 0.002
-        fuzzed["longitude"] = float(fuzzed["longitude"]) + offset_lng
+    if lat is not None and lng is not None:
+        p_lat, p_lng = protect_public_coordinates(float(lat), float(lng), seed=photo_id)
+        fuzzed["latitude"] = p_lat
+        fuzzed["longitude"] = p_lng
 
     return fuzzed
 

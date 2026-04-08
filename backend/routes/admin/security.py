@@ -16,7 +16,7 @@ from utils.session_concurrency import get_session_summary, reset_sessions
 router = APIRouter()
 
 
-@router.get("/security/summary/")
+@router.get("/security/summary")
 async def get_security_summary(
     current_admin: Annotated[User, Depends(require_permission("system:stats"))] = None,
 ):
@@ -53,7 +53,7 @@ async def get_security_summary(
         raise HTTPException(status_code=500, detail=f"Failed to fetch security summary: {e}")
 
 
-@router.post("/security/alerts/reset/")
+@router.post("/security/alerts/reset")
 async def reset_security_alerts(
     current_admin: Annotated[User, Depends(require_permission("system:settings"))] = None,
 ):
@@ -68,7 +68,7 @@ async def reset_security_alerts(
         raise HTTPException(status_code=500, detail=f"Failed to reset alerts: {e}")
 
 
-@router.post("/security/sessions/reset/")
+@router.post("/security/sessions/reset")
 async def reset_all_sessions(
     current_admin: Annotated[User, Depends(require_permission("system:settings"))] = None,
 ):

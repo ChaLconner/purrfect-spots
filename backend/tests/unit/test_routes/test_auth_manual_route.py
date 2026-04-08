@@ -65,7 +65,7 @@ def mock_auth_service(app):
     app.dependency_overrides[get_auth_service] = lambda: auth_service
 
     otp_service = AsyncMock()
-    otp_service.create_otp = AsyncMock(return_value=("123456", datetime.now()))
+    otp_service.create_otp = AsyncMock(return_value=("123456", datetime.now().isoformat()))
     otp_service.verify_otp = AsyncMock(return_value={"success": True})
     otp_service.can_resend_otp = AsyncMock(return_value=(True, 0))
     app.dependency_overrides[get_otp_service] = lambda: otp_service
@@ -491,21 +491,21 @@ class TestOtherAuthEndpoints:
             response = await client.post("/api/v1/auth/verify-otp", json={"email": "test@example.com", "otp": "123456"})
         assert response.status_code == 200
 
+        with patch.dict(os.environ, {"GOOGLE_CLIENT_ID": "test_id"}):
+            response = await client.get("/api/v1/auth/google/login", follow_redirects=False)
+            assert response.status_code == 302
+            assert "accounts.google.com" in response.headers["location"]
+
     async def test_resend_otp(self, client, mock_auth_service):
         # The endpoint uses auth_service.get_user_by_email_unverified
         mock_auth_service.get_user_by_email_unverified = AsyncMock(
             return_value={"id": "1", "email": "test@example.com"}
         )
 
-        # mock_auth_service already mocks otp_service via dependency_overrides
-        response = await client.post("/api/v1/auth/resend-otp", json={"email": "test@example.com"})
-        assert response.status_code == 200
-
-    async def test_google_login_redirect(self, client):
-        with patch.dict(os.environ, {"GOOGLE_CLIENT_ID": "test_id"}):
-            response = await client.get("/api/v1/auth/google/login", follow_redirects=False)
-            assert response.status_code == 302
-            assert "accounts.google.com" in response.headers["location"]
+        with patch("routes.auth.email_service"):
+            # mock_auth_service already mocks otp_service via dependency_overrides
+            response = await client.post("/api/v1/auth/resend-otp", json={"email": "test@example.com"})
+            assert response.status_code == 200
 
     @pytest.mark.asyncio
     async def test_sync_user(self, client, app):

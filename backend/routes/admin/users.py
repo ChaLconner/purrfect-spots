@@ -44,7 +44,7 @@ async def _invalidate_banned_user_auth_state(user_ids: list[str], reason: str) -
         await token_service.blacklist_all_user_tokens(user_id, reason=reason)
 
 
-@router.get("/users/", response_model=dict[str, Any])
+@router.get("/users", response_model=dict[str, Any])
 @limiter.limit("60/minute")
 async def list_users(
     request: Request,
@@ -117,7 +117,7 @@ async def list_users(
         raise HTTPException(status_code=500, detail="Failed to fetch users")
 
 
-@router.post("/users/bulk-ban/")
+@router.post("/users/bulk-ban")
 @limiter.limit("5/minute")
 async def bulk_ban_users(
     request: Request,
@@ -201,7 +201,7 @@ async def bulk_ban_users(
         raise HTTPException(status_code=500, detail="Bulk action failed")
 
 
-@router.post("/users/bulk-unban/")
+@router.post("/users/bulk-unban")
 @limiter.limit("5/minute")
 async def bulk_unban_users(
     request: Request,
@@ -241,7 +241,7 @@ async def bulk_unban_users(
         raise HTTPException(status_code=500, detail="Bulk action failed")
 
 
-@router.delete("/users/{user_id}/")
+@router.delete("/users/{user_id}")
 @limiter.limit("10/minute")
 async def delete_user(
     request: Request,
@@ -311,7 +311,7 @@ async def delete_user(
         raise HTTPException(status_code=500, detail="Failed to delete user")
 
 
-@router.patch("/users/{user_id}/profile/", response_model=dict[str, Any])
+@router.patch("/users/{user_id}/profile", response_model=dict[str, Any])
 @limiter.limit("20/minute")
 async def update_user_profile_admin(
     request: Request,
@@ -344,7 +344,7 @@ async def update_user_profile_admin(
         raise HTTPException(status_code=500, detail="Failed to update user profile")
 
 
-@router.put("/users/{user_id}/role/")
+@router.put("/users/{user_id}/role")
 @limiter.limit("20/minute")
 async def update_user_role(
     request: Request,
@@ -395,7 +395,7 @@ async def update_user_role(
         raise HTTPException(status_code=500, detail="Failed to update role")
 
 
-@router.post("/users/{user_id}/ban/")
+@router.post("/users/{user_id}/ban")
 @limiter.limit("5/minute")
 async def ban_user(
     request: Request,
@@ -456,7 +456,7 @@ async def ban_user(
         raise HTTPException(status_code=500, detail="Failed to ban user")
 
 
-@router.post("/users/{user_id}/unban/")
+@router.post("/users/{user_id}/unban")
 @limiter.limit("5/minute")
 async def unban_user(
     request: Request,

@@ -157,7 +157,8 @@ async def _fetch_monthly_report_fallback(admin_client: Any, report_year: int) ->
     ]
 
 
-@router.get("/summary/")
+@router.get("")
+@router.get("/summary")
 @limiter.limit("10/minute")
 async def get_dashboard_summary(
     request: Request,
@@ -240,7 +241,7 @@ async def get_dashboard_summary(
             raise HTTPException(status_code=500, detail="Failed to fetch dashboard summary")
 
 
-@router.get("/stats/trends/")
+@router.get("/trends")
 @limiter.limit("5/minute")
 async def get_system_trends(
     request: Request,
@@ -275,7 +276,7 @@ async def get_system_trends(
             raise HTTPException(status_code=500, detail="Failed to fetch activity trends")
 
 
-@router.get("/stats/monthly/")
+@router.get("/monthly")
 @limiter.limit("5/minute")
 async def get_monthly_stats(
     request: Request,

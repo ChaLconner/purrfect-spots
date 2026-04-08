@@ -17,7 +17,7 @@ class RolePermissionUpdate(BaseModel):
     permission_ids: list[str]
 
 
-@router.get("/")
+@router.get("")
 async def list_roles(
     current_admin: Annotated[User, Depends(require_permission("roles:read"))] = None,
 ):
@@ -36,7 +36,7 @@ async def list_roles(
         raise HTTPException(status_code=500, detail="Failed to fetch roles")
 
 
-@router.get("/permissions/")
+@router.get("/permissions")
 async def list_permissions(
     current_admin: Annotated[User, Depends(require_permission("roles:manage"))] = None,
 ):
@@ -55,7 +55,7 @@ async def list_permissions(
         raise HTTPException(status_code=500, detail="Failed to fetch permissions")
 
 
-@router.get("/{role_id}/permissions/")
+@router.get("/{role_id}/permissions")
 async def get_role_permissions(
     role_id: str,
     current_admin: Annotated[User, Depends(require_permission("roles:read"))] = None,
@@ -70,7 +70,7 @@ async def get_role_permissions(
         raise HTTPException(status_code=500, detail="Failed to fetch role permissions")
 
 
-@router.post("/{role_id}/permissions/")
+@router.post("/{role_id}/permissions")
 async def update_role_permissions(
     role_id: str,
     request: Request,

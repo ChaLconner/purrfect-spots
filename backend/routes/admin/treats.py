@@ -20,7 +20,7 @@ class GrantTreatRequest(BaseModel):
     reason: str = Field(..., min_length=1, max_length=500, description="Reason for the grant")
 
 
-@router.get("/transactions/")
+@router.get("/transactions")
 async def list_treat_transactions(
     request: Request,
     limit: Annotated[int, Query(ge=1, le=1000)] = 20,
@@ -96,7 +96,7 @@ async def _fetch_treat_stats_fallback(admin_client) -> dict:
     }
 
 
-@router.get("/stats/")
+@router.get("/stats")
 async def get_treat_stats(
     current_admin: Annotated[User, Depends(require_permission("treats:manage"))] = None,
 ):
@@ -123,7 +123,7 @@ async def get_treat_stats(
         raise HTTPException(status_code=500, detail="Failed to fetch treat stats")
 
 
-@router.get("/users/search/")
+@router.get("/users/search")
 async def search_users_for_grant(
     q: Annotated[str, Query(min_length=1, max_length=100)],
     limit: Annotated[int, Query(ge=1, le=20)] = 10,
@@ -145,7 +145,7 @@ async def search_users_for_grant(
         raise HTTPException(status_code=500, detail="Failed to search users")
 
 
-@router.post("/grant/")
+@router.post("/grant")
 async def grant_treats_manually(
     request: Request,
     data: GrantTreatRequest,

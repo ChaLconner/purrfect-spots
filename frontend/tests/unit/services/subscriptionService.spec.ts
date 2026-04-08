@@ -24,7 +24,7 @@ describe('SubscriptionService', (): void => {
 
       const result = await SubscriptionService.createCheckout();
 
-      expect(mockRequest).toHaveBeenCalledWith('post', '/subscription/checkout');
+      expect(mockRequest).toHaveBeenCalledWith('post', '/subscription/checkout', { plan: 'monthly' });
       expect(result.checkout_url).toBe('https://stripe.com/checkout');
     });
   });

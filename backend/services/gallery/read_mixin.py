@@ -52,6 +52,11 @@ class GalleryReadMixin(GalleryBaseMixin):
 
             raise ExternalServiceError(f"Failed to fetch gallery images: {e!s}", service="Supabase")
 
+    async def get_all_photos_simple(self) -> list[dict[str, Any]]:
+        """Simple get all photos wrapper returning only the data list."""
+        res = await self.get_all_photos(include_total=False)
+        return res["data"]
+
     async def _fetch_photos(self, limit: int, offset: int, user_id: str | None) -> list[dict[str, Any]]:
         """Fetch photos with hydrated user details where possible."""
         if self.db:

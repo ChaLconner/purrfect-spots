@@ -30,7 +30,7 @@
   "devDependencies": {
     "husky": "^9.1.7",
     "lint-staged": "^15.5.2",
-    "vite": "^7.0.0"
+    "vite": "^8.0.7"
   },
   "lint-staged": {
     "backend/**/*.py": [
@@ -45,6 +45,7 @@
     ]
   },
   "overrides": {
+    "vite": "$vite",
     "js-beautify": {
       "editorconfig": "^3.0.1",
       "glob": {
@@ -52,7 +53,7 @@
       }
     },
     "minimatch": ">=10.2.1",
-    "serialize-javascript": ">=7.0.3"
+    "serialize-javascript": "7.0.5"
   },
   "optionalDependencies": {
     "@tailwindcss/oxide-darwin-arm64": "4.2.1",

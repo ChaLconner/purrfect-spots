@@ -21,7 +21,7 @@ from services.line_service import line_service
 router = APIRouter()
 
 
-@router.get("/", response_model=list[ConfigResponse])
+@router.get("", response_model=list[ConfigResponse])
 async def get_all_settings(
     current_admin: Annotated[User, Depends(require_permission("system:settings"))],
     category: Annotated[str | None, Query()] = None,
@@ -60,7 +60,7 @@ async def get_all_settings(
         raise HTTPException(status_code=500, detail="Failed to fetch system settings")
 
 
-@router.get("/history/{key}/", response_model=list[ConfigHistoryResponse])
+@router.get("/history/{key}", response_model=list[ConfigHistoryResponse])
 async def get_setting_history(key: str, current_admin: Annotated[User, Depends(require_permission("system:settings"))]):
     """Get evolution history for a specific setting."""
     try:
@@ -85,7 +85,7 @@ async def get_setting_history(key: str, current_admin: Annotated[User, Depends(r
         raise HTTPException(status_code=500, detail="Failed to fetch config history")
 
 
-@router.put("/{key}/", response_model=ConfigResponse | PendingConfigChangeResponse)
+@router.put("/{key}", response_model=ConfigResponse | PendingConfigChangeResponse)
 async def update_setting(
     request: Request,
     key: str,
@@ -181,7 +181,7 @@ async def update_setting(
         raise HTTPException(status_code=500, detail="Failed to update system setting")
 
 
-@router.get("/pending/", response_model=list[PendingConfigChangeResponse])
+@router.get("/pending", response_model=list[PendingConfigChangeResponse])
 async def get_pending_changes(current_admin: Annotated[User, Depends(require_permission("system:settings"))]):
     """Get all pending config changes (Checkers)"""
     try:
@@ -218,7 +218,7 @@ async def get_pending_changes(current_admin: Annotated[User, Depends(require_per
         raise HTTPException(status_code=500, detail="Failed to fetch pending changes")
 
 
-@router.post("/approve/{change_id}/", response_model=ConfigResponse)
+@router.post("/approve/{change_id}", response_model=ConfigResponse)
 async def approve_change(
     change_id: str,
     current_admin: Annotated[User, Depends(require_permission("system:settings"))],
@@ -302,7 +302,7 @@ async def approve_change(
         raise HTTPException(status_code=500, detail="Approval process failed")
 
 
-@router.post("/reject/{change_id}/", response_model=dict)
+@router.post("/reject/{change_id}", response_model=dict)
 async def reject_change(
     change_id: str,
     current_admin: Annotated[User, Depends(require_permission("system:settings"))],

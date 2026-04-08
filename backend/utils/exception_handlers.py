@@ -52,6 +52,7 @@ def _error_response(
         "error": True,
         "error_code": error_code,
         "message": message,
+        "detail": message,  # Standard FastAPI error key for backward compatibility
     }
     if details is not None:
         content["details"] = details

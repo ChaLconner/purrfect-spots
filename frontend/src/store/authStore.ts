@@ -266,21 +266,31 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function setupBalanceRealtime(): void {
-    if (!user.value?.id) return;
+    const userId = user.value?.id;
+    if (!userId) return;
 
+    // Check if we already have a channel for this user and it's active
+    const channelName = `user_balance_${userId}`;
+    if (balanceChannel && balanceChannel.topic === `realtime:${channelName}`) {
+      // Already subscribed to the correct channel
+      return;
+    }
+
+    // Cleanup existing channel if it's different or just to be safe
     if (balanceChannel) {
       supabase.removeChannel(balanceChannel);
+      balanceChannel = null;
     }
 
     balanceChannel = supabase
-      .channel(`user_balance_${user.value.id}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
           table: 'users',
-          filter: `id=eq.${user.value.id}`,
+          filter: `id=eq.${userId}`,
         },
         (payload: { new: { treat_balance: number } }): void => {
           if (payload.new && typeof payload.new.treat_balance === 'number' && user.value) {

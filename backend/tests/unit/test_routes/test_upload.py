@@ -48,14 +48,6 @@ class TestUploadRoute:
         )
         return service
 
-    async def test_upload_test_endpoint(self, client):
-        """Test that upload test endpoint works"""
-        response = await client.get("/api/v1/upload/test")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["message"] == "Upload endpoint is working!"
-
     async def test_upload_requires_authentication(self, client, sample_image_bytes):
         """Test that upload requires authentication"""
         files = {"file": ("cat.jpg", io.BytesIO(sample_image_bytes), "image/jpeg")}

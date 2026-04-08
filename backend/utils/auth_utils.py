@@ -51,14 +51,26 @@ def decode_token(token: str) -> dict[str, Any]:
 def get_client_info(request: Any) -> tuple[str, str]:
     """
     Extract client IP and User-Agent from request.
-
-    Client IP must come from Starlette's trusted proxy handling. We do not
-    read X-Forwarded-* headers directly here because those headers are
-    attacker-controlled unless a trusted proxy has already normalized them.
+    Checks X-Forwarded-For, X-Real-IP, and falls back to client.host.
     """
-    ip = request.client.host if request.client and getattr(request.client, "host", None) else "unknown"
-    user_agent = request.headers.get("user-agent", "")
+    # Try X-Forwarded-For first (common in many proxy setups)
+    ip = request.headers.get("X-Forwarded-For", "")
+    if ip:
+        # Take the leftmost IP if there's a comma-separated list
+        ip = ip.split(",")[0].strip()
 
+    # Fallback to X-Real-IP
+    if not ip:
+        ip = request.headers.get("X-Real-IP", "")
+
+    # Final fallback to request.client.host
+    if not ip and request.client and getattr(request.client, "host", None):
+        ip = request.client.host
+
+    if not ip:
+        ip = "unknown"
+
+    user_agent = request.headers.get("user-agent", "")
     return ip, user_agent
 
 

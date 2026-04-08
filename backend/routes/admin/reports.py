@@ -33,7 +33,7 @@ def _validate_uuid(value: str, label: str = "ID") -> None:
         raise HTTPException(status_code=400, detail=f"Invalid {label} format: expected UUID")
 
 
-@router.get("/reports/", response_model=dict[str, Any])
+@router.get("/reports", response_model=dict[str, Any])
 @limiter.limit("60/minute")
 async def list_reports(
     request: Request,
@@ -82,7 +82,7 @@ async def list_reports(
         raise HTTPException(status_code=500, detail=f"Failed to fetch reports: {e}")
 
 
-@router.put("/reports/{report_id}/", response_model=dict)
+@router.put("/reports/{report_id}", response_model=dict)
 @limiter.limit("20/minute")
 async def update_report(
     report_id: str,
@@ -222,7 +222,7 @@ async def update_report(
         raise HTTPException(status_code=500, detail="Failed to update report")
 
 
-@router.post("/reports/bulk/", response_model=dict[str, Any])
+@router.post("/reports/bulk", response_model=dict[str, Any])
 @limiter.limit("10/minute")
 async def bulk_update_reports(
     bulk_data: BulkReportUpdate,

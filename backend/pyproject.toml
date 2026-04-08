@@ -113,16 +113,37 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+pythonpath = ["."]
 addopts = [
+    "-v",
+    "--tb=short",
+    "--color=yes",
     "--strict-markers",
     "--strict-config",
     "-ra",
 ]
 filterwarnings = [
-    "ignore::DeprecationWarning",
-    "ignore::PendingDeprecationWarning",
-    "ignore:.*:DeprecationWarning",
+    # Ignore deprecation warnings from external libraries
+    "ignore:.*asyncio.iscoroutinefunction.*:DeprecationWarning:slowapi.*",
+    "ignore:.*asyncio.iscoroutinefunction.*:DeprecationWarning:sentry_sdk.*",
+    "ignore:.*asyncio.iscoroutinefunction.*:DeprecationWarning:asyncio.*",
+    "ignore:.*asyncio.get_event_loop_policy.*:DeprecationWarning",
+    "ignore:.*asyncio.set_event_loop_policy.*:DeprecationWarning",
+    "ignore:.*Image.Image.getdata.*:DeprecationWarning",
+    "ignore:.*datetime.datetime.utcnow.*:DeprecationWarning",
+    "ignore::DeprecationWarning:starlette.*",
+    "ignore::DeprecationWarning:fastapi.*",
+    "ignore::DeprecationWarning:supabase.*",
+    "ignore::DeprecationWarning:gotrue.*",
+    "ignore:.*The `gotrue` package is deprecated.*:DeprecationWarning",
+    "ignore:.*unclosed.*:ResourceWarning",
+    "ignore:.*ORJSONResponse is deprecated.*",
+    # Pydantic deprecated Extra (V2 migration) - ignore in dependencies
+    "ignore:.*pydantic.config.Extra is deprecated.*:DeprecationWarning",
+    # Pytest-asyncio loop scope warnings
+    "ignore:.*asyncio_default_fixture_loop_scope.*:DeprecationWarning",
 ]
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.run]
 source = ["."]
