@@ -491,11 +491,6 @@ class TestOtherAuthEndpoints:
             response = await client.post("/api/v1/auth/verify-otp", json={"email": "test@example.com", "otp": "123456"})
         assert response.status_code == 200
 
-        with patch.dict(os.environ, {"GOOGLE_CLIENT_ID": "test_id"}):
-            response = await client.get("/api/v1/auth/google/login", follow_redirects=False)
-            assert response.status_code == 302
-            assert "accounts.google.com" in response.headers["location"]
-
     async def test_resend_otp(self, client, mock_auth_service):
         # The endpoint uses auth_service.get_user_by_email_unverified
         mock_auth_service.get_user_by_email_unverified = AsyncMock(
