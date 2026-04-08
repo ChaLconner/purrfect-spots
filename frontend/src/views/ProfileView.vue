@@ -10,7 +10,9 @@
         :picture="viewedUser?.picture"
         :created-at="viewedUser?.created_at"
         :uploads-count="uploads.length"
-        :is-pro="viewedUser?.is_pro"
+        :is-pro="isOwnProfile ? subscriptionStore.isPro : viewedUser?.is_pro"
+        :subscription-end-date="isOwnProfile ? subscriptionStore.subscriptionEndDate : null"
+        :cancel-at-period-end="isOwnProfile ? subscriptionStore.cancelAtPeriodEnd : false"
         :treat-balance="viewedUser?.treat_balance || viewedUser?.total_treats_received"
         :is-own-profile="isOwnProfile"
         @edit="showEditModal = true"
@@ -314,6 +316,11 @@ onMounted(() => {
   // Otherwise, the watcher below will handle it
   if (authStore.isInitialized) {
     loadProfileData(() => syncStateFromUrl());
+    
+    // Fetch subscription status for the owner to get end date/cancel info
+    if (isOwnProfile.value) {
+      subscriptionStore.fetchStatus(true);
+    }
   }
 });
 

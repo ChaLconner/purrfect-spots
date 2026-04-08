@@ -218,8 +218,7 @@ class TestLoginEndpoint:
             data = response.json()
             assert data["access_token"] == "test-access-token"
             assert data["token_type"] == "bearer"
-            # Refresh token is returned in body AND cookie now
-            assert "refresh_token" in data
+            assert "refresh_token" not in data
 
     async def test_login_invalid_credentials(self, client, mock_auth_service, mock_limiter):
         """Test login fails with invalid credentials"""
@@ -542,12 +541,12 @@ class TestOtherAuthEndpoints:
         )
         login_response = LoginResponse(
             access_token="test_access",
-            refresh_token="test_refresh",
             token_type="bearer",
             message="Success",
             user=user_resp,
         )
         mock_auth_service.exchange_google_code = AsyncMock(return_value=login_response)
+        mock_auth_service.create_refresh_token.return_value = "test_refresh"
 
         with patch("routes.auth._validate_google_redirect_uri", return_value=True):
             response = await client.post(

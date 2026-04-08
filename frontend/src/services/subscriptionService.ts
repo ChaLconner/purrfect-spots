@@ -1,8 +1,8 @@
 import { apiV1 } from '../utils/api';
 
 export const SubscriptionService = {
-  async createCheckout(): Promise<{ checkout_url: string; session_id: string }> {
-    return apiV1.post('/subscription/checkout');
+  async createCheckout(plan: 'monthly' | 'annual' = 'monthly'): Promise<{ checkout_url: string; session_id: string }> {
+    return apiV1.post('/subscription/checkout', { plan });
   },
 
   async getStatus(): Promise<{

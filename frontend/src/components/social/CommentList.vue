@@ -52,9 +52,12 @@
             class="relative rounded-2xl bg-white/80 overflow-hidden"
           >
             <div class="flex justify-between items-baseline mb-1 gap-2">
-              <span class="font-bold text-sm text-brown truncate">{{
-                comment.user_name || 'Anonymous'
-              }}</span>
+              <span class="font-bold text-sm text-brown truncate flex items-center gap-1.5 min-w-0">
+                <span class="truncate">{{ comment.user_name || 'Anonymous' }}</span>
+                <span v-if="comment.user_is_pro" class="bg-gradient-to-r from-yellow-400 to-amber-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wider shadow-sm flex-shrink-0">
+                  PRO
+                </span>
+              </span>
               <span
                 class="text-[10px] uppercase tracking-wider font-bold text-brown-light/60 whitespace-nowrap flex-shrink-0"
                 >{{ formatDate(comment.created_at) }}</span

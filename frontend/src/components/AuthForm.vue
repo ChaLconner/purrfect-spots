@@ -17,6 +17,8 @@
           <img
             :src="catIllustrationUrl"
             :alt="$t('auth.catIllustrationAlt')"
+            fetchpriority="high"
+            loading="eager"
             class="w-[120px] h-[120px] sm:w-[160px] sm:h-[160px] md:w-[280px] md:h-[280px] object-cover rounded-full border-4 md:border-6 border-white/40 shadow-[0_20px_40px_rgba(0,0,0,0.15),_0_0_0_8px_rgba(255,255,255,0.1)] md:shadow-[0_20px_40px_rgba(0,0,0,0.15),_0_0_0_12px_rgba(255,255,255,0.1)] animate-[float_6s_ease-in-out_infinite] transition-transform duration-300 hover:scale-105 block mx-auto"
           />
           <div class="mt-8">

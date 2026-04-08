@@ -15,6 +15,8 @@ defineProps<{
   createdAt?: string;
   uploadsCount: number;
   isPro?: boolean;
+  subscriptionEndDate?: string | null;
+  cancelAtPeriodEnd?: boolean;
   treatBalance?: number;
   isOwnProfile?: boolean;
   isDrawer?: boolean;
@@ -31,6 +33,15 @@ const formatJoinDate = (dateString?: string): string => {
   if (!dateString) return t('common.unknown');
   const date = new Date(dateString);
   return date.toLocaleDateString(locale.value, { year: 'numeric', month: 'long' });
+};
+
+const formatDate = (dateString?: string | null): string => {
+  if (!dateString) return '';
+  return new Date(dateString).toLocaleDateString(locale.value, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
 };
 </script>
 
@@ -50,14 +61,31 @@ const formatJoinDate = (dateString?: string): string => {
       <!-- Profile Picture -->
       <div class="relative group">
         <div
+          v-if="isPro"
+          class="absolute -inset-1 bg-gradient-to-tr from-yellow-400 via-orange-400 to-yellow-600 rounded-full blur-md opacity-40 group-hover:opacity-60 transition-opacity duration-500"
+        ></div>
+        <div
+          v-else
           class="absolute inset-0 bg-terracotta rounded-full blur-md opacity-20 group-hover:opacity-40 transition-opacity duration-500"
         ></div>
         <img
           :src="picture || getAvatarFallback(name)"
           :alt="name || t('profile.unknownUser')"
-          class="w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-40 lg:h-40 rounded-full object-cover border-4 border-white shadow-md relative z-10 bg-stone-100"
+          class="w-24 h-24 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-40 lg:h-40 rounded-full object-cover border-4 shadow-md relative z-10 bg-stone-100 transition-all duration-300 group-hover:scale-[1.02]"
+          :class="isPro ? 'border-orange-100' : 'border-white'"
           @error="handleAvatarError($event, name)"
         />
+        
+        <!-- Premium Badge Overlay -->
+        <div
+          v-if="isPro"
+          class="absolute -top-1 -right-1 z-20 bg-gradient-to-tr from-yellow-400 to-orange-500 p-1.5 sm:p-2 rounded-2xl shadow-lg border-2 border-white transform hover:scale-110 transition-transform cursor-help"
+          :title="t('common.pro')"
+        >
+          <svg class="w-3 h-3 sm:w-4 sm:h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
+          </svg>
+        </div>
         <button
           v-if="isOwnProfile"
           class="absolute bottom-2 right-2 p-1.5 sm:p-2 bg-white text-terracotta rounded-full shadow-lg hover:bg-terracotta hover:text-white transition-all transform hover:scale-110 z-20 cursor-pointer"
@@ -100,12 +128,12 @@ const formatJoinDate = (dateString?: string): string => {
         <div
           class="flex flex-wrap items-center justify-center md:justify-start gap-2 sm:gap-3 md:gap-4 text-xs sm:text-sm text-gray-500 font-medium"
         >
-          <!-- PRO Badge -->
+          <!-- PRO Badge (Integrated) -->
           <div
             v-if="isPro"
-            class="flex items-center px-2.5 sm:px-3 py-1 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full shadow-sm border border-orange-400/30 text-xs sm:text-sm"
+            class="flex items-center px-3 py-1 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full shadow-lg shadow-orange-200/40 border border-orange-300/40 text-[10px] sm:text-xs font-bold leading-none"
           >
-            <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+            <svg class="w-3 h-3 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
               <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
             </svg>
             {{ t('common.pro') }}
@@ -167,6 +195,35 @@ const formatJoinDate = (dateString?: string): string => {
             <span class="mr-1.5">{{ t('profile.treats') }}</span>
             {{ treatBalance || 0 }}
           </span>
+        </div>
+
+        <!-- Subscription Management Summary (For Owners only) -->
+        <div
+          v-if="isOwnProfile && isPro"
+          class="mt-4 p-3 bg-gradient-to-br from-amber-50 to-orange-50/30 rounded-2xl border border-orange-100/60 flex flex-col sm:flex-row items-center justify-between gap-3"
+        >
+          <div class="flex items-center gap-3">
+            <div class="bg-orange-100 p-1.5 rounded-lg text-orange-600">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <div class="text-left">
+              <p class="text-[10px] uppercase tracking-widest text-orange-400 font-bold leading-none mb-1">
+                {{ cancelAtPeriodEnd ? t('subscription.proPlan.cancelsOn') : t('subscription.proPlan.active') }}
+              </p>
+              <p class="text-xs sm:text-sm font-semibold text-brown">
+                {{ cancelAtPeriodEnd ? formatDate(subscriptionEndDate) : (subscriptionEndDate ? t('subscription.proPlan.active') + ' · ' + formatDate(subscriptionEndDate) : t('subscription.proPlan.active')) }}
+              </p>
+            </div>
+          </div>
+          
+          <router-link
+            to="/subscription"
+            class="text-[10px] sm:text-xs bg-white text-orange-600 hover:bg-orange-500 hover:text-white px-4 py-1.5 rounded-xl transition-all font-bold shadow-sm border border-orange-100 whitespace-nowrap"
+          >
+            {{ t('subscription.proPlan.manage') }}
+          </router-link>
         </div>
 
         <!-- Action Buttons -->

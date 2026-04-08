@@ -134,10 +134,9 @@ async def test_get_user_from_payload_supabase_no_db(mock_env):
         patch("services.redis_service.redis_service.get", return_value=None),
         patch("utils.supabase_client.get_async_supabase_admin_client", side_effect=Exception("DB error")),
     ):
-        user = await _get_user_from_payload(payload, "supabase")
-        assert user.id == "00000000-0000-4000-a000-000000000123"
-        assert user.name == "Test User"
-        assert user.picture == "http://img.com"  # NOSONAR python:S5332 - asserts fixture URL
+        with pytest.raises(HTTPException) as exc:
+            await _get_user_from_payload(payload, "supabase")
+        assert exc.value.status_code == 503
 
 
 @pytest.mark.asyncio
@@ -154,9 +153,9 @@ async def test_get_user_from_payload_custom(mock_env):
         patch("services.redis_service.redis_service.get", return_value=None),
         patch("utils.supabase_client.get_async_supabase_admin_client", side_effect=Exception("DB error")),
     ):
-        user = await _get_user_from_payload(payload, "custom")
-        assert user.id == "00000000-0000-4000-a000-000000000123"
-        assert user.name == "Custom User"
+        with pytest.raises(HTTPException) as exc:
+            await _get_user_from_payload(payload, "custom")
+        assert exc.value.status_code == 503
 
 
 @pytest.mark.asyncio
@@ -249,6 +248,21 @@ async def test_verify_and_decode_token_all_fail(mock_env):
         with pytest.raises(HTTPException) as exc:
             await _verify_and_decode_token("token")
         assert exc.value.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_verify_and_decode_token_fails_closed_when_invalidation_check_errors(mock_env):
+    with (
+        patch("middleware.auth_middleware.decode_supabase_token", new_callable=AsyncMock) as mock_supa,
+        patch("middleware.auth_middleware.get_token_service", new_callable=AsyncMock) as mock_token_service,
+    ):
+        mock_supa.return_value = {"sub": "123", "iat": 1700000000}
+        mock_token_service.return_value.is_user_invalidated = AsyncMock(side_effect=RuntimeError("redis down"))
+
+        with pytest.raises(HTTPException) as exc:
+            await _verify_and_decode_token("token")
+
+        assert exc.value.status_code == 503
 
 
 # --- Tests for public wrappers ---

@@ -119,6 +119,24 @@ class TestProcessUploadedImage:
 
             await process_uploaded_image(mock_file, optimize=False)
 
+    @pytest.mark.asyncio
+    async def test_process_rejects_content_type_mismatch(self, create_mock_upload_file, sample_image_bytes):
+        """Test spoofed MIME metadata is rejected."""
+        mock_file = create_mock_upload_file(sample_image_bytes, "cat.jpg", "image/jpeg")
+
+        with (
+            patch("utils.file_processing.validate_image_file"),
+            patch("utils.file_processing.validate_image_magic_bytes", return_value=(True, "image/png", None)),
+            patch("utils.file_processing.validate_content_type_matches", return_value=(False, "image/png")),
+        ):
+            from utils.file_processing import process_uploaded_image
+
+            with pytest.raises(HTTPException) as excinfo:
+                await process_uploaded_image(mock_file, optimize=False)
+
+            assert excinfo.value.status_code == 400
+            assert "mime type" in excinfo.value.detail.lower()
+
 
 class TestReadFileForDetection:
     """Test read_file_for_detection function"""

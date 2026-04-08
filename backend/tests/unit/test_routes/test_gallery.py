@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 from main import app
 from routes.gallery import get_gallery_service
+from utils.security import protect_public_coordinates
 
 
 def test_get_gallery_empty(client):
@@ -90,6 +91,9 @@ def test_get_locations(client):
     response = client.get("/api/v1/gallery/locations")
     assert response.status_code == 200
     assert len(response.json()) == 1
+    expected_lat, expected_lng = protect_public_coordinates(10, 10, seed="1")
+    assert response.json()[0]["latitude"] == expected_lat
+    assert response.json()[0]["longitude"] == expected_lng
 
 
 def test_get_viewport(client):
@@ -110,6 +114,9 @@ def test_get_viewport(client):
     response = client.get("/api/v1/gallery/viewport?north=10&south=5&east=10&west=5")
     assert response.status_code == 200
     assert len(response.json()["images"]) == 1
+    expected_lat, expected_lng = protect_public_coordinates(10, 10, seed="1")
+    assert response.json()["images"][0]["latitude"] == expected_lat
+    assert response.json()["images"][0]["longitude"] == expected_lng
 
 
 def test_search_locations(client):
@@ -130,6 +137,9 @@ def test_search_locations(client):
     response = client.get("/api/v1/gallery/search?q=cat&tags=cute")
     assert response.status_code == 200
     assert response.json()["total"] == 1
+    expected_lat, expected_lng = protect_public_coordinates(10, 10, seed="1")
+    assert response.json()["results"][0]["latitude"] == expected_lat
+    assert response.json()["results"][0]["longitude"] == expected_lng
 
 
 def test_get_popular_tags(client):
@@ -157,6 +167,9 @@ def test_get_photo(client):
     response = client.get("/api/v1/gallery/00000000-0000-0000-0000-000000000001")
     assert response.status_code == 200
     assert response.json()["id"] == "1"
+    expected_lat, expected_lng = protect_public_coordinates(10, 10, seed="1")
+    assert response.json()["latitude"] == expected_lat
+    assert response.json()["longitude"] == expected_lng
 
 
 def test_delete_photo(client):

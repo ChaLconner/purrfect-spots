@@ -2,11 +2,18 @@
     "Version": "2012-10-17",
     "Statement": [
         {
-            "Sid": "PublicReadGetObject",
+            "Sid": "RestrictedPublicRead",
             "Effect": "Allow",
-            "Principal": "*",
+            "Principal": {
+                "AWS": "REPLACE_WITH_CLOUDFRONT_OAI_OR_SPECIFIC_IAM_ARN"
+            },
             "Action": "s3:GetObject",
-            "Resource": "arn:aws:s3:::purrfect-spots-bucket/*"
+            "Resource": "arn:aws:s3:::YOUR_BUCKET_NAME/*",
+            "Condition": {
+                "StringEquals": {
+                    "aws:Referer": "REPLACE_WITH_YOUR_FRONTEND_DOMAIN"
+                }
+            }
         }
     ]
 }

@@ -15,6 +15,7 @@ const BROWSER_EXTENSION_ERROR_PATTERNS = [
   'listener indicated an asynchronous response',
   'Non-Error promise rejection captured',
   'ChunkLoadError',
+  'Rejected',
 ];
 
 // Error names that indicate browser extension conflicts

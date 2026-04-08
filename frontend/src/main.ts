@@ -19,11 +19,12 @@ import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
 // Only initialize in production or if explicitly enabled
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
 const ENVIRONMENT = import.meta.env.MODE;
+const ENABLE_SENTRY = ENVIRONMENT === 'production' || import.meta.env.VITE_ENABLE_SENTRY === 'true';
 
 import type { App as VueApp } from 'vue';
 
 async function initSentry(app: VueApp): Promise<void> {
-  if (!SENTRY_DSN) {
+  if (!SENTRY_DSN || !ENABLE_SENTRY) {
     return;
   }
 
@@ -48,11 +49,21 @@ async function initSentry(app: VueApp): Promise<void> {
 
       // Filter out common non-actionable errors
       beforeSend(event) {
+        const serializedEvent = JSON.stringify(event);
         // Ignore browser extension errors
         if (
           event.message?.includes('Extension context invalidated') ||
           event.message?.includes('message channel closed') ||
-          event.message?.includes('ResizeObserver loop')
+          event.message?.includes('ResizeObserver loop') ||
+          event.message?.includes('Element not found')
+        ) {
+          return null;
+        }
+        if (
+          serializedEvent.includes('webdriver') ||
+          serializedEvent.includes('playwright') ||
+          serializedEvent.includes('vitest') ||
+          serializedEvent.includes('jsdom')
         ) {
           return null;
         }

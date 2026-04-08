@@ -145,6 +145,10 @@
     },
     "quota": {
       "remaining": "เหลือการอัปโหลดอีก {count} ครั้งในวันนี้",
+      "limitLabel": "โควตาต่อวัน",
+      "usedLabel": "ใช้ไปแล้ววันนี้",
+      "resetsAt": "จะรีเซ็ตตอน: {time}",
+      "firstUploadWindow": "เริ่มนับเวลาจากรูปแรกที่คุณอัปโหลด",
       "exceeded": "ถึงขีดจำกัดการอัปโหลดประจำวันแล้ว",
       "upgradePrompt": "อัปเกรดเป็น Pro เพื่ออัปโหลดได้มากขึ้น"
     }
@@ -423,6 +427,10 @@
       "title": "Purrfect Plus",
       "subtitle": "เครื่องมือระดับมืออาชีพสำหรับคนรักแมว",
       "period": "ต่อเดือน ($4.99)",
+      "periodAnnual": "ต่อปี ($49.99)",
+      "billedMonthly": "รายเดือน",
+      "billedAnnually": "รายปี",
+      "savePercent": "ประหยัด 16%",
       "badge": "ยอดนิยม",
       "active": "แพ็กเกจปัจจุบัน",
       "cancelsOn": "ยกเลิกเมื่อ",
@@ -457,7 +465,8 @@
       "errorTitle": "ข้อผิดพลาด",
       "checkoutFailed": "ไม่สามารถเริ่มการชำระเงินได้",
       "portalFailed": "ไม่สามารถเข้าถึงพอร์ทัลการสมัครสมาชิก",
-      "purchaseFailed": "ไม่สามารถเริ่มการสั่งซื้อได้"
+      "purchaseFailed": "ไม่สามารถเริ่มการสั่งซื้อได้",
+      "confirmingPayment": "กำลังยืนยันการชำระเงิน…"
     }
   },
   "leaderboardPage": {

@@ -78,8 +78,11 @@ onUnmounted(() => {
       @click.stop
     >
       <div class="px-4 py-3.5 bg-btn-shade-d">
-        <p class="m-0 font-accent text-sm font-semibold text-btn-shade-a">
+        <p class="m-0 font-accent text-sm font-semibold text-btn-shade-a flex items-center gap-2">
           {{ authStore.user?.name }}
+          <span v-if="authStore.user?.is_pro" class="bg-gradient-to-r from-yellow-400 to-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wider shadow-sm">
+            PRO
+          </span>
         </p>
         <p
           class="m-0 mt-0.5 font-accent text-[0.7rem] text-btn-shade-b overflow-hidden text-ellipsis"
@@ -88,6 +91,14 @@ onUnmounted(() => {
         </p>
       </div>
       <div class="h-[2px] bg-btn-shade-b"></div>
+      <router-link
+        v-if="!authStore.user?.is_pro"
+        to="/subscription"
+        class="block w-full px-4 py-3 font-accent text-[0.85rem] font-bold text-amber-600 text-left bg-amber-50 border-none cursor-pointer transition-all duration-[175ms] ease-in-out hover:bg-amber-100 hover:translate-x-1"
+        @click="showUserMenu = false"
+      >
+        🌟 {{ $t('subscription.proPlan.upgrade') || 'Upgrade to PRO' }}
+      </router-link>
       <router-link
         to="/profile"
         class="block w-full px-4 py-3 font-accent text-[0.85rem] font-semibold text-btn-shade-a text-left bg-transparent border-none cursor-pointer transition-all duration-[175ms] ease-in-out hover:bg-btn-shade-d hover:translate-x-1"

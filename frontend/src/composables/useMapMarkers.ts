@@ -77,7 +77,7 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
       const pos = marker.getPosition();
       if (!pos) return null;
       return { lat: pos.lat(), lng: pos.lng() };
-    } else {
+    } else if (google.maps.marker?.AdvancedMarkerElement && marker instanceof google.maps.marker.AdvancedMarkerElement) {
       // AdvancedMarkerElement
       const pos = marker.position;
       if (!pos) return null;
@@ -86,6 +86,7 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
       const lng = typeof pos.lng === 'function' ? pos.lng() : pos.lng;
       return { lat, lng };
     }
+    return null;
   };
 
   const createMarker = (
@@ -121,7 +122,7 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
         Math.abs(currentPos.lat - location.latitude) > 0.0001 ||
         Math.abs(currentPos.lng - location.longitude) > 0.0001
       ) {
-        if (marker instanceof google.maps.marker.AdvancedMarkerElement) {
+        if (google.maps.marker?.AdvancedMarkerElement && marker instanceof google.maps.marker.AdvancedMarkerElement) {
           marker.position = { lat: location.latitude, lng: location.longitude };
         } else {
           marker.setPosition({ lat: location.latitude, lng: location.longitude });
@@ -135,6 +136,9 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
     onMarkerClick?: (cat: CatLocation) => void
   ): void => {
     if (!map.value) return;
+
+    // Canary log to verify file update
+    console.warn('[MapMarkers] Updating markers...', { count: locations.length, hasMarkerLib: !!google.maps.marker });
 
     // Ensure clusterer is initialized with options if not already
     clusterer.value ??= new MarkerClusterer({
@@ -194,7 +198,7 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
       if (userMarker.value) {
         if (userMarker.value instanceof google.maps.Marker) {
           userMarker.value.setMap(null);
-        } else {
+        } else if (google.maps.marker?.AdvancedMarkerElement && userMarker.value instanceof google.maps.marker.AdvancedMarkerElement) {
           userMarker.value.map = null;
         }
         userMarker.value = null;
@@ -206,7 +210,7 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
       // Update existing marker
       if (userMarker.value instanceof google.maps.Marker) {
         userMarker.value.setPosition(position);
-      } else {
+      } else if (google.maps.marker?.AdvancedMarkerElement && userMarker.value instanceof google.maps.marker.AdvancedMarkerElement) {
         // AdvancedMarkerElement
         userMarker.value.position = position;
       }
@@ -260,7 +264,7 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
     if (userMarker.value) {
       if (userMarker.value instanceof google.maps.Marker) {
         userMarker.value.setMap(null);
-      } else {
+      } else if (google.maps.marker?.AdvancedMarkerElement && userMarker.value instanceof google.maps.marker.AdvancedMarkerElement) {
         userMarker.value.map = null;
       }
       userMarker.value = null;

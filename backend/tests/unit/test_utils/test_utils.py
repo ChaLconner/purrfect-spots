@@ -237,6 +237,29 @@ class TestImageUtils:
         # Invalid data
         assert is_valid_image(b"not an image") is False
 
+    def test_is_valid_image_rejects_excessive_pixel_count(self) -> None:
+        """Test oversized decoded images are rejected before processing."""
+        from PIL import Image
+
+        from utils.image_utils import is_valid_image
+
+        mock_image = MagicMock(spec=Image.Image)
+        mock_image.size = (10000, 5000)
+        mock_image.verify = MagicMock()
+
+        with patch("utils.image_utils.Image.open", return_value=mock_image):
+            assert is_valid_image(b"synthetic image bytes") is False
+
+    def test_protect_public_coordinates_is_deterministic(self) -> None:
+        """Public coordinate masking should be stable for caching and UX."""
+        from utils.security import protect_public_coordinates
+
+        first = protect_public_coordinates(13.7563, 100.5018, seed="photo-1")
+        second = protect_public_coordinates(13.7563, 100.5018, seed="photo-1")
+
+        assert first == second
+        assert first != (13.7563, 100.5018)
+
 
 class TestFileUtils:
     """Test suite for file utilities"""

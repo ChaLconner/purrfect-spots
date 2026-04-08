@@ -8,6 +8,7 @@ import pytest
 
 from main import app
 from routes.gallery import get_gallery_service
+from utils.security import protect_public_coordinates
 
 
 class TestHealthEndpoints:
@@ -161,8 +162,9 @@ class TestGalleryRoutes:
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 1
-        assert data[0]["latitude"] == pytest.approx(13.7563)
-        assert data[0]["longitude"] == pytest.approx(100.5018)
+        expected_lat, expected_lng = protect_public_coordinates(13.7563, 100.5018, seed=mock_cat_photo["id"])
+        assert data[0]["latitude"] == pytest.approx(expected_lat)
+        assert data[0]["longitude"] == pytest.approx(expected_lng)
 
         app.dependency_overrides = {}
 

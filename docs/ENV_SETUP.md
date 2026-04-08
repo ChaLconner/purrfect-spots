@@ -4,22 +4,24 @@ This guide explains how to configure environment variables for the **Purrfect Sp
 
 ## 📁 File Structure
 
-```
-purrfect-spots/
-├── .env.example                 # Master template (all variables)
-├── ENV_SETUP.md                 # This file
-│
-├── backend/
-│   ├── .env                     # Backend secrets (gitignored)
-│   └── .env.example             # Backend template
-│
-└── frontend/
-    ├── .env                     # Base config (gitignored)
-    ├── .env.local               # Local overrides (gitignored)
-    ├── .env.development         # Dev settings (gitignored)
-    ├── .env.production          # Prod settings (gitignored)
-    └── .env.example             # Frontend template
-```
+ 
+ ```text
+ purrfect-spots/
+ ├── .env.example                 # Master template (all variables)
+ ├── ENV_SETUP.md                 # This file
+ │
+ ├── backend/
+ │   ├── .env                     # Backend secrets (gitignored)
+ │   └── .env.example             # Backend template
+ │
+ └── frontend/
+     ├── .env                     # Base config (gitignored)
+     ├── .env.local               # Local overrides (gitignored)
+     ├── .env.development         # Dev settings (gitignored)
+     ├── .env.production          # Prod settings (gitignored)
+     └── .env.example             # Frontend template
+ ```
+ 
 
 ## 🔄 Loading Order
 
@@ -77,7 +79,7 @@ For Vercel deployments, set environment variables in the Vercel Dashboard:
 ### Frontend Variables
 
 | Variable | Description | Example |
-|----------|-------------|---------|
+| :--- | :--- | :--- |
 | `VITE_GOOGLE_CLIENT_ID` | Google OAuth Client ID | `xxx.apps.googleusercontent.com` |
 | `VITE_API_BASE_URL` | Backend API URL | `http://localhost:8000` (dev) |
 | `VITE_GOOGLE_MAPS_API_KEY` | Google Maps API Key | `AIza...` |
@@ -85,7 +87,7 @@ For Vercel deployments, set environment variables in the Vercel Dashboard:
 ### Backend Variables
 
 | Variable | Description | Example |
-|----------|-------------|---------|
+| :--- | :--- | :--- |
 | `GOOGLE_CLIENT_ID` | Google OAuth Client ID | `xxx.apps.googleusercontent.com` |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth Secret | `GOCSPX-...` |
 | `JWT_SECRET` | JWT signing key | Random 256-bit string |
@@ -98,16 +100,19 @@ For Vercel deployments, set environment variables in the Vercel Dashboard:
 
 ## 🔐 Security Best Practices
 
-1. **Never commit `.env` files** - They are gitignored by default
-2. **Use different credentials** for development and production
-3. **Rotate secrets regularly** - Especially after any potential exposure
-4. **Restrict API keys** - Limit to specific domains/IPs when possible
-5. **Use HTTPS** in production
-6. **Generate strong secrets**:
-   ```bash
-   # Generate a secure JWT_SECRET
-   openssl rand -hex 32
-   ```
+> [!CAUTION]
+> **SECURITY WARNING**: Never commit `.env` files to version control. If a secret is accidentally exposed, rotate it immediately.
+
+ 1. **Never commit `.env` files** - They are gitignored by default
+ 2. **Use different credentials** for development and production
+ 3. **Rotate secrets regularly** - Especially after any potential exposure
+ 4. **Restrict API keys** - Limit to specific domains/IPs when possible
+ 5. **Use HTTPS** in production
+ 6. **Generate strong secrets**:
+    ```bash
+    # Generate a secure JWT_SECRET
+    openssl rand -hex 32
+    ```
 
 ---
 

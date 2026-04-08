@@ -91,7 +91,7 @@ async def test_exchange_google_code(auth_service):
     with patch("services.auth.oauth_mixin.google_auth_service", mock_gas):
         res = await auth_service.exchange_google_code("code", "cv", "ru")
         assert res.access_token is not None
-        assert res.refresh_token is not None
+        assert not hasattr(res, "refresh_token") or res.refresh_token is None
 
 
 @pytest.mark.asyncio

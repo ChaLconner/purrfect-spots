@@ -43,7 +43,6 @@ class TestGoogleAuthRoutes:
     def mock_login_response_obj(self, mock_user_response):
         resp = MagicMock()
         resp.access_token = "access"
-        resp.refresh_token = "refresh"
         resp.token_type = "bearer"
         # The service returns a Pydantic model or object with 'user' attribute
         resp.user = mock_user_response
@@ -92,6 +91,7 @@ class TestGoogleAuthRoutes:
         """Test exchange code for tokens"""
         mock_service = MagicMock()
         mock_service.exchange_google_code = AsyncMock(return_value=mock_login_response_obj)
+        mock_service.create_refresh_token.return_value = "refresh"
 
         app.dependency_overrides[get_auth_service] = lambda: mock_service
 

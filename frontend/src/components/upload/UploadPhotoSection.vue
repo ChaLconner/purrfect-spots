@@ -10,7 +10,6 @@
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
-          title="Login required"
           :title="t('auth.signInRequired')"
         >
           <path
@@ -77,12 +76,8 @@
               </svg>
             </div>
             <div class="text-left">
-              <p class="text-xs font-bold text-sage-dark uppercase tracking-wider mb-0.5">
+              <p class="text-xs font-bold text-sage-dark uppercase tracking-wider">
                 {{ t('upload.photoSection.catDetected') }}
-              </p>
-              <p class="text-xs text-brown font-medium">
-                {{ t('upload.photoSection.foundCats', { count: catDetectionResult.cat_count }) }} • 
-                {{ Math.round(catDetectionResult.confidence * 100) }}% {{ t('upload.photoSection.confidence') }}
               </p>
             </div>
           </div>
