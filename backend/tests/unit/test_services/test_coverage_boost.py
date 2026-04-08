@@ -188,6 +188,7 @@ async def test_otp_verify_expired(mock_supabase, mock_db):
 @pytest.mark.asyncio
 async def test_otp_verify_wrong_code(mock_supabase, mock_db):
     service = OTPService(mock_supabase, db=mock_db)
+    service._is_email_locked_out = AsyncMock(return_value=False)
 
     # Mock record
     record = {
@@ -201,7 +202,7 @@ async def test_otp_verify_wrong_code(mock_supabase, mock_db):
     mock_res.fetchone.return_value = MagicMock(_mapping=record)
     mock_db.execute.return_value = mock_res
 
-    # Mock update attempts
+    # Mock DB execute side effects: [fetch_otp, update_attempts]
     mock_db.execute.side_effect = [mock_res, MagicMock()]
 
     res = await service.verify_otp("test@example.com", "123456")

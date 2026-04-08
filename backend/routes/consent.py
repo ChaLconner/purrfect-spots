@@ -10,15 +10,13 @@ Provides user consent tracking for:
 """
 
 from datetime import UTC, datetime
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from postgrest.types import CountMethod
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from dependencies import get_async_supabase_admin_client
 from limiter import limiter
 from logger import logger
-from middleware.auth_middleware import get_current_user, require_permission
+from middleware.auth_middleware import get_current_user
 from schemas.consent import ConsentRecord
 from schemas.user import User
 
@@ -166,82 +164,3 @@ async def record_consent(
     except Exception as e:
         logger.error("Failed to record consent: %s", e)
         raise HTTPException(status_code=500, detail="Failed to record consent")
-
-
-# ==========================================
-# Admin endpoints for consent management
-# ==========================================
-
-
-@router.get("/admin/consents")
-@limiter.limit("30/minute")
-async def admin_list_consents(
-    request: Request,
-    consent_type: Annotated[str | None, Query()] = None,
-    granted: Annotated[bool | None, Query()] = None,
-    limit: Annotated[int, Query(ge=1, le=1000)] = 50,
-    offset: Annotated[int, Query(ge=0)] = 0,
-    current_admin: Annotated[User | None, Depends(require_permission("users:read"))] = None,
-):
-    """Admin: List all user consent records."""
-    try:
-        admin_client = await get_async_supabase_admin_client()
-        query = (
-            admin_client.table("user_consents")
-            .select("*, users(email, name)", count=CountMethod.exact)
-            .order("granted_at", desc=True)
-            .range(offset, offset + limit - 1)
-        )
-
-        if consent_type:
-            query = query.eq("consent_type", consent_type)
-        if granted is not None:
-            query = query.eq("granted", granted)
-
-        result = await query.execute()
-        return {"data": result.data, "total": result.count or 0}
-    except Exception as e:
-        if _is_missing_relation_error(e):
-            logger.warning("Consent tables are unavailable; returning empty admin consent list")
-            return {"data": [], "total": 0}
-        logger.error("Failed to list consents: %s", e)
-        raise HTTPException(status_code=500, detail="Failed to fetch consent records")
-
-
-@router.get("/admin/consent-stats")
-async def admin_consent_stats(
-    current_admin: Annotated[User | None, Depends(require_permission("system:stats"))] = None,
-):
-    """Admin: Get consent statistics across all users."""
-    try:
-        admin_client = await get_async_supabase_admin_client()
-        stats = {}
-
-        for ctype in CONSENT_TYPES:
-            granted_res = (
-                await admin_client.table("user_consents")
-                .select("id", count=CountMethod.exact)
-                .eq("consent_type", ctype)
-                .eq("granted", True)
-                .execute()
-            )
-            withdrawn_res = (
-                await admin_client.table("user_consents")
-                .select("id", count=CountMethod.exact)
-                .eq("consent_type", ctype)
-                .eq("granted", False)
-                .execute()
-            )
-            stats[ctype] = {
-                "label": CONSENT_TYPES[ctype],
-                "granted": granted_res.count or 0,
-                "withdrawn": withdrawn_res.count or 0,
-            }
-
-        return {"stats": stats}
-    except Exception as e:
-        if _is_missing_relation_error(e):
-            logger.warning("Consent tables are unavailable; returning empty consent stats")
-            return {"stats": {}}
-        logger.error("Failed to fetch consent stats: %s", e)
-        raise HTTPException(status_code=500, detail="Failed to fetch consent statistics")

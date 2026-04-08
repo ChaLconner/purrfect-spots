@@ -10,7 +10,6 @@ from fastapi import APIRouter
 # Import all route modules
 from routes import (
     auth,
-    breach_notification,
     cat_detection,
     consent,
     gallery,
@@ -55,6 +54,3 @@ router.include_router(reports.router)
 
 # Consent Management
 router.include_router(consent.router, prefix="/consent", tags=["consent"])
-
-# Breach Notification
-router.include_router(breach_notification.router, prefix="/breach", tags=["breach-notification"])

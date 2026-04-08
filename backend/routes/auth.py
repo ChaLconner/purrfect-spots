@@ -2,13 +2,10 @@
 Authentication routes for both Manual (Email/Password) and Google OAuth
 """
 
-import os
 from datetime import UTC, datetime
 from typing import Any
-from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from fastapi.responses import RedirectResponse
 
 from config import config
 from dependencies import get_auth_service, get_otp_service
@@ -18,7 +15,6 @@ from middleware.auth_middleware import get_current_user, get_current_user_from_h
 from schemas.auth import (
     ForgotPasswordRequest,
     GoogleCodeExchangeRequest,
-    GoogleTokenRequest,
     LoginRequest,
     LoginResponse,
     LogoutResponse,
@@ -479,83 +475,6 @@ async def get_current_user_info(current_user: Annotated[UserResponse, Depends(ge
 # ==========================================
 # Google Authentication Routes
 # ==========================================
-
-
-@router.get("/google/login")
-async def google_login_redirect() -> RedirectResponse:
-    """
-    Redirect to Google OAuth login page with PKCE support.
-
-    Raises:
-        HTTPException: 500 - If redirect generation fails.
-    """
-    try:
-        google_client_id = os.getenv("GOOGLE_CLIENT_ID")
-        if not google_client_id:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Google Client ID not configured",
-            )
-
-        allowed_origins = config.get_allowed_origins()
-
-        # Priority: localhost:5173 -> First allowed origin -> fallback
-        origin = "http://localhost:5173"
-        if allowed_origins:
-            origin = allowed_origins[0]
-            for cors_origin in allowed_origins:
-                if "localhost:5173" in cors_origin:
-                    origin = cors_origin
-                    break
-
-        redirect_uri = f"{origin}/auth/callback"
-
-        oauth_params = {
-            "client_id": google_client_id,
-            "redirect_uri": redirect_uri,
-            "response_type": "code",
-            "scope": "openid email profile",
-            "access_type": "offline",
-            "prompt": "consent",
-        }
-
-        auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(oauth_params)}"
-        return RedirectResponse(url=auth_url, status_code=302)
-
-    except Exception:
-        logger.error("Failed to redirect to Google login")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to redirect to Google login",
-        )
-
-
-@router.post("/google", response_model=LoginResponse)
-async def google_login(
-    response: Response,
-    request: Request,
-    token_data: GoogleTokenRequest,
-    auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> LoginResponse:
-    """
-    Login with Google OAuth ID token.
-    """
-    try:
-        user_data = auth_service.verify_google_token(token_data.token)
-        user = await auth_service.create_or_get_user(user_data)
-        _ensure_user_not_banned(user)
-
-        log_security_event("google_login_success", details={"user_id": user.id}, severity="INFO")
-        return create_login_response(auth_service, user, request, response)
-
-    except HTTPException:
-        raise
-    except ValueError as e:
-        logger.warning("Google token verification failed: %s", e)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
-    except Exception as e:
-        logger.error("Google Login failed: %s", e)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Login failed") from e
 
 
 def _validate_google_redirect_uri(redirect_uri: str) -> bool:

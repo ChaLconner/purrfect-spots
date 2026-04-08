@@ -404,7 +404,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/auth/google/login": {
@@ -1068,7 +1073,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/upload/cat": {
@@ -1108,7 +1118,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/detect/cats": {
@@ -1150,7 +1165,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/detect/spot-analysis": {
@@ -1192,7 +1212,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/detect/combined": {
@@ -1234,7 +1259,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/gallery": {
@@ -1368,145 +1398,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PaginatedGalleryResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/gallery/cursor": {
-      "get": {
-        "tags": [
-          "Gallery"
-        ],
-        "summary": "Get Gallery Cursor",
-        "description": "Get cat images with cursor-based pagination.\n\nDEPRECATED: Frontend uses offset-based pagination.\nSunset: 2026-07-01",
-        "operationId": "get_gallery_cursor_api_v1_gallery_cursor_get",
-        "deprecated": true,
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "cursor",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Cursor for pagination (from previous response)",
-              "title": "Cursor"
-            },
-            "description": "Cursor for pagination (from previous response)"
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 100,
-              "minimum": 1,
-              "description": "Number of items per page",
-              "default": 20,
-              "title": "Limit"
-            },
-            "description": "Number of items per page"
-          },
-          {
-            "name": "sort",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/SortField"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Sort field",
-              "default": "uploaded_at",
-              "title": "Sort"
-            },
-            "description": "Sort field"
-          },
-          {
-            "name": "order",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "$ref": "#/components/schemas/SortOrder",
-              "description": "Sort order",
-              "default": "desc"
-            },
-            "description": "Sort order"
-          },
-          {
-            "name": "fields",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Comma-separated list of fields to include",
-              "title": "Fields"
-            },
-            "description": "Comma-separated list of fields to include"
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CursorPaginatedGalleryResponse"
                 }
               }
             }
@@ -1952,75 +1843,6 @@
         }
       }
     },
-    "/api/v1/feature-flags": {
-      "get": {
-        "tags": [
-          "Feature Flags"
-        ],
-        "summary": "Get Feature Flags",
-        "description": "Get all feature flags and their current status.\n\nDEPRECATED: Frontend uses consolidated config or env vars.\nSunset: 2026-07-01",
-        "operationId": "get_feature_flags_api_v1_feature_flags_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FeatureFlagsResponse"
-                }
-              }
-            }
-          }
-        },
-        "deprecated": true
-      }
-    },
-    "/api/v1/feature-flags/{flag_name}": {
-      "get": {
-        "tags": [
-          "Feature Flags"
-        ],
-        "summary": "Get Feature Flag",
-        "description": "Check if a specific feature flag is enabled.\n\nDEPRECATED: Frontend uses consolidated config or env vars.\nSunset: 2026-07-01",
-        "operationId": "get_feature_flag_api_v1_feature_flags__flag_name__get",
-        "deprecated": true,
-        "parameters": [
-          {
-            "name": "flag_name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Flag Name"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Feature Flag Api V1 Feature Flags  Flag Name  Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/subscription/checkout": {
       "post": {
         "tags": [
@@ -2307,9 +2129,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Give Treat Api V1 Treats Give Post"
+                  "$ref": "#/components/schemas/GiveTreatResponse"
                 }
               }
             }
@@ -2351,11 +2171,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "type": "object",
-                  "title": "Response Purchase Treats Checkout Api V1 Treats Purchase Checkout Post"
+                  "$ref": "#/components/schemas/CheckoutUrlResponse"
                 }
               }
             }
@@ -2392,10 +2208,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {
-                    "additionalProperties": true,
-                    "type": "object"
-                  },
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Treat Packages Api V1 Treats Packages Get"
                 }
@@ -2433,8 +2246,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "additionalProperties": true
+                    "$ref": "#/components/schemas/LeaderboardEntry"
                   },
                   "title": "Response Get Leaderboard Api V1 Treats Leaderboard Get"
                 }
@@ -3001,7 +2813,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/reports/my-reports": {
@@ -3027,7 +2844,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/consent/my-consents": {
@@ -3047,7 +2869,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/consent/consent": {
@@ -3087,7 +2914,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/consent/admin/consents": {
@@ -3098,6 +2930,11 @@
         "summary": "Admin List Consents",
         "description": "Admin: List all user consent records.",
         "operationId": "admin_list_consents_api_v1_consent_admin_consents_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "consent_type",
@@ -3194,7 +3031,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/breach/report": {
@@ -3234,7 +3076,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/breach/incidents": {
@@ -3245,6 +3092,11 @@
         "summary": "List Incidents",
         "description": "List all security incidents.",
         "operationId": "list_incidents_api_v1_breach_incidents_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "status",
@@ -3348,6 +3200,11 @@
         "summary": "Get Incident Details",
         "description": "Get detailed information about a specific incident.",
         "operationId": "get_incident_details_api_v1_breach_incidents__incident_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "incident_id",
@@ -3389,6 +3246,11 @@
         "summary": "Update Incident Status",
         "description": "Update the status of a security incident.",
         "operationId": "update_incident_status_api_v1_breach_incidents__incident_id__status_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "incident_id",
@@ -3449,7 +3311,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/breach/regulatory-report": {
@@ -3460,6 +3327,11 @@
         "summary": "Generate Regulatory Report",
         "description": "Generate regulatory compliance report for data breaches.\nUsed for PDPA/GDPR 72-hour notification requirement documentation.",
         "operationId": "generate_regulatory_report_api_v1_breach_regulatory_report_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "start_date",
@@ -3514,6 +3386,11 @@
         "summary": "List Users",
         "description": "List all users with pagination, search, and sorting.",
         "operationId": "list_users_api_v1_admin_users_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "limit",
@@ -3642,7 +3519,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/admin/users/bulk-unban": {
@@ -3686,7 +3568,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/admin/users/{user_id}": {
@@ -3697,6 +3584,11 @@
         "summary": "Delete User",
         "description": "Permanently delete a user and their data.",
         "operationId": "delete_user_api_v1_admin_users__user_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "user_id",
@@ -3747,6 +3639,11 @@
         "summary": "Update User Profile Admin",
         "description": "Update user profile as admin.",
         "operationId": "update_user_profile_admin_api_v1_admin_users__user_id__profile_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "user_id",
@@ -3805,6 +3702,11 @@
         "summary": "Update User Role",
         "description": "Update user role.",
         "operationId": "update_user_role_api_v1_admin_users__user_id__role_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "user_id",
@@ -3863,6 +3765,11 @@
         "summary": "Ban User",
         "description": "Ban a user.",
         "operationId": "ban_user_api_v1_admin_users__user_id__ban_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "user_id",
@@ -3923,6 +3830,11 @@
         "summary": "Unban User",
         "description": "Unban a user.",
         "operationId": "unban_user_api_v1_admin_users__user_id__unban_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "user_id",
@@ -3986,7 +3898,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/admin/stats": {
@@ -4010,7 +3927,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/admin/stats/trends": {
@@ -4034,7 +3956,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/admin/stats/monthly": {
@@ -4045,6 +3972,11 @@
         "summary": "Get Monthly Stats",
         "description": "Get monthly system performance report.",
         "operationId": "get_monthly_stats_api_v1_admin_stats_monthly_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "year",
@@ -4097,6 +4029,11 @@
         "summary": "List Photos",
         "description": "List all photos with pagination and optional search.\nOnly accessible by admins with content:read permission.\n\nRaises:\n    HTTPException: 500 - If fetching photos fails.",
         "operationId": "list_photos_api_v1_admin_photos_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "limit",
@@ -4179,6 +4116,11 @@
         "summary": "Delete Photo Admin",
         "description": "Delete a photo as an admin (Content Moderation).\nNo ownership check required.\n\nRaises:\n    HTTPException: 400 - If photo_id format is invalid.\n    HTTPException: 404 - If photo is not found.\n    HTTPException: 500 - If deletion fails.",
         "operationId": "delete_photo_admin_api_v1_admin_photos__photo_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "photo_id",
@@ -4224,6 +4166,11 @@
         "summary": "Update Photo Admin",
         "description": "Update photo details as an admin.\n\nRaises:\n    HTTPException: 400 - If photo_id format is invalid or update data is missing.\n    HTTPException: 404 - If photo is not found.\n    HTTPException: 500 - If update fails.",
         "operationId": "update_photo_admin_api_v1_admin_photos__photo_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "photo_id",
@@ -4279,6 +4226,11 @@
         "summary": "List Reports",
         "description": "List submitted reports.\n\nRaises:\n    HTTPException: 500 - If fetching reports fails.",
         "operationId": "list_reports_api_v1_admin_reports_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "limit",
@@ -4418,6 +4370,11 @@
         "summary": "Update Report",
         "description": "Resolve or dismiss a report.\n\nRaises:\n    HTTPException: 400 - If report_id format is invalid.\n    HTTPException: 404 - If report is not found.\n    HTTPException: 500 - If update fails.",
         "operationId": "update_report_api_v1_admin_reports__report_id__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "report_id",
@@ -4508,7 +4465,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/admin/audit-logs": {
@@ -4519,6 +4481,11 @@
         "summary": "List Audit Logs",
         "description": "List audit logs.\n\nRaises:\n    HTTPException: 500 - If fetching audit logs fails.",
         "operationId": "list_audit_logs_api_v1_admin_audit_logs_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "limit",
@@ -4607,6 +4574,11 @@
         "summary": "Get All Settings",
         "description": "Get all system settings with metadata.",
         "operationId": "get_all_settings_api_v1_admin_settings_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "category",
@@ -4661,6 +4633,11 @@
         "summary": "Get Setting History",
         "description": "Get evolution history for a specific setting.",
         "operationId": "get_setting_history_api_v1_admin_settings_history__key__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "key",
@@ -4708,6 +4685,11 @@
         "summary": "Update Setting",
         "description": "Update a setting OR create an approval request if required.",
         "operationId": "update_setting_api_v1_admin_settings__key__put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "key",
@@ -4784,7 +4766,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/admin/settings/approve/{change_id}": {
@@ -4795,6 +4782,11 @@
         "summary": "Approve Change",
         "description": "Approve a pending config change (Checker).",
         "operationId": "approve_change_api_v1_admin_settings_approve__change_id__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "change_id",
@@ -4855,6 +4847,11 @@
         "summary": "Reject Change",
         "description": "Reject a pending config change.",
         "operationId": "reject_change_api_v1_admin_settings_reject__change_id__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "change_id",
@@ -4910,6 +4907,11 @@
         "summary": "List Treat Transactions",
         "description": "List all treat transactions (purchases, giving, grants).",
         "operationId": "list_treat_transactions_api_v1_admin_treats_transactions_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "limit",
@@ -5006,7 +5008,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/admin/treats/users/search": {
@@ -5017,6 +5024,11 @@
         "summary": "Search Users For Grant",
         "description": "Search users by name or email for the grant modal.",
         "operationId": "search_users_for_grant_api_v1_admin_treats_users_search_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "q",
@@ -5101,7 +5113,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/admin/roles": {
@@ -5121,7 +5138,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/admin/roles/permissions": {
@@ -5141,7 +5163,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/admin/roles/{role_id}/permissions": {
@@ -5152,6 +5179,11 @@
         "summary": "Get Role Permissions",
         "description": "Get permissions assigned to a specific role.",
         "operationId": "get_role_permissions_api_v1_admin_roles__role_id__permissions_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "role_id",
@@ -5191,6 +5223,11 @@
         "summary": "Update Role Permissions",
         "description": "Update permissions for a specific role (Sync).",
         "operationId": "update_role_permissions_api_v1_admin_roles__role_id__permissions_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "role_id",
@@ -5242,6 +5279,11 @@
         "summary": "List All Comments",
         "description": "List all comments across the platform with pagination, search and counts.",
         "operationId": "list_all_comments_api_v1_admin_comments_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "page",
@@ -5323,6 +5365,11 @@
         "summary": "Get Comment Report Details",
         "description": "Get detailed report reasons for a specific comment.",
         "operationId": "get_comment_report_details_api_v1_admin_comments__comment_id__reports_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "comment_id",
@@ -5364,6 +5411,11 @@
         "summary": "Resolve Comment Reports",
         "description": "Dismiss all pending reports for a comment (Mark as Safe).",
         "operationId": "resolve_comment_reports_api_v1_admin_comments__comment_id__resolve_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "comment_id",
@@ -5405,6 +5457,11 @@
         "summary": "Delete Comment",
         "description": "Delete a comment (Moderation).",
         "operationId": "delete_comment_api_v1_admin_comments__comment_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "comment_id",
@@ -5446,6 +5503,11 @@
         "summary": "Ban User By Comment",
         "description": "Ban the author of a specific comment.",
         "operationId": "ban_user_by_comment_api_v1_admin_comments__comment_id__ban_user_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "comment_id",
@@ -5516,7 +5578,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/admin/comments/bulk-resolve": {
@@ -5556,7 +5623,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/admin/security/summary": {
@@ -5576,7 +5648,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/admin/security/alerts/reset": {
@@ -5596,7 +5673,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/admin/security/sessions/reset": {
@@ -5616,7 +5698,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/health/live": {
@@ -6280,6 +6367,20 @@
         ],
         "title": "CheckoutSessionResponse"
       },
+      "CheckoutUrlResponse": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "CheckoutUrlResponse",
+        "description": "Response containing a Stripe checkout URL."
+      },
       "CombinedAnalysisResult": {
         "properties": {
           "cat_detection": {
@@ -6709,85 +6810,6 @@
         "type": "object",
         "title": "CreatePortalRequest"
       },
-      "CursorPaginatedGalleryResponse": {
-        "properties": {
-          "images": {
-            "items": {
-              "$ref": "#/components/schemas/CatLocation"
-            },
-            "type": "array",
-            "title": "Images"
-          },
-          "pagination": {
-            "$ref": "#/components/schemas/CursorPaginationMeta"
-          }
-        },
-        "type": "object",
-        "required": [
-          "images",
-          "pagination"
-        ],
-        "title": "CursorPaginatedGalleryResponse",
-        "description": "Paginated gallery response with cursor-based metadata."
-      },
-      "CursorPaginationMeta": {
-        "properties": {
-          "has_more": {
-            "type": "boolean",
-            "title": "Has More"
-          },
-          "next_cursor": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Next Cursor"
-          },
-          "prev_cursor": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Prev Cursor"
-          },
-          "limit": {
-            "type": "integer",
-            "title": "Limit"
-          }
-        },
-        "type": "object",
-        "required": [
-          "has_more",
-          "limit"
-        ],
-        "title": "CursorPaginationMeta",
-        "description": "Cursor-based pagination metadata."
-      },
-      "FeatureFlagsResponse": {
-        "properties": {
-          "flags": {
-            "additionalProperties": {
-              "type": "boolean"
-            },
-            "type": "object",
-            "title": "Flags"
-          }
-        },
-        "type": "object",
-        "required": [
-          "flags"
-        ],
-        "title": "FeatureFlagsResponse",
-        "description": "Response model for feature flags."
-      },
       "ForgotPasswordRequest": {
         "properties": {
           "email": {
@@ -6839,6 +6861,42 @@
           "amount"
         ],
         "title": "GiveTreatRequest"
+      },
+      "GiveTreatResponse": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "new_balance": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Balance"
+          },
+          "amount_given": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount Given"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "GiveTreatResponse",
+        "description": "Response for giving treats to a photo owner."
       },
       "GoogleCodeExchangeRequest": {
         "properties": {
@@ -6920,6 +6978,40 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "LeaderboardEntry": {
+        "properties": {
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          },
+          "user_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Name"
+          },
+          "total_received": {
+            "type": "integer",
+            "title": "Total Received",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "LeaderboardEntry",
+        "description": "Single leaderboard entry."
       },
       "LikeResponse": {
         "properties": {
@@ -7228,7 +7320,7 @@
           "pagination"
         ],
         "title": "PaginatedGalleryResponse",
-        "description": "Paginated gallery response with offset-based metadata."
+        "description": "Unified response for offset-based gallery."
       },
       "PaginationMeta": {
         "properties": {
@@ -7515,6 +7607,17 @@
             "type": "string",
             "title": "Email"
           },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          },
           "name": {
             "anyOf": [
               {
@@ -7559,6 +7662,11 @@
               }
             ],
             "title": "Created At"
+          },
+          "is_pro": {
+            "type": "boolean",
+            "title": "Is Pro",
+            "default": false
           }
         },
         "type": "object",

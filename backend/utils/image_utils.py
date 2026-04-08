@@ -169,7 +169,7 @@ def optimize_image(
         return optimized_content, new_content_type
 
     except Exception as e:
-        logger.error(f"Image optimization failed: {e!s}")
+        logger.warning(f"Image optimization skipped/failed: {e!s}")
         # Return original image if optimization fails
         return image_content, content_type
 
@@ -185,7 +185,7 @@ def get_image_dimensions(image_content: bytes) -> tuple[int, int]:
         img = _open_image_safely(image_content)
         return img.size
     except Exception as e:
-        logger.error(f"Failed to get image dimensions: {e!s}")
+        logger.warning(f"Failed to get image dimensions: {e!s}")
         return (0, 0)
 
 

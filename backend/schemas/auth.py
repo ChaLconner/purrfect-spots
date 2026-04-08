@@ -57,10 +57,6 @@ class SessionExchangeRequest(BaseModel):
     refresh_token: str
 
 
-class GoogleTokenRequest(BaseModel):
-    token: str
-
-
 class GoogleCodeExchangeRequest(BaseModel):
     code: str
     code_verifier: str

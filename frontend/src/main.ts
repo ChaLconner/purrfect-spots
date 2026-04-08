@@ -84,7 +84,7 @@ async function initSentry(app: VueApp): Promise<void> {
 
 const app = createApp(App);
 
-await initSentry(app);
+initSentry(app); // Non-blocking: mount app immediately while Sentry loads in the background
 
 // Install Pinia BEFORE using any stores
 app.use(pinia);
