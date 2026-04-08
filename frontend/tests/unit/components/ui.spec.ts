@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { mount, config } from '@vue/test-utils';
+import { useRouter } from 'vue-router';
 import ErrorBoundary from '@/components/ui/ErrorBoundary.vue';
 import SkeletonLoader from '@/components/ui/SkeletonLoader.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
@@ -14,9 +15,9 @@ vi.mock('vue-router', async (importOriginal) => {
   const actual = await importOriginal<any>();
   return {
     ...actual,
-    useRouter: () => ({
+    useRouter: vi.fn(() => ({
       push: vi.fn(),
-    }),
+    })),
     useRoute: () => ({
       path: '/'
     })
@@ -103,6 +104,24 @@ describe('BaseButton Component', () => {
       props: { loading: true }
     });
     expect(wrapper.find('svg.animate-spin').exists()).toBe(true);
+    expect(wrapper.find('button').attributes('disabled')).toBeDefined();
+  });
+
+  it('renders other variants', () => {
+    const variants = ['ghibli-primary', 'ghibli-secondary', 'danger', 'outline'];
+    variants.forEach(variant => {
+      const wrapper = mount(BaseButton, {
+        props: { variant: variant as any }
+      });
+      expect(wrapper.find('button').classes()).toBeDefined();
+    });
+  });
+
+  it('renders sm size', () => {
+    const wrapper = mount(BaseButton, {
+      props: { size: 'sm' }
+    });
+    expect(wrapper.find('button').classes()).toContain('px-4');
   });
 
   it('uses to prop for router link', () => {
@@ -121,6 +140,27 @@ describe('BaseButton Component', () => {
     const link = wrapper.find('a');
     expect(link.exists()).toBe(true);
     expect(link.attributes('target')).toBe('_blank');
+  });
+
+  it('shows loading spinner on external link', () => {
+    const wrapper = mount(BaseButton, {
+      props: { href: 'https://example.com', loading: true }
+    });
+    expect(wrapper.find('a svg.animate-spin').exists()).toBe(true);
+  });
+
+  it('shows loading spinner on router link', () => {
+    const wrapper = mount(BaseButton, {
+      props: { to: '/test', loading: true },
+      global: {
+        stubs: {
+          RouterLink: {
+            template: '<a><slot /></a>'
+          }
+        }
+      }
+    });
+    expect(wrapper.find('svg.animate-spin').exists()).toBe(true);
   });
 
   it('applies block class when block prop is true', () => {
@@ -181,6 +221,63 @@ describe('EmptyState Component', () => {
     const wrapper = mount(EmptyState);
     expect(wrapper.find('h3').exists()).toBe(true);
   });
+
+  it('renders provided title and message', () => {
+    const wrapper = mount(EmptyState, {
+      props: {
+        title: 'Custom Title',
+        message: 'Custom Message',
+      },
+    });
+    expect(wrapper.find('h3').text()).toBe('Custom Title');
+    expect(wrapper.text()).toContain('Custom Message');
+  });
+
+  it('renders subMessage when provided', () => {
+    const wrapper = mount(EmptyState, {
+      props: {
+        subMessage: 'Sub Message Content',
+      },
+    });
+    expect(wrapper.text()).toContain('Sub Message Content');
+  });
+
+  it('renders action button and handles clicks', async () => {
+    const pushMock = vi.fn();
+    vi.mocked(useRouter).mockReturnValue({
+      push: pushMock,
+    } as any);
+
+    const wrapper = mount(EmptyState, {
+      props: {
+        actionText: 'Go Back',
+        actionLink: '/home',
+      },
+    });
+
+    const button = wrapper.find('button');
+    expect(button.exists()).toBe(true);
+    expect(button.text()).toBe('Go Back');
+
+    await button.trigger('click');
+    expect(pushMock).toHaveBeenCalledWith('/home');
+  });
+
+  it('renders different icon styles', () => {
+    const icons = ['peek', 'nap', 'wait', 'box'];
+    icons.forEach((icon) => {
+      const wrapper = mount(EmptyState, {
+        props: { icon: icon as any },
+      });
+      // The SVG path will be different for each
+      expect(wrapper.find('svg').exists()).toBe(true);
+    });
+  });
+
+  it('randomizes icon when not provided', () => {
+    const wrapper = mount(EmptyState);
+    expect(wrapper.find('svg').exists()).toBe(true);
+  });
 });
 
 describe('ErrorState Component', () => {
@@ -201,7 +298,32 @@ describe('ErrorState Component', () => {
 describe('CardSkeleton Component', () => {
   it('renders skeleton structure', () => {
     const wrapper = mount(CardSkeleton);
-    expect(wrapper.find('div').exists()).toBe(true);
+    const container = wrapper.find('.card-skeleton-container');
+    expect(container.exists()).toBe(true);
+    expect(container.classes()).toContain('grid');
+  });
+
+  it('renders profile variant', () => {
+    const wrapper = mount(CardSkeleton, {
+      props: { variant: 'profile' },
+    });
+    expect(wrapper.find('.space-y-4').exists()).toBe(true);
+    expect(wrapper.findAll('.flex-1.space-y-3')).toHaveLength(1);
+  });
+
+  it('renders list variant', () => {
+    const wrapper = mount(CardSkeleton, {
+      props: { variant: 'list' },
+    });
+    expect(wrapper.find('.space-y-4').exists()).toBe(true);
+    expect(wrapper.findAll('.flex-1.space-y-2')).toHaveLength(1);
+  });
+
+  it('renders multiple skeletons', () => {
+    const wrapper = mount(CardSkeleton, {
+      props: { count: 3 },
+    });
+    expect(wrapper.findAll('.bg-white.rounded-\\[1rem\\]')).toHaveLength(3);
   });
 });
 

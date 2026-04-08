@@ -16,11 +16,18 @@ import pytest
 os.environ["SENTRY_DSN"] = ""
 # Disable Redis to prevent connection hangs
 os.environ["REDIS_URL"] = ""
-# Set JWT secrets for testing
+# Set required secrets for testing
 os.environ["ENVIRONMENT"] = "testing"
 os.environ["JWT_SECRET"] = "test-secret-key-at-least-32-characters-long!!"
 os.environ["JWT_REFRESH_SECRET"] = "test-refresh-secret-key-at-least-32-chars-long"
+
+# Set Stripe mock keys to avoid config warnings
+os.environ["STRIPE_SECRET_KEY"] = "sk_test_mock_secret_key"
+os.environ["STRIPE_WEBHOOK_SECRET"] = "whsec_mock_webhook_secret"
 os.environ["STRIPE_PRO_PRICE_ID"] = "price_pro_test"
+
+# Set trusted proxies explicitly to avoid wildcard trust warning
+os.environ["TRUSTED_PROXY_HOSTS"] = "127.0.0.1,::1"
 
 # Add backend directory to path so imports work
 sys.path.append(str(Path(__file__).parent.parent))
