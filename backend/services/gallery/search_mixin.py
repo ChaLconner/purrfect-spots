@@ -1,5 +1,5 @@
 from collections import Counter
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import structlog
 from sqlalchemy import text
@@ -11,8 +11,19 @@ from utils.supabase_client import AClient
 logger = structlog.get_logger(__name__)
 
 
+if TYPE_CHECKING:
+    from services.search_service import SearchService
+
+
 class GallerySearchMixin(GalleryBaseMixin):
     """SEARCH and TAG operations for GalleryService"""
+
+    # These are provided by the main GalleryService or other mixins
+    search_service: "SearchService"
+
+    async def enrich_with_user_data(
+        self, photos: list[dict[str, Any]], user_id: str | None = None
+    ) -> list[dict[str, Any]]: ...
 
     @property
     async def _fulltext_available(self) -> bool:
@@ -50,9 +61,16 @@ class GallerySearchMixin(GalleryBaseMixin):
             return None
         try:
             query = text(
-                f"SELECT tag, count(*) FROM (SELECT unnest(tags) as tag FROM cat_photos WHERE {self._sql_visibility_clause()}) as t GROUP BY tag ORDER BY count(*) DESC LIMIT :limit"  # noqa: S608
+                "SELECT tag, count(*) "
+                "FROM ("
+                "SELECT unnest(tags) as tag FROM cat_photos "
+                "WHERE deleted_at IS NULL AND status = :approved_status"
+                ") as t "
+                "GROUP BY tag "
+                "ORDER BY count(*) DESC "
+                "LIMIT :limit"
             )
-            result = await self.db.execute(query, {"limit": limit})
+            result = await self.db.execute(query, {"approved_status": self.APPROVED_STATUS, "limit": limit})
             return [{"tag": row[0], "count": row[1]} for row in result.fetchall()]
         except Exception as e:
             logger.warning("SQLAlchemy popular tags failed: %s", e)
@@ -68,10 +86,10 @@ class GallerySearchMixin(GalleryBaseMixin):
                 .not_.is_("tags", "null")
                 .is_("deleted_at", "null")
                 .eq("status", GallerySearchMixin.APPROVED_STATUS)
-                .limit(1000)
+                .limit(limit)
                 .execute()
             )
-            data = res.data or []
+            data = cast(list[dict[str, Any]], res.data or [])
             tag_counter: Counter = Counter()
             for row in data:
                 for tag in row.get("tags") or []:
@@ -88,12 +106,13 @@ class GallerySearchMixin(GalleryBaseMixin):
         try:
             data = []
             if self.db:
-                result = await self.db.execute(
-                    text(
-                        f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE user_id = :u_id AND {self._sql_visibility_clause(include_unapproved)} ORDER BY uploaded_at DESC"  # noqa: S608
-                    ),
-                    {"u_id": user_id},
-                )
+                sql = self.PHOTO_SELECT_SQL + " WHERE user_id = :u_id AND deleted_at IS NULL"
+                params: dict[str, Any] = {"u_id": user_id}
+                if not include_unapproved:
+                    sql += " AND status = :approved_status"
+                    params["approved_status"] = self.APPROVED_STATUS
+                sql += " ORDER BY uploaded_at DESC"
+                result = await self.db.execute(text(sql), params)
                 data = [dict(row._asdict()) for row in result.fetchall()]
             if not data:
                 res = (
@@ -105,7 +124,7 @@ class GallerySearchMixin(GalleryBaseMixin):
                     .order("uploaded_at", desc=True)
                     .execute()
                 )
-                data = res.data or []
+                data = cast(list[dict[str, Any]], res.data or [])
             return self._process_photos(data)
         except Exception as e:
             from utils.exceptions import ExternalServiceError

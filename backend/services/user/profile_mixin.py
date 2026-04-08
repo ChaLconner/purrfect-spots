@@ -83,8 +83,8 @@ class UserProfileMixin(UserBaseMixin):
         """Upsert user using Supabase."""
         admin = await self._get_admin_client()
         existing_check = await admin.table("users").select("role_id").eq("id", user_id).execute()
-
-        if not existing_check.data or not existing_check.data[0].get("role_id"):
+        existing_data = cast(list[dict[str, Any]], existing_check.data)
+        if not existing_data or not existing_data[0].get("role_id"):
             user_record["role_id"] = await self._get_user_role_id()
 
         await admin.table("users").upsert(user_record, on_conflict="id").execute()
@@ -109,7 +109,8 @@ class UserProfileMixin(UserBaseMixin):
             supa_res = await admin.table("users").update(update_data).eq("id", user_id).execute()
             if not supa_res or not supa_res.data:
                 raise ValueError("User not found or update failed")
-            return cast(dict[str, Any], supa_res.data[0])
+            data_list = cast(list[dict[str, Any]], supa_res.data)
+            return data_list[0]
         except Exception as e:
             if self.db:
                 await self.db.rollback()

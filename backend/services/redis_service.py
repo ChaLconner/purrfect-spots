@@ -28,7 +28,7 @@ class JSONSerializer(json.JSONEncoder):
 
 
 class RedisService:
-    def __init__(self):
+    def __init__(self) -> None:
         self.url = Config.REDIS_URL
         self.client: aioredis.Redis | None = None
         if self.url:

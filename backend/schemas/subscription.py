@@ -4,9 +4,7 @@ from pydantic import BaseModel
 
 
 class CreateCheckoutRequest(BaseModel):
-    """Reserved for future server-selected plan options."""
-
-    pass
+    plan: str = "monthly"
 
 
 class CheckoutSessionResponse(BaseModel):

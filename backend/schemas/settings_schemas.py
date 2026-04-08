@@ -16,13 +16,13 @@ class ConfigUpdate(BaseModel):
 class ConfigResponse(BaseModel):
     key: str
     value: Any
-    type: str
+    type: str | None = None
     description: str | None = None
-    category: str
-    is_public: bool
-    is_encrypted: bool
-    requires_approval: bool
-    updated_at: datetime
+    category: str | None = None
+    is_public: bool = False
+    is_encrypted: bool = False
+    requires_approval: bool = False
+    updated_at: datetime | None = None
     updated_by: UUID | None = None
 
 

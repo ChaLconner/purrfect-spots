@@ -30,9 +30,9 @@ async def _invalidate_user_list_cache() -> None:
     await redis_service.delete_pattern("admin_users:*")
 
 
-def _invalidate_auth_cache_for_users(user_ids: list[str]) -> None:
+async def _invalidate_auth_cache_for_users(user_ids: list[str]) -> None:
     for user_id in user_ids:
-        invalidate_user_auth_cache(user_id)
+        await invalidate_user_auth_cache(user_id)
 
 
 async def _invalidate_banned_user_auth_state(user_ids: list[str], reason: str) -> None:
@@ -40,7 +40,7 @@ async def _invalidate_banned_user_auth_state(user_ids: list[str], reason: str) -
     token_service = await get_token_service()
 
     for user_id in unique_user_ids:
-        invalidate_user_auth_cache(user_id)
+        await invalidate_user_auth_cache(user_id)
         await token_service.blacklist_all_user_tokens(user_id, reason=reason)
 
 
@@ -216,7 +216,7 @@ async def bulk_unban_users(
         user_ids_str = [str(uid) for uid in action.user_ids]
 
         await admin_client.table("users").update({"banned_at": None}).in_("id", user_ids_str).execute()
-        _invalidate_auth_cache_for_users(user_ids_str)
+        await _invalidate_auth_cache_for_users(user_ids_str)
 
         # Log Audit
         await (
@@ -284,7 +284,7 @@ async def delete_user(
         }
 
         await admin_client.table("users").update(anonymized_data).eq("id", user_id_str).execute()
-        invalidate_user_auth_cache(user_id_str)
+        await _invalidate_banned_user_auth_state([user_id_str], reason="admin_delete")
 
         # Log action
         await (
@@ -333,7 +333,7 @@ async def update_user_profile_admin(
         result = await admin_client.table("users").update(filtered_data).eq("id", user_id_str).execute()
         if not result.data:
             raise HTTPException(status_code=404, detail="User not found")
-        invalidate_user_auth_cache(user_id_str)
+        await invalidate_user_auth_cache(user_id_str)
         await _invalidate_user_list_cache()
 
         return cast(dict[str, Any], result.data[0])
@@ -370,7 +370,7 @@ async def update_user_role(
         result = await admin_client.table("users").update({"role_id": role_id_str}).eq("id", user_id_str).execute()
         if not result.data:
             raise HTTPException(status_code=404, detail="User not found")
-        invalidate_user_auth_cache(user_id_str)
+        await invalidate_user_auth_cache(user_id_str)
         await _invalidate_user_list_cache()
 
         await (
@@ -470,7 +470,7 @@ async def unban_user(
     try:
         admin_client = await get_async_supabase_admin_client()
         await admin_client.table("users").update({"banned_at": None}).eq("id", user_id_str).execute()
-        invalidate_user_auth_cache(user_id_str)
+        await invalidate_user_auth_cache(user_id_str)
 
         await (
             admin_client.table("audit_logs")

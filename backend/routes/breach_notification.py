@@ -15,7 +15,7 @@ And notification workflows for:
 """
 
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from postgrest.types import CountMethod
@@ -92,13 +92,17 @@ async def report_breach(
             "affected_user_count": len(report.affected_users) if report.affected_users else 0,
         }
 
-        result = await admin_client.table("security_incidents").insert(incident).execute()
-        incident_id = result.data[0]["id"] if result.data else None
+        result = await admin_client.table("security_incidents").insert(cast(dict[str, Any], incident)).execute()
+        incident_id = cast(dict[str, Any], cast(list[Any], result.data)[0])["id"] if result.data else None
 
         # Record affected users
         if report.affected_users and incident_id:
             affected_records = [{"incident_id": incident_id, "user_id": uid} for uid in report.affected_users]
-            await admin_client.table("incident_affected_users").insert(affected_records).execute()
+            await (
+                admin_client.table("incident_affected_users")
+                .insert(cast(list[dict[str, Any]], affected_records))
+                .execute()
+            )
 
         # Trigger notifications based on severity
         severity_config = SEVERITY_LEVELS[report.severity]
@@ -120,10 +124,10 @@ async def report_breach(
             admin_emails_res = (
                 await admin_client.table("users").select("email").in_("role", ["admin", "super_admin"]).execute()
             )
-            for admin_user in admin_emails_res.data or []:
+            for admin_user in cast(list[dict[str, Any]], admin_emails_res.data or []):
                 if admin_user.get("email"):
                     email_service.send_security_alert(
-                        to_email=admin_user["email"],
+                        to_email=cast(str, admin_user["email"]),
                         alert_type="data_breach",
                         severity=report.severity,
                         details=notification_msg,
@@ -180,7 +184,8 @@ async def list_incidents(
             query = query.eq("incident_type", incident_type)
 
         result = await query.execute()
-        return {"data": result.data, "total": result.count or 0}
+        result_list = cast(list[dict[str, Any]], result.data or [])
+        return {"data": result_list, "total": result.count or 0}
     except Exception as e:
         logger.error("Failed to list incidents: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch incidents")
@@ -199,14 +204,14 @@ async def get_incident_details(
             await admin_client.table("security_incidents")
             .select("*, reporter:users!reported_by(email, name)")
             .eq("id", incident_id)
-            .single()
+            .maybe_single()
             .execute()
         )
 
         if not incident_res.data:
             raise HTTPException(status_code=404, detail="Incident not found")
 
-        incident = incident_res.data
+        incident = cast(dict[str, Any], incident_res.data)
 
         # Get affected users
         affected_res = (
@@ -215,7 +220,7 @@ async def get_incident_details(
             .eq("incident_id", incident_id)
             .execute()
         )
-        incident["affected_users"] = affected_res.data or []
+        incident["affected_users"] = cast(list[dict[str, Any]], affected_res.data or [])
 
         # Get timeline entries
         timeline_res = (
@@ -225,7 +230,7 @@ async def get_incident_details(
             .order("created_at", desc=True)
             .execute()
         )
-        incident["timeline"] = timeline_res.data or []
+        incident["timeline"] = cast(list[dict[str, Any]], timeline_res.data or [])
 
         return incident
     except HTTPException:
@@ -258,15 +263,20 @@ async def update_incident_status(
         admin_client = await get_async_supabase_admin_client()
 
         # Update incident status
-        update_data = {
+        db_update = {
             "status": status,
             "updated_at": datetime.now(UTC).isoformat(),
         }
         if status == "resolved":
-            update_data["resolved_at"] = datetime.now(UTC).isoformat()
-            update_data["resolved_by"] = current_admin.id
+            db_update["resolved_at"] = datetime.now(UTC).isoformat()
+            db_update["resolved_by"] = current_admin.id
 
-        result = await admin_client.table("security_incidents").update(update_data).eq("id", incident_id).execute()
+        result = (
+            await admin_client.table("security_incidents")
+            .update(cast(dict[str, Any], db_update))
+            .eq("id", incident_id)
+            .execute()
+        )
 
         if not result.data:
             raise HTTPException(status_code=404, detail="Incident not found")
@@ -286,12 +296,13 @@ async def update_incident_status(
         )
 
         # If resolved, trigger resolution notification
-        if status == "resolved":
-            incident = result.data[0]
+        if status == "resolved" and result.data:
+            incident = cast(dict[str, Any], result.data[0])
+            incident_type = cast(str, incident.get("incident_type", "unknown"))
             notification_msg = (
                 f"\n[PURRFECT SECURITY UPDATE]\n"
                 f"✅ Incident Resolved\n"
-                f"Type: {BREACH_TYPES.get(incident.get('incident_type'), incident.get('incident_type'))}\n"
+                f"Type: {BREACH_TYPES.get(incident_type, incident_type)}\n"
                 f"Resolved by: {current_admin.name or current_admin.email}"
             )
             await line_service.send_notification(notification_msg)
@@ -375,13 +386,14 @@ async def generate_regulatory_report(
             .execute()
         )
 
+        incident_list = cast(list[dict[str, Any]], incidents.data or [])
         return {
             "report_period": {"start": start_date, "end": end_date},
-            "total_incidents": len(incidents.data or []),
-            "high_severity_count": sum(1 for i in (incidents.data or []) if i.get("severity") in ("high", "critical")),
-            "resolved_count": sum(1 for i in (incidents.data or []) if i.get("status") == "resolved"),
-            "sla_breach_count": sum(1 for i in (incidents.data or []) if i.get("sla_breached")),
-            "incidents": incidents.data or [],
+            "total_incidents": len(incident_list),
+            "high_severity_count": sum(1 for i in incident_list if i.get("severity") in ("high", "critical")),
+            "resolved_count": sum(1 for i in incident_list if i.get("status") == "resolved"),
+            "sla_breach_count": sum(1 for i in incident_list if i.get("sla_breached")),
+            "incidents": incident_list,
             "generated_at": datetime.now(UTC).isoformat(),
             "generated_by": current_admin.id,
         }

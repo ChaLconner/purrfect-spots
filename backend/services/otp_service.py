@@ -6,6 +6,7 @@ Generates, stores, and verifies 6-digit OTP codes
 import hashlib
 import secrets
 from datetime import datetime, timedelta
+from typing import Any, cast
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -90,11 +91,13 @@ class OTPService:
                     .execute()
                 )
 
-                if supa_res.data and supa_res.data[0].get("locked_until"):
-                    locked_until = datetime.fromisoformat(
-                        supa_res.data[0]["locked_until"].replace("Z", TIMEZONE_UTC_OFFSET)
-                    )
-                    return utc_now() < locked_until
+                if supa_res.data:
+                    first_row = cast(dict[str, Any], cast(list[Any], supa_res.data)[0])
+                    if first_row.get("locked_until"):
+                        locked_until = datetime.fromisoformat(
+                            cast(str, first_row["locked_until"]).replace("Z", TIMEZONE_UTC_OFFSET)
+                        )
+                        return utc_now() < locked_until
 
             return False
         except Exception:
@@ -150,10 +153,11 @@ class OTPService:
                 )
 
                 if result.data:
+                    first_row = cast(dict[str, Any], cast(list[Any], result.data)[0])
                     await (
                         self.supabase.table("email_verifications")
                         .update({"locked_until": locked_until.isoformat()})
-                        .eq("id", result.data[0]["id"])
+                        .eq("id", first_row["id"])
                         .execute()
                     )
             logger.info("Email locked out in database: %s until %s", email, locked_until.isoformat())
@@ -201,10 +205,11 @@ class OTPService:
                 )
 
                 if result.data:
+                    first_row = cast(dict[str, Any], cast(list[Any], result.data)[0])
                     await (
                         self.supabase.table("email_verifications")
                         .update({"locked_until": None})
-                        .eq("id", result.data[0]["id"])
+                        .eq("id", first_row["id"])
                         .execute()
                     )
         except Exception as e:
@@ -239,7 +244,7 @@ class OTPService:
                 await self.db.execute(query, data)
                 await self.db.commit()
             else:
-                result = await self.supabase.table("email_verifications").insert(data).execute()
+                result = await self.supabase.table("email_verifications").insert(cast(dict[str, Any], data)).execute()
 
                 if not result.data:
                     raise ExternalServiceError("Failed to store OTP", service="Database")
@@ -289,7 +294,7 @@ class OTPService:
                     .execute()
                 )
                 if supa_res.data:
-                    record = supa_res.data[0]
+                    record = cast(dict[str, Any], cast(list[Any], supa_res.data)[0])
 
             if not record:
                 logger.warning("No pending OTP found")
@@ -417,7 +422,7 @@ class OTPService:
                     .execute()
                 )
                 if supa_res.data:
-                    row_created_at = supa_res.data[0]["created_at"]
+                    row_created_at = cast(dict[str, Any], cast(list[Any], supa_res.data)[0])["created_at"]
 
             if not row_created_at:
                 return True, 0

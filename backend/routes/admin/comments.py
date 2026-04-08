@@ -20,7 +20,7 @@ class BulkCommentAction(BaseModel):
 
 
 async def _invalidate_banned_user_auth_state(user_id: str) -> None:
-    invalidate_user_auth_cache(user_id)
+    await invalidate_user_auth_cache(user_id)
     token_service = await get_token_service()
     await token_service.blacklist_all_user_tokens(user_id, reason="comment_moderation_ban")
 

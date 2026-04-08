@@ -1,7 +1,8 @@
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import structlog
-from sqlalchemy import text
+from sqlalchemy import String, bindparam, text
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 
 from services.gallery.base_mixin import GalleryBaseMixin
 
@@ -27,6 +28,8 @@ class GalleryWriteMixin(GalleryBaseMixin):
                 if row:
                     photo = dict(row._asdict())
             if not photo:
+                from typing import cast
+
                 res = await (
                     self.supabase.table("cat_photos")
                     .select("id,user_id,image_url")
@@ -35,7 +38,8 @@ class GalleryWriteMixin(GalleryBaseMixin):
                     .limit(1)
                     .execute()
                 )
-                photo = (res.data or [None])[0]
+                data_list = cast(list[dict[str, Any]], res.data or [])
+                photo = data_list[0] if data_list else None
             return photo if (photo and photo.get("user_id") == user_id) else None
         except Exception as e:
             logger.error(f"Ownership check failed: {e}")
@@ -45,29 +49,34 @@ class GalleryWriteMixin(GalleryBaseMixin):
         """Save photo metadata to database."""
         if self.db:
             try:
-                # Explicitly list allowed columns to satisfy security checks and improve quality
-                allowed_columns = [
-                    "id",
-                    "image_url",
-                    "latitude",
-                    "longitude",
-                    "description",
-                    "location_name",
-                    "user_id",
-                    "status",
-                    "tags",
-                    "metadata",
-                ]
-                final_data = {k: v for k, v in photo_data.items() if k in allowed_columns}
-
-                columns_str = ", ".join(final_data.keys())
-                placeholders_str = ", ".join([f":{k}" for k in final_data])
-
                 query = text(
-                    f"INSERT INTO cat_photos ({columns_str}) VALUES ({placeholders_str}) "  # noqa: S608
-                    "RETURNING id, image_url, latitude, longitude, description, location_name, uploaded_at, tags, likes_count, comments_count, user_id"
+                    "INSERT INTO cat_photos ("
+                    "id, image_url, latitude, longitude, description, location_name, "
+                    "user_id, status, tags, metadata, uploaded_at, location_blurred"
+                    ") VALUES ("
+                    ":id, :image_url, :latitude, :longitude, :description, :location_name, "
+                    ":user_id, :status, :tags, :metadata, :uploaded_at, :location_blurred"
+                    ") RETURNING id, image_url, latitude, longitude, description, location_name, "
+                    "uploaded_at, tags, likes_count, comments_count, user_id"
+                ).bindparams(
+                    bindparam("tags", type_=ARRAY(String())),
+                    bindparam("metadata", type_=JSONB),
                 )
-                result = await self.db.execute(query, final_data)
+                params = {
+                    "id": photo_data.get("id"),
+                    "image_url": photo_data.get("image_url"),
+                    "latitude": photo_data.get("latitude"),
+                    "longitude": photo_data.get("longitude"),
+                    "description": photo_data.get("description"),
+                    "location_name": photo_data.get("location_name"),
+                    "user_id": photo_data.get("user_id"),
+                    "status": photo_data.get("status"),
+                    "tags": list(cast(list[str], photo_data.get("tags") or [])),
+                    "metadata": cast(dict[str, Any] | None, photo_data.get("metadata")),
+                    "uploaded_at": photo_data.get("uploaded_at"),
+                    "location_blurred": bool(photo_data.get("location_blurred", False)),
+                }
+                result = await self.db.execute(query, params)
                 row = result.fetchone()
                 if not row:
                     from utils.exceptions import ExternalServiceError
@@ -81,12 +90,13 @@ class GalleryWriteMixin(GalleryBaseMixin):
                 raise e
         try:
             admin = await self.supabase_admin
-            res = await admin.table("cat_photos").insert(photo_data).select(self.PHOTO_COLUMNS).execute()
+            res = await admin.table("cat_photos").insert(photo_data).execute()
             if not res.data:
                 from utils.exceptions import ExternalServiceError
 
                 raise ExternalServiceError("Database insert returned no data", service="Supabase")
-            return res.data[0]
+            data_list = cast(list[dict[str, Any]], res.data)
+            return data_list[0]
         except Exception as e:
             logger.error(f"Failed to save photo to database: {e}")
             raise e

@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -107,7 +107,7 @@ class SearchService:
                 db_query = db_query.contains("tags", clean_tags)
 
             resp = await db_query.execute()
-            return resp.data if resp.data else []
+            return cast(list[dict[str, Any]], resp.data or [])
         except Exception as e:
             logger.warning("Advanced search failed: %s", e)
             raise
@@ -154,7 +154,7 @@ class SearchService:
             db_query = db_query.contains("tags", clean_tags)
 
         resp = await db_query.order("uploaded_at", desc=True).range(offset, offset + limit - 1).execute()
-        return resp.data if resp.data else []
+        return cast(list[dict[str, Any]], resp.data or [])
 
     def _filter_by_tags(self, photos: list[dict[str, Any]], tags: list[str]) -> list[dict[str, Any]]:
         """Client-side tag filtering fallback."""

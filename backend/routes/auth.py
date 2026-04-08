@@ -414,7 +414,7 @@ async def exchange_session(
     """
     try:
         # 1. Verify Supabase Token (Async)
-        user_res = await auth_service.supabase.auth.get_user(req.access_token)
+        user_res = await auth_service.supabase_client.auth.get_user(req.access_token)
         if not user_res or not user_res.user:
             log_security_event("session_exchange_failed_invalid_token", severity="WARNING")
             raise HTTPException(status_code=401, detail="Invalid Supabase session")
@@ -636,16 +636,15 @@ async def google_exchange_code(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Authentication failed"
             ) from e
 
-        # Set refresh token in HttpOnly cookie if provided
-        if login_response.refresh_token:
-            set_refresh_cookie(response, login_response.refresh_token)
-
         if login_response.user is None:
             logger.error("Google exchange succeeded but user is None")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Authentication succeeded but user profile is missing",
             )
+
+        refresh_token = auth_service.create_refresh_token(login_response.user.id, ip, ua)
+        set_refresh_cookie(response, refresh_token)
 
         log_security_event("google_exchange_success", details={"user_id": login_response.user.id}, severity="INFO")
         return login_response

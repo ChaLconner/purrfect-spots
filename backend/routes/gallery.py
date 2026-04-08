@@ -6,7 +6,7 @@ sorting, field selection, and ETag support.
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path, Query, Request, Response
 
 from dependencies import get_current_token, get_gallery_service
 from limiter import get_api_limit, limiter
@@ -33,6 +33,8 @@ from schemas.gallery import (
 from schemas.location import CatLocation
 from schemas.user import User
 from services.gallery_service import GalleryService
+from services.storage_service import storage_service
+from utils.location_utils import protect_photo_location, protect_photo_locations
 
 router = APIRouter(prefix="/gallery", tags=["Gallery"])
 
@@ -144,16 +146,17 @@ async def get_gallery(
 
         # Apply sorting
         sorted_data = _apply_sort(result["data"], sort, order)
+        protected_data = protect_photo_locations(sorted_data)
 
         # Apply field selection
         if selected_fields:
-            sorted_data = [_filter_fields(d, selected_fields) for d in sorted_data]
+            protected_data = [_filter_fields(d, selected_fields) for d in protected_data]
 
         total = result["total"]
         total_pages = (total + limit - 1) // limit if total > 0 else 0
         current_page = (actual_offset // limit) + 1 if limit > 0 else 1
 
-        cat_locations = [CatLocation(**photo) for photo in sorted_data]
+        cat_locations = [CatLocation(**photo) for photo in protected_data]
 
         return PaginatedGalleryResponse(
             images=cat_locations,
@@ -232,6 +235,8 @@ async def get_gallery_cursor(
         if has_more:
             photos = photos[:limit]
 
+        photos = protect_photo_locations(photos)
+
         # Apply field selection
         if selected_fields:
             photos = [_filter_fields(d, selected_fields) for d in photos]
@@ -272,6 +277,7 @@ async def get_locations(
         photos = await gallery_service.get_map_locations()
         if not photos:
             return []
+        photos = protect_photo_locations(photos)
         return [CatLocation(**photo) for photo in photos]
     except Exception as e:
         logger.error("Locations fetch error: %s", str(e), exc_info=True)
@@ -312,6 +318,7 @@ async def get_locations_in_viewport(
         if current_user:
             photos = await gallery_service.enrich_with_user_data(photos, current_user.id)
 
+        photos = protect_photo_locations(photos)
         cat_locations = [CatLocation(**photo) for photo in photos]
         return GalleryResponse(images=cat_locations)
 
@@ -358,6 +365,7 @@ async def search_locations(
         # Apply sorting
         if photos:
             photos = _apply_sort(photos, sort, order)
+            photos = protect_photo_locations(photos)
 
         results = [CatLocation(**photo) for photo in photos] if photos else []
 
@@ -421,6 +429,7 @@ async def get_photo(
             if enriched:
                 photo = enriched[0]
 
+        photo = protect_photo_location(photo)
         return CatLocation(**photo)
     except HTTPException:
         raise
@@ -430,10 +439,6 @@ async def get_photo(
 
 
 # ---- Delete photo endpoint ----
-
-from fastapi import BackgroundTasks
-
-from services.storage_service import storage_service
 
 
 @router.delete("/{photo_id}", status_code=202)

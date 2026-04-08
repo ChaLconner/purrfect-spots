@@ -114,8 +114,8 @@ async def _perform_server_side_detection(
             "detection_mismatch",
             user_id=user_id,
             details={
-                "client_result": client_cat_data,
-                "server_result": str(detection_result)[:200],
+                "client_result": sanitize_log_value(client_cat_data),
+                "server_result": sanitize_log_value(str(detection_result)[:200]),
             },
             severity="WARNING",
         )
@@ -125,7 +125,7 @@ async def _perform_server_side_detection(
         log_security_event(
             "upload_rejected_no_cats",
             user_id=user_id,
-            details={"detection_result": str(detection_result)[:200]},
+            details={"detection_result": sanitize_log_value(str(detection_result)[:200])},
             severity="INFO",
         )
         raise HTTPException(
@@ -200,8 +200,8 @@ async def upload_cat_photo(
             "cat_photo_upload_started",
             user_id=user_id,
             details={
-                "filename": file.filename,
-                "location_name": location_name[:50] if location_name else "unknown",
+                "filename": sanitize_log_value(file.filename),
+                "location_name": sanitize_log_value(location_name[:50]) if location_name else "unknown",
             },
         )
 
@@ -269,7 +269,7 @@ async def upload_cat_photo(
             log_security_event(
                 "s3_upload_failed",
                 user_id=user_id,
-                details={"error": str(s3_error)[:200]},
+                details={"error": sanitize_log_value(str(s3_error)[:200])},
                 severity="ERROR",
             )
             raise HTTPException(status_code=500, detail="Failed to upload image")
@@ -299,7 +299,7 @@ async def upload_cat_photo(
             log_security_event(
                 "upload_transaction_rollback",
                 user_id=user_id,
-                details={"error": str(db_error)[:200], "image_url": image_url},
+                details={"error": sanitize_log_value(str(db_error)[:200]), "image_url": sanitize_log_value(image_url)},
                 severity="ERROR",
             )
             raise HTTPException(status_code=500, detail="Failed to save cat photo")

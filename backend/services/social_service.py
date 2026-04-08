@@ -47,13 +47,13 @@ class SocialService:
                     "toggle_photo_like", {"p_user_id": user_id, "p_photo_id": photo_id}
                 ).execute()
 
-                data = res.data
-                if not data or len(data) == 0:
+                data_list = cast(list[dict[str, Any]], res.data)
+                if not data_list or len(data_list) == 0:
                     raise ExternalServiceError("Toggle like returned no data", service="Supabase")
 
-                row = data[0]
-                liked = row["liked"]
-                likes_count = row["likes_count"]
+                row_dict = data_list[0]
+                liked = row_dict["liked"]
+                likes_count = row_dict["likes_count"]
 
             # Light invalidation (only for the user's view if needed)
             from utils.cache import invalidate_user_cache
@@ -123,13 +123,14 @@ class SocialService:
             comment = dict(comment_row._mapping)
 
             # 3. Enrichment
-            user_query = text("SELECT name, picture FROM users WHERE id = :u_id LIMIT 1")
+            user_query = text("SELECT name, picture, is_pro FROM users WHERE id = :u_id LIMIT 1")
             user_res = await self.db.execute(user_query, {"u_id": user_id})
             user_row = user_res.fetchone()
 
             if user_row:
                 comment["user_name"] = user_row[0]
                 comment["user_picture"] = user_row[1]
+                comment["user_is_pro"] = user_row[2]
 
             await self.db.commit()
             return photo_owner_id, comment
@@ -157,7 +158,8 @@ class SocialService:
         if not supa_res.data:
             raise NotFoundError(message=PHOTO_NOT_FOUND, resource_type="photo", resource_id=photo_id)
 
-        photo_owner_id = supa_res.data[0].get("user_id")
+        data = cast(list[dict[str, Any]], supa_res.data)
+        photo_owner_id = data[0].get("user_id")
 
         # Insert comment using service role client
         admin_client = await get_async_supabase_admin_client()
@@ -170,14 +172,18 @@ class SocialService:
         if not supa_res.data:
             raise ExternalServiceError("Failed to create comment", service="Supabase")
 
-        comment = supa_res.data[0]
+        comment = cast(dict[str, Any], supa_res.data[0])
 
         # Enrichment
-        user_res = await self.supabase.table("users").select("name, picture").eq("id", user_id).limit(1).execute()
+        user_res = (
+            await self.supabase.table("users").select("name, picture, is_pro").eq("id", user_id).limit(1).execute()
+        )
 
         if user_res.data:
-            comment["user_name"] = user_res.data[0].get("name")
-            comment["user_picture"] = user_res.data[0].get("picture")
+            user_info = cast(dict[str, Any], user_res.data[0])
+            comment["user_name"] = user_info.get("name")
+            comment["user_picture"] = user_info.get("picture")
+            comment["user_is_pro"] = user_info.get("is_pro")
 
         return photo_owner_id, comment
 
@@ -207,7 +213,7 @@ class SocialService:
         if self.db:
             try:
                 query = text(
-                    "SELECT c.*, u.name as user_name, u.picture as user_picture "
+                    "SELECT c.*, u.name as user_name, u.picture as user_picture, u.is_pro as user_is_pro "
                     "FROM photo_comments c "
                     "LEFT JOIN users u ON c.user_id = u.id "
                     "WHERE c.photo_id = :p_id "
@@ -227,20 +233,21 @@ class SocialService:
 
         res = (
             await self.supabase.table("photo_comments")
-            .select("*, users(name, picture)")
+            .select("*, users(name, picture, is_pro)")
             .eq("photo_id", photo_id)
             .order("created_at", desc=False)
             .limit(limit)
             .execute()
         )
 
-        data = res.data or []
+        data = cast(list[dict[str, Any]], res.data or [])
         comments = []
         for item in data:
-            user_data = item.get("users", {}) or {}
+            user_data = cast(dict[str, Any], item.get("users", {}) or {})
             # Flatten structure
             item["user_name"] = user_data.get("name")
             item["user_picture"] = user_data.get("picture")
+            item["user_is_pro"] = user_data.get("is_pro")
             if "users" in item:
                 item.pop("users", None)
             comments.append(item)
@@ -289,13 +296,14 @@ class SocialService:
                 item = dict(row._mapping)
 
                 # Enrichment
-                user_query = text("SELECT name, picture FROM users WHERE id = :u_id LIMIT 1")
+                user_query = text("SELECT name, picture, is_pro FROM users WHERE id = :u_id LIMIT 1")
                 user_res = await self.db.execute(user_query, {"u_id": user_id})
                 user_row = user_res.fetchone()
 
                 if user_row:
                     item["user_name"] = user_row[0]
                     item["user_picture"] = user_row[1]
+                    item["user_is_pro"] = user_row[2]
 
                 await self.db.commit()
                 return item
@@ -319,14 +327,18 @@ class SocialService:
         if not res.data:
             return None
 
-        comment_data = res.data[0]
+        comment_data = cast(dict[str, Any], res.data[0])
 
         # Enrichment (fetch user info separately or via another select if needed,
         # but let's do a separate fetch to be safe and avoid chain errors)
-        user_res = await self.supabase.table("users").select("name, picture").eq("id", user_id).limit(1).execute()
+        user_res = (
+            await self.supabase.table("users").select("name, picture, is_pro").eq("id", user_id).limit(1).execute()
+        )
 
         if user_res.data:
-            comment_data["user_name"] = user_res.data[0].get("name")
-            comment_data["user_picture"] = user_res.data[0].get("picture")
+            user_info = cast(dict[str, Any], user_res.data[0])
+            comment_data["user_name"] = user_info.get("name")
+            comment_data["user_picture"] = user_info.get("picture")
+            comment_data["user_is_pro"] = user_info.get("is_pro")
 
         return cast(dict[str, Any] | None, comment_data)

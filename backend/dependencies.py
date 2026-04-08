@@ -158,10 +158,13 @@ async def get_current_admin_user(user: dict = Depends(get_current_user_from_toke
         from utils.supabase_client import get_async_supabase_admin_client
 
         client = await get_async_supabase_admin_client()
-        res = await client.table("users").select("role").eq("id", user_id).single().execute()
+        # The 'role' column is deprecated, use join with 'roles' table
+        res = await client.table("users").select("roles(name)").eq("id", user_id).single().execute()
 
         data = getattr(res, "data", None)
-        if not data or data.get("role") != "admin":
+        role_name = data.get("roles", {}).get("name") if data else None
+
+        if role_name != "admin":
             raise HTTPException(status_code=403, detail="Admin privileges required")
         return user
     except HTTPException:

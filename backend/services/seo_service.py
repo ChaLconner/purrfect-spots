@@ -1,4 +1,5 @@
 import datetime
+from typing import Any, cast
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -70,7 +71,7 @@ class SeoService:
                 .execute()
             )
 
-            return [row["id"] for row in res.data]
+            return [row["id"] for row in cast(list[dict[str, Any]], res.data or [])]
         except Exception as e:
             print(f"Sitemap photo fetch error: {e}")
             return []
@@ -83,7 +84,7 @@ class SeoService:
                 return [row[0] for row in result.fetchall()]
             # Fetch active users
             res = await self.supabase.table("users").select("id").limit(1000).execute()
-            return [row["id"] for row in res.data]
+            return [row["id"] for row in cast(list[dict[str, Any]], res.data or [])]
         except Exception as e:
             print(f"Sitemap user fetch error: {e}")
             return []

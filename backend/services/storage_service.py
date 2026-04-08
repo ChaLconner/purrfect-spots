@@ -2,6 +2,7 @@ import asyncio
 import os
 import typing
 import uuid
+from datetime import datetime
 
 import boto3
 from fastapi import HTTPException
@@ -101,6 +102,27 @@ class StorageService:
             else:
                 logger.error(f"S3 upload error: {e}")
             raise HTTPException(status_code=500, detail="Failed to upload image. Please try again later.")
+
+    async def list_files(self, prefix: str = "upload/") -> list[tuple[str, datetime]]:
+        """
+        Lists files in S3 under a specific prefix (Async).
+        Returns a list of (key, last_modified) tuples.
+        """
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self._list_files_sync, prefix)
+
+    def _list_files_sync(self, prefix: str) -> list[tuple[str, datetime]]:
+        """Internal synchronous list method"""
+        try:
+            response = self.s3_client.list_objects_v2(Bucket=self.aws_bucket, Prefix=prefix)
+            files = []
+            if "Contents" in response:
+                for obj in response["Contents"]:
+                    files.append((obj["Key"], obj["LastModified"]))
+            return files
+        except Exception as e:
+            logger.error(f"S3 list_objects error: {e}")
+            return []
 
     async def delete_file(self, file_url: str) -> None:
         """

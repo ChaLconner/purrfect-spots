@@ -10,7 +10,7 @@ Centralized token management providing:
 import hashlib
 import os
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     import redis.asyncio as aioredis
@@ -186,7 +186,8 @@ class TokenService:
         supa_res = await admin_client.table("token_blacklist").select(self.TOKEN_COLUMNS).eq("token_jti", jti).execute()
 
         if supa_res.data:
-            for entry in supa_res.data:
+            data = cast(list[dict[str, Any]], supa_res.data)
+            for entry in data:
                 expires_at = datetime.fromisoformat(entry["expires_at"].replace("Z", "+00:00"))
                 if datetime.now(UTC) < expires_at:
                     return True
@@ -212,20 +213,48 @@ class TokenService:
         return bool(await self._check_db_blacklist(jti, token_hash))
 
     async def blacklist_all_user_tokens(self, user_id: str, reason: str = "security_event") -> int:
-        """Invalidate all tokens for a user."""
+        """Invalidate all tokens for a user by setting a global revocation timestamp."""
+        now_iso = utc_now_iso()
+
+        # 1. Update Fast Cache (Redis)
         if self.redis:
             try:
                 key = f"user_invalidated:{user_id}"
-                await self.redis.set(key, datetime.now(UTC).isoformat())
+                await self.redis.set(key, now_iso)
                 await self.redis.expire(key, self.default_ttl)
-                logger.info("Session state cleared for user: %s (Reason: %s)", user_id, reason)
-                return 1
+                logger.info("Session state cleared in Redis for user: %s (Reason: %s)", user_id, reason)
             except Exception as e:
                 logger.warning(f"Redis user invalidation failed: {e}")
-        return 0
+
+        # 2. Persist to Database (Source of Truth)
+        try:
+            if self.db:
+                query = text("UPDATE users SET last_token_revocation_at = :now WHERE id = :u_id")
+                await self.db.execute(query, {"now": now_iso, "u_id": user_id})
+                await self.db.commit()
+            else:
+                admin_client = await self._get_admin_client()
+                await (
+                    admin_client.table("users")
+                    .update({"last_token_revocation_at": now_iso})
+                    .eq("id", user_id)
+                    .execute()
+                )
+
+            logger.info("Persistent revocation set for user: %s", user_id)
+            return 1
+        except Exception as e:
+            logger.error(f"Failed to persist global revocation for user {user_id}: {e}")
+            # If we can't persist it, we have a security risk if Redis goes down later
+            return 0
 
     async def is_user_invalidated(self, user_id: str, token_issued_at: datetime) -> bool:
-        """Check if user's tokens have been globally invalidated."""
+        """Check if user's tokens have been globally invalidated (Redis with DB fallback)."""
+        # Ensure token_issued_at is timezone-aware
+        if token_issued_at.tzinfo is None:
+            token_issued_at = token_issued_at.replace(tzinfo=UTC)
+
+        # 1. Check Redis (Fast path)
         if self.redis:
             try:
                 key = f"user_invalidated:{user_id}"
@@ -234,12 +263,51 @@ class TokenService:
                     invalidated_at = datetime.fromisoformat(invalidated_at_str.decode())
                     if invalidated_at.tzinfo is None:
                         invalidated_at = invalidated_at.replace(tzinfo=UTC)
-                    if token_issued_at.tzinfo is None:
-                        token_issued_at = token_issued_at.replace(tzinfo=UTC)
-
                     return token_issued_at < invalidated_at
             except Exception as e:
                 logger.warning(f"Redis user check failed: {e}")
+
+        # 2. Check Database (Source of truth/Fallback)
+        try:
+            db_invalidated_at: datetime | None = None
+            if self.db:
+                query = text("SELECT last_token_revocation_at FROM users WHERE id = :u_id")
+                result = await self.db.execute(query, {"u_id": user_id})
+                row = result.fetchone()
+                if row and row[0]:
+                    # Handle both strings and datetime objects from DB drivers
+                    val = row[0]
+                    db_invalidated_at = (
+                        datetime.fromisoformat(val.replace("Z", "+00:00")) if isinstance(val, str) else val
+                    )
+            else:
+                admin_client = await self._get_admin_client()
+                res = (
+                    await admin_client.table("users")
+                    .select("last_token_revocation_at")
+                    .eq("id", user_id)
+                    .maybe_single()
+                    .execute()
+                )
+                if res and res.data:
+                    data = cast(dict[str, Any], res.data)
+                    if data.get("last_token_revocation_at"):
+                        val = data["last_token_revocation_at"]
+                        if isinstance(val, str):
+                            db_invalidated_at = datetime.fromisoformat(val.replace("Z", "+00:00"))
+                        else:
+                            db_invalidated_at = val
+
+            if db_invalidated_at:
+                if db_invalidated_at.tzinfo is None:
+                    db_invalidated_at = db_invalidated_at.replace(tzinfo=UTC)
+                return token_issued_at < db_invalidated_at
+
+        except Exception as e:
+            logger.error(f"Database user invalidation check failed: {e}")
+            # If we can't verify if a user should be invalidated, we should fail closed in the middleware
+            # or raise an error here to be caught by the middleware.
+            raise e
 
         return False
 

@@ -52,7 +52,7 @@ class ReportService:
                     raise ValueError("Failed to create report")
                 return dict(row._mapping)
 
-            res = await self.supabase.table("reports").insert(data).select(self.REPORT_COLUMNS).execute()
+            res = await self.supabase.table("reports").insert(data).execute()
             if not res or not res.data:
                 raise ValueError("Failed to create report")
             from typing import cast
@@ -84,7 +84,9 @@ class ReportService:
                 .order("created_at", desc=True)
                 .execute()
             )
-            return res.data or []
+            from typing import cast
+
+            return cast(list[dict[str, Any]], res.data or [])
         except Exception as e:
             logger.error(f"Failed to fetch user reports: {e}")
             return []

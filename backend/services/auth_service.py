@@ -86,10 +86,13 @@ class AuthService(AuthTokenMixin, AuthOAuthMixin, AuthPasswordMixin):
                     return False
                 user_id = row[0]
             else:
+                from typing import cast
+
                 res = await admin.table("users").select("id").eq("email", email).execute()
                 if not res.data:
                     return False
-                user_id = res.data[0]["id"]
+                data = cast(list[dict[str, Any]], res.data)
+                user_id = data[0]["id"]
 
             await admin.auth.admin.update_user_by_id(user_id, {"email_confirm": True})
             return True

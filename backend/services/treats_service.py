@@ -1,17 +1,22 @@
 import os
 import time
+import uuid
 from typing import Any, cast
 
 import stripe
 from starlette.concurrency import run_in_threadpool
 
+from config import config
 from logger import logger, sanitize_log_value
 from schemas.notification import NotificationType
 from services.notification_service import NotificationService
 from supabase import AClient
 from utils.cache import cached_leaderboard
 
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+# Pin the same API version as subscription_service to ensure consistent
+# webhook payload shapes across all Stripe SDK calls in this service.
+stripe.api_key = config.STRIPE_SECRET_KEY or os.getenv("STRIPE_SECRET_KEY")
+stripe.api_version = "2025-02-24.acacia"  # type: ignore[assignment]
 
 # ── In-memory package cache ──────────────────────────────────────────
 _packages_cache: dict[str, dict[str, Any]] | None = None
@@ -109,14 +114,15 @@ class TreatsService:
             },
         ).execute()
 
-        if not res.data:
+        data = cast(list[dict[str, Any]], res.data)
+        if not data:
             raise ValueError("Unknown error (no response from RPC)")
 
-        result = res.data[0]
+        result = data[0]
         if not result.get("success"):
             raise ValueError(result.get("error", "Unknown error"))
 
-        return cast(dict[str, Any], result)
+        return result
 
     async def _send_treat_notification(self, from_user_id: str, to_user_id: str, photo_id: str, amount: int) -> None:
         """Send notification when treats are given."""
@@ -130,7 +136,8 @@ class TreatsService:
                     actor_name = row[0]
             else:
                 actor_res = await self.supabase.table("users").select("name").eq("id", from_user_id).single().execute()
-                actor_name = actor_res.data.get("name") if actor_res.data else "Someone"
+                actor_data = cast(dict[str, Any] | None, actor_res.data)
+                actor_name = cast(str, actor_data.get("name")) if actor_data else "Someone"
 
             await self.notification_service.create_notification(
                 user_id=to_user_id,
@@ -159,7 +166,8 @@ class TreatsService:
                     await self.supabase.table("cat_photos").select("user_id").eq("id", photo_id).single().execute()
                 )
                 if photo_res.data:
-                    to_user_id = photo_res.data["user_id"]
+                    photo_data = cast(dict[str, Any], photo_res.data)
+                    to_user_id = cast(str, photo_data["user_id"])
 
             if to_user_id:
                 await self._send_treat_notification(from_user_id, to_user_id, photo_id, amount)
@@ -214,12 +222,18 @@ class TreatsService:
                         .maybe_single()
                         .execute()
                     )
-                    db_customer_id = user_res.data.get("stripe_customer_id") if user_res and user_res.data else None
+                    user_data = cast(dict[str, Any] | None, user_res.data) if user_res else None
+                    db_customer_id = user_data.get("stripe_customer_id") if user_data else None
 
                 if db_customer_id:
                     session_params["customer"] = db_customer_id
 
-            checkout_session = await run_in_threadpool(lambda: stripe.checkout.Session.create(**session_params))
+            # Idempotency key prevents duplicate sessions if the user
+            # double-clicks or the network retries the request.
+            idempotency_key = f"checkout-treat-{user_id}-{package}-{uuid.uuid4().hex[:8]}"
+            checkout_session = await run_in_threadpool(
+                lambda: stripe.checkout.Session.create(**session_params, idempotency_key=idempotency_key)
+            )
             return {
                 "checkout_url": checkout_session.url or "",
                 "session_id": checkout_session.id,
@@ -257,9 +271,15 @@ class TreatsService:
                 logger.error(f"SQLAlchemy get_balance failed: {e}")
                 # Fallback to Supabase
 
-        supa_user_res = await self.supabase.table("users").select("treat_balance").eq("id", user_id).single().execute()
-
-        balance = supa_user_res.data["treat_balance"] if supa_user_res.data else 0
+        supa_user_res = (
+            await self.supabase.table("users").select("treat_balance").eq("id", user_id).maybe_single().execute()
+        )
+        user_data_balance = cast(dict[str, Any] | None, supa_user_res.data) if supa_user_res else None
+        balance = (
+            cast(int, user_data_balance["treat_balance"])
+            if user_data_balance and "treat_balance" in user_data_balance
+            else 0
+        )
 
         supa_trans_res = (
             await self.supabase.table("treats_transactions")
@@ -272,7 +292,7 @@ class TreatsService:
 
         return {
             "balance": balance,
-            "recent_transactions": supa_trans_res.data or [],
+            "recent_transactions": cast(list[dict[str, Any]], supa_trans_res.data or []),
         }
 
     # ── Leaderboard ──────────────────────────────────────────────────
@@ -286,8 +306,7 @@ class TreatsService:
                 result = await self.db.execute(query, {"p_period": period})
                 return [dict(row._mapping) for row in result]
             res = await self.supabase.rpc("get_leaderboard", {"p_period": period}).execute()
-            data: list[dict[str, Any]] = res.data or []
-            return data
+            return cast(list[dict[str, Any]], res.data or [])
         except Exception as e:
             logger.error("Failed to fetch leaderboard: %s", e)
             # Fallback for all_time if RPC fails or during migration
@@ -316,7 +335,7 @@ class TreatsService:
             .limit(10)
             .execute()
         )
-        return res.data or []
+        return cast(list[dict[str, Any]], res.data or [])
 
     # ── Packages (cached) ────────────────────────────────────────────
 
@@ -336,7 +355,7 @@ class TreatsService:
                 data = [dict(row._mapping) for row in result]
             else:
                 res = await self.supabase.table("treat_packages").select("*").eq("is_active", True).execute()
-                data = res.data or []
+                data = cast(list[dict[str, Any]], res.data or [])
 
             packages: dict[str, dict[str, Any]] = {}
             for row in data:
@@ -385,7 +404,7 @@ class TreatsService:
                     .maybe_single()
                     .execute()
                 )
-                data = res.data if res is not None else None
+                data = cast(dict[str, Any] | None, res.data if res is not None else None)
 
             if data:
                 return {
@@ -476,7 +495,7 @@ class TreatsService:
             },
         ).execute()
 
-        data = res.data or {}
+        data = cast(dict[str, Any], res.data or {})
         if data.get("error"):
             logger.error("Failed to process purchase: %s", data.get("error"))
         elif data.get("duplicate"):

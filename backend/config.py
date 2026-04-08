@@ -250,6 +250,12 @@ class Config:
     STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
     STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
     STRIPE_PRO_PRICE_ID = os.getenv("STRIPE_PRO_PRICE_ID")
+    STRIPE_PRO_ANNUAL_PRICE_ID = os.getenv("STRIPE_PRO_ANNUAL_PRICE_ID")
+
+    # Pinned Stripe API version — keep in sync with services/subscription_service.py
+    # and services/treats_service.py.  Update only after reviewing the Stripe
+    # changelog for breaking changes.
+    STRIPE_API_VERSION = "2025-02-24.acacia"
 
     # Operational controls
     EXPOSE_DETAILED_HEALTH = os.getenv("EXPOSE_DETAILED_HEALTH", "").lower() in ("true", "1", "yes")
@@ -271,9 +277,31 @@ class Config:
             ("SUPABASE_KEY", Config.SUPABASE_KEY),
         ]
 
-        for name, value in required_vars:
-            if not value:
-                missing.append(name)
+        # Stripe keys are required in production; warn in development
+        stripe_vars = [
+            ("STRIPE_SECRET_KEY", Config.STRIPE_SECRET_KEY),
+            ("STRIPE_WEBHOOK_SECRET", Config.STRIPE_WEBHOOK_SECRET),
+            ("STRIPE_PRO_PRICE_ID", Config.STRIPE_PRO_PRICE_ID),
+        ]
+
+        is_production = Config.ENVIRONMENT.lower() == "production"
+
+        for r_name, r_value in required_vars:
+            if not r_value:
+                missing.append(r_name)
+
+        for s_name, s_value in stripe_vars:
+            if not s_value:
+                if is_production:
+                    missing.append(s_name)
+                else:
+                    import warnings
+
+                    warnings.warn(
+                        f"Stripe config '{s_name}' is not set. Subscription features will be unavailable.",
+                        UserWarning,
+                        stacklevel=2,
+                    )
 
         return missing
 

@@ -27,7 +27,6 @@ class LoginResponse(BaseModel):
     message: str | None = None
     requires_verification: bool = False
     email: str | None = None
-    refresh_token: str | None = None
 
 
 class VerifyOTPRequest(BaseModel):

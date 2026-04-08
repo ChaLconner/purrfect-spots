@@ -71,10 +71,3 @@ class UserResponse(BaseModel):
     role: str = "user"
     permissions: list[str] = []
     banned_at: datetime | None = None
-
-
-class LoginResponse(BaseModel):
-    access_token: str
-    token_type: str
-    user: UserResponse
-    refresh_token: str | None = None

@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 
 import structlog
 from sqlalchemy import text
@@ -30,7 +30,7 @@ class GalleryLocationMixin(GalleryBaseMixin):
                 "search_nearby_photos",
                 {"lat": latitude, "lng": longitude, "radius_meters": radius_km * 1000, "result_limit": limit},
             ).execute()
-            data = res.data or []
+            data = cast(list[dict[str, Any]], res.data or [])
             if any(not isinstance(photo, dict) or "status" not in photo for photo in data):
                 logger.warning("PostGIS nearby search missing moderation status; falling back to safe public query")
                 return await self._get_nearby_photos_bounding_box(latitude, longitude, radius_km, limit)
@@ -71,7 +71,7 @@ class GalleryLocationMixin(GalleryBaseMixin):
                     .limit(limit)
                     .execute()
                 )
-                data = res.data or []
+                data = cast(list[dict[str, Any]], res.data or [])
             return self._process_photos(data)
         except Exception as e:
             from utils.exceptions import ExternalServiceError

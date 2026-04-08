@@ -66,7 +66,7 @@ def _error_response(
 
 async def purrfect_spots_exception_handler(request: Request, exc: PurrfectSpotsException) -> JSONResponse:
     """Handle custom business-logic exceptions with unified format."""
-    if SENTRY_DSN:
+    if SENTRY_DSN and exc.status_code >= 500:
         sentry_sdk.capture_exception(exc)
 
     request_id = _get_request_id(request)

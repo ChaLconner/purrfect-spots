@@ -22,6 +22,7 @@ from schemas.location import CatLocation
 from schemas.user import User
 from utils.cache import invalidate_gallery_cache
 from utils.file_processing import process_uploaded_image
+from utils.location_utils import protect_photo_locations
 
 router = APIRouter(prefix="/profile", tags=["Profile"])
 
@@ -60,7 +61,7 @@ from services.storage_service import StorageService
         500: {"description": "Internal Server Error"},
     },
 )
-@limiter.limit(get_api_limit)
+@strict_limiter.limit("5/minute")
 async def update_profile(
     request: Request,
     profile_data: ProfileUpdateRequest,
@@ -140,8 +141,8 @@ async def update_profile(
         raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception:
-        logger.error("Error updating profile")
+    except Exception as e:
+        logger.error("Error updating profile for user %s: %s", sanitize_log_value(current_user.id), e)
         raise HTTPException(status_code=500, detail="Failed to update profile due to an internal error")
 
 
@@ -180,8 +181,8 @@ async def get_profile(
             created_at=user.created_at,
         )
 
-    except Exception:
-        logger.error("Failed to get profile")
+    except Exception as e:
+        logger.error("Failed to get profile for user %s: %s", sanitize_log_value(current_user.id), e)
         raise HTTPException(status_code=500, detail="Failed to get profile")
 
 
@@ -263,8 +264,8 @@ async def get_public_profile(
 
     except HTTPException:
         raise
-    except Exception:
-        logger.error("Failed to get public profile for %r", user.id)
+    except Exception as e:
+        logger.error("Failed to get public profile for %s: %s", sanitize_log_value(user.id), e)
         raise HTTPException(status_code=500, detail="Failed to retrieve user profile")
 
 
@@ -307,10 +308,13 @@ async def get_public_user_uploads(
                 logger.debug("Skipping malformed photo %r: %s", photo.get("id"), e)
                 continue
 
+        # CRITICAL SECURITY FIX: Fuzz coordinates for public profile view
+        uploads = protect_photo_locations(uploads)
+
         return UploadsResponse(uploads=uploads, count=len(uploads))
 
     except Exception as e:
-        logger.error("Failed to get uploads for user %r: %s", user_id, e)
+        logger.error("Failed to get uploads for user %s: %s", sanitize_log_value(user.id), e)
         raise HTTPException(status_code=500, detail="Failed to get uploads")
 
 

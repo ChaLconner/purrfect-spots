@@ -39,11 +39,14 @@ class UserReadMixin(UserBaseMixin):
                     user_data["role"] = data.get("role_name")
                     return User(**user_data, permissions=permissions)
             else:
+                from typing import cast
+
                 query_str = f"{self.USER_COLUMNS}, roles(name, role_permissions(permissions(code)))"
                 admin = await self._get_admin_client()
                 supa_res = await admin.table("users").select(query_str).eq("id", user_id).execute()
                 if supa_res.data:
-                    return self._map_db_user_to_model(supa_res.data[0])
+                    data_list = cast(list[dict[str, Any]], supa_res.data)
+                    return self._map_db_user_to_model(data_list[0])
             return None
         except Exception as e:
             logger.debug("Failed to retrieve profile by ID: %s", e)
@@ -57,9 +60,12 @@ class UserReadMixin(UserBaseMixin):
                 db_res = await self.db.execute(query, {"email": email})
                 row = db_res.fetchone()
                 return dict(row._mapping) if row else None
+
+            from typing import cast
+
             admin = await self._get_admin_client()
             supa_res = await admin.table("users").select(self.USER_COLUMNS).eq("email", email).maybe_single().execute()
-            return supa_res.data if supa_res and supa_res.data else None
+            return cast(dict[str, Any] | None, supa_res.data) if supa_res and supa_res.data else None
         except Exception as e:
             logger.debug("Failed to retrieve profile by email: %s", e)
             return None
@@ -91,13 +97,15 @@ class UserReadMixin(UserBaseMixin):
                     user_data["role"] = data.get("role_name")
                     return User(**user_data, permissions=permissions)
             else:
+                from typing import cast
+
                 admin = await self._get_admin_client()
                 query_str = f"{self.USER_COLUMNS}, roles(name, role_permissions(permissions(code)))"
                 supa_res = (
                     await admin.table("users").select(query_str).ilike("username", username).maybe_single().execute()
                 )
                 if supa_res and supa_res.data:
-                    return self._map_db_user_to_model(supa_res.data)
+                    return self._map_db_user_to_model(cast(dict[str, Any], supa_res.data))
             return None
         except Exception as e:
             logger.debug("Failed to retrieve profile by username: %s", e)

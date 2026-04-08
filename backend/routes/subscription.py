@@ -9,6 +9,7 @@ from middleware.auth_middleware import get_current_user_from_credentials
 from schemas.common import MessageResponse
 from schemas.subscription import (
     CheckoutSessionResponse,
+    CreateCheckoutRequest,
     CreatePortalRequest,
     PortalResponse,
     SubscriptionStatus,
@@ -23,16 +24,21 @@ router = APIRouter(prefix="/subscription", tags=["Subscription"])
 async def create_checkout_session(
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     subscription_service: Annotated[SubscriptionService, Depends(get_subscription_service)],
+    req: Annotated[CreateCheckoutRequest | None, Body()] = None,
 ) -> CheckoutSessionResponse:
     """Create a Stripe Checkout Session for subscription."""
-    if not config.STRIPE_PRO_PRICE_ID:
-        raise HTTPException(status_code=503, detail="Subscription checkout is not configured")
+    plan = req.plan if req else "monthly"
+
+    price_id = config.STRIPE_PRO_ANNUAL_PRICE_ID if plan == "annual" else config.STRIPE_PRO_PRICE_ID
+
+    if not price_id:
+        raise HTTPException(status_code=503, detail="Subscription checkout is not configured for this plan")
 
     try:
         return await subscription_service.create_checkout_session(
             user_id=current_user.id,
             email=current_user.email,
-            price_id=config.STRIPE_PRO_PRICE_ID,
+            price_id=price_id,
             success_url=config.resolve_frontend_url(default_path="/subscription?purchase=success"),
             cancel_url=config.resolve_frontend_url(default_path="/subscription?purchase=cancel"),
             stripe_customer_id=current_user.stripe_customer_id,

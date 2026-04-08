@@ -5,7 +5,6 @@ from postgrest.types import CountMethod
 from sqlalchemy import text
 
 from services.gallery.base_mixin import GalleryBaseMixin
-from services.image_service import ImageService
 from utils.cache import cached_gallery, cached_user_likes
 
 logger = structlog.get_logger(__name__)
@@ -14,9 +13,7 @@ logger = structlog.get_logger(__name__)
 class GalleryReadMixin(GalleryBaseMixin):
     """READ operations for GalleryService"""
 
-    def _process_photos(self, photos: list[dict[str, Any]], width: int = 500) -> list[dict[str, Any]]:
-        """Process a list of photos with optimizations"""
-        return ImageService.process_photos(photos, width)
+    # _process_photos moved to GalleryBaseMixin
 
     @cached_gallery
     async def get_all_photos(
@@ -65,21 +62,26 @@ class GalleryReadMixin(GalleryBaseMixin):
         if not self.db:
             return []
         query = text(
-            f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE {self._sql_visibility_clause()} ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"  # noqa: S608
+            self.PHOTO_SELECT_SQL
+            + " WHERE deleted_at IS NULL AND status = :approved_status ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
         )
-        result = await self.db.execute(query, {"limit": limit, "offset": offset})
+        result = await self.db.execute(
+            query,
+            {"approved_status": self.APPROVED_STATUS, "limit": limit, "offset": offset},
+        )
         return [dict(row._asdict()) for row in result.fetchall()]
 
     async def _fetch_photos_supabase(self, limit: int, offset: int, user_id: str | None) -> list[dict[str, Any]]:
         query = self._apply_visibility_filter(self.supabase.table("cat_photos").select(self.PHOTO_COLUMNS))
         res = await query.order("uploaded_at", desc=True).range(offset, offset + limit - 1).execute()
-        return res.data or []
+        return cast(list[dict[str, Any]], res.data or [])
 
     async def _fetch_total_count(self, data: list[dict[str, Any]]) -> int:
         try:
             if self.db:
                 total_res = await self.db.execute(
-                    text(f"SELECT count(*) FROM cat_photos WHERE {self._sql_visibility_clause()}")  # noqa: S608
+                    text("SELECT count(*) FROM cat_photos WHERE deleted_at IS NULL AND status = :approved_status"),
+                    {"approved_status": self.APPROVED_STATUS},
                 )
                 return total_res.scalar() or 0
             res_count = await self._apply_visibility_filter(
@@ -96,8 +98,10 @@ class GalleryReadMixin(GalleryBaseMixin):
             if self.db:
                 result = await self.db.execute(
                     text(
-                        f"SELECT id, latitude, longitude, location_name, image_url, user_id FROM cat_photos WHERE {self._sql_visibility_clause()} ORDER BY uploaded_at DESC LIMIT 2000"  # noqa: S608
-                    )
+                        self.MAP_LOCATION_SELECT_SQL
+                        + " WHERE deleted_at IS NULL AND status = :approved_status ORDER BY uploaded_at DESC LIMIT 2000"
+                    ),
+                    {"approved_status": self.APPROVED_STATUS},
                 )
                 data = [dict(row._asdict()) for row in result.fetchall()]
             else:
@@ -131,8 +135,13 @@ class GalleryReadMixin(GalleryBaseMixin):
         try:
             data = None
             if self.db:
-                sql = f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE id = :id AND {self._sql_visibility_clause(include_unapproved)} LIMIT 1"  # noqa: S608
-                result = await self.db.execute(text(sql), {"id": photo_id})
+                sql = self.PHOTO_SELECT_SQL + " WHERE id = :id AND deleted_at IS NULL"
+                params: dict[str, Any] = {"id": photo_id}
+                if not include_unapproved:
+                    sql += " AND status = :approved_status"
+                    params["approved_status"] = self.APPROVED_STATUS
+                sql += " LIMIT 1"
+                result = await self.db.execute(text(sql), params)
                 row = result.fetchone()
                 if row:
                     data = [dict(row._asdict())]
@@ -146,7 +155,7 @@ class GalleryReadMixin(GalleryBaseMixin):
                     .limit(1)
                     .execute()
                 )
-                data = res.data or []
+                data = cast(list[dict[str, Any]], res.data or [])
             if data:
                 return self._process_photos(data, width=1200)[0]
             return None
@@ -173,7 +182,8 @@ class GalleryReadMixin(GalleryBaseMixin):
         try:
             admin_client = await self.supabase_admin
             res = await admin_client.table("photo_likes").select("photo_id").eq("user_id", user_id).execute()
-            return {item["photo_id"] for item in (res.data or [])}
+            data_list = cast(list[dict[str, Any]], res.data or [])
+            return {cast(str, item["photo_id"]) for item in data_list}
         except Exception as e:
             logger.error(f"Failed to fetch user liked photo IDs: {e!s}")
             return set()
@@ -206,6 +216,9 @@ class GalleryReadMixin(GalleryBaseMixin):
         """
         limit = min(max(1, limit), 200)
         is_desc = sort_order.lower() == "desc"
+        sort_column = self._resolve_cursor_sort_field(sort_field)
+        tie_breaker = "<" if is_desc else ">"
+        order_dir = "DESC" if is_desc else "ASC"
 
         try:
             # Get the anchor record's sort value if cursor is provided
@@ -217,21 +230,22 @@ class GalleryReadMixin(GalleryBaseMixin):
 
             if self.db:
                 # SQL-based cursor pagination
-                sql = f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE {self._sql_visibility_clause()}"  # noqa: S608
-
-                params: dict[str, Any] = {"limit": limit}
+                sql = self.PHOTO_SELECT_SQL + " WHERE deleted_at IS NULL AND status = :approved_status"
+                params: dict[str, Any] = {"approved_status": self.APPROVED_STATUS, "limit": limit}
 
                 if anchor_value is not None:
-                    op = "<" if is_desc else ">"
-                    sql += f" AND {sort_field} {op} :anchor_value"
+                    sql += (
+                        f" AND ({sort_column} {tie_breaker} :anchor_value "
+                        f"OR ({sort_column} = :anchor_value AND id {tie_breaker} :after_id))"
+                    )
                     params["anchor_value"] = anchor_value
+                    params["after_id"] = after_id
                 elif after_id:
                     # Fallback: use id ordering if sort field value is missing
                     sql += " AND id > :after_id" if not is_desc else " AND id < :after_id"
                     params["after_id"] = after_id
 
-                order_dir = "DESC" if is_desc else "ASC"
-                sql += f" ORDER BY {sort_field} {order_dir}, id {order_dir} LIMIT :limit"
+                sql += f" ORDER BY {sort_column} {order_dir}, id {order_dir} LIMIT :limit"
 
                 result = await self.db.execute(text(sql), params)
                 data = [dict(row._asdict()) for row in result.fetchall()]
@@ -240,16 +254,16 @@ class GalleryReadMixin(GalleryBaseMixin):
                 query = self._apply_visibility_filter(self.supabase.table("cat_photos").select(self.PHOTO_COLUMNS))
 
                 if anchor_value is not None:
-                    query = query.order(sort_field, desc=is_desc).order("id", desc=is_desc)
-                    query = query.lt(sort_field, anchor_value) if is_desc else query.gt(sort_field, anchor_value)
+                    query = query.order(sort_column, desc=is_desc).order("id", desc=is_desc)
+                    query = query.lt(sort_column, anchor_value) if is_desc else query.gt(sort_column, anchor_value)
                 elif after_id:
                     query = query.order("id", desc=is_desc)
                     query = query.lt("id", after_id) if is_desc else query.gt("id", after_id)
                 else:
-                    query = query.order(sort_field, desc=is_desc).order("id", desc=is_desc)
+                    query = query.order(sort_column, desc=is_desc).order("id", desc=is_desc)
 
                 res = await query.limit(limit).execute()
-                data = res.data or []
+                data = cast(list[dict[str, Any]], res.data or [])
 
             # Enrich with user data if applicable
             if data and user_id:

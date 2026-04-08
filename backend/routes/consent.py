@@ -41,6 +41,11 @@ CONSENT_TYPES = {
 }
 
 
+def _is_missing_relation_error(error: Exception) -> bool:
+    error_str = str(error)
+    return "PGRST205" in error_str or "schema cache" in error_str or "Could not find the table" in error_str
+
+
 @router.get("/my-consents")
 async def get_my_consents(
     current_user: User = Depends(get_current_user),
@@ -72,6 +77,9 @@ async def get_my_consents(
 
         return {"consents": list(consents.values())}
     except Exception as e:
+        if _is_missing_relation_error(e):
+            logger.warning("Consent tables are unavailable; returning empty consent list")
+            return {"consents": []}
         logger.error("Failed to fetch user consents: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch consent records")
 
@@ -94,15 +102,21 @@ async def record_consent(
         admin_client = await get_async_supabase_admin_client()
 
         # Get current policy version
-        version_res = (
-            await admin_client.table("consent_versions")
-            .select("version")
-            .eq("consent_type", consent.consent_type)
-            .eq("is_active", True)
-            .single()
-            .execute()
-        )
-        version = version_res.data.get("version", "1.0") if version_res.data else "1.0"
+        version = "1.0"
+        try:
+            version_res = (
+                await admin_client.table("consent_versions")
+                .select("version")
+                .eq("consent_type", consent.consent_type)
+                .eq("is_active", True)
+                .single()
+                .execute()
+            )
+            version = version_res.data.get("version", "1.0") if version_res.data else "1.0"
+        except Exception as version_error:
+            if not _is_missing_relation_error(version_error):
+                raise
+            logger.warning("Consent version table is unavailable; using default version 1.0")
 
         # Record the consent
         record = {
@@ -115,7 +129,12 @@ async def record_consent(
             "version": version,
         }
 
-        await admin_client.table("user_consents").insert(record).execute()
+        try:
+            await admin_client.table("user_consents").insert(record).execute()
+        except Exception as insert_error:
+            if not _is_missing_relation_error(insert_error):
+                raise
+            logger.warning("Consent history table is unavailable; storing consent state in users table only")
 
         # Update user's consent status in users table for quick lookup
         if consent.consent_type == "tos":
@@ -189,6 +208,9 @@ async def admin_list_consents(
         result = await query.execute()
         return {"data": result.data, "total": result.count or 0}
     except Exception as e:
+        if _is_missing_relation_error(e):
+            logger.warning("Consent tables are unavailable; returning empty admin consent list")
+            return {"data": [], "total": 0}
         logger.error("Failed to list consents: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch consent records")
 
@@ -225,5 +247,8 @@ async def admin_consent_stats(
 
         return {"stats": stats}
     except Exception as e:
+        if _is_missing_relation_error(e):
+            logger.warning("Consent tables are unavailable; returning empty consent stats")
+            return {"stats": {}}
         logger.error("Failed to fetch consent stats: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch consent statistics")

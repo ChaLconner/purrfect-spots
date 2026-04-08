@@ -11,6 +11,7 @@ Features:
 
 import asyncio
 import os
+import sys
 from collections.abc import AsyncIterator
 
 from dotenv import load_dotenv
@@ -56,8 +57,19 @@ from routes.health import router as health_router
 SENTRY_DSN = config.SENTRY_DSN
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 CONTENT_TYPE_JSON = "application/json"
+IS_TEST_ENV = (
+    ENVIRONMENT.lower() in {"test", "testing"} or bool(os.getenv("PYTEST_CURRENT_TEST")) or "pytest" in sys.modules
+)
 
-if SENTRY_DSN:
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+if SENTRY_DSN and not IS_TEST_ENV:
     from sentry_sdk.types import Event, Hint
 
     def before_send(event: Event, hint: Hint) -> Event | None:
@@ -65,6 +77,9 @@ if SENTRY_DSN:
         if "exc_info" in hint:
             exc_type, exc_value, tb = hint["exc_info"]
             if isinstance(exc_value, (asyncio.CancelledError, KeyboardInterrupt)):
+                return None
+            status_code = getattr(exc_value, "status_code", None)
+            if isinstance(status_code, int) and status_code < 500:
                 return None
 
         # Filter by log message for errors that come through without exc_info
@@ -77,9 +92,54 @@ if SENTRY_DSN:
             "error while attempting to bind on address",
             "WinError 10048",
             "Errno 10048",
+            "MagicMock",
+            "testclient",
+            "Event loop is closed",
         ]
         if any(pattern in message for pattern in noise_patterns):
             return None
+
+        request = event.get("request", {}) or {}
+        headers = request.get("headers", {}) or {}
+        user_agent = str(headers.get("User-Agent", headers.get("user-agent", "")))
+        url = str(request.get("url", ""))
+        if "testclient" in user_agent.lower() or url.startswith("http://test"):
+            return None
+
+        # Filter known synthetic test IDs and mock failures that should never
+        # pollute real project monitoring.
+        serialized_event = str(event)
+        if "00000000-0000-4000-" in serialized_event or "MagicMock" in serialized_event:
+            return None
+
+        # SEC-04: Strip PII and sensitive tokens from Sentry reports
+        # 1. Strip sensitive headers
+        if "headers" in request:
+            sensitive_headers = {"authorization", "cookie", "set-cookie", "x-csrf-token", "x-api-key"}
+            request["headers"] = {
+                k: ("[REDACTED]" if k.lower() in sensitive_headers else v) for k, v in request["headers"].items()
+            }
+
+        # 2. Strip sensitive user data
+        if "user" in event:
+            user = event["user"]
+            for field in ["email", "ip_address", "username"]:
+                if field in user:
+                    user[field] = "[REDACTED]"
+
+        # 3. Scrub breadcrumbs (e.g. SQL queries or API calls that might have PII)
+        if "breadcrumbs" in event:
+            for breadcrumb in event["breadcrumbs"].get("values", []):
+                if breadcrumb.get("category") in ("query", "http"):
+                    data = breadcrumb.get("data", {})
+                    if "query" in data:
+                        # Basic SQL redaction - can be improved but good start
+                        data["query"] = "[REDACTED_QUERY]"
+                    if "url" in data:
+                        # Remove query params from URLs in breadcrumbs
+                        url_parts = data["url"].split("?")
+                        if len(url_parts) > 1:
+                            data["url"] = url_parts[0] + "?[REDACTED_PARAMS]"
 
         return event
 
@@ -87,9 +147,8 @@ if SENTRY_DSN:
         StarletteIntegration(transaction_style="endpoint"),
         FastApiIntegration(transaction_style="endpoint"),
         MCPIntegration(
-            # Set include_prompts=False to exclude tool inputs/outputs from Sentry
-            # (useful if they contain PII). Default is True.
-            include_prompts=True,
+            # Prompt and tool payload capture can contain sensitive data, so keep it opt-in.
+            include_prompts=_env_flag("SENTRY_INCLUDE_PROMPTS", default=False),
         ),
     ]
 
@@ -98,11 +157,11 @@ if SENTRY_DSN:
         environment=ENVIRONMENT,
         integrations=sentry_integrations,
         # Performance monitoring
-        traces_sample_rate=1.0,
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
         # Profiling (requires additional setup)
         profiles_sample_rate=float(os.getenv("SENTRY_PROFILES_SAMPLE_RATE", "0.1")),
-        # Send user info for debugging
-        send_default_pii=True,
+        # Default PII capture should remain opt-in.
+        send_default_pii=_env_flag("SENTRY_SEND_DEFAULT_PII", default=False),
         # Enable Sentry Logs (required for MCP Insights logs tab)
         enable_logs=True,
         # Enable breadcrumbs
@@ -114,7 +173,7 @@ if SENTRY_DSN:
     )
     logger.info(f"Sentry initialized for environment: {ENVIRONMENT}")
 else:
-    logger.warning("SENTRY_DSN not configured - error monitoring disabled")
+    logger.warning("SENTRY_DSN not configured or test environment detected - error monitoring disabled")
 
 # ========== API Metadata ==========
 tags_metadata = [

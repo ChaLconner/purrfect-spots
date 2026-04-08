@@ -1,4 +1,5 @@
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -16,6 +17,13 @@ from utils.action_throttle import like_rate_limiter
 from utils.exceptions import ExternalServiceError, NotFoundError
 
 router = APIRouter(prefix="/social", tags=["Social"])
+
+
+def _validate_uuid_param(value: str, field_name: str) -> None:
+    try:
+        UUID(value)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid {field_name}") from exc
 
 
 @router.post(
@@ -95,6 +103,7 @@ async def get_comments(
     social_service: Annotated[SocialService, Depends(get_social_service)],
 ) -> list[CommentResponse]:
     """Get comments for a photo."""
+    _validate_uuid_param(photo_id, "photo_id")
     try:
         return await social_service.get_comments(photo_id)
     except Exception as e:

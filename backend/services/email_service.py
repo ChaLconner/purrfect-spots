@@ -419,6 +419,52 @@ class EmailService:
             logger.error(f"Failed to send config result notification: {e}")
             return False
 
+    def send_security_alert(self, to_email: str, alert_type: str, severity: str, details: str) -> bool:
+        """
+        Send a security alert email to administrators
+        """
+        if not self.smtp_user or not self.smtp_password:
+            logger.warning("SMTP credentials not set. Skipping security alert email.")
+            logger.debug(f"SECURITY ALERT to {to_email}. Type: {alert_type}, Severity: {severity}")
+            return True
+
+        try:
+            msg = MIMEMultipart()
+            msg["From"] = self.sender_email
+            msg["To"] = to_email
+            msg["Subject"] = (
+                f"🚨 SECURITY ALERT [{severity.upper()}]: {alert_type.replace('_', ' ').capitalize()} - Purrfect Spots"
+            )
+
+            color = "#d9534f" if severity in ("high", "critical") else "#f0ad4e"
+
+            body = f"""
+            <html>
+              <body style="font-family: Arial, sans-serif; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 2px solid {color}; border-radius: 10px;">
+                    <h2 style="color: {color};">⚠️ Security Alert: {alert_type.replace("_", " ").capitalize()}</h2>
+                    <p>Hello Admin,</p>
+                    <p>A security event has been detected that requires your attention.</p>
+                    <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid {color};">
+                        <strong>Severity:</strong> <span style="color: {color}; font-weight: bold;">{severity.upper()}</span><br>
+                        <strong>Type:</strong> {alert_type}<br>
+                        <strong>Time:</strong> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}<br>
+                        <strong>Details:</strong><br>
+                        <pre style="white-space: pre-wrap; font-family: monospace; background: #eee; padding: 10px; margin-top: 10px;">{details}</pre>
+                    </div>
+                    <p>Please log in to the Security Dashboard to investigate this incident immediately.</p>
+                    <a href="{self.frontend_url}/admin/breach-summary" style="display: inline-block; background-color: {color}; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 20px 0;">Investigate Incident</a>
+                </div>
+              </body>
+            </html>
+            """
+            msg.attach(MIMEText(body, "html"))
+            self._send(msg)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send security alert: {e}")
+            return False
+
     def _send(self, msg: MIMEMultipart) -> None:
         """Helper to send SMTP message with proper resource management."""
         if not self.smtp_user or not self.smtp_password:

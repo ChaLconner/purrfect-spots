@@ -92,6 +92,7 @@ class UploadQuotaResponse(BaseModel):
     limit: int
     remaining: int
     is_pro: bool
+    reset_type: str | None = None
     resets_at: str | None = None
 
 

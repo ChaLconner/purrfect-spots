@@ -4,6 +4,7 @@ Authentication middleware for protecting routes with Supabase Auth
 
 import time
 from datetime import UTC, datetime
+from typing import Any, cast
 
 import httpx
 import jwt
@@ -38,11 +39,11 @@ def get_user_auth_cache_key(user_id: str) -> str:
     return f"user_auth_cache:{user_id}"
 
 
-def invalidate_user_auth_cache(user_id: str) -> None:
+async def invalidate_user_auth_cache(user_id: str) -> None:
     """Invalidate the cached auth snapshot for a user."""
     from services.redis_service import redis_service
 
-    redis_service.delete(get_user_auth_cache_key(user_id))
+    await redis_service.delete(get_user_auth_cache_key(user_id))
 
 
 def _assert_user_not_banned(user: User) -> User:
@@ -149,102 +150,72 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
         result = await supabase_admin.table("users").select(query).eq("id", user_id).maybe_single().execute()
 
         if result and hasattr(result, "data") and result.data:
-            data = result.data
+            data = cast(dict[str, Any], result.data)
 
             # Extract permissions from nested structure
-            permissions = []
-            role_name = data.get("role", "user")  # Default to legacy column
+            permissions: list[str] = []
+            role_name = cast(str, data.get("role", "user"))  # Default to legacy column
 
             role_data = data.get("roles")
             if role_data and isinstance(role_data, dict):
-                if role_data.get("name"):
-                    role_name = role_data.get("name")
+                role_dict = cast(dict[str, Any], role_data)
+                if role_dict.get("name"):
+                    role_name = cast(str, role_dict.get("name"))
 
-                rps = role_data.get("role_permissions", [])
+                rps = cast(list[dict[str, Any]], role_dict.get("role_permissions", []))
                 for rp in rps:
-                    perm = rp.get("permissions")
-                    if perm and "code" in perm:
-                        permissions.append(perm["code"])
+                    perm = cast(dict[str, Any], rp.get("permissions"))
+                    if perm and isinstance(perm, dict) and "code" in perm:
+                        permissions.append(cast(str, perm["code"]))
+
+            from utils.datetime_utils import from_iso as parse_iso8601
 
             user_obj = User(
-                id=data["id"],
-                username=data.get("username"),
-                email=data.get("email", ""),
-                name=data.get("name"),
-                picture=data.get("picture"),
-                bio=data.get("bio"),
-                is_pro=data.get("is_pro", False),
-                stripe_customer_id=data.get("stripe_customer_id"),
-                subscription_end_date=data.get("subscription_end_date"),
-                cancel_at_period_end=data.get("cancel_at_period_end", False),
-                treat_balance=data.get("treat_balance", 0),
+                id=cast(str, data["id"]),
+                username=cast(str, data.get("username")),
+                email=cast(str, data.get("email", "")),
+                name=cast(str, data.get("name")),
+                picture=cast(str, data.get("picture")),
+                bio=cast(str, data.get("bio")),
+                is_pro=cast(bool, data.get("is_pro", False)),
+                stripe_customer_id=cast(str, data.get("stripe_customer_id")),
+                subscription_end_date=parse_iso8601(cast(str, data.get("subscription_end_date")))
+                if data.get("subscription_end_date")
+                else None,
+                cancel_at_period_end=cast(bool, data.get("cancel_at_period_end", False)),
+                treat_balance=cast(int, data.get("treat_balance", 0)),
                 role=role_name,
-                role_id=data.get("role_id"),
+                role_id=cast(str, data.get("role_id")),
                 permissions=permissions,
-                created_at=data.get("created_at"),
-                google_id=data.get("google_id"),
-                banned_at=data.get("banned_at"),
+                created_at=parse_iso8601(cast(str, data.get("created_at"))) if data.get("created_at") else None,
+                google_id=cast(str, data.get("google_id")),
+                banned_at=parse_iso8601(cast(str, data.get("banned_at"))) if data.get("banned_at") else None,
             )
 
             # Save to Redis
             await redis_service.set(cache_key, user_obj.model_dump(), expire=USER_AUTH_CACHE_TTL)
 
             return _assert_user_not_banned(user_obj)
+        raise HTTPException(status_code=401, detail="User not found")
     except HTTPException:
         raise
     except Exception as e:
-        # Fallback to payload data if DB lookup fails
-        import traceback
+        # SECURITY: Remove permissive fallback during DB lookup failure.
+        # If the database is unreachable, we cannot verify the user's current
+        # ban status, roles, or permissions safely. Relying on JWT payload
+        # data alone is risky if permissions were revoked after token issuance.
+        from logger import sanitize_log_value
 
-        logger.error(f"Failed to fetch user from DB in middleware: {e}\nTraceback: {traceback.format_exc()}")
-        logger.warning(f"Failed to fetch user from DB in middleware: {e}")
-
-    # Common extraction for both sources
-    iat = payload.get("iat")
-    created_at = datetime.fromtimestamp(iat, UTC) if isinstance(iat, (int, float)) else None
-
-    # Extract permissions from payload if available
-    permissions = payload.get("permissions", [])
-
-    # Construct User from payload
-    if source == "supabase":
-        user_metadata = payload.get("user_metadata", {})
-        return _assert_user_not_banned(
-            User(
-                id=user_id,
-                email=payload.get("email", ""),
-                name=user_metadata.get("name", user_metadata.get("full_name", "")),
-                picture=user_metadata.get("avatar_url", user_metadata.get("picture", "")),
-                bio=None,
-                created_at=created_at,
-                google_id=user_metadata.get("provider_id")
-                if payload.get("app_metadata", {}).get("provider") == "google"
-                else None,
-                permissions=permissions,
-                banned_at=payload.get("banned_at"),
-            )
+        logger.error(
+            "Critical: Database lookup failed for user %s in auth middleware: %s", sanitize_log_value(user_id), e
         )
-    # custom
-    return _assert_user_not_banned(
-        User(
-            id=user_id,
-            email=payload.get("email", ""),
-            name=payload.get("name", ""),
-            picture=payload.get("picture", ""),
-            bio=payload.get("bio"),
-            created_at=created_at,
-            google_id=payload.get("google_id"),
-            permissions=permissions,
-            role=payload.get("role", "user"),
-            banned_at=payload.get("banned_at"),
+        # Fail with 503 (Service Unavailable) to indicate temporary DB issue
+        raise HTTPException(
+            status_code=503, detail="Authentication service temporarily unavailable. Please try again later."
         )
-    )
 
 
-from collections.abc import Callable
-
-
-def require_permission(permission_code: str) -> Callable[..., User]:
+def require_permission(permission_code: str) -> Any:
     """Dependency factory to check for specific permission"""
 
     async def permission_checker(request: Request, user: User = Depends(get_current_user)) -> User:
@@ -353,8 +324,12 @@ async def _validate_token_security(payload: dict) -> None:
                 raise HTTPException(status_code=401, detail="Session invalidated (Password changed)")
         except HTTPException:
             raise
-        except Exception:
-            logger.error("Failed to check user invalidation status")
+        except Exception as exc:
+            logger.error("User invalidation check failed. Denying request for security: %s", exc)
+            raise HTTPException(
+                status_code=503,
+                detail="Authentication service temporarily unavailable. Please try again later.",
+            )
 
 
 async def _verify_and_decode_token(token: str, supabase: AClient | None = None) -> tuple[dict, str]:

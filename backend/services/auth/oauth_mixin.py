@@ -112,8 +112,6 @@ class AuthOAuthMixin(AuthBaseMixin):
                 raise PermissionError("Account suspended")
 
             jwt_token = self.create_access_token(user.id, user_data, role=user.role, permissions=user.permissions)
-            refresh_token = self.create_refresh_token(user.id, ip, user_agent)
-
             return LoginResponse(
                 access_token=jwt_token,
                 token_type="bearer",
@@ -126,7 +124,6 @@ class AuthOAuthMixin(AuthBaseMixin):
                     created_at=user.created_at,
                     google_id=user.google_id,
                 ),
-                refresh_token=refresh_token,
             )
         except PermissionError:
             raise

@@ -20,6 +20,7 @@ class CommentResponse(BaseModel):
     updated_at: datetime | None = None
     user_name: str | None = None
     user_picture: str | None = None
+    user_is_pro: bool | None = False
 
 
 class LikeResponse(BaseModel):
