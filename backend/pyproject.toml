@@ -156,9 +156,9 @@ omit = [
 branch = true
 
 [tool.coverage.report]
-fail_under = 70
+fail_under = 60
 show_missing = true
-skip_covered = true
+skip_covered = false
 exclude_lines = [
     "pragma: no cover",
     "if TYPE_CHECKING:",

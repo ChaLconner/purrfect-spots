@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useAdminTable } from '@/composables/useAdminTable';
 import { apiV1 } from '@/utils/api';
-import { flushPromises } from '@vue/test-utils';
 
 // Mock apiV1
 vi.mock('@/utils/api', () => ({

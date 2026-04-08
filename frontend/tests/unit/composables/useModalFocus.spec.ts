@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useModalFocus } from '@/composables/useModalFocus';
-import { ref, nextTick, defineComponent, h } from 'vue';
+import { ref, defineComponent, h } from 'vue';
 import { mount } from '@vue/test-utils';
 
 describe('useModalFocus', () => {

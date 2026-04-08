@@ -4,5675 +4,7240 @@
  */
 
 export interface paths {
-  '/': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Root
-     * @description Root endpoint
-     */
-    get: operations['root__get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/health': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Health Check
-     * @description Simple health check endpoint
-     */
-    get: operations['health_check_health_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/register': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Register
-     * @description Register new user with email and password, then send OTP for verification.
-     */
-    post: operations['register_api_v1_auth_register_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/verify-otp': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Verify Otp
-     * @description Verify email with OTP and complete registration.
-     */
-    post: operations['verify_otp_api_v1_auth_verify_otp_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/resend-otp': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Resend Otp
-     * @description Resend verification OTP code.
-     *
-     *     Raises:
-     *         HTTPException: 429 - If cooldown is active.
-     *         HTTPException: 500 - If sending fails.
-     */
-    post: operations['resend_otp_api_v1_auth_resend_otp_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/login': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Login
-     * @description Login with email and password via Supabase Auth.
-     *
-     *     Raises:
-     *         HTTPException: 401 - If credentials are invalid.
-     *         HTTPException: 500 - If login fails.
-     */
-    post: operations['login_api_v1_auth_login_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/refresh-token': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Refresh Token
-     * @description Refresh access token using long-lived refresh token from HttpOnly cookie.
-     */
-    post: operations['refresh_token_api_v1_auth_refresh_token_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/logout': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Logout
-     * @description Logout user (clear refresh token cookie and revoke it).
-     *
-     *     Raises:
-     *         HTTPException: 500 - If logout process fails unexpectedly.
-     */
-    post: operations['logout_api_v1_auth_logout_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/forgot-password': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Forgot Password
-     * @description Request password reset (via Supabase Auth).
-     *
-     *     Raises:
-     *         HTTPException: 500 - If forgot password request fails.
-     */
-    post: operations['forgot_password_api_v1_auth_forgot_password_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/reset-password': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Reset Password
-     * @description Reset password using token.
-     *
-     *     Raises:
-     *         HTTPException: 400 - If reset token is invalid or expired.
-     */
-    post: operations['reset_password_api_v1_auth_reset_password_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/session-exchange': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Exchange Session
-     * @description Exchange Supabase Session (from email verification redirect) for Backend Session.
-     *     Validates the Supabase token and issues our own secure HttpOnly cookies.
-     */
-    post: operations['exchange_session_api_v1_auth_session_exchange_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/me': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get Current User Info
-     * @description Get current user information (unified from both manual and google auth).
-     *
-     *     Raises:
-     *         HTTPException: 401 - If user is not authenticated.
-     */
-    get: operations['get_current_user_info_api_v1_auth_me_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/google/login': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Google Login Redirect
-     * @description Redirect to Google OAuth login page with PKCE support.
-     *
-     *     Raises:
-     *         HTTPException: 500 - If redirect generation fails.
-     */
-    get: operations['google_login_redirect_api_v1_auth_google_login_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/google': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Google Login
-     * @description Login with Google OAuth ID token.
-     */
-    post: operations['google_login_api_v1_auth_google_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/google/exchange': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Google Exchange Code
-     * @description Exchange Google authorization code for tokens (PKCE OAuth 2.0 flow)
-     *
-     *     Raises:
-     *         HTTPException: 400 - If redirect URI is invalid or exchange data is missing.
-     *         HTTPException: 500 - If code exchange fails.
-     */
-    post: operations['google_exchange_code_api_v1_auth_google_exchange_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/auth/sync-user': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Sync User Data
-     * @description Sync user data from JWT payload to database.
-     */
-    post: operations['sync_user_data_api_v1_auth_sync_user_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/profile/': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get Profile
-     * @description Get current user profile
-     *
-     *     Raises:
-     *         HTTPException: 404 - If user not found.
-     *         HTTPException: 500 - If profile fetch fails.
-     */
-    get: operations['get_profile_api_v1_profile__get'];
-    /**
-     * Update Profile
-     * @description Update user profile information
-     *
-     *     Raises:
-     *         HTTPException: 400 - If no update data provided or invalid username.
-     *         HTTPException: 404 - If user not found.
-     *         HTTPException: 409 - If username already taken.
-     *         HTTPException: 500 - If profile update fails.
-     */
-    put: operations['update_profile_api_v1_profile__put'];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/profile': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get Profile
-     * @description Get current user profile
-     *
-     *     Raises:
-     *         HTTPException: 404 - If user not found.
-     *         HTTPException: 500 - If profile fetch fails.
-     */
-    get: operations['get_profile_api_v1_profile_get'];
-    /**
-     * Update Profile
-     * @description Update user profile information
-     *
-     *     Raises:
-     *         HTTPException: 400 - If no update data provided or invalid username.
-     *         HTTPException: 404 - If user not found.
-     *         HTTPException: 409 - If username already taken.
-     *         HTTPException: 500 - If profile update fails.
-     */
-    put: operations['update_profile_api_v1_profile_put'];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/profile/public/{identifier}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get Public Profile
-     * @description Get public user profile by ID or username
-     *
-     *     Raises:
-     *         HTTPException: 500 - If profile fetch fails.
-     */
-    get: operations['get_public_profile_api_v1_profile_public__identifier__get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/profile/public/{identifier}/uploads': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get Public User Uploads
-     * @description Get public uploads by user_id or username
-     *
-     *     Raises:
-     *         HTTPException: 500 - If uploads fetch fails.
-     */
-    get: operations['get_public_user_uploads_api_v1_profile_public__identifier__uploads_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/profile/uploads': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get User Uploads
-     * @description Get all uploads by current user - filtered by user_id
-     *
-     *     Raises:
-     *         HTTPException: 500 - If uploads fetch fails.
-     */
-    get: operations['get_user_uploads_api_v1_profile_uploads_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/profile/picture': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Upload Profile Picture
-     * @description Upload and update profile picture
-     *
-     *     Raises:
-     *         HTTPException: 500 - If image upload or processing fails.
-     */
-    post: operations['upload_profile_picture_api_v1_profile_picture_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/profile/password': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    /**
-     * Change Password
-     * @description Change user password
-     *
-     *     Raises:
-     *         HTTPException: 400 - If password change fails due to invalid current password.
-     *         HTTPException: 500 - If password change fails due to internal system error.
-     */
-    put: operations['change_password_api_v1_profile_password_put'];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/profile/uploads/{photo_id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    /**
-     * Update User Photo
-     * @description Update a user's upload photo details (description, etc)
-     *
-     *     Raises:
-     *         HTTPException: 400 - If no valid data provided.
-     *         HTTPException: 403 - If not authorized to update photo.
-     *         HTTPException: 404 - If photo not found.
-     *         HTTPException: 500 - If photo update fails.
-     */
-    put: operations['update_user_photo_api_v1_profile_uploads__photo_id__put'];
-    post?: never;
-    /**
-     * Delete User Photo
-     * @description Delete a user's uploaded photo with background processing
-     *
-     *     Raises:
-     *         HTTPException: 404 - If photo not found or access denied.
-     *         HTTPException: 500 - If deletion fails.
-     */
-    delete: operations['delete_user_photo_api_v1_profile_uploads__photo_id__delete'];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/profile/delete-request': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Request Account Deletion
-     * @description Request account deletion
-     *
-     *     Raises:
-     *         HTTPException: 400 - If delete request already exists or invalid data.
-     *         HTTPException: 500 - If account deletion request fails.
-     */
-    post: operations['request_account_deletion_api_v1_profile_delete_request_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/profile/cancel-deletion': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Cancel Account Deletion
-     * @description Cancel an ongoing account deletion request
-     *
-     *     Raises:
-     *         HTTPException: 400 - If no pending deletion request or invalid data.
-     *         HTTPException: 500 - If cancellation fails.
-     */
-    post: operations['cancel_account_deletion_api_v1_profile_cancel_deletion_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/upload/quota': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get Upload Quota
-     * @description Get current user's upload quota status.
-     */
-    get: operations['get_upload_quota_api_v1_upload_quota_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/upload/cat': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Upload Cat Photo
-     * @description Upload cat photo with location information.
-     *
-     *     Security features:
-     *     - Rate limited: 5 requests per minute
-     *     - Magic bytes validation for file type
-     *     - Input sanitization for all text fields
-     *     - Security event logging
-     *
-     *     The image is automatically optimized (resized/compressed) before upload to S3.
-     *
-     *     Raises:
-     *         HTTPException: 400 - If no cats are detected in image.
-     *         HTTPException: 429 - If daily upload limit is reached.
-     *         HTTPException: 500 - If image processing or upload fails.
-     */
-    post: operations['upload_cat_photo_api_v1_upload_cat_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/upload/test': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Test Upload Endpoint
-     * @description Test if upload endpoint is working
-     */
-    get: operations['test_upload_endpoint_api_v1_upload_test_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/detect/cats': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Detect Cats In Image
-     * @description Detect cats in images using Google Cloud Vision API.
-     *     Rate Limit: 5 requests per minute per user.
-     *
-     *     Raises:
-     *         HTTPException: 413 - If file size exceeds 10MB.
-     *         HTTPException: 415 - If file type is unsupported.
-     *         HTTPException: 500 - If detection fails due to an internal error.
-     */
-    post: operations['detect_cats_in_image_api_v1_detect_cats_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/detect/spot-analysis': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Analyze Cat Spot
-     * @description Analyze suitability of locations for cats using Google Cloud Vision.
-     *     Rate Limit: 5 requests per minute per user.
-     *
-     *     Raises:
-     *         HTTPException: 413 - If file size exceeds 10MB.
-     *         HTTPException: 415 - If file type is unsupported.
-     *         HTTPException: 500 - If spot analysis fails due to an internal error.
-     */
-    post: operations['analyze_cat_spot_api_v1_detect_spot_analysis_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/detect/combined': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Combined Cat And Spot Analysis
-     * @description Analyze both cat detection and location suitability using Google Cloud Vision.
-     *     Rate Limit: 3 requests per minute per user.
-     *
-     *     Raises:
-     *         HTTPException: 413 - If file size exceeds 10MB.
-     *         HTTPException: 415 - If file type is unsupported.
-     *         HTTPException: 500 - If combined analysis fails due to an internal error.
-     */
-    post: operations['combined_cat_and_spot_analysis_api_v1_detect_combined_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/detect/test-cats': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Test Detect Cats
-     * @description Test cat detection using Google Cloud Vision (authentication required).
-     *     Rate Limit: 10 requests per minute per user.
-     *
-     *     Raises:
-     *         HTTPException: 500 - If test detection fails.
-     */
-    post: operations['test_detect_cats_api_v1_detect_test_cats_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/detect/test-spot': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Test Analyze Spot
-     * @description Test location analysis using Google Cloud Vision (authentication required).
-     *     Rate Limit: 10 requests per minute per user.
-     *
-     *     Raises:
-     *         HTTPException: 500 - If test spot analysis fails.
-     */
-    post: operations['test_analyze_spot_api_v1_detect_test_spot_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/gallery': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get Gallery
-     * @description Get cat images with pagination support.
-     *
-     *     Pagination can be done via:
-     *     - `offset` + `limit`: Skip N items, return M items
-     *     - `page` + `limit`: Return page N with M items per page (page starts at 1)
-     *
-     *     Examples:
-     *     - `/gallery?limit=20&offset=0` - First 20 images
-     *     - `/gallery?limit=20&page=2` - Second page of 20 images
-     *
-     *     Raises:
-     *         HTTPException: 500 - If gallery fetch fails.
-     */
-    get: operations['get_gallery_api_v1_gallery_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/gallery/all': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get All Gallery
-     * @description Get all cat images with optional limit (use with caution for large datasets).
-     *     For backward compatibility and map display.
-     *
-     *     Consider using the paginated `/gallery` endpoint for better performance with large datasets.
-     *
-     *     Raises:
-     *         HTTPException: 500 - If gallery fetch fails.
-     */
-    get: operations['get_all_gallery_api_v1_gallery_all_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/gallery/locations': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get Locations
-     * @description Get all cat locations from Supabase (for map display).
-     *
-     *     Raises:
-     *         HTTPException: 500 - If locations fetch fails.
-     */
-    get: operations['get_locations_api_v1_gallery_locations_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/gallery/viewport': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get Locations In Viewport
-     * @description Get cat locations within a geographic viewport (bounding box).
-     *
-     *     This endpoint is optimized for map views that only need to display
-     *     markers within the current visible area.
-     *
-     *     Args:
-     *         gallery_service: Service to interact with the gallery.
-     *         current_user: The authenticated user profile (optional).
-     *         north: Maximum latitude (top of viewport)
-     *         south: Minimum latitude (bottom of viewport)
-     *         east: Maximum longitude (right of viewport)
-     *         west: Minimum longitude (left of viewport)
-     *         limit: Maximum pins to return (default 100)
-     *
-     *     Example:
-     *         `/gallery/viewport?north=13.8&south=13.7&east=100.6&west=100.4`
-     *
-     *     Raises:
-     *         HTTPException: 500 - If viewport fetch fails.
-     */
-    get: operations['get_locations_in_viewport_api_v1_gallery_viewport_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/gallery/search': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Search Locations
-     * @description Search cat locations with optional text query and/or tag filters.
-     *
-     *     Raises:
-     *         HTTPException: 500 - If search fails.
-     */
-    get: operations['search_locations_api_v1_gallery_search_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/gallery/popular-tags': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get Popular Tags
-     * @description Get the most popular tags used across all cat photos.
-     *
-     *     Useful for:
-     *     - Tag autocomplete in upload form
-     *     - Tag cloud visualization
-     *     - Quick filter buttons
-     *
-     *     Raises:
-     *         HTTPException: 500 - If popular tags fetch fails.
-     */
-    get: operations['get_popular_tags_api_v1_gallery_popular_tags_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/gallery/{photo_id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get Photo
-     * @description Get a specific photo by its ID.
-     *     Useful for deep linking and sharing.
-     *
-     *     Raises:
-     *         HTTPException: 404 - If photo not found.
-     *         HTTPException: 500 - If photo fetch fails.
-     */
-    get: operations['get_photo_api_v1_gallery__photo_id__get'];
-    put?: never;
-    post?: never;
-    /**
-     * Delete Photo
-     * @description Delete a photo.
-     *
-     *     Optimized for performance:
-     *     1. Quick ownership check (fast DB read)
-     *     2. Scheduled background deletion (S3 + DB + Cache)
-     *     3. Returns immediately (202 Accepted)
-     *
-     *     Raises:
-     *         HTTPException: 404 - If photo not found or access denied.
-     *         HTTPException: 500 - If deletion fails.
-     */
-    delete: operations['delete_photo_api_v1_gallery__photo_id__delete'];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/feature-flags/': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get Feature Flags
-     * @description Get all feature flags and their current status.
-     *
-     *     This endpoint is public and can be called by the frontend
-     *     to determine which features to enable/disable in the UI.
-     */
-    get: operations['get_feature_flags_api_v1_feature_flags__get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/feature-flags': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get Feature Flags
-     * @description Get all feature flags and their current status.
-     *
-     *     This endpoint is public and can be called by the frontend
-     *     to determine which features to enable/disable in the UI.
-     */
-    get: operations['get_feature_flags_api_v1_feature_flags_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/feature-flags/{flag_name}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get Feature Flag
-     * @description Check if a specific feature flag is enabled.
-     *
-     *     Args:
-     *         flag_name: Name of the feature flag to check
-     *
-     *     Returns:
-     *         Object with flag name and enabled status
-     */
-    get: operations['get_feature_flag_api_v1_feature_flags__flag_name__get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/subscription/checkout': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Create Checkout Session
-     * @description Create a Stripe Checkout Session for subscription.
-     *
-     *     Raises:
-     *         HTTPException: 500 - If checkout session creation fails.
-     */
-    post: operations['create_checkout_session_api_v1_subscription_checkout_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/subscription/webhook': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Stripe Webhook
-     * @description Handle Stripe Webhooks.
-     *
-     *     Raises:
-     *         HTTPException: 400 - If Stripe signature is missing or payload is invalid.
-     */
-    post: operations['stripe_webhook_api_v1_subscription_webhook_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/subscription/status': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get Subscription Status
-     * @description Get current user's subscription status.
-     */
-    get: operations['get_subscription_status_api_v1_subscription_status_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/subscription/cancel': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Cancel Subscription
-     * @description Cancel subscription.
-     *
-     *     Raises:
-     *         HTTPException: 400 - If cancellation fails due to validation error.
-     *         HTTPException: 500 - If cancellation fails due to internal error.
-     */
-    post: operations['cancel_subscription_api_v1_subscription_cancel_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/subscription/portal': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Create Portal Session
-     * @description Create Stripe Customer Portal session.
-     *
-     *     Raises:
-     *         HTTPException: 400 - If portal session creation fails due to validation error.
-     *         HTTPException: 500 - If portal session creation fails due to internal error.
-     */
-    post: operations['create_portal_session_api_v1_subscription_portal_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/treats/balance': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get Balance
-     * @description Get current user's treat balance and recent history
-     */
-    get: operations['get_balance_api_v1_treats_balance_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/treats/give': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Give Treat
-     * @description Give treats to a photo owner.
-     *
-     *     Raises:
-     *         HTTPException: 400 - If giving treats fails due to validation error.
-     *         HTTPException: 500 - If giving treats fails due to internal error.
-     */
-    post: operations['give_treat_api_v1_treats_give_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/treats/purchase/checkout': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Purchase Treats Checkout
-     * @description Purchase treats pack.
-     *
-     *     Raises:
-     *         HTTPException: 400 - If package is invalid or price is not configured.
-     *         HTTPException: 500 - If purchase checkout initiation fails.
-     */
-    post: operations['purchase_treats_checkout_api_v1_treats_purchase_checkout_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/treats/packages': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get Treat Packages
-     * @description Get available treat packages from database
-     */
-    get: operations['get_treat_packages_api_v1_treats_packages_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/treats/leaderboard': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get Leaderboard
-     * @description Get top treat receivers.
-     *
-     *     Raises:
-     *         HTTPException: 400 - If the period is invalid.
-     */
-    get: operations['get_leaderboard_api_v1_treats_leaderboard_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/social/photos/{photo_id}/like': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Toggle Like
-     * @description Toggle like on a photo.
-     *
-     *     Uses atomic database function to prevent race conditions.
-     *     Returns the new liked status and updated likes count.
-     *     Rate limited to 10 requests per 10 seconds per user.
-     *
-     *     Raises:
-     *         HTTPException: 404 - If the photo is not found.
-     *         HTTPException: 429 - If the rate limit is exceeded.
-     *         HTTPException: 500 - If toggle like fails due to an unexpected error.
-     *         HTTPException: 503 - If the service is temporarily unavailable.
-     */
-    post: operations['toggle_like_api_v1_social_photos__photo_id__like_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/social/photos/{photo_id}/comments': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get Comments
-     * @description Get comments for a photo.
-     *
-     *     Raises:
-     *         HTTPException: 500 - If fetching comments fails.
-     */
-    get: operations['get_comments_api_v1_social_photos__photo_id__comments_get'];
-    put?: never;
-    /**
-     * Add Comment
-     * @description Add a comment to a photo.
-     *
-     *     Raises:
-     *         HTTPException: 404 - If the photo is not found.
-     *         HTTPException: 500 - If posting a comment fails due to an internal error.
-     *         HTTPException: 503 - If the service is temporarily unavailable.
-     */
-    post: operations['add_comment_api_v1_social_photos__photo_id__comments_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/social/comments/{comment_id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    /**
-     * Update Comment
-     * @description Update an existing comment.
-     *
-     *     Raises:
-     *         HTTPException: 403 - If the user is not authorized or the comment is not found.
-     *         HTTPException: 500 - If updating the comment fails.
-     */
-    put: operations['update_comment_api_v1_social_comments__comment_id__put'];
-    post?: never;
-    /**
-     * Delete Comment
-     * @description Delete a comment.
-     *
-     *     Raises:
-     *         HTTPException: 403 - If the user is not authorized or the comment is not found.
-     *         HTTPException: 500 - If deleting the comment fails.
-     */
-    delete: operations['delete_comment_api_v1_social_comments__comment_id__delete'];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/notifications': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get Notifications
-     * @description Get user notifications.
-     */
-    get: operations['get_notifications_api_v1_notifications_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/notifications/{id}/read': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    /**
-     * Mark As Read
-     * @description Mark notification as read.
-     */
-    put: operations['mark_as_read_api_v1_notifications__id__read_put'];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/notifications/read-all': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    /**
-     * Mark All As Read
-     * @description Mark all notifications as read.
-     */
-    put: operations['mark_all_as_read_api_v1_notifications_read_all_put'];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/sitemap.xml': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get Sitemap
-     * @description Generate dynamic sitemap for search engines.
-     *     Cached for 1 hour.
-     */
-    get: operations['get_sitemap_api_v1_sitemap_xml_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/reports/': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Create Report
-     * @description Submit a report for a photo.
-     *
-     *     Raises:
-     *         HTTPException: 500 - If report submission fails.
-     */
-    post: operations['create_report_api_v1_reports__post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/reports/my-reports': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List My Reports
-     * @description List reports submitted by the current user.
-     *
-     *     Raises:
-     *         HTTPException: 500 - If fetching reports fails.
-     */
-    get: operations['list_my_reports_api_v1_reports_my_reports_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/users': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List Users
-     * @description List all users with pagination, search, and sorting.
-     *     Only accessible by admins with users:read permission.
-     *
-     *     Raises:
-     *         HTTPException: 500 - If fetching users fails.
-     */
-    get: operations['list_users_api_v1_admin_users_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/users/{user_id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    post?: never;
-    /**
-     * Delete User
-     * @description Permanently delete a user and their data.
-     *
-     *     Raises:
-     *         HTTPException: 404 - If user is not found.
-     *         HTTPException: 400 - If attempting to delete an admin.
-     *         HTTPException: 500 - If deletion fails.
-     */
-    delete: operations['delete_user_api_v1_admin_users__user_id__delete'];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/users/{user_id}/profile': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /**
-     * Update User Profile Admin
-     * @description Update a user's profile as an admin.
-     *
-     *     Raises:
-     *         HTTPException: 400 - If no valid fields are provided.
-     *         HTTPException: 404 - If user is not found.
-     *         HTTPException: 500 - If update fails.
-     */
-    patch: operations['update_user_profile_admin_api_v1_admin_users__user_id__profile_patch'];
-    trace?: never;
-  };
-  '/api/v1/admin/roles': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List Roles
-     * @description List all available roles.
-     *
-     *     Raises:
-     *         HTTPException: 500 - If fetching roles fails.
-     */
-    get: operations['list_roles_api_v1_admin_roles_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/users/{user_id}/role': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    /**
-     * Update User Role
-     * @description Update a user's role.
-     *
-     *     Raises:
-     *         HTTPException: 400 - If role_id is missing.
-     *         HTTPException: 404 - If role or user is not found.
-     *         HTTPException: 500 - If update fails.
-     */
-    put: operations['update_user_role_api_v1_admin_users__user_id__role_put'];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/users/{user_id}/ban': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Ban User
-     * @description Ban a user.
-     *
-     *     Raises:
-     *         HTTPException: 404 - If user is not found.
-     *         HTTPException: 400 - If attempting to ban an admin.
-     *         HTTPException: 500 - If banning fails.
-     */
-    post: operations['ban_user_api_v1_admin_users__user_id__ban_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/users/{user_id}/unban': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Unban User
-     * @description Unban a user.
-     *
-     *     Raises:
-     *         HTTPException: 404 - If user is not found.
-     *         HTTPException: 500 - If unbanning fails.
-     */
-    post: operations['unban_user_api_v1_admin_users__user_id__unban_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/stats': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get System Stats
-     * @description Get basic system statistics.
-     *     Optimized to use estimated counts for large tables.
-     *     Cached for 5 minutes.
-     */
-    get: operations['get_system_stats_api_v1_admin_stats_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/photos': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List Photos
-     * @description List all photos with pagination and optional search.
-     *     Only accessible by admins with content:read permission.
-     *
-     *     Raises:
-     *         HTTPException: 500 - If fetching photos fails.
-     */
-    get: operations['list_photos_api_v1_admin_photos_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/photos/{photo_id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    post?: never;
-    /**
-     * Delete Photo Admin
-     * @description Delete a photo as an admin (Content Moderation).
-     *     No ownership check required.
-     *
-     *     Raises:
-     *         HTTPException: 400 - If photo_id format is invalid.
-     *         HTTPException: 404 - If photo is not found.
-     *         HTTPException: 500 - If deletion fails.
-     */
-    delete: operations['delete_photo_admin_api_v1_admin_photos__photo_id__delete'];
-    options?: never;
-    head?: never;
-    /**
-     * Update Photo Admin
-     * @description Update photo details as an admin.
-     *
-     *     Raises:
-     *         HTTPException: 400 - If photo_id format is invalid or update data is missing.
-     *         HTTPException: 404 - If photo is not found.
-     *         HTTPException: 500 - If update fails.
-     */
-    patch: operations['update_photo_admin_api_v1_admin_photos__photo_id__patch'];
-    trace?: never;
-  };
-  '/api/v1/admin/reports': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List Reports
-     * @description List submitted reports.
-     *
-     *     Raises:
-     *         HTTPException: 500 - If fetching reports fails.
-     */
-    get: operations['list_reports_api_v1_admin_reports_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/reports/{report_id}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    /**
-     * Update Report
-     * @description Resolve or dismiss a report.
-     *
-     *     Raises:
-     *         HTTPException: 400 - If report_id format is invalid.
-     *         HTTPException: 404 - If report is not found.
-     *         HTTPException: 500 - If update fails.
-     */
-    put: operations['update_report_api_v1_admin_reports__report_id__put'];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/reports/bulk': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Bulk Update Reports
-     * @description Bulk resolve or dismiss reports.
-     *
-     *     Raises:
-     *         HTTPException: 500 - If bulk update fails.
-     */
-    post: operations['bulk_update_reports_api_v1_admin_reports_bulk_post'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/v1/admin/audit-logs': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * List Audit Logs
-     * @description List audit logs.
-     *
-     *     Raises:
-     *         HTTPException: 500 - If fetching audit logs fails.
-     */
-    get: operations['list_audit_logs_api_v1_admin_audit_logs_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/health/live': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Liveness Check
-     * @description Liveness probe - checks if the application is running.
-     *
-     *     This is a lightweight check that should always succeed if the
-     *     application is not deadlocked or crashed.
-     *
-     *     Used by: Kubernetes liveness probes, basic monitoring
-     *
-     *     Returns:
-     *         200 OK if application is alive
-     */
-    get: operations['liveness_check_health_live_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/health/ready': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Readiness Check
-     * @description Readiness probe - checks if the application can handle requests.
-     *
-     *     This checks critical dependencies (database) and reports on
-     *     optional services (Redis, S3).
-     *
-     *     Used by: Kubernetes readiness probes, load balancer health checks
-     *
-     *     Returns:
-     *         200 OK if ready to serve requests
-     *         503 Service Unavailable if critical dependencies are down
-     */
-    get: operations['readiness_check_health_ready_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/health/dependencies': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Dependency Check
-     * @description Detailed dependency health check.
-     *
-     *     Checks all external services and provides detailed diagnostics.
-     *     This is more verbose than the readiness check and is intended
-     *     for debugging and monitoring dashboards.
-     *
-     *     Returns:
-     *         Detailed status of all dependencies
-     */
-    get: operations['dependency_check_health_dependencies_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/health/metrics': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Metrics
-     * @description Basic metrics endpoint for monitoring.
-     *
-     *     Returns cache stats and basic service metrics.
-     *     This is a simple alternative for environments without Prometheus.
-     */
-    get: operations['metrics_health_metrics_get'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
+    "/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Root
+         * @description Root endpoint
+         */
+        get: operations["root__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Health Check
+         * @description Simple health check endpoint
+         */
+        get: operations["health_check_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register
+         * @description Register new user with email and password, then send OTP for verification.
+         */
+        post: operations["register_api_v1_auth_register_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/verify-otp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify Otp
+         * @description Verify email with OTP and complete registration.
+         */
+        post: operations["verify_otp_api_v1_auth_verify_otp_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/resend-otp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resend Otp
+         * @description Resend verification OTP code.
+         *
+         *     Raises:
+         *         HTTPException: 429 - If cooldown is active.
+         *         HTTPException: 500 - If sending fails.
+         */
+        post: operations["resend_otp_api_v1_auth_resend_otp_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Login
+         * @description Login with email and password via Supabase Auth.
+         *
+         *     Raises:
+         *         HTTPException: 401 - If credentials are invalid.
+         *         HTTPException: 500 - If login fails.
+         */
+        post: operations["login_api_v1_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/refresh-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Token
+         * @description Refresh access token using long-lived refresh token from HttpOnly cookie.
+         */
+        post: operations["refresh_token_api_v1_auth_refresh_token_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Logout
+         * @description Logout user (clear refresh token cookie and revoke it).
+         *
+         *     Raises:
+         *         HTTPException: 500 - If logout process fails unexpectedly.
+         */
+        post: operations["logout_api_v1_auth_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/forgot-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Forgot Password
+         * @description Request password reset (via Supabase Auth).
+         *
+         *     Raises:
+         *         HTTPException: 500 - If forgot password request fails.
+         */
+        post: operations["forgot_password_api_v1_auth_forgot_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Password
+         * @description Reset password using token.
+         *
+         *     Raises:
+         *         HTTPException: 400 - If reset token is invalid or expired.
+         */
+        post: operations["reset_password_api_v1_auth_reset_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/session-exchange": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Exchange Session
+         * @description Exchange Supabase Session (from email verification redirect) for Backend Session.
+         *     Validates the Supabase token and issues our own secure HttpOnly cookies.
+         */
+        post: operations["exchange_session_api_v1_auth_session_exchange_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Current User Info
+         * @description Get current user information (unified from both manual and google auth).
+         *
+         *     Raises:
+         *         HTTPException: 401 - If user is not authenticated.
+         */
+        get: operations["get_current_user_info_api_v1_auth_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/google/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Google Login Redirect
+         * @description Redirect to Google OAuth login page with PKCE support.
+         *
+         *     Raises:
+         *         HTTPException: 500 - If redirect generation fails.
+         */
+        get: operations["google_login_redirect_api_v1_auth_google_login_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/google": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Google Login
+         * @description Login with Google OAuth ID token.
+         */
+        post: operations["google_login_api_v1_auth_google_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/google/exchange": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Google Exchange Code
+         * @description Exchange Google authorization code for tokens (PKCE OAuth 2.0 flow)
+         *
+         *     Raises:
+         *         HTTPException: 400 - If redirect URI is invalid or exchange data is missing.
+         *         HTTPException: 500 - If code exchange fails.
+         */
+        post: operations["google_exchange_code_api_v1_auth_google_exchange_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/sync-user": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync User Data
+         * @description Sync user data from JWT payload to database.
+         */
+        post: operations["sync_user_data_api_v1_auth_sync_user_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Profile
+         * @description Get current user profile
+         *
+         *     Raises:
+         *         HTTPException: 404 - If user not found.
+         *         HTTPException: 500 - If profile fetch fails.
+         */
+        get: operations["get_profile_api_v1_profile_get"];
+        /**
+         * Update Profile
+         * @description Update user profile information
+         *
+         *     Raises:
+         *         HTTPException: 400 - If no update data provided or invalid username.
+         *         HTTPException: 404 - If user not found.
+         *         HTTPException: 409 - If username already taken.
+         *         HTTPException: 500 - If profile update fails.
+         */
+        put: operations["update_profile_api_v1_profile_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profile/public/{identifier}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Public Profile
+         * @description Get public user profile by ID or username
+         *
+         *     Raises:
+         *         HTTPException: 500 - If profile fetch fails.
+         */
+        get: operations["get_public_profile_api_v1_profile_public__identifier__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profile/public/{identifier}/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Public User Uploads
+         * @description Get public uploads by user_id or username
+         *
+         *     Raises:
+         *         HTTPException: 500 - If uploads fetch fails.
+         */
+        get: operations["get_public_user_uploads_api_v1_profile_public__identifier__uploads_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profile/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get User Uploads
+         * @description Get all uploads by current user - filtered by user_id
+         *
+         *     Raises:
+         *         HTTPException: 500 - If uploads fetch fails.
+         */
+        get: operations["get_user_uploads_api_v1_profile_uploads_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profile/picture": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Profile Picture
+         * @description Upload and update profile picture
+         *
+         *     Raises:
+         *         HTTPException: 500 - If image upload or processing fails.
+         */
+        post: operations["upload_profile_picture_api_v1_profile_picture_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profile/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change Password
+         * @description Change user password
+         *
+         *     Raises:
+         *         HTTPException: 400 - If password change fails due to invalid current password.
+         *         HTTPException: 500 - If password change fails due to internal system error.
+         */
+        put: operations["change_password_api_v1_profile_password_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profile/uploads/{photo_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update User Photo
+         * @description Update a user's upload photo details (description, etc)
+         *
+         *     Raises:
+         *         HTTPException: 400 - If no valid data provided.
+         *         HTTPException: 403 - If not authorized to update photo.
+         *         HTTPException: 404 - If photo not found.
+         *         HTTPException: 500 - If photo update fails.
+         */
+        put: operations["update_user_photo_api_v1_profile_uploads__photo_id__put"];
+        post?: never;
+        /**
+         * Delete User Photo
+         * @description Delete a user's uploaded photo with background processing
+         *
+         *     Raises:
+         *         HTTPException: 404 - If photo not found or access denied.
+         *         HTTPException: 500 - If deletion fails.
+         */
+        delete: operations["delete_user_photo_api_v1_profile_uploads__photo_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profile/delete-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request Account Deletion
+         * @description Request account deletion
+         *
+         *     Raises:
+         *         HTTPException: 400 - If delete request already exists or invalid data.
+         *         HTTPException: 500 - If account deletion request fails.
+         */
+        post: operations["request_account_deletion_api_v1_profile_delete_request_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profile/cancel-deletion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel Account Deletion
+         * @description Cancel an ongoing account deletion request
+         *
+         *     Raises:
+         *         HTTPException: 400 - If no pending deletion request or invalid data.
+         *         HTTPException: 500 - If cancellation fails.
+         */
+        post: operations["cancel_account_deletion_api_v1_profile_cancel_deletion_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/upload/quota": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Upload Quota
+         * @description Get current user's upload quota status.
+         */
+        get: operations["get_upload_quota_api_v1_upload_quota_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/upload/cat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Cat Photo
+         * @description Upload cat photo with location information.
+         *
+         *     Security features:
+         *     - Rate limited: 5 requests per minute
+         *     - Magic bytes validation for file type
+         *     - Input sanitization for all text fields
+         *     - Security event logging
+         *
+         *     The image is automatically optimized (resized/compressed) before upload to S3.
+         *
+         *     Raises:
+         *         HTTPException: 400 - If no cats are detected in image.
+         *         HTTPException: 429 - If daily upload limit is reached.
+         *         HTTPException: 500 - If image processing or upload fails.
+         */
+        post: operations["upload_cat_photo_api_v1_upload_cat_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/detect/cats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Detect Cats In Image
+         * @description Detect cats in images using Google Cloud Vision API.
+         *     Rate Limit: 5 requests per minute per user.
+         *
+         *     Raises:
+         *         HTTPException: 413 - If file size exceeds 10MB.
+         *         HTTPException: 415 - If file type is unsupported.
+         *         HTTPException: 500 - If detection fails due to an internal error.
+         */
+        post: operations["detect_cats_in_image_api_v1_detect_cats_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/detect/spot-analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Analyze Cat Spot
+         * @description Analyze suitability of locations for cats using Google Cloud Vision.
+         *     Rate Limit: 5 requests per minute per user.
+         *
+         *     Raises:
+         *         HTTPException: 413 - If file size exceeds 10MB.
+         *         HTTPException: 415 - If file type is unsupported.
+         *         HTTPException: 500 - If spot analysis fails due to an internal error.
+         */
+        post: operations["analyze_cat_spot_api_v1_detect_spot_analysis_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/detect/combined": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Combined Cat And Spot Analysis
+         * @description Analyze both cat detection and location suitability using Google Cloud Vision.
+         *     Rate Limit: 3 requests per minute per user.
+         *
+         *     Raises:
+         *         HTTPException: 413 - If file size exceeds 10MB.
+         *         HTTPException: 415 - If file type is unsupported.
+         *         HTTPException: 500 - If combined analysis fails due to an internal error.
+         */
+        post: operations["combined_cat_and_spot_analysis_api_v1_detect_combined_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gallery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Gallery
+         * @description Get cat images with pagination, sorting, and field selection.
+         *
+         *     Examples:
+         *     - `/gallery?limit=20&offset=0` - First 20 images
+         *     - `/gallery?limit=20&page=2` - Second page of 20 images
+         *     - `/gallery?sort=likes_count&order=desc` - Sort by most liked
+         *     - `/gallery?fields=id,image_url,location_name` - Only specific fields
+         */
+        get: operations["get_gallery_api_v1_gallery_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gallery/locations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Locations
+         * @description Get all cat locations from Supabase (for map display).
+         */
+        get: operations["get_locations_api_v1_gallery_locations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gallery/viewport": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Locations In Viewport
+         * @description Get cat locations within a geographic viewport (bounding box).
+         */
+        get: operations["get_locations_in_viewport_api_v1_gallery_viewport_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gallery/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Locations
+         * @description Search cat locations with optional text query and/or tag filters.
+         */
+        get: operations["search_locations_api_v1_gallery_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gallery/popular-tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Popular Tags
+         * @description Get the most popular tags used across all cat photos.
+         */
+        get: operations["get_popular_tags_api_v1_gallery_popular_tags_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/gallery/{photo_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Photo
+         * @description Get a specific photo by its ID.
+         */
+        get: operations["get_photo_api_v1_gallery__photo_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Photo
+         * @description Delete a photo. Returns 202 Accepted (deletion runs in background).
+         */
+        delete: operations["delete_photo_api_v1_gallery__photo_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/subscription/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Checkout Session
+         * @description Create a Stripe Checkout Session for subscription.
+         */
+        post: operations["create_checkout_session_api_v1_subscription_checkout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/subscription/webhook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stripe Webhook
+         * @description Handle Stripe Webhooks.
+         */
+        post: operations["stripe_webhook_api_v1_subscription_webhook_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/subscription/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Subscription Status
+         * @description Get current user's subscription status.
+         */
+        get: operations["get_subscription_status_api_v1_subscription_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/subscription/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel Subscription
+         * @description Cancel subscription.
+         */
+        post: operations["cancel_subscription_api_v1_subscription_cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/subscription/portal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Portal Session
+         * @description Create Stripe Customer Portal session.
+         */
+        post: operations["create_portal_session_api_v1_subscription_portal_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/treats/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Balance
+         * @description Get current user's treat balance and recent history.
+         */
+        get: operations["get_balance_api_v1_treats_balance_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/treats/give": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give Treat
+         * @description Give treats to a photo owner.
+         */
+        post: operations["give_treat_api_v1_treats_give_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/treats/purchase/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Purchase Treats Checkout
+         * @description Purchase treats pack.
+         */
+        post: operations["purchase_treats_checkout_api_v1_treats_purchase_checkout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/treats/packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Treat Packages
+         * @description Get available treat packages from database.
+         */
+        get: operations["get_treat_packages_api_v1_treats_packages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/treats/leaderboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Leaderboard
+         * @description Get top treat receivers.
+         */
+        get: operations["get_leaderboard_api_v1_treats_leaderboard_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/social/photos/{photo_id}/like": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Toggle Like
+         * @description Toggle like on a photo.
+         *
+         *     Uses atomic database function to prevent race conditions.
+         *     Returns the new liked status and updated likes count.
+         *     Rate limited to 10 requests per 10 seconds per user.
+         */
+        post: operations["toggle_like_api_v1_social_photos__photo_id__like_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/social/photos/{photo_id}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Comments
+         * @description Get comments for a photo.
+         */
+        get: operations["get_comments_api_v1_social_photos__photo_id__comments_get"];
+        put?: never;
+        /**
+         * Add Comment
+         * @description Add a comment to a photo.
+         */
+        post: operations["add_comment_api_v1_social_photos__photo_id__comments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/social/comments/{comment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Comment
+         * @description Update an existing comment.
+         */
+        put: operations["update_comment_api_v1_social_comments__comment_id__put"];
+        post?: never;
+        /**
+         * Delete Comment
+         * @description Delete a comment.
+         */
+        delete: operations["delete_comment_api_v1_social_comments__comment_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Notifications
+         * @description Get user notifications.
+         */
+        get: operations["get_notifications_api_v1_notifications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Mark As Read
+         * @description Mark notification as read.
+         */
+        put: operations["mark_as_read_api_v1_notifications__id__read_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Mark All As Read
+         * @description Mark all notifications as read.
+         */
+        put: operations["mark_all_as_read_api_v1_notifications_read_all_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sitemap.xml": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Sitemap
+         * @description Generate dynamic sitemap for search engines.
+         *     Cached for 1 hour.
+         */
+        get: operations["get_sitemap_api_v1_sitemap_xml_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Report
+         * @description Submit a report for a photo.
+         */
+        post: operations["create_report_api_v1_reports__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/my-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Reports
+         * @description List reports submitted by the current user.
+         */
+        get: operations["list_my_reports_api_v1_reports_my_reports_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/consent/my-consents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Consents
+         * @description Get all consent records for the current user.
+         */
+        get: operations["get_my_consents_api_v1_consent_my_consents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/consent/consent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record Consent
+         * @description Record user consent for a specific type.
+         *     Users can grant or withdraw consent at any time.
+         */
+        post: operations["record_consent_api_v1_consent_consent_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/consent/admin/consents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin List Consents
+         * @description Admin: List all user consent records.
+         */
+        get: operations["admin_list_consents_api_v1_consent_admin_consents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/consent/admin/consent-stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin Consent Stats
+         * @description Admin: Get consent statistics across all users.
+         */
+        get: operations["admin_consent_stats_api_v1_consent_admin_consent_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/breach/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Report Breach
+         * @description Report a suspected data breach.
+         *     Creates an incident record and triggers notifications based on severity.
+         */
+        post: operations["report_breach_api_v1_breach_report_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/breach/incidents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Incidents
+         * @description List all security incidents.
+         */
+        get: operations["list_incidents_api_v1_breach_incidents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/breach/incidents/{incident_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Incident Details
+         * @description Get detailed information about a specific incident.
+         */
+        get: operations["get_incident_details_api_v1_breach_incidents__incident_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/breach/incidents/{incident_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Incident Status
+         * @description Update the status of a security incident.
+         */
+        put: operations["update_incident_status_api_v1_breach_incidents__incident_id__status_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/breach/breach-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Breach Summary
+         * @description Get summary of breach detection and incident status.
+         */
+        get: operations["get_breach_summary_api_v1_breach_breach_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/breach/regulatory-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Generate Regulatory Report
+         * @description Generate regulatory compliance report for data breaches.
+         *     Used for PDPA/GDPR 72-hour notification requirement documentation.
+         */
+        get: operations["generate_regulatory_report_api_v1_breach_regulatory_report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Users
+         * @description List all users with pagination, search, and sorting.
+         */
+        get: operations["list_users_api_v1_admin_users_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/bulk-ban": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Ban Users
+         * @description Ban multiple users at once.
+         */
+        post: operations["bulk_ban_users_api_v1_admin_users_bulk_ban_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/bulk-unban": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Unban Users
+         * @description Unban multiple users at once.
+         */
+        post: operations["bulk_unban_users_api_v1_admin_users_bulk_unban_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete User
+         * @description Permanently delete a user and their data.
+         */
+        delete: operations["delete_user_api_v1_admin_users__user_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{user_id}/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update User Profile Admin
+         * @description Update user profile as admin.
+         */
+        patch: operations["update_user_profile_admin_api_v1_admin_users__user_id__profile_patch"];
+        trace?: never;
+    };
+    "/api/v1/admin/users/{user_id}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update User Role
+         * @description Update user role.
+         */
+        put: operations["update_user_role_api_v1_admin_users__user_id__role_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{user_id}/ban": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ban User
+         * @description Ban a user.
+         */
+        post: operations["ban_user_api_v1_admin_users__user_id__ban_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{user_id}/unban": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unban User
+         * @description Unban a user.
+         */
+        post: operations["unban_user_api_v1_admin_users__user_id__unban_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/stats/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Dashboard Summary
+         * @description Consolidated dashboard summary: stats, trends, and monthly data.
+         *     Uses Redis for distributed caching.
+         */
+        get: operations["get_dashboard_summary_api_v1_admin_stats_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Dashboard Summary
+         * @description Consolidated dashboard summary: stats, trends, and monthly data.
+         *     Uses Redis for distributed caching.
+         */
+        get: operations["get_dashboard_summary_api_v1_admin_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/stats/trends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get System Trends
+         * @description Get 30-day activity trends.
+         */
+        get: operations["get_system_trends_api_v1_admin_stats_trends_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/stats/monthly": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Monthly Stats
+         * @description Get monthly system performance report.
+         */
+        get: operations["get_monthly_stats_api_v1_admin_stats_monthly_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Photos
+         * @description List all photos with pagination and optional search.
+         *     Only accessible by admins with content:read permission.
+         *
+         *     Raises:
+         *         HTTPException: 500 - If fetching photos fails.
+         */
+        get: operations["list_photos_api_v1_admin_photos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/photos/{photo_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Photo Admin
+         * @description Delete a photo as an admin (Content Moderation).
+         *     No ownership check required.
+         *
+         *     Raises:
+         *         HTTPException: 400 - If photo_id format is invalid.
+         *         HTTPException: 404 - If photo is not found.
+         *         HTTPException: 500 - If deletion fails.
+         */
+        delete: operations["delete_photo_admin_api_v1_admin_photos__photo_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Photo Admin
+         * @description Update photo details as an admin.
+         *
+         *     Raises:
+         *         HTTPException: 400 - If photo_id format is invalid or update data is missing.
+         *         HTTPException: 404 - If photo is not found.
+         *         HTTPException: 500 - If update fails.
+         */
+        patch: operations["update_photo_admin_api_v1_admin_photos__photo_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/admin/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Reports
+         * @description List submitted reports.
+         *
+         *     Raises:
+         *         HTTPException: 500 - If fetching reports fails.
+         */
+        get: operations["list_reports_api_v1_admin_reports_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reports/{report_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Report
+         * @description Resolve or dismiss a report.
+         *
+         *     Raises:
+         *         HTTPException: 400 - If report_id format is invalid.
+         *         HTTPException: 404 - If report is not found.
+         *         HTTPException: 500 - If update fails.
+         */
+        put: operations["update_report_api_v1_admin_reports__report_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reports/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Update Reports
+         * @description Bulk resolve or dismiss reports.
+         *
+         *     Raises:
+         *         HTTPException: 500 - If bulk update fails.
+         */
+        post: operations["bulk_update_reports_api_v1_admin_reports_bulk_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/audit-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Audit Logs
+         * @description List audit logs.
+         *
+         *     Raises:
+         *         HTTPException: 500 - If fetching audit logs fails.
+         */
+        get: operations["list_audit_logs_api_v1_admin_audit_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get All Settings
+         * @description Get all system settings with metadata.
+         */
+        get: operations["get_all_settings_api_v1_admin_settings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/settings/history/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Setting History
+         * @description Get evolution history for a specific setting.
+         */
+        get: operations["get_setting_history_api_v1_admin_settings_history__key__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/settings/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Setting
+         * @description Update a setting OR create an approval request if required.
+         */
+        put: operations["update_setting_api_v1_admin_settings__key__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/settings/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Pending Changes
+         * @description Get all pending config changes (Checkers)
+         */
+        get: operations["get_pending_changes_api_v1_admin_settings_pending_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/settings/approve/{change_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve Change
+         * @description Approve a pending config change (Checker).
+         */
+        post: operations["approve_change_api_v1_admin_settings_approve__change_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/settings/reject/{change_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject Change
+         * @description Reject a pending config change.
+         */
+        post: operations["reject_change_api_v1_admin_settings_reject__change_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/treats/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Treat Transactions
+         * @description List all treat transactions (purchases, giving, grants).
+         */
+        get: operations["list_treat_transactions_api_v1_admin_treats_transactions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/treats/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Treat Stats
+         * @description Get global treat statistics.
+         */
+        get: operations["get_treat_stats_api_v1_admin_treats_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/treats/users/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Users For Grant
+         * @description Search users by name or email for the grant modal.
+         */
+        get: operations["search_users_for_grant_api_v1_admin_treats_users_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/treats/grant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Grant Treats Manually
+         * @description Manually grant treats to a user (System Grant).
+         */
+        post: operations["grant_treats_manually_api_v1_admin_treats_grant_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Roles
+         * @description List all available roles.
+         */
+        get: operations["list_roles_api_v1_admin_roles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/roles/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Permissions
+         * @description List all available permissions.
+         */
+        get: operations["list_permissions_api_v1_admin_roles_permissions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/roles/{role_id}/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Role Permissions
+         * @description Get permissions assigned to a specific role.
+         */
+        get: operations["get_role_permissions_api_v1_admin_roles__role_id__permissions_get"];
+        put?: never;
+        /**
+         * Update Role Permissions
+         * @description Update permissions for a specific role (Sync).
+         */
+        post: operations["update_role_permissions_api_v1_admin_roles__role_id__permissions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List All Comments
+         * @description List all comments across the platform with pagination, search and counts.
+         */
+        get: operations["list_all_comments_api_v1_admin_comments_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/comments/{comment_id}/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Comment Report Details
+         * @description Get detailed report reasons for a specific comment.
+         */
+        get: operations["get_comment_report_details_api_v1_admin_comments__comment_id__reports_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/comments/{comment_id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Resolve Comment Reports
+         * @description Dismiss all pending reports for a comment (Mark as Safe).
+         */
+        put: operations["resolve_comment_reports_api_v1_admin_comments__comment_id__resolve_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/comments/{comment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Comment
+         * @description Delete a comment (Moderation).
+         */
+        delete: operations["delete_comment_api_v1_admin_comments__comment_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/comments/{comment_id}/ban-user": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ban User By Comment
+         * @description Ban the author of a specific comment.
+         */
+        post: operations["ban_user_by_comment_api_v1_admin_comments__comment_id__ban_user_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/comments/bulk-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Delete Comments
+         * @description Delete multiple comments in a single action.
+         */
+        post: operations["bulk_delete_comments_api_v1_admin_comments_bulk_delete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/comments/bulk-resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Resolve Comments
+         * @description Dismiss reports for multiple comments in a single action.
+         */
+        post: operations["bulk_resolve_comments_api_v1_admin_comments_bulk_resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/security/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Security Summary
+         * @description Get comprehensive security summary for admin dashboard.
+         *     Combines alert tracking, session management, and system health.
+         */
+        get: operations["get_security_summary_api_v1_admin_security_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/security/alerts/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Security Alerts
+         * @description Reset all security alert tracking.
+         *     Requires system:settings permission.
+         */
+        post: operations["reset_security_alerts_api_v1_admin_security_alerts_reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/security/sessions/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset All Sessions
+         * @description Reset all session tracking.
+         *     Requires system:settings permission.
+         */
+        post: operations["reset_all_sessions_api_v1_admin_security_sessions_reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/health/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liveness Check
+         * @description Liveness probe - checks if the application is running.
+         *
+         *     This is a lightweight check that should always succeed if the
+         *     application is not deadlocked or crashed.
+         *
+         *     Used by: Kubernetes liveness probes, basic monitoring
+         *
+         *     Returns:
+         *         200 OK if application is alive
+         */
+        get: operations["liveness_check_health_live_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/health/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Readiness Check
+         * @description Readiness probe - checks if the application can handle requests.
+         *
+         *     This checks critical dependencies (database) and reports on
+         *     optional services (Redis, S3).
+         *
+         *     Used by: Kubernetes readiness probes, load balancer health checks
+         *
+         *     Returns:
+         *         200 OK if ready to serve requests
+         *         503 Service Unavailable if critical dependencies are down
+         */
+        get: operations["readiness_check_health_ready_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/health/dependencies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Dependency Check
+         * @description Detailed dependency health check.
+         *
+         *     Checks all external services and provides detailed diagnostics.
+         *     This is more verbose than the readiness check and is intended
+         *     for debugging and monitoring dashboards.
+         *
+         *     Returns:
+         *         Detailed status of all dependencies
+         */
+        get: operations["dependency_check_health_dependencies_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/health/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Metrics
+         * @description Basic metrics endpoint for monitoring.
+         *
+         *     Returns cache stats and basic service metrics.
+         *     This is a simple alternative for environments without Prometheus.
+         */
+        get: operations["metrics_health_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-  schemas: {
-    /** AnalysisMetadata */
-    AnalysisMetadata: {
-      /** Filename */
-      filename: string;
-      /** File Size */
-      file_size: number;
-      /** Analyzed By */
-      analyzed_by: string;
+    schemas: {
+        /** AccountDeletionResponse */
+        AccountDeletionResponse: {
+            /** Message */
+            message: string;
+        };
+        /** AnalysisMetadata */
+        AnalysisMetadata: {
+            /** Filename */
+            filename: string;
+            /** File Size */
+            file_size: number;
+            /** Analyzed By */
+            analyzed_by: string;
+        };
+        /** Body_analyze_cat_spot_api_v1_detect_spot_analysis_post */
+        Body_analyze_cat_spot_api_v1_detect_spot_analysis_post: {
+            /** File */
+            file: string;
+        };
+        /** Body_combined_cat_and_spot_analysis_api_v1_detect_combined_post */
+        Body_combined_cat_and_spot_analysis_api_v1_detect_combined_post: {
+            /** File */
+            file: string;
+        };
+        /** Body_detect_cats_in_image_api_v1_detect_cats_post */
+        Body_detect_cats_in_image_api_v1_detect_cats_post: {
+            /** File */
+            file: string;
+        };
+        /** Body_upload_cat_photo_api_v1_upload_cat_post */
+        Body_upload_cat_photo_api_v1_upload_cat_post: {
+            /** File */
+            file: string;
+            /** Lat */
+            lat: string;
+            /** Lng */
+            lng: string;
+            /** Location Name */
+            location_name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string | null;
+            /** Tags */
+            tags?: string | null;
+            /** Cat Detection Data */
+            cat_detection_data?: string | null;
+            /**
+             * Location Blurred
+             * @default false
+             */
+            location_blurred: string;
+        };
+        /** Body_upload_profile_picture_api_v1_profile_picture_post */
+        Body_upload_profile_picture_api_v1_profile_picture_post: {
+            /** File */
+            file: string;
+        };
+        /**
+         * BreachReport
+         * @description Model for reporting a suspected data breach.
+         */
+        BreachReport: {
+            /**
+             * Breach Type
+             * @description Type of breach (unauthorized_access, data_leak, account_compromise, system_intrusion)
+             */
+            breach_type: string;
+            /**
+             * Description
+             * @description Detailed description of the breach
+             */
+            description: string;
+            /**
+             * Affected Users
+             * @description List of affected user IDs
+             */
+            affected_users?: string[] | null;
+            /**
+             * Severity
+             * @description Severity level (low, medium, high, critical)
+             * @default medium
+             */
+            severity: string;
+        };
+        /** BreachStatusUpdate */
+        BreachStatusUpdate: {
+            /**
+             * Status
+             * @description New status (investigating, contained, resolved, false_positive)
+             */
+            status: string;
+            /** Notes */
+            notes?: string | null;
+        };
+        /** BulkCommentAction */
+        BulkCommentAction: {
+            /** Comment Ids */
+            comment_ids: string[];
+        };
+        /** BulkReportUpdate */
+        BulkReportUpdate: {
+            /** Report Ids */
+            report_ids: string[];
+            /** Status */
+            status: string;
+            /** Resolution Notes */
+            resolution_notes?: string | null;
+            /**
+             * Delete Content
+             * @default false
+             */
+            delete_content: boolean;
+        };
+        /** BulkUserAction */
+        BulkUserAction: {
+            /** User Ids */
+            user_ids: string[];
+            /** Reason */
+            reason?: string | null;
+        };
+        /** CatDetected */
+        CatDetected: {
+            /** Description */
+            description: string;
+            /** Breed Guess */
+            breed_guess: string;
+            /** Position */
+            position: string;
+            /** Size */
+            size: string;
+        };
+        /** CatDetectionResult */
+        CatDetectionResult: {
+            /** Has Cats */
+            has_cats: boolean;
+            /** Cat Count */
+            cat_count: number;
+            /** Confidence */
+            confidence: number;
+            /**
+             * Cats Detected
+             * @default []
+             */
+            cats_detected: components["schemas"]["CatDetected"][];
+            /**
+             * Image Quality
+             * @default Medium
+             */
+            image_quality: string | null;
+            /** Suitable For Cat Spot */
+            suitable_for_cat_spot: boolean;
+            /** Reasoning */
+            reasoning?: string | null;
+            /** Note */
+            note?: string | null;
+            /** Filename */
+            filename?: string | null;
+            /** File Size */
+            file_size?: number | null;
+            /** Detected By */
+            detected_by?: string | null;
+        };
+        /** CatLocation */
+        CatLocation: {
+            /** Id */
+            id: string;
+            /** Image Url */
+            image_url: string;
+            /** Latitude */
+            latitude: number;
+            /** Longitude */
+            longitude: number;
+            /** Description */
+            description?: string | null;
+            /** Location Name */
+            location_name?: string | null;
+            /** Uploaded At */
+            uploaded_at?: string | null;
+            /**
+             * Tags
+             * @default []
+             */
+            tags: string[];
+            /**
+             * Likes Count
+             * @default 0
+             */
+            likes_count: number;
+            /**
+             * Comments Count
+             * @default 0
+             */
+            comments_count: number;
+            /** User Id */
+            user_id?: string | null;
+            /**
+             * Liked
+             * @default false
+             */
+            liked: boolean;
+        };
+        /** ChangePasswordRequest */
+        ChangePasswordRequest: {
+            /** Current Password */
+            current_password: string;
+            /** New Password */
+            new_password: string;
+        };
+        /** CheckoutSessionResponse */
+        CheckoutSessionResponse: {
+            /** Checkout Url */
+            checkout_url: string;
+            /** Session Id */
+            session_id: string;
+        };
+        /**
+         * CheckoutUrlResponse
+         * @description Response containing a Stripe checkout URL.
+         */
+        CheckoutUrlResponse: {
+            /** Url */
+            url: string;
+        };
+        /** CombinedAnalysisResult */
+        CombinedAnalysisResult: {
+            cat_detection: components["schemas"]["CatDetectionResult"];
+            spot_analysis: components["schemas"]["SpotAnalysisResult"];
+            overall_recommendation: components["schemas"]["OverallRecommendation"];
+            metadata: components["schemas"]["AnalysisMetadata"];
+        };
+        /** CommentCreate */
+        CommentCreate: {
+            /** Content */
+            content: string;
+        };
+        /** CommentResponse */
+        CommentResponse: {
+            /** Id */
+            id: string;
+            /** User Id */
+            user_id: string;
+            /** Photo Id */
+            photo_id: string;
+            /** Content */
+            content: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Updated At */
+            updated_at?: string | null;
+            /** User Name */
+            user_name?: string | null;
+            /** User Picture */
+            user_picture?: string | null;
+            /**
+             * User Is Pro
+             * @default false
+             */
+            user_is_pro: boolean | null;
+        };
+        /** CommentUpdate */
+        CommentUpdate: {
+            /** Content */
+            content: string;
+        };
+        /** ConfigHistoryResponse */
+        ConfigHistoryResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Config Key */
+            config_key: string;
+            /** Old Value */
+            old_value?: unknown | null;
+            /** New Value */
+            new_value?: unknown | null;
+            /** Changed By */
+            changed_by?: string | null;
+            /** User Email */
+            user_email?: string | null;
+            /** Change Reason */
+            change_reason?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ConfigResponse */
+        ConfigResponse: {
+            /** Key */
+            key: string;
+            /** Value */
+            value: unknown;
+            /** Type */
+            type?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Category */
+            category?: string | null;
+            /**
+             * Is Public
+             * @default false
+             */
+            is_public: boolean;
+            /**
+             * Is Encrypted
+             * @default false
+             */
+            is_encrypted: boolean;
+            /**
+             * Requires Approval
+             * @default false
+             */
+            requires_approval: boolean;
+            /** Updated At */
+            updated_at?: string | null;
+            /** Updated By */
+            updated_by?: string | null;
+        };
+        /** ConfigUpdate */
+        ConfigUpdate: {
+            /** Value */
+            value: unknown;
+            /** Description */
+            description?: string | null;
+            /** Is Public */
+            is_public?: boolean | null;
+            /** Category */
+            category?: string | null;
+            /**
+             * Requires Approval
+             * @default false
+             */
+            requires_approval: boolean | null;
+        };
+        /** ConsentRecord */
+        ConsentRecord: {
+            /**
+             * Consent Type
+             * @description Type of consent (tos, privacy, marketing, data_processing, cookies)
+             */
+            consent_type: string;
+            /**
+             * Granted
+             * @description Whether consent was granted
+             */
+            granted: boolean;
+            /**
+             * Ip Address
+             * @description IP address when consent was given
+             */
+            ip_address?: string | null;
+            /**
+             * User Agent
+             * @description User agent when consent was given
+             */
+            user_agent?: string | null;
+        };
+        /** CreateCheckoutRequest */
+        CreateCheckoutRequest: {
+            /**
+             * Plan
+             * @default monthly
+             */
+            plan: string;
+        };
+        /** CreatePortalRequest */
+        CreatePortalRequest: {
+            /** Return Url */
+            return_url?: string | null;
+        };
+        /** ForgotPasswordRequest */
+        ForgotPasswordRequest: {
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+        };
+        /**
+         * GalleryResponse
+         * @description Legacy response for backward compatibility.
+         */
+        GalleryResponse: {
+            /** Images */
+            images: components["schemas"]["CatLocation"][];
+        };
+        /** GiveTreatRequest */
+        GiveTreatRequest: {
+            /** Photo Id */
+            photo_id: string;
+            /**
+             * Amount
+             * @description Number of treats to give (1-100)
+             */
+            amount: number;
+        };
+        /**
+         * GiveTreatResponse
+         * @description Response for giving treats to a photo owner.
+         */
+        GiveTreatResponse: {
+            /** Message */
+            message: string;
+            /** New Balance */
+            new_balance?: number | null;
+            /** Amount Given */
+            amount_given?: number | null;
+        };
+        /** GoogleCodeExchangeRequest */
+        GoogleCodeExchangeRequest: {
+            /** Code */
+            code: string;
+            /** Code Verifier */
+            code_verifier: string;
+            /** Redirect Uri */
+            redirect_uri: string;
+        };
+        /** GoogleTokenRequest */
+        GoogleTokenRequest: {
+            /** Token */
+            token: string;
+        };
+        /** GrantTreatRequest */
+        GrantTreatRequest: {
+            /**
+             * User Id
+             * @description UUID of the target user
+             */
+            user_id: string;
+            /**
+             * Amount
+             * @description Number of treats to grant (1-10000)
+             */
+            amount: number;
+            /**
+             * Reason
+             * @description Reason for the grant
+             */
+            reason: string;
+        };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * LeaderboardEntry
+         * @description Single leaderboard entry.
+         */
+        LeaderboardEntry: {
+            /** User Id */
+            user_id?: string | null;
+            /** User Name */
+            user_name?: string | null;
+            /**
+             * Total Received
+             * @default 0
+             */
+            total_received: number;
+        };
+        /** LikeResponse */
+        LikeResponse: {
+            /** Liked */
+            liked: boolean;
+            /** Likes Count */
+            likes_count: number;
+        };
+        /** LoginRequest */
+        LoginRequest: {
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** Password */
+            password: string;
+        };
+        /** LoginResponse */
+        LoginResponse: {
+            /** Access Token */
+            access_token?: string | null;
+            /**
+             * Token Type
+             * @default bearer
+             */
+            token_type: string | null;
+            user?: components["schemas"]["UserResponse"] | null;
+            /** Message */
+            message?: string | null;
+            /**
+             * Requires Verification
+             * @default false
+             */
+            requires_verification: boolean;
+            /** Email */
+            email?: string | null;
+        };
+        /** LogoutResponse */
+        LogoutResponse: {
+            /** Message */
+            message: string;
+        };
+        /**
+         * MessageResponse
+         * @description Simple message response.
+         */
+        MessageResponse: {
+            /** Message */
+            message?: string | null;
+            /** Status */
+            status?: string | null;
+        };
+        /** NotificationResponse */
+        NotificationResponse: {
+            /** Id */
+            id: string;
+            /** User Id */
+            user_id: string;
+            /** Actor Id */
+            actor_id?: string | null;
+            type: components["schemas"]["NotificationType"];
+            /** Title */
+            title?: string | null;
+            /** Message */
+            message?: string | null;
+            /** Resource Id */
+            resource_id?: string | null;
+            /** Resource Type */
+            resource_type?: string | null;
+            /** Is Read */
+            is_read: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Actor Name */
+            actor_name?: string | null;
+            /** Actor Picture */
+            actor_picture?: string | null;
+        };
+        /**
+         * NotificationType
+         * @enum {string}
+         */
+        NotificationType: "like" | "comment" | "treat" | "system";
+        /** OverallRecommendation */
+        OverallRecommendation: {
+            /** Suitable For Cat Spot */
+            suitable_for_cat_spot: boolean;
+            /** Confidence */
+            confidence: number;
+            /** Summary */
+            summary: string;
+        };
+        /**
+         * PaginatedGalleryResponse
+         * @description Unified response for offset-based gallery.
+         */
+        PaginatedGalleryResponse: {
+            /** Images */
+            images: components["schemas"]["CatLocation"][];
+            pagination: components["schemas"]["PaginationMeta"];
+        };
+        /**
+         * PaginationMeta
+         * @description Offset-based pagination metadata.
+         */
+        PaginationMeta: {
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Has More */
+            has_more: boolean;
+            /** Page */
+            page: number;
+            /** Total Pages */
+            total_pages: number;
+        };
+        /** PasswordChangeResponse */
+        PasswordChangeResponse: {
+            /** Message */
+            message: string;
+        };
+        /** PasswordResetResponse */
+        PasswordResetResponse: {
+            /** Message */
+            message: string;
+        };
+        /** PendingActionRequest */
+        PendingActionRequest: {
+            /** Rejection Reason */
+            rejection_reason?: string | null;
+        };
+        /** PendingConfigChangeResponse */
+        PendingConfigChangeResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Config Key */
+            config_key: string;
+            /** Proposed Value */
+            proposed_value: unknown;
+            /** Current Value */
+            current_value?: unknown | null;
+            /**
+             * Requester Id
+             * Format: uuid
+             */
+            requester_id: string;
+            /** Requester Email */
+            requester_email?: string | null;
+            /** Approver Id */
+            approver_id?: string | null;
+            /** Status */
+            status: string;
+            /** Rejection Reason */
+            rejection_reason?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** PhotoDeleteResponse */
+        PhotoDeleteResponse: {
+            /** Message */
+            message: string;
+        };
+        /** PhotoUpdateAdmin */
+        PhotoUpdateAdmin: {
+            /** Location Name */
+            location_name?: string | null;
+            /** Description */
+            description?: string | null;
+        };
+        /** PhotoUpdateResponse */
+        PhotoUpdateResponse: {
+            /** Message */
+            message: string;
+        };
+        /** PopularTagsResponse */
+        PopularTagsResponse: {
+            /** Tags */
+            tags: components["schemas"]["TagInfo"][];
+        };
+        /** PortalResponse */
+        PortalResponse: {
+            /** Url */
+            url: string;
+        };
+        /** ProfilePictureResponse */
+        ProfilePictureResponse: {
+            /** Message */
+            message: string;
+            /** Picture */
+            picture: string;
+        };
+        /** ProfileResponse */
+        ProfileResponse: {
+            /** Id */
+            id: string;
+            /** Email */
+            email: string;
+            /** Username */
+            username?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Picture */
+            picture?: string | null;
+            /** Bio */
+            bio?: string | null;
+            /** Created At */
+            created_at?: string | null;
+            /**
+             * Is Pro
+             * @default false
+             */
+            is_pro: boolean;
+        };
+        /** ProfileUpdateRequest */
+        ProfileUpdateRequest: {
+            /** Name */
+            name?: string | null;
+            /** Username */
+            username?: string | null;
+            /** Bio */
+            bio?: string | null;
+            /** Picture */
+            picture?: string | null;
+        };
+        /** ProfileUpdateResponse */
+        ProfileUpdateResponse: {
+            /** Message */
+            message: string;
+            /** User */
+            user: {
+                [key: string]: unknown;
+            };
+        };
+        /** PublicProfileResponse */
+        PublicProfileResponse: {
+            /** Id */
+            id: string;
+            /** Name */
+            name?: string | null;
+            /** Picture */
+            picture?: string | null;
+            /** Bio */
+            bio?: string | null;
+            /** Created At */
+            created_at?: string | null;
+            /**
+             * Is Pro
+             * @default false
+             */
+            is_pro: boolean;
+        };
+        /** PurchaseTreatsRequest */
+        PurchaseTreatsRequest: {
+            /** Package */
+            package: string;
+        };
+        /** RegisterInput */
+        RegisterInput: {
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /**
+             * Password
+             * @description Password must be at least 8 characters long and include uppercase, lowercase, number, and special character
+             */
+            password: string;
+            /**
+             * Name
+             * @description Please enter first and last name
+             */
+            name: string;
+        };
+        /** ReportCreate */
+        ReportCreate: {
+            /**
+             * Photo Id
+             * Format: uuid
+             */
+            photo_id: string;
+            /**
+             * Reason
+             * @description Reason for reporting (spam, nudity, not_a_cat, etc.)
+             */
+            reason: string;
+            /**
+             * Details
+             * @description Additional details provided by the reporter
+             */
+            details?: string | null;
+        };
+        /** ReportResponse */
+        ReportResponse: {
+            /**
+             * Photo Id
+             * Format: uuid
+             */
+            photo_id: string;
+            /**
+             * Reason
+             * @description Reason for reporting (spam, nudity, not_a_cat, etc.)
+             */
+            reason: string;
+            /**
+             * Details
+             * @description Additional details provided by the reporter
+             */
+            details?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Reporter Id */
+            reporter_id?: string | null;
+            /** Status */
+            status: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Resolved At */
+            resolved_at?: string | null;
+            /** Resolved By */
+            resolved_by?: string | null;
+            /** Resolution Notes */
+            resolution_notes?: string | null;
+        };
+        /** ResendOTPRequest */
+        ResendOTPRequest: {
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+        };
+        /** ResendOTPResponse */
+        ResendOTPResponse: {
+            /** Message */
+            message: string;
+            /** Expires At */
+            expires_at?: string | null;
+        };
+        /** ResetPasswordRequest */
+        ResetPasswordRequest: {
+            /** Token */
+            token: string;
+            /** New Password */
+            new_password: string;
+        };
+        /** RolePermissionUpdate */
+        RolePermissionUpdate: {
+            /** Role Id */
+            role_id: string;
+            /** Permission Ids */
+            permission_ids: string[];
+        };
+        /** RoleUpdateAdmin */
+        RoleUpdateAdmin: {
+            /**
+             * Role Id
+             * @description UUID of the role
+             */
+            role_id: string;
+        };
+        /** SafetyFactors */
+        SafetyFactors: {
+            /** Safe From Traffic */
+            safe_from_traffic: boolean;
+            /** Has Shelter */
+            has_shelter: boolean;
+            /** Food Source Nearby */
+            food_source_nearby: boolean;
+            /** Water Access */
+            water_access: boolean;
+            /** Escape Routes */
+            escape_routes: boolean;
+        };
+        /** SearchResponse */
+        SearchResponse: {
+            /** Results */
+            results: components["schemas"]["CatLocation"][];
+            /** Total */
+            total: number;
+            /** Query */
+            query?: string | null;
+            /** Tags */
+            tags?: string[] | null;
+            /** Limit */
+            limit?: number | null;
+            /** Offset */
+            offset?: number | null;
+        };
+        /** SessionExchangeRequest */
+        SessionExchangeRequest: {
+            /** Access Token */
+            access_token: string;
+            /** Refresh Token */
+            refresh_token: string;
+        };
+        /**
+         * SortField
+         * @description Allowed sort fields for gallery.
+         * @enum {string}
+         */
+        SortField: "uploaded_at" | "likes_count" | "comments_count";
+        /**
+         * SortOrder
+         * @description Sort order.
+         * @enum {string}
+         */
+        SortOrder: "asc" | "desc";
+        /** SpotAnalysisResult */
+        SpotAnalysisResult: {
+            /** Suitability Score */
+            suitability_score: number;
+            safety_factors?: components["schemas"]["SafetyFactors"] | null;
+            /** Environment Type */
+            environment_type: string;
+            /** Pros */
+            pros: string[];
+            /** Cons */
+            cons: string[];
+            /** Recommendations */
+            recommendations: string[];
+            /** Best Times */
+            best_times: string[];
+            /** Note */
+            note?: string | null;
+            /** Filename */
+            filename?: string | null;
+            /** Analyzed By */
+            analyzed_by?: string | null;
+        };
+        /** SubscriptionStatus */
+        SubscriptionStatus: {
+            /** Is Pro */
+            is_pro: boolean;
+            /** Subscription End Date */
+            subscription_end_date?: string | null;
+            /**
+             * Cancel At Period End
+             * @default false
+             */
+            cancel_at_period_end: boolean;
+            /** Stripe Customer Id */
+            stripe_customer_id?: string | null;
+            /**
+             * Treat Balance
+             * @default 0
+             */
+            treat_balance: number;
+        };
+        /** SyncUserResponse */
+        SyncUserResponse: {
+            /** Message */
+            message: string;
+            /** Data */
+            data: {
+                [key: string]: unknown;
+            };
+        };
+        /** TagInfo */
+        TagInfo: {
+            /** Tag */
+            tag: string;
+            /** Count */
+            count: number;
+        };
+        /** TreatBalanceResponse */
+        TreatBalanceResponse: {
+            /** Balance */
+            balance: number;
+            /** Recent Transactions */
+            recent_transactions: components["schemas"]["TreatTransaction"][];
+        };
+        /** TreatTransaction */
+        TreatTransaction: {
+            /** Id */
+            id: string;
+            /** Amount */
+            amount: number;
+            /** Transaction Type */
+            transaction_type: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Photo Id */
+            photo_id?: string | null;
+            /** From User Id */
+            from_user_id?: string | null;
+            /** To User Id */
+            to_user_id?: string | null;
+        };
+        /** UpdatePhotoRequest */
+        UpdatePhotoRequest: {
+            /** Location Name */
+            location_name?: string | null;
+            /** Description */
+            description?: string | null;
+        };
+        /**
+         * UploadQuotaResponse
+         * @description Upload quota status response.
+         */
+        UploadQuotaResponse: {
+            /** Used */
+            used: number;
+            /** Limit */
+            limit: number;
+            /** Remaining */
+            remaining: number;
+            /** Is Pro */
+            is_pro: boolean;
+            /** Reset Type */
+            reset_type?: string | null;
+            /** Resets At */
+            resets_at?: string | null;
+        };
+        /** UploadsResponse */
+        UploadsResponse: {
+            /** Uploads */
+            uploads: {
+                [key: string]: unknown;
+            }[];
+            /** Count */
+            count: number;
+        };
+        /** UserBan */
+        UserBan: {
+            /** Reason */
+            reason: string;
+        };
+        /**
+         * UserResponse
+         * @description Public-facing user representation.
+         *
+         *     SEC-04: role_id and permissions are intentionally omitted to avoid
+         *     exposing the internal RBAC structure to clients. Those values are
+         *     embedded in the JWT claims used server-side only.
+         */
+        UserResponse: {
+            /** Id */
+            id: string;
+            /** Username */
+            username?: string | null;
+            /** Google Id */
+            google_id?: string | null;
+            /** Email */
+            email: string;
+            /** Name */
+            name?: string | null;
+            /** Picture */
+            picture?: string | null;
+            /** Bio */
+            bio?: string | null;
+            /** Created At */
+            created_at?: string | null;
+            /**
+             * Is Pro
+             * @default false
+             */
+            is_pro: boolean;
+            /**
+             * Treat Balance
+             * @default 0
+             */
+            treat_balance: number;
+            /**
+             * Role
+             * @default user
+             */
+            role: string;
+            /**
+             * Permissions
+             * @default []
+             */
+            permissions: string[];
+            /** Banned At */
+            banned_at?: string | null;
+        };
+        /** UserUpdateAdmin */
+        UserUpdateAdmin: {
+            /** Name */
+            name?: string | null;
+            /** Bio */
+            bio?: string | null;
+            /** Website */
+            website?: string | null;
+            /** Picture */
+            picture?: string | null;
+            /** Role */
+            role?: string | null;
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
+        };
+        /** VerifyOTPRequest */
+        VerifyOTPRequest: {
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /**
+             * Otp
+             * @description 6-digit OTP code
+             */
+            otp: string;
+        };
     };
-    /** Body_analyze_cat_spot_api_v1_detect_spot_analysis_post */
-    Body_analyze_cat_spot_api_v1_detect_spot_analysis_post: {
-      /** File */
-      file: string;
-    };
-    /** Body_combined_cat_and_spot_analysis_api_v1_detect_combined_post */
-    Body_combined_cat_and_spot_analysis_api_v1_detect_combined_post: {
-      /** File */
-      file: string;
-    };
-    /** Body_detect_cats_in_image_api_v1_detect_cats_post */
-    Body_detect_cats_in_image_api_v1_detect_cats_post: {
-      /** File */
-      file: string;
-    };
-    /** Body_test_analyze_spot_api_v1_detect_test_spot_post */
-    Body_test_analyze_spot_api_v1_detect_test_spot_post: {
-      /** File */
-      file: string;
-    };
-    /** Body_test_detect_cats_api_v1_detect_test_cats_post */
-    Body_test_detect_cats_api_v1_detect_test_cats_post: {
-      /** File */
-      file: string;
-    };
-    /** Body_upload_cat_photo_api_v1_upload_cat_post */
-    Body_upload_cat_photo_api_v1_upload_cat_post: {
-      /** File */
-      file: string;
-      /** Lat */
-      lat: string;
-      /** Lng */
-      lng: string;
-      /** Location Name */
-      location_name: string;
-      /**
-       * Description
-       * @default
-       */
-      description: string | null;
-      /** Tags */
-      tags?: string | null;
-      /** Cat Detection Data */
-      cat_detection_data?: string | null;
-      /**
-       * Location Blurred
-       * @default false
-       */
-      location_blurred: string;
-    };
-    /** Body_upload_profile_picture_api_v1_profile_picture_post */
-    Body_upload_profile_picture_api_v1_profile_picture_post: {
-      /** File */
-      file: string;
-    };
-    /** BulkReportUpdate */
-    BulkReportUpdate: {
-      /** Report Ids */
-      report_ids: string[];
-      /** Status */
-      status: string;
-      /** Resolution Notes */
-      resolution_notes?: string | null;
-      /**
-       * Delete Content
-       * @default false
-       */
-      delete_content: boolean;
-    };
-    /** CatDetected */
-    CatDetected: {
-      /** Description */
-      description: string;
-      /** Breed Guess */
-      breed_guess: string;
-      /** Position */
-      position: string;
-      /** Size */
-      size: string;
-    };
-    /** CatDetectionResult */
-    CatDetectionResult: {
-      /** Has Cats */
-      has_cats: boolean;
-      /** Cat Count */
-      cat_count: number;
-      /** Confidence */
-      confidence: number;
-      /**
-       * Cats Detected
-       * @default []
-       */
-      cats_detected: components['schemas']['CatDetected'][];
-      /**
-       * Image Quality
-       * @default Medium
-       */
-      image_quality: string | null;
-      /** Suitable For Cat Spot */
-      suitable_for_cat_spot: boolean;
-      /** Reasoning */
-      reasoning?: string | null;
-      /** Note */
-      note?: string | null;
-      /** Filename */
-      filename?: string | null;
-      /** File Size */
-      file_size?: number | null;
-      /** Detected By */
-      detected_by?: string | null;
-    };
-    /** CatLocation */
-    CatLocation: {
-      /** Id */
-      id: string;
-      /** Image Url */
-      image_url: string;
-      /** Latitude */
-      latitude: number;
-      /** Longitude */
-      longitude: number;
-      /** Description */
-      description?: string | null;
-      /** Location Name */
-      location_name?: string | null;
-      /** Uploaded At */
-      uploaded_at?: string | null;
-      /**
-       * Tags
-       * @default []
-       */
-      tags: string[];
-      /**
-       * Likes Count
-       * @default 0
-       */
-      likes_count: number;
-      /**
-       * Comments Count
-       * @default 0
-       */
-      comments_count: number;
-      /** User Id */
-      user_id?: string | null;
-      /**
-       * Liked
-       * @default false
-       */
-      liked: boolean;
-    };
-    /** ChangePasswordRequest */
-    ChangePasswordRequest: {
-      /** Current Password */
-      current_password: string;
-      /** New Password */
-      new_password: string;
-    };
-    /** CheckoutSessionResponse */
-    CheckoutSessionResponse: {
-      /** Checkout Url */
-      checkout_url: string;
-      /** Session Id */
-      session_id: string;
-    };
-    /** CombinedAnalysisResult */
-    CombinedAnalysisResult: {
-      cat_detection: components['schemas']['CatDetectionResult'];
-      spot_analysis: components['schemas']['SpotAnalysisResult'];
-      overall_recommendation: components['schemas']['OverallRecommendation'];
-      metadata: components['schemas']['AnalysisMetadata'];
-    };
-    /** CommentCreate */
-    CommentCreate: {
-      /** Content */
-      content: string;
-    };
-    /** CommentResponse */
-    CommentResponse: {
-      /** Id */
-      id: string;
-      /** User Id */
-      user_id: string;
-      /** Photo Id */
-      photo_id: string;
-      /** Content */
-      content: string;
-      /**
-       * Created At
-       * Format: date-time
-       */
-      created_at: string;
-      /** Updated At */
-      updated_at?: string | null;
-      /** User Name */
-      user_name?: string | null;
-      /** User Picture */
-      user_picture?: string | null;
-    };
-    /** CommentUpdate */
-    CommentUpdate: {
-      /** Content */
-      content: string;
-    };
-    /** CreateCheckoutRequest */
-    CreateCheckoutRequest: {
-      /** Price Id */
-      price_id: string;
-      /** Success Url */
-      success_url: string;
-      /** Cancel Url */
-      cancel_url: string;
-    };
-    /**
-     * FeatureFlagsResponse
-     * @description Response model for feature flags.
-     */
-    FeatureFlagsResponse: {
-      /** Flags */
-      flags: {
-        [key: string]: boolean;
-      };
-    };
-    /** ForgotPasswordRequest */
-    ForgotPasswordRequest: {
-      /**
-       * Email
-       * Format: email
-       */
-      email: string;
-    };
-    /**
-     * GalleryResponse
-     * @description Legacy response for backward compatibility
-     */
-    GalleryResponse: {
-      /** Images */
-      images: components['schemas']['CatLocation'][];
-    };
-    /** GiveTreatRequest */
-    GiveTreatRequest: {
-      /** Photo Id */
-      photo_id: string;
-      /**
-       * Amount
-       * @description Number of treats to give (1-100)
-       */
-      amount: number;
-    };
-    /** GoogleCodeExchangeRequest */
-    GoogleCodeExchangeRequest: {
-      /** Code */
-      code: string;
-      /** Code Verifier */
-      code_verifier: string;
-      /** Redirect Uri */
-      redirect_uri: string;
-    };
-    /** GoogleTokenRequest */
-    GoogleTokenRequest: {
-      /** Token */
-      token: string;
-    };
-    /** HTTPValidationError */
-    HTTPValidationError: {
-      /** Detail */
-      detail?: components['schemas']['ValidationError'][];
-    };
-    /** LikeResponse */
-    LikeResponse: {
-      /** Liked */
-      liked: boolean;
-      /** Likes Count */
-      likes_count: number;
-    };
-    /** LoginRequest */
-    LoginRequest: {
-      /**
-       * Email
-       * Format: email
-       */
-      email: string;
-      /** Password */
-      password: string;
-    };
-    /** LoginResponse */
-    LoginResponse: {
-      /** Access Token */
-      access_token?: string | null;
-      /**
-       * Token Type
-       * @default bearer
-       */
-      token_type: string | null;
-      user?: components['schemas']['UserResponse'] | null;
-      /** Message */
-      message?: string | null;
-      /**
-       * Requires Verification
-       * @default false
-       */
-      requires_verification: boolean;
-      /** Email */
-      email?: string | null;
-      /** Refresh Token */
-      refresh_token?: string | null;
-    };
-    /** NotificationResponse */
-    NotificationResponse: {
-      /** Id */
-      id: string;
-      /** User Id */
-      user_id: string;
-      /** Actor Id */
-      actor_id?: string | null;
-      type: components['schemas']['NotificationType'];
-      /** Title */
-      title?: string | null;
-      /** Message */
-      message?: string | null;
-      /** Resource Id */
-      resource_id?: string | null;
-      /** Resource Type */
-      resource_type?: string | null;
-      /** Is Read */
-      is_read: boolean;
-      /**
-       * Created At
-       * Format: date-time
-       */
-      created_at: string;
-      /** Actor Name */
-      actor_name?: string | null;
-      /** Actor Picture */
-      actor_picture?: string | null;
-    };
-    /**
-     * NotificationType
-     * @enum {string}
-     */
-    NotificationType: 'like' | 'comment' | 'treat' | 'system';
-    /** OverallRecommendation */
-    OverallRecommendation: {
-      /** Suitable For Cat Spot */
-      suitable_for_cat_spot: boolean;
-      /** Confidence */
-      confidence: number;
-      /** Summary */
-      summary: string;
-    };
-    /**
-     * PaginatedGalleryResponse
-     * @description Paginated gallery response with metadata
-     */
-    PaginatedGalleryResponse: {
-      /** Images */
-      images: components['schemas']['CatLocation'][];
-      pagination: components['schemas']['PaginationMeta'];
-    };
-    /**
-     * PaginationMeta
-     * @description Pagination metadata
-     */
-    PaginationMeta: {
-      /** Total */
-      total: number;
-      /** Limit */
-      limit: number;
-      /** Offset */
-      offset: number;
-      /** Has More */
-      has_more: boolean;
-      /** Page */
-      page: number;
-      /** Total Pages */
-      total_pages: number;
-    };
-    /** PhotoUpdateAdmin */
-    PhotoUpdateAdmin: {
-      /** Location Name */
-      location_name?: string | null;
-      /** Description */
-      description?: string | null;
-    };
-    /** PopularTagsResponse */
-    PopularTagsResponse: {
-      /** Tags */
-      tags: components['schemas']['TagInfo'][];
-    };
-    /** PortalResponse */
-    PortalResponse: {
-      /** Url */
-      url: string;
-    };
-    /** ProfileUpdateRequest */
-    ProfileUpdateRequest: {
-      /** Name */
-      name?: string | null;
-      /** Username */
-      username?: string | null;
-      /** Bio */
-      bio?: string | null;
-      /** Picture */
-      picture?: string | null;
-    };
-    /** PurchaseTreatsRequest */
-    PurchaseTreatsRequest: {
-      /** Package */
-      package: string;
-    };
-    /** RegisterInput */
-    RegisterInput: {
-      /**
-       * Email
-       * Format: email
-       */
-      email: string;
-      /**
-       * Password
-       * @description Password must be at least 8 characters long
-       */
-      password: string;
-      /**
-       * Name
-       * @description Please enter first and last name
-       */
-      name: string;
-    };
-    /** ReportCreate */
-    ReportCreate: {
-      /**
-       * Photo Id
-       * Format: uuid
-       */
-      photo_id: string;
-      /**
-       * Reason
-       * @description Reason for reporting (spam, nudity, not_a_cat, etc.)
-       */
-      reason: string;
-      /**
-       * Details
-       * @description Additional details provided by the reporter
-       */
-      details?: string | null;
-    };
-    /** ReportResponse */
-    ReportResponse: {
-      /**
-       * Photo Id
-       * Format: uuid
-       */
-      photo_id: string;
-      /**
-       * Reason
-       * @description Reason for reporting (spam, nudity, not_a_cat, etc.)
-       */
-      reason: string;
-      /**
-       * Details
-       * @description Additional details provided by the reporter
-       */
-      details?: string | null;
-      /**
-       * Id
-       * Format: uuid
-       */
-      id: string;
-      /** Reporter Id */
-      reporter_id?: string | null;
-      /** Status */
-      status: string;
-      /**
-       * Created At
-       * Format: date-time
-       */
-      created_at: string;
-      /**
-       * Updated At
-       * Format: date-time
-       */
-      updated_at: string;
-      /** Resolved At */
-      resolved_at?: string | null;
-      /** Resolved By */
-      resolved_by?: string | null;
-      /** Resolution Notes */
-      resolution_notes?: string | null;
-    };
-    /** ResendOTPRequest */
-    ResendOTPRequest: {
-      /**
-       * Email
-       * Format: email
-       */
-      email: string;
-    };
-    /** ResetPasswordRequest */
-    ResetPasswordRequest: {
-      /** Token */
-      token: string;
-      /** New Password */
-      new_password: string;
-    };
-    /** RoleUpdateAdmin */
-    RoleUpdateAdmin: {
-      /**
-       * Role Id
-       * @description UUID of the role
-       */
-      role_id: string;
-    };
-    /** SafetyFactors */
-    SafetyFactors: {
-      /** Safe From Traffic */
-      safe_from_traffic: boolean;
-      /** Has Shelter */
-      has_shelter: boolean;
-      /** Food Source Nearby */
-      food_source_nearby: boolean;
-      /** Water Access */
-      water_access: boolean;
-      /** Escape Routes */
-      escape_routes: boolean;
-    };
-    /** SearchResponse */
-    SearchResponse: {
-      /** Results */
-      results: components['schemas']['CatLocation'][];
-      /** Total */
-      total: number;
-      /** Query */
-      query?: string | null;
-      /** Tags */
-      tags?: string[] | null;
-      /** Limit */
-      limit?: number | null;
-      /** Offset */
-      offset?: number | null;
-    };
-    /** SessionExchangeRequest */
-    SessionExchangeRequest: {
-      /** Access Token */
-      access_token: string;
-      /** Refresh Token */
-      refresh_token: string;
-    };
-    /** SpotAnalysisResult */
-    SpotAnalysisResult: {
-      /** Suitability Score */
-      suitability_score: number;
-      safety_factors?: components['schemas']['SafetyFactors'] | null;
-      /** Environment Type */
-      environment_type: string;
-      /** Pros */
-      pros: string[];
-      /** Cons */
-      cons: string[];
-      /** Recommendations */
-      recommendations: string[];
-      /** Best Times */
-      best_times: string[];
-      /** Note */
-      note?: string | null;
-      /** Filename */
-      filename?: string | null;
-      /** Analyzed By */
-      analyzed_by?: string | null;
-    };
-    /** SubscriptionStatus */
-    SubscriptionStatus: {
-      /** Is Pro */
-      is_pro: boolean;
-      /** Subscription End Date */
-      subscription_end_date?: string | null;
-      /**
-       * Cancel At Period End
-       * @default false
-       */
-      cancel_at_period_end: boolean;
-      /** Stripe Customer Id */
-      stripe_customer_id?: string | null;
-      /**
-       * Treat Balance
-       * @default 0
-       */
-      treat_balance: number;
-    };
-    /** TagInfo */
-    TagInfo: {
-      /** Tag */
-      tag: string;
-      /** Count */
-      count: number;
-    };
-    /** TreatBalanceResponse */
-    TreatBalanceResponse: {
-      /** Balance */
-      balance: number;
-      /** Recent Transactions */
-      recent_transactions: components['schemas']['TreatTransaction'][];
-    };
-    /** TreatTransaction */
-    TreatTransaction: {
-      /** Id */
-      id: string;
-      /** Amount */
-      amount: number;
-      /** Transaction Type */
-      transaction_type: string;
-      /**
-       * Created At
-       * Format: date-time
-       */
-      created_at: string;
-      /** Photo Id */
-      photo_id?: string | null;
-      /** From User Id */
-      from_user_id?: string | null;
-      /** To User Id */
-      to_user_id?: string | null;
-    };
-    /** UpdatePhotoRequest */
-    UpdatePhotoRequest: {
-      /** Location Name */
-      location_name?: string | null;
-      /** Description */
-      description?: string | null;
-    };
-    /** UserBan */
-    UserBan: {
-      /** Reason */
-      reason: string;
-    };
-    /**
-     * UserResponse
-     * @description Public-facing user representation.
-     *
-     *     SEC-04: role_id and permissions are intentionally omitted to avoid
-     *     exposing the internal RBAC structure to clients. Those values are
-     *     embedded in the JWT claims used server-side only.
-     */
-    UserResponse: {
-      /** Id */
-      id: string;
-      /** Username */
-      username?: string | null;
-      /** Google Id */
-      google_id?: string | null;
-      /** Email */
-      email: string;
-      /** Name */
-      name?: string | null;
-      /** Picture */
-      picture?: string | null;
-      /** Bio */
-      bio?: string | null;
-      /** Created At */
-      created_at?: string | null;
-      /**
-       * Is Pro
-       * @default false
-       */
-      is_pro: boolean;
-      /**
-       * Treat Balance
-       * @default 0
-       */
-      treat_balance: number;
-      /**
-       * Role
-       * @default user
-       */
-      role: string;
-      /** Banned At */
-      banned_at?: string | null;
-    };
-    /** UserUpdateAdmin */
-    UserUpdateAdmin: {
-      /** Name */
-      name?: string | null;
-      /** Bio */
-      bio?: string | null;
-      /** Website */
-      website?: string | null;
-      /** Picture */
-      picture?: string | null;
-      /** Role */
-      role?: string | null;
-    };
-    /** ValidationError */
-    ValidationError: {
-      /** Location */
-      loc: (string | number)[];
-      /** Message */
-      msg: string;
-      /** Error Type */
-      type: string;
-      /** Input */
-      input?: unknown;
-      /** Context */
-      ctx?: Record<string, never>;
-    };
-    /** VerifyOTPRequest */
-    VerifyOTPRequest: {
-      /**
-       * Email
-       * Format: email
-       */
-      email: string;
-      /**
-       * Otp
-       * @description 6-digit OTP code
-       */
-      otp: string;
-    };
-  };
-  responses: never;
-  parameters: never;
-  requestBodies: never;
-  headers: never;
-  pathItems: never;
+    responses: never;
+    parameters: never;
+    requestBodies: never;
+    headers: never;
+    pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-  root__get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': unknown;
-        };
-      };
-    };
-  };
-  health_check_health_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': unknown;
-        };
-      };
-    };
-  };
-  register_api_v1_auth_register_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['RegisterInput'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['LoginResponse'];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  verify_otp_api_v1_auth_verify_otp_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['VerifyOTPRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['LoginResponse'];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  resend_otp_api_v1_auth_resend_otp_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ResendOTPRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  login_api_v1_auth_login_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['LoginRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['LoginResponse'];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  refresh_token_api_v1_auth_refresh_token_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['LoginResponse'];
-        };
-      };
-    };
-  };
-  logout_api_v1_auth_logout_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-    };
-  };
-  forgot_password_api_v1_auth_forgot_password_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ForgotPasswordRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  reset_password_api_v1_auth_reset_password_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ResetPasswordRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  exchange_session_api_v1_auth_session_exchange_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['SessionExchangeRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['LoginResponse'];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  get_current_user_info_api_v1_auth_me_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['UserResponse'];
-        };
-      };
-    };
-  };
-  google_login_redirect_api_v1_auth_google_login_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': unknown;
-        };
-      };
-    };
-  };
-  google_login_api_v1_auth_google_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['GoogleTokenRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['LoginResponse'];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  google_exchange_code_api_v1_auth_google_exchange_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['GoogleCodeExchangeRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['LoginResponse'];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  sync_user_data_api_v1_auth_sync_user_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-    };
-  };
-  get_profile_api_v1_profile__get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description User not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Internal Server Error */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  update_profile_api_v1_profile__put: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ProfileUpdateRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Bad Request */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Not Found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Conflict */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-      /** @description Internal Server Error */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  get_profile_api_v1_profile_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description User not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Internal Server Error */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  update_profile_api_v1_profile_put: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ProfileUpdateRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Bad Request */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Not Found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Conflict */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-      /** @description Internal Server Error */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  get_public_profile_api_v1_profile_public__identifier__get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description User UUID or Username endpoint identifier */
-        identifier: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  get_public_user_uploads_api_v1_profile_public__identifier__uploads_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description User UUID or Username endpoint identifier */
-        identifier: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-      /** @description Internal Server Error */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  get_user_uploads_api_v1_profile_uploads_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Internal Server Error */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  upload_profile_picture_api_v1_profile_picture_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'multipart/form-data': components['schemas']['Body_upload_profile_picture_api_v1_profile_picture_post'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: string;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-      /** @description Internal Server Error */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  change_password_api_v1_profile_password_put: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ChangePasswordRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: string;
-          };
-        };
-      };
-      /** @description Bad Request */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-      /** @description Internal Server Error */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  update_user_photo_api_v1_profile_uploads__photo_id__put: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Must be a valid UUID */
-        photo_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['UpdatePhotoRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: string;
-          };
-        };
-      };
-      /** @description Bad Request */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Unauthorized */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Not Found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-      /** @description Internal Server Error */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  delete_user_photo_api_v1_profile_uploads__photo_id__delete: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Must be a valid UUID */
-        photo_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      202: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: string;
-          };
-        };
-      };
-      /** @description Not Found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-      /** @description Internal Server Error */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  request_account_deletion_api_v1_profile_delete_request_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: string;
-          };
-        };
-      };
-      /** @description Conflict/Bad Request */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Internal Server Error */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  cancel_account_deletion_api_v1_profile_cancel_deletion_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: string;
-          };
-        };
-      };
-      /** @description Conflict/Bad Request */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Internal Server Error */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  get_upload_quota_api_v1_upload_quota_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-    };
-  };
-  upload_cat_photo_api_v1_upload_cat_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'multipart/form-data': components['schemas']['Body_upload_cat_photo_api_v1_upload_cat_post'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  test_upload_endpoint_api_v1_upload_test_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-    };
-  };
-  detect_cats_in_image_api_v1_detect_cats_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'multipart/form-data': components['schemas']['Body_detect_cats_in_image_api_v1_detect_cats_post'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['CatDetectionResult'];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  analyze_cat_spot_api_v1_detect_spot_analysis_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'multipart/form-data': components['schemas']['Body_analyze_cat_spot_api_v1_detect_spot_analysis_post'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['SpotAnalysisResult'];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  combined_cat_and_spot_analysis_api_v1_detect_combined_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'multipart/form-data': components['schemas']['Body_combined_cat_and_spot_analysis_api_v1_detect_combined_post'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['CombinedAnalysisResult'];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  test_detect_cats_api_v1_detect_test_cats_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'multipart/form-data': components['schemas']['Body_test_detect_cats_api_v1_detect_test_cats_post'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  test_analyze_spot_api_v1_detect_test_spot_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'multipart/form-data': components['schemas']['Body_test_analyze_spot_api_v1_detect_test_spot_post'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  get_gallery_api_v1_gallery_get: {
-    parameters: {
-      query?: {
-        /** @description Number of items per page */
-        limit?: number;
-        /** @description Number of items to skip */
-        offset?: number;
-        /** @description Page number (alternative to offset) */
-        page?: number | null;
-      };
-      header?: {
-        authorization?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          /**
-           * @example {
-           *       "images": [
-           *         {
-           *           "id": "123",
-           *           "url": "https://example.com/cat.jpg",
-           *           "latitude": 13.7563,
-           *           "longitude": 100.5018,
-           *           "location_name": "Bangkok",
-           *           "uploaded_at": "2024-03-20T10:00:00Z"
-           *         }
-           *       ],
-           *       "pagination": {
-           *         "total": 1,
-           *         "limit": 20,
-           *         "offset": 0,
-           *         "has_more": false,
-           *         "page": 1,
-           *         "total_pages": 1
-           *       }
-           *     }
-           */
-          'application/json': components['schemas']['PaginatedGalleryResponse'];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-      /** @description Internal Server Error */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  get_all_gallery_api_v1_gallery_all_get: {
-    parameters: {
-      query?: {
-        /** @description Maximum number of images to return (default: 1000) */
-        limit?: number;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['GalleryResponse'];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  get_locations_api_v1_gallery_locations_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['CatLocation'][];
-        };
-      };
-    };
-  };
-  get_locations_in_viewport_api_v1_gallery_viewport_get: {
-    parameters: {
-      query: {
-        /** @description North latitude bound */
-        north: number;
-        /** @description South latitude bound */
-        south: number;
-        /** @description East longitude bound */
-        east: number;
-        /** @description West longitude bound */
-        west: number;
-        /** @description Maximum number of results */
-        limit?: number;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['GalleryResponse'];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  search_locations_api_v1_gallery_search_get: {
-    parameters: {
-      query?: {
-        /** @description Text to search in location name and description */
-        q?: string | null;
-        /** @description Comma-separated list of tags to filter by */
-        tags?: string | null;
-        /** @description Maximum number of results */
-        limit?: number;
-        /** @description Number of items to skip */
-        offset?: number;
-        /** @description Page number (alternative to offset) */
-        page?: number | null;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['SearchResponse'];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  get_popular_tags_api_v1_gallery_popular_tags_get: {
-    parameters: {
-      query?: {
-        /** @description Number of top tags to return */
-        limit?: number;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['PopularTagsResponse'];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  get_photo_api_v1_gallery__photo_id__get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Must be a valid UUID */
-        photo_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['CatLocation'];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  delete_photo_api_v1_gallery__photo_id__delete: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Must be a valid UUID */
-        photo_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      202: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: string;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  get_feature_flags_api_v1_feature_flags__get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['FeatureFlagsResponse'];
-        };
-      };
-    };
-  };
-  get_feature_flags_api_v1_feature_flags_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['FeatureFlagsResponse'];
-        };
-      };
-    };
-  };
-  get_feature_flag_api_v1_feature_flags__flag_name__get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        flag_name: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  create_checkout_session_api_v1_subscription_checkout_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['CreateCheckoutRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['CheckoutSessionResponse'];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  stripe_webhook_api_v1_subscription_webhook_post: {
-    parameters: {
-      query?: never;
-      header?: {
-        'stripe-signature'?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: string;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  get_subscription_status_api_v1_subscription_status_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['SubscriptionStatus'];
-        };
-      };
-    };
-  };
-  cancel_subscription_api_v1_subscription_cancel_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: string;
-          };
-        };
-      };
-    };
-  };
-  create_portal_session_api_v1_subscription_portal_post: {
-    parameters: {
-      query: {
-        return_url: string;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['PortalResponse'];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  get_balance_api_v1_treats_balance_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['TreatBalanceResponse'];
-        };
-      };
-    };
-  };
-  give_treat_api_v1_treats_give_post: {
-    parameters: {
-      query?: never;
-      header?: {
-        authorization?: string | null;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['GiveTreatRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  purchase_treats_checkout_api_v1_treats_purchase_checkout_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['PurchaseTreatsRequest'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: string;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  get_treat_packages_api_v1_treats_packages_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: {
-              [key: string]: unknown;
+    root__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
             };
-          };
-        };
-      };
-    };
-  };
-  get_leaderboard_api_v1_treats_leaderboard_get: {
-    parameters: {
-      query?: {
-        period?: string;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          }[];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  toggle_like_api_v1_social_photos__photo_id__like_post: {
-    parameters: {
-      query?: never;
-      header?: {
-        authorization?: string | null;
-      };
-      path: {
-        photo_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['LikeResponse'];
-        };
-      };
-      /** @description Photo not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-      /** @description Too many requests */
-      429: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Internal Server Error */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Service unavailable */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  get_comments_api_v1_social_photos__photo_id__comments_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        photo_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['CommentResponse'][];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-      /** @description Internal Server Error */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  add_comment_api_v1_social_photos__photo_id__comments_post: {
-    parameters: {
-      query?: never;
-      header?: {
-        authorization?: string | null;
-      };
-      path: {
-        photo_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['CommentCreate'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['CommentResponse'];
-        };
-      };
-      /** @description Photo not found */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-      /** @description Internal Server Error */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Service unavailable */
-      503: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  update_comment_api_v1_social_comments__comment_id__put: {
-    parameters: {
-      query?: never;
-      header?: {
-        authorization?: string | null;
-      };
-      path: {
-        comment_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['CommentUpdate'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['CommentResponse'];
-        };
-      };
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-      /** @description Internal Server Error */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  delete_comment_api_v1_social_comments__comment_id__delete: {
-    parameters: {
-      query?: never;
-      header?: {
-        authorization?: string | null;
-      };
-      path: {
-        comment_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: string;
-          };
-        };
-      };
-      /** @description Forbidden */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-      /** @description Internal Server Error */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  get_notifications_api_v1_notifications_get: {
-    parameters: {
-      query?: {
-        limit?: number;
-        offset?: number;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['NotificationResponse'][];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  mark_as_read_api_v1_notifications__id__read_put: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: string;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  mark_all_as_read_api_v1_notifications_read_all_put: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: string;
-          };
-        };
-      };
-    };
-  };
-  get_sitemap_api_v1_sitemap_xml_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  create_report_api_v1_reports__post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ReportCreate'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ReportResponse'];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  list_my_reports_api_v1_reports_my_reports_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ReportResponse'][];
-        };
-      };
-    };
-  };
-  list_users_api_v1_admin_users_get: {
-    parameters: {
-      query?: {
-        limit?: number;
-        offset?: number;
-        search?: string | null;
-        sort_by?: string;
-        order?: string;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  delete_user_api_v1_admin_users__user_id__delete: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Must be a valid UUID */
-        user_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: string;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  update_user_profile_admin_api_v1_admin_users__user_id__profile_patch: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Must be a valid UUID */
-        user_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['UserUpdateAdmin'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  list_roles_api_v1_admin_roles_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          }[];
-        };
-      };
-    };
-  };
-  update_user_role_api_v1_admin_users__user_id__role_put: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Must be a valid UUID */
-        user_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['RoleUpdateAdmin'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  ban_user_api_v1_admin_users__user_id__ban_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Must be a valid UUID */
-        user_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['UserBan'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: string;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  unban_user_api_v1_admin_users__user_id__unban_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description Must be a valid UUID */
-        user_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: string;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  get_system_stats_api_v1_admin_stats_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-    };
-  };
-  list_photos_api_v1_admin_photos_get: {
-    parameters: {
-      query?: {
-        limit?: number;
-        offset?: number;
-        search?: string | null;
-        reported?: boolean;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  delete_photo_admin_api_v1_admin_photos__photo_id__delete: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        photo_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: string;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  update_photo_admin_api_v1_admin_photos__photo_id__patch: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        photo_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['PhotoUpdateAdmin'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  list_reports_api_v1_admin_reports_get: {
-    parameters: {
-      query?: {
-        limit?: number;
-        offset?: number;
-        status?: string | null;
-        reason?: string | null;
-        start_date?: string | null;
-        end_date?: string | null;
-        reporter_id?: string | null;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  update_report_api_v1_admin_reports__report_id__put: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        report_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': {
-          [key: string]: unknown;
-        };
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  bulk_update_reports_api_v1_admin_reports_bulk_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['BulkReportUpdate'];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  list_audit_logs_api_v1_admin_audit_logs_get: {
-    parameters: {
-      query?: {
-        limit?: number;
-        offset?: number;
-        user_id?: string | null;
-        action?: string | null;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            [key: string]: unknown;
-          };
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['HTTPValidationError'];
-        };
-      };
-    };
-  };
-  liveness_check_health_live_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': unknown;
-        };
-      };
-    };
-  };
-  readiness_check_health_ready_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': unknown;
-        };
-      };
-    };
-  };
-  dependency_check_health_dependencies_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': unknown;
-        };
-      };
-    };
-  };
-  metrics_health_metrics_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': unknown;
-        };
-      };
-    };
-  };
+        };
+    };
+    health_check_health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    register_api_v1_auth_register_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_otp_api_v1_auth_verify_otp_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyOTPRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resend_otp_api_v1_auth_resend_otp_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResendOTPRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResendOTPResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    login_api_v1_auth_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_token_api_v1_auth_refresh_token_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+        };
+    };
+    logout_api_v1_auth_logout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogoutResponse"];
+                };
+            };
+        };
+    };
+    forgot_password_api_v1_auth_forgot_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForgotPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasswordResetResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_password_api_v1_auth_reset_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasswordResetResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    exchange_session_api_v1_auth_session_exchange_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionExchangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_current_user_info_api_v1_auth_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserResponse"];
+                };
+            };
+        };
+    };
+    google_login_redirect_api_v1_auth_google_login_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    google_login_api_v1_auth_google_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoogleTokenRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    google_exchange_code_api_v1_auth_google_exchange_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoogleCodeExchangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_user_data_api_v1_auth_sync_user_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncUserResponse"];
+                };
+            };
+        };
+    };
+    get_profile_api_v1_profile_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileResponse"];
+                };
+            };
+            /** @description User not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_profile_api_v1_profile_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileUpdateResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_public_profile_api_v1_profile_public__identifier__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User UUID or Username endpoint identifier */
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicProfileResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_public_user_uploads_api_v1_profile_public__identifier__uploads_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User UUID or Username endpoint identifier */
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_user_uploads_api_v1_profile_uploads_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadsResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    upload_profile_picture_api_v1_profile_picture_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_profile_picture_api_v1_profile_picture_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfilePictureResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    change_password_api_v1_profile_password_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasswordChangeResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_user_photo_api_v1_profile_uploads__photo_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Must be a valid UUID */
+                photo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePhotoRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhotoUpdateResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_user_photo_api_v1_profile_uploads__photo_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Must be a valid UUID */
+                photo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhotoDeleteResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    request_account_deletion_api_v1_profile_delete_request_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountDeletionResponse"];
+                };
+            };
+            /** @description Conflict/Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    cancel_account_deletion_api_v1_profile_cancel_deletion_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountDeletionResponse"];
+                };
+            };
+            /** @description Conflict/Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_upload_quota_api_v1_upload_quota_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadQuotaResponse"];
+                };
+            };
+        };
+    };
+    upload_cat_photo_api_v1_upload_cat_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_cat_photo_api_v1_upload_cat_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    detect_cats_in_image_api_v1_detect_cats_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_detect_cats_in_image_api_v1_detect_cats_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatDetectionResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    analyze_cat_spot_api_v1_detect_spot_analysis_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_analyze_cat_spot_api_v1_detect_spot_analysis_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpotAnalysisResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    combined_cat_and_spot_analysis_api_v1_detect_combined_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_combined_cat_and_spot_analysis_api_v1_detect_combined_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CombinedAnalysisResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_gallery_api_v1_gallery_get: {
+        parameters: {
+            query?: {
+                /** @description Number of items per page */
+                limit?: number;
+                /** @description Number of items to skip */
+                offset?: number;
+                /** @description Page number (alternative to offset) */
+                page?: number | null;
+                /** @description Sort field: uploaded_at, likes_count, comments_count */
+                sort?: components["schemas"]["SortField"] | null;
+                /** @description Sort order: asc or desc */
+                order?: components["schemas"]["SortOrder"];
+                /** @description Comma-separated list of fields to include */
+                fields?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedGalleryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_locations_api_v1_gallery_locations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatLocation"][];
+                };
+            };
+        };
+    };
+    get_locations_in_viewport_api_v1_gallery_viewport_get: {
+        parameters: {
+            query: {
+                /** @description North latitude bound */
+                north: number;
+                /** @description South latitude bound */
+                south: number;
+                /** @description East longitude bound */
+                east: number;
+                /** @description West longitude bound */
+                west: number;
+                /** @description Maximum number of results */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GalleryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_locations_api_v1_gallery_search_get: {
+        parameters: {
+            query?: {
+                /** @description Text to search in location name and description */
+                q?: string | null;
+                /** @description Comma-separated list of tags to filter by */
+                tags?: string | null;
+                /** @description Maximum number of results */
+                limit?: number;
+                /** @description Number of items to skip */
+                offset?: number;
+                /** @description Page number (alternative to offset) */
+                page?: number | null;
+                /** @description Sort field */
+                sort?: components["schemas"]["SortField"] | null;
+                /** @description Sort order */
+                order?: components["schemas"]["SortOrder"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_popular_tags_api_v1_gallery_popular_tags_get: {
+        parameters: {
+            query?: {
+                /** @description Number of top tags to return */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PopularTagsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_photo_api_v1_gallery__photo_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Must be a valid UUID */
+                photo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatLocation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_photo_api_v1_gallery__photo_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Must be a valid UUID */
+                photo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_checkout_session_api_v1_subscription_checkout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CreateCheckoutRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckoutSessionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stripe_webhook_api_v1_subscription_webhook_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "stripe-signature"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_subscription_status_api_v1_subscription_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionStatus"];
+                };
+            };
+        };
+    };
+    cancel_subscription_api_v1_subscription_cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+        };
+    };
+    create_portal_session_api_v1_subscription_portal_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CreatePortalRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortalResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_balance_api_v1_treats_balance_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TreatBalanceResponse"];
+                };
+            };
+        };
+    };
+    give_treat_api_v1_treats_give_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GiveTreatRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GiveTreatResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    purchase_treats_checkout_api_v1_treats_purchase_checkout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PurchaseTreatsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckoutUrlResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_treat_packages_api_v1_treats_packages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    get_leaderboard_api_v1_treats_leaderboard_get: {
+        parameters: {
+            query?: {
+                period?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaderboardEntry"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    toggle_like_api_v1_social_photos__photo_id__like_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                photo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LikeResponse"];
+                };
+            };
+            /** @description Photo not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Too many requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Service unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_comments_api_v1_social_photos__photo_id__comments_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                photo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    add_comment_api_v1_social_photos__photo_id__comments_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                photo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentResponse"];
+                };
+            };
+            /** @description Photo not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Service unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_comment_api_v1_social_comments__comment_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                comment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_comment_api_v1_social_comments__comment_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                comment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_notifications_api_v1_notifications_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_as_read_api_v1_notifications__id__read_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_all_as_read_api_v1_notifications_read_all_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+        };
+    };
+    get_sitemap_api_v1_sitemap_xml_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    create_report_api_v1_reports__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_my_reports_api_v1_reports_my_reports_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportResponse"][];
+                };
+            };
+        };
+    };
+    get_my_consents_api_v1_consent_my_consents_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    record_consent_api_v1_consent_consent_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsentRecord"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_list_consents_api_v1_consent_admin_consents_get: {
+        parameters: {
+            query?: {
+                consent_type?: string | null;
+                granted?: boolean | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_consent_stats_api_v1_consent_admin_consent_stats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    report_breach_api_v1_breach_report_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BreachReport"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_incidents_api_v1_breach_incidents_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                severity?: string | null;
+                incident_type?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_incident_details_api_v1_breach_incidents__incident_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_incident_status_api_v1_breach_incidents__incident_id__status_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BreachStatusUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_breach_summary_api_v1_breach_breach_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    generate_regulatory_report_api_v1_breach_regulatory_report_get: {
+        parameters: {
+            query: {
+                /** @description Start date (ISO format) */
+                start_date: string;
+                /** @description End date (ISO format) */
+                end_date: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_users_api_v1_admin_users_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                search?: string | null;
+                sort?: string;
+                order?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_ban_users_api_v1_admin_users_bulk_ban_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkUserAction"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_unban_users_api_v1_admin_users_bulk_unban_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkUserAction"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_user_api_v1_admin_users__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Must be a valid UUID */
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_user_profile_admin_api_v1_admin_users__user_id__profile_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Must be a valid UUID */
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserUpdateAdmin"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_user_role_api_v1_admin_users__user_id__role_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Must be a valid UUID */
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleUpdateAdmin"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ban_user_api_v1_admin_users__user_id__ban_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Must be a valid UUID */
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserBan"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unban_user_api_v1_admin_users__user_id__unban_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Must be a valid UUID */
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_dashboard_summary_api_v1_admin_stats_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    get_dashboard_summary_api_v1_admin_stats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    get_system_trends_api_v1_admin_stats_trends_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    get_monthly_stats_api_v1_admin_stats_monthly_get: {
+        parameters: {
+            query?: {
+                year?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_photos_api_v1_admin_photos_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                search?: string | null;
+                reported?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_photo_admin_api_v1_admin_photos__photo_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                photo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_photo_admin_api_v1_admin_photos__photo_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                photo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PhotoUpdateAdmin"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_reports_api_v1_admin_reports_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                status?: string | null;
+                reason?: string | null;
+                start_date?: string | null;
+                end_date?: string | null;
+                reporter_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_report_api_v1_admin_reports__report_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_update_reports_api_v1_admin_reports_bulk_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkReportUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_audit_logs_api_v1_admin_audit_logs_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                user_id?: string | null;
+                action?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_all_settings_api_v1_admin_settings_get: {
+        parameters: {
+            query?: {
+                category?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_setting_history_api_v1_admin_settings_history__key__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigHistoryResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_setting_api_v1_admin_settings__key__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfigUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigResponse"] | components["schemas"]["PendingConfigChangeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_pending_changes_api_v1_admin_settings_pending_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PendingConfigChangeResponse"][];
+                };
+            };
+        };
+    };
+    approve_change_api_v1_admin_settings_approve__change_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                change_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PendingActionRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_change_api_v1_admin_settings_reject__change_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                change_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PendingActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_treat_transactions_api_v1_admin_treats_transactions_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                transaction_type?: string | null;
+                search?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_treat_stats_api_v1_admin_treats_stats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    search_users_for_grant_api_v1_admin_treats_users_search_get: {
+        parameters: {
+            query: {
+                q: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    grant_treats_manually_api_v1_admin_treats_grant_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantTreatRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_roles_api_v1_admin_roles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    list_permissions_api_v1_admin_roles_permissions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_role_permissions_api_v1_admin_roles__role_id__permissions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_role_permissions_api_v1_admin_roles__role_id__permissions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RolePermissionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_all_comments_api_v1_admin_comments_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+                search?: string | null;
+                reported_only?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_comment_report_details_api_v1_admin_comments__comment_id__reports_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                comment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolve_comment_reports_api_v1_admin_comments__comment_id__resolve_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                comment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_comment_api_v1_admin_comments__comment_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                comment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ban_user_by_comment_api_v1_admin_comments__comment_id__ban_user_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                comment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_delete_comments_api_v1_admin_comments_bulk_delete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkCommentAction"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_resolve_comments_api_v1_admin_comments_bulk_resolve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkCommentAction"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_security_summary_api_v1_admin_security_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    reset_security_alerts_api_v1_admin_security_alerts_reset_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    reset_all_sessions_api_v1_admin_security_sessions_reset_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    liveness_check_health_live_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    readiness_check_health_ready_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    dependency_check_health_dependencies_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    metrics_health_metrics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
 }

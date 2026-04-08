@@ -115,20 +115,11 @@ describe('Admin Store', () => {
   it('manages realtime subscriptions', () => {
     const store = useAdminStore();
     
-    // Mock supabase channel
-    const mockChannel = {
-      on: vi.fn().mockReturnThis(),
-      subscribe: vi.fn().mockReturnThis(),
-      unsubscribe: vi.fn().mockReturnThis(),
-    };
-    // Mock already done globally or in file? No.
-    // We need to mock supabase.ts or just the store's dependency.
-    // But store imports supabase from @/lib/supabase
-    
+    // Test subscription starts
     store.subscribeToReports();
     expect(store.reportChannel).not.toBeNull();
     
-    const channel = store.reportChannel;
+    // Test unsubscription cleans up
     store.unsubscribeReports();
     expect(store.reportChannel).toBeNull();
   });

@@ -25,6 +25,8 @@ os.environ["JWT_REFRESH_SECRET"] = "test-refresh-secret-key-at-least-32-chars-lo
 os.environ["STRIPE_SECRET_KEY"] = "sk_test_mock_secret_key"
 os.environ["STRIPE_WEBHOOK_SECRET"] = "whsec_mock_webhook_secret"
 os.environ["STRIPE_PRO_PRICE_ID"] = "price_pro_test"
+os.environ["STRIPE_PRO_ANNUAL_PRICE_ID"] = "price_pro_annual_test"
+os.environ["ENCRYPTION_KEY"] = "Y2hhbmdlbWVjaGFuZ2VtZWNoYW5nZW1lY2hhbmdlbWU="
 
 # Set trusted proxies explicitly to avoid wildcard trust warning
 os.environ["TRUSTED_PROXY_HOSTS"] = "127.0.0.1,::1"

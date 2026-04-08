@@ -242,6 +242,7 @@ describe('ProfileView.vue', (): void => {
   });
 
   it('shows error state when profile fails to load', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.mocked(ProfileService.getPublicProfile).mockRejectedValue(new Error('Not found'));
     mockRoute.params = { id: 'non-existent' };
 
@@ -252,7 +253,11 @@ describe('ProfileView.vue', (): void => {
 
     await nextTick();
     await nextTick();
+    
+    // Yield to event loop to let the un-awaited onMounted promise finish
+    await new Promise(resolve => setTimeout(resolve, 0));
 
     expect(wrapper.vm.uploadsError).toBe('profile.userNotFound');
+    consoleErrorSpy.mockRestore();
    });
  });
