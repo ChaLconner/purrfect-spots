@@ -14,8 +14,10 @@ ehthumbs.db
 .sonarlint/
 .sonar/
 .kilocode/
+.kilo/
 
 # --- Environment & Secrets (CRITICAL) ---
+.mcp.json
 **/.env
 **/.env.*
 !.env.example
@@ -64,6 +66,7 @@ test-results/
 # --- Logs & Junk Files ---
 *.log
 debug.log
+*.bak
 npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
@@ -94,7 +97,8 @@ trivy-results.sarif
 docs/archive/
 
 .gemini/
-gha-creds-*.jsondocs/openapi-current.json
+gha-creds-*.json
+docs/openapi-current.json
 
 # --- Internal Tools & Scripts ---
 .agent/

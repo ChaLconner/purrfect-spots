@@ -65,7 +65,7 @@ def mock_auth_service(app):
     app.dependency_overrides[get_auth_service] = lambda: auth_service
 
     otp_service = AsyncMock()
-    otp_service.create_otp = AsyncMock(return_value=("123456", datetime.now()))
+    otp_service.create_otp = AsyncMock(return_value=("123456", datetime.now().isoformat()))
     otp_service.verify_otp = AsyncMock(return_value={"success": True})
     otp_service.can_resend_otp = AsyncMock(return_value=(True, 0))
     app.dependency_overrides[get_otp_service] = lambda: otp_service
@@ -88,7 +88,7 @@ class TestRegisterEndpoint:
     """Tests for POST /auth/register"""
 
     TEST_EMAIL = "test@example.com"
-    TEST_PASSWORD = os.getenv("TEST_PASSWORD", "test-only-not-a-real-credential")  # nosonar
+    TEST_PASSWORD = os.getenv("TEST_PASSWORD", "ValidPass123!")  # nosonar
     TEST_NAME = "Test User"
 
     async def test_register_success(self, client, mock_auth_service, mock_limiter):
@@ -138,24 +138,8 @@ class TestRegisterEndpoint:
         assert response.status_code == 422
         assert "8 characters" in str(response.json()["detail"])
 
-    async def test_register_password_no_special_chars_allowed(self, client, mock_auth_service, mock_limiter):
-        """Test registration succeeds with password that has no numbers (policy: 8+ chars only)"""
-        # Setup mock for successful registration
-        mock_auth_service.get_user_by_email.return_value = None
-        mock_auth_service.create_user_with_password.return_value = User(
-            id="test-user-id",
-            email="test@example.com",
-            name="Test User",
-            picture=None,
-            bio=None,
-            created_at=datetime(2024, 1, 1),
-            role="user",
-        )
-        mock_auth_service.create_access_token.return_value = "test-access-token"
-        mock_auth_service.create_refresh_token.return_value = "test-refresh-token"
-        # Authenticate returns None for verification flow
-        mock_auth_service.authenticate_user.return_value = None
-
+    async def test_register_password_requires_complexity(self, client, mock_auth_service, mock_limiter):
+        """Test registration rejects passwords that miss required character classes."""
         response = await client.post(
             "/api/v1/auth/register",
             json={
@@ -165,9 +149,8 @@ class TestRegisterEndpoint:
             },
         )
 
-        # Current policy: Password just needs to be 8+ characters
-        # This should succeed (200) or fail for other reasons, but NOT for missing numbers
-        assert response.status_code in [200, 429]  # 429 = rate limited
+        assert response.status_code == 400
+        assert "special character" in response.json()["detail"].lower()
 
     async def test_register_empty_name(self, client, mock_limiter):
         """Test registration fails with empty name"""
@@ -211,7 +194,7 @@ class TestLoginEndpoint:
     """Tests for POST /auth/login"""
 
     TEST_EMAIL = "test@example.com"
-    TEST_PASSWORD = os.getenv("TEST_PASSWORD", "test-only-not-a-real-credential")  # nosonar
+    TEST_PASSWORD = os.getenv("TEST_PASSWORD", "ValidPass123!")  # nosonar
 
     async def test_login_success(self, client, mock_auth_service, mock_limiter):
         """Test successful login"""
@@ -235,8 +218,7 @@ class TestLoginEndpoint:
             data = response.json()
             assert data["access_token"] == "test-access-token"
             assert data["token_type"] == "bearer"
-            # Refresh token is returned in body AND cookie now
-            assert "refresh_token" in data
+            assert "refresh_token" not in data
 
     async def test_login_invalid_credentials(self, client, mock_auth_service, mock_limiter):
         """Test login fails with invalid credentials"""
@@ -258,6 +240,23 @@ class TestLoginEndpoint:
         )
 
         assert response.status_code == 422  # Validation error
+
+    async def test_login_blocks_suspended_accounts(self, client, mock_auth_service, mock_limiter):
+        """Test login is rejected for banned users."""
+        mock_auth_service.authenticate_user.return_value = {
+            "id": "test-user-id",
+            "email": "test@example.com",
+            "name": "Test User",
+            "banned_at": "2026-03-28T00:00:00Z",
+        }
+
+        response = await client.post(
+            "/api/v1/auth/login",
+            json={"email": self.TEST_EMAIL, "password": self.TEST_PASSWORD},
+        )
+
+        assert response.status_code == 403
+        assert "suspended" in response.json()["detail"].lower()
 
 
 class TestRefreshTokenEndpoint:
@@ -324,6 +323,27 @@ class TestRefreshTokenEndpoint:
         data = response.json()
         assert data["access_token"] is None
         assert "expired" in data.get("message", "").lower() or "session" in data.get("message", "").lower()
+
+    async def test_refresh_token_blocks_suspended_accounts(self, client, mock_auth_service):
+        """Test refresh does not mint new tokens for banned users."""
+        from unittest.mock import AsyncMock
+
+        mock_auth_service.verify_refresh_token = AsyncMock(return_value={"user_id": "test-user-id"})
+        mock_auth_service.get_user_by_id.return_value = User(
+            id="test-user-id",
+            email="test@example.com",
+            name="Test User",
+            created_at=datetime(2024, 1, 1),
+            banned_at=datetime(2026, 3, 28),
+        )
+
+        client.cookies.set("refresh_token", "valid-refresh-token")
+        response = await client.post("/api/v1/auth/refresh-token")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["access_token"] is None
+        assert "suspended" in data.get("message", "").lower()
 
 
 class TestLogoutEndpoint:
@@ -477,15 +497,10 @@ class TestOtherAuthEndpoints:
             return_value={"id": "1", "email": "test@example.com"}
         )
 
-        # mock_auth_service already mocks otp_service via dependency_overrides
-        response = await client.post("/api/v1/auth/resend-otp", json={"email": "test@example.com"})
-        assert response.status_code == 200
-
-    async def test_google_login_redirect(self, client):
-        with patch.dict(os.environ, {"GOOGLE_CLIENT_ID": "test_id"}):
-            response = await client.get("/api/v1/auth/google/login", follow_redirects=False)
-            assert response.status_code == 302
-            assert "accounts.google.com" in response.headers["location"]
+        with patch("routes.auth.email_service"):
+            # mock_auth_service already mocks otp_service via dependency_overrides
+            response = await client.post("/api/v1/auth/resend-otp", json={"email": "test@example.com"})
+            assert response.status_code == 200
 
     @pytest.mark.asyncio
     async def test_sync_user(self, client, app):
@@ -521,12 +536,12 @@ class TestOtherAuthEndpoints:
         )
         login_response = LoginResponse(
             access_token="test_access",
-            refresh_token="test_refresh",
             token_type="bearer",
             message="Success",
             user=user_resp,
         )
         mock_auth_service.exchange_google_code = AsyncMock(return_value=login_response)
+        mock_auth_service.create_refresh_token.return_value = "test_refresh"
 
         with patch("routes.auth._validate_google_redirect_uri", return_value=True):
             response = await client.post(

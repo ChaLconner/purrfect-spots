@@ -1,12 +1,22 @@
+export interface CatDetected {
+  description: string;
+  breed_guess: string;
+  position: string;
+  size: string;
+}
+
 export interface CatDetectionResult {
   has_cats: boolean;
-  confidence?: number;
-  detect_count?: number;
-  detections?: Array<{
-    label: string;
-    confidence: number;
-    box?: [number, number, number, number];
-  }>;
+  cat_count: number;
+  confidence: number;
+  cats_detected: CatDetected[];
+  image_quality?: string;
+  suitable_for_cat_spot: boolean;
+  reasoning?: string;
+  note?: string;
+  filename?: string;
+  file_size?: number;
+  detected_by?: string;
   [key: string]: unknown;
 }
 

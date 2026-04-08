@@ -2,6 +2,8 @@
 Additional tests for auth middleware focusing on permission checks
 """
 
+from unittest.mock import MagicMock
+
 import pytest
 from fastapi import HTTPException
 
@@ -16,16 +18,11 @@ async def test_require_permission_direct_success():
     user = User(id="123", email="test@example.com", name="Test User", permissions=["content:write"], role="user")
 
     checker = require_permission("content:write")
-    # The checker is a dependency function that takes a user
-    # In FastAPI, it resolves the user first. Here we call it directly passing the user?
-    # No, require_permission returns a callable that takes (user: User = Depends(get_current_user)).
-    # We can simulate the dependency injection by calling the returned function and passing the user directly
-    # IF the function signature allows it.
-    # looking at auth_middleware.py:
-    # async def permission_checker(user: User = Depends(get_current_user)) -> User:
-    # So we can pass `user` as a keyword argument or positional if it's the first arg.
+    # Mock request is required by permission_checker
+    mock_request = MagicMock()
+    mock_request.url.path = "/test"
 
-    result = await checker(user=user)
+    result = await checker(request=mock_request, user=user)
     assert result == user
 
 
@@ -35,7 +32,9 @@ async def test_require_permission_admin_bypass():
     user = User(id="123", email="admin@example.com", name="Admin User", permissions=[], role="admin")
 
     checker = require_permission("content:write")
-    result = await checker(user=user)
+    mock_request = MagicMock()
+    mock_request.url.path = "/test"
+    result = await checker(request=mock_request, user=user)
     assert result == user
 
 
@@ -45,7 +44,9 @@ async def test_require_permission_super_admin_bypass():
     user = User(id="123", email="super@example.com", name="Super Admin", permissions=[], role="super_admin")
 
     checker = require_permission("content:write")
-    result = await checker(user=user)
+    mock_request = MagicMock()
+    mock_request.url.path = "/test"
+    result = await checker(request=mock_request, user=user)
     assert result == user
 
 
@@ -55,6 +56,8 @@ async def test_require_permission_fail():
     user = User(id="123", email="user@example.com", name="Normal User", permissions=["other:permission"], role="user")
 
     checker = require_permission("content:write")
+    mock_request = MagicMock()
+    mock_request.url.path = "/test"
     with pytest.raises(HTTPException) as exc:
-        await checker(user=user)
+        await checker(request=mock_request, user=user)
     assert exc.value.status_code == 403

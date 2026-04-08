@@ -5,6 +5,21 @@
     <GhibliBackground />
 
     <div class="max-w-6xl mx-auto relative z-10">
+      <!-- Webhook Confirmation Banner (shown while polling after Stripe redirect) -->
+      <Transition name="fade">
+        <div
+          v-if="isPolling"
+          class="mb-8 flex items-center justify-center gap-3 bg-amber-50 border border-amber-200 text-amber-700 rounded-2xl py-3 px-5 text-sm font-medium shadow-sm"
+        >
+          <!-- Spinner -->
+          <svg class="animate-spin h-4 w-4 text-amber-500" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+          </svg>
+          {{ $t('subscription.toast.confirmingPayment') }}
+        </div>
+      </Transition>
+
       <!-- Header Section -->
       <div class="text-center mb-16">
         <h1 class="text-5xl font-heading font-extrabold text-brown mb-4 tracking-tight">
@@ -18,12 +33,47 @@
       <!-- Main Subscription Plan -->
       <div class="mb-20">
         <h2
-          class="text-3xl font-heading font-bold text-brown mb-8 text-center flex items-center justify-center gap-3"
+          class="text-3xl font-heading font-bold text-brown mb-6 text-center flex items-center justify-center gap-3"
         >
           <span class="h-1 w-12 bg-terracotta/30 rounded-full"></span>
-          {{ $t('subscription.monthlyMembership') }}
+          {{ $t('subscription.title') }}
           <span class="h-1 w-12 bg-terracotta/30 rounded-full"></span>
         </h2>
+
+        <!-- Billing Toggle -->
+        <div class="flex justify-center items-center gap-4 mb-8">
+          <span 
+            class="font-medium cursor-pointer transition-colors"
+            :class="selectedPlan === 'monthly' ? 'text-terracotta' : 'text-stone-400'"
+            @click="selectedPlan = 'monthly'"
+          >
+            {{ $t('subscription.proPlan.billedMonthly') }}
+          </span>
+          <button 
+            class="relative inline-flex h-7 w-14 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2"
+            :class="selectedPlan === 'annual' ? 'bg-terracotta' : 'bg-stone-300'"
+            @click="selectedPlan = selectedPlan === 'monthly' ? 'annual' : 'monthly'"
+          >
+            <span
+              class="inline-block h-5 w-5 transform rounded-full bg-white transition-transform"
+              :class="selectedPlan === 'annual' ? 'translate-x-8' : 'translate-x-1'"
+            ></span>
+          </button>
+          <div 
+            class="flex items-center gap-2 cursor-pointer"
+            @click="selectedPlan = 'annual'"
+          >
+            <span 
+              class="font-medium transition-colors"
+              :class="selectedPlan === 'annual' ? 'text-terracotta' : 'text-stone-400'"
+            >
+              {{ $t('subscription.proPlan.billedAnnually') }}
+            </span>
+            <span class="bg-green-100 text-green-700 text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full">
+              {{ $t('subscription.proPlan.savePercent') }}
+            </span>
+          </div>
+        </div>
 
         <div class="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           <!-- Free Plan -->
@@ -47,8 +97,8 @@
           <PlanCard
             :title="$t('subscription.proPlan.title')"
             :subtitle="$t('subscription.proPlan.subtitle')"
-            :price="formatCurrency(175)"
-            :period="$t('subscription.proPlan.period')"
+            :price="selectedPlan === 'annual' ? formatCurrency(1750) : formatCurrency(175)"
+            :period="selectedPlan === 'annual' ? $t('subscription.proPlan.periodAnnual') : $t('subscription.proPlan.period')"
             :features="proFeatures"
             is-premium
             :badge="$t('subscription.proPlan.badge')"
@@ -82,6 +132,14 @@
                   @click="handleManageSubscription"
                 >
                   {{ $t('subscription.proPlan.manage') }}
+                </button>
+                <button
+                  v-if="!subscriptionStore.cancelAtPeriodEnd"
+                  class="w-full mt-2 bg-transparent text-red-500/70 hover:text-red-600 hover:bg-red-50 py-2 rounded-2xl transition-colors font-bold text-xs"
+                  :disabled="isLoading || isCanceling"
+                  @click="showCancelModal = true"
+                >
+                  {{ $t('common.cancel') }} {{ $t('nav.subscription') }}
                 </button>
               </div>
               <button
@@ -138,9 +196,14 @@
             </div>
 
             <div
-              class="h-16 mb-4 flex items-center justify-center transition-transform group-hover:scale-110"
+              class="h-20 mb-4 flex items-center justify-center transition-transform group-hover:scale-110 overflow-hidden"
             >
-              <img src="/give-treat.png" alt="Treat" loading="lazy" class="h-full object-contain" />
+              <img
+                src="/give-treat.png"
+                alt="Treat"
+                loading="lazy"
+                class="h-full object-contain scale-[1.05] [image-rendering:high-quality] [clip-path:inset(2px)] will-change-transform"
+              />
             </div>
             <h4 class="text-lg font-bold text-brown mb-1">{{ pkg.name }}</h4>
             <p class="text-3xl font-extrabold text-brown mb-1">
@@ -195,6 +258,19 @@
         </div>
       </div>
     </div>
+
+    <!-- Confirm Cancel Modal -->
+    <BaseConfirmModal
+      :is-open="showCancelModal"
+      title="Cancel Subscription"
+      message="Are you sure you want to cancel your PRO subscription? You will keep your premium benefits until the end of this billing period."
+      :confirm-text="$t('common.cancel') + ' PRO'"
+      :cancel-text="$t('common.cancel')"
+      :is-loading="isCanceling"
+      variant="danger"
+      @close="showCancelModal = false"
+      @confirm="confirmCancel"
+    />
   </div>
 </template>
 
@@ -210,6 +286,7 @@ import { useToastStore } from '../store/toastStore';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 import { useSeo } from '@/composables/useSeo';
 import PlanCard from '@/components/subscription/PlanCard.vue';
+import { BaseConfirmModal } from '@/components/ui';
 import { config } from '@/config';
 
 const { t, locale } = useI18n();
@@ -218,7 +295,11 @@ const toastStore = useToastStore();
 const route = useRoute();
 const router = useRouter();
 const isLoading = ref(false);
+const selectedPlan = ref<'monthly' | 'annual'>('annual');
 const purchasingPackage = ref<string | null>(null);
+const isPolling = ref(false);
+const showCancelModal = ref(false);
+const isCanceling = ref(false);
 const { setMetaTags } = useSeo();
 const { sortedPackages } = storeToRefs(subscriptionStore);
 
@@ -259,16 +340,17 @@ onMounted(async () => {
       message: t('subscription.toast.successMessage'),
       type: 'success',
     });
-    // Force refresh to get updated balance after purchase
-    subscriptionStore.refreshAll();
 
-    // Clean URL
+    // Clean URL first so a hard-refresh doesn’t re-trigger polling
     router.replace('/subscription');
+
+    // Stripe webhooks can take 1–5 s to reach our server.
+    // Poll fetchStatus until Pro status or treat balance changes, then stop.
+    await pollForStatusChange();
   }
 
   // Handle Return from Stripe (Cancel)
   if (route.path.includes('/cancel') || route.query.purchase === 'cancel') {
-    // Clean URL
     router.replace('/subscription');
   }
 
@@ -276,14 +358,48 @@ onMounted(async () => {
   await Promise.all([subscriptionStore.fetchStatus(), subscriptionStore.fetchPackages()]);
 });
 
+/**
+ * Poll the backend for subscription status changes after returning from Stripe.
+ *
+ * Stripe webhooks can take anywhere from 1 s to ~15 s to arrive and be
+ * processed.  We snapshot the current Pro status + treat balance before the
+ * poll and stop as soon as either one changes, or after MAX_ATTEMPTS tries.
+ */
+async function pollForStatusChange(): Promise<void> {
+  const MAX_ATTEMPTS = 8;
+  const INTERVAL_MS = 2000; // 2 s between polls
+
+  const initialIsPro = subscriptionStore.isPro;
+  const initialBalance = subscriptionStore.treatBalance;
+
+  isPolling.value = true;
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, INTERVAL_MS));
+
+    try {
+      await subscriptionStore.fetchStatus(true);
+
+      const statusChanged = subscriptionStore.isPro !== initialIsPro;
+      const balanceChanged = subscriptionStore.treatBalance !== initialBalance;
+
+      if (statusChanged || balanceChanged) {
+        // Webhook processed — stop polling
+        break;
+      }
+    } catch {
+      // Non-fatal — keep retrying
+    }
+  }
+
+  isPolling.value = false;
+}
+
 async function handleSubscribe(): Promise<void> {
   if (isLoading.value) return;
   isLoading.value = true;
   try {
-    const priceId = config.stripe.proPriceId;
-    if (!priceId) throw new Error('Price ID not configured');
-
-    const { checkout_url } = await SubscriptionService.createCheckout(priceId);
+    const { checkout_url } = await SubscriptionService.createCheckout(selectedPlan.value);
     window.location.href = checkout_url;
   } catch (e: unknown) {
     console.error(e);
@@ -301,9 +417,7 @@ async function handleManageSubscription(): Promise<void> {
   if (isLoading.value) return;
   isLoading.value = true;
   try {
-    // Use clean URL for return to avoid stale query params
-    const returnUrl = `${window.location.origin}/subscription`;
-    const { url } = await SubscriptionService.createPortalSession(returnUrl);
+    const { url } = await SubscriptionService.createPortalSession('/subscription');
     window.location.href = url;
   } catch (e) {
     console.error(e);
@@ -314,6 +428,30 @@ async function handleManageSubscription(): Promise<void> {
     });
   } finally {
     isLoading.value = false;
+  }
+}
+
+async function confirmCancel(): Promise<void> {
+  if (isCanceling.value) return;
+  isCanceling.value = true;
+  try {
+    await SubscriptionService.cancel();
+    await subscriptionStore.refreshAll();
+    toastStore.addToast({
+      title: t('toast.success'),
+      message: 'Subscription successfully canceled.',
+      type: 'success',
+    });
+  } catch (e) {
+    console.error(e);
+    toastStore.addToast({
+      title: t('toast.error'),
+      message: 'Failed to cancel subscription.',
+      type: 'error',
+    });
+  } finally {
+    isCanceling.value = false;
+    showCancelModal.value = false;
   }
 }
 
@@ -335,3 +473,18 @@ async function buyTreats(packageType: string): Promise<void> {
   }
 }
 </script>
+
+<style scoped>
+/* Smooth fade for the webhook-confirmation banner */
+.fade-enter-active,
+.fade-leave-active {
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+</style>

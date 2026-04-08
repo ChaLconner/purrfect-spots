@@ -12,55 +12,78 @@
           {{ t('upload.pageSubtitle') }}
         </p>
 
-        <!-- Quota Status -->
-        <div v-if="isAuthenticated && quotaStatus" class="flex flex-col items-center gap-1.5 mb-2">
-          <div
-            class="group inline-flex items-center px-4 py-2 rounded-full bg-white/60 backdrop-blur-sm border border-brown/10 text-sm font-body text-brown-light shadow-sm hover:bg-white/80 transition-all"
-            :title="t('upload.rollingNotice')"
-          >
-            <div class="flex items-center">
-              <span class="mr-2 opacity-70">{{ t('upload.dailyQuota') }}</span>
-              <span
-                class="font-bold flex items-center"
-                :class="quotaStatus.remaining === 0 ? 'text-red-500' : 'text-terracotta'"
-              >
-                <span class="text-xs mr-1 opacity-50 font-normal">{{ t('upload.used') }}:</span>
-                {{ quotaStatus.used }} / {{ quotaStatus.limit }}
-              </span>
+        <!-- Quota Status Detailed -->
+        <div v-if="isAuthenticated" class="max-w-md mx-auto mb-8 bg-white/80 backdrop-blur-md p-5 rounded-2xl border border-white min-w-[300px] shadow-sm relative overflow-hidden group">
+<template v-if="quotaStatus">
+          <div v-if="quotaStatus.is_pro" class="absolute -top-6 -right-6 w-24 h-24 bg-gradient-to-br from-yellow-400 to-amber-600 rounded-full opacity-10 blur-xl group-hover:opacity-20 transition-opacity"></div>
+          
+          <div class="flex justify-between items-center mb-2 relative z-10">
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-sm font-bold text-brown">{{ t('upload.dailyQuota') }}</span>
+                <span v-if="quotaStatus.is_pro" class="bg-gradient-to-r from-yellow-400 to-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wider shadow-sm">
+                  PRO
+                </span>
+                <router-link v-else to="/subscription" class="text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full hover:bg-amber-100 transition-colors">
+                  Upgrade
+                </router-link>
+                <span class="text-[10px] text-brown-light/60 font-medium ml-1">({{ t('upload.rollingNotice') }})</span>
+              </div>
             </div>
-            <span
-              v-if="!quotaStatus.is_pro"
-              class="ml-3 pl-3 border-l border-brown/20 flex items-center"
-            >
-              <router-link
-                to="/subscription"
-                class="text-terracotta hover:text-terracotta-dark font-bold flex items-center gap-1"
-              >
-                <span class="w-1.5 h-1.5 rounded-full bg-terracotta animate-pulse"></span>
-                {{ t('upload.upgradeToPro') }}
-              </router-link>
-            </span>
+            <div class="text-right">
+              <span class="text-2xl font-black" :class="quotaStatus.remaining === 0 ? 'text-red-500' : 'text-brown'">
+                {{ quotaStatus.used }}
+              </span>
+              <span class="text-sm font-semibold text-brown-light">/{{ quotaStatus.limit }}</span>
+            </div>
           </div>
-          <span
-            class="text-[10px] text-brown/40 font-body uppercase tracking-widest flex items-center gap-1"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="w-3 h-3"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+
+          <!-- Progress bar -->
+          <div class="h-3 w-full bg-stone-100 rounded-full overflow-hidden relative z-10 shadow-inner">
+            <div 
+              class="h-full rounded-full transition-all duration-700 ease-out relative"
+              :class="[
+                quotaStatus.remaining === 0 ? 'bg-red-500' : 
+                quotaStatus.is_pro ? 'bg-gradient-to-r from-yellow-400 to-amber-500' : 'bg-gradient-to-r from-sage to-terracotta'
+              ]"
+              :style="{ width: `${Math.min((quotaStatus.used / (quotaStatus.limit || 1)) * 100, 100)}%` }"
             >
-              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-              <path d="M3 3v5h5" />
-              <path d="m12 7 0 5 3 2" />
-            </svg>
-            {{ t('upload.rollingNotice') }}
-          </span>
-        </div>
+              <!-- Shimmer effect -->
+              <div class="absolute inset-0 bg-white/20 w-full h-full -skew-x-12 translate-x-[-100%] animate-[shimmer_2s_infinite]"></div>
+            </div>
+          </div>
+          
+          <div v-if="quotaStatus.remaining === 0" class="mt-3 text-xs font-bold text-red-500 text-center animate-pulse">
+            {{ t('upload.quota.exceeded') }}
+          </div>
+
+          <div v-if="quotaStatus.resets_at" class="mt-3 text-[10px] text-brown-light/60 text-center flex flex-col gap-0.5 border-t border-brown/5 pt-2">
+            <div>
+              {{ t('upload.quota.resetsAt', { time: formatResetTime(quotaStatus.resets_at) }) }}
+            </div>
+            <div v-if="quotaStatus.reset_type === 'first_upload_window'" class="italic">
+              {{ t('upload.quota.firstUploadWindow') }}
+            </div>
+          </div>
+          </template>
+
+          <!-- Skeleton Loader -->
+          <template v-else>
+            <div class="flex justify-between items-end mb-2">
+              <div>
+                <div class="h-5 w-24 bg-stone-200 rounded animate-pulse mb-1"></div>
+                <div class="h-3 w-32 bg-stone-100 rounded animate-pulse"></div>
+              </div>
+              <div class="text-right">
+                <div class="h-8 w-16 bg-stone-200 rounded animate-pulse"></div>
+              </div>
+            </div>
+            <!-- Progress bar skeleton -->
+            <div class="h-3 w-full bg-stone-100 rounded-full overflow-hidden relative shadow-inner">
+               <div class="absolute inset-0 bg-stone-200 translate-x-[-100%] animate-[shimmer_1.5s_infinite]"></div>
+            </div>
+          </template>
+</div>
       </div>
 
       <!-- Main Content Card -->
@@ -230,9 +253,10 @@ import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '@/store/authStore';
 import { showError, showSuccess } from '@/store/toast';
 import { catDetectionService as CatDetectionService } from '@/services/catDetectionService';
-import { loadGoogleMaps } from '@/utils/googleMapsLoader';
-import { getEnvVar } from '@/utils/env';
 import { useUploadCat } from '@/composables/useUploadCat';
+import { useUploadMap } from '@/composables/useUploadMap';
+import { format } from 'date-fns';
+import { th, enUS } from 'date-fns/locale';
 
 // Components
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
@@ -243,9 +267,10 @@ import UploadDetailsSection from '@/components/upload/UploadDetailsSection.vue';
 import UploadLocationSection from '@/components/upload/UploadLocationSection.vue';
 import UploadSuccess from '@/components/upload/UploadSuccess.vue';
 
-const { t } = useI18n();
+// const { t } = useI18n(); // Removed duplicate
 const router = useRouter();
 const authStore = useAuthStore();
+const { t, locale } = useI18n();
 const isAuthenticated = computed(() => authStore.isAuthenticated);
 
 // State
@@ -253,9 +278,6 @@ const currentStep = ref(1);
 const isDetectingCats = ref(false);
 const isSubmitting = ref(false);
 const showLoginModal = ref(false);
-const gettingLocation = ref(false);
-const map = ref<google.maps.Map | null>(null);
-const marker = ref<google.maps.Marker | null>(null);
 
 const uploadResult = ref<unknown>(null);
 
@@ -265,6 +287,8 @@ const quotaStatus = ref<{
   limit: number;
   remaining: number;
   is_pro: boolean;
+  resets_at: string | null;
+  reset_type: string | null;
 } | null>(null);
 
 // Fetch real quota from API
@@ -309,6 +333,17 @@ const uploadData = ref({
   latitude: null as number | null,
   longitude: null as number | null,
 });
+
+const formatResetTime = (isoString: string): string => {
+  if (!isoString) return '';
+  try {
+    const date = new Date(isoString);
+    const dateLocale = locale.value === 'th' ? th : enUS;
+    return format(date, 'd MMM, HH:mm', { locale: dateLocale });
+  } catch {
+    return isoString;
+  }
+};
 
 // Computed Validation
 const isStep2Valid = computed(() => {
@@ -364,83 +399,24 @@ const handleFileSelected = async ({ file, url }: { file: File; url: string }): P
   }
 };
 
-// Map Logic
+// Use Composables
+const { uploadCatPhoto, isUploading, uploadProgress, getUploadQuota, error } = useUploadCat();
+
+const { gettingLocation, initMap, getCurrentLocation } = useUploadMap({
+  onLocationUpdate: (lat, lng) => {
+    uploadData.value.latitude = lat;
+    uploadData.value.longitude = lng;
+  },
+});
+
+// Sync loading state for template compatibility
+// Sync Map watch
 watch(currentStep, (step) => {
   if (step === 3) {
     nextTick(() => initMap());
   }
 });
 
-const initMap = async (): Promise<void> => {
-  try {
-    await loadGoogleMaps({ apiKey: getEnvVar('VITE_GOOGLE_MAPS_API_KEY') });
-
-    const mapEl = document.getElementById('uploadMap');
-    if (!mapEl) return;
-
-    const defaultCenter = { lat: 13.7563, lng: 100.5018 }; // Bangkok default
-
-    map.value = new google.maps.Map(mapEl, {
-      center: defaultCenter,
-      zoom: 12,
-      disableDefaultUI: true,
-      clickableIcons: false,
-    });
-
-    map.value.addListener('click', (e: google.maps.MapMouseEvent) => {
-      if (e.latLng) {
-        updateLocation(e.latLng.lat(), e.latLng.lng());
-      }
-    });
-  } catch {
-    showError(t('upload.errorMapLoad'), t('common.error'));
-  }
-};
-
-const updateLocation = (lat: number, lng: number): void => {
-  uploadData.value.latitude = lat;
-  uploadData.value.longitude = lng;
-
-  if (marker.value) {
-    marker.value.setPosition({ lat, lng });
-  } else if (map.value) {
-    marker.value = new google.maps.Marker({
-      position: { lat, lng },
-      map: map.value,
-      animation: google.maps.Animation.DROP,
-    });
-  }
-};
-
-const getCurrentLocation = (): void => {
-  if (!navigator.geolocation) {
-    showError(t('upload.errorGeolocation'), t('common.error'));
-    return;
-  }
-
-  gettingLocation.value = true;
-  navigator.geolocation.getCurrentPosition(
-    // NOSONAR typescript:S5604 - Geolocation required for upload location step; user consent via browser prompt
-    (pos) => {
-      const { latitude, longitude } = pos.coords;
-      updateLocation(latitude, longitude);
-      if (map.value) {
-        map.value.panTo({ lat: latitude, lng: longitude });
-        map.value.setZoom(15);
-      }
-      gettingLocation.value = false;
-    },
-    (err) => {
-      showError(err.message, 'Location Error');
-      gettingLocation.value = false;
-    }
-  );
-};
-
-// Use Composable
-const { uploadCatPhoto, isUploading, uploadProgress, getUploadQuota, error } = useUploadCat();
-
-// Sync loading state for template compatibility
 watch(isUploading, (val) => {
   isSubmitting.value = val;
 });

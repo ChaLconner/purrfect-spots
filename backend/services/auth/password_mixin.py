@@ -2,13 +2,13 @@ from typing import Any, cast
 
 import structlog
 from sqlalchemy import text
-from supabase import acreate_client
 
 from config import config
 from services.auth.base_mixin import AuthBaseMixin
 from services.email_service import email_service
 from services.password_service import password_service
 from services.token_service import get_token_service
+from supabase import acreate_client
 from utils.datetime_utils import utc_now
 
 logger = structlog.get_logger(__name__)

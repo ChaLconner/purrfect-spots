@@ -7,12 +7,15 @@ from utils.security import (
     log_data_access_event,
     log_file_operation_event,
     log_security_event,
+    protect_public_coordinates,
     sanitize_description,
     sanitize_html,
     sanitize_location_name,
     sanitize_tag,
     sanitize_tags,
     sanitize_text,
+    validate_content_type_matches,
+    validate_image_magic_bytes,
 )
 
 
@@ -107,3 +110,59 @@ def test_log_file_operation_event(mock_audit):
         "upload", user_id="u1", filename="a.jpg", file_size=100, file_type="image/jpeg", error_message="err"
     )
     mock_audit.assert_called_once()
+    args, kwargs = mock_audit.call_args
+    assert kwargs["details"]["filename"] == "a.jpg"
+    assert kwargs["details"]["file_size"] == 100
+    assert kwargs["details"]["file_type"] == "image/jpeg"
+    assert kwargs["details"]["error"] == "err"
+
+
+def test_validate_image_magic_bytes():
+    """Test image magic bytes validation"""
+    # JPEG magic bytes
+    jpeg_bytes = b"\xff\xd8\xff\xe0\x00\x10JFIF"
+    is_valid, mime, error = validate_image_magic_bytes(jpeg_bytes)
+    assert is_valid is True
+    assert mime == "image/jpeg"
+
+    # Empty file
+    is_valid, mime, error = validate_image_magic_bytes(b"")
+    assert is_valid is False
+    assert error == "Empty file content"
+
+    # Invalid type
+    is_valid, mime, error = validate_image_magic_bytes(b"plain text file")
+    assert is_valid is False
+    assert "not allowed" in error
+
+
+def test_validate_content_type_matches():
+    """Test matching claimed content type with detected type"""
+    jpeg_bytes = b"\xff\xd8\xff\xe0\x00\x10JFIF"
+
+    # Matching
+    is_match, mime = validate_content_type_matches("image/jpeg", jpeg_bytes)
+    assert is_match is True
+
+    # Alias matching
+    is_match, mime = validate_content_type_matches("image/jpg", jpeg_bytes)
+    assert is_match is True
+
+    # Mismatch
+    is_match, mime = validate_content_type_matches("image/png", jpeg_bytes)
+    assert is_match is False
+
+
+def test_protect_public_coordinates():
+    lat, lng = 13.7563, 100.5018
+    p_lat, p_lng = protect_public_coordinates(lat, lng)
+
+    # Should be rounded but close
+    assert round(p_lat, 2) == round(lat, 2)
+    assert round(p_lng, 2) == round(lng, 2)
+
+    # Should be deterministic with same seed
+    p_lat2, p_lng2 = protect_public_coordinates(lat, lng, seed="test-seed")
+    p_lat3, p_lng3 = protect_public_coordinates(lat, lng, seed="test-seed")
+    assert p_lat2 == p_lat3
+    assert p_lng2 == p_lng3

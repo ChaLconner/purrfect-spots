@@ -3,25 +3,25 @@ import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import AuthForm from '@/components/AuthForm.vue';
 import { useRouter } from 'vue-router';
-import { ref } from 'vue';
+import { ref, type App } from 'vue';
 import { useAuthForm } from '@/composables/useAuthForm';
 import { useAuthStore } from '@/store/authStore';
 
 // Mock useRouter
-vi.mock('vue-router', () => ({
+vi.mock('vue-router', (): Record<string, unknown> => ({
   useRouter: vi.fn(),
 }));
 
 // Mock useAuthStore
-vi.mock('@/store/authStore', () => ({
-  useAuthStore: vi.fn(() => ({
+vi.mock('@/store/authStore', (): Record<string, unknown> => ({
+  useAuthStore: vi.fn((): Record<string, unknown> => ({
     isUserReady: false,
     verifySession: vi.fn(),
   })),
 }));
 
 // Mock useAuthForm composable
-vi.mock('@/composables/useAuthForm', () => ({
+vi.mock('@/composables/useAuthForm', (): Record<string, unknown> => ({
   useAuthForm: vi.fn(),
 }));
 
@@ -33,8 +33,8 @@ const BaseInputStub = { template: '<input v-bind="$attrs" />', props: ['modelVal
 
 // i18n mock: returns the translation key as-is
 const i18nMock = {
-  install(app: any) {
-    app.config.globalProperties.$t = (key: string) => key;
+  install(app: App): void {
+    app.config.globalProperties.$t = (key: string): string => key;
   },
 };
 
@@ -50,7 +50,7 @@ const defaultGlobal = {
 };
 
 describe('AuthForm.vue', () => {
-  beforeEach(() => {
+  beforeEach((): void => {
     setActivePinia(createPinia());
     (useRouter as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ push: vi.fn() });
     
@@ -247,7 +247,9 @@ describe('AuthForm.vue', () => {
     // The first .submit-btn is the form submit button
     const buttons = wrapper.findAll('.submit-btn');
     const googleBtn = buttons[buttons.length - 1]; // Last button is Google
-    await googleBtn.trigger('click');
+    if (googleBtn) {
+      await googleBtn.trigger('click');
+    }
     expect(handleGoogleLogin).toHaveBeenCalled();
   });
 });

@@ -8,6 +8,7 @@ export interface Comment {
   created_at: string;
   user_name?: string;
   user_picture?: string;
+  user_is_pro?: boolean;
 }
 
 export const SocialService = {

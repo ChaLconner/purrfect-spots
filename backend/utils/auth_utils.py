@@ -51,28 +51,26 @@ def decode_token(token: str) -> dict[str, Any]:
 def get_client_info(request: Any) -> tuple[str, str]:
     """
     Extract client IP and User-Agent from request.
-
-    SECURITY: In production environments behind a proxy (Load Balancer, Cloudflare, Vercel),
-    the 'X-Forwarded-For' header can be spoofed by clients.
-    The real client IP should be validated against trusted proxy IP ranges.
+    Checks X-Forwarded-For, X-Real-IP, and falls back to client.host.
     """
-    ip = request.client.host if request.client else "unknown"
+    # Try X-Forwarded-For first (common in many proxy setups)
+    ip = request.headers.get("X-Forwarded-For", "")
+    if ip:
+        # Take the leftmost IP if there's a comma-separated list
+        ip = ip.split(",")[0].strip()
+
+    # Fallback to X-Real-IP
+    if not ip:
+        ip = request.headers.get("X-Real-IP", "")
+
+    # Final fallback to request.client.host
+    if not ip and request.client and getattr(request.client, "host", None):
+        ip = request.client.host
+
+    if not ip:
+        ip = "unknown"
+
     user_agent = request.headers.get("user-agent", "")
-
-    # Try X-Real-IP first (often set by direct proxies like Nginx)
-    x_real_ip = request.headers.get("X-Real-IP")
-    if x_real_ip:
-        ip = x_real_ip
-    else:
-        # Handling X-Forwarded-For chain.
-        # SECURITY NOTE: This is vulnerable to spoofing if not validated against trusted proxies.
-        forwarded = request.headers.get("X-Forwarded-For")
-        if forwarded:
-            # We take the first IP, which is the client IP according to the proxy chain.
-            # In a production environment, you should verify the chain from right-to-left
-            # and stop at the first non-trusted IP.
-            ip = forwarded.split(",")[0].strip()
-
     return ip, user_agent
 
 

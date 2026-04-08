@@ -45,3 +45,4 @@ export { useUploadCat } from './useUploadCat';
 // Rate limiting utilities
 export { useDebounce, useDebounceFn, useDebouncedAsync } from './useDebounce';
 export { useThrottle, useThrottleFn, useThrottledAsync } from './useThrottle';
+export { useToast } from './useToast';

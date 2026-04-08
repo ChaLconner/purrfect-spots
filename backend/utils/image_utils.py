@@ -4,11 +4,13 @@ Provides image compression, resizing, and format optimization before S3 upload
 """
 
 import io
+import warnings
 from typing import Any
 
 from PIL import Image
 
 from logger import logger
+from utils.security import MAX_IMAGE_PIXELS
 
 # Configuration constants
 MAX_IMAGE_DIMENSION = 1920  # Max width or height in pixels
@@ -17,9 +19,26 @@ WEBP_QUALITY = 80  # Quality for WebP compression (1-100)
 MAX_FILE_SIZE_MB = 5  # Target max file size after optimization
 
 
+def _enforce_image_pixel_limit(img: Image.Image) -> None:
+    """Reject images that exceed the configured maximum decoded pixel count."""
+    width, height = img.size
+    if width * height > MAX_IMAGE_PIXELS:
+        raise ValueError(f"Image exceeds maximum allowed pixel count ({MAX_IMAGE_PIXELS})")
+
+
+def _open_image_safely(image_source: bytes | Any) -> Image.Image:
+    """Open an image while converting decompression bomb warnings into hard failures."""
+    source = io.BytesIO(image_source) if isinstance(image_source, bytes) else image_source
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", Image.DecompressionBombWarning)
+        img = Image.open(source)
+        _enforce_image_pixel_limit(img)
+        return img
+
+
 def _preprocess_image(image_content: bytes) -> tuple[Image.Image, str | None, int]:
     """Open image, strip EXIF, and convert mode if needed."""
-    img = Image.open(io.BytesIO(image_content))
+    img = _open_image_safely(image_content)
     original_format = img.format
     original_size = len(image_content)
 
@@ -150,7 +169,7 @@ def optimize_image(
         return optimized_content, new_content_type
 
     except Exception as e:
-        logger.error(f"Image optimization failed: {e!s}")
+        logger.warning(f"Image optimization skipped/failed: {e!s}")
         # Return original image if optimization fails
         return image_content, content_type
 
@@ -163,10 +182,10 @@ def get_image_dimensions(image_content: bytes) -> tuple[int, int]:
         Tuple of (width, height)
     """
     try:
-        img = Image.open(io.BytesIO(image_content))
+        img = _open_image_safely(image_content)
         return img.size
     except Exception as e:
-        logger.error(f"Failed to get image dimensions: {e!s}")
+        logger.warning(f"Failed to get image dimensions: {e!s}")
         return (0, 0)
 
 
@@ -177,16 +196,19 @@ def is_valid_image(image_content: bytes | Any) -> bool:
     Returns:
         True if valid image, False otherwise
     """
-    import io
-
-    from PIL import Image
 
     from logger import logger
 
+    position = None
     try:
-        img = Image.open(io.BytesIO(image_content)) if isinstance(image_content, bytes) else Image.open(image_content)
+        if not isinstance(image_content, bytes) and hasattr(image_content, "tell"):
+            position = image_content.tell()
+        img = _open_image_safely(image_content)
         img.verify()  # Verify image integrity
         return True
     except Exception as e:
         logger.debug(f"Image validation failed: {e}")
         return False
+    finally:
+        if position is not None and hasattr(image_content, "seek"):
+            image_content.seek(position)

@@ -28,6 +28,19 @@ vi.mock('@/services/profileService', () => ({
   },
 }));
 
+const mockChannel = {
+  on: vi.fn().mockReturnThis(),
+  subscribe: vi.fn().mockReturnThis(),
+  topic: 'realtime:user_balance_1'
+};
+
+vi.mock('@/lib/supabase', () => ({
+  supabase: {
+    channel: vi.fn(() => mockChannel),
+    removeChannel: vi.fn(),
+  },
+}));
+
 describe('Auth Store', () => {
   beforeEach(() => {
     setActivePinia(createPinia());

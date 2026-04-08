@@ -157,9 +157,10 @@ class GoogleVisionService:
             )
             if response and hasattr(response, "data") and response.data:
                 logger.info(f"Vision API Cache Hit: {image_hash[:8]}...")
-                from typing import cast
+                from typing import Any, cast
 
-                return cast(dict | None, response.data["response"])
+                data = cast(dict[str, Any], response.data)
+                return cast(dict[str, Any] | None, data["response"])
         except Exception as e:
             logger.warning(f"Cache lookup failed: {e}")
         return None

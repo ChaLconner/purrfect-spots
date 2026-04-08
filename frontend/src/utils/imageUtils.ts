@@ -2,7 +2,7 @@
  * Image utilities for optimization and CDN handling
  */
 
-import { isProd, isDev, getEnvVar } from './env';
+import { isProd, getEnvVar } from './env';
 
 // Image optimization settings
 export interface ImageOptimizationOptions {
@@ -55,15 +55,6 @@ const DEFAULT_CDN_CONFIG: CDNConfig = {
 };
 
 // Debug log in dev
-// Debug log only in development
-if (isDev()) {
-  // eslint-disable-next-line no-console
-  console.log('[ImageUtils] CDN Config:', {
-    configured: !!envCdnUrl,
-    url: envCdnUrl || '(none)',
-    enabled: DEFAULT_CDN_CONFIG.enabled,
-  });
-}
 
 /**
  * Check if CDN is available and configured
@@ -147,11 +138,6 @@ export const optimizeImage = async (
             resolve(optimizedFile);
           } else {
             // Fallback to main thread if worker fails
-            console.warn(
-              'Worker image optimization failed:',
-              e.data.error,
-              'Falling back to main thread.'
-            );
             optimizeImageMainThread(file, mergedOptions).then(resolve).catch(reject);
           }
         }

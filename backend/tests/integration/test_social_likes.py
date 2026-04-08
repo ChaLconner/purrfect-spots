@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from dotenv import load_dotenv
+
 from supabase import Client, create_client
 
 # Load environment variables

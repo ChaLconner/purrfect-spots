@@ -6,12 +6,13 @@ Generates, stores, and verifies 6-digit OTP codes
 import hashlib
 import secrets
 from datetime import datetime, timedelta
+from typing import Any, cast
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from supabase import AClient
 
 from logger import logger
+from supabase import AClient
 from utils.datetime_utils import utc_now
 from utils.exceptions import ExternalServiceError, PurrfectSpotsException
 
@@ -29,6 +30,8 @@ class OTPService:
     def __init__(self, supabase_client: AClient, db: AsyncSession | None = None) -> None:
         self.supabase = supabase_client
         self.db = db
+        # Consistent column selection for OTPs
+        self.OTP_COLUMNS = "id, otp_hash, attempts, max_attempts, expires_at"
 
     def _generate_otp(self) -> str:
         """Generate cryptographically secure 6-digit OTP"""
@@ -61,7 +64,8 @@ class OTPService:
                         lockout_key = f"otp_lockout:{email}"
                         exists = await redis_client.exists(lockout_key)
                         return bool(exists)
-                except Exception:  # nosec B110
+                except Exception as e:
+                    logger.debug(f"Redis lockout check failed, falling back to DB: {e}")
                     pass
 
             # Fallback to database check
@@ -87,11 +91,13 @@ class OTPService:
                     .execute()
                 )
 
-                if supa_res.data and supa_res.data[0].get("locked_until"):
-                    locked_until = datetime.fromisoformat(
-                        supa_res.data[0]["locked_until"].replace("Z", TIMEZONE_UTC_OFFSET)
-                    )
-                    return utc_now() < locked_until
+                if supa_res.data:
+                    first_row = cast(dict[str, Any], cast(list[Any], supa_res.data)[0])
+                    if first_row.get("locked_until"):
+                        locked_until = datetime.fromisoformat(
+                            cast(str, first_row["locked_until"]).replace("Z", TIMEZONE_UTC_OFFSET)
+                        )
+                        return utc_now() < locked_until
 
             return False
         except Exception:
@@ -121,7 +127,8 @@ class OTPService:
                         )
                     logger.info("Email locked out in Redis: %s until %s", email, locked_until.isoformat())
                     return
-                except Exception:  # nosec B110
+                except Exception as e:
+                    logger.debug(f"Redis lockout record failed, falling back to DB: {e}")
                     pass
 
             # Fallback to database
@@ -146,10 +153,11 @@ class OTPService:
                 )
 
                 if result.data:
+                    first_row = cast(dict[str, Any], cast(list[Any], result.data)[0])
                     await (
                         self.supabase.table("email_verifications")
                         .update({"locked_until": locked_until.isoformat()})
-                        .eq("id", result.data[0]["id"])
+                        .eq("id", first_row["id"])
                         .execute()
                     )
             logger.info("Email locked out in database: %s until %s", email, locked_until.isoformat())
@@ -174,7 +182,8 @@ class OTPService:
                         lockout_key = f"otp_lockout:{email}"
                         await redis_client.delete(lockout_key)
                     return
-                except Exception:  # nosec B110
+                except Exception as e:
+                    logger.debug(f"Redis lockout deletion failed, falling back to DB: {e}")
                     pass
 
             # Fallback to database
@@ -196,10 +205,11 @@ class OTPService:
                 )
 
                 if result.data:
+                    first_row = cast(dict[str, Any], cast(list[Any], result.data)[0])
                     await (
                         self.supabase.table("email_verifications")
                         .update({"locked_until": None})
-                        .eq("id", result.data[0]["id"])
+                        .eq("id", first_row["id"])
                         .execute()
                     )
         except Exception as e:
@@ -234,7 +244,7 @@ class OTPService:
                 await self.db.execute(query, data)
                 await self.db.commit()
             else:
-                result = await self.supabase.table("email_verifications").insert(data).execute()
+                result = await self.supabase.table("email_verifications").insert(cast(dict[str, Any], data)).execute()
 
                 if not result.data:
                     raise ExternalServiceError("Failed to store OTP", service="Database")
@@ -266,7 +276,7 @@ class OTPService:
             record = None
             if self.db:
                 query = text(
-                    "SELECT * FROM email_verifications WHERE email = :email "
+                    f"SELECT {self.OTP_COLUMNS} FROM email_verifications WHERE email = :email "  # noqa: S608
                     "AND verified_at IS NULL ORDER BY created_at DESC LIMIT 1"
                 )
                 result = await self.db.execute(query, {"email": email_lower})
@@ -276,7 +286,7 @@ class OTPService:
             else:
                 supa_res = (
                     await self.supabase.table("email_verifications")
-                    .select("*")
+                    .select(self.OTP_COLUMNS)
                     .eq("email", email_lower)
                     .is_("verified_at", "null")
                     .order("created_at", desc=True)
@@ -284,7 +294,7 @@ class OTPService:
                     .execute()
                 )
                 if supa_res.data:
-                    record = supa_res.data[0]
+                    record = cast(dict[str, Any], cast(list[Any], supa_res.data)[0])
 
             if not record:
                 logger.warning("No pending OTP found")
@@ -412,7 +422,7 @@ class OTPService:
                     .execute()
                 )
                 if supa_res.data:
-                    row_created_at = supa_res.data[0]["created_at"]
+                    row_created_at = cast(dict[str, Any], cast(list[Any], supa_res.data)[0])["created_at"]
 
             if not row_created_at:
                 return True, 0

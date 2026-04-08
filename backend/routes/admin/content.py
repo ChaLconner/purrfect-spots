@@ -54,7 +54,10 @@ async def list_photos(
         admin_client = await get_async_supabase_admin_client()
         query = (
             admin_client.table("cat_photos")
-            .select("*, users!cat_photos_user_id_fkey(email, name)", count=CountMethod.exact)
+            .select(
+                "id, image_url, description, location_name, latitude, longitude, uploaded_at, user_id, users!cat_photos_user_id_fkey(email, name)",
+                count=CountMethod.exact,
+            )
             .range(offset, offset + limit - 1)
             .order("uploaded_at", desc=True)
         )
@@ -69,7 +72,7 @@ async def list_photos(
     except Exception as e:
         error_details = getattr(e, "details", "No details")
         error_hint = getattr(e, "hint", "No hint")
-        logger.error(f"Failed to list photos: {e} | Details: {error_details} | Hint: {error_hint}")
+        logger.error("Failed to list photos: %s | Details: %s | Hint: %s", e, error_details, error_hint)
         raise HTTPException(status_code=500, detail=f"Failed to fetch photos: {e}")
 
 
@@ -166,7 +169,7 @@ async def delete_photo_admin(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to delete photo {photo_id}: {e}")
+        logger.error("Failed to delete photo %s: %s", photo_id, e)
         raise HTTPException(status_code=500, detail=f"Failed to delete photo: {e}")
 
 
@@ -201,5 +204,5 @@ async def update_photo_admin(
 
         return cast(dict[str, Any], result.data[0])
     except Exception as e:
-        logger.error(f"Failed to update photo {photo_id}: {e}")
+        logger.error("Failed to update photo %s: %s", photo_id, e)
         raise HTTPException(status_code=500, detail="Failed to update photo")

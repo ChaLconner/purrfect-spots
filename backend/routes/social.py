@@ -1,4 +1,5 @@
-from typing import Annotated, Any
+from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -8,6 +9,7 @@ from dependencies import (
 )
 from logger import logger
 from middleware.auth_middleware import get_current_user_from_credentials
+from schemas.common import MessageResponse
 from schemas.social import CommentCreate, CommentResponse, CommentUpdate, LikeResponse
 from schemas.user import User
 from services.social_service import SocialService
@@ -15,6 +17,13 @@ from utils.action_throttle import like_rate_limiter
 from utils.exceptions import ExternalServiceError, NotFoundError
 
 router = APIRouter(prefix="/social", tags=["Social"])
+
+
+def _validate_uuid_param(value: str, field_name: str) -> None:
+    try:
+        UUID(value)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid {field_name}") from exc
 
 
 @router.post(
@@ -32,21 +41,15 @@ async def toggle_like(
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     social_service: Annotated[SocialService, Depends(get_social_service)],
     token: Annotated[str, Depends(get_current_token)],
-) -> dict[str, Any]:
+) -> LikeResponse:
     """
     Toggle like on a photo.
 
     Uses atomic database function to prevent race conditions.
     Returns the new liked status and updated likes count.
     Rate limited to 10 requests per 10 seconds per user.
-
-    Raises:
-        HTTPException: 404 - If the photo is not found.
-        HTTPException: 429 - If the rate limit is exceeded.
-        HTTPException: 500 - If toggle like fails due to an unexpected error.
-        HTTPException: 503 - If the service is temporarily unavailable.
     """
-    # Rate limit per user
+    _validate_uuid_param(photo_id, "photo_id")
     if not await like_rate_limiter.is_allowed(f"like:{current_user.id}"):
         raise HTTPException(status_code=429, detail="Too many requests. Please slow down.")
 
@@ -55,10 +58,10 @@ async def toggle_like(
     except NotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e.message))
     except ExternalServiceError as e:
-        logger.error(f"Like failed (service error): {e}")
+        logger.error("Like failed (service error): %s", e)
         raise HTTPException(status_code=503, detail="Service temporarily unavailable")
     except Exception as e:
-        logger.error(f"Like failed (unexpected): {e}")
+        logger.error("Like failed (unexpected): %s", e)
         raise HTTPException(status_code=500, detail="Failed to toggle like")
 
 
@@ -77,24 +80,18 @@ async def add_comment(
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     social_service: Annotated[SocialService, Depends(get_social_service)],
     token: Annotated[str, Depends(get_current_token)],
-) -> dict[str, Any]:
-    """
-    Add a comment to a photo.
-
-    Raises:
-        HTTPException: 404 - If the photo is not found.
-        HTTPException: 500 - If posting a comment fails due to an internal error.
-        HTTPException: 503 - If the service is temporarily unavailable.
-    """
+) -> CommentResponse:
+    """Add a comment to a photo."""
+    _validate_uuid_param(photo_id, "photo_id")
     try:
         return await social_service.add_comment(current_user.id, photo_id, comment.content)
     except NotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e.message))
     except ExternalServiceError as e:
-        logger.error(f"Comment failed (service error): {e}")
+        logger.error("Comment failed (service error): %s", e)
         raise HTTPException(status_code=503, detail="Service temporarily unavailable")
     except Exception as e:
-        logger.error(f"Comment failed: {e}")
+        logger.error("Comment failed: %s", e)
         raise HTTPException(status_code=500, detail="Failed to post comment")
 
 
@@ -106,22 +103,19 @@ async def add_comment(
 async def get_comments(
     photo_id: str,
     social_service: Annotated[SocialService, Depends(get_social_service)],
-) -> list[dict[str, Any]]:
-    """
-    Get comments for a photo.
-
-    Raises:
-        HTTPException: 500 - If fetching comments fails.
-    """
+) -> list[CommentResponse]:
+    """Get comments for a photo."""
+    _validate_uuid_param(photo_id, "photo_id")
     try:
         return await social_service.get_comments(photo_id)
     except Exception as e:
-        logger.error(f"Get comments failed: {e}")
+        logger.error("Get comments failed: %s", e)
         raise HTTPException(status_code=500, detail="Failed to get comments")
 
 
 @router.delete(
     "/comments/{comment_id}",
+    response_model=MessageResponse,
     responses={403: {"description": "Forbidden"}, 500: {"description": "Internal Server Error"}},
 )
 async def delete_comment(
@@ -129,23 +123,18 @@ async def delete_comment(
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     social_service: Annotated[SocialService, Depends(get_social_service)],
     token: Annotated[str, Depends(get_current_token)],
-) -> dict[str, str]:
-    """
-    Delete a comment.
-
-    Raises:
-        HTTPException: 403 - If the user is not authorized or the comment is not found.
-        HTTPException: 500 - If deleting the comment fails.
-    """
+) -> MessageResponse:
+    """Delete a comment."""
+    _validate_uuid_param(comment_id, "comment_id")
     try:
         success = await social_service.delete_comment(current_user.id, comment_id)
         if not success:
             raise HTTPException(status_code=403, detail="Not authorized or comment not found")
-        return {"message": "Comment deleted"}
+        return MessageResponse(message="Comment deleted")
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Delete comment failed: {e}")
+        logger.error("Delete comment failed: %s", e)
         raise HTTPException(status_code=500, detail="Failed to delete comment")
 
 
@@ -160,14 +149,9 @@ async def update_comment(
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     social_service: Annotated[SocialService, Depends(get_social_service)],
     token: Annotated[str, Depends(get_current_token)],
-) -> dict[str, Any]:
-    """
-    Update an existing comment.
-
-    Raises:
-        HTTPException: 403 - If the user is not authorized or the comment is not found.
-        HTTPException: 500 - If updating the comment fails.
-    """
+) -> CommentResponse:
+    """Update an existing comment."""
+    _validate_uuid_param(comment_id, "comment_id")
     try:
         updated_comment = await social_service.update_comment(
             user_id=current_user.id,
@@ -180,5 +164,5 @@ async def update_comment(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Update comment failed: {e}")
+        logger.error("Update comment failed: %s", e)
         raise HTTPException(status_code=500, detail="Failed to update comment")

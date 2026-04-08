@@ -23,6 +23,8 @@ export function useUploadCat(): {
     limit: number;
     remaining: number;
     is_pro: boolean;
+    resets_at: string | null;
+    reset_type: string | null;
   } | null>;
   resetState: () => void;
 } {
@@ -36,6 +38,8 @@ export function useUploadCat(): {
     limit: number;
     remaining: number;
     is_pro: boolean;
+    resets_at: string | null;
+    reset_type: string | null;
   } | null> => {
     try {
       // Lazy import api to avoid circular dependencies if any
@@ -45,6 +49,8 @@ export function useUploadCat(): {
         limit: number;
         remaining: number;
         is_pro: boolean;
+        resets_at: string | null;
+        reset_type: string | null;
       }>('/api/v1/upload/quota');
       return response;
     } catch (err) {

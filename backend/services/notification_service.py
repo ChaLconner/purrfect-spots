@@ -4,9 +4,9 @@ from typing import Any, cast
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from supabase import AClient
 
 from logger import logger
+from supabase import AClient
 
 _UUID_PATTERN = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -94,8 +94,8 @@ class NotificationService:
                 await db_session.commit()
                 row = result.fetchone()
                 return dict(row._mapping) if row else {}
-            res = await self.supabase.table("notifications").insert(data).execute()
-            return res.data[0] if res.data else {}
+            res = await self.supabase.table("notifications").insert(cast(dict[str, Any], data)).execute()
+            return cast(dict[str, Any], res.data[0]) if res.data else {}
         except Exception as e:
             error_str = str(e)
             # Handle FK constraint violation (user doesn't exist) gracefully
@@ -143,8 +143,9 @@ class NotificationService:
             )
 
             notifications = []
-            for item in supa_res.data:
-                actor = item.get("actor", {}) or {}
+            for item_json in supa_res.data:
+                item = cast(dict[str, Any], item_json)
+                actor = cast(dict[str, Any], item.get("actor", {}) or {})
                 item["actor_name"] = actor.get("name")
                 item["actor_picture"] = actor.get("picture")
                 item.pop("actor", None)

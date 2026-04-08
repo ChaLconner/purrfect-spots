@@ -1,12 +1,8 @@
 import { apiV1 } from '../utils/api';
 
 export const SubscriptionService = {
-  async createCheckout(priceId: string): Promise<{ checkout_url: string; session_id: string }> {
-    return apiV1.post('/subscription/checkout', {
-      price_id: priceId,
-      success_url: `${window.location.origin}/subscription/success`,
-      cancel_url: `${window.location.origin}/subscription/cancel`,
-    });
+  async createCheckout(plan: 'monthly' | 'annual' = 'monthly'): Promise<{ checkout_url: string; session_id: string }> {
+    return apiV1.post('/subscription/checkout', { plan });
   },
 
   async getStatus(): Promise<{
@@ -23,7 +19,7 @@ export const SubscriptionService = {
     return apiV1.post('/subscription/cancel');
   },
 
-  async createPortalSession(returnUrl: string): Promise<{ url: string }> {
-    return apiV1.post('/subscription/portal', { return_url: returnUrl });
+  async createPortalSession(returnUrl?: string): Promise<{ url: string }> {
+    return apiV1.post('/subscription/portal', returnUrl ? { return_url: returnUrl } : {});
   },
 };

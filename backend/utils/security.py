@@ -3,6 +3,7 @@ Security utilities for Purrfect Spots
 Provides input sanitization, XSS prevention, and file validation
 """
 
+import hashlib
 import html
 import re
 
@@ -13,6 +14,13 @@ from logger import logger
 
 # ========== File Security Constants ==========
 ALLOWED_IMAGE_MIMES: set[str] = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+IMAGE_MIME_ALIASES: dict[str, str] = {
+    "image/jpg": "image/jpeg",
+}
+MAX_IMAGE_PIXELS = 40_000_000
+PUBLIC_COORDINATE_ROUNDING_DECIMALS = 3
+PUBLIC_COORDINATE_OUTPUT_DECIMALS = 4
+PUBLIC_COORDINATE_FUZZ_RANGE = 0.00045
 
 MAX_FILENAME_LENGTH = 255
 MAX_LOCATION_NAME_LENGTH = 100
@@ -227,21 +235,45 @@ def validate_content_type_matches(claimed_content_type: str, file_content: bytes
 
     # Normalize MIME types for comparison
     claimed = claimed_content_type.lower().split(";")[0].strip()
+    claimed = IMAGE_MIME_ALIASES.get(claimed, claimed)
+    detected = IMAGE_MIME_ALIASES.get(detected_mime, detected_mime)
 
-    # Allow some variations (image/jpg vs image/jpeg)
-    mime_aliases = {
-        "image/jpg": "image/jpeg",
-    }
-
-    claimed = mime_aliases.get(claimed, claimed)
-    detected = mime_aliases.get(detected_mime, detected_mime)
+    if claimed not in ALLOWED_IMAGE_MIMES:
+        logger.warning(f"Claimed Content-Type is not allowed: claimed={claimed}, detected={detected}")
+        return False, detected_mime
 
     if claimed != detected:
         logger.warning(f"Content-Type mismatch: claimed={claimed}, detected={detected}")
-        # Still return true but with actual type - we'll use the detected type
-        return True, detected_mime
+        return False, detected_mime
 
     return True, detected_mime
+
+
+def _deterministic_coordinate_offset(seed: str, axis: str) -> float:
+    """Generate a small deterministic offset to avoid exposing exact upload coordinates."""
+    digest = hashlib.sha256(f"{axis}:{seed}".encode()).digest()
+    ratio = int.from_bytes(digest[:8], "big") / ((1 << 64) - 1)
+    return (ratio - 0.5) * 2 * PUBLIC_COORDINATE_FUZZ_RANGE
+
+
+def protect_public_coordinates(latitude: float, longitude: float, seed: str | None = None) -> tuple[float, float]:
+    """
+    Apply stable coordinate rounding/fuzzing for public gallery responses.
+
+    The result is deterministic per seed so cached/public markers do not visibly jump
+    between requests, while still avoiding exposure of exact user-submitted coordinates.
+    """
+    safe_seed = seed or f"{latitude:.6f}:{longitude:.6f}"
+    rounded_lat = round(latitude, PUBLIC_COORDINATE_ROUNDING_DECIMALS)
+    rounded_lng = round(longitude, PUBLIC_COORDINATE_ROUNDING_DECIMALS)
+
+    protected_lat = max(-90.0, min(90.0, rounded_lat + _deterministic_coordinate_offset(safe_seed, "lat")))
+    protected_lng = max(-180.0, min(180.0, rounded_lng + _deterministic_coordinate_offset(safe_seed, "lng")))
+
+    return (
+        round(protected_lat, PUBLIC_COORDINATE_OUTPUT_DECIMALS),
+        round(protected_lng, PUBLIC_COORDINATE_OUTPUT_DECIMALS),
+    )
 
 
 # ========== Security Logging ==========

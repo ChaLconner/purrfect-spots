@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -12,9 +12,6 @@ from services.report_service import ReportService
 router = APIRouter(prefix="/reports", tags=["Reports"])
 
 
-from typing import Annotated
-
-
 @router.post("/", response_model=ReportResponse, status_code=201)
 @limiter.limit("5/minute")
 async def create_report(
@@ -22,13 +19,8 @@ async def create_report(
     report_data: ReportCreate,
     current_user: Annotated[User, Depends(get_current_user)],
     report_service: Annotated[ReportService, Depends(get_report_service)],
-) -> dict[str, Any]:
-    """
-    Submit a report for a photo.
-
-    Raises:
-        HTTPException: 500 - If report submission fails.
-    """
+) -> ReportResponse:
+    """Submit a report for a photo."""
     try:
         report = await report_service.create_report(
             photo_id=str(report_data.photo_id),
@@ -36,11 +28,11 @@ async def create_report(
             reason=report_data.reason,
             details=report_data.details,
         )
-        logger.info(f"Report created by user {current_user.id} against photo {report_data.photo_id}")
+        logger.info("Report created by user %s against photo %s", current_user.id, report_data.photo_id)
         return report
 
     except Exception as e:
-        logger.error(f"Failed to create report: {e}")
+        logger.error("Failed to create report: %s", e)
         raise HTTPException(status_code=500, detail="Failed to submit report")
 
 
@@ -48,15 +40,10 @@ async def create_report(
 async def list_my_reports(
     current_user: Annotated[User, Depends(get_current_user)],
     report_service: Annotated[ReportService, Depends(get_report_service)],
-) -> list[dict[str, Any]]:
-    """
-    List reports submitted by the current user.
-
-    Raises:
-        HTTPException: 500 - If fetching reports fails.
-    """
+) -> list[ReportResponse]:
+    """List reports submitted by the current user."""
     try:
         return await report_service.get_user_reports(current_user.id)
     except Exception as e:
-        logger.error(f"Failed to list my reports: {e}")
+        logger.error("Failed to list my reports: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch reports")

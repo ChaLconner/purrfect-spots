@@ -163,7 +163,9 @@ class UserDeletionMixin(UserBaseMixin):
     async def execute_hard_delete(self) -> None:
         """Service to be run by a Cron Job to permanently delete expired accounts"""
         try:
-            data = []
+            from typing import Any, cast
+
+            data: list[dict[str, Any]] = []
             if self.db:
                 now = datetime.now(UTC).isoformat()
                 query = text(
@@ -181,7 +183,7 @@ class UserDeletionMixin(UserBaseMixin):
                     .lte("scheduled_deletion_at", now)
                     .execute()
                 )
-                data = expired_reqs.data or []
+                data = cast(list[dict[str, Any]], expired_reqs.data or [])
 
             if not data:
                 return

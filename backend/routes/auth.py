@@ -2,13 +2,10 @@
 Authentication routes for both Manual (Email/Password) and Google OAuth
 """
 
-import os
 from datetime import UTC, datetime
 from typing import Any
-from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from fastapi.responses import RedirectResponse
 
 from config import config
 from dependencies import get_auth_service, get_otp_service
@@ -18,19 +15,23 @@ from middleware.auth_middleware import get_current_user, get_current_user_from_h
 from schemas.auth import (
     ForgotPasswordRequest,
     GoogleCodeExchangeRequest,
-    GoogleTokenRequest,
     LoginRequest,
     LoginResponse,
+    LogoutResponse,
+    PasswordResetResponse,
     RegisterInput,
     ResendOTPRequest,
+    ResendOTPResponse,
     ResetPasswordRequest,
     SessionExchangeRequest,
+    SyncUserResponse,
     VerifyOTPRequest,
 )
-from schemas.user import UserResponse
+from schemas.user import User, UserResponse
 from services.auth_service import AuthService
 from services.email_service import email_service
 from services.otp_service import OTPService
+from services.password_service import password_service
 from utils.auth_response_utils import create_login_response
 from utils.auth_utils import get_client_info, set_refresh_cookie
 from utils.exceptions import ConflictError
@@ -40,6 +41,13 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 # AuthService is now imported from dependencies
+
+
+def _ensure_user_not_banned(user: User | dict[str, Any] | Any) -> None:
+    """Block token issuance for suspended accounts."""
+    banned_at = user.get("banned_at") if isinstance(user, dict) else getattr(user, "banned_at", None)
+    if banned_at:
+        raise HTTPException(status_code=403, detail="Account suspended")
 
 
 # ==========================================
@@ -65,6 +73,12 @@ async def register(
     try:
         if not data.name.strip():
             raise HTTPException(status_code=400, detail="Please enter first and last name")
+
+        is_valid, password_error = await password_service.validate_new_password(data.password, check_breach=False)
+        if not is_valid:
+            raise HTTPException(
+                status_code=400, detail=password_error or "Password does not meet security requirements"
+            )
 
         sanitized_name = sanitize_text(data.name.strip(), max_length=100)
 
@@ -158,6 +172,7 @@ async def verify_otp(
         # 4. Success - Create login response
         # This will create or update the user in our DB and generate both tokens
         user = await auth_service.create_or_get_user(user_info)
+        _ensure_user_not_banned(user)
 
         log_security_event("otp_verified", details={"user_id": user.id, "email": req.email}, severity="INFO")
 
@@ -170,14 +185,14 @@ async def verify_otp(
         raise HTTPException(status_code=500, detail="Verification process failed. Please try again.") from e
 
 
-@router.post("/resend-otp")
+@router.post("/resend-otp", response_model=ResendOTPResponse)
 @auth_limiter.limit("3/minute")
 async def resend_otp(
     request: Request,  # noqa: ARG001
     req: ResendOTPRequest,
     response: Response,  # noqa: ARG001
     otp_service: Annotated[OTPService, Depends(get_otp_service)],
-) -> dict:
+) -> ResendOTPResponse:
     """
     Resend verification OTP code.
 
@@ -204,7 +219,7 @@ async def resend_otp(
 
         log_security_event("otp_resend", details={"email": req.email}, severity="INFO")
 
-        return {"message": "Verification code sent. Please check your email.", "expires_at": expires_at}
+        return ResendOTPResponse(message="Verification code sent. Please check your email.", expires_at=expires_at)
 
     except HTTPException:
         raise
@@ -233,6 +248,7 @@ async def login(
         if not user_data:
             log_security_event("login_failed_invalid_credentials", details={"email": req.email}, severity="WARNING")
             raise HTTPException(status_code=401, detail="Invalid email or password.")
+        _ensure_user_not_banned(user_data)
 
         # user_data now contains data from Supabase, but we want our own tokens
         return create_login_response(auth_service, user_data, request, response)
@@ -274,6 +290,10 @@ async def refresh_token(
             logger.warning("User not found during token refresh: %s", user_id)
             response.delete_cookie("refresh_token")
             return LoginResponse(access_token=None, token_type=None, message="User not found")
+        if user_obj.banned_at:
+            logger.info("Blocked refresh for suspended user: %s", user_id)
+            response.delete_cookie("refresh_token")
+            return LoginResponse(access_token=None, token_type=None, message="Account suspended")
 
         # Rotate token: revoke old one if it has a JTI
         old_jti = payload.get("jti")
@@ -298,12 +318,12 @@ async def refresh_token(
         return LoginResponse(access_token=None, token_type=None, message="Refresh failed")
 
 
-@router.post("/logout")
+@router.post("/logout", response_model=LogoutResponse)
 async def logout(
     response: Response,
     request: Request,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> dict:
+) -> LogoutResponse:
     """
     Logout user (clear refresh token cookie and revoke it).
 
@@ -325,16 +345,16 @@ async def logout(
             logger.warning("Logout cleanup failed (ignore)")
 
     response.delete_cookie("refresh_token")
-    return {"message": "Logged out successfully"}
+    return LogoutResponse(message="Logged out successfully")
 
 
-@router.post("/forgot-password")
+@router.post("/forgot-password", response_model=PasswordResetResponse)
 @forgot_password_limiter.limit(config.RATE_LIMIT_FORGOT_PASSWORD)
 async def forgot_password(
     request: Request,  # noqa: ARG001
     req: ForgotPasswordRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> dict:
+) -> PasswordResetResponse:
     """
     Request password reset (via Supabase Auth).
 
@@ -343,19 +363,23 @@ async def forgot_password(
     """
     try:
         await auth_service.create_password_reset_token(req.email)
-        return {"message": "If this email is registered, you will receive password reset instructions."}
+        return PasswordResetResponse(
+            message="If this email is registered, you will receive password reset instructions."
+        )
     except Exception:
         logger.error("Forgot password processing failed")
-        return {"message": "If this email is registered, you will receive password reset instructions."}
+        return PasswordResetResponse(
+            message="If this email is registered, you will receive password reset instructions."
+        )
 
 
-@router.post("/reset-password")
+@router.post("/reset-password", response_model=PasswordResetResponse)
 @forgot_password_limiter.limit(config.RATE_LIMIT_FORGOT_PASSWORD)
 async def reset_password(
     request: Request,  # noqa: ARG001
     req: ResetPasswordRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> dict:
+) -> PasswordResetResponse:
     """
     Reset password using token.
 
@@ -369,7 +393,7 @@ async def reset_password(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    return {"message": "Password updated successfully"}
+    return PasswordResetResponse(message="Password updated successfully")
 
 
 @router.post("/session-exchange", response_model=LoginResponse)
@@ -386,7 +410,7 @@ async def exchange_session(
     """
     try:
         # 1. Verify Supabase Token (Async)
-        user_res = await auth_service.supabase.auth.get_user(req.access_token)
+        user_res = await auth_service.supabase_client.auth.get_user(req.access_token)
         if not user_res or not user_res.user:
             log_security_event("session_exchange_failed_invalid_token", severity="WARNING")
             raise HTTPException(status_code=401, detail="Invalid Supabase session")
@@ -405,6 +429,7 @@ async def exchange_session(
         # Prepare data for responders (handle both models and dicts)
         user_payload: Any
         if db_user:
+            _ensure_user_not_banned(db_user)
             user_payload = db_user
         else:
             user_payload = {
@@ -442,86 +467,14 @@ async def get_current_user_info(current_user: Annotated[UserResponse, Depends(ge
         bio=current_user.bio,
         created_at=current_user.created_at,
         google_id=current_user.google_id,
+        role=current_user.role,
+        permissions=current_user.permissions,
     )
 
 
 # ==========================================
 # Google Authentication Routes
 # ==========================================
-
-
-@router.get("/google/login")
-async def google_login_redirect() -> RedirectResponse:
-    """
-    Redirect to Google OAuth login page with PKCE support.
-
-    Raises:
-        HTTPException: 500 - If redirect generation fails.
-    """
-    try:
-        google_client_id = os.getenv("GOOGLE_CLIENT_ID")
-        if not google_client_id:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Google Client ID not configured",
-            )
-
-        allowed_origins = config.get_allowed_origins()
-
-        # Priority: localhost:5173 -> First allowed origin -> fallback
-        origin = "http://localhost:5173"
-        if allowed_origins:
-            origin = allowed_origins[0]
-            for cors_origin in allowed_origins:
-                if "localhost:5173" in cors_origin:
-                    origin = cors_origin
-                    break
-
-        redirect_uri = f"{origin}/auth/callback"
-
-        oauth_params = {
-            "client_id": google_client_id,
-            "redirect_uri": redirect_uri,
-            "response_type": "code",
-            "scope": "openid email profile",
-            "access_type": "offline",
-            "prompt": "consent",
-        }
-
-        auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(oauth_params)}"
-        return RedirectResponse(url=auth_url, status_code=302)
-
-    except Exception:
-        logger.error("Failed to redirect to Google login")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to redirect to Google login",
-        )
-
-
-@router.post("/google", response_model=LoginResponse)
-async def google_login(
-    response: Response,
-    request: Request,
-    token_data: GoogleTokenRequest,
-    auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> LoginResponse:
-    """
-    Login with Google OAuth ID token.
-    """
-    try:
-        user_data = auth_service.verify_google_token(token_data.token)
-        user = await auth_service.create_or_get_user(user_data)
-
-        log_security_event("google_login_success", details={"user_id": user.id}, severity="INFO")
-        return create_login_response(auth_service, user, request, response)
-
-    except ValueError as e:
-        logger.warning("Google token verification failed: %s", e)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
-    except Exception as e:
-        logger.error("Google Login failed: %s", e)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Login failed") from e
 
 
 def _validate_google_redirect_uri(redirect_uri: str) -> bool:
@@ -591,6 +544,8 @@ async def google_exchange_code(
             login_response = await auth_service.exchange_google_code(
                 exchange_data.code, exchange_data.code_verifier, exchange_data.redirect_uri, ip, ua
             )
+        except PermissionError as e:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
         except ValueError as e:
             logger.warning("[OAuth] Invalid code exchange: %s", e)
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
@@ -600,16 +555,15 @@ async def google_exchange_code(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Authentication failed"
             ) from e
 
-        # Set refresh token in HttpOnly cookie if provided
-        if login_response.refresh_token:
-            set_refresh_cookie(response, login_response.refresh_token)
-
         if login_response.user is None:
             logger.error("Google exchange succeeded but user is None")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Authentication succeeded but user profile is missing",
             )
+
+        refresh_token = auth_service.create_refresh_token(login_response.user.id, ip, ua)
+        set_refresh_cookie(response, refresh_token)
 
         log_security_event("google_exchange_success", details={"user_id": login_response.user.id}, severity="INFO")
         return login_response
@@ -626,10 +580,10 @@ async def google_exchange_code(
         )
 
 
-@router.post("/sync-user")
+@router.post("/sync-user", response_model=SyncUserResponse)
 async def sync_user_data(
     user_payload: Annotated[dict, Depends(get_current_user_from_header)],
-) -> dict:
+) -> SyncUserResponse:
     """
     Sync user data from JWT payload to database.
     """
@@ -675,7 +629,7 @@ async def sync_user_data(
         sync_result = getattr(res, "data", [upsert_data])[0] if getattr(res, "data", None) else upsert_data
 
         logger.info("User synced successfully: %s", user_id)
-        return {"message": "User synced", "data": sync_result}
+        return SyncUserResponse(message="User synced", data=sync_result)
 
     except Exception as e:
         logger.error("Sync failed for user: %s", e)

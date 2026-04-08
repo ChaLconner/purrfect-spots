@@ -6,6 +6,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
+from dependencies import get_cat_detection_service
 from limiter import get_strict_limit, strict_limiter
 from logger import logger
 from middleware.auth_middleware import get_current_user
@@ -14,20 +15,16 @@ from utils.file_processing import read_file_for_detection
 router = APIRouter(prefix="/detect", tags=["Cat Detection"])
 
 
+# local function removed
+from typing import Annotated
+
 from schemas.cat_detection import (
     CatDetectionResult,
     CombinedAnalysisResult,
     SpotAnalysisResult,
 )
 from schemas.user import User
-from services.cat_detection_service import CatDetectionService, cat_detection_service
-
-
-def get_cat_detection_service() -> CatDetectionService:
-    return cat_detection_service
-
-
-from typing import Annotated
+from services.cat_detection_service import CatDetectionService
 
 
 @router.post("/cats", response_model=CatDetectionResult)
@@ -70,7 +67,7 @@ async def detect_cats_in_image(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Detection failed: {e!s}")
+        logger.error("Detection failed: %s", e)
         raise HTTPException(status_code=500, detail="Detection failed due to an internal error")
 
 
@@ -107,7 +104,7 @@ async def analyze_cat_spot(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Spot analysis error: {e!s}")
+        logger.error("Spot analysis error: %s", e)
         raise HTTPException(status_code=500, detail="Spot analysis failed due to an internal error")
 
 
@@ -161,71 +158,8 @@ async def combined_cat_and_spot_analysis(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Combined analysis error: {e!s}")
+        logger.error("Combined analysis error: %s", e)
         raise HTTPException(status_code=500, detail="Combined analysis failed due to an internal error")
 
 
-@router.post("/test-cats")
-@strict_limiter.limit(get_strict_limit)
-async def test_detect_cats(
-    request: Request,
-    current_user: Annotated[User, Depends(get_current_user)],
-    detection_service: Annotated[CatDetectionService, Depends(get_cat_detection_service)],
-    file: UploadFile = File(...),
-) -> dict[str, Any]:
-    """
-    Test cat detection using Google Cloud Vision (authentication required).
-    Rate Limit: 10 requests per minute per user.
-
-    Raises:
-        HTTPException: 500 - If test detection fails.
-    """
-    # Validate and read file using shared utility
-    contents = await read_file_for_detection(file, max_size_mb=10)
-    file_size = len(contents)
-
-    try:
-        result = await detection_service.detect_cats(contents)
-
-        result.update(
-            {
-                "filename": file.filename,
-                "file_size": file_size,
-                "detected_by": current_user.email,
-            }
-        )
-
-        return result
-
-    except Exception as e:
-        logger.error(f"Test detection failed: {e!s}")
-        raise HTTPException(status_code=500, detail=f"Test failed: {e!s}")
-
-
-@router.post("/test-spot")
-@strict_limiter.limit(get_strict_limit)
-async def test_analyze_spot(
-    request: Request,
-    current_user: Annotated[User, Depends(get_current_user)],
-    detection_service: Annotated[CatDetectionService, Depends(get_cat_detection_service)],
-    file: UploadFile = File(...),
-) -> dict[str, Any]:
-    """
-    Test location analysis using Google Cloud Vision (authentication required).
-    Rate Limit: 10 requests per minute per user.
-
-    Raises:
-        HTTPException: 500 - If test spot analysis fails.
-    """
-    # Validate and read file using shared utility
-    contents = await read_file_for_detection(file, max_size_mb=10)
-
-    try:
-        result = await detection_service.analyze_cat_spot_suitability(contents)
-        result.update({"filename": file.filename, "analyzed_by": current_user.email})
-
-        return result
-
-    except Exception as e:
-        logger.error(f"Test spot analysis failed: {e!s}")
-        raise HTTPException(status_code=500, detail=f"Test failed: {e!s}")
+# Test endpoints removed for security

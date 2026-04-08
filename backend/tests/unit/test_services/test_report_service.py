@@ -11,18 +11,25 @@ class TestReportService:
         mock_supabase = MagicMock()
         mock_table = MagicMock()
         mock_insert = MagicMock()
+        mock_select = MagicMock()
+        mock_execute = AsyncMock(return_value=MagicMock(data=[{"id": "report-123"}]))
 
         mock_supabase.table.return_value = mock_table
         mock_table.insert.return_value = mock_insert
-        mock_insert.execute = AsyncMock(return_value=MagicMock(data=[{"id": "report-123"}]))
+        mock_insert.execute = mock_execute
+        mock_insert.select.return_value = mock_select
+        mock_select.execute = mock_execute
 
         service = ReportService(mock_supabase)
-        result = await service.create_report("photo-123", "user-123", "spam", "detail")
+        result = await service.create_report(
+            photo_id="photo-123", reporter_id="user-123", reason="spam", details="detail"
+        )
 
         assert result["id"] == "report-123"
         mock_table.insert.assert_called_once_with(
             {
                 "photo_id": "photo-123",
+                "comment_id": None,
                 "reporter_id": "user-123",
                 "reason": "spam",
                 "details": "detail",

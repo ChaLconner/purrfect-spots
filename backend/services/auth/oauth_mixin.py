@@ -108,10 +108,10 @@ class AuthOAuthMixin(AuthBaseMixin):
 
             user_data = await self._find_or_create_google_user(user_info, google_id)
             user = await self.user_service.create_or_get_user(user_data)
+            if user.banned_at:
+                raise PermissionError("Account suspended")
 
             jwt_token = self.create_access_token(user.id, user_data, role=user.role, permissions=user.permissions)
-            refresh_token = self.create_refresh_token(user.id, ip, user_agent)
-
             return LoginResponse(
                 access_token=jwt_token,
                 token_type="bearer",
@@ -124,8 +124,9 @@ class AuthOAuthMixin(AuthBaseMixin):
                     created_at=user.created_at,
                     google_id=user.google_id,
                 ),
-                refresh_token=refresh_token,
             )
+        except PermissionError:
+            raise
         except Exception as e:
             logger.error("[OAuth] Exchange exception: %s", e)
             raise ValueError(f"Code exchange failed: {e}")

@@ -64,7 +64,9 @@ async def seed_data() -> None:
             # Fallback: Try to insert dummy users directly (might fail on FK)
             # Better approach: Create a user via Auth API if we were doing a full integration seed.
             # For now, let's assume we have some users or we can't seed properly without them.
-            print("⚠️ No existing users found. Please register a user via the app first for best results.")
+            print(
+                "⚠️ No existing users found. Please register a user via the app first for best results."
+            )
             return
 
     print(f"Found {len(users)} users to act as actors.")
@@ -81,14 +83,19 @@ async def seed_data() -> None:
     ]
 
     for _i in range(10):
-        owner = random.choice(users)  # NOSONAR python:S2245 - PRNG for fake seed data only
+        owner = random.choice(
+            users
+        )  # NOSONAR python:S2245 - PRNG for fake seed data only
+        # Use coordinates within Thailand (Bangkok area approx: Lat 13-14, Lng 100-101)
         photo_data = {
             "user_id": owner["id"],
             "url": random.choice(cat_images),  # NOSONAR python:S2245
             "description": fake.text(),
-            "latitude": float(fake.latitude()),
-            "longitude": float(fake.longitude()),
-            "image_url": random.choice(cat_images),  # NOSONAR python:S2245 - PRNG for fake seed data only
+            "latitude": float(fake.latitude()) % 2 + 13.0,  # Around Bangkok
+            "longitude": float(fake.longitude()) % 2 + 100.0,
+            "image_url": random.choice(
+                cat_images
+            ),  # NOSONAR python:S2245 - PRNG for fake seed data only
             "location_name": fake.city(),  # Required field
         }
         # Note: image_url is the correct column name, url should be removed.
@@ -108,14 +115,20 @@ async def seed_data() -> None:
         for _ in range(random.randint(0, 5)):  # NOSONAR python:S2245
             actor = random.choice(users)  # NOSONAR python:S2245
             with contextlib.suppress(Exception):
-                supabase.table("photo_likes").insert({"user_id": actor["id"], "photo_id": photo["id"]}).execute()
+                supabase.table("photo_likes").insert(
+                    {"user_id": actor["id"], "photo_id": photo["id"]}
+                ).execute()
 
         # Random comments
         for _ in range(random.randint(0, 3)):  # NOSONAR python:S2245
             if users:
                 actor = random.choice(users)  # NOSONAR python:S2245
                 supabase.table("photo_comments").insert(
-                    {"user_id": actor["id"], "photo_id": photo["id"], "content": fake.sentence()}
+                    {
+                        "user_id": actor["id"],
+                        "photo_id": photo["id"],
+                        "content": fake.sentence(),
+                    }
                 ).execute()
 
     print("✅ Seed data inserted successfully!")

@@ -1,5 +1,5 @@
 from collections import Counter
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import structlog
 from sqlalchemy import text
@@ -11,8 +11,19 @@ from utils.supabase_client import AClient
 logger = structlog.get_logger(__name__)
 
 
+if TYPE_CHECKING:
+    from services.search_service import SearchService
+
+
 class GallerySearchMixin(GalleryBaseMixin):
     """SEARCH and TAG operations for GalleryService"""
+
+    # These are provided by the main GalleryService or other mixins
+    search_service: "SearchService"
+
+    async def enrich_with_user_data(
+        self, photos: list[dict[str, Any]], user_id: str | None = None
+    ) -> list[dict[str, Any]]: ...
 
     @property
     async def _fulltext_available(self) -> bool:
@@ -50,9 +61,16 @@ class GallerySearchMixin(GalleryBaseMixin):
             return None
         try:
             query = text(
-                "SELECT tag, count(*) FROM (SELECT unnest(tags) as tag FROM cat_photos WHERE deleted_at IS NULL) as t GROUP BY tag ORDER BY count(*) DESC LIMIT :limit"
+                "SELECT tag, count(*) "
+                "FROM ("
+                "SELECT unnest(tags) as tag FROM cat_photos "
+                "WHERE deleted_at IS NULL AND status = :approved_status"
+                ") as t "
+                "GROUP BY tag "
+                "ORDER BY count(*) DESC "
+                "LIMIT :limit"
             )
-            result = await self.db.execute(query, {"limit": limit})
+            result = await self.db.execute(query, {"approved_status": self.APPROVED_STATUS, "limit": limit})
             return [{"tag": row[0], "count": row[1]} for row in result.fetchall()]
         except Exception as e:
             logger.warning("SQLAlchemy popular tags failed: %s", e)
@@ -67,10 +85,11 @@ class GallerySearchMixin(GalleryBaseMixin):
                 .select("tags")
                 .not_.is_("tags", "null")
                 .is_("deleted_at", "null")
-                .limit(1000)
+                .eq("status", GallerySearchMixin.APPROVED_STATUS)
+                .limit(limit)
                 .execute()
             )
-            data = res.data or []
+            data = cast(list[dict[str, Any]], res.data or [])
             tag_counter: Counter = Counter()
             for row in data:
                 for tag in row.get("tags") or []:
@@ -83,27 +102,29 @@ class GallerySearchMixin(GalleryBaseMixin):
             raise ExternalServiceError(f"Failed to get popular tags: {e!s}", service="Supabase")
 
     @cache(expire=300, key_prefix="user_photos", skip_args=1)
-    async def get_user_photos(self, user_id: str) -> list[dict[str, Any]]:
+    async def get_user_photos(self, user_id: str, include_unapproved: bool = False) -> list[dict[str, Any]]:
         try:
             data = []
             if self.db:
-                result = await self.db.execute(
-                    text(
-                        "SELECT * FROM cat_photos WHERE user_id = :u_id AND deleted_at IS NULL ORDER BY uploaded_at DESC"
-                    ),
-                    {"u_id": user_id},
-                )
+                sql = self.PHOTO_SELECT_SQL + " WHERE user_id = :u_id AND deleted_at IS NULL"
+                params: dict[str, Any] = {"u_id": user_id}
+                if not include_unapproved:
+                    sql += " AND status = :approved_status"
+                    params["approved_status"] = self.APPROVED_STATUS
+                sql += " ORDER BY uploaded_at DESC"
+                result = await self.db.execute(text(sql), params)
                 data = [dict(row._asdict()) for row in result.fetchall()]
             if not data:
-                res = await (
-                    self.supabase.table("cat_photos")
-                    .select("*")
+                res = (
+                    await self._apply_visibility_filter(
+                        self.supabase.table("cat_photos").select(self.PHOTO_COLUMNS),
+                        include_unapproved=include_unapproved,
+                    )
                     .eq("user_id", user_id)
-                    .is_("deleted_at", "null")
                     .order("uploaded_at", desc=True)
                     .execute()
                 )
-                data = res.data or []
+                data = cast(list[dict[str, Any]], res.data or [])
             return self._process_photos(data)
         except Exception as e:
             from utils.exceptions import ExternalServiceError

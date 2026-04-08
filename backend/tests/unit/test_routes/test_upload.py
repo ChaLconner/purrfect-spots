@@ -48,14 +48,6 @@ class TestUploadRoute:
         )
         return service
 
-    async def test_upload_test_endpoint(self, client):
-        """Test that upload test endpoint works"""
-        response = await client.get("/api/v1/upload/test")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["message"] == "Upload endpoint is working!"
-
     async def test_upload_requires_authentication(self, client, sample_image_bytes):
         """Test that upload requires authentication"""
         files = {"file": ("cat.jpg", io.BytesIO(sample_image_bytes), "image/jpeg")}
@@ -102,7 +94,10 @@ class TestUploadRoute:
 
         # Mock supabase admin insert
         mock_admin = MagicMock()
-        mock_admin.table.return_value.insert.return_value.execute = AsyncMock(
+        chain_mock = MagicMock()
+        chain_mock.insert.return_value = chain_mock
+        chain_mock.select.return_value = chain_mock
+        chain_mock.execute = AsyncMock(
             return_value=MagicMock(
                 data=[
                     {
@@ -117,6 +112,7 @@ class TestUploadRoute:
                 ]
             )
         )
+        mock_admin.table.return_value = chain_mock
 
         with patch("utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
             mock_get_admin.return_value = mock_admin
@@ -411,7 +407,10 @@ class TestUploadWithPredetectedCats:
         app.dependency_overrides[get_quota_service] = lambda: mock_quota_service
 
         mock_admin = MagicMock()
-        mock_admin.table.return_value.insert.return_value.execute = AsyncMock(
+        chain_mock = MagicMock()
+        chain_mock.insert.return_value = chain_mock
+        chain_mock.select.return_value = chain_mock
+        chain_mock.execute = AsyncMock(
             return_value=MagicMock(
                 data=[
                     {
@@ -426,6 +425,7 @@ class TestUploadWithPredetectedCats:
                 ]
             )
         )
+        mock_admin.table.return_value = chain_mock
 
         with patch("utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
             mock_get_admin.return_value = mock_admin

@@ -3,12 +3,12 @@
     <div
       class="p-6 border-b border-sand-100 flex flex-col sm:flex-row justify-between items-center gap-4"
     >
-      <h2 class="text-xl font-bold text-brown-900">Audit Logs</h2>
+      <h2 class="text-xl font-bold text-brown-900">{{ t('admin.audit.title') }}</h2>
       <div class="flex gap-2">
         <input
           v-model="userIdFilter"
           type="text"
-          placeholder="Filter by User ID"
+          :placeholder="t('admin.audit.filters.userId')"
           class="pl-3 pr-3 py-2 border border-sand-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 text-brown-700 bg-white text-sm w-40"
           @change="loadLogs(1)"
         />
@@ -17,19 +17,23 @@
           class="pl-3 pr-10 py-2 border border-sand-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 text-brown-700 bg-white text-sm"
           @change="loadLogs(1)"
         >
-          <option value="">All Actions</option>
-          <option value="LOGIN">Login</option>
-          <option value="LOGOUT">Logout</option>
-          <option value="DELETE_USER">Delete User</option>
-          <option value="UPDATE_ROLE">Update Role</option>
-          <option value="BAN_USER">Ban User</option>
-          <option value="UNBAN_USER">Unban User</option>
-          <option value="DELETE_PHOTO_VIA_REPORT">Delete Photo (Report)</option>
-          <option value="DELETE_PHOTO_VIA_BULK_REPORT">Delete Photo (Bulk)</option>
+          <option value="">{{ t('admin.audit.filters.allActions') }}</option>
+          <option value="LOGIN">{{ t('admin.audit.actions.LOGIN') }}</option>
+          <option value="LOGOUT">{{ t('admin.audit.actions.LOGOUT') }}</option>
+          <option value="DELETE_USER">{{ t('admin.audit.actions.DELETE_USER') }}</option>
+          <option value="UPDATE_ROLE">{{ t('admin.audit.actions.UPDATE_ROLE') }}</option>
+          <option value="BAN_USER">{{ t('admin.audit.actions.BAN_USER') }}</option>
+          <option value="UNBAN_USER">{{ t('admin.audit.actions.UNBAN_USER') }}</option>
+          <option value="DELETE_PHOTO_VIA_REPORT">
+            {{ t('admin.audit.actions.DELETE_PHOTO_VIA_REPORT') }}
+          </option>
+          <option value="DELETE_PHOTO_VIA_BULK_REPORT">
+            {{ t('admin.audit.actions.DELETE_PHOTO_VIA_BULK_REPORT') }}
+          </option>
         </select>
         <button
           class="p-2 rounded-lg border border-sand-300 hover:bg-sand-50 text-brown-500"
-          title="Refresh"
+          :title="t('common.refresh')"
           @click="loadLogs(1)"
         >
           <svg
@@ -57,47 +61,47 @@
             <th
               class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-wider"
             >
-              Date
+              {{ t('admin.audit.table.date') }}
             </th>
             <th
               class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-wider"
             >
-              User
+              {{ t('admin.audit.table.user') }}
             </th>
             <th
               class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-wider"
             >
-              Action
+              {{ t('admin.audit.table.action') }}
             </th>
             <th
               class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-wider"
             >
-              Resource
+              {{ t('admin.audit.table.resource') }}
             </th>
             <th
               class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-wider"
             >
-              Details
+              {{ t('admin.audit.table.details') }}
             </th>
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-sand-200">
           <tr v-for="log in logs" :key="log.id" class="hover:bg-sand-50">
             <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-500">
-              {{ new Date(log.created_at).toLocaleString() }}
+              {{ new Date(log.created_at).toLocaleString(locale) }}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-900">
               <div v-if="log.users">
-                <div class="font-medium">{{ log.users.name || 'Unknown' }}</div>
+                <div class="font-medium">{{ log.users.name || t('common.unknown') }}</div>
                 <div class="text-xs text-brown-500">{{ log.users.email }}</div>
               </div>
-              <span v-else class="text-gray-400">System</span>
+              <span v-else class="text-gray-400">{{ t('admin.audit.table.system') }}</span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
               <span
                 class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800"
               >
-                {{ log.action }}
+                {{ t(`admin.audit.actions.${log.action}`) }}
               </span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-500">
@@ -108,12 +112,14 @@
                 class="text-indigo-600 hover:text-indigo-900 font-medium"
                 @click="viewDetails(log)"
               >
-                View Details
+                {{ t('common.viewDetails') }}
               </button>
             </td>
           </tr>
           <tr v-if="logs.length === 0 && !isLoading">
-            <td colspan="5" class="px-6 py-12 text-center text-brown-500">No logs found.</td>
+            <td colspan="5" class="px-6 py-12 text-center text-brown-500">
+              {{ t('admin.audit.table.noLogs') }}
+            </td>
           </tr>
           <TableSkeleton v-if="isLoading" :columns="5" :avatar-column="2" />
         </tbody>
@@ -130,15 +136,15 @@
         class="px-4 py-2 border border-sand-300 rounded-md text-sm font-medium text-brown-700 hover:bg-sand-50 disabled:opacity-50"
         @click="loadLogs(page - 1)"
       >
-        Previous
+        {{ t('common.previous') }}
       </button>
-      <span class="text-sm text-brown-600">Page {{ page }}</span>
+      <span class="text-sm text-brown-600">{{ t('common.page', { n: page }) }}</span>
       <button
         :disabled="logs.length < limit || page * limit >= totalLogs"
         class="px-4 py-2 border border-sand-300 rounded-md text-sm font-medium text-brown-700 hover:bg-sand-50 disabled:opacity-50"
         @click="loadLogs(page + 1)"
       >
-        Next
+        {{ t('common.next') }}
       </button>
     </div>
 
@@ -150,7 +156,7 @@
     >
       <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6" @click.stop>
         <div class="flex justify-between items-center mb-4">
-          <h3 class="text-lg font-bold text-brown-900">Log Details</h3>
+          <h3 class="text-lg font-bold text-brown-900">{{ t('admin.audit.modal.title') }}</h3>
           <button class="text-gray-400 hover:text-gray-600" @click="selectedLog = null">
             <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
@@ -166,36 +172,38 @@
         <div class="space-y-4">
           <div class="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <span class="block text-gray-500">Action</span>
+              <span class="block text-gray-500">{{ t('admin.audit.table.action') }}</span>
               <span class="font-medium text-brown-900">{{ selectedLog.action }}</span>
             </div>
             <div>
-              <span class="block text-gray-500">Resource</span>
+              <span class="block text-gray-500">{{ t('admin.audit.table.resource') }}</span>
               <span class="font-medium text-brown-900">{{ selectedLog.resource }}</span>
             </div>
             <div>
-              <span class="block text-gray-500">User</span>
+              <span class="block text-gray-500">{{ t('admin.audit.table.user') }}</span>
               <span class="font-medium text-brown-900">
-                {{ selectedLog.users?.email || 'System' }}
+                {{ selectedLog.users?.email || t('admin.audit.table.system') }}
               </span>
             </div>
             <div>
-              <span class="block text-gray-500">Date</span>
+              <span class="block text-gray-500">{{ t('admin.audit.table.date') }}</span>
               <span class="font-medium text-brown-900">
-                {{ new Date(selectedLog.created_at).toLocaleString() }}
+                {{ new Date(selectedLog.created_at).toLocaleString(locale) }}
               </span>
             </div>
           </div>
 
           <div>
-            <span class="block text-gray-500 mb-1 text-sm">Changes / Payload</span>
+            <span class="block text-gray-500 mb-1 text-sm">{{
+              t('admin.audit.modal.changesPayload')
+            }}</span>
             <div
               class="bg-gray-50 rounded-lg p-4 font-mono text-xs overflow-auto max-h-96 relative group"
             >
               <pre>{{ JSON.stringify(selectedLog.changes, null, 2) }}</pre>
               <button
                 class="absolute top-2 right-2 p-1 bg-white border border-gray-200 rounded shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-50"
-                title="Copy JSON"
+                :title="t('common.copyJson')"
                 @click="copyToClipboard(JSON.stringify(selectedLog.changes, null, 2))"
               >
                 <svg
@@ -222,6 +230,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 
 import { apiV1 } from '@/utils/api';
 import { useToast } from '@/components/toast/use-toast';
@@ -240,6 +249,7 @@ interface AuditLog {
   };
 }
 
+const { t, locale } = useI18n();
 const logs = ref<AuditLog[]>([]);
 const page = ref(1);
 const limit = 50;
@@ -272,8 +282,8 @@ const loadLogs = async (newPage: number = 1): Promise<void> => {
   } catch (e) {
     console.error('Failed to load audit logs', e);
     toast({
-      title: 'Error',
-      description: 'Failed to load audit logs',
+      title: t('common.error'),
+      description: t('admin.audit.failedToLoad'),
       variant: 'destructive',
     });
   } finally {
@@ -288,7 +298,7 @@ const viewDetails = (log: AuditLog): void => {
 const copyToClipboard = async (text: string): Promise<void> => {
   try {
     await navigator.clipboard.writeText(text);
-    toast({ description: 'Copied to clipboard', variant: 'success' });
+    toast({ description: t('common.copiedToClipboard'), variant: 'success' });
   } catch (err) {
     console.error('Failed to copy', err);
   }

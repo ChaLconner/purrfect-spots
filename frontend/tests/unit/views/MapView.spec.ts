@@ -26,6 +26,17 @@ vi.mock('@/utils/env', () => ({
   }),
 }));
 
+vi.mock('@/composables/useMapMarkers', () => ({
+  useMapMarkers: vi.fn(() => ({
+    markers: { value: new Map() },
+    userMarker: { value: null },
+    updateMarkers: vi.fn(),
+    updateUserMarker: vi.fn(),
+    clearMarkers: vi.fn(),
+  })),
+}));
+
+
 vi.mock('@/services/galleryService', () => {
   return {
     GalleryService: {
@@ -73,7 +84,12 @@ global.google = {
     Marker: vi.fn(class {
       setMap = vi.fn();
       setPosition = vi.fn();
-      addListener = vi.fn();
+      addListener = vi.fn().mockReturnValue({ remove: vi.fn() });
+      setOptions = vi.fn();
+      setIcon = vi.fn();
+      setValues = vi.fn();
+      // Ensure it uses the global Image stub if it internally creates one
+      static MAX_ZINDEX = 1000000;
     }),
     InfoWindow: vi.fn(class {
       open = vi.fn();
@@ -81,21 +97,28 @@ global.google = {
       setContent = vi.fn();
     }),
     OverlayView: class {},
-    Size: vi.fn(class {}),
-    Point: vi.fn(class {}),
+    Size: vi.fn(class {
+      constructor(public width: number, public height: number) {}
+    }),
+    Point: vi.fn(class {
+      constructor(public x: number, public y: number) {}
+    }),
+    SymbolPath: { CIRCLE: 0 },
     event: {
-      addListener: vi.fn(),
+      addListener: vi.fn().mockReturnValue({ remove: vi.fn() }),
       removeListener: vi.fn(),
       trigger: vi.fn(),
     },
   },
 } as any;
 
+
 const mockGeolocation = {
   getCurrentPosition: vi.fn(),
   watchPosition: vi.fn().mockReturnValue(1),
   clearWatch: vi.fn(),
 };
+
 
 describe('MapView.vue', () => {
   let router: Router;
@@ -118,9 +141,6 @@ describe('MapView.vue', () => {
     
     await router.push('/map');
     await router.isReady();
-
-    // Mock requestAnimationFrame for deterministic tests
-    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => cb(Date.now()));
 
     // Mock requestAnimationFrame for deterministic tests
     vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => cb(Date.now()));
@@ -156,7 +176,8 @@ describe('MapView.vue', () => {
           MapSearchBadge: true,
         },
         mocks: {
-          $t: (msg: string): string => msg
+          $t: (msg: string): string => msg,
+          catIcon: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=='
         }
       },
     });
@@ -203,7 +224,8 @@ describe('MapView.vue', () => {
           MapSearchBadge: true 
         }, 
         mocks: { 
-          $t: (msg: string): string => msg 
+          $t: (msg: string): string => msg,
+          catIcon: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=='
         } 
       },
     });
@@ -248,7 +270,8 @@ describe('MapView.vue', () => {
           MapSearchBadge: true 
         }, 
         mocks: { 
-          $t: (msg: string): string => msg 
+          $t: (msg: string): string => msg,
+          catIcon: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=='
         } 
       },
     });
@@ -285,7 +308,8 @@ describe('MapView.vue', () => {
           MapSearchBadge: true 
         }, 
         mocks: { 
-          $t: (msg: string): string => msg 
+          $t: (msg: string): string => msg,
+          catIcon: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=='
         } 
       },
     });

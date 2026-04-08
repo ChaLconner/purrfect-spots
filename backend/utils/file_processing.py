@@ -96,8 +96,7 @@ async def process_uploaded_image(
                 details={"claimed_type": file.content_type, "actual_type": actual_mime},
                 severity="WARNING",
             )
-            # Use the actual detected MIME type instead of claimed
-            file.content_type = actual_mime
+            raise HTTPException(status_code=400, detail="Uploaded MIME type does not match the file contents")
 
         await file.seek(0)
 
@@ -113,7 +112,7 @@ async def process_uploaded_image(
 
         await file.seek(0)
 
-        content_type_str = actual_mime if content_match else (file.content_type or DEFAULT_CONTENT_TYPE)
+        content_type_str = actual_mime
 
         # Get safe file extension based on final content type
         file_extension = get_safe_file_extension(file.filename or "", content_type_str)

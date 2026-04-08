@@ -4,28 +4,53 @@ Authentication middleware for protecting routes with Supabase Auth
 
 import time
 from datetime import UTC, datetime
+from typing import Any, cast
 
 import httpx
 import jwt
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from supabase import AClient
 
 from config import config
 from logger import logger
 from schemas.user import User
 from services.token_service import get_token_service
+from supabase import AClient
 from utils.auth_utils import decode_token
+from utils.security_alerts import (
+    track_failed_permission_check,
+    track_suspicious_user_agent,
+)
 from utils.supabase_client import (
     get_async_supabase_client,
 )
 
 security = HTTPBearer(auto_error=False)
+USER_AUTH_CACHE_TTL = 300
 
 # JWKS Cache
 _jwks_cache: dict | None = None
 _jwks_last_update: int = 0
 JWKS_CACHE_TTL = 3600  # 1 hour
+
+
+def get_user_auth_cache_key(user_id: str) -> str:
+    """Build the Redis cache key used for authenticated user snapshots."""
+    return f"user_auth_cache:{user_id}"
+
+
+async def invalidate_user_auth_cache(user_id: str) -> None:
+    """Invalidate the cached auth snapshot for a user."""
+    from services.redis_service import redis_service
+
+    await redis_service.delete(get_user_auth_cache_key(user_id))
+
+
+def _assert_user_not_banned(user: User) -> User:
+    """Reject requests for users whose account has been suspended."""
+    if user.banned_at:
+        raise HTTPException(status_code=403, detail="Account suspended")
+    return user
 
 
 async def get_jwks() -> dict | None:
@@ -107,6 +132,14 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid token payload")
 
+    # Try Redis Cache first
+    from services.redis_service import redis_service
+
+    cache_key = get_user_auth_cache_key(user_id)
+    cached_data = await redis_service.get(cache_key)
+    if cached_data:
+        return _assert_user_not_banned(User(**cached_data))
+
     # Try to get user from database (bypassing RLS)
     try:
         from utils.supabase_client import get_async_supabase_admin_client
@@ -117,91 +150,75 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
         result = await supabase_admin.table("users").select(query).eq("id", user_id).maybe_single().execute()
 
         if result and hasattr(result, "data") and result.data:
-            data = result.data
+            data = cast(dict[str, Any], result.data)
 
             # Extract permissions from nested structure
-            permissions = []
-            role_name = data.get("role", "user")  # Default to legacy column
+            permissions: list[str] = []
+            role_name = cast(str, data.get("role", "user"))  # Default to legacy column
 
             role_data = data.get("roles")
             if role_data and isinstance(role_data, dict):
-                if role_data.get("name"):
-                    role_name = role_data.get("name")
+                role_dict = cast(dict[str, Any], role_data)
+                if role_dict.get("name"):
+                    role_name = cast(str, role_dict.get("name"))
 
-                rps = role_data.get("role_permissions", [])
+                rps = cast(list[dict[str, Any]], role_dict.get("role_permissions", []))
                 for rp in rps:
-                    perm = rp.get("permissions")
-                    if perm and "code" in perm:
-                        permissions.append(perm["code"])
+                    perm = cast(dict[str, Any], rp.get("permissions"))
+                    if perm and isinstance(perm, dict) and "code" in perm:
+                        permissions.append(cast(str, perm["code"]))
 
-            return User(
-                id=data["id"],
-                username=data.get("username"),
-                email=data.get("email", ""),
-                name=data.get("name"),
-                picture=data.get("picture"),
-                bio=data.get("bio"),
-                is_pro=data.get("is_pro", False),
-                stripe_customer_id=data.get("stripe_customer_id"),
-                subscription_end_date=data.get("subscription_end_date"),
-                cancel_at_period_end=data.get("cancel_at_period_end", False),
-                treat_balance=data.get("treat_balance", 0),
+            from utils.datetime_utils import from_iso as parse_iso8601
+
+            user_obj = User(
+                id=cast(str, data["id"]),
+                username=cast(str, data.get("username")),
+                email=cast(str, data.get("email", "")),
+                name=cast(str, data.get("name")),
+                picture=cast(str, data.get("picture")),
+                bio=cast(str, data.get("bio")),
+                is_pro=cast(bool, data.get("is_pro", False)),
+                stripe_customer_id=cast(str, data.get("stripe_customer_id")),
+                subscription_end_date=parse_iso8601(cast(str, data.get("subscription_end_date")))
+                if data.get("subscription_end_date")
+                else None,
+                cancel_at_period_end=cast(bool, data.get("cancel_at_period_end", False)),
+                treat_balance=cast(int, data.get("treat_balance", 0)),
                 role=role_name,
-                role_id=data.get("role_id"),
+                role_id=cast(str, data.get("role_id")),
                 permissions=permissions,
-                created_at=data.get("created_at"),
-                google_id=data.get("google_id"),
+                created_at=parse_iso8601(cast(str, data.get("created_at"))) if data.get("created_at") else None,
+                google_id=cast(str, data.get("google_id")),
+                banned_at=parse_iso8601(cast(str, data.get("banned_at"))) if data.get("banned_at") else None,
             )
+
+            # Save to Redis
+            await redis_service.set(cache_key, user_obj.model_dump(), expire=USER_AUTH_CACHE_TTL)
+
+            return _assert_user_not_banned(user_obj)
+        raise HTTPException(status_code=401, detail="User not found")
+    except HTTPException:
+        raise
     except Exception as e:
-        # Fallback to payload data if DB lookup fails
-        import traceback
+        # SECURITY: Remove permissive fallback during DB lookup failure.
+        # If the database is unreachable, we cannot verify the user's current
+        # ban status, roles, or permissions safely. Relying on JWT payload
+        # data alone is risky if permissions were revoked after token issuance.
+        from logger import sanitize_log_value
 
-        logger.error(f"Failed to fetch user from DB in middleware: {e}\nTraceback: {traceback.format_exc()}")
-        logger.warning(f"Failed to fetch user from DB in middleware: {e}")
-
-    # Common extraction for both sources
-    iat = payload.get("iat")
-    created_at = datetime.fromtimestamp(iat, UTC) if isinstance(iat, (int, float)) else None
-
-    # Extract permissions from payload if available
-    permissions = payload.get("permissions", [])
-
-    # Construct User from payload
-    if source == "supabase":
-        user_metadata = payload.get("user_metadata", {})
-        return User(
-            id=user_id,
-            email=payload.get("email", ""),
-            name=user_metadata.get("name", user_metadata.get("full_name", "")),
-            picture=user_metadata.get("avatar_url", user_metadata.get("picture", "")),
-            bio=None,
-            created_at=created_at,
-            google_id=user_metadata.get("provider_id")
-            if payload.get("app_metadata", {}).get("provider") == "google"
-            else None,
-            permissions=permissions,
+        logger.error(
+            "Critical: Database lookup failed for user %s in auth middleware: %s", sanitize_log_value(user_id), e
         )
-    # custom
-    return User(
-        id=user_id,
-        email=payload.get("email", ""),
-        name=payload.get("name", ""),
-        picture=payload.get("picture", ""),
-        bio=payload.get("bio"),
-        created_at=created_at,
-        google_id=payload.get("google_id"),
-        permissions=permissions,
-        role=payload.get("role", "user"),
-    )
+        # Fail with 503 (Service Unavailable) to indicate temporary DB issue
+        raise HTTPException(
+            status_code=503, detail="Authentication service temporarily unavailable. Please try again later."
+        )
 
 
-from collections.abc import Callable
-
-
-def require_permission(permission_code: str) -> Callable[..., User]:
+def require_permission(permission_code: str) -> Any:
     """Dependency factory to check for specific permission"""
 
-    async def permission_checker(user: User = Depends(get_current_user)) -> User:
+    async def permission_checker(request: Request, user: User = Depends(get_current_user)) -> User:
         # 1. Direct permission check
         if permission_code in user.permissions:
             return user
@@ -209,6 +226,19 @@ def require_permission(permission_code: str) -> Callable[..., User]:
         # 2. General admin permission or role check
         if "admin_access" in user.permissions or user.role.lower() in ("admin", "super_admin"):
             return user
+
+        # SECURITY: Track failed permission checks for alerting
+        ip_address = request.client.host if request.client else "unknown"
+        user_agent = request.headers.get("user-agent", "unknown")
+        track_failed_permission_check(
+            user_id=user.id,
+            required_permission=permission_code,
+            ip_address=ip_address,
+            endpoint=str(request.url.path),
+        )
+
+        # Track suspicious user agents
+        track_suspicious_user_agent(user_agent, ip_address)
 
         raise HTTPException(status_code=403, detail=f"Insufficient permissions. Required: {permission_code}")
 
@@ -245,7 +275,7 @@ async def _attempt_token_decoding(token: str, supabase: AClient | None) -> tuple
     # 1. Try Supabase JWT (Standard)
     try:
         payload = await decode_supabase_token(token)
-        logger.info("Token decoded successfully using Supabase JWKS")
+        logger.debug("Token decoded successfully using Supabase JWKS")
         return payload, "supabase"
     except (HTTPException, ValueError):
         logger.debug("Supabase token decoding attempted but failed")
@@ -254,7 +284,7 @@ async def _attempt_token_decoding(token: str, supabase: AClient | None) -> tuple
     try:
         # decode_token handles both config.SUPABASE_KEY and config.JWT_SECRET
         payload = decode_token(token)
-        logger.info("Token decoded successfully using verify_token utility")
+        logger.debug("Token decoded successfully using verify_token utility")
 
         # Determine source - if it has app_metadata it's likely Supabase
         source = "supabase" if "app_metadata" in payload else "custom"
@@ -294,8 +324,12 @@ async def _validate_token_security(payload: dict) -> None:
                 raise HTTPException(status_code=401, detail="Session invalidated (Password changed)")
         except HTTPException:
             raise
-        except Exception:
-            logger.error("Failed to check user invalidation status")
+        except Exception as exc:
+            logger.error("User invalidation check failed. Denying request for security: %s", exc)
+            raise HTTPException(
+                status_code=503,
+                detail="Authentication service temporarily unavailable. Please try again later.",
+            )
 
 
 async def _verify_and_decode_token(token: str, supabase: AClient | None = None) -> tuple[dict, str]:
@@ -314,13 +348,13 @@ async def _verify_and_decode_token(token: str, supabase: AClient | None = None) 
         raise HTTPException(status_code=401, detail="Authentication failed")
 
 
-async def get_current_user_from_credentials(
+async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
     supabase: AClient = Depends(get_async_supabase_client),
 ) -> User:
-    """Get current authenticated user using Supabase Auth"""
+    """Get current authenticated user using Supabase Auth or JWT token."""
     if not credentials:
-        logger.warning("Missing Authorization header in request (credentials is None)")
+        logger.warning("Missing Authorization header in request")
         raise HTTPException(status_code=401, detail="Authentication failed: No token provided")
 
     token = credentials.credentials
@@ -332,32 +366,25 @@ async def get_current_user_from_credentials(
     return await _get_user_from_payload(payload, source)
 
 
-async def get_current_user(request: Request) -> User:
-    """Get current user from request headers using JWT token"""
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid token")
-
-    token = auth_header.split(" ")[1]
-    payload, source = await _verify_and_decode_token(token)
-    return await _get_user_from_payload(payload, source)
+# Alias for backward compatibility and to support widespread use in routes
+get_current_user_from_credentials = get_current_user
 
 
 async def get_current_user_optional(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
     supabase: AClient = Depends(get_async_supabase_client),
 ) -> User | None:
-    """Get current user if authenticated, otherwise return None"""
+    """Get current user if authenticated, otherwise return None."""
     if not credentials:
         return None
     try:
-        return await get_current_user_from_credentials(credentials, supabase)
+        return await get_current_user(credentials, supabase)
     except HTTPException:
         return None
 
 
 async def get_current_user_from_header(request: Request) -> dict:
-    """Get decoded token payload from request headers"""
+    """Get decoded token payload from request headers (legacy/low-level)."""
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid token")

@@ -2,13 +2,13 @@ from typing import TYPE_CHECKING, Any
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
-from supabase import AClient
 
 from config import config
 from services.auth.oauth_mixin import AuthOAuthMixin
 from services.auth.password_mixin import AuthPasswordMixin
 from services.auth.token_mixin import AuthTokenMixin
 from services.user_service import UserService
+from supabase import AClient
 
 if TYPE_CHECKING:
     from schemas.user import User
@@ -86,10 +86,13 @@ class AuthService(AuthTokenMixin, AuthOAuthMixin, AuthPasswordMixin):
                     return False
                 user_id = row[0]
             else:
+                from typing import cast
+
                 res = await admin.table("users").select("id").eq("email", email).execute()
                 if not res.data:
                     return False
-                user_id = res.data[0]["id"]
+                data = cast(list[dict[str, Any]], res.data)
+                user_id = data[0]["id"]
 
             await admin.auth.admin.update_user_by_id(user_id, {"email_confirm": True})
             return True

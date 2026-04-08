@@ -13,32 +13,47 @@ from dependencies import (
     get_admin_gallery_service,
     get_async_supabase_admin_client,
     get_auth_service,
+    get_storage_service,
 )
 from limiter import auth_limiter, get_api_limit, get_strict_limit, limiter, strict_limiter
 from logger import logger, sanitize_log_value
 from middleware.auth_middleware import get_current_user_from_credentials
 from schemas.location import CatLocation
 from schemas.user import User
-from services.storage_service import StorageService
 from utils.cache import invalidate_gallery_cache
 from utils.file_processing import process_uploaded_image
+from utils.location_utils import protect_photo_locations
 
 router = APIRouter(prefix="/profile", tags=["Profile"])
 
 
-from schemas.profile import ChangePasswordRequest, ProfileUpdateRequest, UpdatePhotoRequest
+from schemas.profile import (
+    AccountDeletionResponse,
+    ChangePasswordRequest,
+    PasswordChangeResponse,
+    PhotoDeleteResponse,
+    PhotoUpdateResponse,
+    ProfilePictureResponse,
+    ProfileResponse,
+    ProfileUpdateRequest,
+    ProfileUpdateResponse,
+    PublicProfileResponse,
+    UpdatePhotoRequest,
+    UploadsResponse,
+)
 from services.auth_service import AuthService
 from services.gallery_service import GalleryService
+from services.storage_service import StorageService
 
 # Services are now imported from dependencies
 
 
-def get_storage_service() -> StorageService:
-    return StorageService()
+# local function removed
 
 
 @router.put(
     "",
+    response_model=ProfileUpdateResponse,
     responses={
         400: {"description": "Bad Request"},
         404: {"description": "Not Found"},
@@ -46,22 +61,13 @@ def get_storage_service() -> StorageService:
         500: {"description": "Internal Server Error"},
     },
 )
-@router.put(
-    "/",
-    responses={
-        400: {"description": "Bad Request"},
-        404: {"description": "Not Found"},
-        409: {"description": "Conflict"},
-        500: {"description": "Internal Server Error"},
-    },
-)
-@limiter.limit(get_api_limit)
+@strict_limiter.limit("5/minute")
 async def update_profile(
     request: Request,
     profile_data: ProfileUpdateRequest,
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> dict[str, Any]:
+) -> ProfileUpdateResponse:
     """
     Update user profile information
 
@@ -103,8 +109,8 @@ async def update_profile(
                     detail="Username must be 3-30 characters and contain only letters, numbers, and underscores",
                 )
 
-            # Check for uniqueness if username changed
-            if username != current_user.username:
+            # Check for uniqueness if username changed (case-insensitive)
+            if username.lower() != current_user.username.lower():
                 existing_user = await auth_service.user_service.get_user_by_username(username)
                 if existing_user:
                     raise HTTPException(status_code=409, detail="Username already taken")
@@ -118,9 +124,9 @@ async def update_profile(
         except ValueError:
             raise HTTPException(status_code=404, detail="User not found")
 
-        return {
-            "message": "Profile updated successfully",
-            "user": {
+        return ProfileUpdateResponse(
+            message="Profile updated successfully",
+            user={
                 "id": updated_user["id"],
                 "email": updated_user["email"],
                 "name": updated_user["name"],
@@ -129,26 +135,29 @@ async def update_profile(
                 "bio": updated_user.get("bio"),
                 "created_at": updated_user["created_at"],
             },
-        }
+        )
 
     except HTTPException:
         raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception:
-        logger.error("Error updating profile")
+    except Exception as e:
+        logger.error("Error updating profile for user %s: %s", sanitize_log_value(current_user.id), e)
         raise HTTPException(status_code=500, detail="Failed to update profile due to an internal error")
 
 
-@router.get("", responses={404: {"description": "User not found"}, 500: {"description": "Internal Server Error"}})
-@router.get("/", responses={404: {"description": "User not found"}, 500: {"description": "Internal Server Error"}})
+@router.get(
+    "",
+    response_model=ProfileResponse,
+    responses={404: {"description": "User not found"}, 500: {"description": "Internal Server Error"}},
+)
 @limiter.limit(get_api_limit)
 async def get_profile(
     request: Request,
     response: Response,
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> dict[str, Any]:
+) -> ProfileResponse:
     """
     Get current user profile
 
@@ -163,17 +172,19 @@ async def get_profile(
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        return {
-            "id": user.id,
-            "email": user.email,
-            "name": user.name,
-            "picture": user.picture,
-            "bio": user.bio,
-            "created_at": user.created_at,
-        }
+        return ProfileResponse(
+            id=user.id,
+            email=user.email,
+            username=user.username,
+            name=user.name,
+            picture=user.picture,
+            bio=user.bio,
+            created_at=user.created_at,
+            is_pro=user.is_pro,
+        )
 
-    except Exception:
-        logger.error("Failed to get profile")
+    except Exception as e:
+        logger.error("Failed to get profile for user %s: %s", sanitize_log_value(current_user.id), e)
         raise HTTPException(status_code=500, detail="Failed to get profile")
 
 
@@ -231,11 +242,11 @@ async def resolve_user_by_identifier(
     return user
 
 
-@router.get("/public/{identifier}")
+@router.get("/public/{identifier}", response_model=PublicProfileResponse)
 async def get_public_profile(
     response: Response,
     user: Annotated[Any, Depends(resolve_user_by_identifier)],
-) -> dict[str, Any]:
+) -> PublicProfileResponse:
     """
     Get public user profile by ID or username
 
@@ -244,29 +255,32 @@ async def get_public_profile(
     """
     response.headers["Cache-Control"] = "public, max-age=60"
     try:
-        return {
-            "id": user.id,
-            "name": user.name,
-            "picture": user.picture,
-            "bio": user.bio,
-            "created_at": user.created_at,
-            "is_pro": user.is_pro,
-            # Don't expose email or other sensitive data
-        }
+        return PublicProfileResponse(
+            id=user.id,
+            name=user.name,
+            picture=user.picture,
+            bio=user.bio,
+            created_at=user.created_at,
+            is_pro=user.is_pro,
+        )
 
     except HTTPException:
         raise
-    except Exception:
-        logger.error("Failed to get public profile for %r", user.id)
+    except Exception as e:
+        logger.error("Failed to get public profile for %s: %s", sanitize_log_value(user.id), e)
         raise HTTPException(status_code=500, detail="Failed to retrieve user profile")
 
 
-@router.get("/public/{identifier}/uploads", responses={500: {"description": "Internal Server Error"}})
+@router.get(
+    "/public/{identifier}/uploads",
+    response_model=UploadsResponse,
+    responses={500: {"description": "Internal Server Error"}},
+)
 async def get_public_user_uploads(
     response: Response,
     user: Annotated[Any, Depends(resolve_user_by_identifier)],
     gallery_service: Annotated[GalleryService, Depends(get_admin_gallery_service)],
-) -> dict[str, Any]:
+) -> UploadsResponse:
     """
     Get public uploads by user_id or username
 
@@ -276,7 +290,7 @@ async def get_public_user_uploads(
     response.headers["Cache-Control"] = "public, max-age=60"
     try:
         user_id = user.id
-        photos = await gallery_service.get_user_photos(user_id)
+        photos = await gallery_service.get_user_photos(user_id, include_unapproved=False)
 
         # Format data
         uploads = []
@@ -296,19 +310,22 @@ async def get_public_user_uploads(
                 logger.debug("Skipping malformed photo %r: %s", photo.get("id"), e)
                 continue
 
-        return {"uploads": uploads, "count": len(uploads)}
+        # CRITICAL SECURITY FIX: Fuzz coordinates for public profile view
+        uploads = protect_photo_locations(uploads)
+
+        return UploadsResponse(uploads=uploads, count=len(uploads))
 
     except Exception as e:
-        logger.error("Failed to get uploads for user %r: %s", user_id, e)
+        logger.error("Failed to get uploads for user %s: %s", sanitize_log_value(user.id), e)
         raise HTTPException(status_code=500, detail="Failed to get uploads")
 
 
-@router.get("/uploads", responses={500: {"description": "Internal Server Error"}})
+@router.get("/uploads", response_model=UploadsResponse, responses={500: {"description": "Internal Server Error"}})
 async def get_user_uploads(
     response: Response,
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     gallery_service: Annotated[GalleryService, Depends(get_admin_gallery_service)],
-) -> dict[str, Any]:
+) -> UploadsResponse:
     """
     Get all uploads by current user - filtered by user_id
 
@@ -318,21 +335,22 @@ async def get_user_uploads(
     # Prevent caching of user uploads
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     try:
-        photos = await gallery_service.get_user_photos(current_user.id)
+        photos = await gallery_service.get_user_photos(current_user.id, include_unapproved=True)
 
         # Use central schema for consistent data structure
         uploads = [CatLocation(**photo).model_dump() for photo in photos]
 
-        return {"uploads": uploads, "count": len(uploads)}
+        return UploadsResponse(uploads=uploads, count=len(uploads))
 
     except Exception as e:
         logger.error("Failed to get uploads for user %s: %s", sanitize_log_value(current_user.id), e, exc_info=True)
-        # In development, return the actual error
         detail = f"Internal Server Error: {e!s}" if config.ENVIRONMENT == "development" else "Internal Server Error"
         raise HTTPException(status_code=500, detail=detail)
 
 
-@router.post("/picture", responses={500: {"description": "Internal Server Error"}})
+@router.post(
+    "/picture", response_model=ProfilePictureResponse, responses={500: {"description": "Internal Server Error"}}
+)
 @strict_limiter.limit(get_strict_limit)
 async def upload_profile_picture(
     request: Request,
@@ -340,7 +358,7 @@ async def upload_profile_picture(
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
     storage_service: Annotated[StorageService, Depends(get_storage_service)],
-) -> dict[str, str]:
+) -> ProfilePictureResponse:
     """
     Upload and update profile picture
 
@@ -367,7 +385,7 @@ async def upload_profile_picture(
         # NOTE: We no longer update the auth_service here.
         # The frontend will receive this URL and send it back in the final /profile PUT request.
 
-        return {"message": "Photo uploaded successfully", "picture": image_url}
+        return ProfilePictureResponse(message="Photo uploaded successfully", picture=image_url)
 
     except HTTPException:
         raise
@@ -376,14 +394,18 @@ async def upload_profile_picture(
         raise HTTPException(status_code=500, detail="Failed to upload profile picture")
 
 
-@router.put("/password", responses={400: {"description": "Bad Request"}, 500: {"description": "Internal Server Error"}})
+@router.put(
+    "/password",
+    response_model=PasswordChangeResponse,
+    responses={400: {"description": "Bad Request"}, 500: {"description": "Internal Server Error"}},
+)
 @auth_limiter.limit("5/minute")
 async def change_password(
     request: Request,
     password_data: ChangePasswordRequest,
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> dict[str, str]:
+) -> PasswordChangeResponse:
     """
     Change user password
 
@@ -404,7 +426,7 @@ async def change_password(
         if success:
             # Audit log: Success
             logger.info("[AUDIT] Password change SUCCESS")
-            return {"message": "Password changed successfully"}
+            return PasswordChangeResponse(message="Password changed successfully")
         # Audit log: Failure (Logic)
         logger.warning("[AUDIT] Password change FAILED (logic)")
         raise HTTPException(
@@ -428,6 +450,7 @@ async def change_password(
 
 @router.put(
     "/uploads/{photo_id}",
+    response_model=PhotoUpdateResponse,
     responses={
         400: {"description": "Bad Request"},
         403: {"description": "Unauthorized"},
@@ -440,7 +463,7 @@ async def update_user_photo(
     update_data: UpdatePhotoRequest,
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     gallery_service: Annotated[GalleryService, Depends(get_admin_gallery_service)],
-) -> dict[str, str]:
+) -> PhotoUpdateResponse:
     """
     Update a user's upload photo details (description, etc)
 
@@ -453,7 +476,7 @@ async def update_user_photo(
     photo_id_str = str(photo_id)
     try:
         # 1. Check ownership
-        photo = await gallery_service.get_photo_by_id(photo_id_str)
+        photo = await gallery_service.get_photo_by_id(photo_id_str, include_unapproved=True)
         if not photo:
             raise HTTPException(status_code=404, detail="Photo not found")
 
@@ -498,7 +521,7 @@ async def update_user_photo(
             details={"photo_id": photo_id_str, "updates": list(valid_updates.keys())},
         )
 
-        return {"message": "Photo updated successfully"}
+        return PhotoUpdateResponse(message="Photo updated successfully")
 
     except HTTPException:
         raise
@@ -509,6 +532,7 @@ async def update_user_photo(
 
 @router.delete(
     "/uploads/{photo_id}",
+    response_model=PhotoDeleteResponse,
     status_code=202,
     responses={404: {"description": "Not Found"}, 500: {"description": "Internal Server Error"}},
 )
@@ -542,7 +566,7 @@ async def delete_user_photo(
             storage_service=storage_service,
         )
 
-        return {"message": "Deletion scheduled"}
+        return PhotoDeleteResponse(message="Deletion scheduled")
 
     except HTTPException:
         raise
@@ -553,6 +577,7 @@ async def delete_user_photo(
 
 @router.post(
     "/delete-request",
+    response_model=AccountDeletionResponse,
     responses={400: {"description": "Conflict/Bad Request"}, 500: {"description": "Internal Server Error"}},
 )
 @auth_limiter.limit("5/minute")
@@ -560,7 +585,7 @@ async def request_account_deletion(
     request: Request,
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> dict[str, str]:
+) -> AccountDeletionResponse:
     """
     Request account deletion
 
@@ -584,6 +609,7 @@ async def request_account_deletion(
 
 @router.post(
     "/cancel-deletion",
+    response_model=AccountDeletionResponse,
     responses={400: {"description": "Conflict/Bad Request"}, 500: {"description": "Internal Server Error"}},
 )
 @auth_limiter.limit("5/minute")
@@ -591,7 +617,7 @@ async def cancel_account_deletion(
     request: Request,
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> dict[str, str]:
+) -> AccountDeletionResponse:
     """
     Cancel an ongoing account deletion request
 

@@ -58,13 +58,15 @@ class TestGalleryServiceExtended:
             service = GalleryService(mock_supabase)
             assert await service._fulltext_available is False
 
-    async def test_fulltext_search_rpc_success(self, gallery_service, mock_supabase):
-        mock_supabase.rpc.return_value.execute.return_value = MagicMock(data=[{"id": "1", "score": 0.9}])
+    async def test_fulltext_search_success(self, gallery_service, mock_supabase):
+        # mock_supabase.table().select()...text_search()
+        mock_supabase.table.return_value.select.return_value.is_.return_value.eq.return_value.text_search.return_value.order.return_value.range.return_value.execute.return_value = MagicMock(
+            data=[{"id": "1", "score": 0.9}]
+        )
 
         results = await gallery_service.search_photos(query="cat", use_fulltext=True)
         assert len(results) == 1
         assert results[0]["id"] == "1"
-        mock_supabase.rpc.assert_called()
 
     async def test_fulltext_search_rpc_fail_fallback_direct(self, gallery_service, mock_supabase):
         # RPC fails, should fallback to textSearch
@@ -82,9 +84,9 @@ class TestGalleryServiceExtended:
         assert results[0]["id"] == "2"
 
     async def test_fulltext_search_filtering(self, gallery_service, mock_supabase):
-        # Test client side filtering for RPC path
-        mock_supabase.rpc.return_value.execute.return_value = MagicMock(
-            data=[{"id": "1", "tags": ["orange", "cute"]}, {"id": "2", "tags": ["black"]}]
+        # Test tag filtering is applied in the query
+        mock_supabase.table.return_value.select.return_value.is_.return_value.eq.return_value.text_search.return_value.order.return_value.range.return_value.contains.return_value.execute.return_value = MagicMock(
+            data=[{"id": "1", "tags": ["orange", "cute"]}]
         )
 
         results = await gallery_service.search_photos(query="cat", tags=["orange"], use_fulltext=True)
@@ -118,7 +120,7 @@ class TestGalleryServiceExtended:
         with patch("services.feature_flags.FeatureFlagService.is_enabled", return_value=True):
             # Explicitly set return value for this specific test
             rpc_mock = MagicMock()
-            rpc_mock.execute = AsyncMock(return_value=MagicMock(data=[{"id": "loc2"}]))
+            rpc_mock.execute = AsyncMock(return_value=MagicMock(data=[{"id": "loc2", "status": "approved"}]))
             mock_supabase.rpc.return_value = rpc_mock
 
             # Use unique coords

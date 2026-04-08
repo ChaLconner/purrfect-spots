@@ -31,8 +31,7 @@ function updateApiHeader(accessToken: string | null): void {
 function sanitizeUserForCache(userData: User | null): Partial<User> | null {
   if (!userData) return null;
   // Omit sensitive/volatile fields that should only be trusted from the verified token/API
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { stripe_customer_id, treat_balance, ...safeData } = userData;
+  const { stripe_customer_id: _stripe, treat_balance: _balance, ...safeData } = userData;
   return safeData;
 }
 
@@ -108,10 +107,6 @@ export const useAuthStore = defineStore('auth', () => {
 
     // Always try to refresh token on init to check valid session
     await refreshToken();
-
-    if (isAuthenticated.value) {
-      setupBalanceRealtime();
-    }
 
     isInitialized.value = true;
   }
@@ -191,9 +186,6 @@ export const useAuthStore = defineStore('auth', () => {
 
     // Update headers/storage
     updateApiHeader(data.access_token);
-
-    // Setup realtime
-    setupBalanceRealtime();
   }
 
   /**
@@ -259,29 +251,46 @@ export const useAuthStore = defineStore('auth', () => {
   async function logout(): Promise<void> {
     try {
       await apiV1.post('/auth/logout');
-    } catch (e) {
-      console.warn('Logout API call failed', e);
+    } catch {
+      // Logout failure silently handled
     } finally {
       clearAuth();
     }
   }
 
   function setupBalanceRealtime(): void {
-    if (!user.value?.id) return;
+    const userId = user.value?.id;
+    if (!userId) return;
 
-    if (balanceChannel) {
-      supabase.removeChannel(balanceChannel);
+    // Check if we already have a channel for this user and it's active
+    const channelName = `user_balance_${userId}`;
+    if (balanceChannel && balanceChannel.topic === `realtime:${channelName}`) {
+      // Already subscribed to the correct channel
+      return;
     }
 
-    balanceChannel = supabase
-      .channel(`user_balance_${user.value.id}`)
+    // Cleanup existing channel if it's different or just to be safe
+    if (balanceChannel) {
+      supabase.removeChannel(balanceChannel);
+      balanceChannel = null;
+    }
+
+    const channel = supabase.channel(channelName);
+    const channelWithState = channel as unknown as { state: string };
+    if (channelWithState.state === 'joined' || channelWithState.state === 'joining') {
+      balanceChannel = channel;
+      return;
+    }
+    balanceChannel = channel;
+
+    channel
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
           table: 'users',
-          filter: `id=eq.${user.value.id}`,
+          filter: `id=eq.${userId}`,
         },
         (payload: { new: { treat_balance: number } }): void => {
           if (payload.new && typeof payload.new.treat_balance === 'number' && user.value) {

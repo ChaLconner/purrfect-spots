@@ -1,7 +1,8 @@
+
 import { config } from '@vue/test-utils';
 import { vi } from 'vitest';
 
-console.log('Vitest Setup Loaded');
+
 
 import { createI18n } from 'vue-i18n';
 
@@ -22,7 +23,7 @@ const i18n = createI18n({
 
 config.global.plugins = [i18n];
 config.global.mocks = {
-  $t: (msg: string) => msg
+  $t: (msg: string): string => msg
 };
 
 // Mock intersection observer if used
@@ -48,3 +49,33 @@ vi.stubGlobal('ResizeObserver', vi.fn(function() {
     disconnect: vi.fn(),
   };
 }));
+
+// Stub Image class for Node/JSDOM to prevent loading static public assets which fail with path error
+vi.stubGlobal('Image', class {
+  _src = '';
+  onload: () => void = (): void => {};
+  onerror: () => void = (): void => {};
+  height = 0;
+  width = 0;
+  set src(val: string) {
+    this._src = val;
+    // Simulate async load
+    setTimeout(() => {
+        if (typeof this.onload === 'function') {
+            this.onload();
+        }
+    }, 0);
+  }
+  get src(): string { return this._src; }
+});
+
+// Mock URL.createObjectURL and URL.revokeObjectURL
+if (typeof URL !== 'undefined') {
+  URL.createObjectURL = vi.fn(() => 'blob:mock-url');
+  URL.revokeObjectURL = vi.fn();
+} else {
+  vi.stubGlobal('URL', {
+    createObjectURL: vi.fn(() => 'blob:mock-url'),
+    revokeObjectURL: vi.fn(),
+  });
+}

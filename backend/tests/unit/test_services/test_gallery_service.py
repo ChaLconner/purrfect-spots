@@ -202,22 +202,17 @@ class TestGalleryService:
 
         assert "Failed to fetch gallery images" in str(excinfo.value)
 
-    async def test_get_all_photos_with_token(self, gallery_service, mock_supabase, mock_cat_photo):
-        """Test getting photos with RPC check"""
+    async def test_get_all_photos_filters_for_approved_content(self, gallery_service, mock_supabase, mock_cat_photo):
+        """Test public gallery queries enforce approved moderation status"""
         mock_response = MagicMock()
         mock_response.data = [mock_cat_photo]
         mock_response.count = 1
         mock_supabase.execute.return_value = mock_response
 
-        # Reset mock before call
-        mock_supabase.rpc.reset_mock()
-
-        # Use unique parameters to ensure we don't hit the cache
-        # (Though autouse fixture in conftest should have cleared it)
         await gallery_service.get_all_photos(limit=11, offset=11)
 
-        # Validate that rpc was called
-        mock_supabase.rpc.assert_called_with("get_gallery_photos_with_likes", {"p_limit": 11, "p_offset": 11})
+        mock_supabase.table.assert_called_with("cat_photos")
+        mock_supabase.eq.assert_any_call("status", "approved")
 
     async def test_search_photos_error_handling(self, gallery_service, mock_supabase):
         """Test error handling in search_photos"""

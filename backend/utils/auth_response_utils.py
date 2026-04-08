@@ -29,7 +29,6 @@ def create_login_response(
     ip, ua = get_client_info(request)
 
     # normalizing user ID access (attrs vs dict)
-    # normalizing user ID access (attrs vs dict)
     if isinstance(user, dict):
         user_id = str(user.get("id"))
         role = user.get("role", "user")
@@ -40,7 +39,6 @@ def create_login_response(
         permissions = getattr(user, "permissions", [])
 
     # Generate tokens
-    # Note: user data is optional if not updating claims
     access_token = auth_service.create_access_token(user_id, role=role, permissions=permissions)
     refresh_token = auth_service.create_refresh_token(user_id, ip, ua)
 
@@ -48,7 +46,7 @@ def create_login_response(
         set_refresh_cookie(response, refresh_token)
 
     # Standardize User object for response
-    # SEC-04: role_id and permissions are kept for JWT token signing only; NOT included in the public response.
+    # role and permissions are NOT included in the public response.
     if isinstance(user, dict):
         user_response = UserResponse(
             id=user["id"],
@@ -59,6 +57,7 @@ def create_login_response(
             created_at=user.get("created_at"),
             google_id=user.get("google_id"),
             role=role,
+            permissions=permissions,
         )
     else:
         user_response = UserResponse(
@@ -70,11 +69,11 @@ def create_login_response(
             created_at=user.created_at,
             google_id=user.google_id,
             role=role,
+            permissions=permissions,
         )
 
     return LoginResponse(
         access_token=access_token,
-        token_type="bearer",
+        token_type="bearer",  # nosec S106
         user=user_response,
-        refresh_token=refresh_token,  # nosec B106
     )

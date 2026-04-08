@@ -40,7 +40,7 @@ class TestProfileRoute:
         app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
         app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
 
-        response = await client.get("/api/v1/profile/")
+        response = await client.get("/api/v1/profile")
 
         # Cleanup
         app.dependency_overrides = {}
@@ -68,7 +68,7 @@ class TestProfileRoute:
         app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
 
         payload = {"name": "Updated Name", "bio": "Updated Bio"}
-        response = await client.put("/api/v1/profile/", json=payload)
+        response = await client.put("/api/v1/profile", json=payload)
 
         # Cleanup
         app.dependency_overrides = {}
@@ -85,7 +85,7 @@ class TestProfileRoute:
         app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
 
         payload = {}
-        response = await client.put("/api/v1/profile/", json=payload)
+        response = await client.put("/api/v1/profile", json=payload)
 
         app.dependency_overrides = {}
 

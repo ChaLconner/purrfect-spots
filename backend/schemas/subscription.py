@@ -4,9 +4,7 @@ from pydantic import BaseModel
 
 
 class CreateCheckoutRequest(BaseModel):
-    price_id: str  # Stripe Price ID (e.g., "price_xxx")
-    success_url: str
-    cancel_url: str
+    plan: str = "monthly"
 
 
 class CheckoutSessionResponse(BaseModel):
@@ -23,7 +21,7 @@ class SubscriptionStatus(BaseModel):
 
 
 class CreatePortalRequest(BaseModel):
-    return_url: str
+    return_url: str | None = None
 
 
 class PortalResponse(BaseModel):

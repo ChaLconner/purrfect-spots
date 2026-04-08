@@ -8,6 +8,7 @@ Uses fail-fast approach for required variables in production.
 import os
 import warnings
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
 
@@ -151,15 +152,15 @@ class Config:
                 "Please set JWT_REFRESH_SECRET environment variable."
             )
         else:
-            import secrets
-
+            # SECURITY: Use a deterministic fallback for development stability
+            # This ensures sessions persist across dev server restarts
             warnings.warn(
-                "JWT_REFRESH_SECRET not set. Generating a random secret for this session (NOT PERSISTENT). "
-                "For stable sessions, please set a separate JWT_REFRESH_SECRET in your .env.",
+                "JWT_REFRESH_SECRET not set. Using a deterministic development secret. "
+                "For production, please set a separate JWT_REFRESH_SECRET environment variable.",
                 UserWarning,
                 stacklevel=2,
             )
-            JWT_REFRESH_SECRET = secrets.token_hex(32)
+            JWT_REFRESH_SECRET = "dev-refresh-secret-do-not-use-in-production-32chars"  # nosec S105
 
     JWT_REFRESH_EXPIRATION_DAYS = int(os.getenv("JWT_REFRESH_EXPIRATION_DAYS", "7"))
     JWT_ACCESS_EXPIRATION_HOURS = int(os.getenv("JWT_ACCESS_EXPIRATION_HOURS", "1"))
@@ -248,6 +249,16 @@ class Config:
     # ==========================================
     STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
     STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
+    STRIPE_PRO_PRICE_ID = os.getenv("STRIPE_PRO_PRICE_ID")
+    STRIPE_PRO_ANNUAL_PRICE_ID = os.getenv("STRIPE_PRO_ANNUAL_PRICE_ID")
+
+    # Pinned Stripe API version — keep in sync with services/subscription_service.py
+    # and services/treats_service.py.  Update only after reviewing the Stripe
+    # changelog for breaking changes.
+    STRIPE_API_VERSION = "2025-02-24.acacia"
+
+    # Operational controls
+    EXPOSE_DETAILED_HEALTH = os.getenv("EXPOSE_DETAILED_HEALTH", "").lower() in ("true", "1", "yes")
 
     # Treat packages are now managed in the database (public.treat_packages)
     # Use TreatsService.get_packages() to fetch them.
@@ -266,9 +277,31 @@ class Config:
             ("SUPABASE_KEY", Config.SUPABASE_KEY),
         ]
 
-        for name, value in required_vars:
-            if not value:
-                missing.append(name)
+        # Stripe keys are required in production; warn in development
+        stripe_vars = [
+            ("STRIPE_SECRET_KEY", Config.STRIPE_SECRET_KEY),
+            ("STRIPE_WEBHOOK_SECRET", Config.STRIPE_WEBHOOK_SECRET),
+            ("STRIPE_PRO_PRICE_ID", Config.STRIPE_PRO_PRICE_ID),
+        ]
+
+        is_production = Config.ENVIRONMENT.lower() == "production"
+
+        for r_name, r_value in required_vars:
+            if not r_value:
+                missing.append(r_name)
+
+        for s_name, s_value in stripe_vars:
+            if not s_value:
+                if is_production:
+                    missing.append(s_name)
+                else:
+                    import warnings
+
+                    warnings.warn(
+                        f"Stripe config '{s_name}' is not set. Subscription features will be unavailable.",
+                        UserWarning,
+                        stacklevel=2,
+                    )
 
         return missing
 
@@ -316,6 +349,63 @@ class Config:
                 allowed.append(url)
 
         return list(set(allowed))
+
+    @staticmethod
+    def get_trusted_proxy_hosts() -> list[str]:
+        """
+        Get the proxy IPs/CIDRs allowed to set forwarded headers.
+
+        Wildcard trust is intentionally rejected because it allows any client
+        to spoof X-Forwarded-* headers.
+        """
+        default_hosts = ["127.0.0.1", "::1"]
+        raw_hosts = get_env_with_fallback("TRUSTED_PROXY_HOSTS", "TRUSTED_HOSTS")
+
+        if not raw_hosts:
+            return default_hosts
+
+        hosts = [host.strip() for host in raw_hosts.split(",") if host.strip()]
+        if not hosts or "*" in hosts:
+            warnings.warn(
+                "Wildcard trusted proxy configuration is unsafe. Falling back to loopback-only trusted proxies.",
+                UserWarning,
+                stacklevel=2,
+            )
+            return default_hosts
+
+        return hosts
+
+    @staticmethod
+    def get_frontend_origin() -> str:
+        """Return the canonical frontend origin without any path component."""
+        parsed = urlsplit(Config.FRONTEND_URL)
+        if parsed.scheme and parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}"
+        return Config.FRONTEND_URL.rstrip("/")
+
+    @staticmethod
+    def resolve_frontend_url(candidate_url: str | None = None, default_path: str = "/") -> str:
+        """
+        Build a safe frontend redirect URL.
+
+        Only same-origin absolute URLs or local paths are accepted; everything
+        else falls back to the configured frontend URL.
+        """
+        base_origin = Config.get_frontend_origin()
+        safe_path = default_path if default_path.startswith("/") else f"/{default_path}"
+
+        if candidate_url:
+            parsed = urlsplit(candidate_url)
+            if parsed.scheme and parsed.netloc:
+                candidate_origin = f"{parsed.scheme}://{parsed.netloc}"
+                if candidate_origin == base_origin:
+                    safe_path = parsed.path or "/"
+                    if parsed.query:
+                        safe_path = f"{safe_path}?{parsed.query}"
+            elif candidate_url.startswith("/") and not candidate_url.startswith("//"):
+                safe_path = candidate_url
+
+        return f"{base_origin}{safe_path}"
 
     @staticmethod
     def get_redirect_uris() -> list[str]:

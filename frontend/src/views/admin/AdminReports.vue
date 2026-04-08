@@ -1,10 +1,10 @@
 <template>
-  <div class="bg-white rounded-2xl shadow-sm border border-sand-100 overflow-hidden">
+  <div class="bg-white rounded-xl shadow-sm border border-sand-100 overflow-hidden">
     <div
-      class="p-6 border-b border-sand-100 flex flex-col sm:flex-row justify-between items-center gap-4"
+      class="p-4 border-b border-sand-100 flex flex-col sm:flex-row justify-between items-center gap-4"
     >
       <div class="flex items-center gap-4">
-        <h2 class="text-xl font-bold text-brown-900">User Reports</h2>
+        <h2 class="text-xl font-bold text-brown-900">{{ t('admin.reports.title') }}</h2>
         <button
           class="px-3 py-1.5 text-sm font-medium text-brown-600 bg-sand-50 border border-sand-200 rounded-lg hover:bg-sand-100 transition-colors flex items-center gap-2"
           @click="exportReports"
@@ -23,7 +23,7 @@
               d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
             />
           </svg>
-          Export CSV
+          {{ t('admin.reports.exportCsv') }}
         </button>
       </div>
       <div class="flex gap-2">
@@ -32,17 +32,17 @@
           class="pl-3 pr-10 py-2 border border-sand-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 text-brown-700 bg-white"
           @change="loadReports(1)"
         >
-          <option value="">All Statuses</option>
-          <option value="pending">Pending</option>
-          <option value="resolved">Resolved</option>
-          <option value="dismissed">Dismissed</option>
+          <option value="">{{ t('admin.reports.filters.allStatuses') }}</option>
+          <option value="pending">{{ t('admin.reports.filters.pending') }}</option>
+          <option value="resolved">{{ t('admin.reports.filters.resolved') }}</option>
+          <option value="dismissed">{{ t('admin.reports.filters.dismissed') }}</option>
         </select>
         <select
           v-model="reasonFilter"
           class="pl-3 pr-10 py-2 border border-sand-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 text-brown-700 bg-white"
           @change="loadReports(1)"
         >
-          <option value="">All Reasons</option>
+          <option value="">{{ t('admin.reports.filters.allReasons') }}</option>
           <option v-for="reason in REPORT_REASONS" :key="reason.value" :value="reason.value">
             {{ reason.label }}
           </option>
@@ -67,24 +67,24 @@
           class="flex items-center bg-terracotta-50 px-3 py-1.5 rounded-lg border border-terracotta-100 gap-2"
         >
           <span class="text-xs font-medium text-terracotta-700">
-            {{ selectedReportIds.length }} Selected
+            {{ t('admin.reports.selectedCount', { count: selectedReportIds.length }) }}
           </span>
           <button
             class="text-xs px-2 py-1 bg-white border border-terracotta-200 rounded hover:bg-terracotta-100 text-terracotta-700 font-medium"
             @click="openBulkActionModal('resolve')"
           >
-            Resolve
+            {{ t('admin.reports.actions.resolve') }}
           </button>
           <button
             class="text-xs px-2 py-1 bg-white border border-terracotta-200 rounded hover:bg-terracotta-100 text-terracotta-700 font-medium"
             @click="openBulkActionModal('dismiss')"
           >
-            Dismiss
+            {{ t('admin.reports.actions.dismiss') }}
           </button>
         </div>
         <button
           class="p-2 rounded-lg border border-sand-300 hover:bg-sand-50 text-brown-500"
-          title="Refresh"
+          :title="t('common.refresh')"
           @click="loadReports(1)"
         >
           <svg
@@ -107,57 +107,57 @@
 
     <div class="overflow-x-auto">
       <table class="min-w-full divide-y divide-sand-200">
-        <thead class="bg-sand-50">
+        <thead class="bg-sand-50/50">
           <tr>
-            <th class="px-6 py-3 w-10">
+            <th class="px-6 py-4 w-10">
               <input
                 type="checkbox"
-                class="rounded border-sand-300 text-terracotta-600 focus:ring-terracotta-500"
+                class="w-4 h-4 rounded border-sand-300 text-terracotta-600 focus:ring-terracotta-500/20 transition-all cursor-pointer"
                 :checked="isAllSelected"
                 @change="toggleSelectAll"
               />
             </th>
             <th
               scope="col"
-              class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-wider"
+              class="px-6 py-2 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.15em]"
             >
-              Date
+              {{ t('admin.reports.table.timestamp') }}
             </th>
             <th
               scope="col"
-              class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-wider"
+              class="px-6 py-2 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.15em]"
             >
-              Reason
+              {{ t('admin.reports.table.category') }}
             </th>
             <th
               scope="col"
-              class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-wider"
+              class="px-6 py-2 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.15em]"
             >
-              Content
+              {{ t('admin.reports.table.subject') }}
             </th>
             <th
               scope="col"
-              class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-wider"
+              class="px-6 py-2 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.15em]"
             >
-              Reporter
+              {{ t('admin.reports.table.author') }}
             </th>
             <th
               scope="col"
-              class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-wider"
+              class="px-6 py-2 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.15em]"
             >
-              Status
+              {{ t('admin.reports.table.status') }}
             </th>
             <th
               scope="col"
-              class="px-6 py-3 text-right text-xs font-medium text-brown-500 uppercase tracking-wider"
+              class="px-6 py-2 text-right text-[10px] font-black text-brown-400 uppercase tracking-[0.15em]"
             >
-              Actions
+              {{ t('admin.reports.table.controls') }}
             </th>
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-sand-200">
           <tr v-for="report in reports" :key="report.id" class="hover:bg-sand-50 transition-colors">
-            <td class="px-6 py-4 w-10">
+            <td class="px-6 py-3 w-10">
               <input
                 type="checkbox"
                 class="rounded border-sand-300 text-terracotta-600 focus:ring-terracotta-500"
@@ -165,10 +165,10 @@
                 @change="toggleSelection(report.id)"
               />
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-500">
-              {{ new Date(report.created_at).toLocaleDateString() }}<br />
+            <td class="px-6 py-3 whitespace-nowrap text-sm text-brown-500">
+              {{ new Date(report.created_at).toLocaleDateString(locale) }}<br />
               <span class="text-xs text-brown-400">{{
-                new Date(report.created_at).toLocaleTimeString()
+                new Date(report.created_at).toLocaleTimeString(locale)
               }}</span>
             </td>
             <td class="px-6 py-4">
@@ -183,7 +183,7 @@
                     report.reason === 'other' || report.reason === 'not_a_cat',
                 }"
               >
-                {{ report.reason.replaceAll('_', ' ') }}
+                {{ t('admin.reports.reasons.' + report.reason) }}
               </span>
               <div
                 v-if="report.details"
@@ -193,23 +193,25 @@
                 "{{ report.details }}"
               </div>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap">
+            <td class="px-6 py-3 whitespace-nowrap">
               <div class="flex items-center">
                 <div
                   class="h-10 w-10 flex-shrink-0 cursor-pointer"
                   @click="openImage(report.photo?.image_url)"
                 >
-                  <img
+                  <OptimizedImage
                     v-if="report.photo?.image_url"
-                    class="h-10 w-10 rounded-md object-cover border border-sand-200"
+                    class="h-10 w-10 rounded-md border border-sand-200"
                     :src="report.photo.image_url"
                     alt="Reported content"
+                    :width="40"
+                    :height="40"
                   />
                   <div
                     v-else
                     class="h-10 w-10 bg-gray-200 rounded-md flex items-center justify-center text-xs text-gray-400"
                   >
-                    Deleted
+                    {{ t('admin.reports.table.deleted') }}
                   </div>
                 </div>
                 <div class="ml-4">
@@ -218,58 +220,62 @@
                     target="_blank"
                     class="text-sm font-medium text-indigo-600 hover:text-indigo-900"
                   >
-                    View <span class="sr-only">content</span>
+                    {{ t('admin.reports.table.view') }} <span class="sr-only">content</span>
                   </a>
                 </div>
               </div>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-600">
-              {{ report.reporter?.email || 'Anonymous' }}
+            <td class="px-6 py-3 whitespace-nowrap text-sm text-brown-600">
+              {{ report.reporter?.email || t('admin.audit.unknown') }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap">
+            <td class="px-6 py-3 whitespace-nowrap">
               <span
-                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize"
+                class="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider leading-none shadow-sm border"
                 :class="{
-                  'bg-yellow-100 text-yellow-800': report.status === 'pending',
-                  'bg-green-100 text-green-800': report.status === 'resolved',
-                  'bg-gray-100 text-gray-800': report.status === 'dismissed',
+                  'bg-yellow-50 text-yellow-700 border-yellow-100': report.status === 'pending',
+                  'bg-green-50 text-green-700 border-green-100': report.status === 'resolved',
+                  'bg-gray-50 text-gray-700 border-gray-100': report.status === 'dismissed',
                 }"
               >
-                {{ report.status }}
+                {{ t('admin.reports.statuses.' + report.status) }}
               </span>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+            <td class="px-6 py-3 whitespace-nowrap text-right text-sm font-medium">
               <div
                 v-if="report.status === 'pending' && canManageReports"
                 class="flex justify-end gap-2"
               >
                 <button
                   class="text-green-600 hover:text-green-900"
-                  title="Mark as Resolved"
+                  :title="t('admin.reports.actions.resolve')"
                   @click="openActionModal(report, 'resolve')"
                 >
-                  Resolve
+                  {{ t('admin.reports.actions.resolve') }}
                 </button>
                 <button
                   class="text-gray-600 hover:text-gray-900"
-                  title="Dismiss Report"
+                  :title="t('admin.reports.actions.dismiss')"
                   @click="openActionModal(report, 'dismiss')"
                 >
-                  Dismiss
+                  {{ t('admin.reports.actions.dismiss') }}
                 </button>
                 <button
                   class="text-red-600 hover:text-red-900 ml-2"
-                  title="Delete Content & Resolve"
+                  :title="t('admin.reports.actions.delete')"
                   @click="openActionModal(report, 'delete')"
                 >
-                  Delete Content
+                  {{ t('admin.reports.actions.delete') }}
                 </button>
               </div>
-              <span v-else class="text-brown-400 text-xs"> No actions </span>
+              <span v-else class="text-brown-400 text-xs">
+                {{ t('admin.reports.actions.noActions') }}
+              </span>
             </td>
           </tr>
           <tr v-if="reports.length === 0 && !isLoading">
-            <td colspan="6" class="px-6 py-12 text-center text-brown-500">No reports found.</td>
+            <td colspan="6" class="px-6 py-12 text-center text-brown-500">
+              {{ t('admin.reports.table.noReports') }}
+            </td>
           </tr>
           <TableSkeleton v-if="isLoading" :columns="7" :checkbox-column="1" :avatar-column="4" />
         </tbody>
@@ -286,15 +292,15 @@
         class="px-4 py-2 border border-sand-300 rounded-md text-sm font-medium text-brown-700 bg-white hover:bg-sand-50 disabled:opacity-50 disabled:cursor-not-allowed"
         @click="page > 1 && loadReports(page - 1)"
       >
-        Previous
+        {{ t('common.previous') }}
       </button>
-      <span class="text-sm text-brown-600">Page {{ page }}</span>
+      <span class="text-sm text-brown-600">{{ t('common.page', { n: page }) }}</span>
       <button
         :disabled="reports.length < limit || page * limit >= totalReports"
         class="px-4 py-2 border border-sand-300 rounded-md text-sm font-medium text-brown-700 bg-white hover:bg-sand-50 disabled:opacity-50 disabled:cursor-not-allowed"
         @click="loadReports(page + 1)"
       >
-        Next
+        {{ t('common.next') }}
       </button>
     </div>
 
@@ -305,10 +311,11 @@
       @click="previewImageUrl = null"
     >
       <div class="relative">
-        <img
+        <OptimizedImage
           :src="previewImageUrl"
           class="max-w-full max-h-[90vh] rounded-lg shadow-2xl"
           alt="Preview"
+          :lazy="false"
         />
         <button
           class="absolute -top-4 -right-4 bg-white text-black rounded-full p-1 hover:text-gray-300 shadow-lg"
@@ -340,46 +347,48 @@
         <h3 class="text-lg font-bold text-brown-900 mb-4">
           {{
             isBulkAction
-              ? `Bulk ${actionType === 'delete' ? 'Delete & Resolve' : actionType === 'resolve' ? 'Resolve' : 'Dismiss'} (${selectedReportIds.length} Reports)`
+              ? t('admin.reports.modal.bulkTitle', {
+                  action: t(`admin.reports.modal.bulkLabel`, { action: actionType }),
+                  count: selectedReportIds.length,
+                })
               : actionType === 'delete'
-                ? 'Delete Content & Resolve'
+                ? t('admin.reports.modal.deleteTitle')
                 : actionType === 'resolve'
-                  ? 'Resolve Report'
-                  : 'Dismiss Report'
+                  ? t('admin.reports.modal.resolveTitle')
+                  : t('admin.reports.modal.dismissTitle')
           }}
         </h3>
 
         <div v-if="actionType === 'delete'" class="mb-4 text-sm text-red-600 font-medium">
-          Warning: This content will be permanently deleted.
+          {{ t('admin.reports.modal.deleteWarning') }}
         </div>
 
         <div class="mb-4">
-          <label
-            for="resolution-reason"
-            class="block text-sm font-medium text-brown-700 mb-1"
-          >Standard Reason</label>
+          <label for="resolution-reason" class="block text-sm font-medium text-brown-700 mb-1">{{
+            t('admin.reports.modal.reasonLabel')
+          }}</label>
           <select
             id="resolution-reason"
             v-model="selectedReason"
             class="w-full border border-sand-300 rounded-md shadow-sm p-2 focus:ring-terracotta-500 focus:border-terracotta-500"
           >
-            <option value="">Select a reason...</option>
-            <option v-for="reason in filteredReasons" :key="reason.value" :value="reason.label">
-              {{ reason.label }}
+            <option value="">{{ t('admin.reports.modal.reasonPlaceholder') }}</option>
+            <option v-for="reason in filteredReasons" :key="reason.value" :value="reason.value">
+              {{ t('admin.reports.resolutionReasons.' + reason.value) }}
             </option>
           </select>
         </div>
 
         <div class="mb-6">
           <label for="resolution-note" class="block text-sm font-medium text-brown-700 mb-1">
-            Additional Notes (Optional)
+            {{ t('admin.reports.modal.notesLabel') }}
           </label>
           <textarea
             id="resolution-note"
             v-model="resolutionNote"
             rows="3"
             class="w-full border border-sand-300 rounded-md shadow-sm p-2 focus:ring-terracotta-500 focus:border-terracotta-500"
-            placeholder="Add specific details for the user..."
+            :placeholder="t('admin.reports.modal.notesPlaceholder')"
           ></textarea>
         </div>
 
@@ -388,7 +397,7 @@
             class="px-4 py-2 border border-sand-300 rounded-md text-brown-700 hover:bg-sand-50"
             @click="closeActionModal"
           >
-            Cancel
+            {{ t('common.cancel') }}
           </button>
           <button
             class="px-4 py-2 rounded-md text-white font-medium"
@@ -400,7 +409,7 @@
             :disabled="!selectedReason"
             @click="confirmAction"
           >
-            Confirm
+            {{ t('common.confirm') }}
           </button>
         </div>
       </div>
@@ -410,13 +419,16 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { apiV1 } from '@/utils/api';
 import { RESOLUTION_REASONS, REPORT_REASONS } from '@/constants/moderation';
 import { useToast } from '@/components/toast/use-toast';
 import { useAuthStore } from '@/store/authStore';
 import { useAdminTable } from '@/composables/useAdminTable';
 import TableSkeleton from '@/components/ui/TableSkeleton.vue';
+import { OptimizedImage } from '@/components/ui';
 
+const { t, locale } = useI18n();
 const { toast } = useToast();
 const authStore = useAuthStore();
 
@@ -464,10 +476,11 @@ const {
     r.created_at,
     r.reason,
     r.status,
-    r.reporter?.email || 'Anonymous',
+    r.reporter?.email || t('profile.unknownUser'),
     `"${(r.details || '').replace(/"/g, '""')}"`,
     r.photo?.image_url || '',
   ],
+  limit: 50,
 });
 
 const loadReports = (newPage: number = 1): void => {
@@ -531,8 +544,8 @@ const confirmAction = async (): Promise<void> => {
   if (!selectedReport.value || !selectedReason.value) return;
 
   const finalNote = resolutionNote.value
-    ? `${selectedReason.value}: ${resolutionNote.value}`
-    : selectedReason.value;
+    ? `${t('admin.reports.resolutionReasons.' + selectedReason.value)}: ${resolutionNote.value}`
+    : t('admin.reports.resolutionReasons.' + selectedReason.value);
 
   try {
     if (isBulkAction.value) {
@@ -543,7 +556,9 @@ const confirmAction = async (): Promise<void> => {
         delete_content: actionType.value === 'delete',
       });
       toast({
-        description: `Successfully processed ${selectedReportIds.value.length} reports`,
+        description: t('admin.reports.actions.bulkSuccess', {
+          count: selectedReportIds.value.length,
+        }),
         variant: 'default',
       });
     } else {
@@ -560,7 +575,7 @@ const confirmAction = async (): Promise<void> => {
         });
       }
       toast({
-        description: 'Action completed successfully',
+        description: t('admin.reports.actions.success'),
         variant: 'default',
       });
     }
@@ -570,8 +585,8 @@ const confirmAction = async (): Promise<void> => {
   } catch (e) {
     console.error('Failed to perform action', e);
     toast({
-      title: 'Error',
-      description: 'Action failed. Please try again.',
+      title: t('common.error'),
+      description: t('admin.reports.actions.failed'),
       variant: 'destructive',
     });
   }

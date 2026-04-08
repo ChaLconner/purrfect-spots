@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { NotificationService, type Notification } from '@/services/notificationService';
 import { useAuthStore } from './authStore';
 import { supabase } from '@/lib/supabase';
@@ -14,19 +14,38 @@ export const useNotificationStore = defineStore('notifications', () => {
 
   // Pagination states
   const isLoadingMore = ref(false);
+  const isLoaded = ref(false);
   const hasMore = ref(true);
   const limit = 15;
 
-  async function fetchNotifications(): Promise<void> {
+  function resetState(): void {
+    notifications.value = [];
+    isLoadingMore.value = false;
+    isLoaded.value = false;
+    hasMore.value = true;
+    unsubscribe();
+  }
+
+  async function fetchNotifications(silent = false): Promise<void> {
     if (!authStore.isAuthenticated) return;
     try {
-      hasMore.value = true;
-      isLoadingMore.value = false;
+      if (!silent) {
+        isLoadingMore.value = true;
+      }
+      
       const data = await NotificationService.getNotifications(limit, 0);
       notifications.value = data;
-      if (data.length < limit) hasMore.value = false;
+      isLoaded.value = true;
+      
+      if (data.length < limit) {
+        hasMore.value = false;
+      } else {
+        hasMore.value = true;
+      }
     } catch (e) {
       console.error('Failed to fetch notifications', e);
+    } finally {
+      isLoadingMore.value = false;
     }
   }
 
@@ -114,11 +133,27 @@ export const useNotificationStore = defineStore('notifications', () => {
     }
   }
 
+  watch(
+    () => authStore.user?.id ?? null,
+    (newUserId, oldUserId) => {
+      if (!newUserId) {
+        resetState();
+        return;
+      }
+
+      if (oldUserId && newUserId !== oldUserId) {
+        resetState();
+      }
+    }
+  );
+
   return {
     notifications,
     unreadCount,
     isLoadingMore,
+    isLoaded,
     hasMore,
+    resetState,
     fetchNotifications,
     fetchMoreNotifications,
     markRead,

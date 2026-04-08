@@ -65,7 +65,7 @@ export function useLocationPicker(options: LocationPickerOptions = {}): {
       createDraggableMarker({ lat, lng });
     } else if (mapMarker.value) {
       // Update existing marker position
-      if (mapMarker.value.position && typeof mapMarker.value.position === 'object') {
+      if (google.maps.marker?.AdvancedMarkerElement && mapMarker.value instanceof google.maps.marker.AdvancedMarkerElement) {
         // AdvancedMarkerElement
         mapMarker.value.position = { lat, lng };
       } else if (typeof mapMarker.value.setPosition === 'function') {
@@ -210,8 +210,12 @@ export function useLocationPicker(options: LocationPickerOptions = {}): {
 
       mapInstance.value.setCenter(position);
       if (mapMarker.value) {
-        // AdvancedMarkerElement uses 'position' property, not setPosition()
-        mapMarker.value.position = position;
+        if (google.maps.marker?.AdvancedMarkerElement && mapMarker.value instanceof google.maps.marker.AdvancedMarkerElement) {
+           // AdvancedMarkerElement uses 'position' property, not setPosition()
+           mapMarker.value.position = position;
+        } else if (typeof mapMarker.value.setPosition === 'function') {
+           mapMarker.value.setPosition(position);
+        }
       }
     }, 16);
   };
@@ -286,8 +290,12 @@ export function useLocationPicker(options: LocationPickerOptions = {}): {
 
     // Update marker position
     if (mapMarker.value) {
-      // AdvancedMarkerElement uses 'position' property, not setPosition()
-      mapMarker.value.position = position;
+      if (google.maps.marker?.AdvancedMarkerElement && mapMarker.value instanceof google.maps.marker.AdvancedMarkerElement) {
+        // AdvancedMarkerElement uses 'position' property, not setPosition()
+        mapMarker.value.position = position;
+      } else if (typeof mapMarker.value.setPosition === 'function') {
+        mapMarker.value.setPosition(position);
+      }
     }
 
     // Center map on position

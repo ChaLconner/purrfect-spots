@@ -8,6 +8,7 @@ import pytest
 
 from main import app
 from routes.gallery import get_gallery_service
+from utils.security import protect_public_coordinates
 
 
 class TestHealthEndpoints:
@@ -147,19 +148,6 @@ class TestGalleryRoutes:
 
         app.dependency_overrides = {}
 
-    def test_get_gallery_all_endpoint(self, client, mock_cat_photo):
-        """Test /gallery/all endpoint for backward compatibility"""
-        mock_service = MagicMock()
-        mock_service.get_all_photos_simple = AsyncMock(return_value=[mock_cat_photo])
-
-        app.dependency_overrides[get_gallery_service] = lambda: mock_service
-
-        response = client.get("/api/v1/gallery/all")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["images"]) == 1
-
         app.dependency_overrides = {}
 
     def test_get_locations(self, client, mock_cat_photo):
@@ -174,8 +162,9 @@ class TestGalleryRoutes:
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 1
-        assert data[0]["latitude"] == pytest.approx(13.7563)
-        assert data[0]["longitude"] == pytest.approx(100.5018)
+        expected_lat, expected_lng = protect_public_coordinates(13.7563, 100.5018, seed=mock_cat_photo["id"])
+        assert data[0]["latitude"] == pytest.approx(expected_lat)
+        assert data[0]["longitude"] == pytest.approx(expected_lng)
 
         app.dependency_overrides = {}
 
@@ -241,7 +230,7 @@ class TestGalleryRoutes:
         response = client.get("/api/v1/gallery/")
 
         assert response.status_code == 500
-        assert "Failed to fetch gallery images" in response.json()["detail"]
+        assert "Failed to fetch gallery images" in response.json()["message"]
 
         app.dependency_overrides = {}
 

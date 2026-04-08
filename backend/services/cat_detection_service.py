@@ -3,7 +3,7 @@ Service for cat detection and spot analysis using Google Cloud Vision API
 """
 
 import io
-from typing import Any
+from typing import Any, cast
 
 from fastapi import HTTPException, UploadFile
 from PIL import Image
@@ -14,11 +14,14 @@ from logger import logger
 class CatDetectionService:
     """Service for cat detection and spot analysis using Google Cloud Vision API"""
 
-    def __init__(self) -> None:
+    def __init__(self, vision_service: Any = None) -> None:
         """Initialize the service"""
-        from services.google_vision import GoogleVisionService
+        if vision_service:
+            self.vision_service = vision_service
+        else:
+            from services.google_vision import GoogleVisionService
 
-        self.vision_service = GoogleVisionService()
+            self.vision_service = GoogleVisionService()
 
     def prepare_image(self, image_data: bytes) -> Image.Image:
         """Prepare image for analysis"""
@@ -117,7 +120,7 @@ class CatDetectionService:
         """
         try:
             # Use Google Vision API to analyze spot suitability
-            return await self.vision_service.analyze_cat_spot_suitability(file)
+            return cast(dict[str, Any], await self.vision_service.analyze_cat_spot_suitability(file))
 
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Spot analysis failed: {e!s}")

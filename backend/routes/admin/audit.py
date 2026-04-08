@@ -20,7 +20,7 @@ async def list_audit_logs(
     offset: int = 0,
     user_id: str | None = None,
     action: str | None = None,
-    current_admin: Annotated[User | None, Depends(require_permission("system:audit_logs"))] = None,
+    current_admin: Annotated[User | None, Depends(require_permission("audit:read"))] = None,
 ) -> dict[str, Any]:
     """
     List audit logs.
@@ -32,7 +32,10 @@ async def list_audit_logs(
         admin_client = await get_async_supabase_admin_client()
         query = (
             admin_client.table("audit_logs")
-            .select("*, users(email, name)", count=CountMethod.exact)
+            .select(
+                "id, user_id, action, resource, changes, ip_address, user_agent, created_at, users(email, name)",
+                count=CountMethod.exact,
+            )
             .range(offset, offset + limit - 1)
             .order("created_at", desc=True)
         )
@@ -46,5 +49,5 @@ async def list_audit_logs(
         result = await query.execute()
         return {"data": result.data, "total": result.count}
     except Exception as e:
-        logger.error(f"Failed to list audit logs: {e}")
+        logger.error("Failed to list audit logs: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch audit logs")

@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from config import config
 from services.subscription_service import SubscriptionService
 
 
@@ -70,8 +71,10 @@ async def test_handle_webhook_checkout_completed(mock_retrieve, subscription_ser
     session = {"metadata": {"user_id": "00000000-0000-4000-a000-000000000123"}, "subscription": "sub_123"}
 
     mock_sub = MagicMock()
+    mock_sub.status = "active"
     mock_sub.current_period_end = 1700000000
     mock_sub.cancel_at_period_end = False
+    mock_sub.items = {"data": [{"price": {"id": config.STRIPE_PRO_PRICE_ID}}]}
     mock_retrieve.return_value = mock_sub
 
     await subscription_service._handle_checkout_session_completed(session)
@@ -81,10 +84,28 @@ async def test_handle_webhook_checkout_completed(mock_retrieve, subscription_ser
 
 
 @patch("services.subscription_service.stripe.Subscription.retrieve")
+async def test_handle_webhook_checkout_completed_ignores_unexpected_price(mock_retrieve, subscription_service):
+    """Test subscription activation is rejected for unknown Stripe prices."""
+    session = {"metadata": {"user_id": "00000000-0000-4000-a000-000000000123"}, "subscription": "sub_123"}
+
+    mock_sub = MagicMock()
+    mock_sub.status = "active"
+    mock_sub.current_period_end = 1700000000
+    mock_sub.cancel_at_period_end = False
+    mock_sub.items = {"data": [{"price": {"id": "price_unexpected"}}]}
+    mock_retrieve.return_value = mock_sub
+
+    await subscription_service._handle_checkout_session_completed(session)
+
+    subscription_service.supabase.table.return_value.update.assert_not_called()
+
+
+@patch("services.subscription_service.stripe.Subscription.retrieve")
 async def test_handle_subscription_updated(mock_retrieve, subscription_service):
     """Test subscription update sync."""
     subscription = {
         "customer": "cus_123",
+        "status": "active",
         "cancel_at_period_end": True,
         "current_period_end": 1700000000,
     }
@@ -127,3 +148,20 @@ async def test_dispatch_checkout_completed_payment(subscription_service):
     await subscription_service._dispatch_checkout_completed(session)
 
     subscription_service.treats_service.fulfill_treat_purchase.assert_called_once_with(session)
+
+
+@patch("services.subscription_service.stripe.billing_portal.Session.create")
+async def test_create_portal_session_sanitizes_external_return_url(mock_portal_create, subscription_service):
+    """Test portal sessions always return to the configured frontend."""
+    subscription_service._get_user_data = AsyncMock(return_value={"stripe_customer_id": "cus_123"})
+    mock_portal_create.return_value.url = "https://stripe.com/portal"
+
+    await subscription_service.create_portal_session(
+        "00000000-0000-4000-a000-000000000123",
+        "https://evil.example/phish",
+    )
+
+    mock_portal_create.assert_called_once()
+    assert mock_portal_create.call_args.kwargs["return_url"] == config.resolve_frontend_url(
+        default_path="/subscription"
+    )

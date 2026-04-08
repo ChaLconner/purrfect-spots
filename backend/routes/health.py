@@ -59,7 +59,7 @@ async def check_database() -> dict[str, Any]:
         }
     except Exception as e:
         latency_ms = (datetime.now(UTC) - start_time).total_seconds() * 1000
-        logger.error(f"Database health check failed: {e}")
+        logger.error("Database health check failed: %s", e)
         return {"status": "unhealthy", "error": ERROR_CONNECTION_FAILED}
 
 
@@ -99,7 +99,7 @@ def check_redis() -> dict[str, Any]:
     except ImportError:
         return {"status": "not_available", "error": "Redis package not installed"}
     except Exception as e:
-        logger.error(f"Redis health check failed: {e}")
+        logger.error("Redis health check failed: %s", e)
         return {"status": "unhealthy", "error": ERROR_CONNECTION_FAILED}
 
 
@@ -151,7 +151,7 @@ def check_s3() -> dict[str, Any]:
     except ImportError:
         return {"status": "not_available", "error": "boto3 package not installed"}
     except Exception as e:
-        logger.error(f"S3 health check failed: {e}")
+        logger.error("S3 health check failed: %s", e)
         return {"status": "unhealthy", "error": f"{ERROR_CONNECTION_FAILED}: {str(e)}"}
 
 
@@ -191,7 +191,7 @@ def check_google_vision() -> dict[str, Any]:
             "error": f"Credentials file not found at {key_path}",
         }
     except Exception as e:
-        logger.error(f"Google Vision health check failed: {e}")
+        logger.error("Google Vision health check failed: %s", e)
         return {"status": "unknown", "error": "Check failed"}
 
 
@@ -214,6 +214,25 @@ def check_sentry() -> dict[str, Any]:
         "status": "configured",
         "environment": os.getenv("ENVIRONMENT", "development"),
     }
+
+
+def _detailed_health_enabled() -> bool:
+    """Detailed health responses are disabled publicly in production by default."""
+    return not config.is_production() or config.EXPOSE_DETAILED_HEALTH
+
+
+def _summarize_dependency_result(result: dict[str, Any]) -> dict[str, Any]:
+    """Return a safe, minimal dependency summary for public health responses."""
+    summary = {"status": result.get("status", "unknown")}
+    latency = result.get("latency_ms")
+    if isinstance(latency, (int, float)):
+        summary["latency_ms"] = latency
+    return summary
+
+
+def _summarize_dependency_results(results: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Redact sensitive dependency diagnostics from public responses."""
+    return {name: _summarize_dependency_result(result) for name, result in results.items()}
 
 
 # ========== Health Endpoints ==========
@@ -301,13 +320,22 @@ async def readiness_check(request: Request) -> JSONResponse:
 
     return JSONResponse(
         status_code=status_code,
-        content={
-            "status": overall_status,
-            "timestamp": datetime.now(UTC).isoformat(),
-            "version": "3.0.0",
-            "environment": os.getenv("ENVIRONMENT", "development"),
-            "checks": results,
-        },
+        content=(
+            {
+                "status": overall_status,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "version": "3.0.0",
+                "environment": os.getenv("ENVIRONMENT", "development"),
+                "checks": results,
+            }
+            if _detailed_health_enabled()
+            else {
+                "status": overall_status,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "version": "3.0.0",
+                "checks": _summarize_dependency_results(results),
+            }
+        ),
         headers={"Cache-Control": CACHE_CONTROL_NO_STORE},
     )
 
@@ -355,17 +383,25 @@ async def dependency_check(request: Request) -> JSONResponse:
 
     health_score = round((healthy_count / total_count) * 100) if total_count > 0 else 0
 
-    return JSONResponse(
-        content={
+    if _detailed_health_enabled():
+        content = {
             "timestamp": datetime.now(UTC).isoformat(),
             "version": "3.0.0",
             "environment": os.getenv("ENVIRONMENT", "development"),
             "health_score": health_score,
             "health_score_label": f"{healthy_count}/{total_count} services healthy",
             "dependencies": results,
-        },
-        headers={"Cache-Control": CACHE_CONTROL_NO_STORE},
-    )
+        }
+    else:
+        content = {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "version": "3.0.0",
+            "health_score": health_score,
+            "health_score_label": f"{healthy_count}/{total_count} services healthy",
+            "dependencies": _summarize_dependency_results(results),
+        }
+
+    return JSONResponse(content=content, headers={"Cache-Control": CACHE_CONTROL_NO_STORE})
 
 
 @router.get("/metrics")
@@ -381,12 +417,24 @@ def metrics(request: Request) -> JSONResponse:
 
     cache_stats = get_cache_stats()
 
-    return JSONResponse(
-        content={
+    if _detailed_health_enabled():
+        content = {
             "timestamp": datetime.now(UTC).isoformat(),
             "cache": cache_stats,
             "environment": os.getenv("ENVIRONMENT", "development"),
             "python_version": sys.version.split()[0],
-        },
+        }
+    else:
+        content = {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "cache": {
+                "mode": cache_stats.get("mode"),
+                "redis_connected": cache_stats.get("redis_connected"),
+                "memory_cache_size": cache_stats.get("memory_cache_size"),
+            },
+        }
+
+    return JSONResponse(
+        content=content,
         headers={"Cache-Control": CACHE_CONTROL_NO_STORE},
     )

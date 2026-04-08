@@ -106,7 +106,11 @@ const config = [
     files: ['**/*.spec.ts', '**/*.test.ts', '**/tests/**/*.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/no-non-null-assertion': 'off',
       'security/detect-object-injection': 'off',
+      'vue/one-component-per-file': 'off',
+      'no-console': 'off',
     },
   },
   {

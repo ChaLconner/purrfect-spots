@@ -68,8 +68,6 @@ export function useGeolocation(): UseGeolocationReturn {
           permissionDenied.value = true;
         }
 
-        // eslint-disable-next-line no-console
-        console.debug('Geolocation error/denied:', msg);
         // Try fallback
         const fallbackCoords = await getIpLocation();
         if (fallbackCoords) {
@@ -108,8 +106,6 @@ export function useGeolocation(): UseGeolocationReturn {
 
     // Don't start watching if we already know permission is denied
     if (permissionDenied.value) {
-      // eslint-disable-next-line no-console
-      console.debug('Skipping watchPosition: Permission previously denied');
       return;
     }
 
@@ -131,8 +127,6 @@ export function useGeolocation(): UseGeolocationReturn {
         error.value = null; // Clear error on success
       },
       (err) => {
-        // eslint-disable-next-line no-console
-        console.debug('Watch position error:', err.message);
         if (err.message.includes('denied')) {
           permissionDenied.value = true;
           stopWatchingPosition();

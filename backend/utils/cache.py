@@ -34,6 +34,14 @@ class JSONEncoder(json.JSONEncoder):
             return o.model_dump()
         if hasattr(o, "isoformat"):
             return o.isoformat()
+        if isinstance(o, set):
+            return list(o)
+        if isinstance(o, bytes):
+            return o.decode("utf-8", errors="replace")
+        from uuid import UUID
+
+        if isinstance(o, UUID):
+            return str(o)
         return super().default(o)
 
 
@@ -136,7 +144,8 @@ async def clear_cache(pattern: str = "cache:*") -> None:
             keys = await redis_client.keys(pattern)
             if keys:
                 await redis_client.delete(*keys)
-        except Exception:  # nosec B110
+        except Exception as e:
+            logger.debug(f"Failed to clear Redis cache: {e}")
             pass
 
 
@@ -147,7 +156,6 @@ async def invalidate_all_caches() -> None:
 
 # Aliases for compatibility
 cached_gallery = cache(expire=300, key_prefix="gallery", skip_args=1)
-cached_gallery_simple = cache(expire=300, key_prefix="gallery_simple", skip_args=1)
 cached_tags = cache(expire=600, key_prefix="tags", skip_args=1)
 cached_leaderboard = cache(expire=300, key_prefix="leaderboard", skip_args=1)
 cached_user_photos = cache(expire=300, key_prefix="user_photos", skip_args=1)

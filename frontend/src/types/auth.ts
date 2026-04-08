@@ -22,7 +22,6 @@ export interface LoginResponse {
   access_token?: string;
   token_type?: string;
   user: User;
-  refresh_token?: string; // Optional refresh token from backend
   message?: string;
   requires_verification?: boolean;
   email?: string;

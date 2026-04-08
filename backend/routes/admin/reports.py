@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
@@ -37,14 +37,14 @@ def _validate_uuid(value: str, label: str = "ID") -> None:
 @limiter.limit("60/minute")
 async def list_reports(
     request: Request,
-    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    limit: Annotated[int, Query(ge=1, le=1000)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     status: Annotated[str | None, Query()] = None,
     reason: Annotated[str | None, Query()] = None,
     start_date: Annotated[str | None, Query()] = None,
     end_date: Annotated[str | None, Query()] = None,
     reporter_id: Annotated[str | None, Query()] = None,
-    current_admin: Annotated[User | None, Depends(require_permission("content:read"))] = None,
+    current_admin: Annotated[User | None, Depends(require_permission("reports:read"))] = None,
 ) -> dict[str, Any]:
     """
     List submitted reports.
@@ -78,7 +78,7 @@ async def list_reports(
         result = await query.execute()
         return {"data": result.data, "total": result.count}
     except Exception as e:
-        logger.error(f"Failed to list reports: {e}")
+        logger.error("Failed to list reports: %s", e)
         raise HTTPException(status_code=500, detail=f"Failed to fetch reports: {e}")
 
 
@@ -89,7 +89,7 @@ async def update_report(
     update_data: dict[str, Any],
     background_tasks: BackgroundTasks,
     request: Request,
-    current_admin: Annotated[User, Depends(require_permission("content:delete"))],
+    current_admin: Annotated[User, Depends(require_permission("reports:update"))],
     notification_service: Annotated[NotificationService, Depends(get_notification_service)],
     gallery_service: Annotated[GalleryService, Depends(get_admin_gallery_service)],
     email_service: Annotated[EmailService, Depends(get_email_service)],
@@ -186,7 +186,7 @@ async def update_report(
                     "status": update_data.get("status"),
                     "resolution_notes": update_data.get("resolution_notes"),
                     "resolved_by": current_admin.id,
-                    "resolved_at": datetime.now().isoformat(),
+                    "resolved_at": datetime.now(UTC).isoformat(),
                 }
             )
             .eq("id", report_id)
@@ -218,7 +218,7 @@ async def update_report(
 
         return cast(dict[str, Any], report)
     except Exception as e:
-        logger.error(f"Failed to update report: {e}")
+        logger.error("Failed to update report: %s", e)
         raise HTTPException(status_code=500, detail="Failed to update report")
 
 
@@ -228,7 +228,7 @@ async def bulk_update_reports(
     bulk_data: BulkReportUpdate,
     background_tasks: BackgroundTasks,
     request: Request,
-    current_admin: Annotated[User, Depends(require_permission("content:delete"))],
+    current_admin: Annotated[User, Depends(require_permission("reports:update"))],
     notification_service: Annotated[NotificationService, Depends(get_notification_service)],
     gallery_service: Annotated[GalleryService, Depends(get_admin_gallery_service)],
     email_service: Annotated[EmailService, Depends(get_email_service)],
@@ -300,7 +300,7 @@ async def bulk_update_reports(
                     "status": bulk_data.status,
                     "resolution_notes": bulk_data.resolution_notes,
                     "resolved_by": current_admin.id,
-                    "resolved_at": datetime.now().isoformat(),
+                    "resolved_at": datetime.now(UTC).isoformat(),
                 }
             )
             .in_("id", report_ids_str)
@@ -327,5 +327,5 @@ async def bulk_update_reports(
 
         return {"message": f"Successfully updated {len(updated_reports)} reports", "count": len(updated_reports)}
     except Exception as e:
-        logger.error(f"Failed to bulk update reports: {e}")
+        logger.error("Failed to bulk update reports: %s", e)
         raise HTTPException(status_code=500, detail="Failed to bulk update reports")

@@ -1,11 +1,11 @@
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
-from supabase import AClient
 
 from services.user.auth_mixin import UserAuthMixin
 from services.user.deletion_mixin import UserDeletionMixin
 from services.user.profile_mixin import UserProfileMixin
 from services.user.read_mixin import UserReadMixin
+from supabase import AClient
 
 logger = structlog.get_logger(__name__)
 

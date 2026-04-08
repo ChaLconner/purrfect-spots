@@ -54,7 +54,35 @@ CREATE TABLE IF NOT EXISTS system_configs (
     value JSONB NOT NULL,
     type VARCHAR(20) NOT NULL CHECK (type IN ('string', 'boolean', 'integer', 'json', 'float')),
     description TEXT,
+    category VARCHAR(50) NOT NULL DEFAULT 'general',
     is_public BOOLEAN DEFAULT FALSE,
+    is_encrypted BOOLEAN DEFAULT FALSE,
+    requires_approval BOOLEAN DEFAULT FALSE,
+    updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 7. Create Config History Table
+CREATE TABLE IF NOT EXISTS config_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    config_key VARCHAR(100) NOT NULL REFERENCES system_configs(key) ON DELETE CASCADE,
+    old_value JSONB,
+    new_value JSONB,
+    changed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    change_reason TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 8. Create Pending Config Changes Table
+CREATE TABLE IF NOT EXISTS pending_config_changes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    config_key VARCHAR(100) NOT NULL REFERENCES system_configs(key) ON DELETE CASCADE,
+    proposed_value JSONB NOT NULL,
+    requester_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    approver_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    rejection_reason TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -70,6 +98,8 @@ ALTER TABLE permissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE role_permissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE system_configs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE config_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pending_config_changes ENABLE ROW LEVEL SECURITY;
 
 -- Policies (Simplified for now - Admin access will be handled via Service Role or specific Policies later)
 -- For now, allow read access to authenticated users for Roles/Permissions (needed for UI to show correct state)

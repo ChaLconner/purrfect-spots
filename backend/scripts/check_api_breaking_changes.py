@@ -176,8 +176,8 @@ def main() -> int:
     parser.add_argument(
         "--baseline",
         "-b",
-        default="docs/openapi-baseline.json",
-        help="Path to baseline OpenAPI schema (default: docs/openapi-baseline.json)",
+        default="../docs/openapi-baseline.json",
+        help="Path to baseline OpenAPI schema (default: ../docs/openapi-baseline.json)",
     )
     parser.add_argument(
         "--fail-on-breaking",
@@ -207,7 +207,10 @@ def main() -> int:
         return 1
 
     # Load schemas
-    print(f"📋 Loading baseline from: {baseline_path}")
+    try:
+        print(f"Loading baseline from: {baseline_path}")
+    except UnicodeEncodeError:
+        print(f"Loading baseline from: {baseline_path}")
     baseline = load_schema(str(baseline_path))
 
     print("📋 Getting current schema from FastAPI app...")

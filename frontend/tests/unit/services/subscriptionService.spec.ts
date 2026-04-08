@@ -5,33 +5,26 @@ const mockRequest = vi.fn();
 
 vi.mock('@/utils/api', () => ({
   apiV1: {
-    get: (...args: any[]) => mockRequest('get', ...args),
-    post: (...args: any[]) => mockRequest('post', ...args),
+    get: (...args: any[]): any => mockRequest('get', ...args),
+    post: (...args: any[]): any => mockRequest('post', ...args),
   },
 }));
 
-describe('SubscriptionService', () => {
-  beforeEach(() => {
+describe('SubscriptionService', (): void => {
+  beforeEach((): void => {
     vi.clearAllMocks();
-    vi.stubGlobal('window', {
-      location: { origin: 'https://example.com' },
-    });
   });
 
   describe('createCheckout', () => {
-    it('calls POST /subscription/checkout with correct params', async () => {
+    it('calls POST /subscription/checkout without client-controlled Stripe params', async () => {
       mockRequest.mockResolvedValue({
         checkout_url: 'https://stripe.com/checkout',
         session_id: 'sess_123',
       });
 
-      const result = await SubscriptionService.createCheckout('price_pro_monthly');
+      const result = await SubscriptionService.createCheckout();
 
-      expect(mockRequest).toHaveBeenCalledWith('post', '/subscription/checkout', {
-        price_id: 'price_pro_monthly',
-        success_url: 'https://example.com/subscription/success',
-        cancel_url: 'https://example.com/subscription/cancel',
-      });
+      expect(mockRequest).toHaveBeenCalledWith('post', '/subscription/checkout', { plan: 'monthly' });
       expect(result.checkout_url).toBe('https://stripe.com/checkout');
     });
   });

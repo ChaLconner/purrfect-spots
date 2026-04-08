@@ -14,16 +14,16 @@ const mockRoute = {
   fullPath: '/profile',
 };
 
-vi.mock('vue-router', () => ({
-  useRoute: () => mockRoute,
-  useRouter: () => ({
+vi.mock('vue-router', (): Record<string, unknown> => ({
+  useRoute: (): typeof mockRoute => mockRoute,
+  useRouter: (): Record<string, unknown> => ({
     push: mockPush,
     replace: mockReplace,
   }),
 }));
 
-vi.mock('vue-i18n', () => ({
-  useI18n: () => ({ t: (key: string) => key }),
+vi.mock('vue-i18n', (): Record<string, unknown> => ({
+  useI18n: (): { t: (key: string) => string } => ({ t: (key: string): string => key }),
 }));
 
 vi.mock('@/services/profileService', () => ({
@@ -43,8 +43,8 @@ vi.mock('@/services/authService', () => ({
   },
 }));
 
-vi.mock('@/composables/useSeo', () => ({
-  useSeo: () => ({
+vi.mock('@/composables/useSeo', (): Record<string, unknown> => ({
+  useSeo: (): Record<string, unknown> => ({
     setMetaTags: vi.fn(),
     resetMetaTags: vi.fn(),
   }),
@@ -70,11 +70,20 @@ vi.mock('@/components/profile/DeleteConfirmModal.vue', () => ({
   default: { template: '<div></div>' },
 }));
 vi.mock('@/components/ui/GhibliBackground.vue', () => ({ default: { template: '<div></div>' } }));
+vi.mock('@/lib/supabase', () => ({
+  supabase: {
+    channel: vi.fn(() => ({
+      on: vi.fn().mockReturnThis(),
+      subscribe: vi.fn().mockReturnThis(),
+    })),
+    removeChannel: vi.fn(),
+  },
+}));
 
-describe('ProfileView.vue', () => {
-  let authStore: any;
-
-  beforeEach(() => {
+describe('ProfileView.vue', (): void => {
+  let authStore: ReturnType<typeof useAuthStore>;
+ 
+   beforeEach((): void => {
     setActivePinia(createPinia());
     authStore = useAuthStore();
     vi.clearAllMocks();
@@ -124,9 +133,9 @@ describe('ProfileView.vue', () => {
     });
   });
 
-  const mountProfile = (authOptions = {}) => {
+  const mountProfile = (authOptions = {}): { wrapper: ReturnType<typeof shallowMount>; authStore: typeof authStore } => {
     Object.assign(authStore, authOptions);
-
+ 
     const wrapper = shallowMount(ProfileView, {
       global: {
         stubs: {
@@ -134,15 +143,15 @@ describe('ProfileView.vue', () => {
           ProfileGallery: true,
         },
         mocks: {
-          $t: (msg: string) => msg
+          $t: (msg: string): string => msg
         }
       },
     });
-
+ 
     return { wrapper, authStore };
   };
 
-  it('renders correctly for own profile', async () => {
+  it('renders correctly for own profile', async (): Promise<void> => {
     mockRoute.params = {}; // isOwnProfile: true
     const { wrapper } = mountProfile();
 
@@ -233,6 +242,7 @@ describe('ProfileView.vue', () => {
   });
 
   it('shows error state when profile fails to load', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.mocked(ProfileService.getPublicProfile).mockRejectedValue(new Error('Not found'));
     mockRoute.params = { id: 'non-existent' };
 
@@ -243,7 +253,11 @@ describe('ProfileView.vue', () => {
 
     await nextTick();
     await nextTick();
+    
+    // Yield to event loop to let the un-awaited onMounted promise finish
+    await new Promise(resolve => setTimeout(resolve, 0));
 
     expect(wrapper.vm.uploadsError).toBe('profile.userNotFound');
-  });
-});
+    consoleErrorSpy.mockRestore();
+   });
+ });

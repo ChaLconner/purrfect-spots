@@ -2,6 +2,7 @@ from typing import Any
 
 import structlog
 
+from services.password_service import password_service
 from services.user.base_mixin import UserBaseMixin
 from utils.exceptions import ConflictError, ExternalServiceError, PurrfectSpotsException
 
@@ -14,6 +15,10 @@ class UserAuthMixin(UserBaseMixin):
     async def create_unverified_user(self, email: str, password: str, name: str) -> dict[str, Any]:
         """Create a new user without sending a confirmation email (Async)"""
         try:
+            is_valid, error = await password_service.validate_new_password(password)
+            if not is_valid:
+                raise ValueError(error or "Password does not meet security requirements")
+
             admin = await self._get_admin_client()
             res = await admin.auth.admin.create_user(
                 {
@@ -39,6 +44,8 @@ class UserAuthMixin(UserBaseMixin):
             }
         except Exception as e:
             msg = str(e)
+            if "password" in msg.lower():
+                raise ValueError(msg)
             if any(term in msg.lower() for term in ["already registered", "unique constraint"]):
                 raise ConflictError("Email already registered")
             logger.error("Failed to create unverified account: %s", msg)

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { useNotificationStore } from '@/store/notificationStore';
+import { nextTick, reactive } from 'vue';
 
 
 const mockGetNotifications = vi.fn();
@@ -8,25 +9,30 @@ const mockMarkAsRead = vi.fn();
 const mockMarkAllAsRead = vi.fn();
 const mockGetPublicProfile = vi.fn();
 
+const mockAuthState = reactive<{
+  isAuthenticated: boolean;
+  user: { id: string } | null;
+}>({
+  isAuthenticated: true,
+  user: { id: 'user-123' },
+});
+
 vi.mock('@/services/notificationService', () => ({
   NotificationService: {
-    getNotifications: (...args: any[]) => mockGetNotifications(...args),
-    markAsRead: (...args: any[]) => mockMarkAsRead(...args),
-    markAllAsRead: (...args: any[]) => mockMarkAllAsRead(...args),
+    getNotifications: (...args: any[]): Promise<any> => mockGetNotifications(...args),
+    markAsRead: (...args: any[]): Promise<any> => mockMarkAsRead(...args),
+    markAllAsRead: (...args: any[]): Promise<any> => mockMarkAllAsRead(...args),
   },
 }));
 
 vi.mock('@/services/profileService', () => ({
   ProfileService: {
-    getPublicProfile: (...args: any[]) => mockGetPublicProfile(...args),
+    getPublicProfile: (...args: any[]): Promise<any> => mockGetPublicProfile(...args),
   },
 }));
 
 vi.mock('@/store/authStore', () => ({
-  useAuthStore: vi.fn(() => ({
-    isAuthenticated: true,
-    user: { id: 'user-123' },
-  })),
+  useAuthStore: vi.fn(() => mockAuthState),
 }));
 
 const mockChannel = {
@@ -38,8 +44,8 @@ const mockRemoveChannel = vi.fn();
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
-    channel: vi.fn(() => mockChannel),
-    removeChannel: (...args: any[]) => mockRemoveChannel(...args),
+    channel: vi.fn((): any => mockChannel),
+    removeChannel: (...args: any[]): Promise<any> => mockRemoveChannel(...args),
   },
 }));
 
@@ -47,6 +53,8 @@ describe('notificationStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
+    mockAuthState.isAuthenticated = true;
+    mockAuthState.user = { id: 'user-123' };
   });
 
   describe('fetchNotifications', () => {
@@ -201,6 +209,37 @@ describe('notificationStore', () => {
       store.subscribeToNotifications();
       store.unsubscribe();
 
+      expect(mockRemoveChannel).toHaveBeenCalled();
+    });
+  });
+
+  describe('resetState', () => {
+    it('clears cached notifications and pagination state', async () => {
+      mockGetNotifications.mockResolvedValue([{ id: '1', is_read: false }]);
+
+      const store = useNotificationStore();
+      await store.fetchNotifications();
+
+      store.resetState();
+
+      expect(store.notifications).toEqual([]);
+      expect(store.isLoaded).toBe(false);
+      expect(store.hasMore).toBe(true);
+    });
+
+    it('clears state when the authenticated user logs out', async () => {
+      mockGetNotifications.mockResolvedValue([{ id: '1', is_read: false }]);
+
+      const store = useNotificationStore();
+      await store.fetchNotifications();
+      store.subscribeToNotifications();
+
+      mockAuthState.isAuthenticated = false;
+      mockAuthState.user = null;
+      await nextTick();
+
+      expect(store.notifications).toEqual([]);
+      expect(store.isLoaded).toBe(false);
       expect(mockRemoveChannel).toHaveBeenCalled();
     });
   });

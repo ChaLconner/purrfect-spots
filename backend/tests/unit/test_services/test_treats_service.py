@@ -135,11 +135,11 @@ async def test_get_balance(treats_service):
 
     def side_effect(table_name):
         mock_chain = MagicMock()
-        mock_chain.select.return_value.eq.return_value.single.return_value.execute = AsyncMock()
+        mock_chain.select.return_value.eq.return_value.maybe_single.return_value.execute = AsyncMock()
         mock_chain.select.return_value.or_.return_value.order.return_value.limit.return_value.execute = AsyncMock()
 
         if table_name == "users":
-            mock_chain.select.return_value.eq.return_value.single.return_value.execute.return_value = mock_user
+            mock_chain.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = mock_user
         elif table_name == "treats_transactions":
             mock_chain.select.return_value.or_.return_value.order.return_value.limit.return_value.execute.return_value = mock_trans
         return mock_chain

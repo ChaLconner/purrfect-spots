@@ -23,6 +23,8 @@ export const MAP_CONFIG = {
   MAX_MARKERS_PER_VIEWPORT: 100,
   VIEWPORT_FETCH_DEBOUNCE_MS: 300, // Reduced from 500ms to 300ms for better responsiveness
   FIT_BOUNDS_PADDING: 50,
+  LIBRARIES: 'places,marker',
+  VERSION: 'beta', // Required for some Advanced Marker features or 'weekly'
 } as const;
 
 // ========== Image Constants ==========

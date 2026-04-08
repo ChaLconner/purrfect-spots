@@ -1,7 +1,6 @@
-from supabase import AClient, Client, acreate_client, create_client
-
 from config import config
 from logger import logger
+from supabase import AClient, Client, acreate_client, create_client
 
 # Initialize Supabase clients
 # Use a fail-soft approach for development/test environments

@@ -65,11 +65,8 @@ async def test_search_photos_fulltext(mock_supabase, search_service):
 
     # Verify
     assert results == expected_data
-    # Should call rpc or text_search depending on implementation of _fulltext_search
-    # Here we assume it calls rpc first as per code
-    mock_supabase.rpc.assert_called_with(
-        "search_cat_photos", {"search_query": "cafe", "result_limit": 10, "result_offset": 0}
-    )
+    mock_supabase.table.assert_called_with("cat_photos")
+    mock_supabase.eq.assert_any_call("status", "approved")
 
 
 @pytest.mark.asyncio
@@ -86,6 +83,7 @@ async def test_search_photos_ilike_fallback(mock_supabase, search_service):
     assert results == expected_data
     # Should use table().select()...
     mock_supabase.table.assert_called_with("cat_photos")
+    mock_supabase.eq.assert_any_call("status", "approved")
 
 
 @pytest.mark.asyncio

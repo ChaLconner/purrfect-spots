@@ -7,6 +7,8 @@
  */
 import { ref, onErrorCaptured, provide } from 'vue';
 import { useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
+import { useToast } from '@/components/toast/use-toast';
 
 interface Props {
   fallbackMessage?: string;
@@ -26,6 +28,8 @@ const emit = defineEmits<{
 }>();
 
 const router = useRouter();
+const { t } = useI18n();
+const { toast } = useToast();
 const hasError = ref(false);
 const errorMessage = ref('');
 const errorStack = ref('');
@@ -94,6 +98,23 @@ function handleReload(): void {
   globalThis.location.reload();
 }
 
+async function handleCopy(): Promise<void> {
+  try {
+    const text = `${errorMessage.value}\n\n${errorStack.value}`;
+    await navigator.clipboard.writeText(text);
+    toast({
+      description: t('common.copiedToClipboard'),
+      variant: 'success',
+    });
+  } catch (err) {
+    console.error('[ErrorBoundary] Failed to copy:', err);
+    toast({
+      description: t('common.copyFailed'),
+      variant: 'destructive',
+    });
+  }
+}
+
 // Provide error state to children if needed
 provide('errorBoundary', {
   hasError,
@@ -138,21 +159,48 @@ provide('errorBoundary', {
       </div>
 
       <!-- Error Title -->
-      <h2 class="text-2xl font-heading font-bold text-gray-800 mb-3">Oops! Something went wrong</h2>
+      <h2 class="text-2xl font-heading font-bold text-gray-800 mb-3">
+        {{ t('common.somethingWentWrong') }}
+      </h2>
 
       <!-- Error Message -->
       <p class="text-gray-600 mb-6 font-body">
-        {{ fallbackMessage }}
+        {{ errorMessage || t('common.somethingWentWrongDesc') }}
       </p>
 
       <!-- Debug Info (Development Only) -->
       <details v-if="errorStack && isDev" class="text-left mb-6 bg-gray-100 rounded-lg p-4">
-        <summary class="cursor-pointer text-sm font-medium text-gray-700 hover:text-gray-900">
-          Technical Details
+        <summary
+          class="cursor-pointer text-sm font-medium text-gray-700 hover:text-gray-900 flex items-center justify-between group/summary"
+        >
+          <span>{{ t('common.technicalDetails') }}</span>
+          <button
+            class="p-1 hover:bg-gray-200 rounded transition-colors text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300"
+            :title="t('common.copyTechnicalDetails')"
+            type="button"
+            @click.stop="handleCopy"
+          >
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+              />
+            </svg>
+          </button>
         </summary>
-        <pre class="mt-2 text-xs text-red-600 overflow-x-auto whitespace-pre-wrap">{{ errorMessage }}
+        <pre class="mt-2 text-xs text-red-600 overflow-x-auto whitespace-pre-wrap"
+          >{{ errorMessage }}
 
-        {{ errorStack }}</pre>
+        {{ errorStack }}</pre
+        >
       </details>
 
       <!-- Action Buttons -->
@@ -177,7 +225,7 @@ provide('errorBoundary', {
                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
               />
             </svg>
-            Try Again
+            {{ t('common.tryAgain') }}
           </span>
         </button>
 
@@ -186,14 +234,14 @@ provide('errorBoundary', {
           class="px-6 py-3 bg-white text-gray-700 rounded-full font-medium border border-gray-300 hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
           @click="handleGoHome"
         >
-          Go Home
+          {{ t('common.goHome') }}
         </button>
 
         <button
           class="px-6 py-3 text-gray-500 hover:text-gray-700 transition-colors text-sm underline"
           @click="handleReload"
         >
-          Reload Page
+          {{ t('common.reloadPage') }}
         </button>
       </div>
     </div>

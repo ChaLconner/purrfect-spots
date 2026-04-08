@@ -25,3 +25,42 @@ class TreatTransaction(BaseModel):
 class TreatBalanceResponse(BaseModel):
     balance: int
     recent_transactions: list[TreatTransaction]
+
+
+class GiveTreatResponse(BaseModel):
+    """Response for giving treats to a photo owner."""
+
+    message: str
+    new_balance: int | None = None
+    amount_given: int | None = None
+
+
+class CheckoutUrlResponse(BaseModel):
+    """Response containing a Stripe checkout URL."""
+
+    url: str
+
+
+class TreatPackageInfo(BaseModel):
+    """Individual treat package information."""
+
+    name: str
+    amount: int
+    price: float | None = None
+    price_id: str | None = None
+
+
+class TreatPackagesResponse(BaseModel):
+    """Response containing available treat packages."""
+
+    packages: dict[str, TreatPackageInfo] = Field(default_factory=dict)
+
+
+class LeaderboardEntry(BaseModel):
+    """Single leaderboard entry."""
+
+    id: str
+    name: str | None = None
+    username: str | None = None
+    picture: str | None = None
+    total_treats_received: int = 0

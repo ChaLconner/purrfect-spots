@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { logMetric, measureAsync, measureSync, useRenderTime, useApiTiming, getMetrics, clearMetrics, getPerformanceSummary, useWebVitals } from '@/composables/usePerformance';
 import { mount } from '@vue/test-utils';
-import { defineComponent, nextTick } from 'vue';
+import { defineComponent, nextTick, h } from 'vue';
 
 describe('usePerformance', () => {
   let originalImportMeta: any;
@@ -338,5 +338,188 @@ describe('usePerformance', () => {
     });
   });
 
+  describe('rateMetric (via logMetric in PROD)', () => {
+    beforeEach(() => {
+      vi.stubEnv('PROD', 'true');
+    });
+
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it('should use gtag for logging in production', () => {
+      const gtag = vi.fn();
+      vi.stubGlobal('gtag', gtag);
+
+      logMetric({
+        name: 'LCP',
+        value: 1000,
+        unit: 'ms',
+        timestamp: Date.now(),
+      });
+
+      expect(gtag).toHaveBeenCalledWith('event', 'performance_metric', {
+        metric_name: 'LCP',
+        metric_value: 1000,
+        metric_rating: 'good',
+      });
+    });
+
+    it('should rate LCP correctly', () => {
+      const gtag = vi.fn();
+      vi.stubGlobal('gtag', gtag);
+
+      logMetric({ name: 'LCP', value: 3000, unit: 'ms', timestamp: Date.now() });
+      expect(gtag).toHaveBeenLastCalledWith('event', 'performance_metric', expect.objectContaining({
+        metric_rating: 'needs-improvement'
+      }));
+
+      logMetric({ name: 'LCP', value: 5000, unit: 'ms', timestamp: Date.now() });
+      expect(gtag).toHaveBeenLastCalledWith('event', 'performance_metric', expect.objectContaining({
+        metric_rating: 'poor'
+      }));
+    });
+
+    it('should rate FID correctly', () => {
+      const gtag = vi.fn();
+      vi.stubGlobal('gtag', gtag);
+
+      logMetric({ name: 'FID', value: 50, unit: 'ms', timestamp: Date.now() });
+      expect(gtag).toHaveBeenLastCalledWith('event', 'performance_metric', expect.objectContaining({
+        metric_rating: 'good'
+      }));
+
+      logMetric({ name: 'FID', value: 200, unit: 'ms', timestamp: Date.now() });
+      expect(gtag).toHaveBeenLastCalledWith('event', 'performance_metric', expect.objectContaining({
+        metric_rating: 'needs-improvement'
+      }));
+
+      logMetric({ name: 'FID', value: 400, unit: 'ms', timestamp: Date.now() });
+      expect(gtag).toHaveBeenLastCalledWith('event', 'performance_metric', expect.objectContaining({
+        metric_rating: 'poor'
+      }));
+    });
+
+    it('should return good for unknown metrics', () => {
+      const gtag = vi.fn();
+      vi.stubGlobal('gtag', gtag);
+
+      logMetric({ name: 'unknown', value: 9999, unit: 'ms', timestamp: Date.now() });
+      expect(gtag).toHaveBeenLastCalledWith('event', 'performance_metric', expect.objectContaining({
+        metric_rating: 'good'
+      }));
+    });
+  });
+
+  describe('useWebVitals - CLS logic', () => {
+    it('should skip CLS value if hadRecentInput is true', () => {
+      let vitalsRef: any;
+      const TestComponent = defineComponent({
+        setup() {
+          const { vitals } = useWebVitals();
+          vitalsRef = vitals;
+          return {};
+        },
+        template: '<div></div>'
+      });
+      
+      mount(TestComponent);
+      
+      const clsEntry = { name: 'CLS', value: 0.1, hadRecentInput: true, entryType: 'layout-shift' };
+      (globalThis as any).triggerPerformanceObserver('layout-shift', [clsEntry]);
+      
+      expect(vitalsRef.value.CLS).toBeUndefined();
+    });
+  });
+
+  describe('useWebVitals - Navigation Timing', () => {
+    it('should track TTFB and FCP when navigation entry exists', async () => {
+      const navigationEntry = { 
+        entryType: 'navigation', 
+        responseStart: 150 
+      };
+      const fcpEntry = { 
+        name: 'first-contentful-paint', 
+        startTime: 400 
+      };
+      
+      (globalThis.performance.getEntriesByType as any).mockReturnValue([navigationEntry]);
+      (globalThis.performance.getEntriesByName as any).mockReturnValue([fcpEntry]);
+      
+      const handlers: (() => void)[] = [];
+      const spy = vi.spyOn(globalThis, 'addEventListener').mockImplementation((ev, handler) => {
+        if (ev === 'load') handlers.push(handler as any);
+      });
+      
+      let vitalsRef: any;
+      const TestComponent = defineComponent({
+        setup() {
+          const { vitals } = useWebVitals();
+          vitalsRef = vitals;
+          return {};
+        },
+        template: '<div></div>'
+      });
+      
+      mount(TestComponent);
+      
+      // Trigger all registered load handlers
+      handlers.forEach(h => h());
+      
+      // Advance timers to trigger setTimeout(0)
+      vi.runAllTimers();
+      await nextTick();
+      
+      expect(vitalsRef.value.TTFB).toBe(150);
+      expect(vitalsRef.value.FCP).toBe(400);
+      
+      const metrics = getMetrics();
+      expect(metrics.some(m => m.name === 'TTFB')).toBe(true);
+      expect(metrics.some(m => m.name === 'FCP')).toBe(true);
+      
+      spy.mockRestore();
+    });
+
+    it('should not log TTFB/FCP if they are zero', async () => {
+       const navigationEntry = { 
+        entryType: 'navigation', 
+        responseStart: 0 // Zero
+      };
+      (globalThis.performance.getEntriesByType as any).mockReturnValue([navigationEntry]);
+       (globalThis.performance.getEntriesByName as any).mockReturnValue([]);
+      
+      const handlers: (() => void)[] = [];
+      const spy = vi.spyOn(globalThis, 'addEventListener').mockImplementation((ev, handler) => {
+        if (ev === 'load') handlers.push(handler as any);
+      });
+
+      mount(defineComponent({
+        setup() { useWebVitals(); return () => h('div'); }
+      }));
+      
+      handlers.forEach(h => h());
+      vi.runAllTimers();
+      
+      const metrics = getMetrics();
+      expect(metrics.some(m => m.name === 'TTFB')).toBe(false);
+      expect(metrics.some(m => m.name === 'FCP')).toBe(false);
+      
+      spy.mockRestore();
+    });
+  });
+
+  describe('PerformanceObserver support', () => {
+    it('should handle observer failure gracefully', () => {
+      globalThis.PerformanceObserver = vi.fn().mockImplementation(() => {
+        throw new Error('Not supported');
+      }) as any;
+
+      expect(() => {
+        mount(defineComponent({
+          setup() { useWebVitals(); return () => h('div'); }
+        }));
+      }).not.toThrow();
+    });
+  });
 });
 

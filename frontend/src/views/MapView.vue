@@ -57,6 +57,40 @@
 
         <!-- Onboarding Banner for new users -->
         <OnboardingBanner />
+
+        <!-- Cat Counter Badge: Bottom Right Positioning -->
+        <transition
+          enter-active-class="transition-all duration-500 ease-out"
+          leave-active-class="transition-all duration-300 ease-in"
+          enter-from-class="opacity-0 translate-y-4 scale-95"
+          leave-to-class="opacity-0 translate-y-4 scale-95"
+        >
+          <div
+            v-if="!isInitialLoading && !error"
+            class="absolute top-6 right-6 flex items-center gap-2.5 px-3 py-1.5 bg-white/80 backdrop-blur-md rounded-2xl border-2 border-[var(--color-btn-shade-a)] shadow-lg z-20 group transition-all duration-300 hover:shadow-xl hover:translate-y-[2px]"
+          >
+            <!-- Icon Container (Compact) -->
+            <div
+              class="w-8 h-8 flex items-center justify-center group-hover:scale-110 transition-transform duration-300"
+            >
+              <img :src="catIcon" alt="Cat count icon" class="w-6 h-6 object-contain" />
+            </div>
+
+            <!-- Labels (Refined Typography) -->
+            <div class="flex flex-col justify-center leading-none text-left pr-1">
+              <span
+                class="font-accent font-bold text-[0.85rem] text-[var(--color-btn-shade-a)] tracking-tight uppercase"
+              >
+                {{ catsStore.searchQuery ? (catsStore.galleryCount || visibleCount) : visibleCount }} {{ $t('cats.cats') }}
+              </span>
+              <span
+                class="font-accent text-[0.65rem] font-bold text-[var(--color-btn-shade-a)]/70 mt-0.5"
+              >
+                {{ $t('cats.spottedNearby') }}
+              </span>
+            </div>
+          </div>
+        </transition>
       </div>
     </div>
 
@@ -93,6 +127,7 @@ import { useGeolocation } from '../composables/useGeolocation';
 import { useMapMarkers } from '../composables/useMapMarkers';
 import { useSeo } from '../composables/useSeo';
 
+const catIcon = '/cat-icon.png';
 const route = useRoute();
 const router = useRouter();
 const catsStore = useCatsStore();
@@ -125,6 +160,28 @@ const displayedLocations = computed(() => catsStore.filteredLocations);
 const isViewportFetching = ref(false);
 const latestImageRequestId = ref(0);
 const viewportFetchTimer = ref<ReturnType<typeof setTimeout> | null>(null);
+
+// Map bounds tracking for visible counter
+const mapBounds = ref<google.maps.LatLngBounds | null>(null);
+
+/**
+ * Filter markers to only those visible in the current viewport
+ * Used for the "Spotted Nearby" badge to ensure the number matches what the user sees
+ */
+const visibleCount = computed(() => {
+  if (!map.value || !mapBounds.value) return displayedLocations.value.length;
+  
+  const currentBounds = mapBounds.value;
+  return displayedLocations.value.filter(loc => {
+    try {
+      // Use Google Maps LatLngBounds.contains API for accurate geometric check
+      return currentBounds.contains({ lat: loc.latitude, lng: loc.longitude });
+    } catch {
+      // Fallback to inclusion if geometric check fails
+      return true;
+    }
+  }).length;
+});
 
 // ==========================================
 // Handlers
@@ -218,8 +275,14 @@ const initializeMap = async (): Promise<void> => {
       // styles: ghibliMapStyle, // Disabled: styles are controlled via Cloud Console when mapId is set
     });
 
+    // Initialize bounds immediately
+    mapBounds.value = map.value.getBounds() || null;
+
     // Listeners with requestAnimationFrame for smooth performance
     map.value.addListener('idle', () => {
+      if (map.value) {
+        mapBounds.value = map.value.getBounds() || null;
+      }
       requestAnimationFrame(() => {
         debouncedViewportFetch();
       });
@@ -445,7 +508,15 @@ onMounted(() => {
   // Start map initialization immediately to improve LCP
   initializeMap();
 
-  // Load data concurrently (handled by viewport observer instead)
+  // Load all marker locations once for a better initial discovery experience
+  // This ensures the badge count is "reasonable" even before the first viewport fetch
+  GalleryService.getLocations().then(allLocations => {
+    if (allLocations && allLocations.length > 0) {
+      catsStore.appendLocations(allLocations);
+    }
+  }).catch(err => {
+    console.warn('Failed to pre-fetch marker locations:', err);
+  });
 });
 
 onUnmounted(() => {

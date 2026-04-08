@@ -12,16 +12,16 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.responses import JSONResponse
 
 from config import config
-from dependencies import get_gallery_service, get_quota_service
+from dependencies import get_cat_detection_service, get_gallery_service, get_quota_service, get_storage_service
 from limiter import get_upload_limit, upload_limiter
 
 limiter = upload_limiter  # Alias for backward compatibility with tests
 from logger import logger, sanitize_log_value
 from middleware.auth_middleware import get_current_user
-from services.cat_detection_service import CatDetectionService, cat_detection_service
+from services.cat_detection_service import CatDetectionService
 from services.gallery_service import GalleryService
 from services.quota_service import QuotaService
-from services.storage_service import StorageService, storage_service
+from services.storage_service import StorageService
 from utils.cache import invalidate_gallery_cache, invalidate_tags_cache, invalidate_user_cache
 from utils.exceptions import ExternalServiceError
 from utils.file_processing import process_uploaded_image, validate_coordinates, validate_location_data
@@ -39,12 +39,7 @@ def parse_tags(tags_json: str | None) -> list[str]:
     return parse_and_sanitize_tags(tags_json)
 
 
-def get_storage_service() -> StorageService:
-    return storage_service
-
-
-def get_cat_detection_service() -> CatDetectionService:
-    return cat_detection_service
+# local dependency functions removed
 
 
 def parse_and_sanitize_tags(tags_json: str | None) -> list[str]:
@@ -119,8 +114,8 @@ async def _perform_server_side_detection(
             "detection_mismatch",
             user_id=user_id,
             details={
-                "client_result": client_cat_data,
-                "server_result": str(detection_result)[:200],
+                "client_result": sanitize_log_value(client_cat_data),
+                "server_result": sanitize_log_value(str(detection_result)[:200]),
             },
             severity="WARNING",
         )
@@ -130,7 +125,7 @@ async def _perform_server_side_detection(
         log_security_event(
             "upload_rejected_no_cats",
             user_id=user_id,
-            details={"detection_result": str(detection_result)[:200]},
+            details={"detection_result": sanitize_log_value(str(detection_result)[:200])},
             severity="INFO",
         )
         raise HTTPException(
@@ -151,12 +146,14 @@ async def _perform_server_side_detection(
 
 from typing import Annotated, Any
 
+from schemas.gallery import UploadQuotaResponse
 
-@router.get("/quota")
+
+@router.get("/quota", response_model=UploadQuotaResponse)
 async def get_upload_quota(
     current_user: Annotated[Any, Depends(get_current_user)],
     quota_service: Annotated[QuotaService, Depends(get_quota_service)],
-) -> dict[str, Any]:
+) -> UploadQuotaResponse:
     """Get current user's upload quota status."""
     return await quota_service.get_user_quota_status(str(current_user.id), current_user.is_pro)
 
@@ -203,8 +200,8 @@ async def upload_cat_photo(
             "cat_photo_upload_started",
             user_id=user_id,
             details={
-                "filename": file.filename,
-                "location_name": location_name[:50] if location_name else "unknown",
+                "filename": sanitize_log_value(file.filename),
+                "location_name": sanitize_log_value(location_name[:50]) if location_name else "unknown",
             },
         )
 
@@ -272,7 +269,7 @@ async def upload_cat_photo(
             log_security_event(
                 "s3_upload_failed",
                 user_id=user_id,
-                details={"error": str(s3_error)[:200]},
+                details={"error": sanitize_log_value(str(s3_error)[:200])},
                 severity="ERROR",
             )
             raise HTTPException(status_code=500, detail="Failed to upload image")
@@ -302,7 +299,7 @@ async def upload_cat_photo(
             log_security_event(
                 "upload_transaction_rollback",
                 user_id=user_id,
-                details={"error": str(db_error)[:200], "image_url": image_url},
+                details={"error": sanitize_log_value(str(db_error)[:200]), "image_url": sanitize_log_value(image_url)},
                 severity="ERROR",
             )
             raise HTTPException(status_code=500, detail="Failed to save cat photo")
@@ -358,12 +355,4 @@ async def upload_cat_photo(
         raise HTTPException(status_code=500, detail="Upload failed due to an internal error")
 
 
-@router.get("/test")
-async def test_upload_endpoint() -> dict[str, Any]:
-    """
-    Test if upload endpoint is working
-    """
-    return {
-        "message": "Upload endpoint is working!",
-        "timestamp": datetime.now().isoformat(),
-    }
+# Test endpoint removed for security

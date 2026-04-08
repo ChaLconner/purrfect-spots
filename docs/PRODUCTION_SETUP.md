@@ -1,6 +1,7 @@
 # 🚀 Production Setup Guide
 
 This guide details exactly how to obtain and configure the necessary tokens and secrets for:
+
 1. Production Environment (Vercel)
 2. CI/CD Pipeline (GitHub Actions)
 
@@ -9,6 +10,7 @@ This guide details exactly how to obtain and configure the necessary tokens and 
 ## 1. Getting the Values (วิธีรับค่าต่างๆ)
 
 ### A. Sentry DSN (Error Monitoring)
+
 1. Log in to [Sentry.io](https://sentry.io/).
 2. Create a new Vue.js project (for frontend).
 3. Go to **Settings** > **Client Keys (DSN)**.
@@ -18,10 +20,24 @@ This guide details exactly how to obtain and configure the necessary tokens and 
 1. Log in to [AWS Console](https://console.aws.amazon.com/).
 2. Go to **IAM** service.
 3. Users > Create User (e.g., `purrfect-spots-app`).
-4. Attach policies: `AmazonS3FullAccess` (or strict bucket policy).
+4. **Attach Inline Policy (Least Privilege):**
+   *   Do **NOT** use `AmazonS3FullAccess`.
+   *   Instead, create a custom policy restricted to your bucket:
+     ```json
+     {
+         "Version": "2012-10-17",
+         "Statement": [
+             {
+                 "Effect": "Allow",
+                 "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
+                 "Resource": "arn:aws:s3:::YOUR_BUCKET_NAME/*"
+             }
+         ]
+     }
+     ```
 5. Open the User > **Security credentials** tab.
 6. Click **Create access key**.
-7. **Copy explicitly:** `Access key ID` and `Secret access key`.
+7. **Store Securely:** `Access key ID` and `Secret access key`.
 
 ### C. Vercel Tokens (Deployment)
 1. Log in to [Vercel Account Tokens](https://vercel.com/account/tokens).
@@ -116,7 +132,10 @@ If you see `Access Denied` when uploading images:
        }
    ]
    ```
-3. **Bucket Policy** (Ensure the user has access):
+3. **Bucket Policy** (Restrict Principal):
+   * Never use `*` for Principal in production unless it's an intentionally public assets bucket.
+   * Use a scoped policy (see `docs/infra/s3_bucket_policy.json`).
+
    ```json
    {
        "Version": "2012-10-17",
@@ -124,7 +143,7 @@ If you see `Access Denied` when uploading images:
            {
                "Effect": "Allow",
                "Principal": { "AWS": "arn:aws:iam::[ACCOUNT_ID]:user/[USER_NAME]" },
-               "Action": "s3:*",
+               "Action": ["s3:PutObject", "s3:GetObject"],
                "Resource": [
                    "arn:aws:s3:::[BUCKET_NAME]",
                    "arn:aws:s3:::[BUCKET_NAME]/*"

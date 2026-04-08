@@ -44,21 +44,23 @@
         :total-images="modalTotalImages"
         @close="closeModal"
         @navigate="handleModalNavigate"
+        @update:liked="handleImageLikedUpdate"
+        @update:likes-count="handleImageLikesCountUpdate"
       />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick, watch, onErrorCaptured, computed } from 'vue';
+import { ref, onMounted, onUnmounted, watch, onErrorCaptured, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { GalleryService } from '@/services/galleryService';
 import { isDev } from '@/utils/env';
-import { GALLERY_CONFIG } from '@/utils/constants';
 import GalleryHeader from '@/components/gallery/GalleryHeader.vue';
 import GalleryGrid from '@/components/gallery/GalleryGrid.vue';
 import type { CatLocation } from '@/types/api';
+import { useGalleryState } from '@/composables/useGalleryState';
 import { useCatsStore, useAuthStore } from '@/store';
 
 const authStore = useAuthStore();
@@ -104,18 +106,22 @@ const route = useRoute();
 const router = useRouter();
 const catsStore = useCatsStore();
 
-const loading = ref(true);
-const loadingMore = ref(false);
-const error = ref('');
+const {
+  loading,
+  loadingMore,
+  error,
+  visibleImages,
+  hasMoreImages,
+  totalImages,
+  fetchImages,
+  loadMoreImages,
+  cleanupPreloads,
+} = useGalleryState(computed(() => authStore.isInitialized));
+
 const selectedImage = ref<CatLocation | null>(null);
 const currentImageIndex = ref(-1);
 
 // Pagination and virtual scrolling
-const currentPage = ref(1);
-const imagesPerPage = GALLERY_CONFIG.IMAGES_PER_PAGE;
-const visibleImages = ref<CatLocation[]>([]);
-const hasMoreImages = ref(false);
-const totalImages = ref(0); // Track total for modal navigation
 const isDeepLinked = ref(false); // Track if current view is a deep link to a specific image
 
 onMounted(() => {
@@ -158,7 +164,11 @@ watch(
 
     if (searchDebounce) clearTimeout(searchDebounce);
     searchDebounce = setTimeout(() => {
-      fetchGalleryData(true);
+      fetchImages(() => {
+        if (props.id) {
+          syncStateFromUrl();
+        }
+      });
     }, 400); // 400ms debounce for smoother UX
   }
 );
@@ -171,15 +181,7 @@ watch(
   }
 );
 
-// Watch images to trigger preload
-watch(
-  () => visibleImages.value.length,
-  (newCount, oldCount) => {
-    if (newCount > 0 && oldCount === 0) {
-      preloadFirstImages();
-    }
-  }
-);
+// Watch images to trigger preload is now handled internally in useGalleryState
 
 // Watch route query specifically for browser back/forward buttons affecting search
 watch(
@@ -204,6 +206,18 @@ const modalTotalImages = computed(() => {
 const modalCurrentIndex = computed(() => {
   return isDeepLinked.value ? 0 : currentImageIndex.value;
 });
+
+function handleImageLikedUpdate(val: boolean): void {
+  if (selectedImage.value) {
+    selectedImage.value.liked = val;
+  }
+}
+
+function handleImageLikesCountUpdate(val: number): void {
+  if (selectedImage.value) {
+    selectedImage.value.likes_count = val;
+  }
+}
 
 async function syncStateFromUrl(): Promise<void> {
   // Wait for auth before syncing to avoid context issues or 401s
@@ -269,106 +283,7 @@ watch(
   }
 );
 
-async function fetchGalleryData(reset = false): Promise<void> {
-  // Prevent fetching until auth is initialized to ensure correct user context (likes, etc)
-  // and to avoid redundant requests on page mount.
-  if (!authStore.isInitialized) return;
-
-  if (reset) {
-    loading.value = true;
-    currentPage.value = 1;
-    visibleImages.value = [];
-    hasMoreImages.value = true;
-    totalImages.value = 0;
-  } else {
-    loadingMore.value = true;
-  }
-
-  error.value = '';
-
-  try {
-    const query = catsStore.gallerySearchQuery;
-    let newImages: CatLocation[] = [];
-    let hasNext = false;
-    let total = 0;
-
-    if (query) {
-      // Server-side Search - Now with pagination!
-      const response = await GalleryService.search({
-        query,
-        page: currentPage.value,
-        limit: imagesPerPage,
-      });
-
-      newImages = response.results || [];
-      total = response.total || 0;
-      // Simple hasMore logic for search: if we got exactly 'limit' results, there's likely more.
-      // Or if we know the total:
-      hasNext = visibleImages.value.length + newImages.length < total;
-    } else {
-      // Server-side Pagination
-      const response = await GalleryService.getImages({
-        page: currentPage.value,
-        limit: imagesPerPage,
-      });
-
-      newImages = response.images || [];
-      if (response.pagination) {
-        hasNext = response.pagination.has_more;
-        total = response.pagination.total;
-      }
-    }
-
-    if (reset) {
-      visibleImages.value = newImages;
-    } else {
-      visibleImages.value.push(...newImages);
-    }
-
-    hasMoreImages.value = hasNext;
-    if (total > 0) {
-      totalImages.value = total;
-      // Sync total count to store for global counter (NavBar)
-      catsStore.setLocations(visibleImages.value, {
-        total,
-        limit: imagesPerPage,
-        offset: (currentPage.value - 1) * imagesPerPage,
-        has_more: hasNext,
-        page: currentPage.value,
-        total_pages: Math.ceil(total / imagesPerPage),
-      });
-    } else {
-      totalImages.value = visibleImages.value.length;
-    }
-
-    // Initial sync with URL after data load (only on first load)
-
-    if (reset && props.id) {
-      nextTick(() => syncStateFromUrl());
-    }
-  } catch (err: unknown) {
-    const message = (err as Error).message || 'Failed to load images from server';
-    console.error(`[Gallery] Error fetching data:`, err);
-    error.value = message;
-    if (reset) visibleImages.value = [];
-  } finally {
-    loading.value = false;
-    loadingMore.value = false;
-  }
-}
-
-// Wrapper for initial mounting
-function fetchImages(): void {
-  fetchGalleryData(true);
-}
-
-function loadMoreImages(): void {
-  if (loadingMore.value || !hasMoreImages.value) return;
-
-  // Increment page and fetch
-  currentPage.value++;
-  fetchGalleryData(false);
-}
+// Data fetching and pagination logic is delegated to useGalleryState
 
 function openModal(image: CatLocation, index: number): void {
   // Update URL using Path Parameter
@@ -417,51 +332,18 @@ function handleModalNavigate(direction: 'prev' | 'next'): void {
   }
 }
 
-// Store preloaded links for cleanup
-const preloadedLinks: HTMLLinkElement[] = [];
-
-// Preload first few images for better performance
-function preloadFirstImages(): void {
-  // Avoid duplicate preloads
-  if (preloadedLinks.length > 0) return;
-
-  const imagesToPreload = visibleImages.value.slice(0, 6);
-
-  imagesToPreload.forEach((image, index) => {
-    if (image.image_url) {
-      const link = document.createElement('link');
-      link.rel = 'preload';
-      link.as = 'image';
-      // Use smaller size for preloading (300px) only if supported (Supabase)
-      let preloadUrl = image.image_url;
-      if (image.image_url.includes('supabase.co')) {
-        preloadUrl = image.image_url.includes('width=')
-          ? image.image_url.replace(/width=\d+/, 'width=300')
-          : `${image.image_url}${image.image_url.includes('?') ? '&' : '?'}width=300`;
-      }
-      link.href = preloadUrl;
-      link.setAttribute('fetchpriority', index === 0 ? 'high' : 'low');
-      document.head.appendChild(link);
-      preloadedLinks.push(link);
-    }
-  });
-}
-
-function cleanupPreloads(): void {
-  preloadedLinks.forEach((link) => {
-    if (link.parentNode) {
-      link.parentNode.removeChild(link);
-    }
-  });
-  preloadedLinks.length = 0;
-}
+// Preloading logic delegated to useGalleryState
 watch(
   () => authStore.isInitialized,
   (isInit) => {
     if (isInit) {
       // Auth is ready (either logged in or guest confirmed)
       // Now safe to fetch data with correct auth context
-      fetchImages();
+      fetchImages(() => {
+        if (props.id) {
+          syncStateFromUrl();
+        }
+      });
     }
   },
   { immediate: true }

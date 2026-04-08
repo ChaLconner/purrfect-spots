@@ -1,13 +1,12 @@
 import datetime
-from typing import Any
+from typing import Any, cast
 
-from postgrest.types import CountMethod
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from supabase import AClient
 
 from config import config
 from logger import logger
+from supabase import AClient
 
 
 class QuotaService:
@@ -20,40 +19,67 @@ class QuotaService:
         self.supabase: AClient = supabase
         self.db = db
 
-    async def get_recent_upload_count(self, user_id: str) -> int:
+    async def get_quota_usage(self, user_id: str) -> tuple[int, datetime.datetime | None]:
         """
-        Efficiently count active uploads in the last 24 hours.
-        Respects the 24-hour rolling window requirement.
+        Calculates the number of used slots in the current 24h window.
+        A window starts at the first upload and resets 24h later.
+        Returns (used_count, window_start_time).
         """
-        # Calculate 24 hours ago in UTC
         now = datetime.datetime.now(datetime.UTC)
-        twenty_four_hours_ago = (now - datetime.timedelta(hours=24)).isoformat()
+        # We fetch last 48 hours to reliably find the transition into the current active window.
+        since = now - datetime.timedelta(hours=48)
 
         try:
             if self.db:
                 query = text(
-                    "SELECT count(id) FROM cat_photos "
+                    "SELECT uploaded_at FROM cat_photos "
                     "WHERE user_id = :u_id "
                     "AND uploaded_at > :since "
-                    "AND deleted_at IS NULL"
+                    "AND deleted_at IS NULL "
+                    "ORDER BY uploaded_at ASC"
                 )
-                result = await self.db.execute(query, {"u_id": user_id, "since": twenty_four_hours_ago})
-                return result.scalar() or 0
-            # Query the main photos table for accurate rolling window count
-            res = (
-                await self.supabase.table("cat_photos")
-                .select("id", count=CountMethod.exact)
-                .eq("user_id", user_id)
-                .gt("uploaded_at", twenty_four_hours_ago)
-                .is_("deleted_at", "null")
-                .execute()
-            )
+                result = await self.db.execute(query, {"u_id": user_id, "since": since})
+                rows = result.fetchall()
+                timestamps = [row[0] for row in rows]
+            else:
+                res = (
+                    await self.supabase.table("cat_photos")
+                    .select("uploaded_at")
+                    .eq("user_id", user_id)
+                    .gt("uploaded_at", since.isoformat())
+                    .is_("deleted_at", "null")
+                    .order("uploaded_at", desc=False)
+                    .execute()
+                )
+                timestamps = [
+                    datetime.datetime.fromisoformat(cast(dict[str, Any], item)["uploaded_at"].replace("Z", "+00:00"))
+                    for item in res.data
+                ]
 
-            return res.count if hasattr(res, "count") and res.count is not None else 0
+            if not timestamps:
+                return 0, None
+
+            # Algorithm to find the active window:
+            active_window_start = None
+            count = 0
+            for dt in timestamps:
+                # If no window started, or this upload is after the 24h window of the previous start
+                if active_window_start is None or dt >= active_window_start + datetime.timedelta(hours=24):
+                    active_window_start = dt
+                    count = 1
+                else:
+                    count += 1
+
+            # Final check: is the last window found already expired?
+            if active_window_start and now >= active_window_start + datetime.timedelta(hours=24):
+                return 0, None
+
+            return count, active_window_start
+
         except Exception as e:
-            logger.error(f"Failed to fetch recent upload count for user {user_id}: {e}")
-            # Fail closed for security - assume limit reached on error
-            return 9999
+            logger.error(f"Failed to calculate quota usage for user {user_id}: {e}")
+            # Fail closed for security
+            return 9999, None
 
     async def check_quota(self, user_id: str, is_pro: bool) -> bool:
         """
@@ -77,7 +103,9 @@ class QuotaService:
                     .maybe_single()
                     .execute()
                 )
-                sys_total = sys_usage.data["total_uploads"] if sys_usage and sys_usage.data else 0
+                sys_total = (
+                    cast(dict[str, Any], sys_usage.data).get("total_uploads", 0) if sys_usage and sys_usage.data else 0
+                )
 
             if sys_total >= self.GLOBAL_SYSTEM_LIMIT:
                 logger.critical(f"System Global Quota Reached: {sys_total}/{self.GLOBAL_SYSTEM_LIMIT}")
@@ -86,7 +114,7 @@ class QuotaService:
             logger.error(f"Global quota check failed: {e}")
 
         # 2. Check User Rolling Quota
-        usage_count = await self.get_recent_upload_count(user_id)
+        usage_count, _ = await self.get_quota_usage(user_id)
 
         if usage_count >= max_quota:
             logger.warning(f"User {user_id} hit rolling quota: {usage_count}/{max_quota}")
@@ -121,7 +149,9 @@ class QuotaService:
         max_quota = self.PRO_LIMIT if is_pro else self.FREE_LIMIT
 
         try:
-            used = await self.get_recent_upload_count(user_id)
+            used, window_start = await self.get_quota_usage(user_id)
+            resets_at = (window_start + datetime.timedelta(hours=24)).isoformat() if window_start else None
+
             remaining = max(0, max_quota - used)
 
             return {
@@ -129,8 +159,9 @@ class QuotaService:
                 "limit": max_quota,
                 "remaining": remaining,
                 "is_pro": is_pro,
-                "reset_type": "24h_rolling",
+                "reset_type": "first_upload_window",
+                "resets_at": resets_at,
             }
         except Exception as e:
             logger.error(f"Failed to get quota status: {e}")
-            return {"used": 0, "limit": max_quota, "remaining": 0, "error": True}
+            return {"used": 0, "limit": max_quota, "remaining": 0, "is_pro": is_pro}

@@ -27,3 +27,4 @@ export { default as ShootingStarBackground } from './ShootingStarBackground.vue'
 
 // Modals
 export { default as LoginRequiredModal } from './LoginRequiredModal.vue';
+export { default as BaseConfirmModal } from './BaseConfirmModal.vue';

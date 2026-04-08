@@ -12,7 +12,17 @@ def mock_supabase():
     mock = MagicMock()
     mock_execute = AsyncMock(
         return_value=MagicMock(
-            data=[{"id": "1", "user_id": "u1", "latitude": 10, "longitude": 10, "tags": ["cute"], "count": 1}]
+            data=[
+                {
+                    "id": "1",
+                    "user_id": "u1",
+                    "latitude": 10,
+                    "longitude": 10,
+                    "tags": ["cute"],
+                    "count": 1,
+                    "status": "approved",
+                }
+            ]
         )
     )
 
@@ -56,7 +66,13 @@ def mock_supabase():
         def lte(self, *a, **kw):
             return self
 
-        def textSearch(self, *a, **kw):
+        def text_search(self, *a, **kw):
+            return self
+
+        def or_(self, *a, **kw):
+            return self
+
+        def contains(self, *a, **kw):
             return self
 
         def neq(self, *a, **kw):
@@ -102,7 +118,13 @@ def mock_supabase():
         def lte(self, *a, **kw):
             return mock_eq
 
-        def textSearch(self, *a, **kw):
+        def text_search(self, *a, **kw):
+            return mock_eq
+
+        def or_(self, *a, **kw):
+            return mock_eq
+
+        def contains(self, *a, **kw):
             return mock_eq
 
         async def execute(self):

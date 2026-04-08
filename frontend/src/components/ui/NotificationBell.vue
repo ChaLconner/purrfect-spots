@@ -63,7 +63,15 @@
 
         <div class="max-h-[400px] overflow-y-auto custom-scrollbar">
           <div
-            v-if="store.notifications.length === 0 && !store.isLoadingMore"
+            v-if="store.isLoadingMore && !store.isLoaded"
+            class="py-12 px-6 text-center"
+          >
+            <div
+              class="w-8 h-8 mx-auto border-2 border-terracotta/30 border-t-terracotta rounded-full animate-spin"
+            ></div>
+          </div>
+          <div
+            v-else-if="store.notifications.length === 0 && !store.isLoadingMore"
             class="py-12 px-6 text-center"
           >
             <div
@@ -118,7 +126,7 @@
             class="h-10 w-full flex items-center justify-center p-4"
           >
             <div
-              v-if="store.isLoadingMore"
+              v-if="store.isLoadingMore && store.isLoaded"
               class="w-5 h-5 border-2 border-terracotta/30 border-t-terracotta rounded-full animate-spin"
             ></div>
           </div>
@@ -212,8 +220,11 @@ function setupObserver(): void {
 // Watch dropdown toggle to initialize the observer
 watch(isOpen, async (newVal) => {
   if (newVal) {
-    if (store.notifications.length === 0) {
+    if (!store.isLoaded) {
       await store.fetchNotifications();
+    } else {
+      // Background refresh quietly
+      store.fetchNotifications(true);
     }
     // Wait for DOM to render to find the trigger element
     await nextTick();

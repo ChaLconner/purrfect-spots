@@ -7,11 +7,13 @@
 import { ref, reactive, watch, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ProfileService } from '@/services/profileService';
+import { ConsentService, type ConsentRecord } from '@/services/consentService';
 import { showError, showSuccess } from '@/store/toast';
 import { useFocusTrap, announce } from '@/composables/useAccessibility';
 import { useAuthStore } from '@/store/authStore';
 import { getAvatarFallback, handleAvatarError } from '@/utils/avatar';
 import PasswordStrengthMeter from '@/components/ui/PasswordStrengthMeter.vue';
+import type { ProfileUpdateData } from '@/services/profileService';
 
 interface Props {
   isOpen: boolean;
@@ -32,6 +34,7 @@ const emit = defineEmits<{
 const modalRef = ref<HTMLElement | null>(null);
 const fileInput = ref<HTMLInputElement | null>(null);
 const isUploading = ref(false);
+const isSaving = ref(false);
 const isUpdatingPassword = ref(false);
 const showPasswordSection = ref(false);
 const showPasswords = ref(false); // Toggle for password visibility
@@ -62,6 +65,9 @@ const deleteForm = reactive({
 const isDeletingAccount = ref(false);
 const isCancellingDeletion = ref(false);
 const showDeleteConfirm = ref(false);
+const showConsentSection = ref(false);
+const consents = ref<ConsentRecord[]>([]);
+const isLoadingConsents = ref(false);
 
 const authStore = useAuthStore();
 const isSocialUser = computed(() => {
@@ -83,6 +89,10 @@ watch(
       editForm.bio = props.initialBio;
       editForm.picture = props.initialPicture;
       showUsernameEdit.value = false;
+      
+      // Pre-fetch consents so they are ready when the user opens the section
+      loadConsents();
+      
       announce(t('profile.accessibility.editProfileOpened'));
     }
   }
@@ -207,7 +217,33 @@ const handleCancelDeletion = async (): Promise<void> => {
   }
 };
 
-const handleSave = (): void => {
+const loadConsents = async (): Promise<void> => {
+  isLoadingConsents.value = true;
+  try {
+    consents.value = await ConsentService.getMyConsents();
+  } catch {
+    // Silently fail — consent section is optional
+  } finally {
+    isLoadingConsents.value = false;
+  }
+};
+
+const toggleConsent = async (consentType: string, granted: boolean): Promise<void> => {
+  try {
+    await ConsentService.recordConsent(consentType, granted);
+    showSuccess(granted ? t('consent.granted') : t('consent.withdrawn'));
+    await loadConsents();
+  } catch {
+    showError(t('consent.error'));
+  }
+};
+
+const isConsentGranted = (consentType: string): boolean => {
+  const record = consents.value.find((c) => c.consent_type === consentType);
+  return record?.granted ?? false;
+};
+
+const handleSave = async (): Promise<void> => {
   const updateData: ProfileUpdateData = {
     name: editForm.name,
     bio: editForm.bio,
@@ -219,7 +255,13 @@ const handleSave = (): void => {
     updateData.username = editForm.username;
   }
 
-  emit('save', updateData);
+  isSaving.value = true;
+  try {
+    emit('save', updateData);
+    // Note: We don't close here, the parent handles it or listens for the event
+  } finally {
+    isSaving.value = false;
+  }
 };
 
 const handleClose = (): void => {
@@ -342,50 +384,33 @@ const handleKeydown = (event: KeyboardEvent): void => {
               </div>
 
               <div>
-                <div class="flex items-center justify-between mb-2 pl-1">
-                  <label
-                    for="profile-username"
-                    class="block text-xs font-bold text-brown-light uppercase tracking-widest"
-                  >
-                    {{ t('profile.username') }}
-                  </label>
-                  <button
-                    type="button"
-                    class="text-[10px] font-bold text-terracotta hover:text-terracotta-dark uppercase tracking-wider transition-colors cursor-pointer"
-                    @click="showUsernameEdit = !showUsernameEdit"
-                  >
-                    {{ showUsernameEdit ? t('common.cancel') : t('profile.changeUsername') }}
-                  </button>
-                </div>
-
-                <div
-                  v-if="!showUsernameEdit"
-                  class="px-4 sm:px-5 py-3 sm:py-3.5 bg-stone-50/50 border-2 border-dashed border-stone-200 rounded-xl sm:rounded-2xl flex items-center justify-between group"
+                <label
+                  for="profile-username"
+                  class="block text-xs font-bold text-brown-light mb-2 uppercase tracking-widest pl-1"
                 >
-                  <span class="text-sm sm:text-base text-stone-500 font-medium">@{{ editForm.username || 'username' }}</span>
+                  {{ t('profile.username') }}
+                </label>
+                <div class="relative">
                   <span
-                    class="text-[10px] text-stone-400 italic opacity-0 group-hover:opacity-100 transition-opacity"
-                  >{{ t('profile.usernameUpdateInfo') }}</span>
-                </div>
-
-                <div v-else class="space-y-2 animate-fadeIn">
+                    class="absolute left-4 top-1/2 -translate-y-1/2 text-brown-light font-bold"
+                    >@</span
+                  >
                   <input
                     id="profile-username"
                     v-model="editForm.username"
                     type="text"
-                    class="w-full px-4 sm:px-5 py-2.5 sm:py-3 md:py-3.5 bg-white/60 border-2 border-terracotta/30 rounded-xl sm:rounded-2xl focus:outline-none focus:border-terracotta focus:bg-white focus:ring-4 focus:ring-terracotta/10 transition-all duration-300 text-sm sm:text-base text-brown font-medium placeholder-stone-400"
+                    class="w-full pl-8 pr-4 sm:pr-5 py-2.5 sm:py-3 md:py-3.5 bg-white/60 border-2 border-stone-200 rounded-xl sm:rounded-2xl focus:outline-none focus:border-terracotta focus:bg-white focus:ring-4 focus:ring-terracotta/10 transition-all duration-300 text-sm sm:text-base text-brown font-medium placeholder-stone-400"
                     :placeholder="t('profile.usernamePlaceholder')"
                     autocomplete="username"
                     pattern="^[a-zA-Z0-9_]+$"
                     :title="t('profile.usernamePlaceholder')"
-                    autofocus
                   />
-                  <p class="text-[10px] text-stone-400 mt-1 pl-1">
-                    {{ t('profile.publicProfileLink') }} /profile/{{
-                      editForm.username || 'username'
-                    }}
-                  </p>
                 </div>
+                <p class="text-[10px] text-stone-400 mt-1.5 pl-1">
+                  {{ t('profile.publicProfileLink') }} /profile/{{
+                    editForm.username || 'username'
+                  }}
+                </p>
               </div>
 
               <div>
@@ -547,9 +572,9 @@ const handleKeydown = (event: KeyboardEvent): void => {
                         type="button"
                         :disabled="
                           isUpdatingPassword ||
-                            !passwordForm.current ||
-                            !passwordForm.new ||
-                            !passwordForm.confirm
+                          !passwordForm.current ||
+                          !passwordForm.new ||
+                          !passwordForm.confirm
                         "
                         class="px-5 py-2.5 bg-[#C07040] text-white rounded-lg sm:rounded-xl text-sm font-bold hover:bg-[#A05030] shadow-md transition-all disabled:opacity-50 disabled:shadow-none cursor-pointer disabled:cursor-not-allowed"
                         @click="updatePassword"
@@ -560,6 +585,47 @@ const handleKeydown = (event: KeyboardEvent): void => {
                       </button>
                     </div>
                   </template>
+                </div>
+              </div>
+
+              <!-- Consent Settings Section -->
+              <div class="border-t border-stone-200 pt-6 mt-6">
+                <button
+                  type="button"
+                  class="flex items-center text-terracotta font-bold text-sm uppercase tracking-wider hover:text-terracotta-dark transition-colors cursor-pointer"
+                  :aria-expanded="showConsentSection"
+                  @click="showConsentSection = !showConsentSection"
+                >
+                  <span class="mr-2">{{ showConsentSection ? '−' : '+' }}</span>
+                  {{ t('consent.settingsTitle') }}
+                </button>
+
+                <div
+                  v-if="showConsentSection"
+                  class="mt-4 space-y-3 bg-white/40 p-4 rounded-xl border border-white/60 min-h-[50px]"
+                >
+                  <div
+                    v-for="consentType in ['tos', 'privacy', 'marketing']"
+                    :key="consentType"
+                    class="flex items-center justify-between py-2"
+                  >
+                    <span class="text-sm text-brown font-medium">
+                      {{ t(`consent.types.${consentType}`) }}
+                    </span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        :checked="isConsentGranted(consentType)"
+                        class="sr-only peer"
+                        :disabled="isLoadingConsents"
+                        @change="toggleConsent(consentType, !isConsentGranted(consentType))"
+                      />
+                      <div
+                        class="w-11 h-6 bg-stone-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-terracotta/10 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-terracotta"
+                        :class="{ 'opacity-50': isLoadingConsents }"
+                      ></div>
+                    </label>
+                  </div>
                 </div>
               </div>
 
@@ -578,7 +644,7 @@ const handleKeydown = (event: KeyboardEvent): void => {
                   <p class="text-sm text-red-700 mb-4">
                     {{
                       t('profile.accountPendingDeletionDesc') ||
-                        'Your account is scheduled for deletion. You can cancel this request before the grace period ends.'
+                      'Your account is scheduled for deletion. You can cancel this request before the grace period ends.'
                     }}
                   </p>
                   <button
@@ -614,7 +680,7 @@ const handleKeydown = (event: KeyboardEvent): void => {
                     <p class="text-red-700 text-sm font-medium leading-relaxed">
                       {{
                         t('profile.deleteAccountWarning') ||
-                          'Warning: Deleting your account will permanently remove your profile, uploads, and data. This action cannot be undone after the grace period.'
+                        'Warning: Deleting your account will permanently remove your profile, uploads, and data. This action cannot be undone after the grace period.'
                       }}
                     </p>
 
@@ -669,9 +735,14 @@ const handleKeydown = (event: KeyboardEvent): void => {
             <button
               type="submit"
               form="edit-profile-form"
-              class="px-5 sm:px-6 md:px-8 py-2 sm:py-2.5 md:py-3 text-sm sm:text-base bg-[#C07040] hover:bg-[#A05030] text-white rounded-lg sm:rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-300 cursor-pointer font-heading font-extrabold tracking-wide"
+              :disabled="isSaving || isUploading"
+              class="px-5 sm:px-6 md:px-8 py-2 sm:py-2.5 md:py-3 text-sm sm:text-base bg-[#C07040] hover:bg-[#A05030] text-white rounded-lg sm:rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-300 cursor-pointer font-heading font-extrabold tracking-wide disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              {{ t('profile.saveProfile') }}
+              <div
+                v-if="isSaving"
+                class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"
+              ></div>
+              {{ isSaving ? t('common.saving') : t('profile.saveProfile') }}
             </button>
           </div>
         </div>

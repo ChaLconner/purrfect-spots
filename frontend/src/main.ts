@@ -2,6 +2,7 @@ import { createApp } from 'vue';
 import './styles/main.css';
 import App from './App.vue';
 import router from './router';
+import VueApexCharts from 'vue3-apexcharts';
 import { pinia } from './store';
 import { useAuthStore } from './store/authStore';
 import { isDev } from './utils/env';
@@ -11,16 +12,19 @@ import {
   handleVueError,
 } from './utils/browserExtensionHandler';
 import i18n from './i18n';
+import VueVirtualScroller from 'vue-virtual-scroller';
+import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
 
 // ========== Sentry Initialization ==========
 // Only initialize in production or if explicitly enabled
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
 const ENVIRONMENT = import.meta.env.MODE;
+const ENABLE_SENTRY = ENVIRONMENT === 'production' || import.meta.env.VITE_ENABLE_SENTRY === 'true';
 
 import type { App as VueApp } from 'vue';
 
 async function initSentry(app: VueApp): Promise<void> {
-  if (!SENTRY_DSN) {
+  if (!SENTRY_DSN || !ENABLE_SENTRY) {
     return;
   }
 
@@ -45,11 +49,21 @@ async function initSentry(app: VueApp): Promise<void> {
 
       // Filter out common non-actionable errors
       beforeSend(event) {
+        const serializedEvent = JSON.stringify(event);
         // Ignore browser extension errors
         if (
           event.message?.includes('Extension context invalidated') ||
           event.message?.includes('message channel closed') ||
-          event.message?.includes('ResizeObserver loop')
+          event.message?.includes('ResizeObserver loop') ||
+          event.message?.includes('Element not found')
+        ) {
+          return null;
+        }
+        if (
+          serializedEvent.includes('webdriver') ||
+          serializedEvent.includes('playwright') ||
+          serializedEvent.includes('vitest') ||
+          serializedEvent.includes('jsdom')
         ) {
           return null;
         }
@@ -70,18 +84,19 @@ async function initSentry(app: VueApp): Promise<void> {
 
 const app = createApp(App);
 
-await initSentry(app);
+initSentry(app); // Non-blocking: mount app immediately while Sentry loads in the background
 
 // Install Pinia BEFORE using any stores
 app.use(pinia);
 
-// Initialize auth state (now using Pinia store internally)
-// Initialize auth by creating the store instance
+// Initialize auth state
 const authStore = useAuthStore();
-// Don't block app mount - initialize auth in background
-authStore.initializeAuth().catch((e) => {
+// Wait for auth initialization to prevent flashes of unauthenticated state
+try {
+  await authStore.initializeAuth();
+} catch (e) {
   console.warn('[Auth] Failed to initialize auth:', e);
-});
+}
 
 // Handle browser extension conflicts globally
 globalThis.addEventListener('unhandledrejection', handleUnhandledRejection);
@@ -120,6 +135,12 @@ app.config.errorHandler = (err, _instance, info): void => {
 
 app.use(router);
 app.use(i18n);
+app.use(VueApexCharts);
+app.use(VueVirtualScroller);
+
+// Wait for router to be ready (resolves initial navigation and guards) before mounting
+await router.isReady();
+
 app.mount('#app');
 
 // Web Vitals tracking is handled below

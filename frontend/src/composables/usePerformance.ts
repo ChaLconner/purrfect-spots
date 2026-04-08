@@ -56,26 +56,6 @@ function rateMetric(name: string, value: number): 'good' | 'needs-improvement' |
 export function logMetric(metric: PerformanceMetric): void {
   metrics.value.push(metric);
 
-  // Log to console in development
-  if (import.meta.env.DEV) {
-    const rating = rateMetric(metric.name, metric.value);
-    const ratingEmojis: Record<string, string> = {
-      good: '✅',
-      'needs-improvement': '⚠️',
-      poor: '❌',
-    };
-
-    const emoji = ratingEmojis[rating] || '❓';
-    // eslint-disable-next-line no-console
-    console.log(
-      '[Perf]',
-      emoji,
-      `${metric.name}:`,
-      `${metric.value.toFixed(2)}${metric.unit}`,
-      metric.metadata || ''
-    );
-  }
-
   // Send to analytics in production (if configured)
   const win = globalThis as unknown as {
     gtag?: (command: string, action: string, params: Record<string, unknown>) => void;
@@ -203,8 +183,8 @@ export function useWebVitals(): { vitals: Ref<Record<string, number>> } {
         });
       });
       clsObserver.observe({ type: 'layout-shift', buffered: true });
-    } catch (e) {
-      console.warn('[Perf] PerformanceObserver not supported:', e);
+    } catch {
+      // PerformanceObserver not supported
     }
 
     // Navigation timing - use modern API if available

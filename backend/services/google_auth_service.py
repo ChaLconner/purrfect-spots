@@ -59,7 +59,7 @@ class GoogleAuthService:
             if not code or not code_verifier or not redirect_uri:
                 raise ValueError("Missing required OAuth parameters")
 
-            token_url = "https://oauth2.googleapis.com/token"  # nosec B105
+            token_url = "https://oauth2.googleapis.com/token"  # nosec S105
             data = {
                 "client_id": self.google_client_id,
                 "client_secret": self.google_client_secret,

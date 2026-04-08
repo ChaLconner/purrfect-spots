@@ -11,7 +11,7 @@ from fastapi import APIRouter
 from routes import (
     auth,
     cat_detection,
-    feature_flags,
+    consent,
     gallery,
     notifications,
     profile,
@@ -38,9 +38,6 @@ router.include_router(upload.router)
 router.include_router(cat_detection.router)
 router.include_router(gallery.router)
 
-# System
-router.include_router(feature_flags.router)
-
 # Monetization
 router.include_router(subscription.router)
 router.include_router(treats.router)
@@ -54,3 +51,6 @@ router.include_router(seo.router)
 
 # Reports
 router.include_router(reports.router)
+
+# Consent Management
+router.include_router(consent.router, prefix="/consent", tags=["consent"])
