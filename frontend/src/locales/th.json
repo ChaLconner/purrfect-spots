@@ -48,6 +48,7 @@
     "viewDetails": "ดูรายละเอียด",
     "copyJson": "คัดลอก JSON",
     "page": "หน้า {n}",
+    "you": "คุณ",
     "copiedToClipboard": "คัดลอกเรียบร้อยแล้ว",
     "somethingWentWrongDesc": "Something went wrong. Please try again.",
     "technicalDetails": "Technical Details",
@@ -263,6 +264,7 @@
     }
   },
   "profile": {
+    "title": "โปรไฟล์",
     "unknownUser": "ผู้ใช้นิรนาม",
     "photoUpdated": "อัปเดตรูปภาพเรียบร้อยแล้ว",
     "photoUpdateFailed": "อัปเดตรูปภาพไม่สำเร็จ",

@@ -9,7 +9,7 @@ import type { CatLocation } from '@/types/api';
 
 const props = defineProps<{
   isOpen: boolean;
-  userId: string | null;
+  userId?: string | null;
 }>();
 
 const emit = defineEmits<{

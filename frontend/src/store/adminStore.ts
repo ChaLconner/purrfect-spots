@@ -101,7 +101,7 @@ export const useAdminStore = defineStore('admin', {
       this.isMonthlyLoading = true;
       try {
         const response = await apiV1.get<{ data: MonthlyStat[]; year: number }>(
-          `/admin/stats/monthly${year ? `?year=${year}` : ''}`
+          `/admin/monthly${year ? `?year=${year}` : ''}`
         );
         this.monthlyData = response.data;
         this.lastMonthlyFetched = now;
@@ -157,7 +157,7 @@ export const useAdminStore = defineStore('admin', {
       this.isTrendsLoading = true;
       const start = performance.now();
       try {
-        const response = await apiV1.get<AdminTrends>('/admin/stats/trends');
+        const response = await apiV1.get<AdminTrends>('/admin/trends');
         this.trends = response;
         this.lastTrendsFetched = now;
         this.trendsLoadTime = Math.round(performance.now() - start);

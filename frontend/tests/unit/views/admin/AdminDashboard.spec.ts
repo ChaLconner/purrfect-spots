@@ -47,14 +47,14 @@ describe('AdminDashboard.vue', () => {
            generated_at: new Date().toISOString()
          };
        }
-       if (url === '/admin/stats/trends') {
+       if (url === '/admin/trends') {
          return {
            users: [{ date: '2023-01-01', count: 5 }],
            photos: [{ date: '2023-01-01', count: 2 }],
            reports: [{ date: '2023-01-01', count: 1 }],
          };
        }
-       if (url.startsWith('/admin/stats/monthly')) {
+       if (url.startsWith('/admin/monthly')) {
          return { data: [] };
        }
        return {};

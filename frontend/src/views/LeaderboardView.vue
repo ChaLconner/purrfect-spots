@@ -93,8 +93,9 @@ const period = ref<'weekly' | 'monthly' | 'all_time'>('all_time');
 // Drawer State
 const isDrawerOpen = ref(false);
 const selectedUserId = ref<string | null>(null);
-
-const openProfileDrawer = (userId: string): void => {
+ 
+const openProfileDrawer = (userId?: string): void => {
+  if (!userId) return;
   selectedUserId.value = userId;
   isDrawerOpen.value = true;
 };

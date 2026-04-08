@@ -76,6 +76,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
 import { getAvatarFallback, handleAvatarError } from '@/utils/avatar';
 
 export interface LeaderboardUser {
@@ -96,10 +97,12 @@ defineEmits<{
   (e: 'click', event: MouseEvent): void;
 }>();
 
+const { t } = useI18n();
+
 const getRankTitle = (index: number): string => {
-  if (index === 0) return 'The Cat Whisperer';
-  if (index === 1) return 'Treat Master';
-  if (index === 2) return 'Feline Friend';
-  return 'Spotter';
+  if (index === 0) return t('leaderboardPage.ranks.first');
+  if (index === 1) return t('leaderboardPage.ranks.second');
+  if (index === 2) return t('leaderboardPage.ranks.third');
+  return t('leaderboardPage.ranks.default');
 };
 </script>

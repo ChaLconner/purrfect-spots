@@ -59,6 +59,8 @@ class TreatPackagesResponse(BaseModel):
 class LeaderboardEntry(BaseModel):
     """Single leaderboard entry."""
 
-    user_id: str | None = None
-    user_name: str | None = None
-    total_received: int = 0
+    id: str
+    name: str | None = None
+    username: str | None = None
+    picture: str | None = None
+    total_treats_received: int = 0

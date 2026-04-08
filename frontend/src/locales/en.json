@@ -71,7 +71,8 @@
     "signIn": "Sign In",
     "viewDetails": "View Details",
     "copyJson": "Copy JSON",
-    "page": "Page {n}"
+    "page": "Page {n}",
+    "you": "You"
   },
   "time": {
     "second": {
@@ -329,6 +330,7 @@
     }
   },
   "profile": {
+    "title": "Profile",
     "unknownUser": "Anonymous User",
     "photoUpdated": "Photo updated successfully",
     "photoUpdateFailed": "Photo update failed",

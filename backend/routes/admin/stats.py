@@ -157,7 +157,6 @@ async def _fetch_monthly_report_fallback(admin_client: Any, report_year: int) ->
     ]
 
 
-@router.get("")
 @router.get("/summary")
 @limiter.limit("10/minute")
 async def get_dashboard_summary(
