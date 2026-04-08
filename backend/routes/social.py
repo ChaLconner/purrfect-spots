@@ -49,6 +49,7 @@ async def toggle_like(
     Returns the new liked status and updated likes count.
     Rate limited to 10 requests per 10 seconds per user.
     """
+    _validate_uuid_param(photo_id, "photo_id")
     if not await like_rate_limiter.is_allowed(f"like:{current_user.id}"):
         raise HTTPException(status_code=429, detail="Too many requests. Please slow down.")
 
@@ -81,6 +82,7 @@ async def add_comment(
     token: Annotated[str, Depends(get_current_token)],
 ) -> CommentResponse:
     """Add a comment to a photo."""
+    _validate_uuid_param(photo_id, "photo_id")
     try:
         return await social_service.add_comment(current_user.id, photo_id, comment.content)
     except NotFoundError as e:
@@ -123,6 +125,7 @@ async def delete_comment(
     token: Annotated[str, Depends(get_current_token)],
 ) -> MessageResponse:
     """Delete a comment."""
+    _validate_uuid_param(comment_id, "comment_id")
     try:
         success = await social_service.delete_comment(current_user.id, comment_id)
         if not success:
@@ -148,6 +151,7 @@ async def update_comment(
     token: Annotated[str, Depends(get_current_token)],
 ) -> CommentResponse:
     """Update an existing comment."""
+    _validate_uuid_param(comment_id, "comment_id")
     try:
         updated_comment = await social_service.update_comment(
             user_id=current_user.id,

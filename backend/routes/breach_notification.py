@@ -19,29 +19,18 @@ from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from postgrest.types import CountMethod
-from pydantic import BaseModel, Field
 
 from dependencies import get_async_supabase_admin_client
 from limiter import limiter
 from logger import logger
 from middleware.auth_middleware import require_permission
+from schemas.breach import BreachReport, BreachStatusUpdate
 from schemas.user import User
 from services.email_service import email_service
 from services.line_service import line_service
 from utils.security_alerts import get_alert_summary
 
 router = APIRouter()
-
-
-class BreachReport(BaseModel):
-    """Model for reporting a suspected data breach."""
-
-    breach_type: str = Field(
-        ..., description="Type of breach (unauthorized_access, data_leak, account_compromise, system_intrusion)"
-    )
-    description: str = Field(..., min_length=10, max_length=5000, description="Detailed description of the breach")
-    affected_users: list[str] | None = Field(None, description="List of affected user IDs")
-    severity: str = Field(default="medium", description="Severity level (low, medium, high, critical)")
 
 
 BREACH_TYPES = {
@@ -136,8 +125,11 @@ async def report_breach(
             logger.error(f"Failed to send breach notification emails: {e}")
 
         logger.warning(
-            f"BREACH_REPORTED | incident_id={incident_id} | type={report.breach_type} | "
-            f"severity={report.severity} | reported_by={current_admin.id}"
+            "BREACH_REPORTED | incident_id=%s | type=%s | severity=%s | reported_by=%s",
+            incident_id,
+            report.breach_type,
+            report.severity,
+            current_admin.id,
         )
 
         return {
@@ -236,13 +228,8 @@ async def get_incident_details(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Failed to get incident details: %s", e)
+        logger.error("Failed to fetch incident details: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch incident details")
-
-
-class BreachStatusUpdate(BaseModel):
-    status: str = Field(..., description="New status (investigating, contained, resolved, false_positive)")
-    notes: str | None = None
 
 
 @router.put("/incidents/{incident_id}/status")

@@ -113,7 +113,7 @@ async def list_users(
             await redis_service.set(cache_key, result_data, expire=60)  # 60-second TTL
         return result_data
     except Exception as e:
-        logger.error(f"Failed to list users: {str(e)}")
+        logger.error("Failed to list users: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch users")
 
 
@@ -197,7 +197,7 @@ async def bulk_ban_users(
         await _invalidate_user_list_cache()
         return {"message": f"Successfully banned {len(target_uids)} users.", "skipped": skipped_admins}
     except Exception as e:
-        logger.error(f"Bulk ban failed: {e}")
+        logger.error("Bulk ban failed: %s", e)
         raise HTTPException(status_code=500, detail="Bulk action failed")
 
 
@@ -237,7 +237,7 @@ async def bulk_unban_users(
         await _invalidate_user_list_cache()
         return {"message": f"Successfully unbanned {len(user_ids_str)} users."}
     except Exception as e:
-        logger.error(f"Bulk unban failed: {e}")
+        logger.error("Bulk unban failed: %s", e)
         raise HTTPException(status_code=500, detail="Bulk action failed")
 
 

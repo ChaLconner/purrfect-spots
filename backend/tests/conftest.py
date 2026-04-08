@@ -273,6 +273,7 @@ class MockUser:
     def __init__(self):
         self.id = "00000000-0000-4000-a000-000000000123"
         self.email = "test@example.com"
+        self.username = "testuser"
         self.name = "Test User"
         self.picture = "https://example.com/avatar.jpg"
         self.bio = "Test bio"

@@ -1,4 +1,4 @@
-from typing import Annotated, Any, cast
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -6,7 +6,14 @@ from config import config
 from dependencies import get_current_token, get_treats_service
 from logger import logger
 from middleware.auth_middleware import get_current_user_from_credentials
-from schemas.treats import GiveTreatRequest, PurchaseTreatsRequest, TreatBalanceResponse
+from schemas.treats import (
+    CheckoutUrlResponse,
+    GiveTreatRequest,
+    GiveTreatResponse,
+    LeaderboardEntry,
+    PurchaseTreatsRequest,
+    TreatBalanceResponse,
+)
 from schemas.user import User
 from services.treats_service import TreatsService
 
@@ -22,16 +29,17 @@ async def get_balance(
     return await treats_service.get_balance(current_user.id)
 
 
-@router.post("/give")
+@router.post("/give", response_model=GiveTreatResponse)
 async def give_treat(
     req: GiveTreatRequest,
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     treats_service: Annotated[TreatsService, Depends(get_treats_service)],
     token: Annotated[str, Depends(get_current_token)],
-) -> dict[str, Any]:
+) -> GiveTreatResponse:
     """Give treats to a photo owner."""
     try:
-        return await treats_service.give_treat(current_user.id, req.photo_id, req.amount, jwt_token=token)
+        result = await treats_service.give_treat(current_user.id, req.photo_id, req.amount, jwt_token=token)
+        return GiveTreatResponse(**result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -39,12 +47,12 @@ async def give_treat(
         raise HTTPException(status_code=500, detail="Internal error")
 
 
-@router.post("/purchase/checkout")
+@router.post("/purchase/checkout", response_model=CheckoutUrlResponse)
 async def purchase_treats_checkout(
     req: PurchaseTreatsRequest,
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     treats_service: Annotated[TreatsService, Depends(get_treats_service)],
-) -> dict[str, str]:
+) -> CheckoutUrlResponse:
     """Purchase treats pack."""
     package_data = await treats_service.get_package_by_id(req.package)
     price_id = package_data.get("price_id") if package_data else None
@@ -54,7 +62,7 @@ async def purchase_treats_checkout(
 
     try:
         frontend_url = config.FRONTEND_URL
-        return await treats_service.purchase_treats_checkout(
+        result = await treats_service.purchase_treats_checkout(
             user_id=current_user.id,
             package=req.package,
             price_id=price_id,
@@ -62,25 +70,27 @@ async def purchase_treats_checkout(
             cancel_url=f"{frontend_url}/subscription?purchase=cancel",
             stripe_customer_id=current_user.stripe_customer_id,
         )
+        return CheckoutUrlResponse(**result)
     except Exception as e:
         logger.error("Purchase checkout failed: %s", e)
         raise HTTPException(status_code=500, detail="Failed to initiate purchase")
 
 
-@router.get("/packages")
+@router.get("/packages", response_model=dict[str, Any])
 async def get_treat_packages(
     treats_service: Annotated[TreatsService, Depends(get_treats_service)],
-) -> dict[str, dict[str, Any]]:
+) -> dict[str, Any]:
     """Get available treat packages from database."""
     return await treats_service.get_packages()
 
 
-@router.get("/leaderboard")
+@router.get("/leaderboard", response_model=list[LeaderboardEntry])
 async def get_leaderboard(
     treats_service: Annotated[TreatsService, Depends(get_treats_service)],
     period: str = "all_time",
-) -> list[dict[str, Any]]:
+) -> list[LeaderboardEntry]:
     """Get top treat receivers."""
     if period not in ["weekly", "monthly", "all_time"]:
         raise HTTPException(status_code=400, detail="Invalid period")
-    return cast(list[dict[str, Any]], await treats_service.get_leaderboard(period))
+    results = await treats_service.get_leaderboard(period)
+    return [LeaderboardEntry(**entry) if isinstance(entry, dict) else entry for entry in results]

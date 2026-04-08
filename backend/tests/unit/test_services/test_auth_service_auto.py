@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -14,10 +14,10 @@ def auth_service():
     service = AuthService(supabase_client=mock_supabase, supabase_admin=mock_admin)
     service.user_service = MagicMock()
     service.user_service.create_or_get_user = AsyncMock(
-        return_value=User(id="1", email="a@a.com", name="A", created_at=datetime.utcnow())
+        return_value=User(id="1", email="a@a.com", name="A", created_at=datetime.now(UTC))
     )
     service.user_service.get_user_by_id = AsyncMock(
-        return_value=User(id="1", email="a@a.com", name="A", created_at=datetime.utcnow())
+        return_value=User(id="1", email="a@a.com", name="A", created_at=datetime.now(UTC))
     )
     service.user_service.authenticate_user = AsyncMock(return_value=True)
     return service
@@ -53,7 +53,7 @@ async def test_revoke_token(auth_service):
     mock_ts = MagicMock()
     mock_ts.blacklist_token = AsyncMock(return_value=True)
     with patch("services.auth.token_mixin.get_token_service", new_callable=AsyncMock, return_value=mock_ts):
-        res = await auth_service.revoke_token("jti1", "u1", datetime.utcnow())
+        res = await auth_service.revoke_token("jti1", "u1", datetime.now(UTC))
         assert res is True
 
 

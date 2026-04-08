@@ -49,5 +49,5 @@ async def list_audit_logs(
         result = await query.execute()
         return {"data": result.data, "total": result.count}
     except Exception as e:
-        logger.error(f"Failed to list audit logs: {e}")
+        logger.error("Failed to list audit logs: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch audit logs")

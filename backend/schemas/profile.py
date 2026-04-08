@@ -40,10 +40,12 @@ class ProfileUpdateResponse(BaseModel):
 class ProfileResponse(BaseModel):
     id: str
     email: str
+    username: str | None = None
     name: str | None = None
     picture: str | None = None
     bio: str | None = None
     created_at: datetime | None = None
+    is_pro: bool = False
 
 
 class PublicProfileResponse(BaseModel):

@@ -175,10 +175,12 @@ async def get_profile(
         return ProfileResponse(
             id=user.id,
             email=user.email,
+            username=user.username,
             name=user.name,
             picture=user.picture,
             bio=user.bio,
             created_at=user.created_at,
+            is_pro=user.is_pro,
         )
 
     except Exception as e:

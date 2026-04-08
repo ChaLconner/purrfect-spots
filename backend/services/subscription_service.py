@@ -64,7 +64,7 @@ class SubscriptionService:
             res = await supa_query.limit(1).execute()
             return cast(dict[str, Any], res.data[0]) if res.data else None
         except Exception as e:
-            logger.error(f"Error fetching user data: {e}")
+            logger.error("Error fetching user data: %s", e)
             return None
 
     async def _update_user_data(self, updates: dict[str, Any], filters: dict[str, Any]) -> dict[str, Any] | None:
@@ -103,7 +103,7 @@ class SubscriptionService:
         except Exception as e:
             if self.db:
                 await self.db.rollback()
-            logger.error(f"Error updating user data: {e}")
+            logger.error("Error updating user data: %s", e)
             return None
 
     # ── Helpers ──────────────────────────────────────────────────────
@@ -217,8 +217,8 @@ class SubscriptionService:
         except ValueError:
             logger.error("Stripe webhook: invalid payload")
             raise
-        except stripe.error.SignatureVerificationError:
-            logger.error("Stripe webhook: invalid signature")
+        except stripe.error.SignatureVerificationError as e:
+            logger.error("Stripe webhook: invalid signature: %s", e)
             raise
 
         event_type: str = event["type"]

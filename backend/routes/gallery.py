@@ -17,8 +17,6 @@ from middleware.auth_middleware import (
 )
 from schemas.gallery import (
     GALLERY_ALLOWED_FIELDS,
-    CursorPaginatedGalleryResponse,
-    CursorPaginationMeta,
     GalleryResponse,
     PaginatedGalleryResponse,
     PaginationMeta,
@@ -27,8 +25,6 @@ from schemas.gallery import (
     SortField,
     SortOrder,
     TagInfo,
-    decode_cursor,
-    encode_cursor,
 )
 from schemas.location import CatLocation
 from schemas.user import User
@@ -172,93 +168,6 @@ async def get_gallery(
 
     except Exception as e:
         logger.error("Gallery fetch error: %s", str(e), exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to fetch gallery images")
-
-
-@router.get(
-    "/cursor",
-    response_model=CursorPaginatedGalleryResponse,
-    deprecated=True,
-    responses={
-        200: {"description": "Successful Response"},
-        500: {"description": "Internal Server Error"},
-    },
-)
-async def get_gallery_cursor(
-    request: Request,
-    response: Response,
-    gallery_service: Annotated[GalleryService, Depends(get_gallery_service)],
-    current_user: Annotated[User | None, Depends(get_current_user_optional)],
-    token: Annotated[str | None, Depends(get_current_token)],
-    cursor: str | None = Query(None, description="Cursor for pagination (from previous response)"),
-    limit: int = Query(20, ge=1, le=100, description="Number of items per page"),
-    sort: SortField | None = Query(SortField.UPLOADED_AT, description="Sort field"),
-    order: SortOrder = Query(SortOrder.DESC, description="Sort order"),
-    fields: str | None = Query(None, description="Comma-separated list of fields to include"),
-) -> CursorPaginatedGalleryResponse:
-    """
-    Get cat images with cursor-based pagination.
-
-    DEPRECATED: Frontend uses offset-based pagination.
-    Sunset: 2026-07-01
-    """
-    response.headers["X-API-Warn"] = "Deprecated: Cursor-based pagination is scheduled for removal on 2026-07-01."
-    if current_user:
-        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    else:
-        response.headers["Cache-Control"] = "public, max-age=60"
-
-    selected_fields: set[str] | None = None
-    if fields:
-        requested = {f.strip() for f in fields.split(",") if f.strip()}
-        selected_fields = requested & GALLERY_ALLOWED_FIELDS
-        selected_fields.add("id")
-
-    try:
-        # Decode cursor to get the starting photo_id
-        after_id = decode_cursor(cursor) if cursor else None
-
-        # Fetch one extra to determine has_more
-        result = await gallery_service.get_all_photos_cursor(
-            limit=limit + 1,
-            after_id=after_id,
-            sort_field=sort.value if sort else "uploaded_at",
-            sort_order=order.value,
-            user_id=current_user.id if current_user else None,
-            jwt_token=token if current_user else None,
-        )
-
-        photos = result.get("data", [])
-        has_more = len(photos) > limit
-
-        # Trim to requested limit
-        if has_more:
-            photos = photos[:limit]
-
-        photos = protect_photo_locations(photos)
-
-        # Apply field selection
-        if selected_fields:
-            photos = [_filter_fields(d, selected_fields) for d in photos]
-
-        cat_locations = [CatLocation(**photo) for photo in photos]
-
-        # Build cursors
-        next_cursor = encode_cursor(cat_locations[-1].id) if has_more and cat_locations else None
-        prev_cursor = encode_cursor(cat_locations[0].id) if cat_locations and cursor else None
-
-        return CursorPaginatedGalleryResponse(
-            images=cat_locations,
-            pagination=CursorPaginationMeta(
-                has_more=has_more,
-                next_cursor=next_cursor,
-                prev_cursor=prev_cursor,
-                limit=limit,
-            ),
-        )
-
-    except Exception as e:
-        logger.error("Cursor gallery fetch error: %s", str(e), exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch gallery images")
 
 

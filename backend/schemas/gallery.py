@@ -41,21 +41,19 @@ class PaginationMeta(BaseModel):
 class CursorPaginationMeta(BaseModel):
     """Cursor-based pagination metadata."""
 
-    has_more: bool
     next_cursor: str | None = None
-    prev_cursor: str | None = None
-    limit: int
+    has_more: bool
 
 
 class PaginatedGalleryResponse(BaseModel):
-    """Paginated gallery response with offset-based metadata."""
+    """Unified response for offset-based gallery."""
 
     images: list[CatLocation]
     pagination: PaginationMeta
 
 
 class CursorPaginatedGalleryResponse(BaseModel):
-    """Paginated gallery response with cursor-based metadata."""
+    """Unified response for cursor-based gallery."""
 
     images: list[CatLocation]
     pagination: CursorPaginationMeta
@@ -120,24 +118,6 @@ class BulkDeleteResponse(BaseModel):
     failed_ids: list[str] = []
 
 
-# ---- Cursor helpers ----
-
-
-def encode_cursor(photo_id: str) -> str:
-    """Encode a photo_id into an opaque cursor string."""
-    payload = json.dumps({"id": photo_id})
-    return base64.urlsafe_b64encode(payload.encode()).decode()
-
-
-def decode_cursor(cursor: str) -> str | None:
-    """Decode cursor string back to photo_id. Returns None if invalid."""
-    try:
-        payload = json.loads(base64.urlsafe_b64decode(cursor.encode()).decode())
-        return payload.get("id")
-    except Exception:
-        return None
-
-
 # ---- Allowed fields for ?fields= parameter ----
 
 GALLERY_ALLOWED_FIELDS: set[str] = {
@@ -154,3 +134,25 @@ GALLERY_ALLOWED_FIELDS: set[str] = {
     "user_id",
     "liked",
 }
+
+
+# ---- Cursor helpers ----
+
+
+def encode_cursor(data: dict[str, Any]) -> str:
+    """Encode a dictionary to a base64 cursor string."""
+    json_str = json.dumps(data)
+    return base64.urlsafe_b64encode(json_str.encode()).decode().rstrip("=")
+
+
+def decode_cursor(cursor: str) -> dict[str, Any]:
+    """Decode a base64 cursor string to a dictionary."""
+    if not cursor:
+        return {}
+    try:
+        # Add padding back if needed
+        padding = "=" * (4 - len(cursor) % 4)
+        json_str = base64.urlsafe_b64decode(cursor + padding).decode()
+        return json.loads(json_str)
+    except Exception:
+        return {}

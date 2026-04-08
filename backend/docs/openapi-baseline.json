@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "PurrFect Spots API",
-    "description": "\n        PurrFect Spots API helps you share and discover cat locations.\n\n        ## API Versioning\n        All endpoints are available under `/api/v1/` prefix.\n        Legacy routes (without prefix) are maintained for backward compatibility.\n\n        ## Features\n        * 📍 **Share Locations**: Upload photos of cats and their locations.\n        * 🤖 **AI Detection**: Automatically detect cats in uploaded photos.\n        * 🔐 **Authentication**: Secure login via Email/Password or Google OAuth.\n        * 📊 **Pagination**: API-side pagination for efficient data loading.\n        ",
+    "description": "\n        PurrFect Spots API helps you share and discover cat locations in a socially-connected way.\n\n        ### 🌐 API Specification\n        All endpoints follow the `/api/v1/` prefix convention for stable identification.\n\n        ### ✨ Key Features\n        * 📍 **Geo-Location Awareness**: High-precision cat spot sharing with privacy protection.\n        * 🤳 **AI Photo Intelligence**: Automated cat detection and visual attribute extraction.\n        * 🔒 **Enterprise-Grade Security**: PKCE-enabled OAuth 2.0 and Supabase-backed authentication.\n        * ⚡ **Performance Optimized**: Built-in rate limiting, GZip compression, and ETag support.\n        * 🔄 **Real-time Ready**: Designed for low-latency interactions and live updates.\n        ",
     "contact": {
       "name": "Purrfect Spots Team",
       "email": "support@purrfectspots.com"

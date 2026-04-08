@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from logger import logger
 from middleware.auth_middleware import get_current_user
+from schemas.user import User
 from utils.auth_utils import decode_token
 from utils.supabase_client import (
     get_async_supabase_admin_client,
@@ -100,26 +101,21 @@ async def get_admin_gallery_service(db: AsyncSession = Depends(get_db)) -> Galle
 
 def get_current_user_from_token(authorization: str | None = Header(None)) -> dict:
     """
-    Extract and verify user from JWT token in Authorization header.
-    Always verifies the JWT signature using JWT_SECRET.
+    DEPRECATED: Use get_current_user instead.
+    Extract and verify user from JWT payload ONLY. Does NOT check for bans or DB state.
     """
     if not authorization:
         raise HTTPException(status_code=401, detail="Missing authorization header")
 
-    # Parse the Authorization header
     parts = authorization.split()
     if len(parts) != 2 or parts[0].lower() != "bearer":
         raise HTTPException(status_code=401, detail="Invalid authorization scheme")
 
     token = parts[1]
-
     try:
         return decode_token(token)
-    except ValueError as e:
-        logger.warning(f"Token validation failed: {str(e)}")
-        raise HTTPException(status_code=401, detail=str(e))
     except Exception as e:
-        logger.error(f"Unexpected token validation error: {type(e).__name__}")
+        logger.warning("Token validation failed: %s", e)
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
@@ -132,46 +128,24 @@ def get_current_token(authorization: str | None = Header(None)) -> str | None:
         return None
 
     try:
-        scheme, token = authorization.split()
-        if scheme.lower() != "bearer":
+        parts = authorization.split()
+        if len(parts) != 2 or parts[0].lower() != "bearer":
             return None
-        return token
-    except ValueError:
+        return parts[1]
+    except (ValueError, IndexError):
         return None
 
 
-async def get_current_admin_user(user: dict = Depends(get_current_user_from_token)) -> dict:
+async def get_current_admin_user(user: User = Depends(get_current_user)) -> User:
     """
     Dependency to check if current user is an admin.
+    Now correctly uses the validated User object which checks for bans.
     """
-    # Optimization: Check JWT claim first
-    if user.get("role") == "admin":
+    if user.role.lower() in ("admin", "super_admin") or "admin_access" in user.permissions:
         return user
 
-    # Fallback: Check role in DB (for older tokens or Supabase tokens without claim)
-    user_id = user.get("user_id") or user.get("sub")
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Invalid user token")
-
-    try:
-        # Check role in DB asynchronously
-        from utils.supabase_client import get_async_supabase_admin_client
-
-        client = await get_async_supabase_admin_client()
-        # The 'role' column is deprecated, use join with 'roles' table
-        res = await client.table("users").select("roles(name)").eq("id", user_id).single().execute()
-
-        data = getattr(res, "data", None)
-        role_name = data.get("roles", {}).get("name") if data else None
-
-        if role_name != "admin":
-            raise HTTPException(status_code=403, detail="Admin privileges required")
-        return user
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Admin check failed: {e}")
-        raise HTTPException(status_code=403, detail="Admin privileges required")
+    logger.warning("Admin access denied for user: %s", user.id)
+    raise HTTPException(status_code=403, detail="Admin privileges required")
 
 
 async def get_notification_service(db: AsyncSession = Depends(get_db)) -> NotificationService:

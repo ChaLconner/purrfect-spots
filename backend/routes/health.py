@@ -59,7 +59,7 @@ async def check_database() -> dict[str, Any]:
         }
     except Exception as e:
         latency_ms = (datetime.now(UTC) - start_time).total_seconds() * 1000
-        logger.error(f"Database health check failed: {e}")
+        logger.error("Database health check failed: %s", e)
         return {"status": "unhealthy", "error": ERROR_CONNECTION_FAILED}
 
 
@@ -99,7 +99,7 @@ def check_redis() -> dict[str, Any]:
     except ImportError:
         return {"status": "not_available", "error": "Redis package not installed"}
     except Exception as e:
-        logger.error(f"Redis health check failed: {e}")
+        logger.error("Redis health check failed: %s", e)
         return {"status": "unhealthy", "error": ERROR_CONNECTION_FAILED}
 
 
@@ -151,7 +151,7 @@ def check_s3() -> dict[str, Any]:
     except ImportError:
         return {"status": "not_available", "error": "boto3 package not installed"}
     except Exception as e:
-        logger.error(f"S3 health check failed: {e}")
+        logger.error("S3 health check failed: %s", e)
         return {"status": "unhealthy", "error": f"{ERROR_CONNECTION_FAILED}: {str(e)}"}
 
 
@@ -191,7 +191,7 @@ def check_google_vision() -> dict[str, Any]:
             "error": f"Credentials file not found at {key_path}",
         }
     except Exception as e:
-        logger.error(f"Google Vision health check failed: {e}")
+        logger.error("Google Vision health check failed: %s", e)
         return {"status": "unknown", "error": "Check failed"}
 
 

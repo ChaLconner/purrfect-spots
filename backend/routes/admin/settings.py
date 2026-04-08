@@ -49,7 +49,7 @@ async def get_all_settings(
                     item["value"] = encryption_service.decrypt_value(item["value"])
                     item["is_encrypted_display"] = True
                 except Exception as e:
-                    logger.warning(f"Failed to decrypt setting {item.get('key')}: {e}")
+                    logger.warning("Failed to decrypt setting %s: %s", item.get("key"), e)
                     item["value"] = "[ENCRYPTED - Unable to decrypt]"
                     item["is_encrypted_display"] = True
             decrypted_data.append(item)
@@ -116,7 +116,7 @@ async def update_setting(
                 encrypted = encryption_service.encrypt_value(update_data.value, setting.get("type", "string"))
                 value_to_store = encrypted
             except Exception as e:
-                logger.error(f"Failed to encrypt setting {key}: {e}")
+                logger.error("Failed to encrypt setting %s: %s", key, e)
                 raise HTTPException(status_code=500, detail="Failed to encrypt sensitive setting")
 
         # Check if approval is required (Maker-Checker)

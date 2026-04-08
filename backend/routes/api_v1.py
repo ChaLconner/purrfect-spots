@@ -13,7 +13,6 @@ from routes import (
     breach_notification,
     cat_detection,
     consent,
-    feature_flags,
     gallery,
     notifications,
     profile,
@@ -39,9 +38,6 @@ router.include_router(profile.router)
 router.include_router(upload.router)
 router.include_router(cat_detection.router)
 router.include_router(gallery.router)
-
-# System
-router.include_router(feature_flags.router)
 
 # Monetization
 router.include_router(subscription.router)

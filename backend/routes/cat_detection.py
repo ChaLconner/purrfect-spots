@@ -67,7 +67,7 @@ async def detect_cats_in_image(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Detection failed: {e!s}")
+        logger.error("Detection failed: %s", e)
         raise HTTPException(status_code=500, detail="Detection failed due to an internal error")
 
 
@@ -104,7 +104,7 @@ async def analyze_cat_spot(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Spot analysis error: {e!s}")
+        logger.error("Spot analysis error: %s", e)
         raise HTTPException(status_code=500, detail="Spot analysis failed due to an internal error")
 
 
@@ -158,7 +158,7 @@ async def combined_cat_and_spot_analysis(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Combined analysis error: {e!s}")
+        logger.error("Combined analysis error: %s", e)
         raise HTTPException(status_code=500, detail="Combined analysis failed due to an internal error")
 
 

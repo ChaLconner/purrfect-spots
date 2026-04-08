@@ -31,11 +31,6 @@ class GalleryBaseMixin:
     )
     USER_COLUMNS = "id, name, username, picture, total_treats_received, role_id"
     APPROVED_STATUS = "approved"
-    ALLOWED_CURSOR_SORT_FIELDS = {
-        "uploaded_at": "uploaded_at",
-        "likes_count": "likes_count",
-        "comments_count": "comments_count",
-    }
 
     @property
     async def supabase_admin(self) -> AClient:
@@ -58,10 +53,6 @@ class GalleryBaseMixin:
         if include_unapproved:
             return {}
         return {"approved_status": self.APPROVED_STATUS}
-
-    def _resolve_cursor_sort_field(self, sort_field: str) -> str:
-        """Resolve a public cursor sort field through a safe allowlist."""
-        return self.ALLOWED_CURSOR_SORT_FIELDS.get(sort_field, "uploaded_at")
 
     def _apply_visibility_filter(self, query: Any, include_unapproved: bool = False) -> Any:
         """Apply visibility filters to a Supabase query builder."""

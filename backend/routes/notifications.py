@@ -31,7 +31,7 @@ async def mark_as_read(
 ) -> MessageResponse:
     """Mark notification as read."""
     await service.mark_as_read(current_user.id, id)
-    return MessageResponse(status="success")
+    return MessageResponse(message="Notification marked as read")
 
 
 @router.put("/read-all", response_model=MessageResponse)
@@ -41,4 +41,4 @@ async def mark_all_as_read(
 ) -> MessageResponse:
     """Mark all notifications as read."""
     await service.mark_all_as_read(current_user.id)
-    return MessageResponse(status="success")
+    return MessageResponse(message="All notifications marked as read")

@@ -108,10 +108,6 @@ export const useAuthStore = defineStore('auth', () => {
     // Always try to refresh token on init to check valid session
     await refreshToken();
 
-    if (isAuthenticated.value) {
-      setupBalanceRealtime();
-    }
-
     isInitialized.value = true;
   }
 
@@ -190,9 +186,6 @@ export const useAuthStore = defineStore('auth', () => {
 
     // Update headers/storage
     updateApiHeader(data.access_token);
-
-    // Setup realtime
-    setupBalanceRealtime();
   }
 
   /**
@@ -282,8 +275,15 @@ export const useAuthStore = defineStore('auth', () => {
       balanceChannel = null;
     }
 
-    balanceChannel = supabase
-      .channel(channelName)
+    const channel = supabase.channel(channelName);
+    const channelWithState = channel as unknown as { state: string };
+    if (channelWithState.state === 'joined' || channelWithState.state === 'joining') {
+      balanceChannel = channel;
+      return;
+    }
+    balanceChannel = channel;
+
+    channel
       .on(
         'postgres_changes',
         {

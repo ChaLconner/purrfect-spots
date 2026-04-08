@@ -348,13 +348,13 @@ async def _verify_and_decode_token(token: str, supabase: AClient | None = None) 
         raise HTTPException(status_code=401, detail="Authentication failed")
 
 
-async def get_current_user_from_credentials(
+async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
     supabase: AClient = Depends(get_async_supabase_client),
 ) -> User:
-    """Get current authenticated user using Supabase Auth"""
+    """Get current authenticated user using Supabase Auth or JWT token."""
     if not credentials:
-        logger.warning("Missing Authorization header in request (credentials is None)")
+        logger.warning("Missing Authorization header in request")
         raise HTTPException(status_code=401, detail="Authentication failed: No token provided")
 
     token = credentials.credentials
@@ -366,32 +366,25 @@ async def get_current_user_from_credentials(
     return await _get_user_from_payload(payload, source)
 
 
-async def get_current_user(request: Request) -> User:
-    """Get current user from request headers using JWT token"""
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid token")
-
-    token = auth_header.split(" ")[1]
-    payload, source = await _verify_and_decode_token(token)
-    return await _get_user_from_payload(payload, source)
+# Alias for backward compatibility and to support widespread use in routes
+get_current_user_from_credentials = get_current_user
 
 
 async def get_current_user_optional(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
     supabase: AClient = Depends(get_async_supabase_client),
 ) -> User | None:
-    """Get current user if authenticated, otherwise return None"""
+    """Get current user if authenticated, otherwise return None."""
     if not credentials:
         return None
     try:
-        return await get_current_user_from_credentials(credentials, supabase)
+        return await get_current_user(credentials, supabase)
     except HTTPException:
         return None
 
 
 async def get_current_user_from_header(request: Request) -> dict:
-    """Get decoded token payload from request headers"""
+    """Get decoded token payload from request headers (legacy/low-level)."""
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid token")

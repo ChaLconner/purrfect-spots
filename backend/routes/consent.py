@@ -14,22 +14,15 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from postgrest.types import CountMethod
-from pydantic import BaseModel, Field
 
 from dependencies import get_async_supabase_admin_client
 from limiter import limiter
 from logger import logger
 from middleware.auth_middleware import get_current_user, require_permission
+from schemas.consent import ConsentRecord
 from schemas.user import User
 
 router = APIRouter()
-
-
-class ConsentRecord(BaseModel):
-    consent_type: str = Field(..., description="Type of consent (tos, privacy, marketing, data_processing, cookies)")
-    granted: bool = Field(..., description="Whether consent was granted")
-    ip_address: str | None = Field(None, description="IP address when consent was given")
-    user_agent: str | None = Field(None, description="User agent when consent was given")
 
 
 CONSENT_TYPES = {

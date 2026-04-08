@@ -124,9 +124,7 @@ addopts = [
 ]
 filterwarnings = [
     # Ignore deprecation warnings from external libraries
-    "ignore:.*asyncio.iscoroutinefunction.*:DeprecationWarning:slowapi.*",
-    "ignore:.*asyncio.iscoroutinefunction.*:DeprecationWarning:sentry_sdk.*",
-    "ignore:.*asyncio.iscoroutinefunction.*:DeprecationWarning:asyncio.*",
+    "ignore:.*asyncio.iscoroutinefunction.*:DeprecationWarning",
     "ignore:.*asyncio.get_event_loop_policy.*:DeprecationWarning",
     "ignore:.*asyncio.set_event_loop_policy.*:DeprecationWarning",
     "ignore:.*Image.Image.getdata.*:DeprecationWarning",
@@ -135,11 +133,13 @@ filterwarnings = [
     "ignore::DeprecationWarning:fastapi.*",
     "ignore::DeprecationWarning:supabase.*",
     "ignore::DeprecationWarning:gotrue.*",
+    "ignore::DeprecationWarning:storage3.*",
     "ignore:.*The `gotrue` package is deprecated.*:DeprecationWarning",
     "ignore:.*unclosed.*:ResourceWarning",
     "ignore:.*ORJSONResponse is deprecated.*",
     # Pydantic deprecated Extra (V2 migration) - ignore in dependencies
     "ignore:.*pydantic.config.Extra is deprecated.*:DeprecationWarning",
+    "ignore:.*pydantic.config.Extra is deprecated.*:pydantic.PydanticDeprecatedSince20",
     # Pytest-asyncio loop scope warnings
     "ignore:.*asyncio_default_fixture_loop_scope.*:DeprecationWarning",
 ]

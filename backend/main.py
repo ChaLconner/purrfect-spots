@@ -226,19 +226,19 @@ if ENVIRONMENT == "production":
         lifespan=lifespan,
         title="PurrFect Spots API",
         description="""
-        PurrFect Spots API helps you share and discover cat locations.
+        PurrFect Spots API helps you share and discover cat locations in a socially-connected way.
 
-        ## API Versioning
-        All endpoints are available under `/api/v1/` prefix.
-        Legacy routes (without prefix) are maintained for backward compatibility.
+        ### 🌐 API Specification
+        All endpoints follow the `/api/v1/` prefix convention for stable identification.
 
-        ## Features
-        * 📍 **Share Locations**: Upload photos of cats and their locations.
-        * 🤖 **AI Detection**: Automatically detect cats in uploaded photos.
-        * 🔐 **Authentication**: Secure login via Email/Password or Google OAuth.
-        * 📊 **Pagination**: API-side pagination for efficient data loading.
+        ### ✨ Key Features
+        * 📍 **Geo-Location Awareness**: High-precision cat spot sharing with privacy protection.
+        * 🤳 **AI Photo Intelligence**: Automated cat detection and visual attribute extraction.
+        * 🔒 **Enterprise-Grade Security**: PKCE-enabled OAuth 2.0 and Supabase-backed authentication.
+        * ⚡ **Performance Optimized**: Built-in rate limiting, GZip compression, and ETag support.
+        * 🔄 **Real-time Ready**: Designed for low-latency interactions and live updates.
         """,
-        version="3.0.0",
+        version="3.1.0",
         docs_url=None,  # SECURITY: Disabled in production
         redoc_url=None,  # SECURITY: Disabled in production
         openapi_url=None,  # SECURITY: Disabled in production
@@ -258,17 +258,17 @@ else:
         lifespan=lifespan,
         title="PurrFect Spots API",
         description="""
-        PurrFect Spots API helps you share and discover cat locations.
+        PurrFect Spots API helps you share and discover cat locations in a socially-connected way.
 
-        ## API Versioning
-        All endpoints are available under `/api/v1/` prefix.
-        Legacy routes (without prefix) are maintained for backward compatibility.
+        ### 🌐 API Specification
+        All endpoints follow the `/api/v1/` prefix convention for stable identification.
 
-        ## Features
-        * 📍 **Share Locations**: Upload photos of cats and their locations.
-        * 🤖 **AI Detection**: Automatically detect cats in uploaded photos.
-        * 🔐 **Authentication**: Secure login via Email/Password or Google OAuth.
-        * 📊 **Pagination**: API-side pagination for efficient data loading.
+        ### ✨ Key Features
+        * 📍 **Geo-Location Awareness**: High-precision cat spot sharing with privacy protection.
+        * 🤳 **AI Photo Intelligence**: Automated cat detection and visual attribute extraction.
+        * 🔒 **Enterprise-Grade Security**: PKCE-enabled OAuth 2.0 and Supabase-backed authentication.
+        * ⚡ **Performance Optimized**: Built-in rate limiting, GZip compression, and ETag support.
+        * 🔄 **Real-time Ready**: Designed for low-latency interactions and live updates.
         """,
         version="3.1.0",
         docs_url="/docs",
@@ -340,7 +340,7 @@ async def root() -> JSONResponse:
         content={
             "status": "healthy",
             "message": "PurrFect Spots API is running",
-            "version": "3.0.0",
+            "version": "3.1.0",
             "api_versions": ["v1"],
         },
         headers={"Content-Type": CONTENT_TYPE_JSON},
