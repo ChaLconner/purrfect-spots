@@ -46,6 +46,7 @@ except ImportError:
     sys.modules["supabase"] = mock_supabase_module
     sys.modules["supabase.client"] = MagicMock()
 
+
 # Mock google cloud modules if they are missing
 try:
     import google.cloud.vision  # noqa: F401
@@ -175,41 +176,75 @@ def client():
 
 def _create_mock_supabase_client():
     """Helper to create a mock Supabase client with standard chaining"""
-    client = MagicMock()
-    table = MagicMock()
-    client.table.return_value = table
+    mock = MagicMock()
+    mock.return_value = mock  # Calling the mock itself returns the mock
 
-    # Setup chainable methods
+    # All these methods should return the mock itself to allow chaining
     chainable = [
+        "table",
         "select",
         "insert",
         "update",
         "delete",
+        "rpc",
         "eq",
+        "neq",
+        "gt",
+        "gte",
+        "lt",
+        "lte",
+        "like",
+        "ilike",
+        "in_",
         "is_",
+        "is_not",
         "limit",
         "order",
         "single",
         "text_search",
         "range",
         "contains",
+        "filter",
+        "match",
     ]
+
     for method in chainable:
-        getattr(table, method).return_value = table
+        setattr(mock, method, MagicMock(return_value=mock))
+
+    # Special handling for filters that act as properties (like .not_.is_())
+    mock.not_ = mock
+    mock.or_ = mock
 
     # Setup execution results
-    res = MagicMock()
-    res.data = []
-    res.count = 0
-    table.execute = MagicMock(return_value=res)
+    res_obj = MagicMock()
+    res_obj.data = []
+    res_obj.count = 0
+    mock.execute = AsyncMock(return_value=res_obj)
 
-    return client
+    return mock
 
 
 @pytest.fixture
 def mock_supabase_admin():
     """Create a mock Supabase admin client"""
     return _create_mock_supabase_client()
+
+
+@pytest.fixture
+def mock_cat_photo():
+    """Sample cat photo data for tests"""
+    return {
+        "id": "00000000-0000-0000-0000-000000000001",
+        "image_url": "https://example.com/cat.jpg",
+        "latitude": 13.7563,
+        "longitude": 100.5018,
+        "description": "A cute orange cat #orange #friendly",
+        "location_name": "Test Cat Spot",
+        "uploaded_at": "2024-03-20T10:00:00Z",
+        "tags": ["orange", "friendly"],
+        "user_id": "00000000-0000-0000-0000-000000000002",
+        "status": "approved",
+    }
 
 
 @pytest.fixture

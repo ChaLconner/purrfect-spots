@@ -61,8 +61,8 @@ class GalleryLocationMixin(GalleryBaseMixin):
                 )
                 data = [dict(row._asdict()) for row in result.fetchall()]
             if not data:
-                res = (
-                    await self._apply_visibility_filter(self.supabase.table("cat_photos").select(self.PHOTO_COLUMNS))
+                res = await (
+                    self._apply_visibility_filter(self.supabase.table("cat_photos").select(self.PHOTO_COLUMNS))
                     .gte("latitude", min_lat)
                     .lte("latitude", max_lat)
                     .gte("longitude", min_lng)

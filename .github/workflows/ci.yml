@@ -40,6 +40,8 @@ env:
   PYTHON_VERSION: "3.12"
   NODE_VERSION: "22"
   CACHE_VERSION: v1
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 
 permissions:
   contents: read
