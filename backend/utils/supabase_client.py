@@ -2,7 +2,7 @@ import httpx
 
 from config import config
 from logger import logger
-from supabase import AClient, AsyncClientOptions, Client, ClientOptions, acreate_client, create_client
+from supabase import AClient, AClientOptions, Client, ClientOptions, acreate_client, create_client
 
 # Initialize Supabase clients
 # Use a fail-soft approach for development/test environments
@@ -30,7 +30,7 @@ client_options = ClientOptions(
     storage_client_timeout=30.0,
 )
 
-async_client_options = AsyncClientOptions(
+async_client_options = AClientOptions(
     httpx_client=httpx.AsyncClient(timeout=30.0),
     postgrest_client_timeout=30.0,
     storage_client_timeout=30.0,
