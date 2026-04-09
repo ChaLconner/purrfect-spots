@@ -102,6 +102,13 @@ try {
 globalThis.addEventListener('unhandledrejection', handleUnhandledRejection);
 globalThis.addEventListener('error', handleError);
 
+// Handle Vite dynamic import (preload) errors
+// This occurs when the browser tries to fetch a JS chunk that no longer exists on the server
+// (common after a new deployment). The best recovery is a full page reload.
+globalThis.addEventListener('vite:preloadError', () => {
+  window.location.reload();
+});
+
 // Global error handler for browser extension conflicts
 app.config.errorHandler = (err, _instance, info): void => {
   const result = handleVueError(err, info);

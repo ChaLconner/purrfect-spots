@@ -1,3 +1,4 @@
+import os
 from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -10,7 +11,7 @@ from logger import logger
 # The pool_size and max_overflow should be tuned based on deployment needs
 # connect_timeout prevents multi-minute hangs when the DB host is unreachable
 db_available = False
-engine = None  # type: ignore[assignment]
+engine = None
 
 if config.DATABASE_URL:
     try:
@@ -21,17 +22,22 @@ if config.DATABASE_URL:
         elif db_url.startswith("postgresql://") and "+asyncpg" not in db_url:
             db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 
+        # SECURITY/PERFORMANCE: Replace localhost with 127.0.0.1 to avoid [Errno 99] (IPv6 binding issues)
+        # This is especially common in WSL2 environments where IPv6 loopback may not be configured.
+        if "localhost" in db_url.lower():
+            db_url = db_url.replace("localhost", "127.0.0.1")
+
         engine = create_async_engine(
             db_url,
             echo=config.DEBUG,
-            pool_size=1,  # Vercel: Use minimal pool per lambda instance
-            max_overflow=2,
+            pool_size=int(os.getenv("DB_POOL_SIZE", "1")),  # Vercel/lambda: 1. Locally: maybe more.
+            max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "2")),
             pool_pre_ping=True,
-            pool_timeout=15,  # Wait max 15s for connection from pool
+            pool_timeout=30,  # Wait max 30s for connection from pool
             pool_recycle=300,  # Recycle connections every 5 minutes
             connect_args={
-                "timeout": 10,  # asyncpg connection timeout (seconds)
-                "command_timeout": 30,  # Max time for any single command
+                "timeout": 15,  # asyncpg connection timeout (seconds)
+                "command_timeout": 60,  # Max time for any single command
                 "prepared_statement_cache_size": 0,  # REQUIRED for Supabase transaction pooler
                 "statement_cache_size": 0,  # Extra safety for some asyncpg versions
             },
@@ -39,7 +45,14 @@ if config.DATABASE_URL:
         db_available = True
         logger.info("SQLAlchemy database engine created successfully")
     except Exception as e:
-        logger.warning(f"Failed to create database engine: {e}. Services will use Supabase client fallback.")
+        if "Errno 99" in str(e) or "EADDRNOTAVAIL" in str(e):
+            logger.warning(
+                f"Database connection blocked: {e}. "
+                "This usually happens when local ports are exhausted or IPv6 is misconfigured. "
+                "Restarting your computer/server usually clears this state."
+            )
+        else:
+            logger.warning(f"Failed to create database engine: {e}. Services will use Supabase client fallback.")
 else:
     logger.info("DATABASE_URL not configured - using Supabase client API directly")
 

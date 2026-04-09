@@ -23,7 +23,14 @@ memory_cache: dict[str, Any] = {}
 
 if redis_url:
     try:
-        redis_client = redis.from_url(redis_url, encoding="utf-8", decode_responses=True)
+        redis_client = redis.from_url(
+            redis_url,
+            encoding="utf-8",
+            decode_responses=True,
+            socket_timeout=5,
+            socket_connect_timeout=5,
+            retry_on_timeout=True,
+        )
     except Exception as e:
         logger.error(f"Redis connection failed: {e}")
 

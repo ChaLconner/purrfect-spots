@@ -24,7 +24,7 @@ load_dotenv()
 
 # ========== Sentry Integration ==========
 import sentry_sdk
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -359,6 +359,14 @@ async def health_check() -> JSONResponse:
         },
         headers={"Content-Type": CONTENT_TYPE_JSON},
     )
+
+
+# ========== Favicon Routes (to prevent 404 noise) ==========
+@app.get("/favicon.ico", include_in_schema=False)
+@app.get("/favicon.png", include_in_schema=False)
+async def favicon() -> Response:
+    """Handle favicon requests to prevent 404 security event logs."""
+    return Response(status_code=204)
 
 
 # Test endpoint removed for security

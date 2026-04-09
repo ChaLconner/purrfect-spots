@@ -137,8 +137,8 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
   ): void => {
     if (!map.value) return;
 
-    // Canary log to verify file update
-    console.warn('[MapMarkers] Updating markers...', { count: locations.length, hasMarkerLib: !!google.maps.marker });
+    // Markers update successfully triggered
+    // Logger removed to reduce console noise during high-frequency reactivity
 
     // Ensure clusterer is initialized with options if not already
     clusterer.value ??= new MarkerClusterer({

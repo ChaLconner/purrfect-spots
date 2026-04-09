@@ -6,7 +6,6 @@ import time
 from datetime import UTC, datetime
 from typing import Any, cast
 
-import httpx
 import jwt
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -71,13 +70,18 @@ async def get_jwks() -> dict | None:
     if _jwks_cache and (current_time - _jwks_last_update < JWKS_CACHE_TTL):
         return _jwks_cache
 
+    from utils.supabase_client import get_shared_httpx_client
+
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(jwks_url, timeout=5)
-            if response.status_code == 200:
-                _jwks_cache = response.json()
-                _jwks_last_update = int(current_time)
-                return _jwks_cache
+        client = get_shared_httpx_client()
+        # Supabase Auth /keys endpoint often requires the anon key in apikey header
+        headers = {"apikey": config.SUPABASE_KEY} if config.SUPABASE_KEY else {}
+        response = await client.get(jwks_url, headers=headers, timeout=5)
+        if response.status_code == 200:
+            _jwks_cache = response.json()
+            _jwks_last_update = int(current_time)
+            return _jwks_cache
+        logger.warning("JWKS fetch failed with status %d: %s", response.status_code, response.text[:100])
     except Exception as e:
         logger.warning("Failed to refresh JWKS cache: %s", e)
 

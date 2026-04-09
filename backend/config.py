@@ -12,6 +12,8 @@ from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
 
+from logger import logger
+
 # Load .env from backend directory
 backend_dir = Path(__file__).parent
 env_path = backend_dir / ".env"
@@ -181,7 +183,7 @@ class Config:
     JWT_ALGORITHM = "HS256"
 
     # Redis (optional)
-    REDIS_URL = os.getenv("REDIS_URL")
+    REDIS_URL = os.getenv("REDIS_URL", "").replace("localhost", "127.0.0.1")
 
     # App URLs
     # App URLs
@@ -305,13 +307,7 @@ class Config:
 
         for s_name, s_value in stripe_vars:
             if not s_value:
-                import warnings
-
-                warnings.warn(
-                    f"Stripe config '{s_name}' is not set. Subscription features will be unavailable.",
-                    UserWarning,
-                    stacklevel=2,
-                )
+                logger.info(f"Optional Stripe config '{s_name}' is not set. Subscription features will be unavailable.")
 
         return missing
 

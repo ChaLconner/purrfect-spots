@@ -1,6 +1,24 @@
+import httpx
+
 from config import config
 from logger import logger
 from supabase import AClient, AClientOptions, Client, ClientOptions, acreate_client, create_client
+
+# Internal HTTPX client pool for performance and to avoid [Errno 99] port exhaustion
+_shared_httpx_client: httpx.AsyncClient | None = None
+
+
+def get_shared_httpx_client() -> httpx.AsyncClient:
+    global _shared_httpx_client
+    if _shared_httpx_client is None:
+        # Use a large enough pool and short keep-alives for serverless execution
+        _shared_httpx_client = httpx.AsyncClient(
+            timeout=30.0,
+            limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
+            trust_env=False,
+        )
+    return _shared_httpx_client
+
 
 # Initialize Supabase clients
 # Use a fail-soft approach for development/test environments
@@ -13,7 +31,11 @@ if not supabase_url:
     if is_production:
         raise ValueError("SUPABASE_URL must be set in environment variables")
     # Default to localhost for development/testing if not specified
-    supabase_url = "http://localhost:54321"
+    supabase_url = "http://127.0.0.1:54321"
+
+# Ensure no localhost in URL to prevent [Errno 99] IPv6 resolution issues
+if "localhost" in supabase_url:
+    supabase_url = supabase_url.replace("localhost", "127.0.0.1")
 
 if not supabase_key:
     if is_production:
