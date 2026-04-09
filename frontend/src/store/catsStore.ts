@@ -182,18 +182,34 @@ export const useCatsStore = defineStore('cats', () => {
    */
   function appendLocations(data: CatLocation[], paginationData?: PaginationMeta): void {
     const newData = [...locations.value];
+    let hasChanged = false;
+
     data.forEach((newItem) => {
       const index = newData.findIndex((existing) => existing.id === newItem.id);
       if (index !== -1) {
-        // Update existing with new data
-        newData[index] = { ...newData[index], ...newItem };
+        // Compare essential fields to see if we really need an update
+        const existing = newData[index];
+        const isDifferent = 
+          existing.latitude !== newItem.latitude || 
+          existing.longitude !== newItem.longitude ||
+          existing.image_url !== newItem.image_url ||
+          existing.description !== newItem.description ||
+          existing.location_name !== newItem.location_name;
+
+        if (isDifferent) {
+          newData[index] = { ...existing, ...newItem };
+          hasChanged = true;
+        }
       } else {
         // Add new
         newData.push(newItem);
+        hasChanged = true;
       }
     });
 
-    locations.value = newData;
+    if (hasChanged) {
+      locations.value = newData;
+    }
 
     if (paginationData) {
       pagination.value = paginationData;

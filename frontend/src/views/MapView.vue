@@ -366,26 +366,49 @@ const debouncedViewportFetch = (): void => {
 // Watchers
 // ==========================================
 
-// Watch displayed locations and update markers efficiently
+// 1. Update markers when data changes (ISOLATED from map movement)
 watch(
   displayedLocations,
   (locations) => {
     updateMarkers(locations, selectCat);
+  },
+  { deep: false, immediate: true }
+);
 
-    // Fit bounds logic for search
-    if (searchQuery.value && map.value && locations.length > 0) {
+// 2. ONLY Fit bounds when searching (triggered by search query change, NOT every data update)
+const hasFittedForCurrentSearch = ref(false);
+
+watch(searchQuery, (newQuery) => {
+  hasFittedForCurrentSearch.value = false;
+});
+
+watch(
+  [searchQuery, () => displayedLocations.value.length],
+  ([newQuery, count], [oldQuery, oldCount]) => {
+    // Only fit bounds if search query actually changed or we got first results for a search
+    // AND we haven't already fitted bounds for this specific search result set
+    if (
+      newQuery && 
+      map.value && 
+      count > 0 && 
+      !hasFittedForCurrentSearch.value &&
+      (newQuery !== oldQuery || oldCount === 0)
+    ) {
+      const locations = displayedLocations.value;
       if (locations.length > 1) {
         const bounds = new google.maps.LatLngBounds();
         locations.forEach((loc) => bounds.extend({ lat: loc.latitude, lng: loc.longitude }));
         map.value.fitBounds(bounds, MAP_CONFIG.FIT_BOUNDS_PADDING);
-      } else {
+        hasFittedForCurrentSearch.value = true;
+      } else if (locations.length === 1) {
         map.value.panTo({ lat: locations[0].latitude, lng: locations[0].longitude });
         map.value.setZoom(15);
+        hasFittedForCurrentSearch.value = true;
       }
     }
   },
-  { deep: false, immediate: true }
-); // Shallow watch is fine since we replace the array
+  { immediate: false }
+);
 
 // Watch user location
 watch(userLocation, (pos, oldPos) => {
