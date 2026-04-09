@@ -2,6 +2,8 @@
 Authentication routes for both Manual (Email/Password) and Google OAuth
 """
 
+from __future__ import annotations
+
 from datetime import UTC, datetime
 from typing import Any
 
