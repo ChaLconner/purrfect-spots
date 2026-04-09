@@ -32,6 +32,8 @@ if config.DATABASE_URL:
             connect_args={
                 "timeout": 10,  # asyncpg connection timeout (seconds)
                 "command_timeout": 30,  # Max time for any single command
+                "prepared_statement_cache_size": 0,  # REQUIRED for Supabase transaction pooler
+                "statement_cache_size": 0,  # Extra safety for some asyncpg versions
             },
         )
         db_available = True
@@ -71,12 +73,18 @@ async def get_db() -> AsyncGenerator[AsyncSession | None, None]:
         yield None
         return
 
+    session_yielded = False
     try:
         async with AsyncSessionLocal() as session:
-            try:
-                yield session
-            finally:
-                await session.close()
+            session_yielded = True
+            yield session
     except Exception as e:
-        logger.warning(f"Failed to acquire database session: {e}. Yielding None (Supabase fallback will be used).")
-        yield None
+        # If an exception occurs, we only yield None if we haven't already yielded a session.
+        # This prevents the "generator didn't stop after athrow()" error in FastAPI.
+        if not session_yielded:
+            logger.warning(f"Failed to acquire database session: {e}. Falling back to Supabase client API.")
+            yield None
+        else:
+            # Re-raise the exception so it can be handled by FastAPI's exception handlers
+            # and properly trigger the session's __aexit__ (closing the session).
+            raise
