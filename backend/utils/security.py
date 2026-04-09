@@ -8,7 +8,7 @@ import html
 import re
 
 import bleach
-import magic
+import filetype
 
 from logger import logger
 
@@ -197,8 +197,9 @@ def validate_image_magic_bytes(file_content: bytes) -> tuple[bool, str, str]:
         return False, "", "Empty file content"
 
     try:
-        # Detect MIME type from file content (first 2KB is enough)
-        detected_mime = magic.from_buffer(file_content[:2048], mime=True)
+        # Detect MIME type from file content
+        kind = filetype.guess(file_content)
+        detected_mime = kind.mime if kind else "application/octet-stream"
 
         logger.debug(f"Detected MIME type from magic bytes: {detected_mime}")
 
