@@ -277,14 +277,12 @@ class Config:
             ("SUPABASE_KEY", Config.SUPABASE_KEY),
         ]
 
-        # Stripe keys are required in production; warn in development
+        # Stripe keys are optional; warn if missing since features will be disabled
         stripe_vars = [
             ("STRIPE_SECRET_KEY", Config.STRIPE_SECRET_KEY),
             ("STRIPE_WEBHOOK_SECRET", Config.STRIPE_WEBHOOK_SECRET),
             ("STRIPE_PRO_PRICE_ID", Config.STRIPE_PRO_PRICE_ID),
         ]
-
-        is_production = Config.ENVIRONMENT.lower() == "production"
 
         for r_name, r_value in required_vars:
             if not r_value:
@@ -292,16 +290,13 @@ class Config:
 
         for s_name, s_value in stripe_vars:
             if not s_value:
-                if is_production:
-                    missing.append(s_name)
-                else:
-                    import warnings
+                import warnings
 
-                    warnings.warn(
-                        f"Stripe config '{s_name}' is not set. Subscription features will be unavailable.",
-                        UserWarning,
-                        stacklevel=2,
-                    )
+                warnings.warn(
+                    f"Stripe config '{s_name}' is not set. Subscription features will be unavailable.",
+                    UserWarning,
+                    stacklevel=2,
+                )
 
         return missing
 
