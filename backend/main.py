@@ -29,10 +29,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 
-try:
-    from sentry_sdk.integrations.mcp import MCPIntegration
-except (ImportError, ModuleNotFoundError):
-    MCPIntegration = None
+# MCPIntegration removed to prevent Internal Server Errors on Vercel
 from sentry_sdk.integrations.starlette import StarletteIntegration
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -152,13 +149,7 @@ if SENTRY_DSN and not IS_TEST_ENV:
         FastApiIntegration(transaction_style="endpoint"),
     ]
 
-    if MCPIntegration:
-        sentry_integrations.append(
-            MCPIntegration(
-                # Prompt and tool payload capture can contain sensitive data, so keep it opt-in.
-                include_prompts=_env_flag("SENTRY_INCLUDE_PROMPTS", default=False),
-            )
-        )
+    # MCPIntegration removed to prevent Internal Server Errors on Vercel
 
     sentry_sdk.init(
         dsn=SENTRY_DSN,
