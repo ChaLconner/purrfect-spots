@@ -90,35 +90,40 @@ class TokenService:
         if jti and user_id and expires_at:
             try:
                 if self.db:
-                    db_session = self.db
-                    query = text(
-                        "INSERT INTO token_blacklist (token_jti, user_id, expires_at, revoked_at) "
-                        "VALUES (:jti, :user_id, :expires_at, :revoked_at)"
-                    )
-                    await db_session.execute(
-                        query,
-                        {
-                            "jti": jti,
-                            "user_id": user_id,
-                            "expires_at": expires_at.isoformat(),
-                            "revoked_at": utc_now_iso(),
-                        },
-                    )
-                    await db_session.commit()
-                else:
-                    admin_client = await self._get_admin_client()
-                    await (
-                        admin_client.table("token_blacklist")
-                        .insert(
+                    try:
+                        db_session = self.db
+                        query = text(
+                            "INSERT INTO token_blacklist (token_jti, user_id, expires_at, revoked_at) "
+                            "VALUES (:jti, :user_id, :expires_at, :revoked_at)"
+                        )
+                        await db_session.execute(
+                            query,
                             {
-                                "token_jti": jti,
+                                "jti": jti,
                                 "user_id": user_id,
                                 "expires_at": expires_at.isoformat(),
                                 "revoked_at": utc_now_iso(),
-                            }
+                            },
                         )
-                        .execute()
+                        await db_session.commit()
+                        return True
+                    except Exception as e:
+                        await db_session.rollback()
+                        logger.warning(f"SQL blacklist save failed, falling back to Supabase client: {e}")
+
+                admin_client = await self._get_admin_client()
+                await (
+                    admin_client.table("token_blacklist")
+                    .insert(
+                        {
+                            "token_jti": jti,
+                            "user_id": user_id,
+                            "expires_at": expires_at.isoformat(),
+                            "revoked_at": utc_now_iso(),
+                        }
                     )
+                    .execute()
+                )
             except Exception as e:
                 logger.error(f"Failed to persist blacklist to DB: {e}")
 
@@ -156,7 +161,10 @@ class TokenService:
         try:
             target_jti = jti if jti else token_hash
             if self.db:
-                return await self._check_db_blacklist_sql(target_jti)
+                try:
+                    return await self._check_db_blacklist_sql(target_jti)
+                except Exception as e:
+                    logger.warning(f"SQL _check_db_blacklist failed, falling back to Supabase client: {e}")
 
             return await self._check_db_blacklist_supabase(target_jti)
         except Exception as e:

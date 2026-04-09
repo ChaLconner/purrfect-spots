@@ -23,37 +23,42 @@ class SocialService:
         Toggle like status for a photo using atomic database function.
         """
         try:
+            liked = False
+            likes_count = 0
             if self.db:
-                # Use SQLAlchemy to call the RPC function
-                query = text("SELECT liked, likes_count FROM toggle_photo_like(:p_user_id, :p_photo_id)")
-                result = await self.db.execute(query, {"p_user_id": user_id, "p_photo_id": photo_id})
-                row = result.fetchone()
+                try:
+                    # Use SQLAlchemy to call the RPC function
+                    query = text("SELECT liked, likes_count FROM toggle_photo_like(:p_user_id, :p_photo_id)")
+                    result = await self.db.execute(query, {"p_user_id": user_id, "p_photo_id": photo_id})
+                    row = result.fetchone()
 
-                if not row:
-                    raise ExternalServiceError("Toggle like returned no data", service="Postgres")
+                    if not row:
+                        raise ExternalServiceError("Toggle like returned no data", service="Postgres")
 
-                # Commit the transaction as RPC might have side effects (inserting/deleting likes)
-                await self.db.commit()
+                    # Commit the transaction as RPC might have side effects (inserting/deleting likes)
+                    await self.db.commit()
 
-                liked = row[0]
-                likes_count = row[1]
-            else:
-                from utils.supabase_client import get_async_supabase_admin_client
+                    liked = row[0]
+                    likes_count = row[1]
+                    return {"liked": liked, "likes_count": likes_count}
+                except Exception as e:
+                    await self.db.rollback()
+                    logger.warning(f"SQL toggle_like failed, falling back to Supabase client: {e}")
 
-                # Use admin client to bypass RLS/JWT issues with RPC
-                admin_client = await get_async_supabase_admin_client()
+            from utils.supabase_client import get_async_supabase_admin_client
 
-                res = await admin_client.rpc(
-                    "toggle_photo_like", {"p_user_id": user_id, "p_photo_id": photo_id}
-                ).execute()
+            # Use admin client to bypass RLS/JWT issues with RPC
+            admin_client = await get_async_supabase_admin_client()
 
-                data_list = cast(list[dict[str, Any]], res.data)
-                if not data_list or len(data_list) == 0:
-                    raise ExternalServiceError("Toggle like returned no data", service="Supabase")
+            res = await admin_client.rpc("toggle_photo_like", {"p_user_id": user_id, "p_photo_id": photo_id}).execute()
 
-                row_dict = data_list[0]
-                liked = row_dict["liked"]
-                likes_count = row_dict["likes_count"]
+            data_list = cast(list[dict[str, Any]], res.data)
+            if not data_list or len(data_list) == 0:
+                raise ExternalServiceError("Toggle like returned no data", service="Supabase")
+
+            row_dict = data_list[0]
+            liked = row_dict["liked"]
+            likes_count = row_dict["likes_count"]
 
             # Light invalidation (only for the user's view if needed)
             from utils.cache import invalidate_user_cache
@@ -63,15 +68,11 @@ class SocialService:
             return {"liked": liked, "likes_count": likes_count}
 
         except Exception as e:
-            if self.db:
-                await self.db.rollback()
-
+            if isinstance(e, (NotFoundError, ExternalServiceError)):
+                raise
             error_msg = str(e)
-
-            # Check for specific error codes from our RPC function
             if "P0002" in error_msg or "Photo not found" in error_msg:
                 raise NotFoundError(message=PHOTO_NOT_FOUND, resource_type="photo", resource_id=photo_id)
-
             logger.error(
                 "Toggle like failed for user=%s photo=%s: %s",
                 sanitize_log_value(user_id),
@@ -84,15 +85,29 @@ class SocialService:
 
     async def add_comment(self, user_id: str, photo_id: str, content: str) -> dict[str, Any]:
         """Add a comment to a photo."""
-        if self.db:
-            photo_owner_id, comment = await self._add_comment_sql(user_id, photo_id, content)
-        else:
-            photo_owner_id, comment = await self._add_comment_supabase(user_id, photo_id, content)
+        try:
+            photo_owner_id = None
+            comment = None
+            if self.db:
+                try:
+                    photo_owner_id, comment = await self._add_comment_sql(user_id, photo_id, content)
+                except Exception as e:
+                    logger.warning(f"SQL add_comment failed, falling back to Supabase client: {e}")
 
-        # Trigger Notification
-        await self._send_comment_notification(user_id, photo_id, photo_owner_id, content, comment)
+            if not comment:
+                photo_owner_id, comment = await self._add_comment_supabase(user_id, photo_id, content)
 
-        return comment
+            if comment:
+                # Trigger Notification
+                await self._send_comment_notification(user_id, photo_id, photo_owner_id, content, comment)
+                return comment
+
+            raise ExternalServiceError("Failed to add comment: No response from database or Supabase", service="Social")
+        except Exception as e:
+            if isinstance(e, (NotFoundError, ExternalServiceError)):
+                raise
+            logger.error(f"Add comment failed: {e}")
+            raise ExternalServiceError(f"Add comment failed: {e}", service="Social")
 
     async def _add_comment_sql(self, user_id: str, photo_id: str, content: str) -> tuple[str, dict[str, Any]]:
         """Internal helper for SQL-based comment addition"""

@@ -268,7 +268,7 @@ class TreatsService:
                     "recent_transactions": recent_transactions,
                 }
             except Exception as e:
-                logger.error(f"SQLAlchemy get_balance failed: {e}")
+                logger.warning(f"SQLAlchemy get_balance failed, falling back to Supabase: {e}")
                 # Fallback to Supabase
 
         supa_user_res = (
@@ -308,7 +308,7 @@ class TreatsService:
             res = await self.supabase.rpc("get_leaderboard", {"p_period": period}).execute()
             return cast(list[dict[str, Any]], res.data or [])
         except Exception as e:
-            logger.error("Failed to fetch leaderboard: %s", e)
+            logger.warning("SQL leaderboard fetch failed, checking fallback: %s", e)
             # Fallback for all_time if RPC fails or during migration
             if period == "all_time":
                 return await self._get_leaderboard_fallback()
@@ -326,7 +326,7 @@ class TreatsService:
                 result = await self.db.execute(query)
                 return [dict(row._mapping) for row in result]
             except Exception as e:
-                logger.error(f"SQLAlchemy _get_leaderboard_fallback failed: {e}")
+                logger.warning(f"SQLAlchemy _get_leaderboard_fallback failed: {e}")
 
         res = (
             await self.supabase.table("users")

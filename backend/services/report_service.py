@@ -38,19 +38,22 @@ class ReportService:
                 "status": "pending",
             }
             if self.db:
-                # Basic SQL for reports table
-                query_str = (
-                    "INSERT INTO reports (photo_id, comment_id, reporter_id, reason, details, status) "
-                    "VALUES (:photo_id, :comment_id, :reporter_id, :reason, :details, :status) "
-                    "RETURNING id, photo_id, comment_id, reporter_id, reason, details, status, created_at"
-                )
-                query = text(query_str)
-                result = await self.db.execute(query, data)
-                await self.db.commit()
-                row = result.fetchone()
-                if not row:
-                    raise ValueError("Failed to create report")
-                return dict(row._mapping)
+                try:
+                    # Basic SQL for reports table
+                    query_str = (
+                        "INSERT INTO reports (photo_id, comment_id, reporter_id, reason, details, status) "
+                        "VALUES (:photo_id, :comment_id, :reporter_id, :reason, :details, :status) "
+                        "RETURNING id, photo_id, comment_id, reporter_id, reason, details, status, created_at"
+                    )
+                    query = text(query_str)
+                    result = await self.db.execute(query, data)
+                    await self.db.commit()
+                    row = result.fetchone()
+                    if row:
+                        return dict(row._mapping)
+                except Exception as e:
+                    await self.db.rollback()
+                    logger.warning(f"SQL report creation failed, falling back to Supabase client: {e}")
 
             res = await self.supabase.table("reports").insert(data).execute()
             if not res or not res.data:
@@ -68,15 +71,18 @@ class ReportService:
         """
         try:
             if self.db:
-                query = text(
-                    "SELECT id, photo_id, comment_id, reporter_id, reason, details, status, created_at "
-                    "FROM reports WHERE reporter_id = :u_id ORDER BY created_at DESC"
-                )
-                result = await self.db.execute(query, {"u_id": user_id})
-                reports = []
-                for row in result.fetchall():
-                    reports.append(dict(row._mapping))
-                return reports
+                try:
+                    query = text(
+                        "SELECT id, photo_id, comment_id, reporter_id, reason, details, status, created_at "
+                        "FROM reports WHERE reporter_id = :u_id ORDER BY created_at DESC"
+                    )
+                    result = await self.db.execute(query, {"u_id": user_id})
+                    reports = []
+                    for row in result.fetchall():
+                        reports.append(dict(row._mapping))
+                    return reports
+                except Exception as e:
+                    logger.warning(f"SQL fetch user reports failed, falling back to Supabase client: {e}")
             res = (
                 await self.supabase.table("reports")
                 .select(self.REPORT_COLUMNS)

@@ -115,22 +115,25 @@ class NotificationService:
         thirty_days_ago = (datetime.now(UTC) - timedelta(days=30)).isoformat()
 
         try:
+            notifications = []
             if self.db:
-                db_session = self.db
-                query = text(
-                    "SELECT n.*, u.name as actor_name, u.picture as actor_picture "
-                    "FROM notifications n "
-                    "LEFT JOIN users u ON n.actor_id = u.id "
-                    "WHERE n.user_id = :u_id AND n.created_at >= :since "
-                    "ORDER BY n.created_at DESC LIMIT :lim OFFSET :off"
-                )
-                db_res = await db_session.execute(
-                    query, {"u_id": user_id, "since": thirty_days_ago, "lim": limit, "off": offset}
-                )
-                notifications = []
-                for row in db_res.fetchall():
-                    notifications.append(dict(row._mapping))
-                return notifications
+                try:
+                    query = text(
+                        "SELECT n.*, u.name as actor_name, u.picture as actor_picture "
+                        "FROM notifications n "
+                        "LEFT JOIN users u ON n.actor_id = u.id "
+                        "WHERE n.user_id = :u_id AND n.created_at >= :since "
+                        "ORDER BY n.created_at DESC LIMIT :lim OFFSET :off"
+                    )
+                    db_res = await self.db.execute(
+                        query, {"u_id": user_id, "since": thirty_days_ago, "lim": limit, "off": offset}
+                    )
+                    for row in db_res.fetchall():
+                        notifications.append(dict(row._mapping))
+                    return notifications
+                except Exception as e:
+                    logger.warning(f"SQL notification fetch failed, falling back to Supabase client: {e}")
+
             supa_res = await (
                 self.supabase.table("notifications")
                 .select("*, actor:users!actor_id(name, picture)")
@@ -142,7 +145,6 @@ class NotificationService:
                 .execute()
             )
 
-            notifications = []
             for item_json in supa_res.data:
                 item = cast(dict[str, Any], item_json)
                 actor = cast(dict[str, Any], item.get("actor", {}) or {})
