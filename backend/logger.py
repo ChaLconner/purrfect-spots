@@ -23,7 +23,24 @@ from typing import Any, TypeVar
 F = TypeVar("F", bound=Callable[..., Any])
 
 
-from pythonjsonlogger.json import JsonFormatter
+try:
+    from pythonjsonlogger.json import JsonFormatter
+except ImportError:
+    # Fallback for different versions or missing dependency to prevent total crash
+    try:
+        from pythonjsonlogger import jsonlogger
+
+        JsonFormatter = jsonlogger.JsonFormatter  # type: ignore
+    except ImportError:
+        import logging
+
+        # Last resort fallback to allow application to start even if logging is degraded
+        class JsonFormatter(logging.Formatter):  # type: ignore
+            def __init__(self, *args, **kwargs):
+                super().__init__("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
+            def add_fields(self, log_record, record, message_dict):
+                pass
 
 
 class CustomJsonFormatter(JsonFormatter):
