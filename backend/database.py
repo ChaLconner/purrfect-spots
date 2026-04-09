@@ -14,8 +14,15 @@ engine = None  # type: ignore[assignment]
 
 if config.DATABASE_URL:
     try:
+        # Ensure the DATABASE_URL uses the asyncpg driver
+        db_url = config.DATABASE_URL
+        if db_url.startswith("postgres://"):
+            db_url = db_url.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif db_url.startswith("postgresql://") and "+asyncpg" not in db_url:
+            db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
         engine = create_async_engine(
-            config.DATABASE_URL,
+            db_url,
             echo=config.DEBUG,
             pool_size=5,
             max_overflow=10,

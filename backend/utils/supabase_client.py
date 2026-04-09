@@ -1,5 +1,3 @@
-import httpx
-
 from config import config
 from logger import logger
 from supabase import AClient, AClientOptions, Client, ClientOptions, acreate_client, create_client
@@ -25,13 +23,11 @@ if not supabase_key:
 
 # Shared client options for timeouts
 client_options = ClientOptions(
-    httpx_client=httpx.Client(timeout=30.0),
     postgrest_client_timeout=30.0,
     storage_client_timeout=30.0,
 )
 
 async_client_options = AClientOptions(
-    httpx_client=httpx.AsyncClient(timeout=30.0),
     postgrest_client_timeout=30.0,
     storage_client_timeout=30.0,
 )

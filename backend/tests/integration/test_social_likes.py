@@ -2,7 +2,6 @@ import os
 import uuid
 from unittest.mock import MagicMock
 
-import httpx
 import pytest
 from dotenv import load_dotenv
 
@@ -27,7 +26,6 @@ class TestSocialLikesIntegration:
     def supabase(self):
         """Create a Supabase client with service role for admin access"""
         options = ClientOptions(
-            httpx_client=httpx.Client(timeout=30.0),
             postgrest_client_timeout=30.0,
             storage_client_timeout=30.0,
         )

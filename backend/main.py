@@ -28,7 +28,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from sentry_sdk.integrations.fastapi import FastApiIntegration
-from sentry_sdk.integrations.mcp import MCPIntegration
+
+try:
+    from sentry_sdk.integrations.mcp import MCPIntegration
+except (ImportError, ModuleNotFoundError):
+    MCPIntegration = None
 from sentry_sdk.integrations.starlette import StarletteIntegration
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -146,11 +150,15 @@ if SENTRY_DSN and not IS_TEST_ENV:
     sentry_integrations = [
         StarletteIntegration(transaction_style="endpoint"),
         FastApiIntegration(transaction_style="endpoint"),
-        MCPIntegration(
-            # Prompt and tool payload capture can contain sensitive data, so keep it opt-in.
-            include_prompts=_env_flag("SENTRY_INCLUDE_PROMPTS", default=False),
-        ),
     ]
+
+    if MCPIntegration:
+        sentry_integrations.append(
+            MCPIntegration(
+                # Prompt and tool payload capture can contain sensitive data, so keep it opt-in.
+                include_prompts=_env_flag("SENTRY_INCLUDE_PROMPTS", default=False),
+            )
+        )
 
     sentry_sdk.init(
         dsn=SENTRY_DSN,
