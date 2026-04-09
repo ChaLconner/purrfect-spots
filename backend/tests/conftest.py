@@ -119,7 +119,7 @@ from main import app
 
 @pytest.fixture(autouse=True)
 def disable_rate_limit():
-    \"\"\"Disable rate limiting for all tests\"\"\"
+    """Disable rate limiting for all tests"""
     from limiter import auth_limiter, limiter, strict_limiter, upload_limiter
 
     limiters = [limiter, auth_limiter, strict_limiter, upload_limiter]
@@ -140,7 +140,7 @@ def disable_rate_limit():
 
 @pytest.fixture(autouse=True)
 def mock_redis_service():
-    \"\"\"Globally mock redis_service to prevent external connections and hangs during tests\"\"\"
+    """Globally mock redis_service to prevent external connections and hangs during tests"""
     from unittest.mock import AsyncMock, patch
 
     from services.redis_service import redis_service
@@ -160,7 +160,7 @@ def mock_redis_service():
 
 @pytest.fixture(autouse=True)
 def clear_all_caches():
-    \"\"\"Clear all memory and redis caches before every test to ensure test isolation\"\"\"
+    """Clear all memory and redis caches before every test to ensure test isolation"""
     from utils.cache import memory_cache
 
     memory_cache.clear()
@@ -169,18 +169,31 @@ def clear_all_caches():
 
 @pytest.fixture
 def client():
-    \"\"\"Create a test client for the FastAPI app\"\"\"
+    """Create a test client for the FastAPI app"""
     return TestClient(app)
 
 
 def _create_mock_supabase_client():
-    \"\"\"Helper to create a mock Supabase client with standard chaining\"\"\"
+    """Helper to create a mock Supabase client with standard chaining"""
     client = MagicMock()
     table = MagicMock()
     client.table.return_value = table
 
     # Setup chainable methods
-    chainable = ["select", "insert", "update", "delete", "eq", "is_", "limit", "order", "single"]
+    chainable = [
+        "select",
+        "insert",
+        "update",
+        "delete",
+        "eq",
+        "is_",
+        "limit",
+        "order",
+        "single",
+        "text_search",
+        "range",
+        "contains",
+    ]
     for method in chainable:
         getattr(table, method).return_value = table
 
@@ -195,13 +208,25 @@ def _create_mock_supabase_client():
 
 @pytest.fixture
 def mock_supabase_admin():
-    \"\"\"Create a mock Supabase admin client\"\"\"
+    """Create a mock Supabase admin client"""
     return _create_mock_supabase_client()
+
+
+@pytest.fixture
+def mock_supabase():
+    """Generic mock for Supabase client"""
+    return _create_mock_supabase_client()
+
+
+@pytest.fixture
+def sample_image_bytes():
+    """Return a small valid JPEG byte string for testing"""
+    return b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.' \",#\x1c\x1c(7),01444\x1f'9=82<.342\xff\xc0\x00\x0b\x08\x00\x01\x00\x01\x01\x01\x11\x01\xff\xc4\x00\x1f\x00\x00\x01\x05\x01\x01\x01\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\xff\xc4\x00\xb5\x10\x00\x02\x01\x03\x03\x02\x04\x03\x05\x05\x04\x04\x00\x00\x01}\x01\x02\x03\x00\x04\x11\x05\x12!1A\x06\x13Qa\x07"
 
 
 @pytest.fixture(autouse=True)
 def mock_boto3_client():
-    \"\"\"Mock boto3 client to prevent real AWS calls during tests\"\"\"
+    """Mock boto3 client to prevent real AWS calls during tests"""
     with patch("boto3.client") as mock:
         mock_s3 = MagicMock()
         mock.return_value = mock_s3
@@ -210,9 +235,9 @@ def mock_boto3_client():
 
 @pytest.fixture(autouse=True)
 def mock_async_supabase():
-    \"\"\"
+    """
     Mock the async_supabase client with proper async behavior.
-    \"\"\"
+    """
     # Mock acreate_client in utils.supabase_client
     with patch("utils.supabase_client.acreate_client", new_callable=AsyncMock) as mock_ac:
         mock_client = MagicMock()
@@ -223,7 +248,20 @@ def mock_async_supabase():
         mock_client.table.return_value = mock_table
 
         # List of methods that typically return 'self' for chaining
-        chainable_methods = ["select", "insert", "update", "delete", "eq", "is_", "limit", "order", "single"]
+        chainable_methods = [
+            "select",
+            "insert",
+            "update",
+            "delete",
+            "eq",
+            "is_",
+            "limit",
+            "order",
+            "single",
+            "text_search",
+            "range",
+            "contains",
+        ]
         for method in chainable_methods:
             getattr(mock_table, method).return_value = mock_table
 
@@ -242,7 +280,7 @@ def mock_async_supabase():
 
 
 class MockUser:
-    \"\"\"Mock user class for testing\"\"\"
+    """Mock user class for testing"""
 
     def __init__(self):
         self.id = "00000000-0000-4000-a000-000000000123"
@@ -258,7 +296,7 @@ class MockUser:
 
 @pytest.fixture
 def mock_supabase_auth():
-    \"\"\"Mock the Supabase auth client\"\"\"
+    """Mock the Supabase auth client"""
     with patch("dependencies.get_supabase_auth") as mock:
         client = MagicMock()
         mock.return_value = client
@@ -267,11 +305,11 @@ def mock_supabase_auth():
 
 @pytest.fixture
 def auth_headers():
-    \"\"\"Standard authorization headers for tests\"\"\"
+    """Standard authorization headers for tests"""
     return {"Authorization": "Bearer test-token"}
 
 
 @pytest.fixture
 def admin_auth_headers():
-    \"\"\"Admin authorization headers for tests\"\"\"
+    """Admin authorization headers for tests"""
     return {"Authorization": "Bearer admin-test-token"}
