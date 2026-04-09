@@ -215,29 +215,63 @@ async def get_dashboard_summary(
         logger.warning("Dashboard summary RPC path failed; retrying with Python fallback: %s", e, exc_info=True)
         try:
             admin_client = await get_async_supabase_admin_client()
-            stats_tasks = [
-                admin_client.table("users").select("id", count=CountMethod.estimated).limit(1).execute(),
-                admin_client.table("cat_photos").select("id", count=CountMethod.estimated).limit(1).execute(),
-                admin_client.table("reports").select("id", count=CountMethod.exact).eq("status", "pending").execute(),
-                admin_client.table("reports").select("id", count=CountMethod.estimated).limit(1).execute(),
-            ]
-            user_res, photo_res, pending_res, total_res = await asyncio.gather(*stats_tasks)
+
+            async def safe_count(table: str, count_method=CountMethod.estimated, filters: dict[str, Any] | None = None):
+                try:
+                    query = admin_client.table(table).select("id", count=count_method)
+                    if filters:
+                        for k, v in filters.items():
+                            query = query.eq(k, v)
+                    res = await query.limit(1).execute()
+                    return res.count or 0
+                except Exception as query_err:
+                    logger.error(f"Fallback count failed for {table}: {query_err}")
+                    return 0
+
+            # Execute individual counts with isolation
+            total_users = await safe_count("users")
+            total_photos = await safe_count("cat_photos")
+            pending_reports = await safe_count("reports", count_method=CountMethod.exact, filters={"status": "pending"})
+            total_reports = await safe_count("reports")
+
+            # Try to get trends and monthly data with their own catch-all
+            async def get_trends_safe():
+                try:
+                    return await _fetch_trends_fallback(admin_client, days_back=30)
+                except Exception as trends_err:
+                    logger.error(f"Fallback trends failed: {trends_err}")
+                    return {"users": [], "photos": [], "reports": []}
+
+            async def get_monthly_safe():
+                try:
+                    return await _fetch_monthly_report_fallback(admin_client, datetime.now().year)
+                except Exception as monthly_err:
+                    logger.error(f"Fallback monthly failed: {monthly_err}")
+                    return []
+
             result = {
                 "stats": {
-                    "total_users": user_res.count or 0,
-                    "total_photos": photo_res.count or 0,
-                    "pending_reports": pending_res.count or 0,
-                    "total_reports": total_res.count or 0,
+                    "total_users": total_users,
+                    "total_photos": total_photos,
+                    "pending_reports": pending_reports,
+                    "total_reports": total_reports,
                 },
-                "trends": await _fetch_trends_fallback(admin_client, days_back=30),
-                "monthly": await _fetch_monthly_report_fallback(admin_client, datetime.now().year),
+                "trends": await get_trends_safe(),
+                "monthly": await get_monthly_safe(),
                 "generated_at": datetime.now().isoformat(),
             }
             await redis_service.set(cache_key, result, expire=300)
             return result
         except Exception as fallback_error:
-            logger.error("Failed to fetch dashboard summary: %s", fallback_error, exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to fetch dashboard summary")
+            logger.error("Failed to fetch dashboard summary (Ultimate Fallback): %s", fallback_error, exc_info=True)
+            # Return an empty but valid structure rather than 500ing
+            return {
+                "stats": {"total_users": 0, "total_photos": 0, "pending_reports": 0, "total_reports": 0},
+                "trends": {"users": [], "photos": [], "reports": []},
+                "monthly": [],
+                "generated_at": datetime.now().isoformat(),
+                "error": "Partial data load failed",
+            }
 
 
 @router.get("/trends")

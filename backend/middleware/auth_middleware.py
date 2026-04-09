@@ -149,11 +149,17 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
         query = "*, roles(name, role_permissions(permissions(code)))"
         result = await supabase_admin.table("users").select(query).eq("id", user_id).maybe_single().execute()
 
+        if hasattr(result, "error") and result.error:
+            logger.error(f"Supabase auth query error for user {user_id}: {result.error}")
+            # If we get a permission denied here, it means supabase_admin isn't actually an admin
+            if "permission denied" in str(result.error).lower():
+                logger.critical("ADMIN CLIENT PERMISSION DENIED: Check SUPABASE_SERVICE_ROLE_KEY")
+
         if result and hasattr(result, "data") and result.data:
             data = cast(dict[str, Any], result.data)
 
             # Extract permissions from nested structure
-            permissions: list[str] = []
+            permissions_set = set()
             role_name = cast(str, data.get("role", "user"))  # Default to legacy column
 
             role_data = data.get("roles")
@@ -166,7 +172,7 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
                 for rp in rps:
                     perm = cast(dict[str, Any], rp.get("permissions"))
                     if perm and isinstance(perm, dict) and "code" in perm:
-                        permissions.append(cast(str, perm["code"]))
+                        permissions_set.add(cast(str, perm["code"]))
 
             from utils.datetime_utils import from_iso as parse_iso8601
 
@@ -186,7 +192,7 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
                 treat_balance=cast(int, data.get("treat_balance", 0)),
                 role=role_name,
                 role_id=cast(str, data.get("role_id")),
-                permissions=permissions,
+                permissions=list(permissions_set),
                 created_at=parse_iso8601(cast(str, data.get("created_at"))) if data.get("created_at") else None,
                 google_id=cast(str, data.get("google_id")),
                 banned_at=parse_iso8601(cast(str, data.get("banned_at"))) if data.get("banned_at") else None,
@@ -196,6 +202,8 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
             await redis_service.set(cache_key, user_obj.model_dump(), expire=USER_AUTH_CACHE_TTL)
 
             return _assert_user_not_banned(user_obj)
+
+        logger.warning(f"User {user_id} not found or permission denied in auth query")
         raise HTTPException(status_code=401, detail="User not found")
     except HTTPException:
         raise

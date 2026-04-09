@@ -24,7 +24,9 @@ class GalleryBaseMixin:
         "SELECT id, image_url, latitude, longitude, description, location_name, "
         "uploaded_at, tags, likes_count, comments_count, user_id FROM cat_photos"
     )
-    MAP_LOCATION_SELECT_SQL = "SELECT id, latitude, longitude, location_name, image_url, user_id FROM cat_photos"
+    MAP_LOCATION_SELECT_SQL = (
+        "SELECT id, latitude, longitude, location_name, image_url, user_id, uploaded_at FROM cat_photos"
+    )
     PHOTO_RETURNING_COLUMNS = (
         "id, image_url, latitude, longitude, description, location_name, "
         "uploaded_at, tags, likes_count, comments_count, user_id"
@@ -32,13 +34,18 @@ class GalleryBaseMixin:
     USER_COLUMNS = "id, name, username, picture, total_treats_received, role_id"
     APPROVED_STATUS = "approved"
 
-    @property
-    async def supabase_admin(self) -> AClient:
+    async def get_supabase_admin(self) -> AClient | None:
         """Lazy load admin client only when absolutely necessary"""
         if self._admin_client_lazy is None:
             from utils.supabase_client import get_async_supabase_admin_client
 
-            self._admin_client_lazy = await get_async_supabase_admin_client()
+            client = await get_async_supabase_admin_client()
+            # Verify we actually got a client with a service role key
+            if client and hasattr(client, "supabase_key") and not client.supabase_key:
+                logger.warning("Supabase admin client initialized without service role key; features will be limited")
+
+            self._admin_client_lazy = client
+
         return self._admin_client_lazy
 
     def _sql_visibility_clause(self, include_unapproved: bool = False) -> str:

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -8,7 +10,7 @@ class CatLocation(BaseModel):
     longitude: float
     description: str | None = None
     location_name: str | None = None
-    uploaded_at: str | None = None
+    uploaded_at: datetime | str | None = None
     tags: list[str] = []
     likes_count: int = 0
     comments_count: int = 0

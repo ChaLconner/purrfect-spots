@@ -73,6 +73,12 @@ async def get_async_supabase_admin_client() -> AClient:
     """Get high-performance async Supabase admin client (bypasses RLS)"""
     global _async_supabase_admin
     if _async_supabase_admin is None:
-        service_key = config.SUPABASE_SERVICE_KEY or config.SUPABASE_KEY
+        service_key = config.SUPABASE_SERVICE_KEY
+        if not service_key:
+            logger.error("SUPABASE_SERVICE_ROLE_KEY is missing! Admin client cannot bypass RLS.")
+            if config.is_production():
+                raise ValueError("SUPABASE_SERVICE_ROLE_KEY is required for admin operations")
+            service_key = config.SUPABASE_KEY  # Dev fallback
+
         _async_supabase_admin = await acreate_client(supabase_url, service_key, options=async_client_options)
     return _async_supabase_admin

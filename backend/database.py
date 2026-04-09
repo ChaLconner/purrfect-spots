@@ -24,10 +24,10 @@ if config.DATABASE_URL:
         engine = create_async_engine(
             db_url,
             echo=config.DEBUG,
-            pool_size=5,
-            max_overflow=10,
+            pool_size=1,  # Vercel: Use minimal pool per lambda instance
+            max_overflow=2,
             pool_pre_ping=True,
-            pool_timeout=10,  # Wait max 10s for connection from pool
+            pool_timeout=15,  # Wait max 15s for connection from pool
             pool_recycle=300,  # Recycle connections every 5 minutes
             connect_args={
                 "timeout": 10,  # asyncpg connection timeout (seconds)

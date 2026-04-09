@@ -55,7 +55,7 @@ class SubscriptionService:
                 sql_query = text(f"SELECT {safe_fields} FROM users WHERE {where_clause}")  # noqa: S608
                 result = await db_session.execute(sql_query, filters)
                 row = result.fetchone()
-                return dict(row._asdict()) if row else None
+                return dict(row._mapping) if row else None
 
             supa_query = self.supabase.table("users").select(fields)
             for key, value in filters.items():
@@ -92,7 +92,7 @@ class SubscriptionService:
                 result = await db_session.execute(sql_query, params)
                 await db_session.commit()
                 row = result.fetchone()
-                return dict(row._asdict()) if row else None
+                return dict(row._mapping) if row else None
 
             supa_query = self.supabase.table("users").update(updates)
             for key, value in filters.items():

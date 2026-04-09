@@ -106,14 +106,18 @@ class GallerySearchMixin(GalleryBaseMixin):
         try:
             data = []
             if self.db:
-                sql = self.PHOTO_SELECT_SQL + " WHERE user_id = :u_id AND deleted_at IS NULL"
-                params: dict[str, Any] = {"u_id": user_id}
-                if not include_unapproved:
-                    sql += " AND status = :approved_status"
-                    params["approved_status"] = self.APPROVED_STATUS
-                sql += " ORDER BY uploaded_at DESC"
-                result = await self.db.execute(text(sql), params)
-                data = [dict(row._asdict()) for row in result.fetchall()]
+                try:
+                    sql = self.PHOTO_SELECT_SQL + " WHERE user_id = :u_id AND deleted_at IS NULL"
+                    params: dict[str, Any] = {"u_id": user_id}
+                    if not include_unapproved:
+                        sql += " AND status = :approved_status"
+                        params["approved_status"] = self.APPROVED_STATUS
+                    sql += " ORDER BY uploaded_at DESC"
+                    result = await self.db.execute(text(sql), params)
+                    data = [dict(row._mapping) for row in result.fetchall()]
+                except Exception as e:
+                    logger.warning("SQL get_user_photos failed, falling back to Supabase client: %s", e)
+
             if not data:
                 res = (
                     await self._apply_visibility_filter(

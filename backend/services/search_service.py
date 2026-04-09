@@ -67,12 +67,10 @@ class SearchService:
     async def _fulltext_search(
         self, query: str, tags: list[str] | None = None, limit: int = 100, offset: int = 0
     ) -> list[dict[str, Any]]:
-        """Perform full-text search."""
-        try:
-            if self.db:
-                # Try optimized websearch using SQLAlchemy
-                from sqlalchemy import text
-
+        """Perform full-text search with SQL fallback to Supabase client."""
+        # Try SQL approach first
+        if self.db:
+            try:
                 # PostgreSQL websearch_to_tsquery example
                 sql = (
                     f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos "  # noqa: S608
@@ -92,7 +90,11 @@ class SearchService:
 
                 result = await self.db.execute(text(sql), params)
                 return [dict(row._mapping) for row in result.fetchall()]
+            except Exception as e:
+                logger.warning("SQL full-text search failed, falling back to Supabase client: %s", e)
 
+        # Fallback to Supabase client
+        try:
             db_query = (
                 self.supabase.table("cat_photos")
                 .select(self.PHOTO_COLUMNS)
@@ -109,52 +111,61 @@ class SearchService:
             resp = await db_query.execute()
             return cast(list[dict[str, Any]], resp.data or [])
         except Exception as e:
-            logger.warning("Advanced search failed: %s", e)
+            logger.error("Supabase full-text search failed as well: %s", e)
             raise
 
     async def _ilike_search(
         self, query: str | None = None, tags: list[str] | None = None, limit: int = 100, offset: int = 0
     ) -> list[dict[str, Any]]:
-        """Fallback search using ILIKE."""
+        """Fallback search using ILIKE with SQL fallback to Supabase client."""
+        # Try SQL approach first
         if self.db:
-            sql = f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE deleted_at IS NULL AND status = '{self.APPROVED_STATUS}'"  # noqa: S608
-            params: dict[str, Any] = {}
+            try:
+                sql = f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE deleted_at IS NULL AND status = '{self.APPROVED_STATUS}'"  # noqa: S608
+                params: dict[str, Any] = {}
+
+                if query:
+                    safe_query = f"%{escape_like_pattern(query)}%"
+                    sql += " AND (location_name ILIKE :query OR description ILIKE :query)"
+                    params["query"] = safe_query
+
+                if tags:
+                    clean_tags = [tag.strip().lower().replace("#", "") for tag in tags]
+                    sql += " AND tags @> :tags"
+                    params["tags"] = clean_tags
+
+                sql += " ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
+                params["limit"] = limit
+                params["offset"] = offset
+
+                result = await self.db.execute(text(sql), params)
+                return [dict(row._mapping) for row in result.fetchall()]
+            except Exception as e:
+                logger.warning("SQL ILIKE search failed, falling back to Supabase client: %s", e)
+
+        # Fallback to Supabase client
+        try:
+            db_query = (
+                self.supabase.table("cat_photos")
+                .select(self.PHOTO_COLUMNS)
+                .is_("deleted_at", "null")
+                .eq("status", self.APPROVED_STATUS)
+            )
 
             if query:
-                safe_query = f"%{escape_like_pattern(query)}%"
-                sql += " AND (location_name ILIKE :query OR description ILIKE :query)"
-                params["query"] = safe_query
+                safe_query = escape_like_pattern(query)
+                # Use or_ for multi-column search
+                db_query = db_query.or_(f"location_name.ilike.%{safe_query}%,description.ilike.%{safe_query}%")
 
             if tags:
                 clean_tags = [tag.strip().lower().replace("#", "") for tag in tags]
-                sql += " AND tags @> :tags"
-                params["tags"] = clean_tags
+                db_query = db_query.contains("tags", clean_tags)
 
-            sql += " ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
-            params["limit"] = limit
-            params["offset"] = offset
-
-            result = await self.db.execute(text(sql), params)
-            return [dict(row._mapping) for row in result.fetchall()]
-
-        db_query = (
-            self.supabase.table("cat_photos")
-            .select(self.PHOTO_COLUMNS)
-            .is_("deleted_at", "null")
-            .eq("status", self.APPROVED_STATUS)
-        )
-
-        if query:
-            safe_query = escape_like_pattern(query)
-            # Use or_ for multi-column search
-            db_query = db_query.or_(f"location_name.ilike.%{safe_query}%,description.ilike.%{safe_query}%")
-
-        if tags:
-            clean_tags = [tag.strip().lower().replace("#", "") for tag in tags]
-            db_query = db_query.contains("tags", clean_tags)
-
-        resp = await db_query.order("uploaded_at", desc=True).range(offset, offset + limit - 1).execute()
-        return cast(list[dict[str, Any]], resp.data or [])
+            resp = await db_query.order("uploaded_at", desc=True).range(offset, offset + limit - 1).execute()
+            return cast(list[dict[str, Any]], resp.data or [])
+        except Exception as e:
+            logger.error("Supabase ILIKE search failed as well: %s", e)
+            raise
 
     def _filter_by_tags(self, photos: list[dict[str, Any]], tags: list[str]) -> list[dict[str, Any]]:
         """Client-side tag filtering fallback."""

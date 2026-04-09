@@ -43,24 +43,39 @@ class GalleryLocationMixin(GalleryBaseMixin):
     async def _get_nearby_photos_bounding_box(
         self, latitude: float, longitude: float, radius_km: float, limit: int
     ) -> list[dict[str, Any]]:
-        try:
-            import math
+        """Fetch photos in a bounding box with SQL fallback to Supabase client."""
+        lat_delta = radius_km / 111.0
+        # math was imported inside but better use protected access
+        import math
 
-            lat_delta = radius_km / 111.0
-            lng_delta = radius_km / (111.0 * max(0.001, abs(math.cos(math.radians(latitude)))))
-            min_lat, max_lat = latitude - lat_delta, latitude + lat_delta
-            min_lng, max_lng = longitude - lng_delta, longitude + lng_delta
+        lng_delta = radius_km / (111.0 * max(0.001, abs(math.cos(math.radians(latitude)))))
+        min_lat, max_lat = latitude - lat_delta, latitude + lat_delta
+        min_lng, max_lng = longitude - lng_delta, longitude + lng_delta
 
-            data = []
-            if self.db:
+        data = []
+        # Try SQL approach first
+        if self.db:
+            try:
                 result = await self.db.execute(
                     text(
                         f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE latitude >= :min_lat AND latitude <= :max_lat AND longitude >= :min_lng AND longitude <= :max_lng AND {self._sql_visibility_clause()} ORDER BY uploaded_at DESC LIMIT :limit"  # noqa: S608
                     ),
-                    {"min_lat": min_lat, "max_lat": max_lat, "min_lng": min_lng, "max_lng": max_lng, "limit": limit},
+                    {
+                        "min_lat": min_lat,
+                        "max_lat": max_lat,
+                        "min_lng": min_lng,
+                        "max_lng": max_lng,
+                        "limit": limit,
+                        "approved_status": self.APPROVED_STATUS,
+                    },
                 )
-                data = [dict(row._asdict()) for row in result.fetchall()]
-            if not data:
+                data = [dict(row._mapping) for row in result.fetchall()]
+            except Exception as e:
+                logger.warning("SQL nearby search failed, falling back to Supabase client: %s", e)
+
+        # Fallback to Supabase client if SQL failed or returned no data
+        if not data:
+            try:
                 res = await (
                     self._apply_visibility_filter(self.supabase.table("cat_photos").select(self.PHOTO_COLUMNS))
                     .gte("latitude", min_lat)
@@ -72,8 +87,11 @@ class GalleryLocationMixin(GalleryBaseMixin):
                     .execute()
                 )
                 data = cast(list[dict[str, Any]], res.data or [])
-            return self._process_photos(data)
-        except Exception as e:
-            from utils.exceptions import ExternalServiceError
+            except Exception as e:
+                logger.error("Supabase nearby search failed as well: %s", e)
+                # If everything fails, raise the error so the API can return 500
+                from utils.exceptions import ExternalServiceError
 
-            raise ExternalServiceError(f"Failed to fetch nearby photos: {e!s}", service="Supabase")
+                raise ExternalServiceError(f"Failed to fetch nearby photos: {e!s}", service="Supabase") from e
+
+        return self._process_photos(data)

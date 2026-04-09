@@ -51,6 +51,16 @@ def get_required_env(key: str, production_only: bool = False) -> str:
         return ""
 
     if is_production:
+        # Fallback for keys that are purely administrative and can be lived without
+        if key in ["SUPABASE_SERVICE_ROLE_KEY", "STRIPE_SECRET_KEY"]:
+            warnings.warn(
+                f"Production environment variable '{key}' is missing. "
+                "Administrative features will be downgraded or disabled.",
+                UserWarning,
+                stacklevel=2,
+            )
+            return ""
+
         raise ConfigurationError(
             f"Required environment variable '{key}' is not set. "
             f"Please check your .env file or environment configuration."
@@ -111,15 +121,14 @@ class Config:
     """
 
     # Environment
-    ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+    # Auto-detect Vercel environment if not explicitly set
+    ENVIRONMENT = os.getenv("ENVIRONMENT") or os.getenv("VERCEL_ENV") or "development"
     DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
 
     # Supabase - Use consistent naming with fallbacks for backward compatibility
     SUPABASE_URL = get_env_with_fallback("SUPABASE_URL")
     SUPABASE_KEY = get_env_with_fallback("SUPABASE_KEY", "SUPABASE_ANON_KEY")
-    SUPABASE_SERVICE_KEY = get_env_with_fallback(
-        "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SERVICE_KEY", "SUPABASE_SECRET_KEY"
-    )
+    SUPABASE_SERVICE_KEY = get_required_env("SUPABASE_SERVICE_ROLE_KEY", production_only=True)
 
     # Database (optional - if not set, services use Supabase client API directly)
     # To enable direct DB access, set DATABASE_URL in .env with:
@@ -137,9 +146,14 @@ class Config:
     try:
         JWT_SECRET = get_required_env("JWT_SECRET")
     except ConfigurationError:
-        raise ConfigurationError(
-            "JWT_SECRET is missing! Please add this environment variable in your Vercel Project Settings."
-        )
+        if ENVIRONMENT.lower() == "production":
+            raise ConfigurationError(
+                "CRITICAL: JWT_SECRET environment variable is MISSING. "
+                "The application cannot sign authentication tokens safely. "
+                "Please add JWT_SECRET to your Vercel Project Settings / Environment Variables. "
+                "Generate a strong 32+ character random string."
+            )
+        JWT_SECRET = "dev-jwt-secret-stable-for-local-testing"
 
     # JWT_REFRESH_SECRET is REQUIRED in production for security
     # Using the same secret for both access and refresh tokens is a security vulnerability
@@ -275,6 +289,7 @@ class Config:
         required_vars = [
             ("SUPABASE_URL", Config.SUPABASE_URL),
             ("SUPABASE_KEY", Config.SUPABASE_KEY),
+            ("SUPABASE_SERVICE_ROLE_KEY", Config.SUPABASE_SERVICE_KEY),
         ]
 
         # Stripe keys are optional; warn if missing since features will be disabled

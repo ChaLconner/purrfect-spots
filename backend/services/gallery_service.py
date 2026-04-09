@@ -27,7 +27,7 @@ class GalleryService(GalleryReadMixin, GalleryWriteMixin, GallerySearchMixin, Ga
     def __init__(self, supabase_client: AClient, db: AsyncSession | None = None) -> None:
         self.supabase = supabase_client
         self.db = db
-        self.search_service = SearchService(supabase_client)
+        self.search_service = SearchService(supabase_client, db=db)
         self._admin_client_lazy: AClient | None = None
 
     # Note: methods are now provided by mixins:

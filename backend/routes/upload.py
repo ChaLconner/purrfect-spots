@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 
 from config import config
@@ -167,6 +167,7 @@ async def upload_cat_photo(
     detection_service: Annotated[CatDetectionService, Depends(get_cat_detection_service)],
     storage_service: Annotated[StorageService, Depends(get_storage_service)],
     quota_service: Annotated[QuotaService, Depends(get_quota_service)],
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     lat: str = Form(...),
     lng: str = Form(...),
@@ -304,10 +305,10 @@ async def upload_cat_photo(
             )
             raise HTTPException(status_code=500, detail="Failed to save cat photo")
 
-        # Invalidate gallery, tags and user photos cache after new upload
-        await invalidate_gallery_cache()
-        await invalidate_tags_cache()
-        await invalidate_user_cache(user_id)
+        # Invalidate gallery, tags and user photos cache after new upload in background
+        background_tasks.add_task(invalidate_gallery_cache)
+        background_tasks.add_task(invalidate_tags_cache)
+        background_tasks.add_task(invalidate_user_cache, user_id)
 
         log_security_event(
             "cat_photo_upload_success",

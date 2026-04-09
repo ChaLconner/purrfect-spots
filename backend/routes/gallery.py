@@ -8,7 +8,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path, Query, Request, Response
 
-from dependencies import get_current_token, get_gallery_service
+from dependencies import get_current_token, get_gallery_service, get_storage_service
 from limiter import get_api_limit, limiter
 from logger import logger, sanitize_log_value
 from middleware.auth_middleware import (
@@ -29,7 +29,7 @@ from schemas.gallery import (
 from schemas.location import CatLocation
 from schemas.user import User
 from services.gallery_service import GalleryService
-from services.storage_service import storage_service
+from services.storage_service import StorageService
 from utils.location_utils import protect_photo_location, protect_photo_locations
 
 router = APIRouter(prefix="/gallery", tags=["Gallery"])
@@ -59,7 +59,10 @@ def _apply_sort(
     def _get_sort_val(item: dict[str, Any]) -> Any:
         val = item.get(sort_key)
         if val is None:
-            return "" if isinstance(val, str) else 0
+            # Sort NULLs consistently at the end for all types
+            if sort_key == SortField.UPLOADED_AT:
+                return "0000-00-00"
+            return -1
         return val
 
     return sorted(photos, key=_get_sort_val, reverse=reverse)
@@ -356,6 +359,7 @@ async def delete_photo(
     background_tasks: BackgroundTasks,
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     gallery_service: Annotated[GalleryService, Depends(get_gallery_service)],
+    storage_service: Annotated[StorageService, Depends(get_storage_service)],
 ) -> dict[str, str]:
     """Delete a photo. Returns 202 Accepted (deletion runs in background)."""
     photo_id_str = str(photo_id)

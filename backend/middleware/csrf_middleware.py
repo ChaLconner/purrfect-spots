@@ -78,8 +78,8 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         # Skip CSRF for safe methods (GET, HEAD, OPTIONS, TRACE)
         if request.method in self.SAFE_METHODS:
             response = await call_next(request)
-            # Set CSRF token cookie on safe requests for later use
-            if request.method == "GET" and not request.url.path.startswith("/api"):
+            # Set CSRF token cookie on GET requests to ensure state-changing actions are protected
+            if request.method == "GET":
                 response = self._set_csrf_cookie(request, response)
             return response
 
