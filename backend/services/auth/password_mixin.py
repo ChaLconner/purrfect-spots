@@ -10,6 +10,7 @@ from services.password_service import password_service
 from services.token_service import get_token_service
 from supabase import acreate_client
 from utils.datetime_utils import utc_now
+from utils.supabase_client import async_client_options
 
 logger = structlog.get_logger(__name__)
 
@@ -51,7 +52,7 @@ class AuthPasswordMixin(AuthBaseMixin):
             if not is_valid:
                 raise ValueError(error)
 
-            temp_client = await acreate_client(config.SUPABASE_URL, config.SUPABASE_KEY)
+            temp_client = await acreate_client(config.SUPABASE_URL, config.SUPABASE_KEY, options=async_client_options)
             temp_client.postgrest.auth(access_token)
             user_res = await temp_client.auth.get_user(access_token)
             if not user_res or not user_res.user:

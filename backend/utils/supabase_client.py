@@ -1,6 +1,8 @@
+import httpx
+
 from config import config
 from logger import logger
-from supabase import AClient, Client, acreate_client, create_client
+from supabase import AClient, AsyncClientOptions, Client, ClientOptions, acreate_client, create_client
 
 # Initialize Supabase clients
 # Use a fail-soft approach for development/test environments
@@ -21,14 +23,27 @@ if not supabase_key:
     # Use a dummy key for development/testing if not specified
     supabase_key = "dummy-anon-key"
 
+# Shared client options for timeouts
+client_options = ClientOptions(
+    httpx_client=httpx.Client(timeout=30.0),
+    postgrest_client_timeout=30.0,
+    storage_client_timeout=30.0,
+)
+
+async_client_options = AsyncClientOptions(
+    httpx_client=httpx.AsyncClient(timeout=30.0),
+    postgrest_client_timeout=30.0,
+    storage_client_timeout=30.0,
+)
+
 # Synchronous clients (for legacy support and small tasks)
-supabase: Client = create_client(supabase_url, supabase_key)
+supabase: Client = create_client(supabase_url, supabase_key, options=client_options)
 
 # Admin client
 supabase_service_key = config.SUPABASE_SERVICE_KEY
 supabase_admin: Client | None = None
 if supabase_service_key:
-    supabase_admin = create_client(supabase_url, supabase_service_key)
+    supabase_admin = create_client(supabase_url, supabase_service_key, options=client_options)
     logger.info("Supabase Admin Access: Enabled")
 else:
     logger.warning("SUPABASE_SERVICE_ROLE_KEY not found - admin operations will use regular client")
@@ -54,7 +69,7 @@ async def get_async_supabase_client() -> AClient:
     """Get high-performance async Supabase client"""
     global _async_supabase
     if _async_supabase is None:
-        _async_supabase = await acreate_client(supabase_url, supabase_key)
+        _async_supabase = await acreate_client(supabase_url, supabase_key, options=async_client_options)
     return _async_supabase
 
 
@@ -63,5 +78,5 @@ async def get_async_supabase_admin_client() -> AClient:
     global _async_supabase_admin
     if _async_supabase_admin is None:
         service_key = config.SUPABASE_SERVICE_KEY or config.SUPABASE_KEY
-        _async_supabase_admin = await acreate_client(supabase_url, service_key)
+        _async_supabase_admin = await acreate_client(supabase_url, service_key, options=async_client_options)
     return _async_supabase_admin

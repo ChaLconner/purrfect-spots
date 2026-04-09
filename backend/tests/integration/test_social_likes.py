@@ -2,10 +2,11 @@ import os
 import uuid
 from unittest.mock import MagicMock
 
+import httpx
 import pytest
 from dotenv import load_dotenv
 
-from supabase import Client, create_client
+from supabase import Client, ClientOptions, create_client
 
 # Load environment variables
 load_dotenv()
@@ -25,14 +26,24 @@ class TestSocialLikesIntegration:
     @pytest.fixture(scope="class")
     def supabase(self):
         """Create a Supabase client with service role for admin access"""
-        return create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+        options = ClientOptions(
+            httpx_client=httpx.Client(timeout=30.0),
+            postgrest_client_timeout=30.0,
+            storage_client_timeout=30.0,
+        )
+        return create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=options)
 
     @pytest.fixture(scope="class")
     def test_user(self, supabase: Client):
         """Get or create a test user"""
         # Try to find an existing user first to avoid cluttering auth.users
         # Note: listing users requires admin privileges which service_key has
-        users = supabase.auth.admin.list_users()
+        # Use per_page=1 to minimize data transfer and avoid timeouts
+        users_resp = supabase.auth.admin.list_users(per_page=1)
+
+        # gotrue-py might return a list or a PaginationResponse depending on version
+        users = getattr(users_resp, "users", users_resp)
+
         if users and len(users) > 0:
             return users[0]
 

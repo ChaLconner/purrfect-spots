@@ -6,7 +6,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from config import config
-from supabase import Client, create_client
+from utils.supabase_client import get_supabase_admin_client
 
 # Initialize Supabase Client (Service Role for seeding)
 # Check if service role key exists, otherwise warn
@@ -14,7 +14,7 @@ if not config.SUPABASE_SERVICE_KEY:
     print("Error: SUPABASE_SERVICE_KEY is missing in config.")
     sys.exit(1)
 
-supabase: Client = create_client(config.SUPABASE_URL, config.SUPABASE_SERVICE_KEY)
+supabase = get_supabase_admin_client()
 
 # Initial Data Definitions
 INITIAL_ROLES = [
