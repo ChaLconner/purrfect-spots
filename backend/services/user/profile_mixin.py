@@ -24,7 +24,12 @@ class UserProfileMixin(UserBaseMixin):
             user_record = self._prepare_user_record(user_data, user_id)
 
             if self.db:
-                await self._upsert_user_sql(user_id, user_record)
+                try:
+                    await self._upsert_user_sql(user_id, user_record)
+                except Exception as e:
+                    await self.db.rollback()
+                    logger.warning(f"SQL _upsert_user failed, falling back to Supabase: {e}")
+                    await self._upsert_user_supabase(user_id, user_record)
             else:
                 await self._upsert_user_supabase(user_id, user_record)
 
@@ -95,16 +100,20 @@ class UserProfileMixin(UserBaseMixin):
         """Update user profile (Async)"""
         try:
             if self.db:
-                safe_cols = [k for k in update_data if k in {"name", "username", "bio", "picture"}]
-                cols = ", ".join([f"{k} = :{k}" for k in safe_cols])
-                query = text(f"UPDATE users SET {cols}, updated_at = NOW() WHERE id = :u_id RETURNING *")  # noqa: S608
-                params = {**{k: v for k, v in update_data.items() if k in safe_cols}, "u_id": user_id}
-                db_res = await self.db.execute(query, params)
-                row = db_res.fetchone()
-                if not row:
-                    raise ValueError("User not found or update failed")
-                await self.db.commit()
-                return dict(row._mapping)
+                try:
+                    safe_cols = [k for k in update_data if k in {"name", "username", "bio", "picture"}]
+                    cols = ", ".join([f"{k} = :{k}" for k in safe_cols])
+                    query = text(f"UPDATE users SET {cols}, updated_at = NOW() WHERE id = :u_id RETURNING *")  # noqa: S608
+                    params = {**{k: v for k, v in update_data.items() if k in safe_cols}, "u_id": user_id}
+                    db_res = await self.db.execute(query, params)
+                    row = db_res.fetchone()
+                    if row:
+                        await self.db.commit()
+                        return dict(row._mapping)
+                except Exception as e:
+                    await self.db.rollback()
+                    logger.warning(f"SQL update_user_profile failed, falling back to Supabase: {e}")
+
             admin = await self._get_admin_client()
             supa_res = await admin.table("users").update(update_data).eq("id", user_id).execute()
             if not supa_res or not supa_res.data:
