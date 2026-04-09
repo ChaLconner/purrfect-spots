@@ -1,24 +1,7 @@
-import httpx
-
 from config import config
 from logger import logger
 from supabase import AClient, AClientOptions, Client, ClientOptions, acreate_client, create_client
-
-# Internal HTTPX client pool for performance and to avoid [Errno 99] port exhaustion
-_shared_httpx_client: httpx.AsyncClient | None = None
-
-
-def get_shared_httpx_client() -> httpx.AsyncClient:
-    global _shared_httpx_client
-    if _shared_httpx_client is None:
-        # Use a large enough pool and short keep-alives for serverless execution
-        _shared_httpx_client = httpx.AsyncClient(
-            timeout=30.0,
-            limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
-            trust_env=False,
-        )
-    return _shared_httpx_client
-
+from utils.http_client import get_shared_httpx_client
 
 # Initialize Supabase clients
 # Use a fail-soft approach for development/test environments
@@ -43,7 +26,8 @@ if not supabase_key:
     # Use a dummy key for development/testing if not specified
     supabase_key = "dummy-anon-key"
 
-# Shared client options for timeouts
+# Shared client options for timeouts and connection pooling
+# Using a shared http_client prevents [Errno 99] port exhaustion
 client_options = ClientOptions(
     postgrest_client_timeout=30.0,
     storage_client_timeout=30.0,
@@ -52,6 +36,7 @@ client_options = ClientOptions(
 async_client_options = AClientOptions(
     postgrest_client_timeout=30.0,
     storage_client_timeout=30.0,
+    http_client=get_shared_httpx_client(),
 )
 
 # Synchronous clients (for legacy support and small tasks)

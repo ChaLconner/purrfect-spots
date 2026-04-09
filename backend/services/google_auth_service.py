@@ -6,12 +6,12 @@ Handles Google OAuth 2.0 flow:
 - Exchanging auth codes for tokens via PKCE
 """
 
-import httpx
 from google.auth.transport import requests
 from google.oauth2 import id_token
 
 from config import config
 from logger import logger
+from utils.http_client import get_shared_httpx_client
 
 
 class GoogleAuthService:
@@ -70,12 +70,12 @@ class GoogleAuthService:
             }
             headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
-            async with httpx.AsyncClient() as client:
-                response = await client.post(token_url, data=data, headers=headers)
+            client = get_shared_httpx_client()
+            response = await client.post(token_url, data=data, headers=headers, timeout=10.0)
 
-                if response.status_code != 200:
-                    logger.warning(f"[OAuth] External exchange unsuccessful: {response.status_code} - {response.text}")
-                    raise ValueError(f"Token exchange failed: {response.text}")
+            if response.status_code != 200:
+                logger.warning(f"[OAuth] External exchange unsuccessful: {response.status_code} - {response.text}")
+                raise ValueError(f"Token exchange failed: {response.text}")
 
                 token_data = response.json()
                 access_token = token_data.get("access_token")

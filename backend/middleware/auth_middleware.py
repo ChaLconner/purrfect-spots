@@ -70,7 +70,7 @@ async def get_jwks() -> dict | None:
     if _jwks_cache and (current_time - _jwks_last_update < JWKS_CACHE_TTL):
         return _jwks_cache
 
-    from utils.supabase_client import get_shared_httpx_client
+    from utils.http_client import get_shared_httpx_client
 
     try:
         client = get_shared_httpx_client()

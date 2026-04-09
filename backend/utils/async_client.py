@@ -4,6 +4,7 @@ import httpx
 
 from config import config
 from logger import logger
+from utils.http_client import get_shared_httpx_client
 
 
 class AsyncSupabaseClient:
@@ -34,19 +35,19 @@ class AsyncSupabaseClient:
         if jwt_token:
             headers["Authorization"] = f"Bearer {jwt_token}"
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            try:
-                response = await client.post(url, headers=headers, json=params or {})
-                response.raise_for_status()
-                return cast(list[dict[str, Any]], response.json())
-            except httpx.HTTPStatusError as e:
-                is_auth_error = e.response.status_code in (401, 403)
-                log_func = logger.warning if is_auth_error else logger.error
-                log_func(f"Async RPC {function_name} failed ({e.response.status_code}): {e.response.text}")
-                raise
-            except Exception as e:
-                logger.error(f"Async RPC {function_name} error: {type(e).__name__}: {str(e)}")
-                raise
+        client = get_shared_httpx_client()
+        try:
+            response = await client.post(url, headers=headers, json=params or {}, timeout=self.timeout)
+            response.raise_for_status()
+            return cast(list[dict[str, Any]], response.json())
+        except httpx.HTTPStatusError as e:
+            is_auth_error = e.response.status_code in (401, 403)
+            log_func = logger.warning if is_auth_error else logger.error
+            log_func(f"Async RPC {function_name} failed ({e.response.status_code}): {e.response.text}")
+            raise
+        except Exception as e:
+            logger.error(f"Async RPC {function_name} error: {type(e).__name__}: {str(e)}")
+            raise
 
     async def select(
         self,
@@ -84,19 +85,19 @@ class AsyncSupabaseClient:
         if jwt_token:
             headers["Authorization"] = f"Bearer {jwt_token}"
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            try:
-                response = await client.get(url, headers=headers, params=cast(Any, params))
-                response.raise_for_status()
-                return cast(list[dict[str, Any]], response.json())
-            except httpx.HTTPStatusError as e:
-                is_auth_error = e.response.status_code in (401, 403)
-                log_func = logger.warning if is_auth_error else logger.error
-                log_func(f"Async SELECT {table} failed ({e.response.status_code}): {e.response.text}")
-                raise
-            except Exception as e:
-                logger.error(f"Async SELECT {table} error: {str(e)}")
-                raise
+        client = get_shared_httpx_client()
+        try:
+            response = await client.get(url, headers=headers, params=cast(Any, params), timeout=self.timeout)
+            response.raise_for_status()
+            return cast(list[dict[str, Any]], response.json())
+        except httpx.HTTPStatusError as e:
+            is_auth_error = e.response.status_code in (401, 403)
+            log_func = logger.warning if is_auth_error else logger.error
+            log_func(f"Async SELECT {table} failed ({e.response.status_code}): {e.response.text}")
+            raise
+        except Exception as e:
+            logger.error(f"Async SELECT {table} error: {str(e)}")
+            raise
 
     async def count(self, table: str, filters: dict[str, str] | None = None, jwt_token: str | None = None) -> int:
         """
@@ -114,26 +115,26 @@ class AsyncSupabaseClient:
         if filters:
             params.update(filters)
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            try:
-                # HEAD is even more efficient for just getting headers
-                response = await client.head(url, headers=headers, params=params)
-                response.raise_for_status()
+        client = get_shared_httpx_client()
+        try:
+            # HEAD is even more efficient for just getting headers
+            response = await client.head(url, headers=headers, params=params, timeout=self.timeout)
+            response.raise_for_status()
 
-                # Extract from Content-Range header: "0-0/123" -> 123
-                content_range = response.headers.get("Content-Range")
-                if content_range and "/" in content_range:
-                    return int(content_range.split("/")[-1])
+            # Extract from Content-Range header: "0-0/123" -> 123
+            content_range = response.headers.get("Content-Range")
+            if content_range and "/" in content_range:
+                return int(content_range.split("/")[-1])
+            return 0
+        except Exception as e:
+            logger.error(f"Async COUNT {table} failed: {str(e)}")
+            # Fallback to a small select if HEAD fails for some reason
+            try:
+                res = await self.select(table, columns="id", filters=filters, jwt_token=jwt_token)
+                return len(res)
+            except Exception as fallback_err:
+                logger.warning(f"Async COUNT {table} fallback also failed: {fallback_err}")
                 return 0
-            except Exception as e:
-                logger.error(f"Async COUNT {table} failed: {str(e)}")
-                # Fallback to a small select if HEAD fails for some reason
-                try:
-                    res = await self.select(table, columns="id", filters=filters, jwt_token=jwt_token)
-                    return len(res)
-                except Exception as fallback_err:
-                    logger.warning(f"Async COUNT {table} fallback also failed: {fallback_err}")
-                    return 0
 
     async def insert(self, table: str, data: dict[str, Any], jwt_token: str | None = None) -> list[dict[str, Any]]:
         """
@@ -147,19 +148,19 @@ class AsyncSupabaseClient:
         if jwt_token:
             headers["Authorization"] = f"Bearer {jwt_token}"
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            try:
-                response = await client.post(url, headers=headers, json=data)
-                response.raise_for_status()
-                return cast(list[dict[str, Any]], response.json())
-            except httpx.HTTPStatusError as e:
-                is_auth_error = e.response.status_code in (401, 403)
-                log_func = logger.warning if is_auth_error else logger.error
-                log_func(f"Async INSERT {table} failed ({e.response.status_code}): {e.response.text}")
-                raise
-            except Exception as e:
-                logger.error(f"Async INSERT {table} error: {str(e)}")
-                raise
+        client = get_shared_httpx_client()
+        try:
+            response = await client.post(url, headers=headers, json=data, timeout=self.timeout)
+            response.raise_for_status()
+            return cast(list[dict[str, Any]], response.json())
+        except httpx.HTTPStatusError as e:
+            is_auth_error = e.response.status_code in (401, 403)
+            log_func = logger.warning if is_auth_error else logger.error
+            log_func(f"Async INSERT {table} failed ({e.response.status_code}): {e.response.text}")
+            raise
+        except Exception as e:
+            logger.error(f"Async INSERT {table} error: {str(e)}")
+            raise
 
     async def delete(self, table: str, filters: dict[str, str], jwt_token: str | None = None) -> list[dict[str, Any]]:
         """
@@ -174,23 +175,23 @@ class AsyncSupabaseClient:
         if not filters:
             raise ValueError("Delete requires filters to be safe")
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            try:
-                response = await client.delete(url, headers=headers, params=filters)
-                response.raise_for_status()
-                # DELETE might return 204 No Content if Prefer: return=representation is not set
-                # But our default header has it.
-                if response.status_code == 204:
-                    return []
-                return cast(list[dict[str, Any]], response.json())
-            except httpx.HTTPStatusError as e:
-                is_auth_error = e.response.status_code in (401, 403)
-                log_func = logger.warning if is_auth_error else logger.error
-                log_func(f"Async DELETE {table} failed ({e.response.status_code}): {e.response.text}")
-                raise
-            except Exception as e:
-                logger.error(f"Async DELETE {table} error: {str(e)}")
-                raise
+        client = get_shared_httpx_client()
+        try:
+            response = await client.delete(url, headers=headers, params=filters, timeout=self.timeout)
+            response.raise_for_status()
+            # DELETE might return 204 No Content if Prefer: return=representation is not set
+            # But our default header has it.
+            if response.status_code == 204:
+                return []
+            return cast(list[dict[str, Any]], response.json())
+        except httpx.HTTPStatusError as e:
+            is_auth_error = e.response.status_code in (401, 403)
+            log_func = logger.warning if is_auth_error else logger.error
+            log_func(f"Async DELETE {table} failed ({e.response.status_code}): {e.response.text}")
+            raise
+        except Exception as e:
+            logger.error(f"Async DELETE {table} error: {str(e)}")
+            raise
 
     async def update(
         self, table: str, data: dict[str, Any], filters: dict[str, str], jwt_token: str | None = None
@@ -209,19 +210,19 @@ class AsyncSupabaseClient:
         if not filters:
             raise ValueError("Update requires filters to be safe")
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            try:
-                response = await client.patch(url, headers=headers, json=data, params=filters)
-                response.raise_for_status()
-                return cast(list[dict[str, Any]], response.json())
-            except httpx.HTTPStatusError as e:
-                is_auth_error = e.response.status_code in (401, 403)
-                log_func = logger.warning if is_auth_error else logger.error
-                log_func(f"Async UPDATE {table} failed ({e.response.status_code}): {e.response.text}")
-                raise
-            except Exception as e:
-                logger.error(f"Async UPDATE {table} error: {str(e)}")
-                raise
+        client = get_shared_httpx_client()
+        try:
+            response = await client.patch(url, headers=headers, json=data, params=filters, timeout=self.timeout)
+            response.raise_for_status()
+            return cast(list[dict[str, Any]], response.json())
+        except httpx.HTTPStatusError as e:
+            is_auth_error = e.response.status_code in (401, 403)
+            log_func = logger.warning if is_auth_error else logger.error
+            log_func(f"Async UPDATE {table} failed ({e.response.status_code}): {e.response.text}")
+            raise
+        except Exception as e:
+            logger.error(f"Async UPDATE {table} error: {str(e)}")
+            raise
 
 
 # Singleton instance

@@ -210,6 +210,7 @@ tags_metadata = [
 from contextlib import asynccontextmanager
 
 from tasks.cleanup_tasks import start_cleanup_jobs, stop_cleanup_jobs
+from utils.http_client import close_shared_httpx_client
 from utils.telemetry import setup_telemetry
 
 
@@ -218,6 +219,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await start_cleanup_jobs()
     yield
     await stop_cleanup_jobs()
+    await close_shared_httpx_client()
 
 
 # ========== FastAPI Application ==========

@@ -8,13 +8,13 @@ Uses MaxMind GeoLite2 database or IP-API for country detection.
 import os
 from collections.abc import Awaitable, Callable
 
-import httpx
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp
 
 from logger import logger
+from utils.http_client import get_shared_httpx_client
 
 
 class GeoBlockingMiddleware(BaseHTTPMiddleware):
@@ -62,15 +62,15 @@ class GeoBlockingMiddleware(BaseHTTPMiddleware):
             return None
 
         try:
-            async with httpx.AsyncClient(timeout=2.0) as client:
-                response = await client.get(f"http://ip-api.com/json/{ip_address}?fields=countryCode,status")
-                if response.status_code == 200:
-                    data = response.json()
-                    if data.get("status") == "success":
-                        country_code = data.get("countryCode", "")
-                        self._geo_cache[ip_address] = country_code
-                        self._geo_cache_time[ip_address] = now
-                        return country_code
+            client = get_shared_httpx_client()
+            response = await client.get(f"http://ip-api.com/json/{ip_address}?fields=countryCode,status", timeout=2.0)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("status") == "success":
+                    country_code = data.get("countryCode", "")
+                    self._geo_cache[ip_address] = country_code
+                    self._geo_cache_time[ip_address] = now
+                    return country_code
         except Exception as e:
             logger.warning(f"Geo-blocking lookup failed for {ip_address}: {e}")
 
