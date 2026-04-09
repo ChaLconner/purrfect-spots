@@ -30,33 +30,44 @@ class QuotaService:
         since = now - datetime.timedelta(hours=48)
 
         try:
+            timestamps = []
             if self.db:
-                query = text(
-                    "SELECT uploaded_at FROM cat_photos "
-                    "WHERE user_id = :u_id "
-                    "AND uploaded_at > :since "
-                    "AND deleted_at IS NULL "
-                    "ORDER BY uploaded_at ASC"
-                )
-                result = await self.db.execute(query, {"u_id": user_id, "since": since})
-                rows = result.fetchall()
-                timestamps = [row[0] for row in rows]
-            else:
-                res = (
-                    await self.supabase.table("cat_photos")
-                    .select("uploaded_at")
-                    .eq("user_id", user_id)
-                    .gt("uploaded_at", since.isoformat())
-                    .is_("deleted_at", "null")
-                    .order("uploaded_at", desc=False)
-                    .execute()
-                )
-                timestamps = [
-                    datetime.datetime.fromisoformat(cast(dict[str, Any], item)["uploaded_at"].replace("Z", "+00:00"))
-                    for item in res.data
-                ]
+                try:
+                    query = text(
+                        "SELECT uploaded_at FROM cat_photos "
+                        "WHERE user_id = :u_id "
+                        "AND uploaded_at > :since "
+                        "AND deleted_at IS NULL "
+                        "ORDER BY uploaded_at ASC"
+                    )
+                    result = await self.db.execute(query, {"u_id": user_id, "since": since})
+                    rows = result.fetchall()
+                    timestamps = [row[0] for row in rows]
+                except Exception as e:
+                    logger.warning(f"SQL quota fetch failed, falling back to Supabase client: {e}")
+
+            if not timestamps and self.supabase:
+                try:
+                    res = (
+                        await self.supabase.table("cat_photos")
+                        .select("uploaded_at")
+                        .eq("user_id", user_id)
+                        .gt("uploaded_at", since.isoformat())
+                        .is_("deleted_at", "null")
+                        .order("uploaded_at", desc=False)
+                        .execute()
+                    )
+                    timestamps = [
+                        datetime.datetime.fromisoformat(
+                            cast(dict[str, Any], item)["uploaded_at"].replace("Z", "+00:00")
+                        )
+                        for item in res.data
+                    ]
+                except Exception as e:
+                    logger.error(f"Supabase quota fallback failed: {e}")
 
             if not timestamps:
+                # If everything failed, or no photos found, return 0
                 return 0, None
 
             # Algorithm to find the active window:
@@ -90,12 +101,18 @@ class QuotaService:
         # 1. Check Global usage (System-wide daily limit)
         today = datetime.date.today().isoformat()
         try:
+            sys_total = 0
             if self.db:
-                query = text("SELECT total_uploads FROM system_daily_stats WHERE date = :today LIMIT 1")
-                result = await self.db.execute(query, {"today": today})
-                row = result.fetchone()
-                sys_total = row[0] if row else 0
-            else:
+                try:
+                    query = text("SELECT total_uploads FROM system_daily_stats WHERE date = :today LIMIT 1")
+                    result = await self.db.execute(query, {"today": today})
+                    row = result.fetchone()
+                    sys_total = row[0] if row else 0
+                except Exception as e:
+                    logger.warning(f"SQL global quota check failed, falling back to Supabase client: {e}")
+                    sys_total = -1  # Trigger fallback below
+
+            if not self.db or sys_total == -1:
                 sys_usage = (
                     await self.supabase.table("system_daily_stats")
                     .select("total_uploads")
