@@ -339,6 +339,12 @@ def mock_supabase_auth():
 
 
 @pytest.fixture
+def mock_user():
+    """Fixture that returns a MockUser instance"""
+    return MockUser()
+
+
+@pytest.fixture
 def auth_headers():
     """Standard authorization headers for tests"""
     return {"Authorization": "Bearer test-token"}
