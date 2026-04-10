@@ -33,8 +33,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # General workflow configuration
-  CI: true
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
 

@@ -40,11 +40,8 @@ env:
   PYTHON_VERSION: "3.12"
   NODE_VERSION: "22"
   CACHE_VERSION: v1
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
-env:
-  PYTHON_VERSION: "3.12"
-  NODE_VERSION: "22"
-  CACHE_VERSION: v1
 
 permissions:
   contents: read
@@ -199,7 +196,7 @@ jobs:
           fi
           python scripts/export_openapi.py --output ../docs/openapi-current.json
       - name: Upload Spec
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: openapi-specs
           path: docs/openapi-*.json
@@ -286,7 +283,7 @@ jobs:
       - name: Build
         run: npm run build -w frontend
       - name: Upload Artifact
-        uses: actions/upload-artifact@4cea103f20502d8f08c3f45404e9c608ed767203 # v4.6.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: frontend-build
           path: frontend/dist
