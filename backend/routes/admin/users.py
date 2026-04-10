@@ -88,7 +88,7 @@ async def list_users(
         if search:
             # OPTIMIZATION: Using Full Text Search (FTS) index
             # Ensure index idx_users_search_vector remains sync'd
-            query = query.text_search("search_vector", f"'{search}'")
+            query = cast(Any, query.text_search("search_vector", f"'{search}'"))
 
         result = await query.execute()
         users_data = result.data

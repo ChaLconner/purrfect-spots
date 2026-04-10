@@ -15,7 +15,9 @@ except ImportError:
         def get_logger(self, *args, **kwargs):
             return logging.getLogger("purrfect_spots.fallback")
 
-    sys.modules["structlog"] = DummyStructlog()
+    from typing import Any, cast
+
+    sys.modules["structlog"] = cast(Any, DummyStructlog())
 
 from main import app  # noqa: F401, E402
 

@@ -394,8 +394,8 @@ watch(searchQuery, (newQuery) => {
 
 // Fit bounds only when (search changed AND we have new data AND we haven't fitted yet)
 watch(
-  [() => displayedLocations.value.length],
-  ([count]) => {
+  [(): number => displayedLocations.value.length],
+  ([count]): void => {
     if (
       searchQuery.value && 
       map.value && 

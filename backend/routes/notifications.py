@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, Query
 
@@ -20,7 +20,7 @@ async def get_notifications(
     offset: int = Query(0, ge=0),
 ) -> list[NotificationResponse]:
     """Get user notifications."""
-    return await service.get_notifications(current_user.id, limit, offset)
+    return cast(Any, await service.get_notifications(current_user.id, limit, offset))
 
 
 @router.put("/{id}/read", response_model=MessageResponse)

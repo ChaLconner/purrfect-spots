@@ -31,7 +31,7 @@ async def list_all_comments(
     page_size: Annotated[int, Query(ge=1, le=1000)] = 20,
     search: Annotated[str | None, Query()] = None,
     reported_only: Annotated[bool, Query()] = False,
-    current_admin: Annotated[User, Depends(require_permission("comments:manage"))] = None,
+    current_admin: User = Depends(require_permission("comments:manage")),
 ):
     """List all comments across the platform with pagination, search and counts."""
     try:
@@ -120,7 +120,7 @@ async def list_all_comments(
 @router.get("/{comment_id}/reports")
 async def get_comment_report_details(
     comment_id: str,
-    current_admin: Annotated[User, Depends(require_permission("comments:manage"))] = None,
+    current_admin: User = Depends(require_permission("comments:manage")),
 ):
     """Get detailed report reasons for a specific comment."""
     try:
@@ -142,7 +142,7 @@ async def get_comment_report_details(
 async def resolve_comment_reports(
     comment_id: str,
     request: Request,
-    current_admin: Annotated[User, Depends(require_permission("comments:manage"))] = None,
+    current_admin: User = Depends(require_permission("comments:manage")),
 ):
     """Dismiss all pending reports for a comment (Mark as Safe)."""
     try:
@@ -191,7 +191,7 @@ async def delete_comment(
     comment_id: str,
     request: Request,
     background_tasks: BackgroundTasks,
-    current_admin: Annotated[User, Depends(require_permission("comments:manage"))] = None,
+    current_admin: User = Depends(require_permission("comments:manage")),
     notification_service: NotificationService = Depends(get_notification_service),
 ):
     """Delete a comment (Moderation)."""
@@ -264,7 +264,7 @@ async def ban_user_by_comment(
     comment_id: str,
     request: Request,
     background_tasks: BackgroundTasks,
-    current_admin: Annotated[User, Depends(require_permission("comments:manage"))] = None,
+    current_admin: User = Depends(require_permission("comments:manage")),
     notification_service: NotificationService = Depends(get_notification_service),
 ):
     """Ban the author of a specific comment."""
@@ -336,7 +336,7 @@ async def bulk_delete_comments(
     action_data: BulkCommentAction,
     request: Request,
     background_tasks: BackgroundTasks,
-    current_admin: Annotated[User, Depends(require_permission("comments:manage"))] = None,
+    current_admin: User = Depends(require_permission("comments:manage")),
     notification_service: NotificationService = Depends(get_notification_service),
 ):
     """Delete multiple comments in a single action."""
@@ -404,7 +404,7 @@ async def bulk_delete_comments(
 async def bulk_resolve_comments(
     action_data: BulkCommentAction,
     request: Request,
-    current_admin: Annotated[User, Depends(require_permission("comments:manage"))] = None,
+    current_admin: User = Depends(require_permission("comments:manage")),
 ):
     """Dismiss reports for multiple comments in a single action."""
     try:

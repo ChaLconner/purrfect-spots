@@ -1,7 +1,7 @@
 import asyncio
 from collections import Counter
 from datetime import date, datetime, timedelta
-from typing import Annotated, Any
+from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from postgrest.types import CountMethod
@@ -161,7 +161,7 @@ async def _fetch_monthly_report_fallback(admin_client: Any, report_year: int) ->
 @limiter.limit("10/minute")
 async def get_dashboard_summary(
     request: Request,
-    current_admin: Annotated[User | None, Depends(require_permission("system:stats"))] = None,
+    current_admin: User = Depends(require_permission("system:stats")),
 ) -> dict[str, Any]:
     """
     Consolidated dashboard summary: stats, trends, and monthly data.
@@ -188,8 +188,8 @@ async def get_dashboard_summary(
         all_res = await asyncio.gather(*stats_tasks, trends_task, monthly_task)
         user_res, photo_res, pending_res, total_res, trends_res, monthly_res = all_res
 
-        trends_data = trends_res.data or {}
-        monthly_data = monthly_res.data or []
+        trends_data: dict[str, Any] = cast(Any, trends_res.data or {})
+        monthly_data: list[Any] = cast(Any, monthly_res.data or [])
 
         if not trends_data:
             trends_data = await _fetch_trends_fallback(admin_client, days_back=30)
@@ -278,7 +278,7 @@ async def get_dashboard_summary(
 @limiter.limit("5/minute")
 async def get_system_trends(
     request: Request,
-    current_admin: Annotated[User | None, Depends(require_permission("system:stats"))] = None,
+    current_admin: User = Depends(require_permission("system:stats")),
 ) -> dict[str, Any]:
     """
     Get 30-day activity trends.
@@ -314,7 +314,7 @@ async def get_system_trends(
 async def get_monthly_stats(
     request: Request,
     year: int | None = None,
-    current_admin: Annotated[User | None, Depends(require_permission("system:stats"))] = None,
+    current_admin: User = Depends(require_permission("system:stats")),
 ) -> dict[str, Any]:
     """
     Get monthly system performance report.

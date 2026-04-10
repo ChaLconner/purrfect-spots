@@ -19,7 +19,7 @@ class RolePermissionUpdate(BaseModel):
 
 @router.get("")
 async def list_roles(
-    current_admin: Annotated[User, Depends(require_permission("roles:read"))] = None,
+    current_admin: Annotated[User, Depends(require_permission("roles:read"))],
 ):
     """List all available roles."""
     cache_key = "admin_roles_list"
@@ -38,7 +38,7 @@ async def list_roles(
 
 @router.get("/permissions")
 async def list_permissions(
-    current_admin: Annotated[User, Depends(require_permission("roles:manage"))] = None,
+    current_admin: Annotated[User, Depends(require_permission("roles:manage"))],
 ):
     """List all available permissions."""
     cache_key = "admin_permissions_list"
@@ -58,7 +58,7 @@ async def list_permissions(
 @router.get("/{role_id}/permissions")
 async def get_role_permissions(
     role_id: str,
-    current_admin: Annotated[User, Depends(require_permission("roles:read"))] = None,
+    current_admin: Annotated[User, Depends(require_permission("roles:read"))],
 ):
     """Get permissions assigned to a specific role."""
     try:
@@ -75,7 +75,7 @@ async def update_role_permissions(
     role_id: str,
     request: Request,
     data: RolePermissionUpdate,
-    current_admin: Annotated[User, Depends(require_permission("roles:manage"))] = None,
+    current_admin: Annotated[User, Depends(require_permission("roles:manage"))],
 ):
     """Update permissions for a specific role (Sync)."""
     try:

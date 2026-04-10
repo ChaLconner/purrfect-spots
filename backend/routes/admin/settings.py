@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
@@ -71,7 +71,7 @@ async def get_setting_history(key: str, current_admin: Annotated[User, Depends(r
                 "id, config_key, old_value, new_value, changed_by, change_reason, created_at, user:users!changed_by(email)"
             )
             .eq("config_key", key)
-            .order("created_at", descending=True)
+            .order("created_at", desc=True)
             .execute()
         )
         history_entries = []
@@ -148,8 +148,7 @@ async def update_setting(
             update_values["category"] = update_data.category
 
         result = (
-            await admin_client.table("system_configs")
-            .update(update_values)
+            await cast(Any, admin_client.table("system_configs").update(update_values))
             .eq("key", key)
             .select(
                 "key, value, type, description, category, is_public, is_encrypted, requires_approval, updated_at, updated_by"
@@ -249,8 +248,12 @@ async def approve_change(
 
         # 3. Update main config
         update_result = (
-            await admin_client.table("system_configs")
-            .update({"value": change["proposed_value"], "updated_by": current_admin.id})
+            await cast(
+                Any,
+                admin_client.table("system_configs").update(
+                    {"value": change["proposed_value"], "updated_by": current_admin.id}
+                ),
+            )
             .eq("key", change["config_key"])
             .select(
                 "key, value, type, description, category, is_public, is_encrypted, requires_approval, updated_at, updated_by"
@@ -342,11 +345,11 @@ async def reject_change(
         )
         if requester_res.data:
             email_service.send_admin_config_result(
-                requester_res.data["email"],
-                change["config_key"],
+                str(requester_res.data["email"]),
+                str(change["config_key"]),
                 "rejected",
                 (current_admin.name or current_admin.email),
-                payload.rejection_reason,
+                str(payload.rejection_reason or ""),
             )
 
         return {"status": "rejected", "change_id": change_id}

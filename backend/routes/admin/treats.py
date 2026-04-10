@@ -27,7 +27,7 @@ async def list_treat_transactions(
     offset: Annotated[int, Query(ge=0)] = 0,
     transaction_type: Annotated[str | None, Query()] = None,
     search: Annotated[str | None, Query()] = None,
-    current_admin: Annotated[User, Depends(require_permission("treats:manage"))] = None,
+    current_admin: User = Depends(require_permission("treats:manage")),
 ):
     """List all treat transactions (purchases, giving, grants)."""
     try:
@@ -98,7 +98,7 @@ async def _fetch_treat_stats_fallback(admin_client) -> dict:
 
 @router.get("/stats")
 async def get_treat_stats(
-    current_admin: Annotated[User, Depends(require_permission("treats:manage"))] = None,
+    current_admin: User = Depends(require_permission("treats:manage")),
 ):
     """Get global treat statistics."""
     try:
@@ -127,7 +127,7 @@ async def get_treat_stats(
 async def search_users_for_grant(
     q: Annotated[str, Query(min_length=1, max_length=100)],
     limit: Annotated[int, Query(ge=1, le=20)] = 10,
-    current_admin: Annotated[User, Depends(require_permission("treats:manage"))] = None,
+    current_admin: User = Depends(require_permission("treats:manage")),
 ):
     """Search users by name or email for the grant modal."""
     try:
@@ -149,7 +149,7 @@ async def search_users_for_grant(
 async def grant_treats_manually(
     request: Request,
     data: GrantTreatRequest,
-    current_admin: Annotated[User, Depends(require_permission("treats:manage"))] = None,
+    current_admin: User = Depends(require_permission("treats:manage")),
 ):
     """Manually grant treats to a user (System Grant)."""
     try:

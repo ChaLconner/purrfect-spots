@@ -110,7 +110,7 @@ async def update_profile(
                 )
 
             # Check for uniqueness if username changed (case-insensitive)
-            if username.lower() != current_user.username.lower():
+            if username.lower() != (current_user.username or "").lower():
                 existing_user = await auth_service.user_service.get_user_by_username(username)
                 if existing_user:
                     raise HTTPException(status_code=409, detail="Username already taken")
@@ -542,7 +542,7 @@ async def delete_user_photo(
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     gallery_service: Annotated[GalleryService, Depends(get_admin_gallery_service)],
     storage_service: Annotated[StorageService, Depends(get_storage_service)],
-) -> dict[str, str]:
+) -> PhotoDeleteResponse:
     """
     Delete a user's uploaded photo with background processing
 

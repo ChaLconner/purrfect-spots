@@ -194,9 +194,11 @@ class GalleryReadMixin(GalleryBaseMixin):
 
             raise ExternalServiceError(f"Failed to fetch photo {photo_id}", service="Supabase")
 
-    async def enrich_with_user_data(self, photos: list[dict[str, Any]], user_id: str) -> list[dict[str, Any]]:
-        if not photos:
-            return []
+    async def enrich_with_user_data(
+        self, photos: list[dict[str, Any]], user_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        if not photos or not user_id:
+            return photos
         try:
             liked_ids = await self._get_user_liked_photo_ids(user_id)
             for photo in photos:
