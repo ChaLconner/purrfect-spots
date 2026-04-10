@@ -8,6 +8,8 @@ import { createI18n } from 'vue-i18n';
 
 // Avoid JSDOM attempting to load static assets warnings (if any)
 config.global.stubs = {
+  RouterLink: true,
+  RouterView: true,
   'router-link': true,
   'router-view': true,
   'i18n-t': { template: '<span class="i18n-stub"><slot /></span>' },

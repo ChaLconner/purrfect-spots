@@ -142,7 +142,7 @@ describe('useAdminTable', () => {
     /* Commenting out failing multi-batch test to allow coverage check to pass
     it('should export data successfully with multiple batches', async () => {
       // Create a blob mock
-      const blobSpy = vi.spyOn(global, 'Blob').mockImplementation(() => ({}) as any);
+      const blobSpy = vi.spyOn(global, 'Blob').mockImplementation(function() { return {} } as any);
       const createObjectURLSpy = vi.fn().mockReturnValue('blob:url');
       global.URL.createObjectURL = createObjectURLSpy;
       global.URL.revokeObjectURL = vi.fn();
@@ -194,7 +194,7 @@ describe('useAdminTable', () => {
     });
 
     it('should correctly escape CSV values', async () => {
-      const blobSpy = vi.spyOn(global, 'Blob').mockImplementation(() => ({}) as any);
+      const blobSpy = vi.spyOn(global, 'Blob').mockImplementation(function() { return {} } as any);
       global.URL.createObjectURL = vi.fn().mockReturnValue('blob:url');
       
       const mockElement = {
