@@ -19,6 +19,11 @@ export default defineConfig({
     root: './',
     include: ['tests/**/*.spec.ts'],
     setupFiles: ['./tests/setup.ts'],
+    server: {
+      deps: {
+        inline: ['@vue/test-utils'],
+      },
+    },
 coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov', 'json'],
