@@ -15,7 +15,7 @@ runs:
   using: "composite"
   steps:
     - name: Setup Node.js
-      uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+      uses: actions/setup-node@1d11999632ad914e85b9fa3482a6ab84812c590a # v4.2.0
       with:
         node-version: ${{ inputs.node-version }}
         cache: "npm"
