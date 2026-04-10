@@ -30,7 +30,7 @@
   "devDependencies": {
     "husky": "^9.1.7",
     "lint-staged": "^15.5.2",
-    "vite": "8.0.7"
+    "vite": "8.0.8"
   },
   "lint-staged": {
     "backend/**/*.py": [
