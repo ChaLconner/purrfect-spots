@@ -40,9 +40,6 @@ concurrency:
 permissions:
   contents: write
 
-env:
-  # Release environment config
-
 jobs:
 
   # ============================================================================

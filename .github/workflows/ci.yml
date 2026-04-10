@@ -41,6 +41,10 @@ env:
   NODE_VERSION: "22"
   CACHE_VERSION: v1
 
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "22"
+  CACHE_VERSION: v1
 
 permissions:
   contents: read
@@ -99,7 +103,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -120,7 +124,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -143,7 +147,7 @@ jobs:
         options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -178,7 +182,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -195,7 +199,7 @@ jobs:
           fi
           python scripts/export_openapi.py --output ../docs/openapi-current.json
       - name: Upload Spec
-        uses: actions/upload-artifact@4cea103f20502d8f08c3f45404e9c608ed767203 # v4.6.0
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
           name: openapi-specs
           path: docs/openapi-*.json
@@ -208,7 +212,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -235,7 +239,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
       - name: Setup Frontend
         uses: ./.github/actions/setup-frontend
         with:
@@ -253,7 +257,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
       - name: Setup Frontend
         uses: ./.github/actions/setup-frontend
         with:
@@ -274,7 +278,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
       - name: Setup Frontend
         uses: ./.github/actions/setup-frontend
         with:

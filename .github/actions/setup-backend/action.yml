@@ -19,7 +19,7 @@ runs:
   using: "composite"
   steps:
     - name: Set up Python
-      uses: actions/setup-python@f67864f4051c5658819d9b0485d99691b00e6205 # v5.3.0
+      uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
       with:
         python-version: ${{ inputs.python-version }}
         cache: "pip"

@@ -16,9 +16,6 @@ permissions:
   issues: write
   pull-requests: write
 
-env:
-  # Stale management config
-
 jobs:
 
   stale:

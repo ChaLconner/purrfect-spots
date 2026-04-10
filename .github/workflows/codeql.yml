@@ -33,7 +33,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # CodeQL analysis config
+  # General workflow configuration
+  CI: true
 
 jobs:
 

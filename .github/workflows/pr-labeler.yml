@@ -19,7 +19,8 @@ permissions:
   pull-requests: write
 
 env:
-  # Labeler config
+  # Labeler configuration
+  CI: true
 
 jobs:
 
