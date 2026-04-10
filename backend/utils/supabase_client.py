@@ -1,7 +1,6 @@
 from config import config
 from logger import logger
 from supabase import AClient, AClientOptions, Client, ClientOptions, acreate_client, create_client
-from utils.http_client import get_shared_httpx_client
 
 # Initialize Supabase clients
 # Use a fail-soft approach for development/test environments
@@ -36,7 +35,6 @@ client_options = ClientOptions(
 async_client_options = AClientOptions(
     postgrest_client_timeout=30.0,
     storage_client_timeout=30.0,
-    http_client=get_shared_httpx_client(),
 )
 
 # Synchronous clients (for legacy support and small tasks)

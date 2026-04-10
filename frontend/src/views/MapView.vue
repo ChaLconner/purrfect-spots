@@ -283,9 +283,13 @@ const initializeMap = async (): Promise<void> => {
       if (map.value) {
         mapBounds.value = map.value.getBounds() || null;
       }
-      requestAnimationFrame(() => {
-        debouncedViewportFetch();
-      });
+      
+      // Don't trigger fetch if we're already fetching or if fitting bounds is in progress
+      if (!isViewportFetching.value && !isLoading.value) {
+        requestAnimationFrame(() => {
+          debouncedViewportFetch();
+        });
+      }
     });
 
     // Initial Render - use RAF for smooth transition
@@ -375,31 +379,41 @@ watch(
   { deep: false, immediate: true }
 );
 
-// 2. ONLY Fit bounds when searching (triggered by search query change, NOT every data update)
+// 2. ONLY Fit bounds when searching (Manual trigger via searchQuery change)
 const hasFittedForCurrentSearch = ref(false);
 
-watch(searchQuery, (_newQuery) => {
+watch(searchQuery, (newQuery) => {
   hasFittedForCurrentSearch.value = false;
+  
+  // Explicitly fit bounds once when a new search starts
+  if (newQuery && map.value) {
+    // We wait for the next data update to actually fit
+    logger.info("New search query - will fit bounds on next data arrival");
+  }
 });
 
+// Fit bounds only when (search changed AND we have new data AND we haven't fitted yet)
 watch(
-  [searchQuery, () => displayedLocations.value.length],
-  ([newQuery, count], [oldQuery, oldCount]) => {
-    // Only fit bounds if search query actually changed or we got first results for a search
-    // AND we haven't already fitted bounds for this specific search result set
+  [() => displayedLocations.value.length],
+  ([count]) => {
     if (
-      newQuery && 
+      searchQuery.value && 
       map.value && 
       count > 0 && 
-      !hasFittedForCurrentSearch.value &&
-      (newQuery !== oldQuery || oldCount === 0)
+      !hasFittedForCurrentSearch.value
     ) {
       const locations = displayedLocations.value;
       if (locations.length > 1) {
         const bounds = new google.maps.LatLngBounds();
         locations.forEach((loc) => bounds.extend({ lat: loc.latitude, lng: loc.longitude }));
+        
+        // Use a temporary flag to prevent the 'idle' listener from refetching immediately
+        isViewportFetching.value = true; 
         map.value.fitBounds(bounds, MAP_CONFIG.FIT_BOUNDS_PADDING);
         hasFittedForCurrentSearch.value = true;
+        
+        // Release the lock after animation roughly finishes
+        setTimeout(() => { isViewportFetching.value = false; }, 1000);
       } else if (locations.length === 1) {
         map.value.panTo({ lat: locations[0].latitude, lng: locations[0].longitude });
         map.value.setZoom(15);
