@@ -20,6 +20,30 @@ async def client() -> AsyncGenerator[AsyncClient, None]:
         yield ac
 
 
+@pytest.fixture
+def mock_storage_service() -> MagicMock:
+    """Create mock storage service"""
+    service = MagicMock()
+    service.upload_file = AsyncMock(return_value="https://s3.example.com/cat.jpg")
+    return service
+
+
+@pytest.fixture
+def mock_cat_detection_service() -> MagicMock:
+    """Create mock cat detection service"""
+    service = MagicMock()
+    service.detect_cats = AsyncMock(
+        return_value={
+            "has_cats": True,
+            "cat_count": 1,
+            "confidence": 0.95,
+            "suitable_for_cat_spot": True,
+            "cats_detected": [{"name": "cat", "score": 0.95}],
+        }
+    )
+    return service
+
+
 class TestUploadRoute:
     """Test upload endpoint functionality"""
 
@@ -28,28 +52,7 @@ class TestUploadRoute:
         """Override auth dependency"""
         return mock_user
 
-    @pytest.fixture
-    def mock_storage_service(self) -> MagicMock:
-        """Create mock storage service"""
-        service = MagicMock()
-        service.upload_file = AsyncMock(return_value="https://s3.example.com/cat.jpg")
-        return service
-
-    @pytest.fixture
-    def mock_cat_detection_service(self) -> MagicMock:
-        """Create mock cat detection service"""
-        service = MagicMock()
-        service.detect_cats = AsyncMock(
-            return_value={
-                "has_cats": True,
-                "cat_count": 1,
-                "confidence": 0.95,
-                "suitable_for_cat_spot": True,
-                "cats_detected": [{"name": "cat", "score": 0.95}],
-            }
-        )
-        return service
-
+    @pytest.mark.asyncio
     async def test_upload_requires_authentication(self, client: AsyncClient, sample_image_bytes: bytes) -> None:
         """Test that upload requires authentication"""
         files = {"file": ("cat.jpg", io.BytesIO(sample_image_bytes), "image/jpeg")}
@@ -261,6 +264,7 @@ class TestUploadValidation:
             mock.limit = MagicMock(side_effect=lambda limit_value: lambda func: func)
             yield mock
 
+    @pytest.mark.asyncio
     async def test_upload_rejects_no_cats(
         self,
         client: AsyncClient,
@@ -319,6 +323,7 @@ class TestUploadValidation:
         assert response.status_code == 400
         assert "No cats detected" in response.json()["detail"]
 
+    @pytest.mark.asyncio
     async def test_upload_validates_coordinates(
         self,
         client: AsyncClient,
