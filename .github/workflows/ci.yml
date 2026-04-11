@@ -40,6 +40,7 @@ env:
   PYTHON_VERSION: "3.12"
   NODE_VERSION: "22"
   CACHE_VERSION: v1
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 
 permissions:
@@ -67,10 +68,10 @@ jobs:
       run_frontend: ${{ inputs.force_full_run == true || steps.filter.outputs.frontend == 'true' || steps.filter.outputs.ci == 'true' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v6
+        uses: actions/checkout@v5
 
       - name: Filter paths
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v4.0.0
+        uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
@@ -99,12 +100,13 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v6
+        uses: actions/checkout@v5
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           install-deps: "true"
+          enable-cache: "true"
       - name: Run Ruff
         run: |
           cd backend
@@ -119,7 +121,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v6
+        uses: actions/checkout@v5
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -142,7 +144,7 @@ jobs:
         options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v6
+        uses: actions/checkout@v5
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -160,7 +162,7 @@ jobs:
           cd backend
           pytest --cov=. --cov-report=xml:coverage.xml --cov-report=term-missing --cov-fail-under=60 -v --tb=short
       - name: Upload Report
-        uses: codecov/codecov-action@fdcc84775d713c7c8c830953a25c345330c6a815 # v5.5.0
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: backend/coverage.xml
@@ -175,7 +177,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v6
+        uses: actions/checkout@v5
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -192,7 +194,7 @@ jobs:
           fi
           python scripts/export_openapi.py --output ../docs/openapi-current.json
       - name: Upload Spec
-        uses: actions/upload-artifact@bbbca2d9b2323a6f4460d3d5f973c914b438b438 # v7.0.0
+        uses: actions/upload-artifact@v5
         with:
           name: openapi-specs
           path: docs/openapi-*.json
@@ -205,7 +207,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v6
+        uses: actions/checkout@v5
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -232,7 +234,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v6
+        uses: actions/checkout@v5
       - name: Setup Frontend
         uses: ./.github/actions/setup-frontend
         with:
@@ -250,7 +252,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v6
+        uses: actions/checkout@v5
       - name: Setup Frontend
         uses: ./.github/actions/setup-frontend
         with:
@@ -258,7 +260,7 @@ jobs:
       - name: Run Vitest
         run: npm run test:coverage -w frontend
       - name: Upload Coverage
-        uses: actions/upload-artifact@bbbca2d9b2323a6f4460d3d5f973c914b438b438 # v7.0.0
+        uses: actions/upload-artifact@v5
         with:
           name: frontend-coverage-report
           path: frontend/coverage
@@ -271,9 +273,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v6
+        uses: actions/checkout@v5
       - name: Setup Node.js
-        uses: actions/setup-node@39cd99261a1200160d5b682613d2f2d9396f7c94 # v6.2.0
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
@@ -281,7 +283,7 @@ jobs:
       - name: Build
         run: npm run build -w frontend
       - name: Upload Artifact
-        uses: actions/upload-artifact@bbbca2d9b2323a6f4460d3d5f973c914b438b438 # v7.0.0
+        uses: actions/upload-artifact@v5
         with:
           name: frontend-build
           path: frontend/dist
@@ -296,9 +298,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v6
+        uses: actions/checkout@v5
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@a2901b0d1cf3ff4857f5cdf63e42e26d35cfa5e1 # v0.29.0
+        uses: aquasecurity/trivy-action@0.33.1
         with:
           image-ref: "purrfect-spots-backend:latest"
           format: "sarif"
@@ -312,7 +314,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TRIVY_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@ee091136b69206771e846059d091e98d9e96e7c8 # v4.0.0
+        uses: github/codeql-action/upload-sarif@v4
         if: always() && hashFiles('trivy-results.sarif') != ''
         with:
           sarif_file: "trivy-results.sarif"
@@ -324,7 +326,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v6
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Pull Trufflehog Image
@@ -337,7 +339,7 @@ jobs:
             }
           done
       - name: Run TruffleHog OSS
-        uses: trufflesecurity/trufflehog@47e7b7c53e414c71887e35b7194f1c90558cf7b4 # v3.94.2
+        uses: trufflesecurity/trufflehog@v3.94.2
         with:
           path: ./
           base: ${{ github.event.repository.default_branch }}
@@ -353,12 +355,12 @@ jobs:
       image: semgrep/semgrep:1.99.0
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v6
+        uses: actions/checkout@v5
       - name: Semgrep
         run: |
           semgrep scan --config "p/default" --config "p/security-audit" --sarif --output semgrep.sarif .
       - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@ee091136b69206771e846059d091e98d9e96e7c8 # v4.0.0
+        uses: github/codeql-action/upload-sarif@v4
         if: always() && hashFiles('semgrep.sarif') != ''
         with:
           sarif_file: semgrep.sarif
@@ -374,7 +376,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v6
+        uses: actions/checkout@v5
       - name: Dependency Review
         uses: actions/dependency-review-action@1a7f050e4130f1d533475191c9533f86e330b621 # v4.9.0
         with:
