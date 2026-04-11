@@ -160,13 +160,11 @@ async def get_upload_quota(
 async def upload_cat_photo(
     request: Request,  # Required for rate limiting
     background_tasks: BackgroundTasks,
-    current_user: User = Depends(get_current_user),
-    gallery_service: Annotated[GalleryService, Depends(get_gallery_service)] = Depends(get_gallery_service),
-    detection_service: Annotated[CatDetectionService, Depends(get_cat_detection_service)] = Depends(
-        get_cat_detection_service
-    ),
-    storage_service: Annotated[StorageService, Depends(get_storage_service)] = Depends(get_storage_service),
-    quota_service: Annotated[QuotaService, Depends(get_quota_service)] = Depends(get_quota_service),
+    current_user: Annotated[User, Depends(get_current_user)],
+    gallery_service: Annotated[GalleryService, Depends(get_gallery_service)],
+    detection_service: Annotated[CatDetectionService, Depends(get_cat_detection_service)],
+    storage_service: Annotated[StorageService, Depends(get_storage_service)],
+    quota_service: Annotated[QuotaService, Depends(get_quota_service)],
     file: UploadFile = File(...),
     lat: str = Form(...),
     lng: str = Form(...),
