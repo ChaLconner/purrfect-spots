@@ -141,9 +141,7 @@ filterwarnings = [
     "ignore:.*pydantic.config.Extra is deprecated.*:DeprecationWarning",
     "ignore:.*pydantic.config.Extra is deprecated.*:pydantic.PydanticDeprecatedSince20",
     # Pytest-asyncio loop scope warnings
-    "ignore:.*asyncio_default_fixture_loop_scope.*:DeprecationWarning",
 ]
-asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.run]
 source = ["."]
