@@ -178,7 +178,7 @@ class TestReadFileForDetection:
 class TestValidateCoordinates:
     """Test validate_coordinates function"""
 
-    def test_valid_coordinates(self):
+    def test_valid_coordinates(self) -> None:
         """Test with valid latitude and longitude"""
         from utils.file_processing import validate_coordinates
 
@@ -187,7 +187,7 @@ class TestValidateCoordinates:
         assert lat == pytest.approx(13.7563)
         assert lng == pytest.approx(100.5018)
 
-    def test_valid_negative_coordinates(self):
+    def test_valid_negative_coordinates(self) -> None:
         """Test with valid negative coordinates"""
         from utils.file_processing import validate_coordinates
 
@@ -196,7 +196,7 @@ class TestValidateCoordinates:
         assert lat == pytest.approx(-33.8688)
         assert lng == pytest.approx(151.2093)
 
-    def test_boundary_coordinates(self):
+    def test_boundary_coordinates(self) -> None:
         """Test with boundary values"""
         from utils.file_processing import validate_coordinates
 
@@ -210,7 +210,7 @@ class TestValidateCoordinates:
         assert lat == pytest.approx(-90)
         assert lng == pytest.approx(-180)
 
-    def test_invalid_latitude_too_high(self):
+    def test_invalid_latitude_too_high(self) -> None:
         """Test rejection of latitude > 90"""
         from utils.file_processing import validate_coordinates
 
@@ -220,7 +220,7 @@ class TestValidateCoordinates:
         assert excinfo.value.status_code == 400
         assert "Latitude" in excinfo.value.detail
 
-    def test_invalid_latitude_too_low(self):
+    def test_invalid_latitude_too_low(self) -> None:
         """Test rejection of latitude < -90"""
         from utils.file_processing import validate_coordinates
 
@@ -229,7 +229,7 @@ class TestValidateCoordinates:
 
         assert excinfo.value.status_code == 400
 
-    def test_invalid_longitude_too_high(self):
+    def test_invalid_longitude_too_high(self) -> None:
         """Test rejection of longitude > 180"""
         from utils.file_processing import validate_coordinates
 
@@ -239,7 +239,7 @@ class TestValidateCoordinates:
         assert excinfo.value.status_code == 400
         assert "Longitude" in excinfo.value.detail
 
-    def test_invalid_longitude_too_low(self):
+    def test_invalid_longitude_too_low(self) -> None:
         """Test rejection of longitude < -180"""
         from utils.file_processing import validate_coordinates
 
@@ -248,7 +248,7 @@ class TestValidateCoordinates:
 
         assert excinfo.value.status_code == 400
 
-    def test_non_numeric_coordinates(self):
+    def test_non_numeric_coordinates(self) -> None:
         """Test rejection of non-numeric coordinates"""
         from utils.file_processing import validate_coordinates
 
@@ -262,7 +262,7 @@ class TestValidateCoordinates:
 class TestValidateLocationData:
     """Test validate_location_data function"""
 
-    def test_valid_location_data(self):
+    def test_valid_location_data(self) -> None:
         """Test with valid location name and description"""
         from utils.file_processing import validate_location_data
 
@@ -271,7 +271,7 @@ class TestValidateLocationData:
         assert name == "Cat Park"
         assert desc == "A nice park with cats"
 
-    def test_strips_whitespace(self):
+    def test_strips_whitespace(self) -> None:
         """Test that whitespace is stripped"""
         from utils.file_processing import validate_location_data
 
@@ -280,7 +280,7 @@ class TestValidateLocationData:
         assert name == "Cat Park"
         assert desc == "Description"
 
-    def test_empty_description_allowed(self):
+    def test_empty_description_allowed(self) -> None:
         """Test that empty description is allowed"""
         from utils.file_processing import validate_location_data
 
@@ -289,7 +289,7 @@ class TestValidateLocationData:
         assert name == "Cat Park"
         assert desc == ""
 
-    def test_none_description_allowed(self):
+    def test_none_description_allowed(self) -> None:
         """Test that None description is allowed"""
         from utils.file_processing import validate_location_data
 
@@ -298,7 +298,7 @@ class TestValidateLocationData:
         assert name == "Cat Park"
         assert desc == ""
 
-    def test_empty_location_name_rejected(self):
+    def test_empty_location_name_rejected(self) -> None:
         """Test rejection of empty location name"""
         from utils.file_processing import validate_location_data
 
@@ -308,7 +308,7 @@ class TestValidateLocationData:
         assert excinfo.value.status_code == 400
         assert "required" in excinfo.value.detail.lower()
 
-    def test_whitespace_only_name_rejected(self):
+    def test_whitespace_only_name_rejected(self) -> None:
         """Test rejection of whitespace-only location name"""
         from utils.file_processing import validate_location_data
 
@@ -317,7 +317,7 @@ class TestValidateLocationData:
 
         assert excinfo.value.status_code == 400
 
-    def test_short_location_name_rejected(self):
+    def test_short_location_name_rejected(self) -> None:
         """Test rejection of location name shorter than 3 characters"""
         from utils.file_processing import validate_location_data
 
@@ -327,7 +327,7 @@ class TestValidateLocationData:
         assert excinfo.value.status_code == 400
         assert "3 characters" in excinfo.value.detail
 
-    def test_long_location_name_truncated(self):
+    def test_long_location_name_truncated(self) -> None:
         """Test truncation of location name longer than 100 characters"""
         from utils.file_processing import validate_location_data
 
@@ -338,7 +338,7 @@ class TestValidateLocationData:
         assert len(name) == 100
         assert name == "A" * 100
 
-    def test_long_description_truncated(self):
+    def test_long_description_truncated(self) -> None:
         """Test truncation of description longer than 1000 characters"""
         from utils.file_processing import validate_location_data
 
@@ -349,7 +349,7 @@ class TestValidateLocationData:
         assert len(desc) == 1000
         assert desc == "A" * 1000
 
-    def test_boundary_location_name_length(self):
+    def test_boundary_location_name_length(self) -> None:
         """Test boundary cases for location name length"""
         from utils.file_processing import validate_location_data
 

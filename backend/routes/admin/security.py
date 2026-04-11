@@ -17,7 +17,7 @@ router = APIRouter()
 @router.get("/security/summary")
 async def get_security_summary(
     current_admin: User = Depends(require_permission("system:stats")),
-):
+) -> dict:
     """
     Get comprehensive security summary for admin dashboard.
     Combines alert tracking, session management, and system health.
@@ -54,7 +54,7 @@ async def get_security_summary(
 @router.post("/security/alerts/reset")
 async def reset_security_alerts(
     current_admin: User = Depends(require_permission("system:settings")),
-):
+) -> dict[str, str]:
     """
     Reset all security alert tracking.
     Requires system:settings permission.
@@ -69,7 +69,7 @@ async def reset_security_alerts(
 @router.post("/security/sessions/reset")
 async def reset_all_sessions(
     current_admin: User = Depends(require_permission("system:settings")),
-):
+) -> dict[str, str]:
     """
     Reset all session tracking.
     Requires system:settings permission.

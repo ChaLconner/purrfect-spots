@@ -1,5 +1,6 @@
 import os
 import uuid
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -29,10 +30,12 @@ class TestSocialLikesIntegration:
             postgrest_client_timeout=30.0,
             storage_client_timeout=30.0,
         )
+        assert SUPABASE_URL is not None
+        assert SUPABASE_SERVICE_KEY is not None
         return create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=options)
 
     @pytest.fixture(scope="class")
-    def test_user(self, supabase: Client):
+    def test_user(self, supabase: Client) -> Any:
         """Get or create a test user"""
         # Try to find an existing user first to avoid cluttering auth.users
         # Note: listing users requires admin privileges which service_key has
@@ -51,7 +54,7 @@ class TestSocialLikesIntegration:
         return supabase.auth.admin.create_user({"email": email, "password": password, "email_confirm": True})
 
     @pytest.fixture(scope="class")
-    def test_photo(self, supabase: Client, test_user):
+    def test_photo(self, supabase: Client, test_user) -> Any:
         """Create a test photo record"""
         photo_id = str(uuid.uuid4())
         user_id = test_user.id
@@ -80,7 +83,7 @@ class TestSocialLikesIntegration:
         print(f"Cleaning up test photo {photo_id}")
         supabase.table("cat_photos").delete().eq("id", photo_id).execute()
 
-    def test_toggle_like_flow(self, supabase: Client, test_user, test_photo):
+    def test_toggle_like_flow(self, supabase: Client, test_user, test_photo) -> None:
         """
         Test the full like/unlike flow:
         1. Verify initial state (0 likes)
@@ -133,7 +136,7 @@ class TestSocialLikesIntegration:
         photo_entry = supabase.table("cat_photos").select("likes_count").eq("id", photo_id).single().execute()
         assert photo_entry.data["likes_count"] == 0, "Trigger should decrement likes_count"
 
-    def test_toggle_like_nonexistent_photo(self, supabase: Client, test_user):
+    def test_toggle_like_nonexistent_photo(self, supabase: Client, test_user) -> None:
         """Test toggling like on a non-existent photo"""
         user_id = test_user.id
         fake_photo_id = str(uuid.uuid4())

@@ -19,6 +19,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -30,13 +31,13 @@ class BreakingChangeError(Exception):
     pass
 
 
-def load_schema(path: str) -> dict:
+def load_schema(path: str) -> dict[str, Any]:
     """Load OpenAPI schema from file."""
     with Path(path).open(encoding="utf-8") as f:
-        return json.load(f)
+        return cast(dict[str, Any], json.load(f))
 
 
-def get_current_schema() -> dict:
+def get_current_schema() -> dict[str, Any]:
     """Get current OpenAPI schema from FastAPI app."""
     from main import app
 

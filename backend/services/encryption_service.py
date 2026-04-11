@@ -138,7 +138,7 @@ class EncryptionService:
             "original_type": value_type,
         }
 
-    def decrypt_value(self, encrypted_data: dict) -> Any:
+    def decrypt_value(self, encrypted_data: Any) -> Any:
         """
         Decrypt a value and restore its original type.
 

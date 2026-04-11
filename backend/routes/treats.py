@@ -26,7 +26,8 @@ async def get_balance(
     treats_service: Annotated[TreatsService, Depends(get_treats_service)],
 ) -> TreatBalanceResponse:
     """Get current user's treat balance and recent history."""
-    return await treats_service.get_balance(current_user.id)
+    result = await treats_service.get_balance(current_user.id)
+    return TreatBalanceResponse(**result)
 
 
 @router.post("/give", response_model=GiveTreatResponse)

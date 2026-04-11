@@ -48,7 +48,9 @@ async def check_database() -> dict[str, Any]:
         supabase = await get_async_supabase_client()
 
         # Simple query to verify connection - count users (lightweight)
-        _ = await supabase.table("cat_photos").select("count", count="exact").limit(1).execute()  # type: ignore
+        from postgrest.types import CountMethod
+
+        _ = await supabase.table("cat_photos").select("count", count=CountMethod.exact).limit(1).execute()
 
         latency_ms = (datetime.now(UTC) - start_time).total_seconds() * 1000
 
@@ -306,7 +308,7 @@ async def readiness_check(request: Request) -> JSONResponse:
 
     # Check if all critical services are healthy
     all_critical_healthy = all(
-        isinstance(results.get(service), dict) and results.get(service, {}).get("status") == "healthy"  # type: ignore
+        isinstance(results.get(service), dict) and results.get(service, {}).get("status") == "healthy"
         for service in critical_services
     )
 

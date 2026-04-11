@@ -106,7 +106,7 @@ class TestCatDetectionService:
         assert result["confidence"] == 0
         assert "Fallback mode active" in result["reasoning"]
 
-    def test_prepare_image(self, detection_service):
+    def test_prepare_image(self, detection_service) -> None:
         """Test image preparation"""
         from PIL import Image
 
@@ -126,7 +126,7 @@ class TestCatDetectionService:
 class TestGoogleVisionServiceInit:
     """Test Google Vision Service initialization"""
 
-    def test_cat_label_keywords_exist(self):
+    def test_cat_label_keywords_exist(self) -> None:
         """Test that cat keywords are defined"""
         with (
             patch.dict("os.environ", {"GOOGLE_VISION_KEY_PATH": "dummy/path.json"}),
@@ -140,7 +140,7 @@ class TestGoogleVisionServiceInit:
             assert "cat" in service.CAT_LABEL_KEYWORDS
             assert "kitten" in service.CAT_LABEL_KEYWORDS
 
-    def test_confidence_thresholds_valid(self):
+    def test_confidence_thresholds_valid(self) -> None:
         """Test confidence threshold values are valid"""
         with (
             patch.dict("os.environ", {"GOOGLE_VISION_KEY_PATH": "dummy/path.json"}),

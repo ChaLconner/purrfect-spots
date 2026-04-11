@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from postgrest.types import CountMethod
@@ -28,7 +28,7 @@ async def list_treat_transactions(
     transaction_type: Annotated[str | None, Query()] = None,
     search: Annotated[str | None, Query()] = None,
     current_admin: User = Depends(require_permission("treats:manage")),
-):
+) -> dict[str, Any]:
     """List all treat transactions (purchases, giving, grants)."""
     try:
         admin_client = await get_async_supabase_admin_client()
@@ -57,7 +57,7 @@ async def list_treat_transactions(
         raise HTTPException(status_code=500, detail="Failed to fetch transactions")
 
 
-async def _fetch_treat_stats_fallback(admin_client) -> dict:
+async def _fetch_treat_stats_fallback(admin_client: Any) -> dict[str, Any]:
     """Fallback: fetch aggregated columns from users table in batches to avoid memory issues."""
     total_in_circulation = 0
     total_given_to_cats = 0
@@ -99,7 +99,7 @@ async def _fetch_treat_stats_fallback(admin_client) -> dict:
 @router.get("/stats")
 async def get_treat_stats(
     current_admin: User = Depends(require_permission("treats:manage")),
-):
+) -> dict[str, Any]:
     """Get global treat statistics."""
     try:
         admin_client = await get_async_supabase_admin_client()
@@ -128,7 +128,7 @@ async def search_users_for_grant(
     q: Annotated[str, Query(min_length=1, max_length=100)],
     limit: Annotated[int, Query(ge=1, le=20)] = 10,
     current_admin: User = Depends(require_permission("treats:manage")),
-):
+) -> dict[str, Any]:
     """Search users by name or email for the grant modal."""
     try:
         admin_client = await get_async_supabase_admin_client()
@@ -150,7 +150,7 @@ async def grant_treats_manually(
     request: Request,
     data: GrantTreatRequest,
     current_admin: User = Depends(require_permission("treats:manage")),
-):
+) -> dict[str, Any]:
     """Manually grant treats to a user (System Grant)."""
     try:
         admin_client = await get_async_supabase_admin_client()

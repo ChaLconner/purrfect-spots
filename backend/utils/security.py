@@ -8,7 +8,7 @@ import html
 import re
 
 import bleach
-import filetype
+import filetype  # type: ignore[import-not-found, unused-ignore]
 
 from logger import logger
 

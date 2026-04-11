@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 class TestHealthEndpoints:
     """Integration tests for /health/* endpoints"""
 
-    def test_liveness_returns_alive(self, client):
+    def test_liveness_returns_alive(self, client) -> None:
         """Test: GET /health/live returns alive status"""
         response = client.get("/health/live")
 
@@ -26,13 +26,13 @@ class TestHealthEndpoints:
         assert "timestamp" in data
         assert "version" in data
 
-    def test_liveness_no_cache(self, client):
+    def test_liveness_no_cache(self, client) -> None:
         """Test: Liveness endpoint has no-cache headers"""
         response = client.get("/health/live")
 
         assert "no-cache" in response.headers.get("Cache-Control", "")
 
-    def test_readiness_returns_status(self, client):
+    def test_readiness_returns_status(self, client) -> None:
         """Test: GET /health/ready returns readiness status"""
         response = client.get("/health/ready")
 
@@ -44,7 +44,7 @@ class TestHealthEndpoints:
         assert data["status"] in ["ready", "not_ready"]
         assert "checks" in data
 
-    def test_readiness_includes_all_checks(self, client):
+    def test_readiness_includes_all_checks(self, client) -> None:
         """Test: Readiness check includes all dependency checks"""
         response = client.get("/health/ready")
         data = response.json()
@@ -53,7 +53,7 @@ class TestHealthEndpoints:
         for check in expected_checks:
             assert check in data["checks"], f"Missing check: {check}"
 
-    def test_dependencies_detailed_status(self, client):
+    def test_dependencies_detailed_status(self, client) -> None:
         """Test: GET /health/dependencies returns detailed info"""
         response = client.get("/health/dependencies")
 
@@ -64,7 +64,7 @@ class TestHealthEndpoints:
         assert "health_score" in data
         assert "google_vision" in data["dependencies"]
 
-    def test_metrics_returns_cache_stats(self, client):
+    def test_metrics_returns_cache_stats(self, client) -> None:
         """Test: GET /health/metrics returns cache statistics"""
         response = client.get("/health/metrics")
 
@@ -79,7 +79,7 @@ class TestHealthEndpoints:
 class TestHealthCheckDependencyFailures:
     """Test health check behavior when dependencies fail"""
 
-    def test_readiness_unhealthy_when_database_down(self, client):
+    def test_readiness_unhealthy_when_database_down(self, client) -> None:
         """Test: Readiness returns 503 when database is down"""
         with patch("routes.health.check_database") as mock_db:
             mock_db.return_value = {
@@ -92,7 +92,7 @@ class TestHealthCheckDependencyFailures:
             assert response.status_code == 503
             assert response.json()["status"] == "not_ready"
 
-    def test_readiness_healthy_when_redis_down(self, client):
+    def test_readiness_healthy_when_redis_down(self, client) -> None:
         """Test: Readiness is still ready when Redis is down (non-critical)"""
         with (
             patch("routes.health.check_database") as mock_db,
@@ -113,17 +113,17 @@ class TestHealthCheckDependencyFailures:
 class TestHealthCheckAuthentication:
     """Test that health endpoints don't require authentication"""
 
-    def test_live_no_auth_required(self, client):
+    def test_live_no_auth_required(self, client) -> None:
         """Test: /health/live works without auth token"""
         response = client.get("/health/live")
         assert response.status_code == 200
 
-    def test_ready_no_auth_required(self, client):
+    def test_ready_no_auth_required(self, client) -> None:
         """Test: /health/ready works without auth token"""
         response = client.get("/health/ready")
         assert response.status_code in [200, 503]  # May fail if deps down
 
-    def test_dependencies_no_auth_required(self, client):
+    def test_dependencies_no_auth_required(self, client) -> None:
         """Test: /health/dependencies works without auth token"""
         response = client.get("/health/dependencies")
         assert response.status_code == 200

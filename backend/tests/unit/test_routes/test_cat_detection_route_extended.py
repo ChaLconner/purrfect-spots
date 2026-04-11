@@ -22,7 +22,7 @@ class TestCatDetectionRouteExtended:
         yield
         app.dependency_overrides = {}
 
-    def test_detect_cats_endpoint_success(self, override_auth):
+    def test_detect_cats_endpoint_success(self, override_auth) -> None:
         mock_vision = MagicMock()
         mock_vision.detect_cats.return_value = {
             "has_cats": True,
@@ -43,7 +43,7 @@ class TestCatDetectionRouteExtended:
             assert response.status_code == 200
             assert response.json()["has_cats"] is True
 
-    def test_detect_cats_endpoint_no_cat(self, override_auth):
+    def test_detect_cats_endpoint_no_cat(self, override_auth) -> None:
         mock_vision = MagicMock()
         mock_vision.detect_cats.return_value = {
             "has_cats": False,
@@ -62,7 +62,7 @@ class TestCatDetectionRouteExtended:
             assert response.status_code == 200
             assert response.json()["has_cats"] is False
 
-    def test_analyze_suitability_endpoint(self, override_auth):
+    def test_analyze_suitability_endpoint(self, override_auth) -> None:
         mock_vision = MagicMock()
         mock_vision.analyze_cat_spot_suitability.return_value = {
             "suitability_score": 80,

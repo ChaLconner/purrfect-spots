@@ -77,32 +77,32 @@ class GoogleAuthService:
                 logger.warning(f"[OAuth] External exchange unsuccessful: {response.status_code} - {response.text}")
                 raise ValueError(f"Token exchange failed: {response.text}")
 
-                token_data = response.json()
-                access_token = token_data.get("access_token")
-                id_token_str = token_data.get("id_token")
+            token_data = response.json()
+            access_token = token_data.get("access_token")
+            id_token_str = token_data.get("id_token")
 
-                if not access_token or not id_token_str:
-                    logger.error("[OAuth] Missing tokens in Google response")
-                    raise ValueError("Missing tokens in response")
+            if not access_token or not id_token_str:
+                logger.error("[OAuth] Missing tokens in Google response")
+                raise ValueError("Missing tokens in response")
 
-                # Verify ID token
-                idinfo = id_token.verify_oauth2_token(
-                    id_token_str,
-                    requests.Request(),
-                    self.google_client_id,
-                    clock_skew_in_seconds=10,
-                )
+            # Verify ID token
+            idinfo = id_token.verify_oauth2_token(
+                id_token_str,
+                requests.Request(),
+                self.google_client_id,
+                clock_skew_in_seconds=10,
+            )
 
-                return {
-                    "access_token": access_token,
-                    "id_token": id_token_str,
-                    "user_info": {
-                        "google_id": idinfo["sub"],
-                        "email": idinfo["email"],
-                        "name": idinfo["name"],
-                        "picture": idinfo.get("picture", ""),
-                    },
-                }
+            return {
+                "access_token": access_token,
+                "id_token": id_token_str,
+                "user_info": {
+                    "google_id": idinfo["sub"],
+                    "email": idinfo["email"],
+                    "name": idinfo["name"],
+                    "picture": idinfo.get("picture", ""),
+                },
+            }
 
         except ValueError as e:
             raise e

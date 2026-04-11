@@ -6,7 +6,7 @@ Enhanced with security features: rate limiting, input sanitization, security log
 import json
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
@@ -18,6 +18,8 @@ from limiter import get_upload_limit, upload_limiter
 limiter = upload_limiter  # Alias for backward compatibility with tests
 from logger import logger, sanitize_log_value
 from middleware.auth_middleware import get_current_user
+from schemas.gallery import UploadQuotaResponse
+from schemas.user import User
 from services.cat_detection_service import CatDetectionService
 from services.gallery_service import GalleryService
 from services.quota_service import QuotaService
@@ -144,17 +146,12 @@ async def _perform_server_side_detection(
     }
 
 
-from typing import Annotated, Any
-
-from schemas.gallery import UploadQuotaResponse
-
-
 @router.get("/quota", response_model=UploadQuotaResponse)
 async def get_upload_quota(
-    current_user: Annotated[Any, Depends(get_current_user)],
-    quota_service: Annotated[QuotaService, Depends(get_quota_service)],
+    current_user: User = Depends(get_current_user),
+    quota_service: QuotaService = Depends(get_quota_service),
 ) -> UploadQuotaResponse:
-    """Get current user's upload quota status."""
+    """Get current user upload quota status."""
     return await quota_service.get_user_quota_status(str(current_user.id), current_user.is_pro)
 
 
@@ -162,12 +159,14 @@ async def get_upload_quota(
 @upload_limiter.limit(get_upload_limit)  # Uses default_limits=[get_upload_limit] defined in upload_limiter
 async def upload_cat_photo(
     request: Request,  # Required for rate limiting
-    current_user: Annotated[Any, Depends(get_current_user)],
-    gallery_service: Annotated[GalleryService, Depends(get_gallery_service)],
-    detection_service: Annotated[CatDetectionService, Depends(get_cat_detection_service)],
-    storage_service: Annotated[StorageService, Depends(get_storage_service)],
-    quota_service: Annotated[QuotaService, Depends(get_quota_service)],
     background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    gallery_service: Annotated[GalleryService, Depends(get_gallery_service)] = Depends(get_gallery_service),
+    detection_service: Annotated[CatDetectionService, Depends(get_cat_detection_service)] = Depends(
+        get_cat_detection_service
+    ),
+    storage_service: Annotated[StorageService, Depends(get_storage_service)] = Depends(get_storage_service),
+    quota_service: Annotated[QuotaService, Depends(get_quota_service)] = Depends(get_quota_service),
     file: UploadFile = File(...),
     lat: str = Form(...),
     lng: str = Form(...),

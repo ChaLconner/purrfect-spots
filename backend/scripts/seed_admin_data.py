@@ -46,7 +46,7 @@ ROLE_PERMISSION_MAPPING = {
 }
 
 
-async def seed_data():
+async def seed_data() -> None:
     print("Starting database seeding...")
 
     # 1. Seed Permissions

@@ -35,7 +35,7 @@ async def create_checkout_session(
         raise HTTPException(status_code=503, detail="Subscription checkout is not configured for this plan")
 
     try:
-        return await subscription_service.create_checkout_session(
+        result = await subscription_service.create_checkout_session(
             user_id=current_user.id,
             email=current_user.email,
             price_id=price_id,
@@ -43,6 +43,7 @@ async def create_checkout_session(
             cancel_url=config.resolve_frontend_url(default_path="/subscription?purchase=cancel"),
             stripe_customer_id=current_user.stripe_customer_id,
         )
+        return CheckoutSessionResponse(**result)
     except Exception as e:
         logger.error("Checkout creation failed: %s", e)
         raise HTTPException(status_code=500, detail="Failed to create checkout session")
@@ -76,7 +77,8 @@ async def get_subscription_status(
     subscription_service: Annotated[SubscriptionService, Depends(get_subscription_service)],
 ) -> SubscriptionStatus:
     """Get current user's subscription status."""
-    return await subscription_service.get_subscription_status(current_user.id)
+    result = await subscription_service.get_subscription_status(current_user.id)
+    return SubscriptionStatus(**result)
 
 
 @router.post("/cancel", response_model=MessageResponse)

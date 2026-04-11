@@ -25,7 +25,7 @@ router = APIRouter()
 async def get_all_settings(
     current_admin: Annotated[User, Depends(require_permission("system:settings"))],
     category: Annotated[str | None, Query()] = None,
-):
+) -> list[dict[str, Any]]:
     """Get all system settings with metadata."""
     try:
         admin_client = await get_async_supabase_admin_client()
@@ -61,7 +61,9 @@ async def get_all_settings(
 
 
 @router.get("/history/{key}", response_model=list[ConfigHistoryResponse])
-async def get_setting_history(key: str, current_admin: Annotated[User, Depends(require_permission("system:settings"))]):
+async def get_setting_history(
+    key: str, current_admin: Annotated[User, Depends(require_permission("system:settings"))]
+) -> list[dict[str, Any]]:
     """Get evolution history for a specific setting."""
     try:
         admin_client = await get_async_supabase_admin_client()
@@ -91,7 +93,7 @@ async def update_setting(
     key: str,
     update_data: ConfigUpdate,
     current_admin: Annotated[User, Depends(require_permission("system:settings"))],
-):
+) -> dict[str, Any]:
     """Update a setting OR create an approval request if required."""
     try:
         admin_client = await get_async_supabase_admin_client()
@@ -138,7 +140,7 @@ async def update_setting(
             msg = f"\n[PURRFECT ADMIN]\n⚠️ Approval Required\nSetting: {key}\nRequested by: {requester_name}"
             await line_service.send_notification(msg)
 
-            return pending.data[0]
+            return cast(dict[str, Any], pending.data[0])
 
         # Immediate update if no approval needed
         update_values = {"value": value_to_store, "updated_by": current_admin.id}
@@ -172,7 +174,7 @@ async def update_setting(
             .execute()
         )
 
-        return result.data
+        return cast(dict[str, Any], result.data)
     except HTTPException:
         raise
     except Exception as e:
@@ -181,7 +183,9 @@ async def update_setting(
 
 
 @router.get("/pending", response_model=list[PendingConfigChangeResponse])
-async def get_pending_changes(current_admin: Annotated[User, Depends(require_permission("system:settings"))]):
+async def get_pending_changes(
+    current_admin: Annotated[User, Depends(require_permission("system:settings"))],
+) -> list[dict[str, Any]]:
     """Get all pending config changes (Checkers)"""
     try:
         admin_client = await get_async_supabase_admin_client()
@@ -222,7 +226,7 @@ async def approve_change(
     change_id: str,
     current_admin: Annotated[User, Depends(require_permission("system:settings"))],
     payload: PendingActionRequest | None = None,
-):
+) -> dict[str, Any]:
     """Approve a pending config change (Checker)."""
     try:
         admin_client = await get_async_supabase_admin_client()
@@ -297,7 +301,7 @@ async def approve_change(
                 (current_admin.name or current_admin.email),
             )
 
-        return update_result.data
+        return cast(dict[str, Any], update_result.data)
     except Exception as e:
         if isinstance(e, HTTPException):
             raise e
@@ -310,7 +314,7 @@ async def reject_change(
     change_id: str,
     current_admin: Annotated[User, Depends(require_permission("system:settings"))],
     payload: PendingActionRequest,
-):
+) -> dict[str, Any]:
     """Reject a pending config change."""
     try:
         admin_client = await get_async_supabase_admin_client()

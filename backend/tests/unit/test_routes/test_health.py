@@ -1,19 +1,20 @@
+from typing import Any
 from unittest.mock import patch
 
 
-def test_health_check(client):
+def test_health_check(client: Any) -> None:
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "healthy"
 
 
-def test_root(client):
+def test_root(client: Any) -> None:
     response = client.get("/")
     assert response.status_code == 200
     assert response.json()["status"] == "healthy"
 
 
-def test_health_dependencies_redacted_in_production(client):
+def test_health_dependencies_redacted_in_production(client: Any) -> None:
     with (
         patch("routes.health.config.is_production", return_value=True),
         patch("routes.health.config.EXPOSE_DETAILED_HEALTH", False),
@@ -38,7 +39,7 @@ def test_health_dependencies_redacted_in_production(client):
     assert data["dependencies"]["s3"] == {"status": "healthy"}
 
 
-def test_health_metrics_redacted_in_production(client):
+def test_health_metrics_redacted_in_production(client: Any) -> None:
     with (
         patch("routes.health.config.is_production", return_value=True),
         patch("routes.health.config.EXPOSE_DETAILED_HEALTH", False),

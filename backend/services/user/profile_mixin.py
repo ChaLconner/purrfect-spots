@@ -1,6 +1,6 @@
 from typing import Any, cast
 
-import structlog
+import structlog  # type: ignore[import-untyped, unused-ignore]
 from sqlalchemy import text
 
 from schemas.user import User
@@ -34,7 +34,7 @@ class UserProfileMixin(UserBaseMixin):
                 await self._upsert_user_supabase(user_id, user_record)
 
             # Need to use the main class's get_user_by_id (inherited via mixins)
-            user = await self.get_user_by_id(user_id)  # type: ignore
+            user = cast(User, await self.get_user_by_id(user_id))
             if not user:
                 raise ExternalServiceError("Failed to retrieve user after creation", service="Supabase Database")
             return user

@@ -1,6 +1,6 @@
 from typing import Any
 
-import structlog
+import structlog  # type: ignore[import-untyped, unused-ignore]
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -88,3 +88,7 @@ class UserBaseMixin:
         user_fields.pop("roles", None)
 
         return User(**user_fields, permissions=permissions)
+
+    async def get_user_by_id(self, user_id: str) -> User | None:
+        """Abstract method to be implemented in subclasses or other mixins."""
+        raise NotImplementedError

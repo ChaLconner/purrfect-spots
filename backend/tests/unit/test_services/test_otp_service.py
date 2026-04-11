@@ -44,7 +44,7 @@ class TestOTPService:
         # OTPService expects a client instance now
         return OTPService(mock_supabase_admin)
 
-    def test_generate_otp(self, otp_service):
+    def test_generate_otp(self, otp_service) -> None:
         """Test OTP generation format"""
         otp = otp_service._generate_otp()
         assert len(otp) == 6

@@ -11,7 +11,7 @@ from routes.gallery import get_gallery_service
 from utils.security import protect_public_coordinates
 
 
-def test_get_gallery_empty(client):
+def test_get_gallery_empty(client) -> None:
     """Test gallery endpoint returns empty list when no photos exist"""
     mock_service = MagicMock()
     mock_service.get_all_photos = AsyncMock(
@@ -35,7 +35,7 @@ def test_get_gallery_empty(client):
     app.dependency_overrides = {}
 
 
-def test_get_gallery_with_data(client, mock_cat_photo):
+def test_get_gallery_with_data(client, mock_cat_photo) -> None:
     """Test gallery endpoint returns correct data format"""
     mock_service = MagicMock()
     mock_service.get_all_photos = AsyncMock(
@@ -61,7 +61,7 @@ def test_get_gallery_with_data(client, mock_cat_photo):
     app.dependency_overrides = {}
 
 
-def test_get_gallery_error(client):
+def test_get_gallery_error(client) -> None:
     """Test gallery endpoint handles errors gracefully"""
     mock_service = MagicMock()
     mock_service.get_all_photos = AsyncMock(side_effect=Exception("Database error"))
@@ -75,7 +75,7 @@ def test_get_gallery_error(client):
     app.dependency_overrides = {}
 
 
-def test_get_locations(client):
+def test_get_locations(client) -> None:
     mock_service = MagicMock()
     mock_service.get_map_locations = AsyncMock(
         return_value=[
@@ -98,7 +98,7 @@ def test_get_locations(client):
     assert response.json()[0]["longitude"] == pytest.approx(expected_lng, abs=1e-5)
 
 
-def test_get_viewport(client):
+def test_get_viewport(client) -> None:
     mock_service = MagicMock()
     mock_service.get_nearby_photos = AsyncMock(
         return_value=[
@@ -121,7 +121,7 @@ def test_get_viewport(client):
     assert response.json()["images"][0]["longitude"] == pytest.approx(expected_lng, abs=1e-5)
 
 
-def test_search_locations(client):
+def test_search_locations(client) -> None:
     mock_service = MagicMock()
     mock_service.search_photos = AsyncMock(
         return_value=[
@@ -144,7 +144,7 @@ def test_search_locations(client):
     assert response.json()["results"][0]["longitude"] == pytest.approx(expected_lng, abs=1e-5)
 
 
-def test_get_popular_tags(client):
+def test_get_popular_tags(client) -> None:
     mock_service = MagicMock()
     mock_service.get_popular_tags = AsyncMock(return_value=[{"tag": "cute", "count": 10}])
     app.dependency_overrides[get_gallery_service] = lambda: mock_service
@@ -153,7 +153,7 @@ def test_get_popular_tags(client):
     assert len(response.json()["tags"]) == 1
 
 
-def test_get_photo(client):
+def test_get_photo(client) -> None:
     mock_service = MagicMock()
     mock_service.get_photo_by_id = AsyncMock(
         return_value={
@@ -174,7 +174,7 @@ def test_get_photo(client):
     assert response.json()["longitude"] == pytest.approx(expected_lng, abs=1e-5)
 
 
-def test_delete_photo(client):
+def test_delete_photo(client) -> None:
     from middleware.auth_middleware import get_current_user_from_credentials
 
     mock_service = MagicMock()

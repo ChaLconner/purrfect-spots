@@ -38,7 +38,7 @@ class TestStorageService:
             service.s3_client = mock_boto3_client
             return service
 
-    def test_init_with_env_vars(self, mock_boto3_client):
+    def test_init_with_env_vars(self, mock_boto3_client) -> None:
         """Test StorageService initialization with environment variables"""
         with patch.dict(
             os.environ,
@@ -55,14 +55,14 @@ class TestStorageService:
             assert service.aws_access_key == "my-key"
             assert service.aws_secret_key == "my-secret"
 
-    def test_init_with_defaults(self, mock_boto3_client):
+    def test_init_with_defaults(self, mock_boto3_client) -> None:
         """Test StorageService uses defaults when env vars not set"""
         with patch.dict(os.environ, {}, clear=True):
             service = StorageService()
             assert service.aws_region == "ap-southeast-2"
             assert service.aws_bucket == "purrfect-spots-bucket"
 
-    def test_init_without_credentials(self, mock_boto3_client):
+    def test_init_without_credentials(self, mock_boto3_client) -> None:
         """Test StorageService initialization without AWS credentials"""
         with patch.dict(os.environ, {"AWS_REGION": "us-east-1"}, clear=True):
             # Should not raise an exception even without credentials

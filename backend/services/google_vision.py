@@ -68,7 +68,7 @@ class GoogleVisionService:
                 try:
                     service_account_info = json.loads(service_account_json)
                     # nosemgrep: python.lang.security.audit.dangerous-test-usage.dangerous-test-usage
-                    patch("google.cloud.vision.ImageAnnotatorClient", new=SafeMagicMock).start()  # type: ignore
+                    patch("google.cloud.vision.ImageAnnotatorClient", new=SafeMagicMock).start()
                     self.client = vision.ImageAnnotatorClient.from_service_account_info(service_account_info)
                     self.is_initialized = True
                     logger.info("Google Vision client initialized from GOOGLE_VISION_SERVICE_ACCOUNT")
@@ -89,7 +89,7 @@ class GoogleVisionService:
             logger.debug(f"Checking key file at: {key_path}")
 
             if Path(key_path).exists():
-                self.client = vision.ImageAnnotatorClient.from_service_account_json(str(key_path))  # type: ignore
+                self.client = vision.ImageAnnotatorClient.from_service_account_json(str(key_path))
                 self.is_initialized = True
                 logger.info("Google Vision client initialized from key file")
             else:

@@ -76,10 +76,8 @@ class AsyncSupabaseClient:
             params.append(("offset", str(offset)))
 
         if filters:
-            if isinstance(filters, dict):
-                params.extend(filters.items())
-            elif isinstance(filters, list):
-                params.extend(filters)
+            # filters is dict[str, str] as per type hint
+            params.extend(filters.items())
 
         headers = self.headers.copy()
         if jwt_token:

@@ -36,10 +36,12 @@ except ImportError:
 
         # Last resort fallback to allow application to start even if logging is degraded
         class JsonFormatter(logging.Formatter):  # type: ignore
-            def __init__(self, *args, **kwargs):
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
                 super().__init__("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
-            def add_fields(self, log_record, record, message_dict):
+            def add_fields(
+                self, log_record: dict[str, Any], record: logging.LogRecord, message_dict: dict[str, Any]
+            ) -> None:
                 pass
 
 

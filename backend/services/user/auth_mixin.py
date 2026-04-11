@@ -1,7 +1,8 @@
-from typing import Any
+from typing import Any, cast
 
-import structlog
+import structlog  # type: ignore[import-untyped, unused-ignore]
 
+from schemas.user import User
 from services.password_service import password_service
 from services.user.base_mixin import UserBaseMixin
 from utils.exceptions import ConflictError, ExternalServiceError, PurrfectSpotsException
@@ -57,7 +58,7 @@ class UserAuthMixin(UserBaseMixin):
             res = await self.supabase.auth.sign_in_with_password({"email": email, "password": password})
             if res.user and res.session:
                 # Need to use the main class's get_user_by_id (inherited via mixins)
-                user = await self.get_user_by_id(res.user.id)  # type: ignore
+                user = cast(User, await self.get_user_by_id(res.user.id))
                 if user:
                     user_dict = user.model_dump()
                     user_dict.update(

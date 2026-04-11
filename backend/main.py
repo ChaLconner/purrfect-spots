@@ -298,8 +298,10 @@ setup_telemetry(app)
 
 
 # ========== Rate Limiter ==========
+from starlette.types import ExceptionHandler
+
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+app.add_exception_handler(RateLimitExceeded, cast(ExceptionHandler, _rate_limit_exceeded_handler))
 
 # ========== Exception Handlers ==========
 

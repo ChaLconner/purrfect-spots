@@ -1,6 +1,8 @@
 import os
 import sys
+from collections.abc import Generator
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -71,7 +73,7 @@ except ImportError:
     # Mock limiter instance since it's used in decorators
     sys.modules["limiter"] = MagicMock()
     sys.modules["limiter"].limiter = MagicMock()  # type: ignore[attr-defined]
-    sys.modules["limiter"].limiter.limit = lambda x: lambda f: f  # type: ignore[attr-defined]
+    sys.modules["limiter"].limiter.limit = lambda x: lambda f: f  # type: ignore[attr-defined, unused-ignore]
 
 
 # Mock mcp module if it causes issues (e.g. issues with anyio on windows)
@@ -84,7 +86,7 @@ sys.modules["mcp.server.fastmcp"] = MagicMock()
 
 # Mock structlog if it is not installed in the local test environment
 try:
-    import structlog  # noqa: F401
+    import structlog  # type: ignore[import-untyped, unused-ignore] # noqa: F401
 except ImportError:
     mock_structlog = MagicMock()
     mock_structlog.get_logger.return_value = MagicMock()
@@ -119,7 +121,7 @@ from main import app
 
 
 @pytest.fixture(autouse=True)
-def disable_rate_limit():
+def disable_rate_limit() -> Generator[None, None, None]:
     """Disable rate limiting for all tests"""
     from limiter import auth_limiter, limiter, strict_limiter, upload_limiter
 
@@ -140,7 +142,7 @@ def disable_rate_limit():
 
 
 @pytest.fixture(autouse=True)
-def mock_redis_service():
+def mock_redis_service() -> Generator[None, None, None]:
     """Globally mock redis_service to prevent external connections and hangs during tests"""
     from unittest.mock import AsyncMock, patch
 
@@ -160,7 +162,7 @@ def mock_redis_service():
 
 
 @pytest.fixture(autouse=True)
-def clear_all_caches():
+def clear_all_caches() -> Generator[None, None, None]:
     """Clear all memory and redis caches before every test to ensure test isolation"""
     from utils.cache import memory_cache
 
@@ -169,12 +171,12 @@ def clear_all_caches():
 
 
 @pytest.fixture
-def client():
+def client() -> TestClient:
     """Create a test client for the FastAPI app"""
     return TestClient(app)
 
 
-def _create_mock_supabase_client():
+def _create_mock_supabase_client() -> MagicMock:
     """Helper to create a mock Supabase client with standard chaining"""
     mock = MagicMock()
     mock.return_value = mock  # Calling the mock itself returns the mock
@@ -225,13 +227,13 @@ def _create_mock_supabase_client():
 
 
 @pytest.fixture
-def mock_supabase_admin():
+def mock_supabase_admin() -> MagicMock:
     """Create a mock Supabase admin client"""
     return _create_mock_supabase_client()
 
 
 @pytest.fixture
-def mock_cat_photo():
+def mock_cat_photo() -> dict[str, Any]:
     """Sample cat photo data for tests"""
     return {
         "id": "00000000-0000-0000-0000-000000000001",
@@ -248,19 +250,19 @@ def mock_cat_photo():
 
 
 @pytest.fixture
-def mock_supabase():
+def mock_supabase() -> MagicMock:
     """Generic mock for Supabase client"""
     return _create_mock_supabase_client()
 
 
 @pytest.fixture
-def sample_image_bytes():
+def sample_image_bytes() -> bytes:
     """Return a small valid JPEG byte string for testing"""
     return b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.' \",#\x1c\x1c(7),01444\x1f'9=82<.342\xff\xc0\x00\x0b\x08\x00\x01\x00\x01\x01\x01\x11\x01\xff\xc4\x00\x1f\x00\x00\x01\x05\x01\x01\x01\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\xff\xc4\x00\xb5\x10\x00\x02\x01\x03\x03\x02\x04\x03\x05\x05\x04\x04\x00\x00\x01}\x01\x02\x03\x00\x04\x11\x05\x12!1A\x06\x13Qa\x07"
 
 
 @pytest.fixture(autouse=True)
-def mock_boto3_client():
+def mock_boto3_client() -> Generator[MagicMock, None, None]:
     """Mock boto3 client to prevent real AWS calls during tests"""
     with patch("boto3.client") as mock:
         mock_s3 = MagicMock()
@@ -269,7 +271,7 @@ def mock_boto3_client():
 
 
 @pytest.fixture(autouse=True)
-def mock_async_supabase():
+def mock_async_supabase() -> Generator[MagicMock, None, None]:
     """
     Mock the async_supabase client with proper async behavior.
     """
@@ -317,7 +319,7 @@ def mock_async_supabase():
 class MockUser:
     """Mock user class for testing"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.id = "00000000-0000-4000-a000-000000000123"
         self.email = "test@example.com"
         self.username = "testuser"
@@ -330,7 +332,7 @@ class MockUser:
 
 
 @pytest.fixture
-def mock_supabase_auth():
+def mock_supabase_auth() -> Generator[MagicMock, None, None]:
     """Mock the Supabase auth client"""
     with patch("dependencies.get_supabase_auth") as mock:
         client = MagicMock()
@@ -339,18 +341,18 @@ def mock_supabase_auth():
 
 
 @pytest.fixture
-def mock_user():
+def mock_user() -> MockUser:
     """Fixture that returns a MockUser instance"""
     return MockUser()
 
 
 @pytest.fixture
-def auth_headers():
+def auth_headers() -> dict[str, str]:
     """Standard authorization headers for tests"""
     return {"Authorization": "Bearer test-token"}
 
 
 @pytest.fixture
-def admin_auth_headers():
+def admin_auth_headers() -> dict[str, str]:
     """Admin authorization headers for tests"""
     return {"Authorization": "Bearer admin-test-token"}

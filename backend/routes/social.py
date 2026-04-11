@@ -54,7 +54,8 @@ async def toggle_like(
         raise HTTPException(status_code=429, detail="Too many requests. Please slow down.")
 
     try:
-        return await social_service.toggle_like(current_user.id, photo_id)
+        result = await social_service.toggle_like(current_user.id, photo_id)
+        return LikeResponse(**result)
     except NotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e.message))
     except ExternalServiceError as e:
@@ -84,7 +85,8 @@ async def add_comment(
     """Add a comment to a photo."""
     _validate_uuid_param(photo_id, "photo_id")
     try:
-        return await social_service.add_comment(current_user.id, photo_id, comment.content)
+        result = await social_service.add_comment(current_user.id, photo_id, comment.content)
+        return CommentResponse(**result)
     except NotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e.message))
     except ExternalServiceError as e:
@@ -107,7 +109,8 @@ async def get_comments(
     """Get comments for a photo."""
     _validate_uuid_param(photo_id, "photo_id")
     try:
-        return await social_service.get_comments(photo_id)
+        results = await social_service.get_comments(photo_id)
+        return [CommentResponse(**c) for c in results]
     except Exception as e:
         logger.error("Get comments failed: %s", e)
         raise HTTPException(status_code=500, detail="Failed to get comments")
@@ -160,7 +163,7 @@ async def update_comment(
         )
         if not updated_comment:
             raise HTTPException(status_code=403, detail="Not authorized or comment not found")
-        return updated_comment
+        return CommentResponse(**updated_comment)
     except HTTPException:
         raise
     except Exception as e:

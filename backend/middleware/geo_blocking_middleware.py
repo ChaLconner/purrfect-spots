@@ -67,7 +67,9 @@ class GeoBlockingMiddleware(BaseHTTPMiddleware):
             if response.status_code == 200:
                 data = response.json()
                 if data.get("status") == "success":
-                    country_code = data.get("countryCode", "")
+                    from typing import cast
+
+                    country_code = cast(str, data.get("countryCode", ""))
                     self._geo_cache[ip_address] = country_code
                     self._geo_cache_time[ip_address] = now
                     return country_code

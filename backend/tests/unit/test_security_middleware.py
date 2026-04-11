@@ -7,7 +7,7 @@ from starlette.testclient import TestClient
 from middleware.security_middleware import HTTPSRedirectMiddleware, SecurityHeadersMiddleware
 
 
-def test_https_redirect_production():
+def test_https_redirect_production() -> None:
     with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
         app = FastAPI()
         app.add_middleware(HTTPSRedirectMiddleware)
@@ -30,7 +30,7 @@ def test_https_redirect_production():
         assert response.status_code == 200
 
 
-def test_https_redirect_development():
+def test_https_redirect_development() -> None:
     with patch.dict(os.environ, {"ENVIRONMENT": "development"}):
         app = FastAPI()
         app.add_middleware(HTTPSRedirectMiddleware)
@@ -48,7 +48,7 @@ def test_https_redirect_development():
         assert response.status_code == 200
 
 
-def test_security_headers_production():
+def test_security_headers_production() -> None:
     with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
         app = FastAPI()
         app.add_middleware(SecurityHeadersMiddleware)
@@ -68,7 +68,7 @@ def test_security_headers_production():
         assert "Content-Security-Policy-Report-Only" in response.headers
 
 
-def test_security_headers_development():
+def test_security_headers_development() -> None:
     with patch.dict(os.environ, {"ENVIRONMENT": "development"}):
         app = FastAPI()
         app.add_middleware(SecurityHeadersMiddleware)

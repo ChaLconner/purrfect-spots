@@ -57,7 +57,7 @@ async def test_revoke_token(auth_service):
         assert res is True
 
 
-def test_verify_google_token(auth_service):
+def test_verify_google_token(auth_service) -> None:
     with patch("services.auth.oauth_mixin.google_auth_service.verify_google_token", return_value={"id": "1"}):
         res = auth_service.verify_google_token("tok")
         assert res["id"] == "1"

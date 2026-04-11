@@ -31,7 +31,7 @@ class TestAdminSettingsRoutes:
         yield
         app.dependency_overrides.pop(get_current_user, None)
 
-    def test_get_all_settings_success(self, client, override_admin, mock_supabase_admin):
+    def test_get_all_settings_success(self, client, override_admin, mock_supabase_admin) -> None:
         mock_supabase_admin.execute.return_value = MagicMock(
             data=[
                 {
@@ -61,7 +61,7 @@ class TestAdminSettingsRoutes:
 
     def test_update_setting_without_approval_returns_updated_config(
         self, client, override_admin, admin_user, mock_supabase_admin
-    ):
+    ) -> None:
         mock_supabase_admin.execute.side_effect = [
             MagicMock(data={"value": False, "requires_approval": False}),
             MagicMock(
@@ -93,7 +93,7 @@ class TestAdminSettingsRoutes:
 
     def test_get_pending_changes_enriches_current_value_and_requester_email(
         self, client, override_admin, mock_supabase_admin
-    ):
+    ) -> None:
         mock_supabase_admin.execute.side_effect = [
             MagicMock(
                 data=[
@@ -126,7 +126,7 @@ class TestAdminSettingsRoutes:
         assert payload["requester_email"] == "maker@example.com"
         assert payload["current_value"] is False
 
-    def test_approve_change_uses_admin_name(self, client, override_admin, admin_user, mock_supabase_admin):
+    def test_approve_change_uses_admin_name(self, client, override_admin, admin_user, mock_supabase_admin) -> None:
         mock_supabase_admin.execute.side_effect = [
             MagicMock(
                 data={
@@ -178,7 +178,9 @@ class TestAdminSettingsRoutes:
             "Admin User",
         )
 
-    def test_reject_change_uses_rejection_reason_payload(self, client, override_admin, admin_user, mock_supabase_admin):
+    def test_reject_change_uses_rejection_reason_payload(
+        self, client, override_admin, admin_user, mock_supabase_admin
+    ) -> None:
         mock_supabase_admin.execute.side_effect = [
             MagicMock(
                 data={
@@ -217,7 +219,7 @@ class TestAdminSettingsRoutes:
             "Needs review",
         )
 
-    def test_reject_change_rejects_already_processed_request(self, client, override_admin, mock_supabase_admin):
+    def test_reject_change_rejects_already_processed_request(self, client, override_admin, mock_supabase_admin) -> None:
         mock_supabase_admin.execute.return_value = MagicMock(
             data={
                 "id": "00000000-0000-4000-a000-000000000222",
@@ -263,7 +265,7 @@ class TestAdminUserCacheInvalidation:
         yield
         app.dependency_overrides.pop(get_current_user, None)
 
-    def test_update_user_role_invalidates_auth_cache(self, client, override_admin, mock_supabase_admin):
+    def test_update_user_role_invalidates_auth_cache(self, client, override_admin, mock_supabase_admin) -> None:
         user_id = "00000000-0000-4000-a000-000000000999"
         role_id = "00000000-0000-4000-a000-000000000888"
         mock_supabase_admin.execute.side_effect = [
@@ -285,7 +287,7 @@ class TestAdminUserCacheInvalidation:
         assert response.status_code == 200
         mock_invalidate.assert_called_once_with(user_id)
 
-    def test_ban_user_invalidates_auth_cache(self, client, override_admin, mock_supabase_admin):
+    def test_ban_user_invalidates_auth_cache(self, client, override_admin, mock_supabase_admin) -> None:
         user_id = "00000000-0000-4000-a000-000000000999"
         mock_token_service = MagicMock()
         mock_token_service.blacklist_all_user_tokens = AsyncMock(return_value=1)
@@ -337,7 +339,7 @@ class TestAdminCommentBulkDelete:
         yield
         app.dependency_overrides.pop(get_current_user, None)
 
-    def test_bulk_delete_comments_notifies_comment_authors(self, client, override_admin, mock_supabase_admin):
+    def test_bulk_delete_comments_notifies_comment_authors(self, client, override_admin, mock_supabase_admin) -> None:
         notification_service = MagicMock()
 
         mock_supabase_admin.execute.side_effect = [
@@ -383,7 +385,7 @@ class TestAdminCommentModerationBan:
         yield
         app.dependency_overrides.pop(get_current_user, None)
 
-    def test_ban_user_by_comment_rejects_admin_targets(self, client, override_admin, mock_supabase_admin):
+    def test_ban_user_by_comment_rejects_admin_targets(self, client, override_admin, mock_supabase_admin) -> None:
         notification_service = MagicMock()
         mock_supabase_admin.execute.side_effect = [
             MagicMock(data={"user_id": "00000000-0000-4000-a000-000000000999"}),
@@ -404,7 +406,7 @@ class TestAdminCommentModerationBan:
         assert response.status_code == 400
         assert "Cannot ban an admin user" in response.json()["detail"]
 
-    def test_ban_user_by_comment_invalidates_auth_state(self, client, override_admin, mock_supabase_admin):
+    def test_ban_user_by_comment_invalidates_auth_state(self, client, override_admin, mock_supabase_admin) -> None:
         notification_service = MagicMock()
         mock_token_service = MagicMock()
         mock_token_service.blacklist_all_user_tokens = AsyncMock(return_value=1)
@@ -461,7 +463,7 @@ class TestAdminUserProfileUpdates:
         yield
         app.dependency_overrides.pop(get_current_user, None)
 
-    def test_update_user_profile_requires_payload_fields(self, client, override_admin, mock_supabase_admin):
+    def test_update_user_profile_requires_payload_fields(self, client, override_admin, mock_supabase_admin) -> None:
         with patch(
             "routes.admin.users.get_async_supabase_admin_client",
             new_callable=AsyncMock,
@@ -475,7 +477,7 @@ class TestAdminUserProfileUpdates:
         assert response.status_code == 400
         assert response.json()["detail"] == "No valid fields provided"
 
-    def test_update_user_profile_returns_not_found(self, client, override_admin, mock_supabase_admin):
+    def test_update_user_profile_returns_not_found(self, client, override_admin, mock_supabase_admin) -> None:
         mock_supabase_admin.execute.return_value = MagicMock(data=[])
 
         with patch(

@@ -67,7 +67,7 @@ AsyncSessionLocal = (
     )
     if engine is not None
     else None
-)  # type: ignore[assignment]
+)
 
 
 class Base(DeclarativeBase):

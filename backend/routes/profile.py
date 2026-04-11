@@ -3,7 +3,7 @@ User profile management routes
 """
 
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Path, Response, UploadFile
 from starlette.requests import Request
@@ -595,7 +595,10 @@ async def request_account_deletion(
     """
     client_ip = request.client.host if request.client else "unknown"
     try:
-        return await auth_service.user_service.request_account_deletion(user_id=current_user.id, client_ip=client_ip)
+        return cast(
+            AccountDeletionResponse,
+            await auth_service.user_service.request_account_deletion(user_id=current_user.id, client_ip=client_ip),
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -626,7 +629,9 @@ async def cancel_account_deletion(
         HTTPException: 500 - If cancellation fails.
     """
     try:
-        return await auth_service.user_service.cancel_account_deletion(user_id=current_user.id)
+        return cast(
+            AccountDeletionResponse, await auth_service.user_service.cancel_account_deletion(user_id=current_user.id)
+        )
     except HTTPException:
         raise
     except Exception as e:

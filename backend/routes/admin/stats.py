@@ -170,7 +170,7 @@ async def get_dashboard_summary(
     cache_key = "admin_dashboard_summary_v1"
     cached = await redis_service.get(cache_key)
     if cached:
-        return cached
+        return cast(dict[str, Any], cached)
 
     try:
         admin_client = await get_async_supabase_admin_client()
@@ -216,7 +216,11 @@ async def get_dashboard_summary(
         try:
             admin_client = await get_async_supabase_admin_client()
 
-            async def safe_count(table: str, count_method=CountMethod.estimated, filters: dict[str, Any] | None = None):
+            async def safe_count(
+                table: str,
+                count_method: CountMethod = CountMethod.estimated,
+                filters: dict[str, Any] | None = None,
+            ) -> int:
                 try:
                     query = admin_client.table(table).select("id", count=count_method)
                     if filters:
@@ -235,14 +239,14 @@ async def get_dashboard_summary(
             total_reports = await safe_count("reports")
 
             # Try to get trends and monthly data with their own catch-all
-            async def get_trends_safe():
+            async def get_trends_safe() -> dict[str, Any]:
                 try:
                     return await _fetch_trends_fallback(admin_client, days_back=30)
                 except Exception as trends_err:
                     logger.error(f"Fallback trends failed: {trends_err}")
                     return {"users": [], "photos": [], "reports": []}
 
-            async def get_monthly_safe():
+            async def get_monthly_safe() -> list[Any]:
                 try:
                     return await _fetch_monthly_report_fallback(admin_client, datetime.now().year)
                 except Exception as monthly_err:
@@ -286,7 +290,7 @@ async def get_system_trends(
     cache_key = "admin_trends_v1"
     cached = await redis_service.get(cache_key)
     if cached:
-        return cached
+        return cast(dict[str, Any], cached)
 
     try:
         admin_client = await get_async_supabase_admin_client()
@@ -322,7 +326,7 @@ async def get_monthly_stats(
     cache_key = f"admin_monthly_{year or datetime.now().year}"
     cached = await redis_service.get(cache_key)
     if cached:
-        return cached
+        return cast(dict[str, Any], cached)
 
     try:
         admin_client = await get_async_supabase_admin_client()

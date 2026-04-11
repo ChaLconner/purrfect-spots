@@ -18,7 +18,7 @@ class TestGoogleVisionServiceExtended:
             mock_client_cls.from_service_account_json.return_value = mock_instance
             yield mock_instance
 
-    def test_init_with_service_account_env(self, mock_vision_client):
+    def test_init_with_service_account_env(self, mock_vision_client) -> None:
         json_creds = '{"type": "service_account", "project_id": "test"}'
         with (
             patch.dict(os.environ, {"GOOGLE_VISION_SERVICE_ACCOUNT": json_creds}),
@@ -30,7 +30,7 @@ class TestGoogleVisionServiceExtended:
             assert service.is_initialized is True
             assert service.client is not None
 
-    def test_init_with_key_path(self, mock_vision_client):
+    def test_init_with_key_path(self, mock_vision_client) -> None:
         with (
             patch.dict(os.environ, {"GOOGLE_VISION_SERVICE_ACCOUNT": "", "GOOGLE_VISION_KEY_PATH": "/tmp/key.json"}),  # noqa: S108
             patch("services.google_vision.Path.exists", return_value=True),
@@ -39,7 +39,7 @@ class TestGoogleVisionServiceExtended:
             service = GoogleVisionService()
             assert service.is_initialized is True
 
-    def test_init_fallback(self):
+    def test_init_fallback(self) -> None:
         # When VISION_AVAILABLE is False
         with patch("services.google_vision.VISION_AVAILABLE", False):
             service = GoogleVisionService()
@@ -103,7 +103,7 @@ class TestGoogleVisionServiceExtended:
     async def test_analyze_suitability(self, mock_vision_client):
         # Setup detect_cats to return specific result
         service = GoogleVisionService()
-        service.detect_cats = AsyncMock(return_value={"has_cats": True, "labels": ["park", "tree", "grass"]})
+        service.detect_cats = AsyncMock(return_value={"has_cats": True, "labels": ["park", "tree", "grass"]})  # type: ignore[method-assign]
 
         result = await service.analyze_cat_spot_suitability(MagicMock())
         # Note: _check_park_environment() returns a string but doesn't assign it to env_type

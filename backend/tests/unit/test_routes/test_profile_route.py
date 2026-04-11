@@ -1,3 +1,5 @@
+from collections.abc import AsyncGenerator
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -9,7 +11,7 @@ from routes.profile import get_admin_gallery_service, get_auth_service, get_stor
 
 
 @pytest.fixture
-async def client():
+async def client() -> AsyncGenerator[AsyncClient, None]:
     """Create test client using AsyncClient"""
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
@@ -67,7 +69,7 @@ class TestProfileRoute:
         app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
         app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
 
-        payload = {"name": "Updated Name", "bio": "Updated Bio"}
+        payload: dict[str, str] = {"name": "Updated Name", "bio": "Updated Bio"}
         response = await client.put("/api/v1/profile", json=payload)
 
         # Cleanup
@@ -84,7 +86,7 @@ class TestProfileRoute:
         app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
         app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
 
-        payload = {}
+        payload: dict[str, Any] = {}
         response = await client.put("/api/v1/profile", json=payload)
 
         app.dependency_overrides = {}
@@ -144,7 +146,7 @@ class TestProfileRoute:
         app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
         app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
 
-        payload = {"current_password": "old_password", "new_password": "new_password"}
+        payload: dict[str, str] = {"current_password": "old_password", "new_password": "new_password"}
         response = await client.put("/api/v1/profile/password", json=payload)
 
         app.dependency_overrides = {}
@@ -161,7 +163,7 @@ class TestProfileRoute:
         app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
         app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
 
-        payload = {"current_password": "wrong_password", "new_password": "new_password"}
+        payload: dict[str, str] = {"current_password": "wrong_password", "new_password": "new_password"}
         response = await client.put("/api/v1/profile/password", json=payload)
 
         app.dependency_overrides = {}
@@ -219,7 +221,7 @@ class TestProfileRoute:
             patch("routes.profile.invalidate_gallery_cache", new_callable=AsyncMock),
             patch("routes.profile.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_admin),
         ):
-            payload = {"location_name": "New Loc", "description": "New Desc"}
+            payload: dict[str, str] = {"location_name": "New Loc", "description": "New Desc"}
             response = await client.put("/api/v1/profile/uploads/00000000-0000-0000-0000-000000000001", json=payload)
 
         app.dependency_overrides = {}

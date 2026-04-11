@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-import structlog
+import structlog  # type: ignore[import-untyped, unused-ignore]
 from sqlalchemy import text
 
 from services.user.base_mixin import UserBaseMixin
@@ -83,7 +83,7 @@ class UserDeletionMixin(UserBaseMixin):
         """Request soft deletion of the user account"""
         try:
             # Need to use the main class's get_user_by_id (inherited via mixins)
-            user_record = await self.get_user_by_id(user_id)  # type: ignore
+            user_record = await self.get_user_by_id(user_id)
             if not user_record:
                 raise PurrfectSpotsException("User not found")
         except Exception as e:

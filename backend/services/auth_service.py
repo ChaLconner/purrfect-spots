@@ -1,6 +1,15 @@
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
-import structlog
+try:
+    import structlog  # type: ignore[import-not-found, unused-ignore]
+except ImportError:
+    import logging
+
+    class DummyStructlog:
+        def get_logger(self, *args: Any, **kwargs: Any) -> Any:
+            return logging.getLogger("purrfect_spots.fallback")
+
+    structlog = DummyStructlog()  # type: ignore
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import config
@@ -53,24 +62,24 @@ class AuthService(AuthTokenMixin, AuthOAuthMixin, AuthPasswordMixin):
 
     # Delegation methods to UserService
     async def create_or_get_user(self, user_data: dict[str, Any]) -> "User":
-        return await self.user_service.create_or_get_user(user_data)
+        return cast("User", await self.user_service.create_or_get_user(user_data))
 
     async def authenticate_user(self, email: str, password: str) -> dict[str, Any] | None:
-        return await self.user_service.authenticate_user(email, password)
+        return cast(dict[str, Any] | None, await self.user_service.authenticate_user(email, password))
 
     async def create_user_with_password(self, email: str, password: str, name: str) -> dict[str, Any]:
-        return await self.user_service.create_unverified_user(email, password, name)
+        return cast(dict[str, Any], await self.user_service.create_unverified_user(email, password, name))
 
     async def get_user_by_email_unverified(self, email: str) -> dict[str, Any] | None:
-        return await self.user_service.get_user_by_email(email)
+        return cast(dict[str, Any] | None, await self.user_service.get_user_by_email(email))
 
     async def get_user_by_id(self, user_id: str) -> "User | None":
-        return await self.user_service.get_user_by_id(user_id)
+        return cast("User | None", await self.user_service.get_user_by_id(user_id))
 
     async def update_user_profile(
         self, user_id: str, update_data: dict[str, Any], jwt_token: str | None = None
     ) -> dict[str, Any]:
-        return await self.user_service.update_user_profile(user_id, update_data, jwt_token)
+        return cast(dict[str, Any], await self.user_service.update_user_profile(user_id, update_data, jwt_token))
 
     async def confirm_user_email(self, email: str) -> bool:
         """Confirm user email via Admin Client (Async)"""

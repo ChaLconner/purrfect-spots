@@ -4,7 +4,7 @@ import typing
 import uuid
 from datetime import datetime
 
-import boto3
+import boto3  # type: ignore[import-untyped, unused-ignore]
 from fastapi import HTTPException
 
 from logger import logger
@@ -95,7 +95,7 @@ class StorageService:
             return url
 
         except Exception as e:
-            from botocore.exceptions import ClientError
+            from botocore.exceptions import ClientError  # type: ignore[import-untyped, unused-ignore]
 
             if isinstance(e, ClientError):
                 logger.error(f"S3 ClientError: {e}")

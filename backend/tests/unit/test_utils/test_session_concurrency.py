@@ -25,7 +25,7 @@ def run_reset_sessions():
     reset_sessions()
 
 
-def test_register_new_session():
+def test_register_new_session() -> None:
     """Test registering a new session"""
     user_id = "user1"
     session_id = "session1"
@@ -43,7 +43,7 @@ def test_register_new_session():
     assert sessions[0]["user_agent"] == ua
 
 
-def test_refresh_existing_session():
+def test_refresh_existing_session() -> None:
     """Test refreshing an existing session"""
     user_id = "user1"
     session_id = "session1"
@@ -59,7 +59,7 @@ def test_refresh_existing_session():
     assert sessions[0]["ip_address"] == "2.2.2.2"
 
 
-def test_concurrency_limit_exceeded():
+def test_concurrency_limit_exceeded() -> None:
     """Test kicking out the oldest session when limit is exceeded"""
     user_id = "user1"
 
@@ -81,7 +81,7 @@ def test_concurrency_limit_exceeded():
     assert not any(s.startswith("session0") for s in session_ids)
 
 
-def test_remove_session():
+def test_remove_session() -> None:
     """Test removing a specific session"""
     user_id = "user1"
     session_id = "session1"
@@ -96,7 +96,7 @@ def test_remove_session():
     assert remove_session("no_user", "session1") is False
 
 
-def test_invalidate_all_sessions():
+def test_invalidate_all_sessions() -> None:
     """Test invalidating all sessions for a user"""
     user_id = "user1"
 
@@ -111,7 +111,7 @@ def test_invalidate_all_sessions():
     assert invalidate_all_sessions("no_user") == 0
 
 
-def test_detect_different_ips():
+def test_detect_different_ips() -> None:
     """Test detection of sessions from different IPs"""
     user_id = "user1"
 
@@ -132,7 +132,7 @@ def test_detect_different_ips():
     assert detect_concurrent_different_ips("no_user") is None
 
 
-def test_get_session_summary():
+def test_get_session_summary() -> None:
     """Test session summary statistics"""
     register_session("u1", "s1", "ip1", "ua1")
     register_session("u1", "s2", "ip2", "ua2")
@@ -145,7 +145,7 @@ def test_get_session_summary():
     assert summary["max_concurrent_sessions"] == MAX_CONCURRENT_SESSIONS
 
 
-def test_session_expiry():
+def test_session_expiry() -> None:
     """Test that expired sessions are automatically cleaned"""
     # Use monkeypatch to simulate passage of time if possible
     # But since it uses time.time() directly in the function...
