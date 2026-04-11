@@ -56,7 +56,7 @@ class TestUploadFlowIntegration:
             mock_auth.return_value = mock_auth_user
             yield client
 
-    def test_upload_requires_authentication(self, client, valid_cat_image):
+    def test_upload_requires_authentication(self, client, valid_cat_image) -> None:
         """Test: Upload fails without authentication"""
         response = client.post(
             "/api/v1/upload/cat",
@@ -70,7 +70,7 @@ class TestUploadFlowIntegration:
 
         assert response.status_code == 401
 
-    def test_upload_validates_file_type(self, authenticated_client, mock_auth_user):
+    def test_upload_validates_file_type(self, authenticated_client, mock_auth_user) -> None:
         """Test: Upload rejects non-image files"""
         fake_file = io.BytesIO(b"not an image")
 
@@ -87,7 +87,7 @@ class TestUploadFlowIntegration:
 
         assert response.status_code in [400, 401, 422]
 
-    def test_upload_validates_location(self, authenticated_client, valid_cat_image, mock_auth_user):
+    def test_upload_validates_location(self, authenticated_client, valid_cat_image, mock_auth_user) -> None:
         """Test: Upload validates latitude/longitude ranges"""
         with patch("routes.upload.get_current_user", return_value=mock_auth_user):
             # Invalid latitude (>90)
@@ -103,7 +103,7 @@ class TestUploadFlowIntegration:
 
         assert response.status_code in [400, 401, 422]
 
-    def test_upload_sanitizes_location_name(self, authenticated_client, valid_cat_image, mock_auth_user):
+    def test_upload_sanitizes_location_name(self, authenticated_client, valid_cat_image, mock_auth_user) -> None:
         """Test: Upload sanitizes XSS in location name"""
         malicious_name = "<script>alert('xss')</script>Test Park"
 
@@ -193,7 +193,7 @@ class TestUploadFlowIntegration:
 class TestGalleryFlowIntegration:
     """End-to-end tests for gallery retrieval"""
 
-    def test_gallery_returns_photos(self, client):
+    def test_gallery_returns_photos(self, client) -> None:
         """Test: Gallery returns paginated photos"""
         # Mock Service
         mock_service = MagicMock()
@@ -238,14 +238,14 @@ class TestGalleryFlowIntegration:
         assert len(data["images"]) == 1
         assert data["images"][0]["location_name"] == "Park"
 
-    def test_gallery_pagination(self, client):
+    def test_gallery_pagination(self, client) -> None:
         """Test: Gallery supports pagination parameters"""
         response = client.get("/api/v1/gallery/?page=1&limit=10")
 
         # Should accept pagination params
         assert response.status_code in [200, 500]  # 500 if DB not configured
 
-    def test_gallery_no_auth_required(self, client):
+    def test_gallery_no_auth_required(self, client) -> None:
         """Test: Gallery is publicly accessible"""
         # Don't set any auth headers
         response = client.get("/api/v1/gallery/")
@@ -260,7 +260,7 @@ class TestAuthFlowIntegration:
     TEST_EMAIL = "test@example.com"
     TEST_PASSWORD = os.getenv("TEST_PASSWORD", "test-only-not-a-real-credential")  # nosonar
 
-    def test_register_creates_user(self, client):
+    def test_register_creates_user(self, client) -> None:
         """Test: Registration creates a new user"""
         mock_service = MagicMock()
         mock_service.create_user_with_password = AsyncMock(
@@ -298,7 +298,7 @@ class TestAuthFlowIntegration:
         # Should succeed or fail with validation
         assert response.status_code in [200, 201, 400, 409, 422]
 
-    def test_login_returns_tokens(self, client):
+    def test_login_returns_tokens(self, client) -> None:
         """Test: Login returns access and refresh tokens"""
 
         mock_service = MagicMock()

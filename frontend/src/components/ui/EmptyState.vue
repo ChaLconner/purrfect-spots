@@ -168,14 +168,16 @@ const handleAction = (): void => {
         </p>
       </div>
 
-      <!-- Action Button -->
-      <div v-if="actionText && actionLink" class="pt-6">
-        <button
-          class="px-10 py-4 bg-terracotta text-white rounded-full font-bold shadow-[0_10px_20px_-5px_rgba(210,105,30,0.3)] hover:shadow-[0_15px_30px_-8px_rgba(210,105,30,0.4)] hover:-translate-y-1 active:scale-95 transition-all duration-300"
-          @click="handleAction"
-        >
-          {{ actionText }}
-        </button>
+      <!-- Action Button / Slot -->
+      <div v-if="(actionText && actionLink) || $slots.action" class="pt-6">
+        <slot name="action">
+          <button
+            class="px-10 py-4 bg-terracotta text-white rounded-full font-bold shadow-[0_10px_20px_-5px_rgba(210,105,30,0.3)] hover:shadow-[0_15px_30px_-8px_rgba(210,105,30,0.4)] hover:-translate-y-1 active:scale-95 transition-all duration-300"
+            @click="handleAction"
+          >
+            {{ actionText }}
+          </button>
+        </slot>
       </div>
     </div>
   </div>

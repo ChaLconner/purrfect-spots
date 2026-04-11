@@ -14,7 +14,7 @@ from utils.security import protect_public_coordinates
 class TestHealthEndpoints:
     """Test health check endpoints"""
 
-    def test_root_endpoint(self, client):
+    def test_root_endpoint(self, client) -> None:
         """Test root endpoint returns healthy status"""
         response = client.get("/")
 
@@ -23,7 +23,7 @@ class TestHealthEndpoints:
         assert data["status"] == "healthy"
         assert "version" in data
 
-    def test_health_endpoint(self, client):
+    def test_health_endpoint(self, client) -> None:
         """Test /health/live endpoint"""
         response = client.get("/health/live")
 
@@ -31,7 +31,7 @@ class TestHealthEndpoints:
         data = response.json()
         assert data["status"] == "alive"
 
-    def test_ready_endpoint(self, client):
+    def test_ready_endpoint(self, client) -> None:
         """Test /health/ready response endpoint"""
         response = client.get("/health/ready")
 
@@ -45,7 +45,7 @@ class TestHealthEndpoints:
 class TestGalleryRoutes:
     """Test gallery API routes"""
 
-    def test_get_gallery_empty(self, client):
+    def test_get_gallery_empty(self, client) -> None:
         """Test gallery endpoint returns empty list when no photos exist"""
         mock_service = MagicMock()
         mock_service.get_all_photos = AsyncMock(
@@ -69,7 +69,7 @@ class TestGalleryRoutes:
 
         app.dependency_overrides = {}
 
-    def test_get_gallery_with_data(self, client, mock_cat_photo):
+    def test_get_gallery_with_data(self, client, mock_cat_photo) -> None:
         """Test gallery endpoint returns correct data format"""
         mock_service = MagicMock()
         mock_service.get_all_photos = AsyncMock(
@@ -94,7 +94,7 @@ class TestGalleryRoutes:
 
         app.dependency_overrides = {}
 
-    def test_get_gallery_pagination(self, client, mock_cat_photo):
+    def test_get_gallery_pagination(self, client, mock_cat_photo) -> None:
         """Test gallery endpoint pagination parameters"""
         mock_service = MagicMock()
         mock_service.get_all_photos = AsyncMock(
@@ -119,7 +119,7 @@ class TestGalleryRoutes:
 
         app.dependency_overrides = {}
 
-    def test_get_gallery_by_page(self, client, mock_cat_photo):
+    def test_get_gallery_by_page(self, client, mock_cat_photo) -> None:
         """Test gallery endpoint with page parameter"""
         mock_service = MagicMock()
         mock_service.get_all_photos = AsyncMock(
@@ -150,7 +150,7 @@ class TestGalleryRoutes:
 
         app.dependency_overrides = {}
 
-    def test_get_locations(self, client, mock_cat_photo):
+    def test_get_locations(self, client, mock_cat_photo) -> None:
         """Test locations endpoint for map display"""
         mock_service = MagicMock()
         mock_service.get_map_locations = AsyncMock(return_value=[mock_cat_photo])
@@ -168,7 +168,7 @@ class TestGalleryRoutes:
 
         app.dependency_overrides = {}
 
-    def test_search_locations(self, client, mock_cat_photo):
+    def test_search_locations(self, client, mock_cat_photo) -> None:
         """Test search endpoint"""
         mock_service = MagicMock()
         mock_service.search_photos = AsyncMock(return_value=[mock_cat_photo])
@@ -184,7 +184,7 @@ class TestGalleryRoutes:
 
         app.dependency_overrides = {}
 
-    def test_search_by_tags(self, client, mock_cat_photo):
+    def test_search_by_tags(self, client, mock_cat_photo) -> None:
         """Test search endpoint with tags"""
         mock_service = MagicMock()
         mock_service.search_photos = AsyncMock(return_value=[mock_cat_photo])
@@ -199,7 +199,7 @@ class TestGalleryRoutes:
 
         app.dependency_overrides = {}
 
-    def test_get_popular_tags(self, client):
+    def test_get_popular_tags(self, client) -> None:
         """Test popular tags endpoint"""
         mock_service = MagicMock()
         mock_service.get_popular_tags = AsyncMock(
@@ -220,7 +220,7 @@ class TestGalleryRoutes:
 
         app.dependency_overrides = {}
 
-    def test_gallery_error_handling(self, client):
+    def test_gallery_error_handling(self, client) -> None:
         """Test gallery endpoint handles errors gracefully"""
         mock_service = MagicMock()
         mock_service.get_all_photos = AsyncMock(side_effect=Exception("Database error"))
@@ -238,7 +238,7 @@ class TestGalleryRoutes:
 class TestAPIVersioning:
     """Test API versioning"""
 
-    def test_v1_gallery_endpoint(self, client):
+    def test_v1_gallery_endpoint(self, client) -> None:
         """Test that /api/v1/gallery works"""
         mock_service = MagicMock()
         mock_service.get_all_photos = AsyncMock(
@@ -259,7 +259,7 @@ class TestAPIVersioning:
 
         app.dependency_overrides = {}
 
-    def test_v1_health_not_versioned(self, client):
+    def test_v1_health_not_versioned(self, client) -> None:
         """Test that health endpoints are not versioned"""
         response = client.get("/health")
         assert response.status_code == 200

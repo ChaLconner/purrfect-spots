@@ -16,7 +16,7 @@ from utils.cache import cached_leaderboard
 # Pin the same API version as subscription_service to ensure consistent
 # webhook payload shapes across all Stripe SDK calls in this service.
 stripe.api_key = config.STRIPE_SECRET_KEY or os.getenv("STRIPE_SECRET_KEY")
-stripe.api_version = "2025-02-24.acacia"  # type: ignore[assignment]
+stripe.api_version = "2025-02-24.acacia"
 
 # ── In-memory package cache ──────────────────────────────────────────
 _packages_cache: dict[str, dict[str, Any]] | None = None

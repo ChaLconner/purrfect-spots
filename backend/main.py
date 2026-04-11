@@ -23,8 +23,10 @@ load_dotenv()
 
 
 # ========== Sentry Integration ==========
+from typing import Any, cast
+
 import sentry_sdk
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -73,9 +75,8 @@ def _env_flag(name: str, default: bool = False) -> bool:
 
 
 if SENTRY_DSN and not IS_TEST_ENV:
-    from sentry_sdk.types import Event, Hint
 
-    def before_send(event: Event, hint: Hint) -> Event | None:
+    def before_send(event: Any, hint: Any) -> Any:
         # Filter exceptions by type (when exc_info is available)
         if "exc_info" in hint:
             exc_type, exc_value, tb = hint["exc_info"]
@@ -87,7 +88,8 @@ if SENTRY_DSN and not IS_TEST_ENV:
 
         # Filter by log message for errors that come through without exc_info
         # (e.g., starlette lifespan shutdown, port binding conflicts)
-        message_obj = event.get("logentry", {}).get("message", "") or event.get("message", "")
+        event_dict = cast("dict[str, Any]", event)
+        message_obj = event_dict.get("logentry", {}).get("message", "") or event_dict.get("message", "")
         message = str(message_obj)
         noise_patterns = [
             "CancelledError",
@@ -102,8 +104,8 @@ if SENTRY_DSN and not IS_TEST_ENV:
         if any(pattern in message for pattern in noise_patterns):
             return None
 
-        request = event.get("request", {}) or {}
-        headers = request.get("headers", {}) or {}
+        request = cast("dict[str, Any]", event_dict.get("request", {}) or {})
+        headers = cast("dict[str, Any]", request.get("headers", {}) or {})
         user_agent = str(headers.get("User-Agent", headers.get("user-agent", "")))
         url = str(request.get("url", ""))
         if "testclient" in user_agent.lower() or url.startswith("http://test"):
@@ -124,23 +126,24 @@ if SENTRY_DSN and not IS_TEST_ENV:
             }
 
         # 2. Strip sensitive user data
-        if "user" in event:
-            user = event["user"]
+        if "user" in event_dict:
+            user = cast("dict[str, Any]", event_dict["user"])
             for field in ["email", "ip_address", "username"]:
                 if field in user:
                     user[field] = "[REDACTED]"
 
         # 3. Scrub breadcrumbs (e.g. SQL queries or API calls that might have PII)
-        if "breadcrumbs" in event:
-            for breadcrumb in event["breadcrumbs"].get("values", []):
+        if "breadcrumbs" in event_dict:
+            breadcrumbs = cast("dict[str, Any]", event_dict["breadcrumbs"])
+            for breadcrumb in cast("list[dict[str, Any]]", breadcrumbs.get("values", [])):
                 if breadcrumb.get("category") in ("query", "http"):
-                    data = breadcrumb.get("data", {})
+                    data = cast("dict[str, Any]", breadcrumb.get("data", {}))
                     if "query" in data:
                         # Basic SQL redaction - can be improved but good start
                         data["query"] = "[REDACTED_QUERY]"
                     if "url" in data:
                         # Remove query params from URLs in breadcrumbs
-                        url_parts = data["url"].split("?")
+                        url_parts = str(data["url"]).split("?")
                         if len(url_parts) > 1:
                             data["url"] = url_parts[0] + "?[REDACTED_PARAMS]"
 
@@ -210,14 +213,20 @@ tags_metadata = [
 from contextlib import asynccontextmanager
 
 from tasks.cleanup_tasks import start_cleanup_jobs, stop_cleanup_jobs
+from utils.http_client import close_shared_httpx_client
 from utils.telemetry import setup_telemetry
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    await start_cleanup_jobs()
+    if config.ENABLE_BACKGROUND_TASKS:
+        await start_cleanup_jobs()
+    else:
+        logger.info("Background cleanup tasks disabled (lifespan)")
     yield
-    await stop_cleanup_jobs()
+    if config.ENABLE_BACKGROUND_TASKS:
+        await stop_cleanup_jobs()
+    await close_shared_httpx_client()
 
 
 # ========== FastAPI Application ==========
@@ -293,11 +302,12 @@ setup_telemetry(app)
 
 
 # ========== Rate Limiter ==========
+from starlette.types import ExceptionHandler
+
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+app.add_exception_handler(RateLimitExceeded, cast(ExceptionHandler, _rate_limit_exceeded_handler))
 
 # ========== Exception Handlers ==========
-from typing import cast
 
 from starlette.types import ExceptionHandler
 
@@ -359,6 +369,14 @@ async def health_check() -> JSONResponse:
         },
         headers={"Content-Type": CONTENT_TYPE_JSON},
     )
+
+
+# ========== Favicon Routes (to prevent 404 noise) ==========
+@app.get("/favicon.ico", include_in_schema=False)
+@app.get("/favicon.png", include_in_schema=False)
+async def favicon() -> Response:
+    """Handle favicon requests to prevent 404 security event logs."""
+    return Response(status_code=204)
 
 
 # Test endpoint removed for security

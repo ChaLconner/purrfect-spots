@@ -6,7 +6,6 @@ import time
 from datetime import UTC, datetime
 from typing import Any, cast
 
-import httpx
 import jwt
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -71,13 +70,18 @@ async def get_jwks() -> dict | None:
     if _jwks_cache and (current_time - _jwks_last_update < JWKS_CACHE_TTL):
         return _jwks_cache
 
+    from utils.http_client import get_shared_httpx_client
+
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(jwks_url, timeout=5)
-            if response.status_code == 200:
-                _jwks_cache = response.json()
-                _jwks_last_update = int(current_time)
-                return _jwks_cache
+        client = get_shared_httpx_client()
+        # Supabase Auth /keys endpoint often requires the anon key in apikey header
+        headers = {"apikey": config.SUPABASE_KEY} if config.SUPABASE_KEY else {}
+        response = await client.get(jwks_url, headers=headers, timeout=5)
+        if response.status_code == 200:
+            _jwks_cache = response.json()
+            _jwks_last_update = int(current_time)
+            return _jwks_cache
+        logger.warning("JWKS fetch failed with status %d: %s", response.status_code, response.text[:100])
     except Exception as e:
         logger.warning("Failed to refresh JWKS cache: %s", e)
 
@@ -101,7 +105,7 @@ async def decode_supabase_token(token: str) -> dict:
             raise ValueError(f"Key with kid '{kid}' not found in JWKS")
 
         public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key)
-        return jwt.decode(token, public_key, algorithms=["RS256"], audience="authenticated")  # type: ignore[arg-type]
+        return jwt.decode(token, cast(Any, public_key), algorithms=["RS256"], audience="authenticated")
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Invalid Supabase token: {e!s}")
 
@@ -149,11 +153,12 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
         query = "*, roles(name, role_permissions(permissions(code)))"
         result = await supabase_admin.table("users").select(query).eq("id", user_id).maybe_single().execute()
 
-        if hasattr(result, "error") and result.error:
+        if result is not None and hasattr(result, "error") and result.error:
             logger.error(f"Supabase auth query error for user {user_id}: {result.error}")
             # If we get a permission denied here, it means supabase_admin isn't actually an admin
             if "permission denied" in str(result.error).lower():
-                logger.critical("ADMIN CLIENT PERMISSION DENIED: Check SUPABASE_SERVICE_ROLE_KEY")
+                logger.warning("Supabase admin client received permission denied - check service role key")
+            raise HTTPException(status_code=401, detail="User database sync failure")
 
         if result and hasattr(result, "data") and result.data:
             data = cast(dict[str, Any], result.data)

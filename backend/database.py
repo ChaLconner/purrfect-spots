@@ -1,6 +1,5 @@
-from collections.abc import AsyncGenerator
 import os
-import socket
+from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
@@ -68,7 +67,7 @@ AsyncSessionLocal = (
     )
     if engine is not None
     else None
-)  # type: ignore[assignment]
+)
 
 
 class Base(DeclarativeBase):

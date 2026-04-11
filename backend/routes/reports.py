@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -29,7 +29,7 @@ async def create_report(
             details=report_data.details,
         )
         logger.info("Report created by user %s against photo %s", current_user.id, report_data.photo_id)
-        return report
+        return cast(ReportResponse, report)
 
     except Exception as e:
         logger.error("Failed to create report: %s", e)
@@ -43,7 +43,7 @@ async def list_my_reports(
 ) -> list[ReportResponse]:
     """List reports submitted by the current user."""
     try:
-        return await report_service.get_user_reports(current_user.id)
+        return cast(list[ReportResponse], await report_service.get_user_reports(current_user.id))
     except Exception as e:
         logger.error("Failed to list my reports: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch reports")

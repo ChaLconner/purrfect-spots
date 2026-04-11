@@ -174,6 +174,15 @@ export const handleError = (event: ErrorEvent): boolean => {
  */
 export const handleVueError = (err: unknown, info: string): boolean | undefined => {
   if (isBrowserExtensionError(err)) {
+    const errorString = String(err);
+    // If it's a ChunkLoadError, it means a JS chunk is missing on the server
+    // (common after a new deployment). The best recovery is a full page reload.
+    if (errorString.includes('ChunkLoadError') || errorString.includes('Failed to fetch dynamically imported module')) {
+      if (!isDev()) {
+        window.location.reload();
+      }
+    }
+    
     logBrowserExtensionError(err, `Vue error in ${info}`);
     return false;
   }

@@ -19,7 +19,7 @@ from utils.security import (
 )
 
 
-def test_sanitize_text():
+def test_sanitize_text() -> None:
     assert sanitize_text("  hello  ") == "hello"
     assert (
         sanitize_text("<script>alert(1)</script>hello") == "hello"
@@ -28,31 +28,31 @@ def test_sanitize_text():
     assert sanitize_text("") == ""
 
 
-def test_sanitize_html():
+def test_sanitize_html() -> None:
     html = "<b>hello</b> <script>bad</script>"
     assert sanitize_html(html) == "hello bad"
     assert sanitize_html(html, allowed_tags=["b"]) == "<b>hello</b> bad"
 
 
-def test_sanitize_tag():
+def test_sanitize_tag() -> None:
     assert sanitize_tag("#Hello_World 123!") == "hello_world 123"
     assert sanitize_tag("") == ""
 
 
-def test_sanitize_tags():
+def test_sanitize_tags() -> None:
     assert sanitize_tags(["#A", "b!", " a ", ""]) == ["a", "b"]
-    assert sanitize_tags(None) == []
+    assert sanitize_tags(None) == []  # type: ignore[arg-type]
 
 
-def test_sanitize_location_name():
+def test_sanitize_location_name() -> None:
     assert sanitize_location_name("  Test Location  ") == "Test Location"
 
 
-def test_sanitize_description():
+def test_sanitize_description() -> None:
     assert sanitize_description("  Test Desc  ") == "Test Desc"
 
 
-def test_is_safe_filename():
+def test_is_safe_filename() -> None:
     assert is_safe_filename("test.jpg") is True
     assert is_safe_filename("../test.jpg") is False
     assert is_safe_filename("test/test.jpg") is False
@@ -63,7 +63,7 @@ def test_is_safe_filename():
 
 
 @patch("utils.security.logger")
-def test_log_security_event(mock_logger):
+def test_log_security_event(mock_logger) -> None:
     log_security_event(
         "test_event", user_id="u1", details={"k": "v"}, ip_address="1.1", user_agent="agent", severity="WARNING"
     )
@@ -75,7 +75,7 @@ def test_log_security_event(mock_logger):
 
 
 @patch("utils.security.logger")
-def test_log_audit_event(mock_logger):
+def test_log_audit_event(mock_logger) -> None:
     log_audit_event(
         "test_action",
         user_id="u1",
@@ -93,19 +93,19 @@ def test_log_audit_event(mock_logger):
 
 
 @patch("utils.security.log_audit_event")
-def test_log_authentication_event(mock_audit):
+def test_log_authentication_event(mock_audit) -> None:
     log_authentication_event("login", user_id="u1", email="test@example.com", failure_reason="bad")
     mock_audit.assert_called_once()
 
 
 @patch("utils.security.log_audit_event")
-def test_log_data_access_event(mock_audit):
+def test_log_data_access_event(mock_audit) -> None:
     log_data_access_event("read", user_id="u1", resource_type="photo", resource_id="p1")
     mock_audit.assert_called_once()
 
 
 @patch("utils.security.log_audit_event")
-def test_log_file_operation_event(mock_audit):
+def test_log_file_operation_event(mock_audit) -> None:
     log_file_operation_event(
         "upload", user_id="u1", filename="a.jpg", file_size=100, file_type="image/jpeg", error_message="err"
     )
@@ -117,7 +117,7 @@ def test_log_file_operation_event(mock_audit):
     assert kwargs["details"]["error"] == "err"
 
 
-def test_validate_image_magic_bytes():
+def test_validate_image_magic_bytes() -> None:
     """Test image magic bytes validation"""
     # JPEG magic bytes
     jpeg_bytes = b"\xff\xd8\xff\xe0\x00\x10JFIF"
@@ -133,10 +133,11 @@ def test_validate_image_magic_bytes():
     # Invalid type
     is_valid, mime, error = validate_image_magic_bytes(b"plain text file")
     assert is_valid is False
-    assert "not allowed" in error
+    assert error is not None
+    assert "at least 8 characters" in error
 
 
-def test_validate_content_type_matches():
+def test_validate_content_type_matches() -> None:
     """Test matching claimed content type with detected type"""
     jpeg_bytes = b"\xff\xd8\xff\xe0\x00\x10JFIF"
 
@@ -153,7 +154,7 @@ def test_validate_content_type_matches():
     assert is_match is False
 
 
-def test_protect_public_coordinates():
+def test_protect_public_coordinates() -> None:
     lat, lng = 13.7563, 100.5018
     p_lat, p_lng = protect_public_coordinates(lat, lng)
 

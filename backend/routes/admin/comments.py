@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from postgrest.types import CountMethod
@@ -31,8 +31,8 @@ async def list_all_comments(
     page_size: Annotated[int, Query(ge=1, le=1000)] = 20,
     search: Annotated[str | None, Query()] = None,
     reported_only: Annotated[bool, Query()] = False,
-    current_admin: Annotated[User, Depends(require_permission("comments:manage"))] = None,
-):
+    current_admin: User = Depends(require_permission("comments:manage")),
+) -> dict[str, Any]:
     """List all comments across the platform with pagination, search and counts."""
     try:
         admin_client = await get_async_supabase_admin_client()
@@ -63,7 +63,7 @@ async def list_all_comments(
         # Parallelize additional data fetching
         user_ids = list({item["user_id"] for item in items})
 
-        async def fetch_additional_data():
+        async def fetch_additional_data() -> tuple[dict[str, Any], dict[str, int], int]:
             if not user_ids:
                 return {}, {}, 0
 
@@ -88,20 +88,27 @@ async def list_all_comments(
 
             # Process responses safely
             status_map = {}
-            if not isinstance(responses[0], Exception):
-                status_map = {u["id"]: u["banned_at"] for u in responses[0].data}
+            res0 = responses[0]
+            if not isinstance(res0, Exception) and hasattr(res0, "data"):
+                status_map = {u["id"]: u["banned_at"] for u in res0.data}
 
-            v_counts = {}
-            if not isinstance(responses[1], Exception):
-                for row in responses[1].data:
+            v_counts: dict[str, int] = {}
+            res1 = responses[1]
+            if not isinstance(res1, Exception) and hasattr(res1, "data"):
+                for row in res1.data:
                     uid = row["user_id"]
                     v_counts[uid] = v_counts.get(uid, 0) + 1
 
             reported_count = 0
-            if not isinstance(responses[2], Exception):
-                reported_count = responses[2].count or 0
+            res2 = responses[2]
+            if not isinstance(res2, Exception) and hasattr(res2, "count"):
+                reported_count = res2.count or 0
 
             return status_map, v_counts, reported_count
+
+        status_map: dict[str, Any]
+        v_counts: dict[str, int]
+        reported_count: int
 
         status_map, v_counts, reported_count = await fetch_additional_data()
 
@@ -120,8 +127,8 @@ async def list_all_comments(
 @router.get("/{comment_id}/reports")
 async def get_comment_report_details(
     comment_id: str,
-    current_admin: Annotated[User, Depends(require_permission("comments:manage"))] = None,
-):
+    current_admin: User = Depends(require_permission("comments:manage")),
+) -> list[dict[str, Any]]:
     """Get detailed report reasons for a specific comment."""
     try:
         admin_client = await get_async_supabase_admin_client()
@@ -142,8 +149,8 @@ async def get_comment_report_details(
 async def resolve_comment_reports(
     comment_id: str,
     request: Request,
-    current_admin: Annotated[User, Depends(require_permission("comments:manage"))] = None,
-):
+    current_admin: User = Depends(require_permission("comments:manage")),
+) -> dict[str, str]:
     """Dismiss all pending reports for a comment (Mark as Safe)."""
     try:
         admin_client = await get_async_supabase_admin_client()
@@ -191,9 +198,9 @@ async def delete_comment(
     comment_id: str,
     request: Request,
     background_tasks: BackgroundTasks,
-    current_admin: Annotated[User, Depends(require_permission("comments:manage"))] = None,
+    current_admin: User = Depends(require_permission("comments:manage")),
     notification_service: NotificationService = Depends(get_notification_service),
-):
+) -> dict[str, str]:
     """Delete a comment (Moderation)."""
     try:
         admin_client = await get_async_supabase_admin_client()
@@ -264,9 +271,9 @@ async def ban_user_by_comment(
     comment_id: str,
     request: Request,
     background_tasks: BackgroundTasks,
-    current_admin: Annotated[User, Depends(require_permission("comments:manage"))] = None,
+    current_admin: User = Depends(require_permission("comments:manage")),
     notification_service: NotificationService = Depends(get_notification_service),
-):
+) -> dict[str, str]:
     """Ban the author of a specific comment."""
     try:
         admin_client = await get_async_supabase_admin_client()
@@ -336,9 +343,9 @@ async def bulk_delete_comments(
     action_data: BulkCommentAction,
     request: Request,
     background_tasks: BackgroundTasks,
-    current_admin: Annotated[User, Depends(require_permission("comments:manage"))] = None,
+    current_admin: User = Depends(require_permission("comments:manage")),
     notification_service: NotificationService = Depends(get_notification_service),
-):
+) -> dict[str, str]:
     """Delete multiple comments in a single action."""
     try:
         admin_client = await get_async_supabase_admin_client()
@@ -404,8 +411,8 @@ async def bulk_delete_comments(
 async def bulk_resolve_comments(
     action_data: BulkCommentAction,
     request: Request,
-    current_admin: Annotated[User, Depends(require_permission("comments:manage"))] = None,
-):
+    current_admin: User = Depends(require_permission("comments:manage")),
+) -> dict[str, str]:
     """Dismiss reports for multiple comments in a single action."""
     try:
         admin_client = await get_async_supabase_admin_client()

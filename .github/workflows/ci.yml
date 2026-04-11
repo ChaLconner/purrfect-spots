@@ -68,10 +68,10 @@ jobs:
       run_frontend: ${{ inputs.force_full_run == true || steps.filter.outputs.frontend == 'true' || steps.filter.outputs.ci == 'true' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+        uses: actions/checkout@v5
 
       - name: Filter paths
-        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4
+        uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
@@ -100,12 +100,13 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+        uses: actions/checkout@v5
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           install-deps: "true"
+          enable-cache: "true"
       - name: Run Ruff
         run: |
           cd backend
@@ -117,11 +118,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.run_backend == 'true'
-    continue-on-error: true
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+        uses: actions/checkout@v5
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -129,7 +129,7 @@ jobs:
       - name: Run MyPy
         run: |
           cd backend
-          mypy . --config-file pyproject.toml || echo "::warning::Type checking found issues (non-blocking)"
+          mypy . --config-file pyproject.toml
 
   backend-test:
     name: "Backend: Unit Tests"
@@ -144,7 +144,7 @@ jobs:
         options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+        uses: actions/checkout@v5
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -162,8 +162,7 @@ jobs:
           cd backend
           pytest --cov=. --cov-report=xml:coverage.xml --cov-report=term-missing --cov-fail-under=60 -v --tb=short
       - name: Upload Report
-        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
-        if: always()
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: backend/coverage.xml
@@ -175,11 +174,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.run_backend == 'true'
-    continue-on-error: true
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+        uses: actions/checkout@v5
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -196,7 +194,7 @@ jobs:
           fi
           python scripts/export_openapi.py --output ../docs/openapi-current.json
       - name: Upload Spec
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@v5
         with:
           name: openapi-specs
           path: docs/openapi-*.json
@@ -209,7 +207,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+        uses: actions/checkout@v5
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -236,7 +234,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+        uses: actions/checkout@v5
       - name: Setup Frontend
         uses: ./.github/actions/setup-frontend
         with:
@@ -254,7 +252,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+        uses: actions/checkout@v5
       - name: Setup Frontend
         uses: ./.github/actions/setup-frontend
         with:
@@ -262,7 +260,7 @@ jobs:
       - name: Run Vitest
         run: npm run test:coverage -w frontend
       - name: Upload Coverage
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@v5
         with:
           name: frontend-coverage-report
           path: frontend/coverage
@@ -275,7 +273,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+        uses: actions/checkout@v5
       - name: Setup Frontend
         uses: ./.github/actions/setup-frontend
         with:
@@ -283,7 +281,7 @@ jobs:
       - name: Build
         run: npm run build -w frontend
       - name: Upload Artifact
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@v5
         with:
           name: frontend-build
           path: frontend/dist
@@ -298,25 +296,39 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
-      - name: Trivy FS Scan
-        # FIX: Pin to full SHA for security and reproducibility
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
-        with:
-          scan-type: "fs"
-          scan-ref: "."
-          severity: "CRITICAL,HIGH"
-          format: "sarif"
-          output: "trivy-results.sarif"
-          trivyignores: ".trivyignore"
-          scanners: "vuln,secret"
-          github-pat: ${{ secrets.GITHUB_TOKEN }}
-          exit-code: "1"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TRIVY_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@89a39a4e59826350b863aa6b6252a07ad50cf83e # v4.32.4
+        uses: actions/checkout@v5
+      - name: Pull Trivy image
+        shell: bash
+        run: |
+          for i in 1 2 3; do
+            if docker pull ghcr.io/aquasecurity/trivy:0.68.1; then
+              exit 0
+            fi
+            if [ "$i" -lt 3 ]; then
+              echo "::warning::Trivy image pull failed (attempt $i), retrying in 10s..."
+              sleep 10
+            fi
+          done
+          echo "::error::Unable to pull ghcr.io/aquasecurity/trivy:0.68.1 after 3 attempts."
+          exit 1
+      - name: Run Trivy vulnerability scanner
+        shell: bash
+        run: |
+          docker run --rm \
+            -v "$PWD:/workdir" \
+            -w /workdir \
+            ghcr.io/aquasecurity/trivy:0.68.1 \
+            fs \
+            --skip-version-check \
+            --format sarif \
+            --output trivy-results.sarif \
+            --severity CRITICAL,HIGH \
+            --ignore-unfixed \
+            --scanners vuln \
+            --exit-code 1 \
+            .
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v4
         if: always() && hashFiles('trivy-results.sarif') != ''
         with:
           sarif_file: "trivy-results.sarif"
@@ -328,7 +340,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Pull Trufflehog Image
@@ -340,27 +352,29 @@ jobs:
               sleep 10
             }
           done
-      - name: Trufflehog
-        uses: trufflesecurity/trufflehog@041f07e9df901a1038a528e5525b0226d04dd5ea # v3.93.6
+      - name: Run TruffleHog OSS
+        uses: trufflesecurity/trufflehog@v3.94.2
         with:
-          extra_args: --only-verified
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --debug --only-verified
 
   security-sast:
     name: "Security: SAST Semgrep"
     runs-on: ubuntu-latest
     needs: changes
     timeout-minutes: 20
-    continue-on-error: true
     container:
       image: semgrep/semgrep:1.99.0
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+        uses: actions/checkout@v5
       - name: Semgrep
         run: |
-          semgrep scan --config "p/default" --config "p/security-audit" --sarif --output semgrep.sarif . || true
+          semgrep scan --config "p/default" --config "p/security-audit" --sarif --output semgrep.sarif .
       - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@89a39a4e59826350b863aa6b6252a07ad50cf83e # v4.32.4
+        uses: github/codeql-action/upload-sarif@v4
         if: always() && hashFiles('semgrep.sarif') != ''
         with:
           sarif_file: semgrep.sarif
@@ -376,9 +390,9 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+        uses: actions/checkout@v5
       - name: Dependency Review
-        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
+        uses: actions/dependency-review-action@1a7f050e4130f1d533475191c9533f86e330b621 # v4.9.0
         with:
           fail-on-severity: critical
 
@@ -388,7 +402,7 @@ jobs:
   quality-gate:
     name: "Final: Quality Gate"
     runs-on: ubuntu-latest
-    needs: [backend-verify, frontend-build, security-vuln, security-secrets]
+    needs: [backend-verify, frontend-build, security-vuln, security-secrets, backend-typecheck, api-contract, security-sast, security-deps]
     if: always()
     steps:
       - name: Check Status
@@ -397,8 +411,12 @@ jobs:
           if [[ "${{ needs.backend-verify.result }}" == "failure" || "${{ needs.backend-verify.result }}" == "cancelled" || \
                 "${{ needs.frontend-build.result }}" == "failure" || "${{ needs.frontend-build.result }}" == "cancelled" || \
                 "${{ needs.security-vuln.result }}" == "failure" || "${{ needs.security-vuln.result }}" == "cancelled" || \
-                "${{ needs.security-secrets.result }}" == "failure" || "${{ needs.security-secrets.result }}" == "cancelled" ]]; then
-            echo "::error::Core quality checks failed or were cancelled. Please review the workflow logs."
+                "${{ needs.security-secrets.result }}" == "failure" || "${{ needs.security-secrets.result }}" == "cancelled" || \
+                "${{ needs.backend-typecheck.result }}" == "failure" || "${{ needs.backend-typecheck.result }}" == "cancelled" || \
+                "${{ needs.api-contract.result }}" == "failure" || "${{ needs.api-contract.result }}" == "cancelled" || \
+                "${{ needs.security-sast.result }}" == "failure" || "${{ needs.security-sast.result }}" == "cancelled" || \
+                "${{ needs.security-deps.result }}" == "failure" || "${{ needs.security-deps.result }}" == "cancelled" ]]; then
+            echo "::error::Quality checks failed or were cancelled. Please review the workflow logs."
             exit 1
           fi
           echo "✅ All core checks passed or were skipped."

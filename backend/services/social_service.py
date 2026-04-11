@@ -109,7 +109,7 @@ class SocialService:
             logger.error(f"Add comment failed: {e}")
             raise ExternalServiceError(f"Add comment failed: {e}", service="Social")
 
-    async def _add_comment_sql(self, user_id: str, photo_id: str, content: str) -> tuple[str, dict[str, Any]]:
+    async def _add_comment_sql(self, user_id: str, photo_id: str, content: str) -> tuple[str | None, dict[str, Any]]:
         """Internal helper for SQL-based comment addition"""
         if not self.db:
             raise ExternalServiceError("Database session not available", service="Postgres")
@@ -156,7 +156,9 @@ class SocialService:
             logger.error(f"SQLAlchemy add_comment failed: {e}")
             raise ExternalServiceError(f"Failed to add comment via SQLAlchemy: {e}", service="Database")
 
-    async def _add_comment_supabase(self, user_id: str, photo_id: str, content: str) -> tuple[str, dict[str, Any]]:
+    async def _add_comment_supabase(
+        self, user_id: str, photo_id: str, content: str
+    ) -> tuple[str | None, dict[str, Any]]:
         """Internal helper for Supabase-based comment addition"""
         from utils.supabase_client import get_async_supabase_admin_client
 
@@ -190,12 +192,12 @@ class SocialService:
         comment = cast(dict[str, Any], supa_res.data[0])
 
         # Enrichment
-        user_res = (
+        user_info_res = (
             await self.supabase.table("users").select("name, picture, is_pro").eq("id", user_id).limit(1).execute()
         )
 
-        if user_res.data:
-            user_info = cast(dict[str, Any], user_res.data[0])
+        if user_info_res.data:
+            user_info = cast(dict[str, Any], user_info_res.data[0])
             comment["user_name"] = user_info.get("name")
             comment["user_picture"] = user_info.get("picture")
             comment["user_is_pro"] = user_info.get("is_pro")
@@ -346,12 +348,12 @@ class SocialService:
 
         # Enrichment (fetch user info separately or via another select if needed,
         # but let's do a separate fetch to be safe and avoid chain errors)
-        user_res = (
+        user_info_res = (
             await self.supabase.table("users").select("name, picture, is_pro").eq("id", user_id).limit(1).execute()
         )
 
-        if user_res.data:
-            user_info = cast(dict[str, Any], user_res.data[0])
+        if user_info_res.data:
+            user_info = cast(dict[str, Any], user_info_res.data[0])
             comment_data["user_name"] = user_info.get("name")
             comment_data["user_picture"] = user_info.get("picture")
             comment_data["user_is_pro"] = user_info.get("is_pro")

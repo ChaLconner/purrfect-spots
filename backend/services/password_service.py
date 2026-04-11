@@ -11,9 +11,9 @@ Handles:
 import hashlib
 
 import bcrypt
-import httpx
 
 from logger import logger
+from utils.http_client import get_shared_httpx_client
 
 
 class PasswordService:
@@ -69,13 +69,16 @@ class PasswordService:
             prefix = sha1_password[:5]
             suffix = sha1_password[5:]
 
-            async with httpx.AsyncClient() as client:
+            client = get_shared_httpx_client()
+            try:
                 response = await client.get(f"https://api.pwnedpasswords.com/range/{prefix}", timeout=2.0)
                 if response.status_code == 200:
                     lines = response.text.splitlines()
                     for line in lines:
                         if line.startswith(suffix):
                             return True
+            except Exception:
+                logger.warning("HIBP check failed (skipping)")
         except Exception:
             logger.warning("HIBP check failed (skipping)")
         return False

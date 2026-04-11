@@ -17,7 +17,7 @@ from supabase import AClient
 # Pin the API version so a dashboard upgrade never silently breaks
 # webhook payload shapes or SDK behaviour.
 stripe.api_key = config.STRIPE_SECRET_KEY or os.getenv("STRIPE_SECRET_KEY")
-stripe.api_version = "2025-02-24.acacia"  # type: ignore[assignment]
+stripe.api_version = "2025-02-24.acacia"
 
 # Subscription statuses that grant Pro access.
 _ACTIVE_STATUSES = frozenset({"active", "trialing"})
@@ -299,7 +299,7 @@ class SubscriptionService:
 
         current_period_end = datetime.fromtimestamp(
             cast(Any, sub).current_period_end,
-            UTC,  # type: ignore[arg-type]
+            UTC,
         )
 
         await self._update_user_data(
@@ -458,7 +458,7 @@ class SubscriptionService:
 
         current_period_end = datetime.fromtimestamp(
             cast(Any, sub).current_period_end,
-            UTC,  # type: ignore[arg-type]
+            UTC,
         )
 
         await self._update_user_data(

@@ -26,7 +26,7 @@ def run_reset_alerts():
     reset_alerts()
 
 
-def test_track_failed_login():
+def test_track_failed_login() -> None:
     """Test brute force detection for failed logins"""
     user = "user@example.com"
     ip = "127.0.0.1"
@@ -43,7 +43,7 @@ def test_track_failed_login():
     assert summary["active_failed_login_sources"] == 1
 
 
-def test_track_failed_permission_check():
+def test_track_failed_permission_check() -> None:
     """Test detection of repeated permission violations"""
     user_id = "user123"
     permission = "admin_write"
@@ -61,7 +61,7 @@ def test_track_failed_permission_check():
     assert summary["active_permission_violation_sources"] == 1
 
 
-def test_track_bulk_operation():
+def test_track_bulk_operation() -> None:
     """Test detection of large bulk operations"""
     user_id = "admin1"
     ip = "1.1.1.1"
@@ -76,14 +76,14 @@ def test_track_bulk_operation():
     assert summary["bulk_operations_tracked"] == 1
 
 
-def test_track_suspicious_user_agent():
+def test_track_suspicious_user_agent() -> None:
     """Test detection of suspicious user agents"""
     assert track_suspicious_user_agent("Mozilla/5.0", "1.1.1.1") is False
     assert track_suspicious_user_agent("sqlmap/1.4.11#stable", "1.1.1.1") is True
     assert track_suspicious_user_agent("nikto-2.1.6", "2.2.2.2") is True
 
 
-def test_track_geo_anomaly():
+def test_track_geo_anomaly() -> None:
     """Test detection of geographic anomalies"""
     user_id = "user1"
     ip = "1.1.1.1"
@@ -98,7 +98,7 @@ def test_track_geo_anomaly():
     assert track_geo_anomaly(user_id, "US", ip, last_country="TH") is True
 
 
-def test_alert_summary_cleanup():
+def test_alert_summary_cleanup() -> None:
     """Test that expired alerts are cleaned from summary"""
     from unittest.mock import patch
 

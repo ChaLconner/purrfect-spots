@@ -92,7 +92,7 @@ class OTPService:
                 )
 
                 if supa_res.data:
-                    first_row = cast(dict[str, Any], cast(list[Any], supa_res.data)[0])
+                    first_row = cast(dict[str, Any], supa_res.data[0])
                     if first_row.get("locked_until"):
                         locked_until = datetime.fromisoformat(
                             cast(str, first_row["locked_until"]).replace("Z", TIMEZONE_UTC_OFFSET)
@@ -153,7 +153,7 @@ class OTPService:
                 )
 
                 if result.data:
-                    first_row = cast(dict[str, Any], cast(list[Any], result.data)[0])
+                    first_row = cast(dict[str, Any], result.data[0])
                     await (
                         self.supabase.table("email_verifications")
                         .update({"locked_until": locked_until.isoformat()})
@@ -205,7 +205,7 @@ class OTPService:
                 )
 
                 if result.data:
-                    first_row = cast(dict[str, Any], cast(list[Any], result.data)[0])
+                    first_row = cast(dict[str, Any], result.data[0])
                     await (
                         self.supabase.table("email_verifications")
                         .update({"locked_until": None})
@@ -294,7 +294,7 @@ class OTPService:
                     .execute()
                 )
                 if supa_res.data:
-                    record = cast(dict[str, Any], cast(list[Any], supa_res.data)[0])
+                    record = cast(dict[str, Any], supa_res.data[0])
 
             if not record:
                 logger.warning("No pending OTP found")
@@ -422,7 +422,7 @@ class OTPService:
                     .execute()
                 )
                 if supa_res.data:
-                    row_created_at = cast(dict[str, Any], cast(list[Any], supa_res.data)[0])["created_at"]
+                    row_created_at = cast(dict[str, Any], supa_res.data[0])["created_at"]
 
             if not row_created_at:
                 return True, 0

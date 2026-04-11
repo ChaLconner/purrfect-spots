@@ -12,6 +12,8 @@ from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
 
+from logger import logger
+
 # Load .env from backend directory
 backend_dir = Path(__file__).parent
 env_path = backend_dir / ".env"
@@ -124,6 +126,12 @@ class Config:
     # Auto-detect Vercel environment if not explicitly set
     ENVIRONMENT = os.getenv("ENVIRONMENT") or os.getenv("VERCEL_ENV") or "development"
     DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
+    # SECURITY: Disable background tasks in serverless environments (Vercel) to avoid port exhaustion
+    ENABLE_BACKGROUND_TASKS = (
+        os.getenv("ENABLE_BACKGROUND_TASKS", "").lower() in ("true", "1", "yes")
+        and not os.getenv("VERCEL")
+        and ENVIRONMENT != "production"
+    )
 
     # Supabase - Use consistent naming with fallbacks for backward compatibility
     SUPABASE_URL = get_env_with_fallback("SUPABASE_URL")
@@ -181,7 +189,7 @@ class Config:
     JWT_ALGORITHM = "HS256"
 
     # Redis (optional)
-    REDIS_URL = os.getenv("REDIS_URL")
+    REDIS_URL = os.getenv("REDIS_URL", "").replace("localhost", "127.0.0.1")
 
     # App URLs
     # App URLs
@@ -303,15 +311,13 @@ class Config:
             if not r_value:
                 missing.append(r_name)
 
-        for s_name, s_value in stripe_vars:
-            if not s_value:
-                import warnings
-
-                warnings.warn(
-                    f"Stripe config '{s_name}' is not set. Subscription features will be unavailable.",
-                    UserWarning,
-                    stacklevel=2,
-                )
+        # Stripe keys are optional; warn if missing since features will be disabled
+        missing_stripe = [s_name for s_name, s_value in stripe_vars if not s_value]
+        if missing_stripe:
+            logger.info(
+                f"Subscription features disabled: Missing optional config {', '.join(missing_stripe)}. "
+                "This is expected if you haven't configured Stripe yet."
+            )
 
         return missing
 

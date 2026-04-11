@@ -1,4 +1,14 @@
-import structlog
+try:
+    import structlog  # type: ignore[import-untyped, unused-ignore]
+except ImportError:
+    import logging
+    from typing import Any
+
+    class DummyStructlog:
+        def get_logger(self, *args: Any, **kwargs: Any) -> Any:
+            return logging.getLogger("purrfect_spots.fallback")
+
+    structlog = DummyStructlog()  # type: ignore
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.user.auth_mixin import UserAuthMixin

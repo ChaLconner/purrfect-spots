@@ -41,7 +41,7 @@ class TestAdminRoutesExtended:
         yield
         app.dependency_overrides.pop(get_current_user, None)
 
-    def test_list_roles_success(self, client, override_current_user, mock_supabase_admin):
+    def test_list_roles_success(self, client, override_current_user, mock_supabase_admin) -> None:
         """Test listing roles"""
         mock_supabase_admin.execute.return_value = MagicMock(
             data=[{"id": "r1", "name": "Admin"}, {"id": "r2", "name": "User"}]
@@ -59,7 +59,7 @@ class TestAdminRoutesExtended:
         assert len(data) == 2
         assert data[0]["name"] == "Admin"
 
-    def test_update_user_role_success(self, client, override_current_user, mock_supabase_admin):
+    def test_update_user_role_success(self, client, override_current_user, mock_supabase_admin) -> None:
         """Test updating user role"""
         user_id = "00000000-0000-4000-a000-000000000001"
         role_id = "00000000-0000-4000-a000-000000000002"
@@ -95,7 +95,7 @@ class TestAdminRoutesExtended:
         # mocked_client.table("users").update(...)
         # mocked_client.table("audit_logs").insert(...)
 
-    def test_update_user_role_not_found(self, client, override_current_user, mock_supabase_admin):
+    def test_update_user_role_not_found(self, client, override_current_user, mock_supabase_admin) -> None:
         """Test updating role for non-existent user"""
         user_id = "00000000-0000-4000-a000-000000000999"
         role_id = "00000000-0000-4000-a000-000000000002"
@@ -117,7 +117,7 @@ class TestAdminRoutesExtended:
         assert response.status_code == 404
         assert response.json()["detail"] == "User not found"
 
-    def test_update_user_role_invalid_role(self, client, override_current_user, mock_supabase_admin):
+    def test_update_user_role_invalid_role(self, client, override_current_user, mock_supabase_admin) -> None:
         """Test updating with invalid role id"""
         user_id = "00000000-0000-4000-a000-000000000001"
         role_id = "00000000-0000-4000-a000-000000000888"
@@ -137,7 +137,7 @@ class TestAdminRoutesExtended:
         assert response.status_code == 404
         assert response.json()["detail"] == "Role not found"
 
-    def test_list_audit_logs_success(self, client, override_current_user, mock_supabase_admin):
+    def test_list_audit_logs_success(self, client, override_current_user, mock_supabase_admin) -> None:
         """Test listing audit logs"""
         mock_supabase_admin.execute.return_value = MagicMock(
             data=[{"id": "log-1", "action": "UPDATE_ROLE", "users": {"email": "admin@example.com", "name": "Admin"}}]
@@ -180,7 +180,7 @@ class TestAdminContentRoutes:
         yield
         app.dependency_overrides.pop(get_current_user, None)
 
-    def test_list_photos_success(self, client, override_admin, mock_supabase_admin):
+    def test_list_photos_success(self, client, override_admin, mock_supabase_admin) -> None:
         """Test listing photos as admin"""
         photo_id = "00000000-0000-0000-0000-000000000001"
         mock_data = [
@@ -205,7 +205,7 @@ class TestAdminContentRoutes:
         assert len(data) == 1
         assert data[0]["id"] == photo_id
 
-    def test_list_photos_search(self, client, override_admin, mock_supabase_admin):
+    def test_list_photos_search(self, client, override_admin, mock_supabase_admin) -> None:
         """Test searching photos"""
         mock_supabase_admin.execute.return_value = MagicMock(data=[])
 
@@ -218,7 +218,7 @@ class TestAdminContentRoutes:
 
         assert response.status_code == 200
 
-    def test_delete_photo_success(self, client, override_admin, mock_supabase_admin):
+    def test_delete_photo_success(self, client, override_admin, mock_supabase_admin) -> None:
         """Test deleting a photo"""
         photo_id = "00000000-0000-0000-0000-000000000001"
         user_id = "00000000-0000-0000-0000-000000000002"
@@ -251,7 +251,7 @@ class TestAdminContentRoutes:
         assert response.status_code == 200
         assert "deletion scheduled" in response.json()["message"]
 
-    def test_delete_photo_not_found(self, client, override_admin, mock_supabase_admin):
+    def test_delete_photo_not_found(self, client, override_admin, mock_supabase_admin) -> None:
         """Test deleting non-existent photo"""
         # Return none for photo check
         mock_supabase_admin.execute.return_value = MagicMock(data=None)
@@ -265,7 +265,7 @@ class TestAdminContentRoutes:
 
         assert response.status_code == 404
 
-    def test_list_reports_success(self, client, override_admin, mock_supabase_admin):
+    def test_list_reports_success(self, client, override_admin, mock_supabase_admin) -> None:
         """Test listing reports"""
         mock_data = [
             {
@@ -287,7 +287,7 @@ class TestAdminContentRoutes:
         assert response.status_code == 200
         assert len(response.json()["data"]) == 1
 
-    def test_update_report_success(self, client, override_admin, mock_supabase_admin):
+    def test_update_report_success(self, client, override_admin, mock_supabase_admin) -> None:
         """Test updating report status"""
         report_id = "00000000-0000-0000-0000-000000000003"
         user_id = "00000000-0000-0000-0000-000000000002"

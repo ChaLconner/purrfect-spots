@@ -8,6 +8,8 @@ import { createI18n } from 'vue-i18n';
 
 // Avoid JSDOM attempting to load static assets warnings (if any)
 config.global.stubs = {
+  RouterLink: true,
+  RouterView: true,
   'router-link': true,
   'router-view': true,
   'i18n-t': { template: '<span class="i18n-stub"><slot /></span>' },
@@ -16,17 +18,43 @@ config.global.stubs = {
 const i18n = createI18n({
   legacy: false,
   locale: 'en',
-  messages: { en: {} },
+  messages: { 
+    en: {
+      common: {
+        confirm: 'Confirm',
+        cancel: 'Cancel',
+        save: 'Save'
+      },
+      admin: {
+        reports: {
+          id: 'ID',
+          photo: 'Photo',
+          reporter: 'Reporter',
+          reason: 'Reason',
+          status: 'Status',
+          actions: {
+            title: 'Actions',
+            resolve: 'Resolve',
+            dismiss: 'Dismiss'
+          },
+          modal: {
+            resolveTitle: 'Resolve Report',
+            reasonLabel: 'Resolution Reason'
+          }
+        }
+      }
+    } 
+  },
   missingWarn: false,
   fallbackWarn: false
 });
 
-config.global.plugins = [i18n];
+config.global.plugins = [i18n as any];
 config.global.mocks = {
   $t: (msg: string): string => msg
 };
 
-// Mock intersection observer if used
+
 const IntersectionObserverMock = vi.fn(function() {
   return {
     disconnect: vi.fn(),
@@ -69,6 +97,23 @@ vi.stubGlobal('Image', class {
   get src(): string { return this._src; }
 });
 
+// Provide a reliable localStorage / sessionStorage mock for all tests
+// JSDOM may not surface localStorage correctly in every scenario
+function createStorageMock(): Storage {
+  let store: Record<string, string> = {};
+  return {
+    getItem: vi.fn((key: string): string | null => store[key] ?? null),
+    setItem: vi.fn((key: string, value: string): void => { store[key] = String(value); }),
+    removeItem: vi.fn((key: string): void => { delete store[key]; }),
+    clear: vi.fn((): void => { store = {}; }),
+    get length(): number { return Object.keys(store).length; },
+    key: vi.fn((index: number): string | null => Object.keys(store)[index] ?? null),
+  };
+}
+
+vi.stubGlobal('localStorage', createStorageMock());
+vi.stubGlobal('sessionStorage', createStorageMock());
+
 // Mock URL.createObjectURL and URL.revokeObjectURL
 if (typeof URL !== 'undefined') {
   URL.createObjectURL = vi.fn(() => 'blob:mock-url');
@@ -79,3 +124,12 @@ if (typeof URL !== 'undefined') {
     revokeObjectURL: vi.fn(),
   });
 }
+
+// Provide a no-op logger stub to prevent crashes when components use a
+// global `logger` variable (e.g. MapView.vue)
+vi.stubGlobal('logger', {
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  debug: vi.fn(),
+});

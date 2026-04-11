@@ -5,7 +5,7 @@ Gallery response schemas with cursor-based pagination, sorting, and field select
 import base64
 import json
 from enum import StrEnum
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel, Field
 
@@ -153,6 +153,6 @@ def decode_cursor(cursor: str) -> dict[str, Any]:
         # Add padding back if needed
         padding = "=" * (4 - len(cursor) % 4)
         json_str = base64.urlsafe_b64decode(cursor + padding).decode()
-        return json.loads(json_str)
+        return cast(dict[str, Any], json.loads(json_str))
     except Exception:
         return {}

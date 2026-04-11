@@ -21,12 +21,12 @@ class TestDBSecurityExtended:
             "0x504B0304",
         ],
     )
-    def test_detect_sql_injection_positive(self, payload):
+    def test_detect_sql_injection_positive(self, payload) -> None:
         """Test detection of malicious payloads"""
         assert db_security.detect_sql_injection(payload) is True
 
     @pytest.mark.parametrize("payload", ["regular_text", "hello world", "user_id", "12345", "my-email@example.com"])
-    def test_detect_sql_injection_negative(self, payload):
+    def test_detect_sql_injection_negative(self, payload) -> None:
         """Test that safe payloads are not flagged"""
         assert db_security.detect_sql_injection(payload) is False
 
@@ -34,13 +34,13 @@ class TestDBSecurityExtended:
     # Identifier Validation Tests
     # ==============================================================================
 
-    def test_is_safe_identifier_valid(self):
+    def test_is_safe_identifier_valid(self) -> None:
         assert db_security.is_safe_identifier("users") is True
         assert db_security.is_safe_identifier("user_data") is True
         assert db_security.is_safe_identifier("column1") is True
         assert db_security.is_safe_identifier("_hidden") is True
 
-    def test_is_safe_identifier_invalid(self):
+    def test_is_safe_identifier_invalid(self) -> None:
         assert db_security.is_safe_identifier("users; DROP TABLE") is False
         assert db_security.is_safe_identifier("user-data") is False  # No hyphens allowed in safe identifier regex
         assert db_security.is_safe_identifier("123user") is False  # Cannot start with number
@@ -51,7 +51,7 @@ class TestDBSecurityExtended:
     # Order By Tests
     # ==============================================================================
 
-    def test_sanitize_order_by(self):
+    def test_sanitize_order_by(self) -> None:
         allowed = ["name", "created_at"]
 
         # Valid cases
@@ -61,13 +61,13 @@ class TestDBSecurityExtended:
         # Invalid cases
         assert db_security.sanitize_order_by("invalid", allowed, default="name") == "name"
         assert db_security.sanitize_order_by("DROP TABLE", allowed, default="name") == "name"
-        assert db_security.sanitize_order_by(None, allowed, default="name") == "name"
+        assert db_security.sanitize_order_by(None, allowed, default="name") == "name"  # type: ignore[arg-type]
 
     # ==============================================================================
     # Search Input Sanitization Tests
     # ==============================================================================
 
-    def test_sanitize_search_input(self):
+    def test_sanitize_search_input(self) -> None:
         # Basic sanitization
         assert db_security.sanitize_search_input("  hello   world  ") == "hello world"
 
@@ -84,12 +84,12 @@ class TestDBSecurityExtended:
     # LIKE Pattern Tests
     # ==============================================================================
 
-    def test_escape_like_pattern(self):
+    def test_escape_like_pattern(self) -> None:
         assert db_security.escape_like_pattern("100%") == "100\\%"
         assert db_security.escape_like_pattern("user_name") == "user\\_name"
         assert db_security.escape_like_pattern("C:\\Path") == "C:\\\\Path"
 
-    def test_build_safe_like_pattern(self):
+    def test_build_safe_like_pattern(self) -> None:
         term = "test_user"
 
         assert db_security.build_safe_like_pattern(term, "contains") == "%test\\_user%"
@@ -101,7 +101,7 @@ class TestDBSecurityExtended:
     # Validation Tests
     # ==============================================================================
 
-    def test_validate_uuid(self):
+    def test_validate_uuid(self) -> None:
         valid_uuid = "123e4567-e89b-12d3-a456-426614174000"
         assert db_security.validate_uuid(valid_uuid) is True
         assert db_security.validate_uuid("invalid-uuid") is False
@@ -110,13 +110,13 @@ class TestDBSecurityExtended:
         assert db_security.sanitize_uuid(valid_uuid.upper()) == valid_uuid.lower()
         assert db_security.sanitize_uuid("invalid") is None
 
-    def test_validate_positive_int(self):
+    def test_validate_positive_int(self) -> None:
         assert db_security.validate_positive_int("123") == 123
         assert db_security.validate_positive_int("0") is None  # Must be positive
         assert db_security.validate_positive_int("-5") is None
         assert db_security.validate_positive_int("abc") is None
 
-    def test_validate_pagination(self):
+    def test_validate_pagination(self) -> None:
         # Default
         assert db_security.validate_pagination(None, None) == (1, 20)
 

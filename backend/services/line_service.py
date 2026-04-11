@@ -1,8 +1,7 @@
 import os
 
-import httpx
-
 from logger import logger
+from utils.http_client import get_shared_httpx_client
 
 
 class LineService:
@@ -25,15 +24,14 @@ class LineService:
                 "Content-Type": "application/x-www-form-urlencoded",
             }
             payload = {"message": message}
+            client = get_shared_httpx_client()
+            response = await client.post(self.line_notify_url, headers=headers, data=payload, timeout=10.0)
 
-            async with httpx.AsyncClient() as client:
-                response = await client.post(self.line_notify_url, headers=headers, data=payload, timeout=10.0)
-
-                if response.status_code == 200:
-                    logger.info("LINE notification sent successfully")
-                    return True
-                logger.error(f"Failed to send LINE notification: {response.text}")
-                return False
+            if response.status_code == 200:
+                logger.info("LINE notification sent successfully")
+                return True
+            logger.error(f"Failed to send LINE notification: {response.text}")
+            return False
         except Exception as e:
             logger.error(f"Error sending LINE notification: {e}")
             return False

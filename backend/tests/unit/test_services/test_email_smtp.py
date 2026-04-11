@@ -19,7 +19,7 @@ class TestEmailServiceSMTP(unittest.TestCase):
         self.test_email = "professional_fes@hotmail.com"
 
     @patch("smtplib.SMTP")
-    def test_send_otp_email_success(self, mock_smtp):
+    def test_send_otp_email_success(self, mock_smtp) -> None:
         # Setup mock
         mock_server = MagicMock()
         mock_smtp.return_value.__enter__.return_value = mock_server
@@ -34,7 +34,7 @@ class TestEmailServiceSMTP(unittest.TestCase):
         mock_server.send_message.assert_called_once()
 
     @patch("smtplib.SMTP")
-    def test_send_otp_email_smtp_error(self, mock_smtp):
+    def test_send_otp_email_smtp_error(self, mock_smtp) -> None:
         # Setup mock to raise error
         mock_server = MagicMock()
         mock_server.login.side_effect = smtplib.SMTPAuthenticationError(535, "Authentication failed")

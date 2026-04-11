@@ -8,7 +8,7 @@ class PurrfectSpotsUser(HttpUser):
     # We can inject a mock authorization header if testing auth endpoints.
     # For now, we focus on high-read endpoints that hit the DB heavily.
 
-    @task(3)  # type: ignore
+    @task(3)
     def fetch_map_viewport(self) -> None:
         """Simulate users panning around the map and fetching visible pins."""
         # A common query is fetching pins for a specific viewport.
@@ -16,13 +16,13 @@ class PurrfectSpotsUser(HttpUser):
         # This represents the query done by the MapView component.
         self.client.get("/api/v1/gallery?viewport=-90,-180,90,180&limit=100")
 
-    @task(2)  # type: ignore
+    @task(2)
     def fetch_gallery_feed(self) -> None:
         """Simulate users browsing the latest photos feed."""
         # Simple pagination latest items
         self.client.get("/api/v1/gallery?limit=20")
 
-    @task(1)  # type: ignore
+    @task(1)
     def fetch_photo_details(self) -> None:
         """Simulate a user clicking on a specific photo to view details."""
         # In a real scenario, we'll want dynamic UUIDs.

@@ -1,6 +1,8 @@
 import io
 import json
+from collections.abc import AsyncGenerator
 from datetime import datetime
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -10,7 +12,7 @@ from main import app
 
 
 @pytest.fixture
-async def client():
+async def client() -> AsyncGenerator[AsyncClient, None]:
     """Create test client using AsyncClient"""
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
@@ -18,37 +20,40 @@ async def client():
         yield ac
 
 
+@pytest.fixture
+def mock_storage_service() -> MagicMock:
+    """Create mock storage service"""
+    service = MagicMock()
+    service.upload_file = AsyncMock(return_value="https://s3.example.com/cat.jpg")
+    return service
+
+
+@pytest.fixture
+def mock_cat_detection_service() -> MagicMock:
+    """Create mock cat detection service"""
+    service = MagicMock()
+    service.detect_cats = AsyncMock(
+        return_value={
+            "has_cats": True,
+            "cat_count": 1,
+            "confidence": 0.95,
+            "suitable_for_cat_spot": True,
+            "cats_detected": [{"name": "cat", "score": 0.95}],
+        }
+    )
+    return service
+
+
 class TestUploadRoute:
     """Test upload endpoint functionality"""
 
     @pytest.fixture
-    def mock_current_user(self, mock_user):
+    def mock_current_user(self, mock_user: Any) -> Any:
         """Override auth dependency"""
         return mock_user
 
-    @pytest.fixture
-    def mock_storage_service(self):
-        """Create mock storage service"""
-        service = MagicMock()
-        service.upload_file = AsyncMock(return_value="https://s3.example.com/cat.jpg")
-        return service
-
-    @pytest.fixture
-    def mock_cat_detection_service(self):
-        """Create mock cat detection service"""
-        service = MagicMock()
-        service.detect_cats = AsyncMock(
-            return_value={
-                "has_cats": True,
-                "cat_count": 1,
-                "confidence": 0.95,
-                "suitable_for_cat_spot": True,
-                "cats_detected": [{"name": "cat", "score": 0.95}],
-            }
-        )
-        return service
-
-    async def test_upload_requires_authentication(self, client, sample_image_bytes):
+    @pytest.mark.asyncio
+    async def test_upload_requires_authentication(self, client: AsyncClient, sample_image_bytes: bytes) -> None:
         """Test that upload requires authentication"""
         files = {"file": ("cat.jpg", io.BytesIO(sample_image_bytes), "image/jpeg")}
         data = {"lat": "13.7563", "lng": "100.5018", "location_name": "Test Cat Spot"}
@@ -65,16 +70,16 @@ class TestUploadRoute:
             mock.limit = MagicMock(side_effect=lambda limit_value: lambda func: func)
             yield mock
 
-    async def test_upload_with_mock_auth(
+    async def test_upload_ignores_client_detection_data(
         self,
-        client,
-        sample_image_bytes,
-        mock_user,
-        mock_supabase,
-        mock_storage_service,
-        mock_cat_detection_service,
-        mock_limiter,
-    ):
+        client: AsyncClient,
+        sample_image_bytes: bytes,
+        mock_user: Any,
+        mock_supabase: MagicMock,
+        mock_storage_service: MagicMock,
+        mock_cat_detection_service: MagicMock,
+        mock_limiter: MagicMock,
+    ) -> None:
         """Test upload with mocked authentication and services"""
         from dependencies import get_async_supabase_client
         from main import app
@@ -143,7 +148,7 @@ class TestUploadRoute:
 class TestParsingFunctions:
     """Test helper functions in upload route"""
 
-    def test_parse_tags_valid_json(self):
+    def test_parse_tags_valid_json(self) -> None:
         """Test parsing valid JSON tags"""
         from routes.upload import parse_tags
 
@@ -152,7 +157,7 @@ class TestParsingFunctions:
 
         assert result == ["orange", "cute", "sleeping"]
 
-    def test_parse_tags_with_hashtags(self):
+    def test_parse_tags_with_hashtags(self) -> None:
         """Test that hashtags are stripped from tags"""
         from routes.upload import parse_tags
 
@@ -161,7 +166,7 @@ class TestParsingFunctions:
 
         assert result == ["orange", "cute"]
 
-    def test_parse_tags_empty_string(self):
+    def test_parse_tags_empty_string(self) -> None:
         """Test parsing empty string"""
         from routes.upload import parse_tags
 
@@ -169,7 +174,7 @@ class TestParsingFunctions:
 
         assert result == []
 
-    def test_parse_tags_none(self):
+    def test_parse_tags_none(self) -> None:
         """Test parsing None"""
         from routes.upload import parse_tags
 
@@ -177,7 +182,7 @@ class TestParsingFunctions:
 
         assert result == []
 
-    def test_parse_tags_invalid_json(self):
+    def test_parse_tags_invalid_json(self) -> None:
         """Test parsing invalid JSON"""
         from routes.upload import parse_tags
 
@@ -185,7 +190,7 @@ class TestParsingFunctions:
 
         assert result == []
 
-    def test_parse_tags_normalizes_case(self):
+    def test_parse_tags_normalizes_case(self) -> None:
         """Test that tags are lowercase"""
         from routes.upload import parse_tags
 
@@ -194,7 +199,7 @@ class TestParsingFunctions:
 
         assert result == ["orange", "cute", "sleeping"]
 
-    def test_parse_tags_max_limit(self):
+    def test_parse_tags_max_limit(self) -> None:
         """Test that max 20 tags are returned"""
         from routes.upload import parse_tags
 
@@ -204,7 +209,7 @@ class TestParsingFunctions:
 
         assert len(result) == 20
 
-    def test_parse_tags_trims_whitespace(self):
+    def test_parse_tags_trims_whitespace(self) -> None:
         """Test that whitespace is trimmed from tags"""
         from routes.upload import parse_tags
 
@@ -213,7 +218,7 @@ class TestParsingFunctions:
 
         assert result == ["orange", "cute"]
 
-    def test_parse_tags_filters_empty(self):
+    def test_parse_tags_filters_empty(self) -> None:
         """Test that empty tags are filtered"""
         from routes.upload import parse_tags
 
@@ -222,7 +227,7 @@ class TestParsingFunctions:
 
         assert result == ["orange", "cute"]
 
-    def test_format_tags_for_description_with_tags(self):
+    def test_format_tags_for_description_with_tags(self) -> None:
         """Test formatting tags into description"""
         from routes.upload import format_tags_for_description
 
@@ -232,7 +237,7 @@ class TestParsingFunctions:
         assert "#orange" in result
         assert "#cute" in result
 
-    def test_format_tags_for_description_empty_tags(self):
+    def test_format_tags_for_description_empty_tags(self) -> None:
         """Test formatting with no tags"""
         from routes.upload import format_tags_for_description
 
@@ -240,7 +245,7 @@ class TestParsingFunctions:
 
         assert result == "A nice cat"
 
-    def test_format_tags_for_description_empty_description(self):
+    def test_format_tags_for_description_empty_description(self) -> None:
         """Test formatting with no description"""
         from routes.upload import format_tags_for_description
 
@@ -259,7 +264,15 @@ class TestUploadValidation:
             mock.limit = MagicMock(side_effect=lambda limit_value: lambda func: func)
             yield mock
 
-    async def test_upload_rejects_no_cats(self, client, sample_image_bytes, mock_user, mock_supabase, mock_limiter):
+    @pytest.mark.asyncio
+    async def test_upload_rejects_no_cats(
+        self,
+        client: AsyncClient,
+        sample_image_bytes: bytes,
+        mock_user: Any,
+        mock_supabase: MagicMock,
+        mock_limiter: MagicMock,
+    ) -> None:
         """Test that upload rejects images without cats"""
         from dependencies import get_async_supabase_client
         from main import app
@@ -310,9 +323,15 @@ class TestUploadValidation:
         assert response.status_code == 400
         assert "No cats detected" in response.json()["detail"]
 
+    @pytest.mark.asyncio
     async def test_upload_validates_coordinates(
-        self, client, sample_image_bytes, mock_user, mock_supabase, mock_limiter
-    ):
+        self,
+        client: AsyncClient,
+        sample_image_bytes: bytes,
+        mock_user: Any,
+        mock_supabase: MagicMock,
+        mock_limiter: MagicMock,
+    ) -> None:
         """Test that invalid coordinates are rejected"""
         from dependencies import get_async_supabase_client
         from main import app
@@ -364,12 +383,14 @@ class TestUploadWithPredetectedCats:
 
     async def test_upload_ignores_client_detection_data(
         self,
-        client,
-        sample_image_bytes,
-        mock_user,
-        mock_supabase,
-        mock_limiter,
-    ):
+        client: AsyncClient,
+        sample_image_bytes: bytes,
+        mock_user: Any,
+        mock_supabase: MagicMock,
+        mock_storage_service: MagicMock,
+        mock_cat_detection_service: MagicMock,
+        mock_limiter: MagicMock,
+    ) -> None:
         """
         Test that upload IGNORES client-provided cat detection data and uses server result.
         Security Fix Verification.

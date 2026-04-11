@@ -26,7 +26,7 @@ class TestRateLimiterKeyFunctions:
         request.client.host = "192.168.1.1"  # NOSONAR python:S1313 - test fixture IP
         return request
 
-    def test_get_user_id_from_request_with_valid_token(self, mock_request):
+    def test_get_user_id_from_request_with_valid_token(self, mock_request) -> None:
         """Test extracting user ID from valid JWT token"""
         # Create a test JWT (not signed, just for ID extraction)
         # Patch config.JWT_SECRET to match the token's secret
@@ -44,7 +44,7 @@ class TestRateLimiterKeyFunctions:
 
         assert result == "user:user-123:free"
 
-    def test_get_user_id_from_request_with_user_id_claim(self, mock_request):
+    def test_get_user_id_from_request_with_user_id_claim(self, mock_request) -> None:
         """Test extracting user ID from token with user_id claim"""
         # Patch config.JWT_SECRET to match the token's secret
         with patch("config.config.JWT_SECRET", "secret_key_at_least_32_chars_long_for_security"):
@@ -61,7 +61,7 @@ class TestRateLimiterKeyFunctions:
 
         assert result == "user:user-456:free"
 
-    def test_get_user_id_from_request_no_auth_header(self, mock_request):
+    def test_get_user_id_from_request_no_auth_header(self, mock_request) -> None:
         """Test fallback to IP when no Authorization header"""
         mock_request.headers = {}
 
@@ -74,7 +74,7 @@ class TestRateLimiterKeyFunctions:
 
             assert result == "192.168.1.1:free"  # NOSONAR python:S1313 - test fixture IP
 
-    def test_get_user_id_from_request_invalid_token(self, mock_request):
+    def test_get_user_id_from_request_invalid_token(self, mock_request) -> None:
         """Test fallback to IP when token is invalid"""
         mock_request.headers = {"Authorization": "Bearer invalid-token"}
 
@@ -88,7 +88,7 @@ class TestRateLimiterKeyFunctions:
             # Should fallback to IP
             assert result == "192.168.1.1:free"  # NOSONAR python:S1313 - test fixture IP
 
-    def test_get_identifier_with_endpoint(self, mock_request):
+    def test_get_identifier_with_endpoint(self, mock_request) -> None:
         """Test combined user/endpoint identifier"""
         mock_request.headers = {}
         mock_request.url.path = "/api/v1/upload/cat"
@@ -106,7 +106,7 @@ class TestRateLimiterKeyFunctions:
 class TestRedisConfiguration:
     """Test Redis configuration functions"""
 
-    def test_get_redis_url_not_configured(self):
+    def test_get_redis_url_not_configured(self) -> None:
         """Test behavior when REDIS_URL is not set"""
         # Ensure no REDIS_URL from real environment leaks in
         with patch("config.config.REDIS_URL", None):
@@ -115,7 +115,7 @@ class TestRedisConfiguration:
             result = get_redis_url()
             assert result is None
 
-    def test_get_redis_url_valid_format(self):
+    def test_get_redis_url_valid_format(self) -> None:
         """Test with valid Redis URL format"""
         with patch("config.config.REDIS_URL", "redis://localhost:6379/0"):
             from limiter import get_redis_url
@@ -123,7 +123,7 @@ class TestRedisConfiguration:
             result = get_redis_url()
             assert result == "redis://localhost:6379/0"
 
-    def test_get_redis_url_invalid_format(self):
+    def test_get_redis_url_invalid_format(self) -> None:
         """Test with invalid Redis URL format"""
         with patch(
             "config.config.REDIS_URL", "http://localhost:6379"
@@ -133,7 +133,7 @@ class TestRedisConfiguration:
             result = get_redis_url()
             assert result is None
 
-    def test_get_redis_url_ssl_format(self):
+    def test_get_redis_url_ssl_format(self) -> None:
         """Test with Redis SSL URL format"""
         with patch("config.config.REDIS_URL", "rediss://user:pass@prod.redis.io:6380"):
             from limiter import get_redis_url
@@ -141,7 +141,7 @@ class TestRedisConfiguration:
             result = get_redis_url()
             assert result == "rediss://user:pass@prod.redis.io:6380"
 
-    def test_test_redis_connection_success(self):
+    def test_test_redis_connection_success(self) -> None:
         """Test successful Redis connection"""
         with patch("redis.from_url") as mock_redis:
             mock_client = MagicMock()
@@ -155,7 +155,7 @@ class TestRedisConfiguration:
             assert result is True
             mock_client.ping.assert_called_once()
 
-    def test_test_redis_connection_failure(self):
+    def test_test_redis_connection_failure(self) -> None:
         """Test failed Redis connection"""
         with patch("redis.from_url") as mock_redis:
             mock_redis.side_effect = Exception("Connection refused")
@@ -166,7 +166,7 @@ class TestRedisConfiguration:
 
             assert result is False
 
-    def test_test_redis_connection_import_error(self):
+    def test_test_redis_connection_import_error(self) -> None:
         """Test that connection errors are handled gracefully"""
         # The test_redis_connection function handles errors gracefully.
         # We test connection failure scenario which returns False
@@ -180,7 +180,7 @@ class TestRedisConfiguration:
 class TestRateLimitInfo:
     """Test rate limit info function"""
 
-    def test_get_rate_limit_info_memory_storage(self):
+    def test_get_rate_limit_info_memory_storage(self) -> None:
         """Test rate limit info with in-memory storage"""
         with patch("limiter._storage_uri", None), patch("os.getenv") as mock_getenv:
             mock_getenv.return_value = None
@@ -193,7 +193,7 @@ class TestRateLimitInfo:
             assert "limits" in info
             assert "default" in info["limits"]
 
-    def test_get_rate_limit_info_redis_storage(self):
+    def test_get_rate_limit_info_redis_storage(self) -> None:
         """Test rate limit info with Redis storage"""
         # This test verifies the function returns correct format
         # Actual storage type depends on whether Redis is available
@@ -214,25 +214,25 @@ class TestRateLimitInfo:
 class TestLimiterInstances:
     """Test limiter instance configurations"""
 
-    def test_limiter_exists(self):
+    def test_limiter_exists(self) -> None:
         """Test that main limiter is created"""
         from limiter import limiter
 
         assert limiter is not None
 
-    def test_strict_limiter_exists(self):
+    def test_strict_limiter_exists(self) -> None:
         """Test that strict limiter is created"""
         from limiter import strict_limiter
 
         assert strict_limiter is not None
 
-    def test_upload_limiter_exists(self):
+    def test_upload_limiter_exists(self) -> None:
         """Test that upload limiter is created"""
         from limiter import upload_limiter
 
         assert upload_limiter is not None
 
-    def test_auth_limiter_exists(self):
+    def test_auth_limiter_exists(self) -> None:
         """Test that auth limiter is created"""
         from limiter import auth_limiter
 
@@ -249,14 +249,14 @@ class TestTieredRateLimiting:
         request.headers = {}
         return request
 
-    def test_get_user_tier_free_default(self, mock_request):
+    def test_get_user_tier_free_default(self, mock_request) -> None:
         """Test that default tier is free for unauthenticated/anonymous users"""
         mock_request.headers = {}
         from limiter import get_user_tier
 
         assert get_user_tier(mock_request) == "free"
 
-    def test_get_user_tier_pro(self, mock_request):
+    def test_get_user_tier_pro(self, mock_request) -> None:
         """Test extracting pro tier from valid JWT token"""
         with patch("config.config.JWT_SECRET", "secret_key_at_least_32_chars_long_for_security"):
             test_token = jwt.encode(
@@ -269,7 +269,7 @@ class TestTieredRateLimiting:
 
             assert get_user_tier(mock_request) == "pro"
 
-    def test_get_user_tier_free_explicit(self, mock_request):
+    def test_get_user_tier_free_explicit(self, mock_request) -> None:
         """Test extracting free tier from valid JWT token"""
         with patch("config.config.JWT_SECRET", "secret_key_at_least_32_chars_long_for_security"):
             test_token = jwt.encode(
@@ -282,7 +282,7 @@ class TestTieredRateLimiting:
 
             assert get_user_tier(mock_request) == "free"
 
-    def test_dynamic_limit_resolvers(self, mock_request):
+    def test_dynamic_limit_resolvers(self, mock_request) -> None:
         """Test dynamic limit resolver functions"""
         from config import config
         from limiter import get_api_limit, get_strict_limit, get_upload_limit

@@ -56,14 +56,14 @@ class TestAuthServiceExtended:
             ),
         ):
             service = AuthService(mock_supabase, mock_supabase)  # Pass admin too
-            service.google_client_id = "test_id"
-            service.google_client_secret = "test_secret"
+            service.google_client_id = "test_id"  # type: ignore[attr-defined]
+            service.google_client_secret = "test_secret"  # type: ignore[attr-defined]
             service.jwt_secret = "test_jwt_secret_must_be_at_least_32_characters_long"
             service.jwt_algorithm = "HS256"
 
             yield service
 
-    def test_verify_google_token_success(self, auth_service):
+    def test_verify_google_token_success(self, auth_service) -> None:
         with patch("google.oauth2.id_token.verify_oauth2_token") as mock_verify:
             mock_verify.return_value = {
                 "iss": "accounts.google.com",
@@ -78,7 +78,7 @@ class TestAuthServiceExtended:
             assert user_info["google_id"] == "google123"
             assert user_info["email"] == "test@gmail.com"
 
-    def test_verify_google_token_wrong_issuer(self, auth_service):
+    def test_verify_google_token_wrong_issuer(self, auth_service) -> None:
         with patch("google.oauth2.id_token.verify_oauth2_token") as mock_verify:
             mock_verify.return_value = {
                 "iss": "bad_issuer",
@@ -86,7 +86,7 @@ class TestAuthServiceExtended:
             with pytest.raises(ValueError, match="Invalid token"):
                 auth_service.verify_google_token("token")
 
-    def test_create_and_verify_access_token(self, auth_service):
+    def test_create_and_verify_access_token(self, auth_service) -> None:
         token = auth_service.create_access_token("00000000-0000-4000-a000-000000000123", {"email": "t@t.com"})
         assert token is not None
 
@@ -138,7 +138,7 @@ class TestAuthServiceExtended:
 
             mock_token_service.blacklist_token.assert_called_once()
 
-    def test_verify_access_token_invalid(self, auth_service):
+    def test_verify_access_token_invalid(self, auth_service) -> None:
         assert auth_service.verify_access_token("bad_token") is None
 
     @pytest.mark.asyncio

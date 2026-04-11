@@ -15,7 +15,7 @@ from services.password_service import password_service
 class TestPasswordService:
     """Test suite for PasswordService"""
 
-    def test_hash_password(self):
+    def test_hash_password(self) -> None:
         """Test password hashing"""
         password = "test_password_123"
         hashed = password_service.hash_password(password)
@@ -23,26 +23,26 @@ class TestPasswordService:
         assert hashed != password
         assert len(hashed) > 0
 
-    def test_verify_password_correct(self):
+    def test_verify_password_correct(self) -> None:
         """Test password verification with correct password"""
         password = "test_password_123"
         hashed = password_service.hash_password(password)
         result = password_service.verify_password(password, hashed)
         assert result is True
 
-    def test_verify_password_incorrect(self):
+    def test_verify_password_incorrect(self) -> None:
         """Test password verification with incorrect password"""
         password = "test_password_123"
         hashed = password_service.hash_password(password)
         result = password_service.verify_password("wrong_password", hashed)
         assert result is False
 
-    def test_verify_password_error(self):
+    def test_verify_password_error(self) -> None:
         """Test password verification with invalid hash"""
         result = password_service.verify_password("password", "invalid_hash")
         assert result is False
 
-    def test_validate_complexity(self):
+    def test_validate_complexity(self) -> None:
         """Test password complexity validation"""
         assert password_service.validate_complexity("short") is False
         assert password_service.validate_complexity("NoSpecialChar123") is False
@@ -95,6 +95,7 @@ class TestPasswordService:
         """Test new password validation with short password"""
         is_valid, error = await password_service.validate_new_password("short")
         assert is_valid is False
+        assert error is not None
         assert "at least 8 characters" in error
 
     @pytest.mark.asyncio
@@ -103,6 +104,7 @@ class TestPasswordService:
         with patch.object(password_service, "is_password_pwned", return_value=True):
             is_valid, error = await password_service.validate_new_password("PwnedPass123!")
             assert is_valid is False
+            assert error is not None
             assert "data breach" in error
 
     @pytest.mark.asyncio

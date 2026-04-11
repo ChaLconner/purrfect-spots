@@ -173,7 +173,9 @@ async def test_get_user_from_payload_db_success(mock_env):
                 "picture": "db.jpg",
                 "bio": "Hello",
                 "created_at": None,
-            }
+                "role": "user",
+            },
+            error=None,
         )
     )
 
@@ -196,7 +198,9 @@ async def test_get_user_from_payload_blocks_banned_user(mock_env):
                 "email": "banned@example.com",
                 "name": "Banned User",
                 "banned_at": "2026-03-28T00:00:00Z",
-            }
+                "role": "user",
+            },
+            error=None,
         )
     )
 

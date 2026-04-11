@@ -44,7 +44,9 @@ async def _get_cached_response(key: str) -> dict[str, Any] | None:
         if redis_client:
             cached = await redis_client.get(f"{REDIS_PREFIX}{key}")
             if cached:
-                return json.loads(cached)
+                from typing import cast
+
+                return cast(dict[str, Any], json.loads(cached))
     except Exception as e:
         logger.debug(f"Failed to fetch cached idempotency response: {e}")
         pass

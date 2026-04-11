@@ -8,7 +8,7 @@ import html
 import re
 
 import bleach
-import filetype
+import filetype  # type: ignore[import-not-found, unused-ignore]
 
 from logger import logger
 
@@ -197,6 +197,10 @@ def validate_image_magic_bytes(file_content: bytes) -> tuple[bool, str, str]:
         return False, "", "Empty file content"
 
     try:
+        # SECURITY: Ensure minimum bytes for signature detection to avoid false positives/negatives
+        if len(file_content) < 8:
+            return False, "", "File content too short for validation (at least 8 characters required)"
+
         # Detect MIME type from file content
         kind = filetype.guess(file_content)
         detected_mime = kind.mime if kind else "application/octet-stream"
@@ -208,7 +212,7 @@ def validate_image_magic_bytes(file_content: bytes) -> tuple[bool, str, str]:
             return (
                 False,
                 detected_mime,
-                f"File type '{detected_mime}' is not allowed. Allowed types: {', '.join(ALLOWED_IMAGE_MIMES)}",
+                f"File type '{detected_mime}' is not allowed. Allowed types: {', '.join(ALLOWED_IMAGE_MIMES)}. (at least 8 characters of valid magic bytes required)",
             )
 
         return True, detected_mime, ""

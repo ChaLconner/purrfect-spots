@@ -169,10 +169,8 @@ class TokenService:
             return await self._check_db_blacklist_supabase(target_jti)
         except Exception as e:
             logger.warning(f"Database check failed: {e}")
-            if is_production:
-                logger.error("Database check failed - blocking token for security")
-                return True
-        return False
+            logger.error("Database check failed - blocking token for security")
+            return True
 
     async def _check_db_blacklist_sql(self, jti: str) -> bool:
         """Check database blacklist using SQLAlchemy."""

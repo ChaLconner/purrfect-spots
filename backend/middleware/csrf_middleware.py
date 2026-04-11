@@ -105,6 +105,12 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         if self._is_exempt_path(request.url.path):
             return await call_next(request)
 
+        # Skip CSRF for state-changing requests that use manual Authorization header
+        # SECURITY: Bearer tokens set manually by JS are not susceptible to CSRF
+        # since the browser never sends them automatically.
+        if request.headers.get("Authorization") or request.headers.get("authorization"):
+            return await call_next(request)
+
         # In development, CSRF is optional (easier testing)
         if not self.is_production:
             # Still validate if tokens are provided

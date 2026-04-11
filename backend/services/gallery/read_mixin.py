@@ -1,6 +1,6 @@
 from typing import Any, cast
 
-import structlog
+import structlog  # type: ignore[import-untyped, unused-ignore]
 from postgrest.types import CountMethod
 from sqlalchemy import text
 
@@ -55,7 +55,7 @@ class GalleryReadMixin(GalleryBaseMixin):
     async def get_all_photos_simple(self) -> list[dict[str, Any]]:
         """Simple get all photos wrapper returning only the data list."""
         res = await self.get_all_photos(include_total=False)
-        return res["data"]
+        return cast(list[dict[str, Any]], res["data"])
 
     async def _fetch_photos(self, limit: int, offset: int, user_id: str | None) -> list[dict[str, Any]]:
         """Fetch photos with hydrated user details where possible."""
@@ -194,9 +194,11 @@ class GalleryReadMixin(GalleryBaseMixin):
 
             raise ExternalServiceError(f"Failed to fetch photo {photo_id}", service="Supabase")
 
-    async def enrich_with_user_data(self, photos: list[dict[str, Any]], user_id: str) -> list[dict[str, Any]]:
-        if not photos:
-            return []
+    async def enrich_with_user_data(
+        self, photos: list[dict[str, Any]], user_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        if not photos or not user_id:
+            return photos
         try:
             liked_ids = await self._get_user_liked_photo_ids(user_id)
             for photo in photos:

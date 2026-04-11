@@ -7,7 +7,7 @@ from starlette.testclient import TestClient
 from middleware.csrf_middleware import CSRFMiddleware
 
 
-def test_csrf_middleware_safe_methods():
+def test_csrf_middleware_safe_methods() -> None:
     app = FastAPI()
     app.add_middleware(CSRFMiddleware)
 
@@ -20,7 +20,7 @@ def test_csrf_middleware_safe_methods():
     assert response.status_code == 200
 
 
-def test_csrf_middleware_exempt_path():
+def test_csrf_middleware_exempt_path() -> None:
     with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
         app = FastAPI()
         app.add_middleware(CSRFMiddleware, exempt_paths=["/exempt"])
@@ -34,7 +34,7 @@ def test_csrf_middleware_exempt_path():
         assert response.status_code == 200
 
 
-def test_csrf_middleware_prod_blocks_cross_site_cookie_auth_requests():
+def test_csrf_middleware_prod_blocks_cross_site_cookie_auth_requests() -> None:
     with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
         app = FastAPI()
         app.add_middleware(CSRFMiddleware)
@@ -52,7 +52,7 @@ def test_csrf_middleware_prod_blocks_cross_site_cookie_auth_requests():
         assert response.json()["error_code"] == "CSRF_ORIGIN_MISMATCH"
 
 
-def test_csrf_middleware_prod_allows_same_origin_cookie_auth_requests():
+def test_csrf_middleware_prod_allows_same_origin_cookie_auth_requests() -> None:
     with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
         app = FastAPI()
         app.add_middleware(CSRFMiddleware)
@@ -69,7 +69,7 @@ def test_csrf_middleware_prod_allows_same_origin_cookie_auth_requests():
         assert response.status_code == 200
 
 
-def test_csrf_middleware_dev_mode():
+def test_csrf_middleware_dev_mode() -> None:
     with patch.dict(os.environ, {"ENVIRONMENT": "development"}):
         app = FastAPI()
         app.add_middleware(CSRFMiddleware)
@@ -84,7 +84,7 @@ def test_csrf_middleware_dev_mode():
         assert response.status_code == 200
 
 
-def test_csrf_middleware_prod_missing_tokens():
+def test_csrf_middleware_prod_missing_tokens() -> None:
     with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
         app = FastAPI()
         app.add_middleware(CSRFMiddleware)
@@ -99,7 +99,7 @@ def test_csrf_middleware_prod_missing_tokens():
         assert response.json()["error_code"] == "CSRF_TOKEN_MISSING"
 
 
-def test_csrf_middleware_prod_mismatch_tokens():
+def test_csrf_middleware_prod_mismatch_tokens() -> None:
     with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
         app = FastAPI()
         app.add_middleware(CSRFMiddleware)
@@ -115,7 +115,7 @@ def test_csrf_middleware_prod_mismatch_tokens():
         assert response.json()["error_code"] == "CSRF_TOKEN_MISMATCH"
 
 
-def test_csrf_middleware_prod_valid_tokens():
+def test_csrf_middleware_prod_valid_tokens() -> None:
     with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
         app = FastAPI()
         app.add_middleware(CSRFMiddleware)
@@ -130,7 +130,7 @@ def test_csrf_middleware_prod_valid_tokens():
         assert response.status_code == 200
 
 
-def test_set_csrf_cookie_on_get_non_api():
+def test_set_csrf_cookie_on_get_non_api() -> None:
     app = FastAPI()
     app.add_middleware(CSRFMiddleware)
 

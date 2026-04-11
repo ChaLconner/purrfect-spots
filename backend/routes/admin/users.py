@@ -64,7 +64,7 @@ async def list_users(
     if cache_key:
         cached = await redis_service.get(cache_key)
         if cached:
-            return cached
+            return cast(dict[str, Any], cached)
     try:
         admin_client = await get_async_supabase_admin_client()
         query = (
@@ -88,7 +88,7 @@ async def list_users(
         if search:
             # OPTIMIZATION: Using Full Text Search (FTS) index
             # Ensure index idx_users_search_vector remains sync'd
-            query = query.text_search("search_vector", f"'{search}'")
+            query = cast(Any, query.text_search("search_vector", f"'{search}'"))
 
         result = await query.execute()
         users_data = result.data
@@ -411,11 +411,17 @@ async def ban_user(
     user_id_str = str(user_id)
     try:
         admin_client = await get_async_supabase_admin_client()
-        check = await admin_client.table("users").select("email, roles(name)").eq("id", user_id_str).single().execute()
-        if not check.data:
+        supa_res = (
+            await admin_client.table("users")
+            .select("id, email, name, username, picture, bio, created_at, banned_at")
+            .eq("id", user_id)
+            .single()
+            .execute()
+        )
+        user_data = cast(dict[str, Any], supa_res.data)
+        if not user_data:
             raise HTTPException(status_code=404, detail="User not found")
 
-        user_data = check.data
         role_name = (user_data.get("roles") or {}).get("name") or "user"
         if role_name.lower() in ("admin", "super_admin"):
             raise HTTPException(status_code=400, detail="Cannot ban an admin user")

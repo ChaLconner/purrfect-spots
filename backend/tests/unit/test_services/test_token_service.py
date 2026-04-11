@@ -214,7 +214,7 @@ class TestTokenService:
             result = await token_service.is_blacklisted(jti="jti")
             assert result is False
 
-    def test_cleanup_memory_blacklist(self, mock_supabase_admin):
+    def test_cleanup_memory_blacklist(self, mock_supabase_admin) -> None:
         """Test clearing expired entries from memory blacklist"""
         # Patch async client (not used here but for safe init)
         with patch(

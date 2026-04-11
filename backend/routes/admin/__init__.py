@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from .audit import router as audit_router
 from .comments import router as comments_router
 from .content import router as content_router
+from .maintenance import router as maintenance_router
 from .reports import router as reports_router
 from .roles import router as roles_router
 from .security import router as security_router
@@ -23,3 +24,4 @@ router.include_router(treats_router, prefix="/treats")
 router.include_router(roles_router, prefix="/roles")
 router.include_router(comments_router, prefix="/comments")
 router.include_router(security_router)
+router.include_router(maintenance_router)

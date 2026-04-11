@@ -454,12 +454,12 @@ class TestAuthMeEndpoint:
 class TestInputValidation:
     """Tests for Pydantic input validation"""
 
-    def test_register_input_valid(self):
+    def test_register_input_valid(self) -> None:
         """Test valid RegisterInput"""
         data = RegisterInput(email="test@example.com", password="password123", name="Test User")  # nosonar
         assert data.email == "test@example.com"
 
-    def test_login_request_valid(self):
+    def test_login_request_valid(self) -> None:
         """Test valid LoginRequest"""
         data = LoginRequest(email="test@example.com", password="password")  # nosonar - test fixture
         assert data.email == "test@example.com"

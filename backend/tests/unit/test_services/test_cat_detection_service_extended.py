@@ -34,7 +34,7 @@ class TestCatDetectionServiceExtended:
         file.filename = "test_cat.jpg"
         return file
 
-    def test_prepare_image(self):
+    def test_prepare_image(self) -> None:
         # Create a real image for testing
         img = Image.new("RGB", (2000, 2000), color="red")
         img_byte_arr = io.BytesIO()

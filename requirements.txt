@@ -1,6 +1,6 @@
 python-json-logger>=3.0.0,<5.0.0
 aiohappyeyeballs==2.6.1
-aiohttp==3.13.4
+aiohttp==3.13.5
 aiosignal==1.4.0
 annotated-doc==0.0.4
 annotated-types==0.7.0
@@ -163,3 +163,4 @@ zipp==3.23.0
 sqlalchemy==2.0.41
 asyncpg==0.30.0
 structlog==25.5.0
+psycopg2-binary>=2.9.9

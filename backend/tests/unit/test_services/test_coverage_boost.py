@@ -135,7 +135,7 @@ async def test_treats_give_treat_sql_success(mock_supabase, mock_db):
     user_res.fetchone.return_value = ["SenderName"]
 
     # notification_service mock
-    service.notification_service.create_notification = AsyncMock()
+    service.notification_service.create_notification = AsyncMock()  # type: ignore[method-assign]
 
     # We need to handle multiple calls to execute
     mock_db.execute.side_effect = [rpc_res, user_res]
@@ -188,7 +188,7 @@ async def test_otp_verify_expired(mock_supabase, mock_db):
 @pytest.mark.asyncio
 async def test_otp_verify_wrong_code(mock_supabase, mock_db):
     service = OTPService(mock_supabase, db=mock_db)
-    service._is_email_locked_out = AsyncMock(return_value=False)
+    service._is_email_locked_out = AsyncMock(return_value=False)  # type: ignore[method-assign]
 
     # Mock record
     record = {
@@ -285,7 +285,7 @@ async def test_user_read_mixin_sql(mock_supabase, mock_db):
     service = UserService(mock_supabase, db=mock_db)
 
     # Needs to mock prefixed columns helper or ensure it works
-    service._prefixed_user_columns = MagicMock(return_value="id, username")
+    service._prefixed_user_columns = MagicMock(return_value="id, username")  # type: ignore[method-assign]
 
     # Mock user query
     user_row = MagicMock()
@@ -325,7 +325,7 @@ async def test_user_get_by_email_sql(mock_supabase, mock_db):
     mock_db.execute.return_value = res
 
     res_data = await service.get_user_by_email("test@test.com")
-    assert res_data["id"] == "u1"
+    assert res_data and res_data["id"] == "u1"
 
 
 @pytest.mark.asyncio
@@ -333,7 +333,7 @@ async def test_user_deletion_mixin_sql(mock_supabase, mock_db):
     service = UserService(mock_supabase, db=mock_db)
 
     # Mock get_user_by_id (inherited)
-    service.get_user_by_id = AsyncMock(return_value=MagicMock(id="u1"))
+    service.get_user_by_id = AsyncMock(return_value=MagicMock(id="u1"))  # type: ignore[method-assign]
 
     # Mock update call in mixin
     update_res = MagicMock()
@@ -349,8 +349,8 @@ async def test_user_deletion_mixin_sql(mock_supabase, mock_db):
 @pytest.mark.asyncio
 async def test_user_profile_mixin_create_sql(mock_supabase, mock_db):
     service = UserService(mock_supabase, db=mock_db)
-    service._get_user_role_id = AsyncMock(return_value=1)
-    service._prefixed_user_columns = MagicMock(return_value="id")
+    service._get_user_role_id = AsyncMock(return_value=1)  # type: ignore[method-assign]
+    service._prefixed_user_columns = MagicMock(return_value="id")  # type: ignore[method-assign]
 
     user_data = {"id": "u1", "email": "new@test.com", "name": "NewUser"}
 
@@ -390,8 +390,9 @@ async def test_user_auth_mixin_sql(mock_supabase, mock_db):
     mock_res.session.refresh_token = "rtk"
 
     mock_supabase.auth.sign_in_with_password = AsyncMock(return_value=mock_res)
-    service.get_user_by_id = AsyncMock(return_value=None)
+    service.get_user_by_id = AsyncMock(return_value=None)  # type: ignore[method-assign]
 
     user_data = await service.authenticate_user("test@test.com", "password")
-    assert user_data["id"] == "u1"
+    assert user_data and user_data["id"] == "u1"
     assert user_data["access_token"] == "atk"
+    # End of file

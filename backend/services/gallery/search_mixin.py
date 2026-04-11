@@ -1,7 +1,7 @@
 from collections import Counter
 from typing import TYPE_CHECKING, Any, cast
 
-import structlog
+import structlog  # type: ignore[import-untyped, unused-ignore]
 from sqlalchemy import text
 
 from services.gallery.base_mixin import GalleryBaseMixin
@@ -23,7 +23,8 @@ class GallerySearchMixin(GalleryBaseMixin):
 
     async def enrich_with_user_data(
         self, photos: list[dict[str, Any]], user_id: str | None = None
-    ) -> list[dict[str, Any]]: ...
+    ) -> list[dict[str, Any]]:
+        raise NotImplementedError
 
     @property
     async def _fulltext_available(self) -> bool:
@@ -71,7 +72,7 @@ class GallerySearchMixin(GalleryBaseMixin):
                 "LIMIT :limit"
             )
             result = await self.db.execute(query, {"approved_status": self.APPROVED_STATUS, "limit": limit})
-            return [{"tag": row[0], "count": row[1]} for row in result.fetchall()]
+            return cast(list[dict[str, Any]], [{"tag": row[0], "count": row[1]} for row in result.fetchall()])
         except Exception as e:
             logger.warning("SQLAlchemy popular tags failed: %s", e)
             return None

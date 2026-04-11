@@ -1,68 +1,27 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vitest/config';
 import vue from '@vitejs/plugin-vue';
-import tailwindcss from '@tailwindcss/vite';
 import { fileURLToPath, URL } from 'node:url';
+export default defineConfig(async ({ mode }) => {
+  const isTest = mode === 'test' || process.env.VITEST === 'true';
+  const plugins = [vue()];
 
-import viteCompression from 'vite-plugin-compression';
-import { ViteImageOptimizer } from 'vite-plugin-image-optimizer';
-import { VitePWA } from 'vite-plugin-pwa';
+  if (!isTest) {
+    const [
+      { default: tailwindcss },
+      { default: viteCompression },
+      { ViteImageOptimizer },
+      { VitePWA },
+    ] = await Promise.all([
+      import('@tailwindcss/vite'),
+      import('vite-plugin-compression'),
+      import('vite-plugin-image-optimizer'),
+      import('vite-plugin-pwa'),
+    ]);
 
-export default defineConfig({
-  test: {
-    globals: true,
-    environment: 'jsdom',
-    env: {
-      VITE_SUPABASE_URL: 'http://localhost:54321',
-      VITE_SUPABASE_ANON_KEY: 'test-anon-key',
-    },
-    root: './',
-    include: ['tests/**/*.spec.ts'],
-    setupFiles: ['./tests/setup.ts'],
-coverage: {
-      provider: 'v8',
-      reporter: ['text', 'html', 'lcov', 'json'],
-      reportsDirectory: './coverage',
-      exclude: [
-        'node_modules/',
-        'e2e/',
-        'dist/',
-        '*.config.*',
-        '**/*.d.ts',
-        'src/main.ts',
-        'src/utils/imageWorker.ts',
-        'src/utils/imageUtils.ts',
-        'src/utils/api.ts',
-        'src/theme/mapStyles.ts',
-        'src/composables/useMapMarkers.ts',
-        'src/components/ui/OptimizedImage.vue',
-        'src/components/ui/ReportModal.vue',
-        'src/components/ui/PasswordStrengthMeter.vue',
-        'src/components/ui/EmailVerificationRequiredModal.vue',
-        'src/components/ui/BaseInput.vue',
-        'src/components/ui/index.ts',
-        'src/components/map/',
-        'src/components/social/LikeButton.vue',
-        'src/store/toast.ts',
-        'src/views/MapView.vue',
-        'src/views/GalleryView.vue',
-        'src/views/ProfileView.vue',
-        'src/views/admin/AdminReports.vue',
-      ],
-      // Code Quality: Coverage thresholds (Phase 1: 50%)
-      // Run `npm run test:coverage` to verify
-      thresholds: {
-        statements: 70,
-        branches: 70,
-        functions: 70,
-        lines: 70,
-      },
-    },
-  },
-  plugins: [
-    vue(),
-    tailwindcss(),
-    VitePWA({
+    plugins.push(
+      tailwindcss(),
+      VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['cat-icon-192.png', 'cat-icon-512.png', 'default-avatar.svg'],
       manifest: {
@@ -145,21 +104,21 @@ coverage: {
         ],
       },
     }),
-    viteCompression({
+      viteCompression({
       verbose: true,
       disable: false,
       threshold: 10240,
       algorithm: 'gzip',
       ext: '.gz',
     }),
-    viteCompression({
+      viteCompression({
       verbose: true,
       disable: false,
       threshold: 10240,
       algorithm: 'brotliCompress',
       ext: '.br',
     }),
-    ViteImageOptimizer({
+      ViteImageOptimizer({
       test: /\.(jpe?g|png|gif|tiff|webp|svg|avif)$/i,
       exclude: undefined,
       include: undefined,
@@ -209,93 +168,157 @@ coverage: {
         quality: 85,
       },
     }),
-  ],
-  base: '/',
-  resolve: {
-    alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
-    },
-  },
-  build: {
-    outDir: 'dist',
-    assetsDir: 'assets',
-    // Chunk size warning limit (500kb)
-    chunkSizeWarningLimit: 500,
-    // Skip gzip size reporting (handled by compression plugin) - saves memory
-    reportCompressedSize: false,
-    rollupOptions: {
-      output: {
-        // Code splitting for better caching
-        manualChunks: (id) => {
-          // Vue and related packages
-          if (
-            id.includes('node_modules/vue') ||
-            id.includes('node_modules/@vue') ||
-            id.includes('node_modules/pinia')
-          ) {
-            return 'vue-vendor';
-          }
-          // Supabase
-          if (id.includes('node_modules/@supabase')) {
-            return 'supabase';
-          }
-          // Axios
-          if (id.includes('node_modules/axios')) {
-            return 'axios';
-          }
-          // Google Maps
-          if (id.includes('node_modules/@googlemaps')) {
-            return 'google-maps';
-          }
-          // Tailwind utilities - can grow large
-          if (id.includes('node_modules/tailwindcss')) {
-            return 'tailwind';
-          }
+    );
+  }
+
+  return {
+    test: {
+      globals: true,
+      environment: 'jsdom',
+      env: {
+        VITE_SUPABASE_URL: 'http://localhost:54321',
+        VITE_SUPABASE_ANON_KEY: 'test-anon-key',
+      },
+      root: './',
+      include: ['tests/**/*.spec.ts'],
+      setupFiles: ['./tests/setup.ts'],
+      server: {
+        deps: {
+          inline: ['@vue/test-utils'],
         },
-        // Optimize asset file names
-        assetFileNames: (assetInfo) => {
-          const extType = assetInfo.name?.split('.').pop() || 'asset';
-          if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(extType)) {
-            return 'assets/images/[name]-[hash][extname]';
-          }
-          if (/woff2?|eot|ttf|otf/i.test(extType)) {
-            return 'assets/fonts/[name]-[hash][extname]';
-          }
-          return 'assets/[name]-[hash][extname]';
+      },
+      coverage: {
+        provider: 'v8',
+        reporter: ['text', 'html', 'lcov', 'json'],
+        reportsDirectory: './coverage',
+        exclude: [
+          'node_modules/',
+          'e2e/',
+          'dist/',
+          '*.config.*',
+          '**/*.d.ts',
+          'src/main.ts',
+          'src/utils/imageWorker.ts',
+          'src/utils/imageUtils.ts',
+          'src/utils/api.ts',
+          'src/theme/mapStyles.ts',
+          'src/composables/useMapMarkers.ts',
+          'src/components/ui/OptimizedImage.vue',
+          'src/components/ui/ReportModal.vue',
+          'src/components/ui/PasswordStrengthMeter.vue',
+          'src/components/ui/EmailVerificationRequiredModal.vue',
+          'src/components/ui/BaseInput.vue',
+          'src/components/ui/index.ts',
+          'src/components/map/',
+          'src/components/social/LikeButton.vue',
+          'src/store/toast.ts',
+          'src/views/MapView.vue',
+          'src/views/GalleryView.vue',
+          'src/views/ProfileView.vue',
+          'src/views/admin/AdminReports.vue',
+        ],
+        // Code Quality: Coverage thresholds (Phase 1: 50%)
+        // Run `npm run test:coverage` to verify
+        thresholds: {
+          statements: 70,
+          branches: 70,
+          functions: 70,
+          lines: 70,
         },
-        // Chunk file names
-        chunkFileNames: 'assets/js/[name]-[hash].js',
-        // Entry file names
-        entryFileNames: 'assets/js/[name]-[hash].js',
       },
     },
-    // Enable asset optimization
-    assetsInlineLimit: 4096, // Inline assets smaller than 4kb
-    sourcemap: false, // Disable sourcemaps in production
-    // Use esbuild instead of terser: 10-20x faster, uses far less RAM
-    // Terser caused OOM crashes on Vercel's 2-core / 8GB build machines
-    minify: 'esbuild',
-  },
-  // esbuild minification options
-  esbuild: {
-    // drop: ['console', 'debugger'], // Removed as it stripped console calls during tests
-    legalComments: 'none',
-  },
-  optimizeDeps: {
-    include: ['@googlemaps/js-api-loader'],
-  },
-  define: {
-    // Ensure environment variables are properly replaced
-    __VITE_GOOGLE_MAPS_API_KEY__: JSON.stringify(process.env.VITE_GOOGLE_MAPS_API_KEY),
-  },
-  server: {
-    proxy: {
-      '/api': {
-        target: 'http://localhost:8000',
-        changeOrigin: true,
+    plugins,
+    base: '/',
+    resolve: {
+      alias: {
+        '@': fileURLToPath(new URL('./src', import.meta.url)),
       },
     },
-  },
-  // Configure env file location to look at frontend directory
-  envDir: './',
+    build: {
+      outDir: 'dist',
+      assetsDir: 'assets',
+      // Chunk size warning limit (500kb)
+      chunkSizeWarningLimit: 500,
+      // Skip gzip size reporting (handled by compression plugin) - saves memory
+      reportCompressedSize: false,
+      rollupOptions: {
+        output: {
+          // Code splitting for better caching
+          manualChunks: (id) => {
+            // Vue and related packages
+            if (
+              id.includes('node_modules/vue') ||
+              id.includes('node_modules/@vue') ||
+              id.includes('node_modules/pinia')
+            ) {
+              return 'vue-vendor';
+            }
+            // Supabase
+            if (id.includes('node_modules/@supabase')) {
+              return 'supabase';
+            }
+            // Axios
+            if (id.includes('node_modules/axios')) {
+              return 'axios';
+            }
+            // Google Maps
+            if (id.includes('node_modules/@googlemaps')) {
+              return 'google-maps';
+            }
+            // ApexCharts - very large library
+            if (id.includes('node_modules/apexcharts') || id.includes('node_modules/vue3-apexcharts')) {
+              return 'apexcharts';
+            }
+            // Tailwind utilities - can grow large
+            if (id.includes('node_modules/tailwindcss')) {
+              return 'tailwind';
+            }
+          },
+          // Optimize asset file names
+          assetFileNames: (assetInfo) => {
+            const extType = assetInfo.name?.split('.').pop() || 'asset';
+            if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(extType)) {
+              return 'assets/images/[name]-[hash][extname]';
+            }
+            if (/woff2?|eot|ttf|otf/i.test(extType)) {
+              return 'assets/fonts/[name]-[hash][extname]';
+            }
+            return 'assets/[name]-[hash][extname]';
+          },
+          // Chunk file names
+          chunkFileNames: 'assets/js/[name]-[hash].js',
+          // Entry file names
+          entryFileNames: 'assets/js/[name]-[hash].js',
+        },
+      },
+      // Enable asset optimization
+      assetsInlineLimit: 4096, // Inline assets smaller than 4kb
+      sourcemap: false, // Disable sourcemaps in production
+      // Use esbuild instead of terser: 10-20x faster, uses far less RAM
+      // Terser caused OOM crashes on Vercel's 2-core / 8GB build machines
+      minify: 'esbuild',
+    },
+    // esbuild minification options
+    esbuild: {
+      // drop: ['console', 'debugger'], // Removed as it stripped console calls during tests
+      legalComments: 'none',
+    },
+    optimizeDeps: {
+      include: ['@googlemaps/js-api-loader'],
+    },
+    define: {
+      // Ensure environment variables are properly replaced
+      __VITE_GOOGLE_MAPS_API_KEY__: JSON.stringify(process.env.VITE_GOOGLE_MAPS_API_KEY),
+    },
+    server: {
+      proxy: {
+        '/api': {
+          target: 'http://localhost:8000',
+          changeOrigin: true,
+        },
+      },
+    },
+    // Configure env file location to look at frontend directory
+    envDir: './',
+  };
 });

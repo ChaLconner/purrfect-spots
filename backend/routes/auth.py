@@ -68,7 +68,7 @@ async def register(
     data: RegisterInput,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
     otp_service: Annotated[OTPService, Depends(get_otp_service)],
-) -> LoginResponse | dict:
+) -> LoginResponse:
     """
     Register new user with email and password, then send OTP for verification.
     """
@@ -111,14 +111,14 @@ async def register(
 
         log_security_event("register_success_otp_pending", details={"email": data.email}, severity="INFO")
 
-        return {
-            "access_token": None,  # nosec B105
-            "token_type": None,  # nosec B105
-            "user": None,
-            "message": "Registration successful. Please check your email for the verification code.",
-            "requires_verification": True,
-            "email": data.email,
-        }
+        return LoginResponse(
+            access_token=None,  # nosec B105
+            token_type=None,  # nosec B105
+            user=None,
+            message="Registration successful. Please check your email for the verification code.",
+            requires_verification=True,
+            email=data.email,
+        )
 
     except HTTPException:
         raise

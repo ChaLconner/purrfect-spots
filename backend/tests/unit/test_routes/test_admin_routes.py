@@ -55,7 +55,7 @@ class TestAdminRoutes:
         app.dependency_overrides.pop(get_current_admin_user, None)
         app.dependency_overrides.pop(get_current_user, None)
 
-    def test_list_users_success(self, client, override_admin, mock_supabase_admin):
+    def test_list_users_success(self, client, override_admin, mock_supabase_admin) -> None:
         """Test listing users as admin"""
         mock_supabase_admin.execute.return_value = MagicMock(
             data=[
@@ -76,7 +76,7 @@ class TestAdminRoutes:
         assert len(data) == 2
         assert data[0]["id"] == "u1"
 
-    def test_list_users_search(self, client, override_admin, mock_supabase_admin):
+    def test_list_users_search(self, client, override_admin, mock_supabase_admin) -> None:
         """Test listing users with search query"""
         mock_supabase_admin.execute.return_value = MagicMock(data=[{"id": "u1", "name": "Search Result"}])
 
@@ -90,7 +90,7 @@ class TestAdminRoutes:
         assert response.status_code == 200
         mock_supabase_admin.text_search.assert_called()
 
-    def test_list_users_failure(self, client, override_admin, mock_supabase_admin):
+    def test_list_users_failure(self, client, override_admin, mock_supabase_admin) -> None:
         """Test list users failure handling"""
         mock_supabase_admin.execute.side_effect = Exception("DB Error")
 
@@ -104,7 +104,7 @@ class TestAdminRoutes:
         assert response.status_code == 500
         assert "Failed to fetch users" in response.json()["message"]
 
-    def test_delete_user_success(self, client, override_admin, mock_supabase_admin):
+    def test_delete_user_success(self, client, override_admin, mock_supabase_admin) -> None:
         """Test deleting a user"""
         user_id = self._TARGET_USER_ID
         # Mock user check (exists and not admin)
@@ -122,7 +122,7 @@ class TestAdminRoutes:
         assert response.status_code == 200
         assert "anonymized" in response.json()["message"].lower() or "deleted" in response.json()["message"].lower()
 
-    def test_delete_user_not_found(self, client, override_admin, mock_supabase_admin):
+    def test_delete_user_not_found(self, client, override_admin, mock_supabase_admin) -> None:
         """Test deleting non-existent user"""
         mock_supabase_admin.execute.return_value = MagicMock(data=None)
 
@@ -136,7 +136,7 @@ class TestAdminRoutes:
         assert response.status_code == 404
         assert response.json()["message"] == "User not found"
 
-    def test_delete_admin_forbidden(self, client, override_admin, mock_supabase_admin):
+    def test_delete_admin_forbidden(self, client, override_admin, mock_supabase_admin) -> None:
         """Test preventing deletion of another admin"""
         mock_supabase_admin.execute.return_value = MagicMock(
             data=[{"email": "other@admin.com", "roles": {"name": "admin"}}]
@@ -152,7 +152,7 @@ class TestAdminRoutes:
         assert response.status_code == 400
         assert "Cannot delete an admin user" in response.json()["message"]
 
-    def test_delete_user_exception(self, client, override_admin, mock_supabase_admin):
+    def test_delete_user_exception(self, client, override_admin, mock_supabase_admin) -> None:
         """Test delete user exception handling"""
         mock_supabase_admin.execute.side_effect = Exception("Delete error")
 
@@ -166,7 +166,7 @@ class TestAdminRoutes:
         assert response.status_code == 500
         assert "Failed to delete user" in response.json()["message"]
 
-    def test_unauthorized_access(self, client):
+    def test_unauthorized_access(self, client) -> None:
         """Test that non-authenticated (or non-admin) users cannot access admin routes"""
         # Note: app.dependency_overrides is NOT set here,
         # but the real dependency will fail without token.

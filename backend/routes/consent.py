@@ -10,6 +10,7 @@ Provides user consent tracking for:
 """
 
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -40,7 +41,7 @@ def _is_missing_relation_error(error: Exception) -> bool:
 @router.get("/my-consents")
 async def get_my_consents(
     current_user: User = Depends(get_current_user),
-):
+) -> dict[str, Any]:
     """Get all consent records for the current user."""
     try:
         admin_client = await get_async_supabase_admin_client()
@@ -81,7 +82,7 @@ async def record_consent(
     request: Request,
     consent: ConsentRecord,
     current_user: User = Depends(get_current_user),
-):
+) -> dict[str, Any]:
     """
     Record user consent for a specific type.
     Users can grant or withdraw consent at any time.

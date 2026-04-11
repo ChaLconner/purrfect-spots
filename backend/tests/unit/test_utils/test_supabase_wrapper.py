@@ -9,14 +9,14 @@ import pytest
 import utils.supabase_client as sc
 
 
-def test_get_supabase_client():
+def test_get_supabase_client() -> None:
     """Test standard client retrieval"""
     client = sc.get_supabase_client()
     assert client is not None
     assert client == sc.supabase
 
 
-def test_get_supabase_admin_client():
+def test_get_supabase_admin_client() -> None:
     """Test admin client retrieval"""
     client = sc.get_supabase_admin_client()
     assert client is not None

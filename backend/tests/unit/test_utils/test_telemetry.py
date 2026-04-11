@@ -13,14 +13,14 @@ def mock_app():
     return FastAPI()
 
 
-def test_setup_telemetry_disabled(mock_app):
+def test_setup_telemetry_disabled(mock_app) -> None:
     with patch.dict(os.environ, {"ENABLE_TELEMETRY": "false"}), patch("utils.telemetry.logger") as mock_logger:
         setup_telemetry(mock_app)
         # Should log that it's disabled
         mock_logger.info.assert_called_with("Telemetry disabled (ENABLE_TELEMETRY!=true)")
 
 
-def test_setup_telemetry_enabled_import_error(mock_app):
+def test_setup_telemetry_enabled_import_error(mock_app) -> None:
     with (
         patch.dict(os.environ, {"ENABLE_TELEMETRY": "true"}),
         patch.dict(sys.modules, {"opentelemetry": None}),
@@ -42,7 +42,7 @@ def test_setup_telemetry_enabled_import_error(mock_app):
             mock_logger.warning.assert_called_with("OpenTelemetry packages not found. Skipping telemetry setup.")
 
 
-def test_setup_telemetry_enabled_success(mock_app):
+def test_setup_telemetry_enabled_success(mock_app) -> None:
     with patch.dict(os.environ, {"ENABLE_TELEMETRY": "true"}):
         # Create mock modules and classes
         mock_trace = MagicMock()
@@ -71,13 +71,13 @@ def test_setup_telemetry_enabled_success(mock_app):
             setup_telemetry(mock_app)
 
 
-def test_get_tracer_success():
+def test_get_tracer_success() -> None:
     # If opentelemetry is installed, this returns a real tracer
     tracer = get_tracer("test")
     assert tracer is not None
 
 
-def test_get_tracer_import_error():
+def test_get_tracer_import_error() -> None:
     # Simulate ImportError
     original_import = __import__
 

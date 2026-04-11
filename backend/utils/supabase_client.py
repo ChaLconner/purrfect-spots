@@ -13,7 +13,11 @@ if not supabase_url:
     if is_production:
         raise ValueError("SUPABASE_URL must be set in environment variables")
     # Default to localhost for development/testing if not specified
-    supabase_url = "http://localhost:54321"
+    supabase_url = "http://127.0.0.1:54321"
+
+# Ensure no localhost in URL to prevent [Errno 99] IPv6 resolution issues
+if "localhost" in supabase_url:
+    supabase_url = supabase_url.replace("localhost", "127.0.0.1")
 
 if not supabase_key:
     if is_production:
@@ -21,7 +25,8 @@ if not supabase_key:
     # Use a dummy key for development/testing if not specified
     supabase_key = "dummy-anon-key"
 
-# Shared client options for timeouts
+# Shared client options for timeouts and connection pooling
+# Using a shared http_client prevents [Errno 99] port exhaustion
 client_options = ClientOptions(
     postgrest_client_timeout=30.0,
     storage_client_timeout=30.0,

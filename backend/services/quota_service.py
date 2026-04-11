@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import config
 from logger import logger
+from schemas.gallery import UploadQuotaResponse
 from supabase import AClient
 
 
@@ -161,8 +162,9 @@ class QuotaService:
         except Exception as e:
             logger.error(f"Failed to increment legacy quota for user {user_id}: {e}")
 
-    async def get_user_quota_status(self, user_id: str, is_pro: bool) -> dict[str, Any]:
+    async def get_user_quota_status(self, user_id: str, is_pro: bool) -> UploadQuotaResponse:
         """Get quota usage details for UI based on rolling window."""
+
         max_quota = self.PRO_LIMIT if is_pro else self.FREE_LIMIT
 
         try:
@@ -171,14 +173,14 @@ class QuotaService:
 
             remaining = max(0, max_quota - used)
 
-            return {
-                "used": used,
-                "limit": max_quota,
-                "remaining": remaining,
-                "is_pro": is_pro,
-                "reset_type": "first_upload_window",
-                "resets_at": resets_at,
-            }
+            return UploadQuotaResponse(
+                used=used,
+                limit=max_quota,
+                remaining=remaining,
+                is_pro=is_pro,
+                reset_type="first_upload_window",
+                resets_at=resets_at,
+            )
         except Exception as e:
             logger.error(f"Failed to get quota status: {e}")
-            return {"used": 0, "limit": max_quota, "remaining": 0, "is_pro": is_pro}
+            return UploadQuotaResponse(used=0, limit=max_quota, remaining=0, is_pro=is_pro)

@@ -14,18 +14,29 @@ inputs:
     description: "Whether to install development tools (ruff, mypy, pytest)"
     required: false
     default: "false"
+  enable-cache:
+    description: "Whether to enable pip cache"
+    required: false
+    default: "false"
 
 runs:
   using: "composite"
   steps:
     - name: Set up Python
-      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      if: inputs.enable-cache == 'true'
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ inputs.python-version }}
         cache: "pip"
         cache-dependency-path: |
           backend/requirements.txt
           backend/pyproject.toml
+
+    - name: Set up Python
+      if: inputs.enable-cache != 'true'
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ inputs.python-version }}
 
     - name: Install system dependencies
       shell: bash
