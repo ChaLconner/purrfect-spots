@@ -126,6 +126,12 @@ class Config:
     # Auto-detect Vercel environment if not explicitly set
     ENVIRONMENT = os.getenv("ENVIRONMENT") or os.getenv("VERCEL_ENV") or "development"
     DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
+    # SECURITY: Disable background tasks in serverless environments (Vercel) to avoid port exhaustion
+    ENABLE_BACKGROUND_TASKS = (
+        os.getenv("ENABLE_BACKGROUND_TASKS", "").lower() in ("true", "1", "yes")
+        and not os.getenv("VERCEL")
+        and ENVIRONMENT != "production"
+    )
 
     # Supabase - Use consistent naming with fallbacks for backward compatibility
     SUPABASE_URL = get_env_with_fallback("SUPABASE_URL")
@@ -305,9 +311,13 @@ class Config:
             if not r_value:
                 missing.append(r_name)
 
-        for s_name, s_value in stripe_vars:
-            if not s_value:
-                logger.info(f"Optional Stripe config '{s_name}' is not set. Subscription features will be unavailable.")
+        # Stripe keys are optional; warn if missing since features will be disabled
+        missing_stripe = [s_name for s_name, s_value in stripe_vars if not s_value]
+        if missing_stripe:
+            logger.info(
+                f"Subscription features disabled: Missing optional config {', '.join(missing_stripe)}. "
+                "This is expected if you haven't configured Stripe yet."
+            )
 
         return missing
 

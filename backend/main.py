@@ -219,9 +219,13 @@ from utils.telemetry import setup_telemetry
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    await start_cleanup_jobs()
+    if config.ENABLE_BACKGROUND_TASKS:
+        await start_cleanup_jobs()
+    else:
+        logger.info("Background cleanup tasks disabled (lifespan)")
     yield
-    await stop_cleanup_jobs()
+    if config.ENABLE_BACKGROUND_TASKS:
+        await stop_cleanup_jobs()
     await close_shared_httpx_client()
 
 

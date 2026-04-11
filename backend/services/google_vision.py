@@ -7,6 +7,7 @@ from typing import Any
 
 from fastapi import HTTPException, UploadFile
 
+from config import config
 from logger import logger
 from utils.supabase_client import get_async_supabase_admin_client
 
@@ -80,20 +81,22 @@ class GoogleVisionService:
             env_key_path = os.getenv("GOOGLE_VISION_KEY_PATH")
 
             if env_key_path:
-                key_path = (
-                    Path(env_key_path).resolve() if Path(env_key_path).is_absolute() else Path(env_key_path).resolve()
-                )
+                key_path = Path(env_key_path).resolve()
             else:
-                key_path = Path(__file__).parent / ".." / "keys" / "google_vision.json"
+                # Default location: backend/keys/google_vision.json
+                key_path = Path(__file__).parent.parent / "keys" / "google_vision.json"
 
-            logger.debug(f"Checking key file at: {key_path}")
-
-            if Path(key_path).exists():
+            if key_path.exists():
                 self.client = vision.ImageAnnotatorClient.from_service_account_json(str(key_path))
                 self.is_initialized = True
                 logger.info("Google Vision client initialized from key file")
             else:
-                logger.warning(f"Google Vision key file not found at {key_path}. Using fallback mode.")
+                if env_key_path:
+                    logger.warning(f"Google Vision key file not found at {key_path}")
+                elif config.is_production():
+                    logger.info("Google Vision API not configured (no service account or key file found)")
+                else:
+                    logger.debug(f"Google Vision key file not found at {key_path}")
 
         except ImportError:
             # Keep consistent fallback behavior

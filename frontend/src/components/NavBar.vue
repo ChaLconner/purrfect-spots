@@ -119,20 +119,27 @@ const authStore = useAuthStore();
         <!-- Language Switcher (Always visible) -->
         <LanguageSwitcher />
 
-        <!-- Login Button (not authenticated) - Hidden until xl, handled by BottomNav -->
-        <div v-if="!authStore.isAuthenticated" class="hidden xl:flex items-center gap-2">
-          <NavLink to="/login" variant="accent" :label="$t('auth.login')">
-            <template #icon>
-              <ProfileIcon class="relative z-10 w-[1.1rem] h-[1.1rem]" />
-            </template>
-          </NavLink>
-        </div>
+        <!-- Authentication Dependent Section -->
+        <template v-if="authStore.isInitialized">
+          <!-- Login Button (not authenticated) - Hidden until xl, handled by BottomNav -->
+          <div v-if="!authStore.isAuthenticated" class="hidden xl:flex items-center gap-2">
+            <NavLink to="/login" variant="accent" :label="$t('auth.login')">
+              <template #icon>
+                <ProfileIcon class="relative z-10 w-[1.1rem] h-[1.1rem]" />
+              </template>
+            </NavLink>
+          </div>
 
-        <!-- User Menu (authenticated) -->
-        <div v-if="authStore.isAuthenticated" class="flex items-center gap-2">
-          <NotificationBell />
-          <UserMenu />
-        </div>
+          <!-- User Menu (authenticated) -->
+          <div v-if="authStore.isAuthenticated" class="flex items-center gap-2">
+            <NotificationBell />
+            <UserMenu />
+          </div>
+        </template>
+        <template v-else>
+          <!-- Skeleton or Spacer during Auth Initialization -->
+          <div class="w-10 h-10 rounded-full animate-pulse bg-btn-shade-d"></div>
+        </template>
       </div>
     </div>
   </nav>

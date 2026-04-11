@@ -21,7 +21,7 @@ const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
 const ENVIRONMENT = import.meta.env.MODE;
 const ENABLE_SENTRY = ENVIRONMENT === 'production' || import.meta.env.VITE_ENABLE_SENTRY === 'true';
 
-import type { App as VueApp } from 'vue';
+import type { App as VueApp, Plugin } from 'vue';
 
 async function initSentry(app: VueApp): Promise<void> {
   if (!SENTRY_DSN || !ENABLE_SENTRY) {
@@ -84,19 +84,17 @@ async function initSentry(app: VueApp): Promise<void> {
 
 const app = createApp(App);
 
-initSentry(app); // Non-blocking: mount app immediately while Sentry loads in the background
+// Non-blocking initialization
+initSentry(app); 
 
 // Install Pinia BEFORE using any stores
 app.use(pinia);
 
-// Initialize auth state
+// Initialize auth state asynchronously to prevent blocking FCP/LCP
 const authStore = useAuthStore();
-// Wait for auth initialization to prevent flashes of unauthenticated state
-try {
-  await authStore.initializeAuth();
-} catch (e) {
+authStore.initializeAuth().catch((e) => {
   console.warn('[Auth] Failed to initialize auth:', e);
-}
+});
 
 // Handle browser extension conflicts globally
 globalThis.addEventListener('unhandledrejection', handleUnhandledRejection);
@@ -143,11 +141,9 @@ app.config.errorHandler = (err, _instance, info): void => {
 app.use(router);
 app.use(i18n);
 app.use(VueApexCharts);
-app.use(VueVirtualScroller);
+app.use(VueVirtualScroller as unknown as Plugin);
 
-// Wait for router to be ready (resolves initial navigation and guards) before mounting
-await router.isReady();
-
+// Mount immediately - router will handle initial navigation internally
 app.mount('#app');
 
 // Web Vitals tracking is handled below

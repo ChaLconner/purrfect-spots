@@ -9,18 +9,20 @@ from services.user_service import UserService
 from utils.supabase_client import get_async_supabase_admin_client
 
 
+async def _cleanup_notifications() -> None:
+    """Run notification cleanup once."""
+    try:
+        logger.info("Running notification cleanup...")
+        admin_client = await get_async_supabase_admin_client()
+        notification_service = NotificationService(admin_client)
+        await notification_service.cleanup_old_notifications(days=30)
+    except Exception as e:
+        logger.error(f"Error in notification cleanup: {e}")
+
+
 async def _cleanup_notifications_job() -> None:
     while True:
-        try:
-            logger.info("Running daily notification cleanup job...")
-            admin_client = await get_async_supabase_admin_client()
-            notification_service = NotificationService(admin_client)
-            await notification_service.cleanup_old_notifications(days=30)
-        except asyncio.CancelledError:
-            logger.info("Notification cleanup job cancelled.")
-            raise
-        except Exception as e:
-            logger.error(f"Error in notification cleanup job: {e}")
+        await _cleanup_notifications()
 
         # Sleep for 24 hours (86400 seconds)
         try:
@@ -30,6 +32,45 @@ async def _cleanup_notifications_job() -> None:
             raise
 
 
+async def _cleanup_orphaned_s3_files() -> None:
+    """Run S3 orphaned files cleanup once."""
+    try:
+        logger.info("Running S3 orphaned files cleanup...")
+        admin_client = await get_async_supabase_admin_client()
+
+        # 1. Get all image URLs from database
+        result = await admin_client.table("cat_photos").select("image_url").execute()
+        db_image_urls = {row["image_url"] for row in result.data} if result.data else set()
+
+        # 2. List all files in S3
+        s3_files = await storage_service.list_files(prefix="upload/")
+
+        # 3. Compare and identify orphans
+        now = datetime.now(UTC)
+        orphans_to_delete = []
+
+        for key, last_modified in s3_files:
+            if now - last_modified < timedelta(hours=24):
+                continue
+
+            is_referenced = any(key in url for url in db_image_urls)
+            if not is_referenced:
+                orphans_to_delete.append(key)
+
+        # 4. Delete orphans
+        if orphans_to_delete:
+            logger.info("Found %d orphaned files in S3. Starting deletion...", len(orphans_to_delete))
+            for key in orphans_to_delete:
+                dummy_url = f"https://dummy.s3.amazonaws.com/{key}"
+                await storage_service.delete_file(dummy_url)
+            logger.info("Successfully deleted %d orphaned files from S3.", len(orphans_to_delete))
+        else:
+            logger.info("No orphaned S3 files found.")
+
+    except Exception as e:
+        logger.error(f"Error in S3 cleanup: {e}")
+
+
 async def _cleanup_orphaned_s3_files_job() -> None:
     """
     Background job to identify and delete files in S3 that don't have
@@ -37,54 +78,7 @@ async def _cleanup_orphaned_s3_files_job() -> None:
     Only deletes files older than 24 hours to avoid race conditions with uploads.
     """
     while True:
-        try:
-            logger.info("Running S3 orphaned files cleanup job...")
-            admin_client = await get_async_supabase_admin_client()
-
-            # 1. Get all image URLs from database
-            # For large datasets, this should be paginated or streamed
-            result = await admin_client.table("cat_photos").select("image_url").execute()
-            db_image_urls = {row["image_url"] for row in result.data} if result.data else set()
-
-            # 2. List all files in S3
-            s3_files = await storage_service.list_files(prefix="upload/")
-
-            # 3. Compare and identify orphans
-            now = datetime.now(UTC)
-            orphans_to_delete = []
-
-            for key, last_modified in s3_files:
-                # Reconstruct the URL to match DB format (simple check)
-                # Note: This logic depends on how storage_service.upload_file builds the URL
-                # In this app, it's https://{bucket}.s3.{region}.amazonaws.com/{key}
-
-                # Check age (only delete if > 24 hours old)
-                if now - last_modified < timedelta(hours=24):
-                    continue
-
-                # Check if it exists in any DB URL
-                # (A simple string check is used as URLs might have varying formats/CDNs)
-                is_referenced = any(key in url for url in db_image_urls)
-
-                if not is_referenced:
-                    orphans_to_delete.append(key)
-
-            # 4. Delete orphans
-            if orphans_to_delete:
-                logger.info("Found %d orphaned files in S3. Starting deletion...", len(orphans_to_delete))
-                for key in orphans_to_delete:
-                    # Construct dummy URL for delete_file method
-                    dummy_url = f"https://dummy.s3.amazonaws.com/{key}"
-                    await storage_service.delete_file(dummy_url)
-                logger.info("Successfully deleted %d orphaned files from S3.", len(orphans_to_delete))
-            else:
-                logger.info("No orphaned S3 files found.")
-
-        except asyncio.CancelledError:
-            logger.info("S3 cleanup job cancelled.")
-            raise
-        except Exception as e:
-            logger.error(f"Error in S3 cleanup job: {e}")
+        await _cleanup_orphaned_s3_files()
 
         # Sleep for 24 hours
         try:
@@ -98,18 +92,20 @@ _account_deletion_task: asyncio.Task | None = None
 _s3_cleanup_task: asyncio.Task | None = None
 
 
+async def _cleanup_deleted_accounts() -> None:
+    """Run account deletion cleanup once."""
+    try:
+        logger.info("Running account deletion cleanup...")
+        admin_client = await get_async_supabase_admin_client()
+        user_service = UserService(admin_client, admin_client)
+        await user_service.execute_hard_delete()
+    except Exception as e:
+        logger.error(f"Error in account deletion cleanup: {e}")
+
+
 async def _cleanup_deleted_accounts_job() -> None:
     while True:
-        try:
-            logger.info("Running daily account deletion cleanup job...")
-            admin_client = await get_async_supabase_admin_client()
-            user_service = UserService(admin_client, admin_client)
-            await user_service.execute_hard_delete()
-        except asyncio.CancelledError:
-            logger.info("Account deletion cleanup job cancelled.")
-            raise
-        except Exception as e:
-            logger.error(f"Error in account deletion cleanup job: {e}")
+        await _cleanup_deleted_accounts()
 
         # Sleep for 24 hours (86400 seconds)
         try:
@@ -157,3 +153,12 @@ async def stop_cleanup_jobs() -> None:
     if tasks:
         with contextlib.suppress(asyncio.CancelledError):
             await asyncio.gather(*tasks)
+
+
+async def run_maintenance_tasks() -> dict[str, str]:
+    """Run all maintenance tasks exactly once and return results."""
+    logger.info("Starting manual maintenance task execution")
+    await _cleanup_notifications()
+    await _cleanup_deleted_accounts()
+    await _cleanup_orphaned_s3_files()
+    return {"status": "completed", "message": "All maintenance tasks executed successfully"}

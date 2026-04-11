@@ -252,6 +252,10 @@ coverage: {
           if (id.includes('node_modules/@googlemaps')) {
             return 'google-maps';
           }
+          // ApexCharts - very large library
+          if (id.includes('node_modules/apexcharts') || id.includes('node_modules/vue3-apexcharts')) {
+            return 'apexcharts';
+          }
           // Tailwind utilities - can grow large
           if (id.includes('node_modules/tailwindcss')) {
             return 'tailwind';
