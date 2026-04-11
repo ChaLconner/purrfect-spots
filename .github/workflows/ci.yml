@@ -274,12 +274,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup Frontend
+        uses: ./.github/actions/setup-frontend
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-          cache-dependency-path: package-lock.json
       - name: Build
         run: npm run build -w frontend
       - name: Upload Artifact
