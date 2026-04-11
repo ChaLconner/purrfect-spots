@@ -299,23 +299,35 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+      - name: Pull Trivy image
+        shell: bash
+        run: |
+          for i in 1 2 3; do
+            if docker pull ghcr.io/aquasecurity/trivy:0.68.1; then
+              exit 0
+            fi
+            if [ "$i" -lt 3 ]; then
+              echo "::warning::Trivy image pull failed (attempt $i), retrying in 10s..."
+              sleep 10
+            fi
+          done
+          echo "::error::Unable to pull ghcr.io/aquasecurity/trivy:0.68.1 after 3 attempts."
+          exit 1
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@v0.33.1
-        with:
-          scan-type: "fs"
-          scan-ref: "."
-          version: "v0.68.1"
-          format: "sarif"
-          output: "trivy-results.sarif"
-          severity: "CRITICAL,HIGH"
-          limit-severities-for-sarif: true
-          ignore-unfixed: true
-          trivyignores: ".trivyignore"
-          scanners: "vuln,misconfig"
-          exit-code: "1"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TRIVY_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          docker run --rm \
+            -v "$PWD:/workdir" \
+            -w /workdir \
+            ghcr.io/aquasecurity/trivy:0.68.1 \
+            fs \
+            --format sarif \
+            --output trivy-results.sarif \
+            --severity CRITICAL,HIGH \
+            --ignore-unfixed \
+            --scanners vuln,misconfig \
+            --exit-code 1 \
+            .
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v4
         if: always() && hashFiles('trivy-results.sarif') != ''
