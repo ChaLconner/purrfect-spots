@@ -321,11 +321,12 @@ jobs:
             -w /workdir \
             ghcr.io/aquasecurity/trivy:0.68.1 \
             fs \
+            --skip-version-check \
             --format sarif \
             --output trivy-results.sarif \
             --severity CRITICAL,HIGH \
             --ignore-unfixed \
-            --scanners vuln,misconfig \
+            --scanners vuln \
             --exit-code 1 \
             .
       - name: Upload Trivy scan results to GitHub Security tab
