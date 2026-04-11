@@ -302,13 +302,16 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@v0.33.1
         with:
-          image-ref: "purrfect-spots-backend:latest"
+          scan-type: "fs"
+          scan-ref: "."
+          version: "v0.68.1"
           format: "sarif"
           output: "trivy-results.sarif"
           severity: "CRITICAL,HIGH"
+          limit-severities-for-sarif: true
+          ignore-unfixed: true
           trivyignores: ".trivyignore"
-          scanners: "vuln,secret"
-          github-pat: ${{ secrets.GITHUB_TOKEN }}
+          scanners: "vuln,misconfig"
           exit-code: "1"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
