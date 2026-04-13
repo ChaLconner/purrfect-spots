@@ -27,7 +27,11 @@ export function useGeolocation(): UseGeolocationReturn {
    */
   const getIpLocation = async (): Promise<Coordinates | null> => {
     try {
-      const response = await fetch('https://ipapi.co/json/');
+      const response = await fetch('/api/v1/geo/ip-location');
+      if (!response.ok) {
+        return null;
+      }
+
       const data = await response.json();
       if (data.latitude && data.longitude) {
         return {

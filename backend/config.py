@@ -47,7 +47,7 @@ def get_required_env(key: str, production_only: bool = False) -> str:
     is_production = os.getenv("ENVIRONMENT", "development").lower() == "production"
 
     if value:
-        return value
+        return value.strip()
 
     if production_only and not is_production:
         return ""
@@ -85,7 +85,7 @@ def get_env_with_fallback(primary_key: str, *fallback_keys: str, default: str = 
     """
     value = os.getenv(primary_key)
     if value:
-        return value
+        return value.strip()
 
     for key in fallback_keys:
         value = os.getenv(key)
@@ -97,7 +97,7 @@ def get_env_with_fallback(primary_key: str, *fallback_keys: str, default: str = 
                     DeprecationWarning,
                     stacklevel=2,
                 )
-            return value
+            return value.strip()
 
     return default
 

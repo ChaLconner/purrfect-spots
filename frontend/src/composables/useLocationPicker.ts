@@ -223,13 +223,15 @@ export function useLocationPicker(options: LocationPickerOptions = {}): {
   // Fetch approximate location from IP geolocation API
   const getApproximateLocationFromIP = async (): Promise<Coordinates | null> => {
     try {
-      // Using ipapi.co (free tier, HTTPS, allowed by CSP)
-      const response = await fetch('https://ipapi.co/json/');
+      const response = await fetch('/api/v1/geo/ip-location');
       if (!response.ok) return null;
 
       const data = await response.json();
       if (data.latitude && data.longitude) {
-        return { lat: data.latitude, lng: data.longitude };
+        return {
+          lat: Number.parseFloat(data.latitude),
+          lng: Number.parseFloat(data.longitude),
+        };
       }
       return null;
     } catch {

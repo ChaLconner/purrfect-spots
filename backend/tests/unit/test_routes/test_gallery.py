@@ -2,7 +2,7 @@
 Original gallery tests - updated for new pagination API
 """
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -96,6 +96,34 @@ def test_get_locations(client) -> None:
     expected_lat, expected_lng = protect_public_coordinates(10, 10, seed="1")
     assert response.json()[0]["latitude"] == pytest.approx(expected_lat, abs=1e-5)
     assert response.json()[0]["longitude"] == pytest.approx(expected_lng, abs=1e-5)
+
+
+def test_get_ip_location(client) -> None:
+    mock_response = MagicMock()
+    mock_response.json.return_value = {"latitude": "13.7563", "longitude": "100.5018"}
+    mock_response.raise_for_status.return_value = None
+
+    with patch("routes.geo.get_shared_httpx_client") as mock_get_client:
+        mock_client = MagicMock()
+        mock_client.get = AsyncMock(return_value=mock_response)
+        mock_get_client.return_value = mock_client
+
+        response = client.get("/api/v1/geo/ip-location")
+
+    assert response.status_code == 200
+    assert response.json() == {"latitude": 13.7563, "longitude": 100.5018}
+
+
+def test_get_ip_location_returns_nulls_on_failure(client) -> None:
+    with patch("routes.geo.get_shared_httpx_client") as mock_get_client:
+        mock_client = MagicMock()
+        mock_client.get = AsyncMock(side_effect=Exception("lookup failed"))
+        mock_get_client.return_value = mock_client
+
+        response = client.get("/api/v1/geo/ip-location")
+
+    assert response.status_code == 200
+    assert response.json() == {"latitude": None, "longitude": None}
 
 
 def test_get_viewport(client) -> None:

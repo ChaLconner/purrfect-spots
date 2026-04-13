@@ -5,6 +5,7 @@ Tests for Supabase client wrappers.
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from gotrue._async.storage import AsyncMemoryStorage
 
 import utils.supabase_client as sc
 
@@ -24,6 +25,11 @@ def test_get_supabase_admin_client() -> None:
     # But for now we just care that it returns something
     expected = sc.supabase_admin or sc.supabase
     assert client == expected
+
+
+def test_async_client_options_use_async_storage() -> None:
+    """Async Supabase clients must use async-compatible session storage."""
+    assert isinstance(sc.async_client_options.storage, AsyncMemoryStorage)
 
 
 @pytest.mark.asyncio

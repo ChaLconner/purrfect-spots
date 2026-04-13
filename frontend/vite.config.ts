@@ -61,7 +61,7 @@ export default defineConfig(async ({ mode }) => {
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.pathname.startsWith('/api/v1/gallery'),
-            handler: 'NetworkFirst',
+            handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'api-gallery-cache',
               expiration: {
@@ -75,7 +75,7 @@ export default defineConfig(async ({ mode }) => {
           },
           {
             urlPattern: ({ url }) => url.pathname.startsWith('/api/v1/gallery/locations'),
-            handler: 'NetworkFirst',
+            handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'api-locations-cache',
               expiration: {

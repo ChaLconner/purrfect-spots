@@ -130,7 +130,21 @@ describe('Auth Store', () => {
 
     expect(store.user).toEqual(user);
     expect(store.isAuthenticated).toBe(true);
-    expect(store.token).toBe('new-token');
+    expect(store.isInitialized).toBe(true);
+    expect(mockApiPost).toHaveBeenCalledWith('/auth/refresh-token');
+  });
+
+  it('initializeAuth waits for refresh when no cached user exists', async () => {
+    const freshUser = { id: '1', email: 'fresh@example.com', name: 'Fresh User' };
+    mockApiPost.mockResolvedValueOnce({ access_token: 'fresh-token', user: freshUser });
+
+    const store = useAuthStore();
+    await store.initializeAuth();
+
+    expect(store.isInitialized).toBe(true);
+    expect(store.isAuthenticated).toBe(true);
+    expect(store.token).toBe('fresh-token');
+    expect(store.user).toEqual(freshUser);
   });
 
   it('verifySession returns true if authenticated and profile fetch succeeds', async () => {

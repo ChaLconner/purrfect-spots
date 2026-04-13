@@ -51,6 +51,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   // Singleton promise to avoid parallel refresh calls
   let refreshPromise: Promise<boolean> | null = null;
+  let initializePromise: Promise<void> | null = null;
 
   // ========== Getters ==========
   const hasCompleteProfile = computed(() => {
@@ -90,25 +91,45 @@ export const useAuthStore = defineStore('auth', () => {
    * Try to recover session from HttpOnly cookie via refresh endpoint
    */
   async function initializeAuth(): Promise<void> {
-    // Restore user data for UX while checking auth
-    const storedUser: string | null =
-      localStorage.getItem('user_data') || localStorage.getItem('user');
+    if (isInitialized.value) return;
+    if (initializePromise) return initializePromise;
 
-    if (storedUser) {
-      try {
-        const parsedUser: unknown = JSON.parse(storedUser);
-        if (isValidUser(parsedUser)) {
-          user.value = parsedUser;
+    initializePromise = (async (): Promise<void> => {
+      // Restore user data for UX while checking auth
+      const storedUser: string | null =
+        localStorage.getItem('user_data') || localStorage.getItem('user');
+
+      let restoredFromCache = false;
+
+      if (storedUser) {
+        try {
+          const parsedUser: unknown = JSON.parse(storedUser);
+          if (isValidUser(parsedUser)) {
+            user.value = parsedUser;
+            isAuthenticated.value = true;
+            restoredFromCache = true;
+          }
+        } catch {
+          // invalid user data
         }
-      } catch {
-        // invalid user data
       }
-    }
 
-    // Always try to refresh token on init to check valid session
-    await refreshToken();
+      // If we already have cached user data, unblock the UI immediately
+      // and verify the session in the background.
+      if (restoredFromCache) {
+        isInitialized.value = true;
+        void refreshToken();
+        return;
+      }
 
-    isInitialized.value = true;
+      // No cached user available, so wait for the initial session check.
+      await refreshToken();
+      isInitialized.value = true;
+    })().finally(() => {
+      initializePromise = null;
+    });
+
+    return initializePromise;
   }
 
   /**

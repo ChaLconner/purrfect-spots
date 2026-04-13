@@ -65,7 +65,7 @@
           </router-link>
 
           <router-link
-            v-if="authStore.hasPermission(PERMISSIONS.USERS_READ)"
+            v-if="canAccess(PERMISSIONS.USERS_READ)"
             to="/admin/users"
             class="flex items-center px-4 py-2 rounded-lg text-brown-600 hover:bg-sand-50 hover:text-brown-900 transition-colors group"
             active-class="bg-terracotta-50 text-terracotta-700 font-medium"
@@ -89,7 +89,7 @@
           </router-link>
 
           <router-link
-            v-if="authStore.hasPermission(PERMISSIONS.CONTENT_READ)"
+            v-if="canAccess(PERMISSIONS.CONTENT_READ)"
             to="/admin/photos"
             class="flex items-center px-4 py-2 rounded-lg text-brown-600 hover:bg-sand-50 hover:text-brown-900 transition-colors group"
             active-class="bg-terracotta-50 text-terracotta-700 font-medium"
@@ -114,8 +114,8 @@
 
           <router-link
             v-if="
-              authStore.hasPermission(PERMISSIONS.REPORTS_READ) ||
-              authStore.hasPermission(PERMISSIONS.CONTENT_READ)
+              canAccess(PERMISSIONS.REPORTS_READ) ||
+              canAccess(PERMISSIONS.CONTENT_READ)
             "
             to="/admin/reports"
             class="flex items-center px-4 py-2 rounded-lg text-brown-600 hover:bg-sand-50 hover:text-brown-900 transition-colors group relative"
@@ -146,7 +146,7 @@
           </router-link>
 
           <router-link
-            v-if="authStore.hasPermission(PERMISSIONS.AUDIT_READ)"
+            v-if="canAccess(PERMISSIONS.AUDIT_READ)"
             to="/admin/audit-logs"
             class="flex items-center px-4 py-2 rounded-lg text-brown-600 hover:bg-sand-50 hover:text-brown-900 transition-colors group"
             active-class="bg-terracotta-50 text-terracotta-700 font-medium"
@@ -170,7 +170,7 @@
           </router-link>
 
           <router-link
-            v-if="authStore.hasPermission(PERMISSIONS.SYSTEM_SETTINGS)"
+            v-if="canAccess(PERMISSIONS.SYSTEM_SETTINGS)"
             to="/admin/settings"
             class="flex items-center px-4 py-2 rounded-lg text-brown-600 hover:bg-sand-50 hover:text-brown-900 transition-colors group"
             active-class="bg-terracotta-50 text-terracotta-700 font-medium"
@@ -200,7 +200,7 @@
           </router-link>
 
           <router-link
-            v-if="authStore.hasPermission(PERMISSIONS.TREATS_MANAGE)"
+            v-if="canAccess(PERMISSIONS.TREATS_MANAGE)"
             to="/admin/treats"
             class="flex items-center px-4 py-2 rounded-lg text-brown-600 hover:bg-sand-50 hover:text-brown-900 transition-colors group"
             active-class="bg-terracotta-50 text-terracotta-700 font-medium"
@@ -224,7 +224,7 @@
           </router-link>
 
           <router-link
-            v-if="authStore.hasPermission(PERMISSIONS.ROLES_MANAGE)"
+            v-if="canAccess(PERMISSIONS.ROLES_MANAGE)"
             to="/admin/roles"
             class="flex items-center px-4 py-2 rounded-lg text-brown-600 hover:bg-sand-50 hover:text-brown-900 transition-colors group"
             active-class="bg-terracotta-50 text-terracotta-700 font-medium"
@@ -248,7 +248,7 @@
           </router-link>
 
           <router-link
-            v-if="authStore.hasPermission(PERMISSIONS.SYSTEM_STATS)"
+            v-if="canAccess(PERMISSIONS.SYSTEM_STATS)"
             to="/admin/security"
             class="flex items-center px-4 py-2 rounded-lg text-brown-600 hover:bg-sand-50 hover:text-brown-900 transition-colors group"
             active-class="bg-terracotta-50 text-terracotta-700 font-medium"
@@ -272,7 +272,7 @@
           </router-link>
 
           <router-link
-            v-if="authStore.hasPermission(PERMISSIONS.COMMENTS_MANAGE)"
+            v-if="canAccess(PERMISSIONS.COMMENTS_MANAGE)"
             to="/admin/comments"
             class="flex items-center px-4 py-2 rounded-lg text-brown-600 hover:bg-sand-50 hover:text-brown-900 transition-colors group"
             active-class="bg-terracotta-50 text-terracotta-700 font-medium"
@@ -346,6 +346,10 @@ const adminStore = useAdminStore();
 const isSidebarOpen = ref(false);
 
 const pendingReportsCount = computed(() => adminStore.stats.pending_reports);
+
+function canAccess(permission: string): boolean {
+  return authStore.isAdmin || authStore.hasPermission(permission);
+}
 
 onMounted(() => {
   // NOTE: fetchStats() removed — AdminDashboard.vue handles its own data via fetchSummary().

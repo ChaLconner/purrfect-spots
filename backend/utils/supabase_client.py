@@ -1,3 +1,5 @@
+from gotrue._async.storage import AsyncMemoryStorage
+
 from config import config
 from logger import logger
 from supabase import AClient, AClientOptions, Client, ClientOptions, acreate_client, create_client
@@ -33,6 +35,7 @@ client_options = ClientOptions(
 )
 
 async_client_options = AClientOptions(
+    storage=AsyncMemoryStorage(),
     postgrest_client_timeout=30.0,
     storage_client_timeout=30.0,
 )

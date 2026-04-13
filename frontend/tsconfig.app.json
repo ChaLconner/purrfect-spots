@@ -18,8 +18,6 @@
     "noUncheckedSideEffectImports": true,
     "lib": ["ES2021", "DOM"]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.js", "src/**/*.d.ts", "src/types/env.d.ts"],
-  "vueCompilerOptions": {
-    "globalTypesPath": "./src/types/global.d.ts"
-  }
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.js", "src/**/*.vue", "src/**/*.d.ts", "src/types/env.d.ts"],
+  "vueCompilerOptions": {}
 }

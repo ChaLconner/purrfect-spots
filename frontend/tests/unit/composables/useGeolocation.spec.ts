@@ -113,6 +113,7 @@ describe('useGeolocation', () => {
       );
 
       (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ok: true,
         json: () => Promise.resolve(ipLocation),
       });
 
