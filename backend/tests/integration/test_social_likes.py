@@ -3,6 +3,7 @@ import uuid
 from typing import Any
 from unittest.mock import MagicMock
 
+import httpx
 import pytest
 from dotenv import load_dotenv
 
@@ -16,8 +17,12 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 
+def _has_remote_supabase_target() -> bool:
+    return bool(SUPABASE_URL and SUPABASE_SERVICE_KEY and "localhost" not in SUPABASE_URL and "127.0.0.1" not in SUPABASE_URL)
+
+
 @pytest.mark.skipif(
-    not SUPABASE_URL or not SUPABASE_SERVICE_KEY, reason="Supabase credentials not found in environment"
+    not _has_remote_supabase_target(), reason="Remote Supabase integration target not configured"
 )
 @pytest.mark.skipif(isinstance(create_client, MagicMock), reason="Supabase module is mocked (missing dependencies)")
 class TestSocialLikesIntegration:
@@ -32,6 +37,11 @@ class TestSocialLikesIntegration:
         )
         assert SUPABASE_URL is not None
         assert SUPABASE_SERVICE_KEY is not None
+        try:
+            health = httpx.get(f"{SUPABASE_URL.rstrip('/')}/auth/v1/health", timeout=5.0)
+            health.raise_for_status()
+        except Exception as exc:
+            pytest.skip(f"Supabase auth endpoint is not reachable: {exc}")
         return create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=options)
 
     @pytest.fixture(scope="class")

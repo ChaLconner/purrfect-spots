@@ -59,6 +59,36 @@ class TestAdminRoutesExtended:
         assert len(data) == 2
         assert data[0]["name"] == "Admin"
 
+    def test_list_permissions_success(self, client, override_current_user, mock_supabase_admin) -> None:
+        """Test listing permissions returns the frontend-friendly group field."""
+        mock_supabase_admin.execute.return_value = MagicMock(
+            data=[
+                {
+                    "id": "p1",
+                    "code": "roles:manage",
+                    "description": "Manage roles",
+                    "group": "Role Management",
+                }
+            ]
+        )
+
+        with patch(
+            "routes.admin.roles.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
+            response = client.get("/api/v1/admin/roles/permissions")
+
+        assert response.status_code == 200
+        assert response.json() == [
+            {
+                "id": "p1",
+                "code": "roles:manage",
+                "description": "Manage roles",
+                "group": "Role Management",
+            }
+        ]
+
     def test_update_user_role_success(self, client, override_current_user, mock_supabase_admin) -> None:
         """Test updating user role"""
         user_id = "00000000-0000-4000-a000-000000000001"

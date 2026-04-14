@@ -2,6 +2,7 @@
 Tests for Supabase client wrappers.
 """
 
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -29,7 +30,7 @@ def test_get_supabase_admin_client() -> None:
 
 def test_async_client_options_use_async_storage() -> None:
     """Async Supabase clients must use async-compatible session storage."""
-    assert isinstance(sc.async_client_options.storage, AsyncMemoryStorage)
+    assert isinstance(cast(Any, sc.async_client_options.storage), AsyncMemoryStorage)
 
 
 @pytest.mark.asyncio

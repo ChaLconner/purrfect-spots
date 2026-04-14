@@ -4,6 +4,7 @@ Original gallery tests - updated for new pagination API
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
 from main import app
@@ -103,7 +104,12 @@ def test_get_ip_location(client) -> None:
     mock_response.json.return_value = {"latitude": "13.7563", "longitude": "100.5018"}
     mock_response.raise_for_status.return_value = None
 
-    with patch("routes.geo.get_shared_httpx_client") as mock_get_client:
+    with (
+        patch("routes.geo._cached_ip_location", {"latitude": None, "longitude": None}),
+        patch("routes.geo._cached_ip_location_expires_at", 0.0),
+        patch("routes.geo._rate_limit_backoff_until", 0.0),
+        patch("routes.geo.get_shared_httpx_client") as mock_get_client,
+    ):
         mock_client = MagicMock()
         mock_client.get = AsyncMock(return_value=mock_response)
         mock_get_client.return_value = mock_client
@@ -115,7 +121,12 @@ def test_get_ip_location(client) -> None:
 
 
 def test_get_ip_location_returns_nulls_on_failure(client) -> None:
-    with patch("routes.geo.get_shared_httpx_client") as mock_get_client:
+    with (
+        patch("routes.geo._cached_ip_location", {"latitude": None, "longitude": None}),
+        patch("routes.geo._cached_ip_location_expires_at", 0.0),
+        patch("routes.geo._rate_limit_backoff_until", 0.0),
+        patch("routes.geo.get_shared_httpx_client") as mock_get_client,
+    ):
         mock_client = MagicMock()
         mock_client.get = AsyncMock(side_effect=Exception("lookup failed"))
         mock_get_client.return_value = mock_client
@@ -124,6 +135,34 @@ def test_get_ip_location_returns_nulls_on_failure(client) -> None:
 
     assert response.status_code == 200
     assert response.json() == {"latitude": None, "longitude": None}
+
+
+def test_get_ip_location_skips_lookup_during_rate_limit_cooldown(client) -> None:
+    request = httpx.Request("GET", "https://ipapi.co/json/")
+    response = httpx.Response(429, request=request)
+    status_error = httpx.HTTPStatusError("Too Many Requests", request=request, response=response)
+
+    with (
+        patch("routes.geo._cached_ip_location", {"latitude": None, "longitude": None}),
+        patch("routes.geo._cached_ip_location_expires_at", 0.0),
+        patch("routes.geo._rate_limit_backoff_until", 0.0),
+        patch("routes.geo.get_shared_httpx_client") as mock_get_client,
+    ):
+        mock_client = MagicMock()
+        mock_client.get = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.raise_for_status.side_effect = status_error
+        mock_client.get.return_value = mock_response
+        mock_get_client.return_value = mock_client
+
+        first_response = client.get("/api/v1/geo/ip-location")
+        second_response = client.get("/api/v1/geo/ip-location")
+
+    assert first_response.status_code == 200
+    assert first_response.json() == {"latitude": None, "longitude": None}
+    assert second_response.status_code == 200
+    assert second_response.json() == {"latitude": None, "longitude": None}
+    assert mock_client.get.await_count == 1
 
 
 def test_get_viewport(client) -> None:

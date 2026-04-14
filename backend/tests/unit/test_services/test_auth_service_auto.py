@@ -52,9 +52,10 @@ async def test_is_token_revoked(auth_service):
 async def test_revoke_token(auth_service):
     mock_ts = MagicMock()
     mock_ts.blacklist_token = AsyncMock(return_value=True)
-    with patch("services.auth.token_mixin.get_token_service", new_callable=AsyncMock, return_value=mock_ts):
+    with patch("services.auth.token_mixin.get_token_service", new_callable=AsyncMock, return_value=mock_ts) as mock_get:
         res = await auth_service.revoke_token("jti1", "u1", datetime.now(UTC))
         assert res is True
+        mock_get.assert_awaited_once_with(auth_service.db)
 
 
 def test_verify_google_token(auth_service) -> None:

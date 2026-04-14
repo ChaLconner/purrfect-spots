@@ -36,37 +36,105 @@ def mock_jwks_response():
 
 @pytest.mark.asyncio
 async def test_get_jwks_success(mock_env, mock_jwks_response):
-    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = mock_jwks_response
-        mock_get.return_value = mock_response
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = mock_jwks_response
+    mock_client = MagicMock()
+    mock_client.get = AsyncMock(return_value=mock_response)
 
-        # Reset cache globals
-        with (
-            patch("middleware.auth_middleware._jwks_cache", None),
-            patch("middleware.auth_middleware._jwks_last_update", 0),
-        ):
-            jwks = await get_jwks()
-            assert jwks == mock_jwks_response
-            mock_get.assert_called_once()
+    # Reset cache globals
+    with (
+        patch("utils.http_client.get_shared_httpx_client", return_value=mock_client),
+        patch("middleware.auth_middleware.config.SUPABASE_URL", "https://testproject.supabase.co"),
+        patch("middleware.auth_middleware.config.SUPABASE_KEY", ""),
+        patch("middleware.auth_middleware._jwks_cache", None),
+        patch("middleware.auth_middleware._jwks_last_update", 0),
+    ):
+        jwks = await get_jwks()
+        assert jwks == mock_jwks_response
+        mock_client.get.assert_awaited_once_with(
+            "https://testproject.supabase.co/auth/v1/.well-known/jwks.json",
+            headers={},
+            timeout=5,
+        )
 
 
 @pytest.mark.asyncio
 async def test_get_jwks_cached(mock_env, mock_jwks_response):
+    mock_client = MagicMock()
+    mock_client.get = AsyncMock()
+
     with (
-        patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get,
+        patch("utils.http_client.get_shared_httpx_client", return_value=mock_client),
         patch("middleware.auth_middleware._jwks_cache", mock_jwks_response),
         patch("middleware.auth_middleware._jwks_last_update", time.time()),
     ):
         jwks = await get_jwks()
         assert jwks == mock_jwks_response
-        mock_get.assert_not_called()
+        mock_client.get.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_get_jwks_sanitizes_apikey_header(mock_jwks_response):
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = mock_jwks_response
+
+    mock_client = MagicMock()
+    mock_client.get = AsyncMock(return_value=mock_response)
+
+    with (
+        patch("utils.http_client.get_shared_httpx_client", return_value=mock_client),
+        patch("middleware.auth_middleware.config.SUPABASE_URL", "https://testproject.supabase.co\n"),
+        patch("middleware.auth_middleware.config.SUPABASE_KEY", ' "test-anon-key\r\n" '),
+        patch("middleware.auth_middleware._jwks_cache", None),
+        patch("middleware.auth_middleware._jwks_last_update", 0),
+    ):
+        jwks = await get_jwks()
+
+    assert jwks == mock_jwks_response
+    mock_client.get.assert_awaited_once_with(
+        "https://testproject.supabase.co/auth/v1/.well-known/jwks.json",
+        headers={"apikey": "test-anon-key"},
+        timeout=5,
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_jwks_falls_back_to_legacy_endpoint(mock_jwks_response):
+    not_found = MagicMock()
+    not_found.status_code = 404
+    not_found.text = "404 page not found"
+
+    ok = MagicMock()
+    ok.status_code = 200
+    ok.json.return_value = mock_jwks_response
+
+    mock_client = MagicMock()
+    mock_client.get = AsyncMock(side_effect=[not_found, ok])
+
+    with (
+        patch("utils.http_client.get_shared_httpx_client", return_value=mock_client),
+        patch("middleware.auth_middleware.config.SUPABASE_URL", "https://testproject.supabase.co"),
+        patch("middleware.auth_middleware.config.SUPABASE_KEY", ""),
+        patch("middleware.auth_middleware._jwks_cache", None),
+        patch("middleware.auth_middleware._jwks_last_update", 0),
+    ):
+        jwks = await get_jwks()
+
+    assert jwks == mock_jwks_response
+    assert mock_client.get.await_count == 2
+    assert mock_client.get.await_args_list[0].args[0] == "https://testproject.supabase.co/auth/v1/.well-known/jwks.json"
+    assert mock_client.get.await_args_list[1].args[0] == "https://testproject.supabase.co/auth/v1/keys"
 
 
 @pytest.mark.asyncio
 async def test_get_jwks_no_url():
-    with patch.dict(os.environ, {}, clear=True):
+    with (
+        patch("middleware.auth_middleware.config.SUPABASE_URL", ""),
+        patch("middleware.auth_middleware._jwks_cache", None),
+        patch("middleware.auth_middleware._jwks_last_update", 0),
+    ):
         jwks = await get_jwks()
         assert jwks is None
 
