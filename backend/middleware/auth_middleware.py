@@ -10,7 +10,7 @@ import jwt
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from config import config
+from config import config, normalize_single_line_env
 from logger import logger
 from schemas.user import User
 from services.token_service import get_token_service
@@ -56,15 +56,15 @@ async def get_jwks() -> dict | None:
     """Lazily fetch and cache JWKS"""
     global _jwks_cache, _jwks_last_update
 
-    supabase_url = config.SUPABASE_URL
+    supabase_url = normalize_single_line_env(config.SUPABASE_URL)
     if not supabase_url:
         return None
 
-    try:
-        project_id = supabase_url.split("//")[1].split(".")[0]
-        jwks_url = f"https://{project_id}.supabase.co/auth/v1/keys"
-    except IndexError:
-        return None
+    base_url = supabase_url.rstrip("/")
+    jwks_urls = (
+        f"{base_url}/auth/v1/.well-known/jwks.json",
+        f"{base_url}/auth/v1/keys",
+    )
 
     current_time = time.time()
     if _jwks_cache and (current_time - _jwks_last_update < JWKS_CACHE_TTL):
@@ -74,14 +74,24 @@ async def get_jwks() -> dict | None:
 
     try:
         client = get_shared_httpx_client()
-        # Supabase Auth /keys endpoint often requires the anon key in apikey header
-        headers = {"apikey": config.SUPABASE_KEY} if config.SUPABASE_KEY else {}
-        response = await client.get(jwks_url, headers=headers, timeout=5)
-        if response.status_code == 200:
-            _jwks_cache = response.json()
-            _jwks_last_update = int(current_time)
-            return _jwks_cache
-        logger.warning("JWKS fetch failed with status %d: %s", response.status_code, response.text[:100])
+        # Some Supabase deployments still expect the anon key on JWKS requests.
+        apikey = normalize_single_line_env(config.SUPABASE_KEY)
+        headers = {"apikey": apikey} if apikey else {}
+        last_response = None
+        for jwks_url in jwks_urls:
+            response = await client.get(jwks_url, headers=headers, timeout=5)
+            last_response = response
+            if response.status_code == 200:
+                _jwks_cache = response.json()
+                _jwks_last_update = int(current_time)
+                return _jwks_cache
+        if last_response is not None:
+            logger.warning(
+                "JWKS fetch failed for %s with status %d: %s",
+                jwks_urls[-1],
+                last_response.status_code,
+                last_response.text[:100],
+            )
     except Exception as e:
         logger.warning("Failed to refresh JWKS cache: %s", e)
 

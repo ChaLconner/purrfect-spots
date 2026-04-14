@@ -25,6 +25,28 @@ def _compute_etag(content: bytes) -> str:
     return f'"{hash_val}"'
 
 
+def _request_is_authenticated(request: Request) -> bool:
+    """Best-effort check for requests carrying user-specific auth context."""
+    if request.headers.get("Authorization"):
+        return True
+    return bool(request.headers.get("Cookie"))
+
+
+def _is_cacheable_response(response: Response) -> bool:
+    """Only generate validators for explicitly cacheable responses."""
+    cache_control = response.headers.get("Cache-Control", "")
+    if not cache_control:
+        return False
+
+    normalized = cache_control.lower()
+    skip_tokens = ("no-store", "no-cache", "private")
+    if any(token in normalized for token in skip_tokens):
+        return False
+
+    allowed_tokens = ("public", "max-age", "s-maxage", "immutable", "stale-while-revalidate")
+    return any(token in normalized for token in allowed_tokens)
+
+
 class ETagMiddleware(BaseHTTPMiddleware):
     """
     Middleware that adds ETag headers to GET responses
@@ -52,7 +74,14 @@ class ETagMiddleware(BaseHTTPMiddleware):
         if response.status_code >= 400:
             return response
 
+        # Authenticated API reads must not be cached unless a route opts in explicitly.
+        if _request_is_authenticated(request) and "Cache-Control" not in response.headers:
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+
         if "etag" in response.headers or "ETag" in response.headers:
+            return response
+
+        if not _is_cacheable_response(response):
             return response
 
         # Read response body
@@ -76,12 +105,17 @@ class ETagMiddleware(BaseHTTPMiddleware):
             if etag in client_etags or "*" in client_etags:
                 from fastapi.responses import Response as StarletteResponse
 
+                headers = {
+                    "ETag": etag,
+                    "Cache-Control": response.headers.get("Cache-Control", ""),
+                }
+                vary = response.headers.get("Vary")
+                if vary:
+                    headers["Vary"] = vary
+
                 return StarletteResponse(
                     status_code=304,
-                    headers={
-                        "ETag": etag,
-                        "Cache-Control": response.headers.get("Cache-Control", ""),
-                    },
+                    headers=headers,
                 )
 
         # Rebuild response with ETag header
@@ -95,4 +129,5 @@ class ETagMiddleware(BaseHTTPMiddleware):
             status_code=response.status_code,
             headers=headers,
             media_type=response.media_type,
+            background=response.background,
         )

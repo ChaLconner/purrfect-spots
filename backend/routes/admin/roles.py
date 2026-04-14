@@ -47,9 +47,18 @@ async def list_permissions(
         return cast(list[dict[str, Any]], cached)
     try:
         admin_client = await get_async_supabase_admin_client()
-        res = await admin_client.table("permissions").select("id, code, description, category").execute()
-        await redis_service.set(cache_key, res.data, expire=600)  # 10 minutes
-        return cast(list[dict[str, Any]], res.data or [])
+        res = await admin_client.table("permissions").select("id,code,description,group").execute()
+        permissions = [
+            {
+                "id": row["id"],
+                "code": row["code"],
+                "description": row.get("description"),
+                "group": row.get("group"),
+            }
+            for row in cast(list[dict[str, Any]], res.data or [])
+        ]
+        await redis_service.set(cache_key, permissions, expire=600)  # 10 minutes
+        return permissions
     except Exception as e:
         logger.error("Failed to list permissions: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch permissions")

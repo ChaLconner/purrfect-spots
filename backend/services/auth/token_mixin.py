@@ -3,8 +3,8 @@ from datetime import datetime, timedelta
 from typing import Any, cast
 
 import jwt
-import structlog
 
+import structlog
 from config import config
 from services.auth.base_mixin import AuthBaseMixin
 from services.token_service import get_token_service
@@ -33,7 +33,7 @@ class AuthTokenMixin(AuthBaseMixin):
     async def revoke_token(self, jti: str, user_id: str, expires_at: datetime) -> bool:
         """Add token to blacklist (Async)."""
         try:
-            token_service = await get_token_service()
+            token_service = await get_token_service(self.db)
             return await token_service.blacklist_token(
                 token=None, jti=jti, user_id=user_id, expires_at=expires_at, reason="logout"
             )

@@ -1,6 +1,8 @@
+from typing import Any, cast
+
 from gotrue._async.storage import AsyncMemoryStorage
 
-from config import config
+from config import config, normalize_single_line_env
 from logger import logger
 from supabase import AClient, AClientOptions, Client, ClientOptions, acreate_client, create_client
 
@@ -8,8 +10,8 @@ from supabase import AClient, AClientOptions, Client, ClientOptions, acreate_cli
 # Use a fail-soft approach for development/test environments
 is_production = config.ENVIRONMENT.lower() == "production"
 
-supabase_url = config.SUPABASE_URL
-supabase_key = config.SUPABASE_KEY
+supabase_url = normalize_single_line_env(config.SUPABASE_URL)
+supabase_key = normalize_single_line_env(config.SUPABASE_KEY)
 
 if not supabase_url:
     if is_production:
@@ -35,7 +37,7 @@ client_options = ClientOptions(
 )
 
 async_client_options = AClientOptions(
-    storage=AsyncMemoryStorage(),
+    storage=cast(Any, AsyncMemoryStorage()),
     postgrest_client_timeout=30.0,
     storage_client_timeout=30.0,
 )
@@ -44,7 +46,7 @@ async_client_options = AClientOptions(
 supabase: Client = create_client(supabase_url, supabase_key, options=client_options)
 
 # Admin client
-supabase_service_key = config.SUPABASE_SERVICE_KEY
+supabase_service_key = normalize_single_line_env(config.SUPABASE_SERVICE_KEY)
 supabase_admin: Client | None = None
 if supabase_service_key:
     supabase_admin = create_client(supabase_url, supabase_service_key, options=client_options)
@@ -81,12 +83,12 @@ async def get_async_supabase_admin_client() -> AClient:
     """Get high-performance async Supabase admin client (bypasses RLS)"""
     global _async_supabase_admin
     if _async_supabase_admin is None:
-        service_key = config.SUPABASE_SERVICE_KEY
+        service_key = normalize_single_line_env(config.SUPABASE_SERVICE_KEY)
         if not service_key:
             logger.error("SUPABASE_SERVICE_ROLE_KEY is missing! Admin client cannot bypass RLS.")
             if config.is_production():
                 raise ValueError("SUPABASE_SERVICE_ROLE_KEY is required for admin operations")
-            service_key = config.SUPABASE_KEY  # Dev fallback
+            service_key = normalize_single_line_env(config.SUPABASE_KEY)  # Dev fallback
 
         _async_supabase_admin = await acreate_client(supabase_url, service_key, options=async_client_options)
     return _async_supabase_admin

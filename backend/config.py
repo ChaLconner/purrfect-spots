@@ -29,6 +29,21 @@ class ConfigurationError(Exception):
     pass
 
 
+def normalize_single_line_env(value: str) -> str:
+    """
+    Normalize single-line environment values copied from dashboards/secret managers.
+
+    This removes wrapping quotes and ASCII control characters such as CR/LF that
+    can break HTTP headers or SDK client initialization.
+    """
+    normalized = value.strip()
+
+    if len(normalized) >= 2 and normalized[0] == normalized[-1] and normalized[0] in {"'", '"'}:
+        normalized = normalized[1:-1].strip()
+
+    return "".join(ch for ch in normalized if ord(ch) >= 0x20 and ord(ch) != 0x7F)
+
+
 def get_required_env(key: str, production_only: bool = False) -> str:
     """
     Get a required environment variable.
@@ -134,9 +149,11 @@ class Config:
     )
 
     # Supabase - Use consistent naming with fallbacks for backward compatibility
-    SUPABASE_URL = get_env_with_fallback("SUPABASE_URL")
-    SUPABASE_KEY = get_env_with_fallback("SUPABASE_KEY", "SUPABASE_ANON_KEY")
-    SUPABASE_SERVICE_KEY = get_required_env("SUPABASE_SERVICE_ROLE_KEY", production_only=True)
+    SUPABASE_URL = normalize_single_line_env(get_env_with_fallback("SUPABASE_URL"))
+    SUPABASE_KEY = normalize_single_line_env(get_env_with_fallback("SUPABASE_KEY", "SUPABASE_ANON_KEY"))
+    SUPABASE_SERVICE_KEY = normalize_single_line_env(
+        get_required_env("SUPABASE_SERVICE_ROLE_KEY", production_only=True)
+    )
 
     # Database (optional - if not set, services use Supabase client API directly)
     # To enable direct DB access, set DATABASE_URL in .env with:
