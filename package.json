@@ -23,6 +23,9 @@
   "author": "ChaLconner",
   "license": "MIT",
   "type": "commonjs",
+  "engines": {
+    "node": ">=24 <26"
+  },
   "bugs": {
     "url": "https://github.com/ChaLconner/purrfect-spots/issues"
   },
