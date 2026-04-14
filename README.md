@@ -99,10 +99,20 @@ Vercel Deployment
 
 ## Backend
 
-* Python 3.12
+* Python 3.14
 * FastAPI (Async)
 * SQLAlchemy
 * Pydantic
+
+## Recommended Local Versions
+
+* Node.js 25.8.0
+* Python 3.14.x
+
+## CI Versions
+
+* GitHub Actions uses Node.js 24.x
+* GitHub Actions uses Python 3.14.x
 
 ## Infrastructure
 
