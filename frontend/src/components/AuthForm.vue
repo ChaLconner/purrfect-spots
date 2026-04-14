@@ -182,7 +182,7 @@
 import { watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 
-const catIllustrationUrl = '/cat-illustration.png';
+const catIllustrationUrl = '/cat-illustration.webp';
 
 import { useAuthForm } from '@/composables/useAuthForm';
 import { useAuthStore } from '@/store/authStore';

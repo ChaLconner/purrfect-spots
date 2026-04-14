@@ -1,10 +1,10 @@
-import { ref, watch, nextTick, type Ref } from 'vue';
+import { ref, watch, nextTick } from 'vue';
 import { GalleryService } from '@/services/galleryService';
 import { useCatsStore } from '@/store';
 import { GALLERY_CONFIG } from '@/utils/constants';
 import type { CatLocation } from '@/types/api';
 
-export function useGalleryState(isInitialized: Ref<boolean>): {
+export function useGalleryState(): {
   loading: Ref<boolean>;
   loadingMore: Ref<boolean>;
   error: Ref<string>;
@@ -30,8 +30,6 @@ export function useGalleryState(isInitialized: Ref<boolean>): {
   const preloadedLinks: HTMLLinkElement[] = [];
 
   async function fetchGalleryData(reset = false, callback?: () => void): Promise<void> {
-    if (!isInitialized.value) return;
-
     const hasData = visibleImages.value.length > 0;
 
     if (reset) {
@@ -128,9 +126,9 @@ export function useGalleryState(isInitialized: Ref<boolean>): {
   function preloadFirstImages(): void {
     if (preloadedLinks.length > 0) return;
 
-    const imagesToPreload = visibleImages.value.slice(0, 6);
+    const criticalImages = visibleImages.value.slice(0, 2);
 
-    imagesToPreload.forEach((image, index) => {
+    criticalImages.forEach((image, index) => {
       if (image.image_url) {
         const link = document.createElement('link');
         link.rel = 'preload';

@@ -11,6 +11,7 @@ export const useNotificationStore = defineStore('notifications', () => {
   const unreadCount = computed(() => notifications.value.filter((n) => !n.is_read).length);
   const authStore = useAuthStore();
   let subscription: RealtimeChannel | null = null;
+  const actorCache = new Map<string, { name?: string; picture?: string }>();
 
   // Pagination states
   const isLoadingMore = ref(false);
@@ -112,9 +113,19 @@ export const useNotificationStore = defineStore('notifications', () => {
           // Fetch actor details if available
           if (newNotification.actor_id) {
             try {
-              const user = await ProfileService.getPublicProfile(newNotification.actor_id);
-              newNotification.actor_name = user.name;
-              newNotification.actor_picture = user.picture;
+              const cachedActor = actorCache.get(newNotification.actor_id);
+              if (cachedActor) {
+                newNotification.actor_name = cachedActor.name;
+                newNotification.actor_picture = cachedActor.picture;
+              } else {
+                const user = await ProfileService.getPublicProfile(newNotification.actor_id);
+                actorCache.set(newNotification.actor_id, {
+                  name: user.name,
+                  picture: user.picture,
+                });
+                newNotification.actor_name = user.name;
+                newNotification.actor_picture = user.picture;
+              }
             } catch (e) {
               console.error('Failed to fetch actor details for notification', e);
             }

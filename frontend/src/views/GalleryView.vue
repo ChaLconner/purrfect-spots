@@ -116,21 +116,29 @@ const {
   fetchImages,
   loadMoreImages,
   cleanupPreloads,
-} = useGalleryState(computed(() => authStore.isInitialized));
+} = useGalleryState();
 
 const selectedImage = ref<CatLocation | null>(null);
 const currentImageIndex = ref(-1);
+const hasFetchedWithAuthContext = ref(false);
 
 // Pagination and virtual scrolling
 const isDeepLinked = ref(false); // Track if current view is a deep link to a specific image
 
 onMounted(() => {
-  // We rely on the authStore.isInitialized watcher to trigger fetchImages
-  // This avoids double-fetching on page reload.
-
   // Check for search query in URL on mount
   if (route.query.q) {
     catsStore.setGallerySearchQuery(route.query.q as string);
+  }
+
+  fetchImages(() => {
+    if (props.id) {
+      syncStateFromUrl();
+    }
+  });
+
+  if (authStore.isInitialized && authStore.isAuthenticated) {
+    hasFetchedWithAuthContext.value = true;
   }
 
   // Set SEO meta tags
@@ -220,9 +228,6 @@ function handleImageLikesCountUpdate(val: number): void {
 }
 
 async function syncStateFromUrl(): Promise<void> {
-  // Wait for auth before syncing to avoid context issues or 401s
-  if (!authStore.isInitialized) return;
-
   const imageId = props.id;
 
   if (!imageId) {
@@ -332,19 +337,19 @@ function handleModalNavigate(direction: 'prev' | 'next'): void {
   }
 }
 
-// Preloading logic delegated to useGalleryState
 watch(
-  () => authStore.isInitialized,
-  (isInit) => {
-    if (isInit) {
-      // Auth is ready (either logged in or guest confirmed)
-      // Now safe to fetch data with correct auth context
-      fetchImages(() => {
-        if (props.id) {
-          syncStateFromUrl();
-        }
-      });
+  () => [authStore.isInitialized, authStore.isAuthenticated] as const,
+  ([isInit, isAuthenticated]) => {
+    if (!isInit || !isAuthenticated || hasFetchedWithAuthContext.value) {
+      return;
     }
+
+    hasFetchedWithAuthContext.value = true;
+    fetchImages(() => {
+      if (props.id) {
+        syncStateFromUrl();
+      }
+    });
   },
   { immediate: true }
 );

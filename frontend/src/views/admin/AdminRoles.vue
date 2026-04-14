@@ -167,7 +167,7 @@
 
             <button
               class="px-4 py-2 bg-terracotta-600 text-white rounded-lg hover:bg-terracotta-700 transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2 text-sm font-medium"
-              :disabled="saving || !dirty"
+              :disabled="saving || !dirty || permissionsLoadFailed"
               @click="savePermissions"
             >
               <svg
@@ -238,6 +238,13 @@
               {{ t('admin.roles.self_lockout_warning') }}
             </p>
           </div>
+        </div>
+
+        <div
+          v-if="permissionsLoadFailed"
+          class="mx-6 mt-6 p-4 bg-rose-50/70 border border-rose-100 rounded-2xl text-sm text-rose-700 font-medium"
+        >
+          {{ t('admin.roles.load_error') }}
         </div>
 
         <!-- Summary Stats -->
@@ -451,6 +458,7 @@ const dirty = ref(false);
 const permissionSearch = ref('');
 const unsavedChangesConfirmOpen = ref(false);
 const pendingRoleToSelect = ref<AdminRole | null>(null);
+const permissionsLoadFailed = ref(false);
 
 const authStore = useAuthStore();
 const currentUserRole = computed(() => authStore.user?.role);
@@ -615,12 +623,20 @@ const savePermissions = async (): Promise<void> => {
 
 onMounted(async () => {
   try {
-    const [rolesData, permsData] = await Promise.all([
-      apiV1.get<AdminRole[]>('/admin/roles'),
-      apiV1.get<AdminPermission[]>('/admin/roles/permissions'),
-    ]);
-    roles.value = rolesData || [];
-    permissions.value = permsData || [];
+    roles.value = (await apiV1.get<AdminRole[]>('/admin/roles')) || [];
+
+    try {
+      permissions.value = (await apiV1.get<AdminPermission[]>('/admin/roles/permissions')) || [];
+      permissionsLoadFailed.value = false;
+    } catch {
+      permissions.value = [];
+      permissionsLoadFailed.value = true;
+      toast({
+        title: t('common.error'),
+        description: t('admin.roles.load_error'),
+        variant: 'destructive',
+      });
+    }
 
     for (const role of roles.value) {
       try {

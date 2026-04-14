@@ -3,10 +3,13 @@
   "private": true,
   "version": "3.1.0",
   "type": "module",
+  "engines": {
+    "node": ">=24 <26"
+  },
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc && vite build",
-    "build:prod": "NODE_OPTIONS=--max-old-space-size=4096 vue-tsc && NODE_OPTIONS=--max-old-space-size=4096 vite build --mode production",
+    "build": "vue-tsc && node ./scripts/run-vite-build.mjs",
+    "build:prod": "NODE_OPTIONS=--max-old-space-size=4096 vue-tsc && NODE_OPTIONS=--max-old-space-size=4096 node ./scripts/run-vite-build.mjs --mode production",
     "build:analyze": "vite build --mode production && npx source-map-explorer dist/assets/js/*.js",
     "preview": "vite preview",
     "type-check": "vue-tsc --noEmit",

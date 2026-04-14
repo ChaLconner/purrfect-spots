@@ -127,7 +127,7 @@ import { useGeolocation } from '../composables/useGeolocation';
 import { useMapMarkers } from '../composables/useMapMarkers';
 import { useSeo } from '../composables/useSeo';
 
-const catIcon = '/cat-icon.png';
+const catIcon = '/cat-icon.webp';
 const route = useRoute();
 const router = useRouter();
 const catsStore = useCatsStore();
@@ -382,14 +382,8 @@ watch(
 // 2. ONLY Fit bounds when searching (Manual trigger via searchQuery change)
 const hasFittedForCurrentSearch = ref(false);
 
-watch(searchQuery, (newQuery) => {
+watch(searchQuery, () => {
   hasFittedForCurrentSearch.value = false;
-  
-  // Explicitly fit bounds once when a new search starts
-  if (newQuery && map.value) {
-    // We wait for the next data update to actually fit
-    logger.info("New search query - will fit bounds on next data arrival");
-  }
 });
 
 // Fit bounds only when (search changed AND we have new data AND we haven't fitted yet)
@@ -539,21 +533,35 @@ onMounted(() => {
     type: 'website',
   });
 
-  // Parallel fetch and initialization
-  getCurrentPosition().then(() => startWatchingPosition());
+  // Start with a single low-cost location lookup so the first render stays responsive.
+  void getCurrentPosition({
+    enableHighAccuracy: false,
+    timeout: 3000,
+    maximumAge: 5 * 60 * 1000,
+  });
 
   // Start map initialization immediately to improve LCP
   initializeMap();
 
-  // Load all marker locations once for a better initial discovery experience
-  // This ensures the badge count is "reasonable" even before the first viewport fetch
-  GalleryService.getLocations().then(allLocations => {
-    if (allLocations && allLocations.length > 0) {
-      catsStore.appendLocations(allLocations);
-    }
-  }).catch(err => {
-    console.warn('Failed to pre-fetch marker locations:', err);
-  });
+  // Continuous tracking is useful, but it does not need to compete with the
+  // initial map render and first viewport fetch.
+  const startDeferredTracking = (): void => {
+    void startWatchingPosition({
+      enableHighAccuracy: false,
+      timeout: 10000,
+      maximumAge: 30000,
+    });
+  };
+
+  if ('requestIdleCallback' in globalThis) {
+    (
+      globalThis as unknown as {
+        requestIdleCallback: (cb: () => void, options?: { timeout: number }) => void;
+      }
+    ).requestIdleCallback(startDeferredTracking, { timeout: 2000 });
+  } else {
+    globalThis.setTimeout(startDeferredTracking, 1000);
+  }
 });
 
 onUnmounted(() => {

@@ -35,7 +35,7 @@ export const IMAGE_CONFIG = {
   ALLOWED_EXTENSIONS: ['.jpg', '.jpeg', '.png', '.webp', '.gif'],
   MAX_DIMENSION: 1920,
   COMPRESSION_QUALITY: 0.85,
-  PLACEHOLDER_URL: '/cat-illustration.png',
+  PLACEHOLDER_URL: '/cat-illustration.webp',
 } as const;
 
 // ========== Pagination Constants ==========

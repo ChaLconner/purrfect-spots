@@ -35,13 +35,42 @@ function sanitizeUserForCache(userData: User | null): Partial<User> | null {
   return safeData;
 }
 
+function readCachedUser(): User | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const storedUser = localStorage.getItem('user_data') || localStorage.getItem('user');
+    if (!storedUser) {
+      return null;
+    }
+
+    const parsedUser = JSON.parse(storedUser) as unknown;
+    if (typeof parsedUser !== 'object' || parsedUser === null) {
+      return null;
+    }
+
+    const candidate = parsedUser as Record<string, unknown>;
+    if (typeof candidate.id === 'string' && typeof candidate.email === 'string') {
+      return candidate as unknown as User;
+    }
+  } catch {
+    // Ignore invalid cache contents and fall back to guest state.
+  }
+
+  return null;
+}
+
 export const useAuthStore = defineStore('auth', () => {
   // ========== State ==========
+  const cachedUser = readCachedUser();
+  let needsBackgroundRefresh = !!cachedUser;
 
-  const user = ref<User | null>(null);
+  const user = ref<User | null>(cachedUser);
   const token = ref<string | null>(null); // Memory only, no localStorage!
-  const isAuthenticated = ref(false);
-  const isInitialized = ref(false);
+  const isAuthenticated = ref(!!cachedUser);
+  const isInitialized = ref(!!cachedUser);
 
   const isLoading = ref(false);
   const error = ref<string | null>(null);
@@ -91,33 +120,13 @@ export const useAuthStore = defineStore('auth', () => {
    * Try to recover session from HttpOnly cookie via refresh endpoint
    */
   async function initializeAuth(): Promise<void> {
-    if (isInitialized.value) return;
     if (initializePromise) return initializePromise;
 
+    if (isInitialized.value && !needsBackgroundRefresh) return;
+
     initializePromise = (async (): Promise<void> => {
-      // Restore user data for UX while checking auth
-      const storedUser: string | null =
-        localStorage.getItem('user_data') || localStorage.getItem('user');
-
-      let restoredFromCache = false;
-
-      if (storedUser) {
-        try {
-          const parsedUser: unknown = JSON.parse(storedUser);
-          if (isValidUser(parsedUser)) {
-            user.value = parsedUser;
-            isAuthenticated.value = true;
-            restoredFromCache = true;
-          }
-        } catch {
-          // invalid user data
-        }
-      }
-
-      // If we already have cached user data, unblock the UI immediately
-      // and verify the session in the background.
-      if (restoredFromCache) {
-        isInitialized.value = true;
+      if (needsBackgroundRefresh) {
+        needsBackgroundRefresh = false;
         void refreshToken();
         return;
       }
@@ -179,17 +188,6 @@ export const useAuthStore = defineStore('auth', () => {
     })();
 
     return refreshPromise;
-  }
-
-  /**
-   * Validate user object shape
-   */
-  function isValidUser(userData: unknown): userData is User {
-    if (typeof userData !== 'object' || userData === null) {
-      return false;
-    }
-    const obj = userData as Record<string, unknown>;
-    return typeof obj.id === 'string' && typeof obj.email === 'string';
   }
 
   /**

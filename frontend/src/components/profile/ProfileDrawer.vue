@@ -38,28 +38,18 @@ const close = (): void => {
 // Custom loader to fetch data when ID changes
 const fetchData = async (): Promise<void> => {
   if (props.userId) {
-    // We need to manually set the route param or simulate it for useProfileData
-    // Since useProfileData relies on route.params.id, we can temporarily mock or adapt
-    // For now, let's assume we might need a small adjustment in useProfileData
-    // but we'll try to use it as is if we can.
     await loadProfileData(undefined, props.userId);
   }
 };
 
 watch(
-  () => props.userId,
-  (newId) => {
-    if (newId && props.isOpen) {
-      loadProfileData(undefined, newId);
-    }
-  }
-);
-
-watch(
-  () => props.isOpen,
-  (isOpen) => {
-    if (isOpen && props.userId) {
-      loadProfileData(undefined, props.userId);
+  () => [props.isOpen, props.userId] as const,
+  ([isOpen, userId], [wasOpen, previousUserId]) => {
+    if (isOpen) {
+      const shouldLoad = !wasOpen || userId !== previousUserId;
+      if (userId && shouldLoad) {
+        void loadProfileData(undefined, userId);
+      }
       // Prevent body scroll
       document.body.style.overflow = 'hidden';
     } else {
@@ -84,13 +74,8 @@ onUnmounted(() => {
   document.body.style.overflow = '';
 });
 
-// We need to provide a way to open images from the drawer too
-const selectedImage = ref<CatLocation | null>(null);
-const openImage = (image: CatLocation): void => {
-  selectedImage.value = image;
-  // For now, maybe just redirect or show a nested modal?
-  // Let's stick to redirecting to the full profile for image details to keep it simple
-  // or just emitted to parent.
+const openImage = (_image: CatLocation): void => {
+  // Keep drawer interactions lightweight; the full profile page handles deep-linked image modals.
 };
 </script>
 

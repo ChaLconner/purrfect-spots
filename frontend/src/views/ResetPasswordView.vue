@@ -15,7 +15,7 @@
       >
         <div class="text-center z-10">
           <img
-            src="/cat-illustration.png"
+            src="/cat-illustration.webp"
             alt="Cute cat illustration"
             class="w-[160px] h-[160px] md:w-[240px] md:h-[240px] object-cover rounded-full border-6 border-white/40 shadow-[0_15px_30px_rgba(0,0,0,0.1)] animate-[float_6s_ease-in-out_infinite] block mx-auto"
           />

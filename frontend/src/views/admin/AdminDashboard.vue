@@ -126,7 +126,7 @@
         class="transition-all duration-700 overflow-hidden min-h-[350px]"
         :class="{ 'opacity-60 grayscale-[0.4] pointer-events-none blur-[1px]': adminStore.isTrendsLoading }"
       >
-        <apexchart
+        <ApexChart
           id="admin-trends-chart"
           ref="chartRef"
           :key="`trends-${adminStore.lastFetched}`"
@@ -182,7 +182,7 @@
       >
         <!-- Monthly Chart -->
         <div class="lg:col-span-2 min-h-[300px]">
-          <apexchart
+          <ApexChart
             id="admin-monthly-chart"
             :key="`monthly-${adminStore.lastFetched}`"
             height="300"
@@ -284,7 +284,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed, ref } from 'vue';
+import { onMounted, computed, ref, defineAsyncComponent } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAdminStore } from '@/store/adminStore';
 import SkeletonLoader from '@/components/ui/SkeletonLoader.vue';
@@ -292,6 +292,7 @@ import { format, parseISO } from 'date-fns';
 
 const { t, locale } = useI18n();
 const adminStore = useAdminStore();
+const ApexChart = defineAsyncComponent(() => import('vue3-apexcharts'));
 
 onMounted(async () => {
   // Use consolidated fetch for speed

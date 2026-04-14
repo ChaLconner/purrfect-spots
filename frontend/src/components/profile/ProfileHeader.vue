@@ -186,7 +186,7 @@ const formatDate = (dateString?: string | null): string => {
             class="flex items-center px-2.5 sm:px-3 py-1 bg-orange-50 rounded-full border border-orange-200 text-orange-700 shadow-sm text-xs sm:text-sm"
           >
             <img
-              src="/give-treat.png"
+              src="/give-treat.webp"
               alt=""
               class="w-4 h-4 mr-1.5 object-contain"
               aria-hidden="true"
