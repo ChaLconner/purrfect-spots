@@ -261,32 +261,6 @@ router.beforeEach(async (to): Promise<RouteLocationRaw | boolean | void> => {
   return true;
 });
 
-// BACKGROUND PREFETCHING: Use idle time to load other route chunks
-// This makes sure lazy-loading feels like "background" work
-const routesToPrefetch = [
-  MapView,
-  GalleryView,
-  UploadView,
-  ProfileView,
-  LeaderboardView,
-  MyReportsView,
-];
-
-if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-  window.addEventListener('load', () => {
-    // Wait for initial render to be stable
-    requestIdleCallback(() => {
-      routesToPrefetch.forEach((prefetchFunc) => {
-        // Only prefetch if it's a function (lazy loader)
-        if (typeof prefetchFunc === 'function') {
-          // Call it in background, ignore result
-          prefetchFunc().catch(() => {});
-        }
-      });
-    }, { timeout: 2000 });
-  });
-}
-
 // Dynamic Title Management
 router.afterEach((to): void => {
   const baseTitle = 'Purrfect Spots';

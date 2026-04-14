@@ -2,22 +2,16 @@
 import { defineConfig } from 'vitest/config';
 import vue from '@vitejs/plugin-vue';
 import { fileURLToPath, URL } from 'node:url';
+
 export default defineConfig(async ({ mode }) => {
   const isTest = mode === 'test' || process.env.VITEST === 'true';
   const plugins = [vue()];
 
   if (!isTest) {
-    const [
-      { default: tailwindcss },
-      { default: viteCompression },
-      { ViteImageOptimizer },
-      { VitePWA },
-    ] = await Promise.all([
-      import('@tailwindcss/vite'),
-      import('vite-plugin-compression'),
-      import('vite-plugin-image-optimizer'),
-      import('vite-plugin-pwa'),
-    ]);
+    const { default: tailwindcss } = await import('@tailwindcss/vite');
+    const { default: viteCompression } = await import('vite-plugin-compression');
+    const { ViteImageOptimizer } = await import('vite-plugin-image-optimizer');
+    const { VitePWA } = await import('vite-plugin-pwa');
 
     plugins.push(
       tailwindcss(),
