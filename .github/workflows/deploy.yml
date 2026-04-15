@@ -139,8 +139,10 @@ jobs:
           HAS_VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN != '' }}
           HAS_STAGING_API_URL: ${{ secrets.STAGING_API_URL != '' || secrets.PROD_API_URL != '' }}
           HAS_PROD_API_URL: ${{ secrets.PROD_API_URL != '' }}
+          HAS_DATABASE_URL: ${{ secrets.DATABASE_URL != '' }}
           HAS_SUPABASE_URL: ${{ secrets.SUPABASE_URL != '' }}
           HAS_SUPABASE_KEY: ${{ secrets.SUPABASE_KEY != '' }}
+          HAS_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY != '' }}
         run: |
           echo "🔒 Validating required secrets..."
 
@@ -152,6 +154,14 @@ jobs:
             fi
             if [ "$HAS_STAGING_API_URL" != "true" ]; then
               echo "::error::STAGING_API_URL or PROD_API_URL is required for staging deployment"
+              exit 1
+            fi
+            if [ "$HAS_DATABASE_URL" != "true" ]; then
+              echo "::error::DATABASE_URL is required for staging backend deployment consistency"
+              exit 1
+            fi
+            if [ "$HAS_SUPABASE_SERVICE_ROLE_KEY" != "true" ]; then
+              echo "::error::SUPABASE_SERVICE_ROLE_KEY is required for staging backend deployment"
               exit 1
             fi
           fi
@@ -172,6 +182,14 @@ jobs:
             fi
             if [ "$HAS_SUPABASE_KEY" != "true" ]; then
               echo "::error::SUPABASE_KEY is required for production deployment"
+              exit 1
+            fi
+            if [ "$HAS_DATABASE_URL" != "true" ]; then
+              echo "::error::DATABASE_URL is required for production backend deployment consistency"
+              exit 1
+            fi
+            if [ "$HAS_SUPABASE_SERVICE_ROLE_KEY" != "true" ]; then
+              echo "::error::SUPABASE_SERVICE_ROLE_KEY is required for production deployment"
               exit 1
             fi
           fi
@@ -362,8 +380,10 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           BRANCH_NAME: ${{ needs.prepare.outputs.branch }}
         run: |
           echo "🚀 Linking and Pulling Backend Config..."
@@ -373,8 +393,10 @@ jobs:
 
           echo "🚀 Deploying Backend..."
           DEPLOY_ARGS=(deploy . --yes --token="$VERCEL_TOKEN")
+          [ -n "$DATABASE_URL" ] && DEPLOY_ARGS+=(-e "DATABASE_URL=$DATABASE_URL")
           [ -n "$SUPABASE_URL" ] && DEPLOY_ARGS+=(-e "SUPABASE_URL=$SUPABASE_URL")
           [ -n "$SUPABASE_KEY" ] && DEPLOY_ARGS+=(-e "SUPABASE_KEY=$SUPABASE_KEY")
+          [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] && DEPLOY_ARGS+=(-e "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY")
           
           # Targeted the repo root ('.') instead of './backend' because the Vercel project
           # is already configured with a 'Root Directory' setting of 'backend'.
@@ -581,8 +603,10 @@ jobs:
           # FIX #10: Backend explicitly uses VERCEL_BACKEND_PROJECT_ID, not the
           # shared VERCEL_PROJECT_ID, so the correct project is always targeted.
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           echo "🚀 Linking and Pulling Backend Production Config..."
           rm -rf .vercel
@@ -591,8 +615,10 @@ jobs:
 
           echo "🚀 Triggering Backend Deployment..."
           DEPLOY_ARGS=(deploy . --prod --yes --token="$VERCEL_TOKEN")
+          [ -n "$DATABASE_URL" ] && DEPLOY_ARGS+=(-e "DATABASE_URL=$DATABASE_URL")
           [ -n "$SUPABASE_URL" ] && DEPLOY_ARGS+=(-e "SUPABASE_URL=$SUPABASE_URL")
           [ -n "$SUPABASE_KEY" ] && DEPLOY_ARGS+=(-e "SUPABASE_KEY=$SUPABASE_KEY")
+          [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] && DEPLOY_ARGS+=(-e "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY")
           
           # Targeted the repo root ('.') instead of './backend' because the Vercel project
           # is already configured with a 'Root Directory' setting of 'backend'.

@@ -58,6 +58,7 @@ async def test_get_async_supabase_admin_client():
     # Reset the global state to force initialization
     with (
         patch("utils.supabase_client._async_supabase_admin", None),
+        patch("utils.supabase_client._async_supabase_admin_key", None),
         patch("utils.supabase_client.acreate_client", new_callable=AsyncMock) as mock_ac,
     ):
         mock_ac.return_value = MagicMock()
@@ -69,3 +70,25 @@ async def test_get_async_supabase_admin_client():
         client2 = await sc.get_async_supabase_admin_client()
         assert client2 == client
         assert mock_ac.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_get_async_supabase_admin_client_recreates_when_service_key_changes():
+    """Admin client should refresh when the live service-role key changes."""
+    first_client = MagicMock(name="first")
+    second_client = MagicMock(name="second")
+
+    with (
+        patch("utils.supabase_client._async_supabase_admin", None),
+        patch("utils.supabase_client._async_supabase_admin_key", None),
+        patch("utils.supabase_client.acreate_client", new_callable=AsyncMock) as mock_ac,
+        patch("utils.supabase_client._resolve_supabase_service_key", side_effect=["key-one", "key-two"]),
+    ):
+        mock_ac.side_effect = [first_client, second_client]
+
+        client = await sc.get_async_supabase_admin_client()
+        refreshed_client = await sc.get_async_supabase_admin_client()
+
+        assert client == first_client
+        assert refreshed_client == second_client
+        assert mock_ac.call_count == 2

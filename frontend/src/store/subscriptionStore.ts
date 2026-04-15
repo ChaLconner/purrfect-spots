@@ -30,10 +30,18 @@ export const useSubscriptionStore = defineStore('subscription', () => {
       .sort((a, b) => a.amount - b.amount)
   );
 
+  async function ensureAccessToken(): Promise<boolean> {
+    if (!authStore.isAuthenticated) return false;
+    if (authStore.token) return true;
+
+    await authStore.initializeAuth();
+    return !!authStore.token;
+  }
+
   // ── Fetch subscription status ──────────────────────────────────
 
   async function fetchStatus(force = false): Promise<void> {
-    if (!authStore.isAuthenticated) return;
+    if (!(await ensureAccessToken())) return;
 
     const now = Date.now();
     if (!force && now - lastFetched.value < FETCH_COOLDOWN && isPro.value !== undefined) {
@@ -74,7 +82,7 @@ export const useSubscriptionStore = defineStore('subscription', () => {
   // ── Fetch treat balance ────────────────────────────────────────
 
   async function fetchTreatBalance(): Promise<void> {
-    if (!authStore.isAuthenticated) return;
+    if (!(await ensureAccessToken())) return;
 
     if (isLoadingBalance.value) return;
     isLoadingBalance.value = true;

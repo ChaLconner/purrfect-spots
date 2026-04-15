@@ -14,6 +14,11 @@ import type { User, LoginResponse } from '../types/auth';
 import { apiV1, setAccessToken, setAuthCallbacks } from '../utils/api';
 import { ProfileService } from '../services/profileService';
 
+const LEGACY_PERMISSION_ALIASES: Record<string, string> = {
+  admin_access: PERMISSIONS.ACCESS_ADMIN,
+};
+const ADMIN_PERMISSION_SET = new Set<string>(Object.values(PERMISSIONS));
+
 // Module-level helper to update API header - avoids recreation on every store access
 function updateApiHeader(accessToken: string | null): void {
   if (accessToken) {
@@ -25,13 +30,45 @@ function updateApiHeader(accessToken: string | null): void {
   }
 }
 
+function normalizePermissions(permissions: unknown): string[] {
+  if (!Array.isArray(permissions)) {
+    return [];
+  }
+
+  const normalized = new Set<string>();
+  for (const permission of permissions) {
+    if (typeof permission !== 'string' || !permission) {
+      continue;
+    }
+    normalized.add(permission);
+    const alias = LEGACY_PERMISSION_ALIASES[permission];
+    if (alias) {
+      normalized.add(alias);
+    }
+  }
+
+  return [...normalized];
+}
+
+function normalizeUserData(userData: User | null): User | null {
+  if (!userData) {
+    return null;
+  }
+
+  return {
+    ...userData,
+    permissions: normalizePermissions(userData.permissions),
+  };
+}
+
 /**
  * Filter sensitive fields before caching to localStorage
  */
 function sanitizeUserForCache(userData: User | null): Partial<User> | null {
   if (!userData) return null;
+  const normalizedUser = normalizeUserData(userData);
   // Omit sensitive/volatile fields that should only be trusted from the verified token/API
-  const { stripe_customer_id: _stripe, treat_balance: _balance, ...safeData } = userData;
+  const { stripe_customer_id: _stripe, treat_balance: _balance, ...safeData } = normalizedUser;
   return safeData;
 }
 
@@ -53,7 +90,7 @@ function readCachedUser(): User | null {
 
     const candidate = parsedUser as Record<string, unknown>;
     if (typeof candidate.id === 'string' && typeof candidate.email === 'string') {
-      return candidate as unknown as User;
+      return normalizeUserData(candidate as unknown as User);
     }
   } catch {
     // Ignore invalid cache contents and fall back to guest state.
@@ -100,9 +137,9 @@ export const useAuthStore = defineStore('auth', () => {
   });
 
   const isAdmin = computed(() => {
-    // Primary check: permission-based
-    if (hasPermission(PERMISSIONS.ACCESS_ADMIN)) return true;
-    if (hasPermission(PERMISSIONS.USERS_READ)) return true;
+    // Primary check: any recognized admin permission grants access to the admin shell.
+    // Individual admin views still enforce their own route/API permissions.
+    if ((user.value?.permissions || []).some((permission) => ADMIN_PERMISSION_SET.has(permission))) return true;
 
     // Fallback: legacy role-based (during transition)
     const r = user.value?.role?.toLowerCase();
@@ -127,7 +164,8 @@ export const useAuthStore = defineStore('auth', () => {
     initializePromise = (async (): Promise<void> => {
       if (needsBackgroundRefresh) {
         needsBackgroundRefresh = false;
-        void refreshToken();
+        await refreshToken();
+        isInitialized.value = true;
         return;
       }
 
@@ -163,11 +201,17 @@ export const useAuthStore = defineStore('auth', () => {
           token.value = response.access_token;
           isAuthenticated.value = true;
           if (response.user) {
-            user.value = response.user;
-            localStorage.setItem('user_data', JSON.stringify(sanitizeUserForCache(response.user)));
+            const normalizedUser = normalizeUserData(response.user);
+            user.value = normalizedUser;
+            localStorage.setItem('user_data', JSON.stringify(sanitizeUserForCache(normalizedUser)));
           }
           updateApiHeader(response.access_token);
           return true;
+        }
+
+        const justLoggedIn = Date.now() - lastLoginTime.value < 5000;
+        if (isAuthenticated.value && !justLoggedIn) {
+          clearAuth();
         }
         return false;
       } catch {
@@ -194,7 +238,7 @@ export const useAuthStore = defineStore('auth', () => {
    * Set authentication data after successful login
    */
   async function setAuth(data: LoginResponse): Promise<void> {
-    user.value = data.user;
+    user.value = normalizeUserData(data.user);
     token.value = data.access_token;
     isAuthenticated.value = true;
     error.value = null;
@@ -252,7 +296,7 @@ export const useAuthStore = defineStore('auth', () => {
    */
   function updateUser(updates: Partial<User>): void {
     if (user.value) {
-      user.value = { ...user.value, ...updates };
+      user.value = normalizeUserData({ ...user.value, ...updates });
       localStorage.setItem('user_data', JSON.stringify(sanitizeUserForCache(user.value)));
     }
   }

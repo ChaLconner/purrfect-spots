@@ -29,6 +29,19 @@ export function useProfileData(): {
   const uploadsLoading = ref(false);
   const uploadsError = ref<string | null>(null);
 
+  const ensureOwnProfileSession = async (): Promise<boolean> => {
+    if (!authStore.isAuthenticated) {
+      return false;
+    }
+
+    if (authStore.token) {
+      return true;
+    }
+
+    await authStore.initializeAuth();
+    return !!authStore.token;
+  };
+
   const isOwnProfile = computed(() => {
     if (!route.params.id) return true;
     if (!authStore.user) return false;
@@ -59,7 +72,7 @@ export function useProfileData(): {
       const isActuallyOwn = checkIsOwnProfile();
 
       if (isActuallyOwn) {
-        if (!authStore.isAuthenticated && !targetUserId && !externalUserId) {
+        if (!(await ensureOwnProfileSession())) {
           router.push('/login');
           return;
         }

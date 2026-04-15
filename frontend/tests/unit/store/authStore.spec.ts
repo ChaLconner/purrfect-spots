@@ -99,7 +99,8 @@ describe('Auth Store', () => {
 
     await store.setAuth(loginResponse);
 
-    expect(store.user).toEqual(loginResponse.user);
+    expect(store.user).toMatchObject(loginResponse.user);
+    expect(store.user?.permissions).toEqual([]);
     expect(store.token).toBe('fake-token');
     expect(store.isAuthenticated).toBe(true);
     expect(localStorage.getItem('user_data')).toBeTruthy();
@@ -128,9 +129,11 @@ describe('Auth Store', () => {
     const store = useAuthStore();
     await store.initializeAuth();
 
-    expect(store.user).toEqual(user);
+    expect(store.user).toMatchObject(user);
+    expect(store.user?.permissions).toEqual([]);
     expect(store.isAuthenticated).toBe(true);
     expect(store.isInitialized).toBe(true);
+    expect(store.token).toBe('new-token');
     expect(mockApiPost).toHaveBeenCalledWith('/auth/refresh-token');
   });
 
@@ -144,7 +147,8 @@ describe('Auth Store', () => {
     expect(store.isInitialized).toBe(true);
     expect(store.isAuthenticated).toBe(true);
     expect(store.token).toBe('fresh-token');
-    expect(store.user).toEqual(freshUser);
+    expect(store.user).toMatchObject(freshUser);
+    expect(store.user?.permissions).toEqual([]);
   });
 
   it('verifySession returns true if authenticated and profile fetch succeeds', async () => {
@@ -205,6 +209,21 @@ describe('Auth Store', () => {
     expect(store.isAuthenticated).toBe(false);
   });
 
+  it('refreshToken clears cached auth when backend returns no access token', async () => {
+    mockApiPost.mockResolvedValueOnce({ access_token: null, token_type: null, message: 'No active session' });
+
+    const store = useAuthStore();
+    store.isAuthenticated = true;
+    store.user = { id: '1', email: 'stored@example.com', name: 'Stored User' } as any;
+
+    const result = await store.refreshToken();
+
+    expect(result).toBe(false);
+    expect(store.isAuthenticated).toBe(false);
+    expect(store.user).toBeNull();
+    expect(store.token).toBeNull();
+  });
+
   it('updateUser updates state and localStorage', () => {
     const store = useAuthStore();
     store.user = { id: '1', email: 'a@a.com', name: 'Old' } as any;
@@ -238,5 +257,47 @@ describe('Auth Store', () => {
     
     store.user!.picture = '';
     expect(store.userAvatar).toBe('/default-avatar.svg');
+  });
+
+  it('treats legacy admin permission aliases as admin access', async () => {
+    mockApiPost.mockResolvedValueOnce({
+      access_token: 'legacy-admin-token',
+      user: {
+        id: '1',
+        email: 'admin@example.com',
+        name: 'Legacy Admin',
+        created_at: new Date().toISOString(),
+        permissions: ['admin_access'],
+      },
+    });
+
+    const store = useAuthStore();
+    await store.refreshToken();
+
+    expect(store.hasPermission('access:admin')).toBe(true);
+    expect(store.isAdmin).toBe(true);
+
+    const cachedUser = JSON.parse(localStorage.getItem('user_data') || '{}');
+    expect(cachedUser.permissions).toContain('access:admin');
+  });
+
+  it('treats any recognized admin permission as admin shell access', async () => {
+    mockApiPost.mockResolvedValueOnce({
+      access_token: 'moderation-token',
+      user: {
+        id: '2',
+        email: 'mod@example.com',
+        name: 'Moderator',
+        created_at: new Date().toISOString(),
+        permissions: ['reports:read'],
+        role: 'user',
+      },
+    });
+
+    const store = useAuthStore();
+    await store.refreshToken();
+
+    expect(store.hasPermission('reports:read')).toBe(true);
+    expect(store.isAdmin).toBe(true);
   });
 });

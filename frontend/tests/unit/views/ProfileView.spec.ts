@@ -125,6 +125,7 @@ describe('ProfileView.vue', (): void => {
     // Default logged-in state in store
     authStore.isAuthenticated = true;
     authStore.isInitialized = true;
+    authStore.token = 'test-token';
     authStore.user = { id: 'test-user-id', name: 'Test User' };
     // authStore.isUserReady is likely a getter
     Object.defineProperty(authStore, 'isUserReady', {
