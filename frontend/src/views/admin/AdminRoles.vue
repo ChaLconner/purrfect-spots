@@ -434,6 +434,7 @@ import { BaseConfirmModal } from '@/components/ui';
 interface AdminRole {
   id: string;
   name: string;
+  permission_count?: number;
 }
 
 interface AdminPermission {
@@ -622,37 +623,47 @@ const savePermissions = async (): Promise<void> => {
 };
 
 onMounted(async () => {
+  let rolesLoaded = false;
   try {
-    roles.value = (await apiV1.get<AdminRole[]>('/admin/roles')) || [];
+    const [rolesResult, permissionsResult] = await Promise.allSettled([
+      apiV1.get<AdminRole[]>('/admin/roles'),
+      apiV1.get<AdminPermission[]>('/admin/roles/permissions'),
+    ]);
 
-    try {
-      permissions.value = (await apiV1.get<AdminPermission[]>('/admin/roles/permissions')) || [];
+    if (rolesResult.status === 'fulfilled') {
+      rolesLoaded = true;
+      roles.value = rolesResult.value || [];
+      rolePermissionCounts.value = Object.fromEntries(
+        roles.value.map((role) => [role.id, role.permission_count || 0])
+      );
+    }
+
+    if (permissionsResult.status === 'fulfilled') {
+      permissions.value = permissionsResult.value || [];
       permissionsLoadFailed.value = false;
-    } catch {
-      permissions.value = [];
-      permissionsLoadFailed.value = true;
-      toast({
-        title: t('common.error'),
-        description: t('admin.roles.load_error'),
-        variant: 'destructive',
-      });
+      return;
     }
 
-    for (const role of roles.value) {
-      try {
-        const perms = await apiV1.get<string[]>(`/admin/roles/${role.id}/permissions`);
-        rolePermissionCounts.value[role.id] = perms.length;
-      } catch {
-        rolePermissionCounts.value[role.id] = 0;
-      }
-    }
+    permissions.value = [];
+    permissionsLoadFailed.value = true;
+    toast({
+      title: t('common.error'),
+      description: t('admin.roles.load_error'),
+      variant: 'destructive',
+    });
   } catch {
+    permissions.value = [];
+    permissionsLoadFailed.value = true;
     toast({
       title: t('common.error'),
       description: t('admin.roles.load_error'),
       variant: 'destructive',
     });
   } finally {
+    if (!rolesLoaded) {
+      roles.value = [];
+      rolePermissionCounts.value = {};
+    }
     loading.value = false;
   }
 });

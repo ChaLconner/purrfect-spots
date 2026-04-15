@@ -28,7 +28,8 @@ async def _invalidate_banned_user_auth_state(user_id: str) -> None:
 @router.get("")
 async def list_all_comments(
     page: Annotated[int, Query(ge=1)] = 1,
-    page_size: Annotated[int, Query(ge=1, le=1000)] = 20,
+    page_size: Annotated[int | None, Query(ge=1, le=1000)] = None,
+    limit: Annotated[int | None, Query(ge=1, le=1000)] = None,
     search: Annotated[str | None, Query()] = None,
     reported_only: Annotated[bool, Query()] = False,
     current_admin: User = Depends(require_permission("comments:manage")),
@@ -36,15 +37,16 @@ async def list_all_comments(
     """List all comments across the platform with pagination, search and counts."""
     try:
         admin_client = await get_async_supabase_admin_client()
+        effective_page_size = page_size or limit or 20
 
-        offset = (page - 1) * page_size
+        offset = (page - 1) * effective_page_size
 
         # Base query for data using the view admin_comment_list
         query = (
             admin_client.table("admin_comment_list")
             .select("*", count=CountMethod.exact)
             .order("created_at", desc=True)
-            .range(offset, offset + page_size - 1)
+            .range(offset, offset + effective_page_size - 1)
         )
 
         if search:
@@ -58,27 +60,22 @@ async def list_all_comments(
         result = await query.execute()
         items = result.data
         total_count = result.count or 0
-        pages = (total_count + page_size - 1) // page_size
+        pages = (total_count + effective_page_size - 1) // effective_page_size
 
         # Parallelize additional data fetching
         user_ids = list({item["user_id"] for item in items})
 
-        async def fetch_additional_data() -> tuple[dict[str, Any], dict[str, int], int]:
+        async def fetch_additional_data() -> tuple[dict[str, Any], dict[str, int]]:
             if not user_ids:
-                return {}, {}, 0
+                return {}, {}
 
-            # Define the three parallel tasks
+            # Resolve only the per-page metadata the frontend actually renders.
             tasks = [
                 admin_client.table("users").select("id, banned_at").in_("id", user_ids).execute(),
                 admin_client.table("photo_comments")
                 .select("user_id, reports!inner(id)")
                 .eq("reports.status", "resolved")
                 .in_("user_id", user_ids)
-                .execute(),
-                admin_client.table("reports")
-                .select("comment_id", count=CountMethod.exact)
-                .eq("status", "pending")
-                .not_.is_("comment_id", "null")
                 .execute(),
             ]
 
@@ -99,18 +96,12 @@ async def list_all_comments(
                     uid = row["user_id"]
                     v_counts[uid] = v_counts.get(uid, 0) + 1
 
-            reported_count = 0
-            res2 = responses[2]
-            if not isinstance(res2, Exception) and hasattr(res2, "count"):
-                reported_count = res2.count or 0
-
-            return status_map, v_counts, reported_count
+            return status_map, v_counts
 
         status_map: dict[str, Any]
         v_counts: dict[str, int]
-        reported_count: int
 
-        status_map, v_counts, reported_count = await fetch_additional_data()
+        status_map, v_counts = await fetch_additional_data()
 
         # Merge additional data into items
         for item in items:
@@ -118,7 +109,7 @@ async def list_all_comments(
             item["is_user_banned"] = status_map.get(uid) is not None
             item["violation_count"] = v_counts.get(uid, 0)
 
-        return {"items": items, "total": total_count, "reported_count": reported_count, "page": page, "pages": pages}
+        return {"items": items, "total": total_count, "page": page, "pages": pages}
     except Exception as e:
         logger.error("Failed to list comments: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch comments")

@@ -43,9 +43,10 @@ class TestAdminRoutesExtended:
 
     def test_list_roles_success(self, client, override_current_user, mock_supabase_admin) -> None:
         """Test listing roles"""
-        mock_supabase_admin.execute.return_value = MagicMock(
-            data=[{"id": "r1", "name": "Admin"}, {"id": "r2", "name": "User"}]
-        )
+        mock_supabase_admin.execute.side_effect = [
+            MagicMock(data=[{"id": "r1", "name": "Admin"}, {"id": "r2", "name": "User"}]),
+            MagicMock(data=[{"role_id": "r1"}, {"role_id": "r1"}, {"role_id": "r2"}]),
+        ]
 
         with patch(
             "routes.admin.roles.get_async_supabase_admin_client",
@@ -58,6 +59,7 @@ class TestAdminRoutesExtended:
         data = response.json()
         assert len(data) == 2
         assert data[0]["name"] == "Admin"
+        assert data[0]["permission_count"] == 2
 
     def test_list_permissions_success(self, client, override_current_user, mock_supabase_admin) -> None:
         """Test listing permissions returns the frontend-friendly group field."""

@@ -8,10 +8,12 @@ from dependencies import get_async_supabase_admin_client
 from logger import logger
 from middleware.auth_middleware import require_permission
 from schemas.user import User
+from services.redis_service import redis_service
 
 router = APIRouter()
 
 MAX_GRANT_AMOUNT = 10000
+TREAT_STATS_CACHE_KEY = "admin_treat_stats_v1"
 
 
 class GrantTreatRequest(BaseModel):
@@ -101,6 +103,9 @@ async def get_treat_stats(
     current_admin: User = Depends(require_permission("treats:manage")),
 ) -> dict[str, Any]:
     """Get global treat statistics."""
+    cached = await redis_service.get(TREAT_STATS_CACHE_KEY)
+    if cached:
+        return cached
     try:
         admin_client = await get_async_supabase_admin_client()
 
@@ -109,15 +114,19 @@ async def get_treat_stats(
             stats_res = await admin_client.rpc("get_treat_admin_stats").execute()
             if stats_res.data and len(stats_res.data) > 0:
                 row = stats_res.data[0]
-                return {
+                result = {
                     "total_in_circulation": row.get("total_in_circulation", 0),
                     "total_given_to_cats": row.get("total_given_to_cats", 0),
                     "user_count_with_balance": row.get("user_count_with_balance", 0),
                 }
+                await redis_service.set(TREAT_STATS_CACHE_KEY, result, expire=120)
+                return result
         except Exception:
             logger.warning("get_treat_admin_stats RPC not available, using fallback")
 
-        return await _fetch_treat_stats_fallback(admin_client)
+        result = await _fetch_treat_stats_fallback(admin_client)
+        await redis_service.set(TREAT_STATS_CACHE_KEY, result, expire=120)
+        return result
     except Exception as e:
         logger.error("Failed to fetch treat stats: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch treat stats")
@@ -207,6 +216,7 @@ async def grant_treats_manually(
             )
             .execute()
         )
+        await redis_service.delete(TREAT_STATS_CACHE_KEY)
 
         return {"message": f"Successfully granted {data.amount} treats"}
     except Exception as e:

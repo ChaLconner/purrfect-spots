@@ -26,6 +26,7 @@ from utils.supabase_client import (
 
 security = HTTPBearer(auto_error=False)
 USER_AUTH_CACHE_TTL = 300
+ADMIN_PERMISSION_CODES = {"admin_access", "access:admin"}
 
 # JWKS Cache
 _jwks_cache: dict | None = None
@@ -247,7 +248,7 @@ def require_permission(permission_code: str) -> Any:
             return user
 
         # 2. General admin permission or role check
-        if "admin_access" in user.permissions or user.role.lower() in ("admin", "super_admin"):
+        if ADMIN_PERMISSION_CODES.intersection(user.permissions) or user.role.lower() in ("admin", "super_admin"):
             return user
 
         # SECURITY: Track failed permission checks for alerting

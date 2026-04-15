@@ -856,7 +856,7 @@ const fetchComments = async (): Promise<void> => {
   try {
     const params = new URLSearchParams({
       page: currentPage.value.toString(),
-      limit: limit.value.toString(),
+      page_size: limit.value.toString(),
     });
 
     if (searchQuery.value) {

@@ -18,7 +18,7 @@
             <button
               class="px-3 py-1.5 text-sm font-medium text-brown-600 bg-sand-50 border border-sand-200 rounded-lg hover:bg-sand-100 transition-colors flex items-center gap-2"
               :disabled="loading"
-              @click="fetchSettings"
+              @click="fetchSettings(true)"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -462,7 +462,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { apiV1 } from '@/utils/api';
 import { useToast } from '@/components/toast/use-toast';
 import { useI18n } from 'vue-i18n';
@@ -526,17 +526,17 @@ const filteredSettings = computed(() => {
   return settings.value.filter((s) => s.category === activeTab.value);
 });
 
-const fetchSettings = async (): Promise<void> => {
+const fetchSettings = async (forceRefresh: boolean = false): Promise<void> => {
   loading.value = true;
   try {
-    const categoryQuery =
-      activeTab.value !== 'all' && activeTab.value !== 'pending'
-        ? `?category=${activeTab.value}`
-        : '';
-
+    const cacheBust = forceRefresh ? Date.now().toString() : undefined;
     const [settingsData, pendingData] = await Promise.all([
-      apiV1.get<SystemConfig[]>(`/admin/settings${categoryQuery}`),
-      apiV1.get<PendingRequest[]>('/admin/settings/pending'),
+      apiV1.get<SystemConfig[]>(
+        cacheBust ? `/admin/settings?cache_bust=${cacheBust}` : '/admin/settings'
+      ),
+      apiV1.get<PendingRequest[]>(
+        cacheBust ? `/admin/settings/pending?cache_bust=${cacheBust}` : '/admin/settings/pending'
+      ),
     ]);
 
     settings.value = settingsData || [];
@@ -684,10 +684,6 @@ const formatValue = (val: unknown): string => {
 const formatDate = (dateStr: string): string => {
   return new Date(dateStr).toLocaleString(locale.value);
 };
-
-watch(activeTab, () => {
-  if (activeTab.value !== 'pending') fetchSettings();
-});
 
 onMounted(() => {
   fetchSettings();

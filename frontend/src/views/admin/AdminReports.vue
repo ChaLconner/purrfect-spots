@@ -85,7 +85,7 @@
         <button
           class="p-2 rounded-lg border border-sand-300 hover:bg-sand-50 text-brown-500"
           :title="t('common.refresh')"
-          @click="loadReports(1)"
+          @click="loadReports(1, true)"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -483,12 +483,13 @@ const {
   limit: 50,
 });
 
-const loadReports = (newPage: number = 1): void => {
+const loadReports = (newPage: number = 1, forceRefresh: boolean = false): void => {
   loadData(newPage, {
     status: statusFilter.value,
     reason: reasonFilter.value,
     start_date: startDate.value,
     end_date: endDate.value,
+    cache_bust: forceRefresh ? Date.now().toString() : undefined,
   });
 };
 

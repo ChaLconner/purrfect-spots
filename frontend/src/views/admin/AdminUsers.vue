@@ -101,19 +101,13 @@
             <td class="px-6 py-3 whitespace-nowrap">
               <div class="flex items-center">
                 <div class="h-10 w-10 flex-shrink-0">
-                  <img
+                  <OptimizedImage
                     class="h-10 w-10 rounded-full object-cover"
-                    :src="
-                      user.picture ||
-                      `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || '')}&background=random`
-                    "
+                    :src="user.picture || '/default-avatar.svg'"
                     :alt="user.name || ''"
-                    @error="
-                      (e: Event) => {
-                        (e.target as HTMLImageElement).src =
-                          `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || '')}&background=random`;
-                      }
-                    "
+                    :width="40"
+                    :height="40"
+                    fallback-src="/default-avatar.svg"
                   />
                 </div>
                 <div class="ml-4">
@@ -392,6 +386,7 @@ import { apiV1 } from '@/utils/api';
 import { useToast } from '@/components/toast/use-toast';
 import { useAuthStore } from '@/store/authStore';
 import { useAdminTable } from '@/composables/useAdminTable';
+import { OptimizedImage } from '@/components/ui';
 import TableSkeleton from '@/components/ui/TableSkeleton.vue';
 
 const { t } = useI18n();

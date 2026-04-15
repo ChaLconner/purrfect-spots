@@ -141,7 +141,9 @@ async def get_current_admin_user(user: User = Depends(get_current_user)) -> User
     Dependency to check if current user is an admin.
     Now correctly uses the validated User object which checks for bans.
     """
-    if user.role.lower() in ("admin", "super_admin") or "admin_access" in user.permissions:
+    if user.role.lower() in ("admin", "super_admin") or {"admin_access", "access:admin"}.intersection(
+        user.permissions
+    ):
         return user
 
     logger.warning("Admin access denied for user: %s", user.id)

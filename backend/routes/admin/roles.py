@@ -1,3 +1,5 @@
+import asyncio
+from collections import Counter
 from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -10,6 +12,12 @@ from schemas.user import User
 from services.redis_service import redis_service
 
 router = APIRouter()
+ROLES_CACHE_KEY = "admin_roles_list_v2"
+PERMISSIONS_CACHE_KEY = "admin_permissions_list"
+
+
+def _role_permissions_cache_key(role_id: str) -> str:
+    return f"admin_role_permissions:{role_id}"
 
 
 class RolePermissionUpdate(BaseModel):
@@ -22,15 +30,28 @@ async def list_roles(
     current_admin: Annotated[User, Depends(require_permission("roles:read"))],
 ) -> list[dict[str, Any]]:
     """List all available roles."""
-    cache_key = "admin_roles_list"
-    cached = await redis_service.get(cache_key)
+    cached = await redis_service.get(ROLES_CACHE_KEY)
     if cached:
         return cast(list[dict[str, Any]], cached)
     try:
         admin_client = await get_async_supabase_admin_client()
-        res = await admin_client.table("roles").select("id, name, description, created_at").execute()
-        await redis_service.set(cache_key, res.data, expire=600)  # 10 minutes
-        return cast(list[dict[str, Any]], res.data or [])
+        roles_query = admin_client.table("roles").select("id, name, description, created_at").execute()
+        permissions_query = admin_client.table("role_permissions").select("role_id").execute()
+        roles_res, permissions_res = await asyncio.gather(roles_query, permissions_query)
+
+        permission_counts = Counter(
+            row["role_id"]
+            for row in cast(list[dict[str, Any]], permissions_res.data or [])
+            if row.get("role_id")
+        )
+        roles = []
+        for row in cast(list[dict[str, Any]], roles_res.data or []):
+            role = dict(row)
+            role["permission_count"] = permission_counts.get(role["id"], 0)
+            roles.append(role)
+
+        await redis_service.set(ROLES_CACHE_KEY, roles, expire=600)  # 10 minutes
+        return roles
     except Exception as e:
         logger.error("Failed to list roles: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch roles")
@@ -41,8 +62,7 @@ async def list_permissions(
     current_admin: Annotated[User, Depends(require_permission("roles:manage"))],
 ) -> list[dict[str, Any]]:
     """List all available permissions."""
-    cache_key = "admin_permissions_list"
-    cached = await redis_service.get(cache_key)
+    cached = await redis_service.get(PERMISSIONS_CACHE_KEY)
     if cached:
         return cast(list[dict[str, Any]], cached)
     try:
@@ -57,7 +77,7 @@ async def list_permissions(
             }
             for row in cast(list[dict[str, Any]], res.data or [])
         ]
-        await redis_service.set(cache_key, permissions, expire=600)  # 10 minutes
+        await redis_service.set(PERMISSIONS_CACHE_KEY, permissions, expire=600)  # 10 minutes
         return permissions
     except Exception as e:
         logger.error("Failed to list permissions: %s", e)
@@ -70,10 +90,16 @@ async def get_role_permissions(
     current_admin: Annotated[User, Depends(require_permission("roles:read"))],
 ) -> list[str]:
     """Get permissions assigned to a specific role."""
+    cache_key = _role_permissions_cache_key(role_id)
+    cached = await redis_service.get(cache_key)
+    if cached:
+        return cast(list[str], cached)
     try:
         admin_client = await get_async_supabase_admin_client()
         result = await admin_client.table("role_permissions").select("permission_id").eq("role_id", role_id).execute()
-        return [r["permission_id"] for r in cast(list[dict[str, Any]], result.data or [])]
+        permissions = [r["permission_id"] for r in cast(list[dict[str, Any]], result.data or [])]
+        await redis_service.set(cache_key, permissions, expire=600)
+        return permissions
     except Exception as e:
         logger.error("Failed to fetch role permissions: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch role permissions")
@@ -115,8 +141,9 @@ async def update_role_permissions(
         )
 
         # Invalidate role/permission caches so next request gets fresh data
-        await redis_service.delete("admin_roles_list")
-        await redis_service.delete("admin_permissions_list")
+        await redis_service.delete(ROLES_CACHE_KEY)
+        await redis_service.delete(PERMISSIONS_CACHE_KEY)
+        await redis_service.delete(_role_permissions_cache_key(role_id))
 
         return {"message": "Role permissions updated successfully"}
     except Exception as e:

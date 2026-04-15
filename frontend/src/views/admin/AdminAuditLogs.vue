@@ -34,7 +34,7 @@
         <button
           class="p-2 rounded-lg border border-sand-300 hover:bg-sand-50 text-brown-500"
           :title="t('common.refresh')"
-          @click="loadLogs(1)"
+          @click="loadLogs(1, true)"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -261,7 +261,7 @@ const selectedLog = ref<AuditLog | null>(null);
 
 const { toast } = useToast();
 
-const loadLogs = async (newPage: number = 1): Promise<void> => {
+const loadLogs = async (newPage: number = 1, forceRefresh: boolean = false): Promise<void> => {
   isLoading.value = true;
   try {
     const offset = (newPage - 1) * limit;
@@ -272,6 +272,7 @@ const loadLogs = async (newPage: number = 1): Promise<void> => {
 
     if (userIdFilter.value) params.append('user_id', userIdFilter.value);
     if (actionFilter.value) params.append('action', actionFilter.value);
+    if (forceRefresh) params.append('cache_bust', Date.now().toString());
 
     const response = await apiV1.get<{ data: AuditLog[]; total: number }>(
       `/admin/audit-logs?${params.toString()}`

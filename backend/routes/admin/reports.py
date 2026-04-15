@@ -18,6 +18,7 @@ from schemas.user import User
 from services.email_service import EmailService
 from services.gallery_service import GalleryService
 from services.notification_service import NotificationService
+from services.redis_service import redis_service
 from services.storage_service import storage_service
 
 router = APIRouter()
@@ -33,6 +34,25 @@ def _validate_uuid(value: str, label: str = "ID") -> None:
         raise HTTPException(status_code=400, detail=f"Invalid {label} format: expected UUID")
 
 
+def _reports_cache_key(
+    limit: int,
+    offset: int,
+    status: str | None,
+    reason: str | None,
+    start_date: str | None,
+    end_date: str | None,
+    reporter_id: str | None,
+) -> str:
+    return (
+        "admin_reports:"
+        f"{limit}:{offset}:{status or '_'}:{reason or '_'}:{start_date or '_'}:{end_date or '_'}:{reporter_id or '_'}"
+    )
+
+
+async def _invalidate_reports_cache() -> None:
+    await redis_service.delete_pattern("admin_reports:*")
+
+
 @router.get("/reports", response_model=dict[str, Any])
 @limiter.limit("60/minute")
 async def list_reports(
@@ -44,6 +64,7 @@ async def list_reports(
     start_date: Annotated[str | None, Query()] = None,
     end_date: Annotated[str | None, Query()] = None,
     reporter_id: Annotated[str | None, Query()] = None,
+    cache_bust: Annotated[str | None, Query()] = None,
     current_admin: Annotated[User | None, Depends(require_permission("reports:read"))] = None,
 ) -> dict[str, Any]:
     """
@@ -53,6 +74,12 @@ async def list_reports(
         HTTPException: 500 - If fetching reports fails.
     """
     try:
+        cache_key = _reports_cache_key(limit, offset, status, reason, start_date, end_date, reporter_id)
+        if not cache_bust:
+            cached = await redis_service.get(cache_key)
+            if cached is not None:
+                return cached
+
         admin_client = await get_async_supabase_admin_client()
         query = (
             admin_client.table("reports")
@@ -76,7 +103,10 @@ async def list_reports(
             query = query.eq("reporter_id", reporter_id)
 
         result = await query.execute()
-        return {"data": result.data, "total": result.count}
+        response = {"data": result.data, "total": result.count}
+        if not cache_bust:
+            await redis_service.set(cache_key, response, expire=60)
+        return response
     except Exception as e:
         logger.error("Failed to list reports: %s", e)
         raise HTTPException(status_code=500, detail=f"Failed to fetch reports: {e}")
@@ -216,6 +246,7 @@ async def update_report(
                 resource_type="report",
             )
 
+        await _invalidate_reports_cache()
         return cast(dict[str, Any], report)
     except Exception as e:
         logger.error("Failed to update report: %s", e)
@@ -325,6 +356,7 @@ async def bulk_update_reports(
                     resource_type="report",
                 )
 
+        await _invalidate_reports_cache()
         return {"message": f"Successfully updated {len(updated_reports)} reports", "count": len(updated_reports)}
     except Exception as e:
         logger.error("Failed to bulk update reports: %s", e)

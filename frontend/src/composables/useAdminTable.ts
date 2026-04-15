@@ -102,6 +102,7 @@ export function useAdminTable<T extends { id: string }>(
     isLoading.value = true;
     try {
       const MAX_BATCH_SIZE = 100;
+      const MAX_CONCURRENT_BATCHES = 5;
       let allData: T[] = [];
       let total = 0;
       let offset = 0;
@@ -126,26 +127,37 @@ export function useAdminTable<T extends { id: string }>(
       allData = [...firstBatch];
       total = firstResponse.total || firstBatch.length;
 
-      // Fetch subsequent batches if needed
-      offset += MAX_BATCH_SIZE;
-      while (offset < total) {
-        const nextParams = new URLSearchParams({
-          limit: MAX_BATCH_SIZE.toString(),
-          offset: offset.toString(),
-          sort: sortBy.value,
-          order: sortOrder.value,
-        });
+      // Fetch subsequent batches in small parallel groups to reduce total export time
+      const remainingOffsets: number[] = [];
+      for (offset = MAX_BATCH_SIZE; offset < total; offset += MAX_BATCH_SIZE) {
+        remainingOffsets.push(offset);
+      }
 
-        Object.entries(extraParams).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) nextParams.append(key, value);
-        });
+      for (let i = 0; i < remainingOffsets.length; i += MAX_CONCURRENT_BATCHES) {
+        const chunk = remainingOffsets.slice(i, i + MAX_CONCURRENT_BATCHES);
+        const responses = await Promise.all(
+          chunk.map(async (chunkOffset) => {
+            const nextParams = new URLSearchParams({
+              limit: MAX_BATCH_SIZE.toString(),
+              offset: chunkOffset.toString(),
+              sort: sortBy.value,
+              order: sortOrder.value,
+            });
 
-        const nextResponse = await apiV1.get<{ data?: T[]; items?: T[]; total?: number }>(
-          `${options.endpoint}?${nextParams.toString()}`
+            Object.entries(extraParams).forEach(([key, value]) => {
+              if (value !== undefined && value !== null) nextParams.append(key, value);
+            });
+
+            return apiV1.get<{ data?: T[]; items?: T[]; total?: number }>(
+              `${options.endpoint}?${nextParams.toString()}`
+            );
+          })
         );
-        const nextBatch = nextResponse.data || nextResponse.items || [];
-        allData = [...allData, ...nextBatch];
-        offset += MAX_BATCH_SIZE;
+
+        responses.forEach((response) => {
+          const nextBatch = response.data || response.items || [];
+          allData.push(...nextBatch);
+        });
       }
 
       if (allData.length === 0) {
