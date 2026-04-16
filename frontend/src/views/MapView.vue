@@ -119,6 +119,7 @@ import OnboardingBanner from '@/components/map/OnboardingBanner.vue';
 import { loadGoogleMaps, isGoogleMapsLoaded } from '../utils/googleMapsLoader';
 import { getEnvVar } from '../utils/env';
 import { FALLBACK_LOCATION, MAP_CONFIG, EXTERNAL_URLS } from '../utils/constants';
+import { openTrustedExternalUrl } from '../utils/security';
 import { useCatsStore } from '../store';
 import type { CatLocation } from '../types/api';
 
@@ -127,7 +128,7 @@ import { useGeolocation } from '../composables/useGeolocation';
 import { useMapMarkers } from '../composables/useMapMarkers';
 import { useSeo } from '../composables/useSeo';
 
-const catIcon = '/cat-icon.png';
+const catIcon = '/cat-icon.webp';
 const route = useRoute();
 const router = useRouter();
 const catsStore = useCatsStore();
@@ -519,7 +520,7 @@ const openDirections = (cat: CatLocation): void => {
   url += `&destination=${cat.latitude},${cat.longitude}`;
   if (cat.location_name) url += `&destination_place_id=`;
   url += `&travelmode=walking`;
-  window.open(url, '_blank');
+  openTrustedExternalUrl(url);
   closeModal();
 };
 
@@ -535,21 +536,35 @@ onMounted(() => {
     type: 'website',
   });
 
-  // Parallel fetch and initialization
-  getCurrentPosition().then(() => startWatchingPosition());
+  // Start with a single low-cost location lookup so the first render stays responsive.
+  void getCurrentPosition({
+    enableHighAccuracy: false,
+    timeout: 3000,
+    maximumAge: 5 * 60 * 1000,
+  });
 
   // Start map initialization immediately to improve LCP
   initializeMap();
 
-  // Load all marker locations once for a better initial discovery experience
-  // This ensures the badge count is "reasonable" even before the first viewport fetch
-  GalleryService.getLocations().then(allLocations => {
-    if (allLocations && allLocations.length > 0) {
-      catsStore.appendLocations(allLocations);
-    }
-  }).catch(err => {
-    console.warn('Failed to pre-fetch marker locations:', err);
-  });
+  // Continuous tracking is useful, but it does not need to compete with the
+  // initial map render and first viewport fetch.
+  const startDeferredTracking = (): void => {
+    void startWatchingPosition({
+      enableHighAccuracy: false,
+      timeout: 10000,
+      maximumAge: 30000,
+    });
+  };
+
+  if ('requestIdleCallback' in globalThis) {
+    (
+      globalThis as unknown as {
+        requestIdleCallback: (cb: () => void, options?: { timeout: number }) => void;
+      }
+    ).requestIdleCallback(startDeferredTracking, { timeout: 2000 });
+  } else {
+    globalThis.setTimeout(startDeferredTracking, 1000);
+  }
 });
 
 onUnmounted(() => {

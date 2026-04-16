@@ -136,6 +136,7 @@ class TestAuthServiceExtended:
             success = await auth_service.revoke_token("jti_new", "u1", datetime(2025, 1, 1))
             assert success is True
 
+            assert any(call.args == (auth_service.db,) for call in mock_get_service.await_args_list)
             mock_token_service.blacklist_token.assert_called_once()
 
     def test_verify_access_token_invalid(self, auth_service) -> None:

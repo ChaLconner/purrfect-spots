@@ -13,6 +13,7 @@ from routes import (
     cat_detection,
     consent,
     gallery,
+    geo,
     notifications,
     profile,
     reports,
@@ -37,6 +38,7 @@ router.include_router(profile.router)
 router.include_router(upload.router)
 router.include_router(cat_detection.router)
 router.include_router(gallery.router)
+router.include_router(geo.router)
 
 # Monetization
 router.include_router(subscription.router)

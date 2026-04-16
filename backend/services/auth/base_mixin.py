@@ -1,8 +1,8 @@
 import hashlib
 
-import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import structlog
 from supabase import AClient
 from utils.supabase_client import get_async_supabase_admin_client
 

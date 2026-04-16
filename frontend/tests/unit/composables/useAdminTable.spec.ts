@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useAdminTable } from '@/composables/useAdminTable';
 import { apiV1 } from '@/utils/api';
 
+const toastMock = vi.fn();
+
 // Mock apiV1
 vi.mock('@/utils/api', () => ({
   apiV1: {
@@ -12,7 +14,7 @@ vi.mock('@/utils/api', () => ({
 // Mock useToast
 vi.mock('@/components/toast/use-toast', () => ({
   useToast: () => ({
-    toast: vi.fn(),
+    toast: toastMock,
   }),
 }));
 
@@ -26,6 +28,7 @@ describe('useAdminTable', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    toastMock.mockReset();
     // Reset global document/window mocks if any
     document.body.innerHTML = '';
   });
@@ -130,6 +133,12 @@ describe('useAdminTable', () => {
   });
 
   describe('exportData', () => {
+    const createDownloadElement = () => ({
+      setAttribute: vi.fn(),
+      style: { visibility: '' },
+      click: vi.fn(),
+    });
+
     it('should handle empty data for export', async () => {
       (apiV1.get as any).mockResolvedValue({ data: [], total: 0 });
       const table = useAdminTable(options);
@@ -137,49 +146,97 @@ describe('useAdminTable', () => {
       await table.exportData();
       
       expect(table.isLoading.value).toBe(false);
+      expect(toastMock).toHaveBeenCalledWith({
+        description: 'No data to export',
+        variant: 'default',
+      });
     });
 
-    /* Commenting out failing multi-batch test to allow coverage check to pass
-    it('should export data successfully with multiple batches', async () => {
-      // Create a blob mock
-      const blobSpy = vi.spyOn(global, 'Blob').mockImplementation(function() { return {} } as any);
-      const createObjectURLSpy = vi.fn().mockReturnValue('blob:url');
-      global.URL.createObjectURL = createObjectURLSpy;
-      global.URL.revokeObjectURL = vi.fn();
-      
-      const mockElement = {
-        setAttribute: vi.fn(),
-        style: { visibility: '' },
-        click: vi.fn(),
-      };
-      vi.spyOn(document, 'createElement').mockReturnValue(mockElement as any);
-      vi.spyOn(document.body, 'appendChild').mockImplementation(() => ({} as any));
-      vi.spyOn(document.body, 'removeChild').mockImplementation(() => ({} as any));
+    it('should export data successfully with multiple batches and response fallbacks', async () => {
+      const blobSpy = vi.spyOn(global, 'Blob').mockImplementation(function() {
+        return {} as Blob;
+      } as any);
+      const mockElement = createDownloadElement();
 
-      // First call (total 150, limit 100)
+      global.URL.createObjectURL = vi.fn().mockReturnValue('blob:url');
+      global.URL.revokeObjectURL = vi.fn();
+      vi.spyOn(document, 'createElement').mockReturnValue(mockElement as any);
+      vi.spyOn(document.body, 'appendChild').mockImplementation(() => mockElement as any);
+      vi.spyOn(document.body, 'removeChild').mockImplementation(() => mockElement as any);
+
       (apiV1.get as any)
         .mockResolvedValueOnce({
-          data: Array.from({ length: 100 }, (_, i) => ({ id: `id-${i}`, name: `Name ${i}` })),
-          total: 150
+          items: Array.from({ length: 100 }, (_, i) => ({ id: `id-${i}`, name: `Name ${i}` })),
+          total: 230,
         })
-        // Second call
         .mockResolvedValueOnce({
-          data: Array.from({ length: 50 }, (_, i) => ({ id: `id-${i + 100}`, name: `Name ${i + 100}` })),
-          total: 150
+          data: Array.from({ length: 100 }, (_, i) => ({
+            id: `id-${i + 100}`,
+            name: `Name ${i + 100}`,
+          })),
+        })
+        .mockResolvedValueOnce({
+          items: Array.from({ length: 30 }, (_, i) => ({
+            id: `id-${i + 200}`,
+            name: `Name ${i + 200}`,
+          })),
         });
 
       const table = useAdminTable(options);
-      const exportPromise = table.exportData({ search: 'test' });
-      await flushPromises();
-      await exportPromise;
+      await table.exportData({ search: 'test', filter: null, empty: undefined });
 
-      expect(apiV1.get).toHaveBeenCalledTimes(2);
+      expect(apiV1.get).toHaveBeenCalledTimes(3);
+      expect((apiV1.get as any).mock.calls[0][0]).toContain('search=test');
+      expect((apiV1.get as any).mock.calls[0][0]).not.toContain('filter=');
+      expect((apiV1.get as any).mock.calls[1][0]).toContain('offset=100');
+      expect((apiV1.get as any).mock.calls[2][0]).toContain('offset=200');
       expect(mockElement.setAttribute).toHaveBeenCalledWith('href', 'blob:url');
-      expect(mockElement.click).toHaveBeenCalled();
-      
+      expect(mockElement.setAttribute).toHaveBeenCalledWith(
+        'download',
+        expect.stringMatching(/^test_export_\d{4}-\d{2}-\d{2}\.csv$/)
+      );
+      expect(mockElement.click).toHaveBeenCalledTimes(1);
+      expect(global.URL.revokeObjectURL).toHaveBeenCalledWith('blob:url');
+      expect(toastMock).toHaveBeenCalledWith({
+        description: 'Data exported successfully',
+        variant: 'success',
+      });
+
+      const csvContent = blobSpy.mock.calls[0][0][1] as string;
+      expect(csvContent).toContain('ID,Name');
+      expect(csvContent).toContain('id-229,Name 229');
+
       blobSpy.mockRestore();
     });
-    */
+
+    it('should fall back to first batch length when export total is missing', async () => {
+      const blobSpy = vi.spyOn(global, 'Blob').mockImplementation(function() {
+        return {} as Blob;
+      } as any);
+      const mockElement = createDownloadElement();
+
+      global.URL.createObjectURL = vi.fn().mockReturnValue('blob:url');
+      global.URL.revokeObjectURL = vi.fn();
+      vi.spyOn(document, 'createElement').mockReturnValue(mockElement as any);
+      vi.spyOn(document.body, 'appendChild').mockImplementation(() => mockElement as any);
+      vi.spyOn(document.body, 'removeChild').mockImplementation(() => mockElement as any);
+
+      (apiV1.get as any).mockResolvedValue({
+        items: [{ id: '1', name: 'Only item' }],
+      });
+
+      const table = useAdminTable(options);
+      await table.exportData();
+
+      expect(apiV1.get).toHaveBeenCalledTimes(1);
+      expect(mockElement.click).toHaveBeenCalledTimes(1);
+      expect(toastMock).toHaveBeenCalledWith({
+        description: 'Data exported successfully',
+        variant: 'success',
+      });
+
+      blobSpy.mockRestore();
+    });
 
     it('should handle export error', async () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -190,18 +247,21 @@ describe('useAdminTable', () => {
 
       expect(table.isLoading.value).toBe(false);
       expect(consoleSpy).toHaveBeenCalled();
+      expect(toastMock).toHaveBeenCalledWith({
+        title: 'Error',
+        description: 'Failed to export data',
+        variant: 'destructive',
+      });
       consoleSpy.mockRestore();
     });
 
     it('should correctly escape CSV values', async () => {
-      const blobSpy = vi.spyOn(global, 'Blob').mockImplementation(function() { return {} } as any);
+      const blobSpy = vi.spyOn(global, 'Blob').mockImplementation(function() {
+        return {} as Blob;
+      } as any);
       global.URL.createObjectURL = vi.fn().mockReturnValue('blob:url');
       
-      const mockElement = {
-        setAttribute: vi.fn(),
-        style: { visibility: '' },
-        click: vi.fn(),
-      };
+      const mockElement = createDownloadElement();
       vi.spyOn(document, 'createElement').mockReturnValue(mockElement as any);
       vi.spyOn(document.body, 'appendChild').mockImplementation(() => ({} as any));
       vi.spyOn(document.body, 'removeChild').mockImplementation(() => ({} as any));

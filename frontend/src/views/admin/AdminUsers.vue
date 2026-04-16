@@ -101,19 +101,13 @@
             <td class="px-6 py-3 whitespace-nowrap">
               <div class="flex items-center">
                 <div class="h-10 w-10 flex-shrink-0">
-                  <img
+                  <OptimizedImage
                     class="h-10 w-10 rounded-full object-cover"
-                    :src="
-                      user.picture ||
-                      `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || '')}&background=random`
-                    "
+                    :src="user.picture || '/default-avatar.svg'"
                     :alt="user.name || ''"
-                    @error="
-                      (e: Event) => {
-                        (e.target as HTMLImageElement).src =
-                          `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || '')}&background=random`;
-                      }
-                    "
+                    :width="40"
+                    :height="40"
+                    fallback-src="/default-avatar.svg"
                   />
                 </div>
                 <div class="ml-4">
@@ -386,12 +380,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, reactive } from 'vue';
+import { ref, onMounted, watch, reactive, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { PERMISSIONS } from '@/constants/permissions';
 import { apiV1 } from '@/utils/api';
 import { useToast } from '@/components/toast/use-toast';
 import { useAuthStore } from '@/store/authStore';
 import { useAdminTable } from '@/composables/useAdminTable';
+import { OptimizedImage } from '@/components/ui';
 import TableSkeleton from '@/components/ui/TableSkeleton.vue';
 
 const { t } = useI18n();
@@ -496,13 +492,13 @@ const isUserAdmin = (role: string | undefined): boolean => {
 };
 
 const canDeleteUser = (targetUser: User): boolean => {
-  if (!authStore.hasPermission('users:delete')) return false;
+  if (!authStore.hasPermission(PERMISSIONS.USERS_DELETE)) return false;
   if (isUserAdmin(targetUser.role)) return false;
   return true;
 };
 
 const canBanUser = (targetUser: User): boolean => {
-  if (!authStore.hasPermission('users:update')) return false;
+  if (!authStore.hasPermission(PERMISSIONS.USERS_UPDATE)) return false;
   if (isUserAdmin(targetUser.role)) return false;
   return true;
 };
@@ -673,10 +669,16 @@ const profileForm = ref({
 });
 const isSavingProfile = ref(false);
 
-const canEditRole = authStore.hasPermission('users:update');
-const canEditProfile = authStore.hasPermission('users:write');
+const canEditRole = computed(() => authStore.hasPermission(PERMISSIONS.USERS_UPDATE));
+const canEditProfile = computed(() => authStore.hasPermission(PERMISSIONS.USERS_WRITE));
+const canLoadRoles = computed(() => authStore.isAdmin || authStore.hasPermission(PERMISSIONS.ROLES_READ));
 
 const loadRoles = async (): Promise<void> => {
+  if (!canLoadRoles.value) {
+    roles.value = [];
+    return;
+  }
+
   try {
     const data = await apiV1.get<Role[]>('/admin/roles');
     roles.value = data;
@@ -684,6 +686,17 @@ const loadRoles = async (): Promise<void> => {
     console.error('Failed to load roles', e);
   }
 };
+
+watch(canLoadRoles, (allowed) => {
+  if (allowed && roles.value.length === 0) {
+    void loadRoles();
+    return;
+  }
+
+  if (!allowed) {
+    roles.value = [];
+  }
+});
 
 const openProfileModal = (user: User): void => {
   editingProfileUser.value = user;
@@ -726,9 +739,6 @@ const saveProfile = async (): Promise<void> => {
 
 onMounted(async () => {
   // Parallelize initial data fetching to improve load speed
-  await Promise.all([
-    loadUsers(),
-    loadRoles()
-  ]);
+  await Promise.all([loadUsers(), loadRoles()]);
 });
 </script>

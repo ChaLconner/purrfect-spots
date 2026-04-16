@@ -33,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue';
+import { ref, watch, onUnmounted } from 'vue';
 import { SocialService } from '@/services/socialService';
 import { useAuthStore } from '@/store';
 import { useToastStore } from '@/store';
@@ -72,17 +72,39 @@ let activeRequests = 0;
 
 let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 
-onMounted(() => {
-  // Subscribe to real-time updates for this specific photo
+function syncFromProps(force = false): void {
+  if (!force && (activeRequests > 0 || debounceTimer)) {
+    return;
+  }
+
+  const nextLiked = props.initialLiked ?? false;
+  const nextCount = props.initialCount ?? 0;
+
+  liked.value = nextLiked;
+  count.value = nextCount;
+  serverLiked = nextLiked;
+  serverCount = nextCount;
+}
+
+function cleanupRealtimeChannel(): void {
+  if (realtimeChannel) {
+    supabase.removeChannel(realtimeChannel);
+    realtimeChannel = null;
+  }
+}
+
+function subscribeToPhoto(photoId: string): void {
+  cleanupRealtimeChannel();
+
   realtimeChannel = supabase
-    .channel(`photo_likes_${props.photoId}`)
+    .channel(`photo_likes_${photoId}`)
     .on(
       'postgres_changes',
       {
         event: 'UPDATE',
         schema: 'public',
         table: 'cat_photos',
-        filter: `id=eq.${props.photoId}`,
+        filter: `id=eq.${photoId}`,
       },
       (payload) => {
         // Skip updates if we have active requests or a pending debounce
@@ -96,8 +118,6 @@ onMounted(() => {
           // preventing rollback to an old state if a race occurred
           if (payload.new.likes_count === count.value) {
             serverCount = payload.new.likes_count;
-            // We can't know 'liked' status from this payload easily without user context,
-            // so we generally trust our local 'liked' state unless count drastically changes.
             return;
           }
 
@@ -108,37 +128,43 @@ onMounted(() => {
       }
     )
     .subscribe();
-});
+}
 
 onUnmounted(() => {
-  if (realtimeChannel) {
-    supabase.removeChannel(realtimeChannel);
-  }
+  cleanupRealtimeChannel();
   if (debounceTimer) {
     clearTimeout(debounceTimer);
   }
 });
 
 watch(
-  () => props.initialLiked,
-  (val) => {
-    // Only update from props if we're not interacting
-    if (activeRequests === 0 && !debounceTimer) {
-      const v = val ?? false;
-      liked.value = v;
-      serverLiked = v;
+  () => props.photoId,
+  (photoId) => {
+    // Reset local interaction state when the button is reused for another photo.
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+      debounceTimer = null;
     }
+    lastRequestId++;
+    activeRequests = 0;
+    isProcessing.value = false;
+    syncFromProps(true);
+    subscribeToPhoto(photoId);
+  },
+  { immediate: true }
+);
+
+watch(
+  () => props.initialLiked,
+  () => {
+    syncFromProps();
   }
 );
 
 watch(
   () => props.initialCount,
-  (val) => {
-    if (activeRequests === 0 && !debounceTimer) {
-      const v = val ?? 0;
-      count.value = v;
-      serverCount = v;
-    }
+  () => {
+    syncFromProps();
   }
 );
 
@@ -241,7 +267,7 @@ async function sendToggleLike(): Promise<void> {
     }
     console.error('Toggle like error:', e);
   } finally {
-    activeRequests--;
+    activeRequests = Math.max(0, activeRequests - 1);
     if (activeRequests === 0) {
       isProcessing.value = false;
     }

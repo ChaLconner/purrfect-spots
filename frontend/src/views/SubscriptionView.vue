@@ -199,7 +199,7 @@
               class="h-20 mb-4 flex items-center justify-center transition-transform group-hover:scale-110 overflow-hidden"
             >
               <img
-                src="/give-treat.png"
+                src="/give-treat.webp"
                 alt="Treat"
                 loading="lazy"
                 class="h-full object-contain scale-[1.05] [image-rendering:high-quality] [clip-path:inset(2px)] will-change-transform"
@@ -288,6 +288,7 @@ import { useSeo } from '@/composables/useSeo';
 import PlanCard from '@/components/subscription/PlanCard.vue';
 import { BaseConfirmModal } from '@/components/ui';
 import { config } from '@/config';
+import { redirectToTrustedExternalUrl } from '@/utils/security';
 
 const { t, locale } = useI18n();
 const subscriptionStore = useSubscriptionStore();
@@ -333,8 +334,11 @@ onMounted(async () => {
     description: t('subscription.meta.description'),
   });
 
+  const returnedFromSuccess = route.path.includes('/success') || route.query.purchase === 'success';
+  const returnedFromCancel = route.path.includes('/cancel') || route.query.purchase === 'cancel';
+
   // Handle Return from Stripe (Success)
-  if (route.path.includes('/success') || route.query.purchase === 'success') {
+  if (returnedFromSuccess) {
     toastStore.addToast({
       title: t('subscription.toast.successTitle'),
       message: t('subscription.toast.successMessage'),
@@ -342,19 +346,21 @@ onMounted(async () => {
     });
 
     // Clean URL first so a hard-refresh doesn’t re-trigger polling
-    router.replace('/subscription');
+    await router.replace('/subscription');
 
     // Stripe webhooks can take 1–5 s to reach our server.
     // Poll fetchStatus until Pro status or treat balance changes, then stop.
     await pollForStatusChange();
+    await subscriptionStore.fetchPackages();
+    return;
   }
 
   // Handle Return from Stripe (Cancel)
-  if (route.path.includes('/cancel') || route.query.purchase === 'cancel') {
-    router.replace('/subscription');
+  if (returnedFromCancel) {
+    await router.replace('/subscription');
   }
 
-  // Parallel fetch: status + packages
+  // Default load: current status + packages
   await Promise.all([subscriptionStore.fetchStatus(), subscriptionStore.fetchPackages()]);
 });
 
@@ -400,7 +406,9 @@ async function handleSubscribe(): Promise<void> {
   isLoading.value = true;
   try {
     const { checkout_url } = await SubscriptionService.createCheckout(selectedPlan.value);
-    window.location.href = checkout_url;
+    if (!redirectToTrustedExternalUrl(checkout_url)) {
+      throw new Error('Blocked unexpected checkout destination.');
+    }
   } catch (e: unknown) {
     console.error(e);
     toastStore.addToast({
@@ -418,7 +426,9 @@ async function handleManageSubscription(): Promise<void> {
   isLoading.value = true;
   try {
     const { url } = await SubscriptionService.createPortalSession('/subscription');
-    window.location.href = url;
+    if (!redirectToTrustedExternalUrl(url)) {
+      throw new Error('Blocked unexpected billing portal destination.');
+    }
   } catch (e) {
     console.error(e);
     toastStore.addToast({
@@ -460,7 +470,9 @@ async function buyTreats(packageType: string): Promise<void> {
   purchasingPackage.value = packageType;
   try {
     const { checkout_url } = await TreatsService.purchaseCheckout(packageType);
-    window.location.href = checkout_url;
+    if (!redirectToTrustedExternalUrl(checkout_url)) {
+      throw new Error('Blocked unexpected treat checkout destination.');
+    }
   } catch (e) {
     console.error(e);
     toastStore.addToast({

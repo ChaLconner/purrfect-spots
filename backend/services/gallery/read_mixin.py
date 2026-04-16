@@ -1,9 +1,9 @@
 from typing import Any, cast
 
-import structlog  # type: ignore[import-untyped, unused-ignore]
 from postgrest.types import CountMethod
 from sqlalchemy import text
 
+import structlog  # type: ignore[import-untyped, unused-ignore]
 from services.gallery.base_mixin import GalleryBaseMixin
 from utils.cache import cached_gallery, cached_user_likes
 

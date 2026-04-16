@@ -1,10 +1,10 @@
 import contextlib
 from typing import TYPE_CHECKING, Any, cast
 
-import structlog
 from sqlalchemy import String, bindparam, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 
+import structlog
 from services.gallery.base_mixin import GalleryBaseMixin
 
 if TYPE_CHECKING:

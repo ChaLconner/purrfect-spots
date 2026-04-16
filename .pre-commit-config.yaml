@@ -77,7 +77,7 @@ repos:
     hooks:
       - id: eslint
         name: ESLint
-        entry: bash -c 'cd frontend && npm run lint'
+        entry: npm --workspace frontend run lint
         language: system
         types_or: [javascript, typescript, vue]
         pass_filenames: false
@@ -85,7 +85,7 @@ repos:
 
       - id: typescript-check
         name: TypeScript Check
-        entry: bash -c 'cd frontend && npm run type-check'
+        entry: npm --workspace frontend run type-check
         language: system
         types_or: [typescript, vue]
         pass_filenames: false

@@ -2,7 +2,6 @@ import { createApp } from 'vue';
 import './styles/main.css';
 import App from './App.vue';
 import router from './router';
-import VueApexCharts from 'vue3-apexcharts';
 import { pinia } from './store';
 import { useAuthStore } from './store/authStore';
 import { isDev } from './utils/env';
@@ -12,8 +11,6 @@ import {
   handleVueError,
 } from './utils/browserExtensionHandler';
 import i18n from './i18n';
-import VueVirtualScroller from 'vue-virtual-scroller';
-import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
 
 // ========== Sentry Initialization ==========
 // Only initialize in production or if explicitly enabled
@@ -21,7 +18,7 @@ const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
 const ENVIRONMENT = import.meta.env.MODE;
 const ENABLE_SENTRY = ENVIRONMENT === 'production' || import.meta.env.VITE_ENABLE_SENTRY === 'true';
 
-import type { App as VueApp, Plugin } from 'vue';
+import type { App as VueApp } from 'vue';
 
 async function initSentry(app: VueApp): Promise<void> {
   if (!SENTRY_DSN || !ENABLE_SENTRY) {
@@ -140,8 +137,6 @@ app.config.errorHandler = (err, _instance, info): void => {
 
 app.use(router);
 app.use(i18n);
-app.use(VueApexCharts);
-app.use(VueVirtualScroller as unknown as Plugin);
 
 // Mount immediately - router will handle initial navigation internally
 app.mount('#app');

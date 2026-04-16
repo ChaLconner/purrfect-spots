@@ -3,7 +3,8 @@ import {
   getCDNUrl, 
   validateImageFile, 
   isCDNAvailable,
-  generateResponsiveSources
+  generateResponsiveSources,
+  preloadImage,
 } from '@/utils/imageUtils';
 
 
@@ -75,5 +76,24 @@ describe('Image Utils', () => {
          const sources = generateResponsiveSources(url, { format: 'webp' });
          expect(sources[0].srcSet).toContain('/img.jpg');
       });
+  });
+
+  describe('preloadImage', () => {
+    it('cleans up the injected preload link after loading', async () => {
+      const appendSpy = vi.spyOn(document.head, 'appendChild');
+
+      const preloadPromise = preloadImage('https://example.com/cat.jpg');
+      const injectedLink = appendSpy.mock.calls.at(-1)?.[0] as HTMLLinkElement;
+
+      expect(injectedLink?.rel).toBe('preload');
+      expect(document.head.contains(injectedLink)).toBe(true);
+
+      injectedLink.onload?.(new Event('load'));
+      await preloadPromise;
+
+      expect(document.head.contains(injectedLink)).toBe(false);
+
+      appendSpy.mockRestore();
+    });
   });
 });

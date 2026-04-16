@@ -1,0 +1,28 @@
+#!/usr/bin/env sh
+. "$(dirname "$0")/_/h"
+
+message_file="$1"
+header="$(sed -n '1p' "$message_file" | tr -d '\r')"
+
+conventional_pattern='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9._/-]+\))?(!)?: .+'
+
+if ! printf '%s\n' "$header" | grep -Eq "$conventional_pattern"; then
+  echo "husky: invalid commit message"
+  echo "expected: <type>[optional scope]: <description>"
+  echo "allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert"
+  echo "example: fix(auth): correct password validation logic"
+  exit 1
+fi
+
+description="$(printf '%s\n' "$header" | sed -E 's/^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9._\/-]+\))?(!)?: //')"
+
+if printf '%s' "$description" | grep -Eq '\.$'; then
+  echo "husky: commit description must not end with a period"
+  exit 1
+fi
+
+first_char="$(printf '%s' "$description" | cut -c1)"
+if printf '%s' "$first_char" | grep -Eq '[A-Z]'; then
+  echo "husky: commit description should start with a lowercase letter"
+  exit 1
+fi

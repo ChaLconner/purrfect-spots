@@ -28,8 +28,7 @@ let msgId = 0;
 function getWorker(): Worker | null {
   if (typeof window !== 'undefined' && window.Worker) {
     if (!imageWorker) {
-      // Import Web Worker using Vite standard query
-      imageWorker = new Worker(new URL('./imageWorker.ts', import.meta.url), { type: 'module' });
+      imageWorker = new Worker('/image-worker.js', { type: 'module' });
     }
     return imageWorker;
   }
@@ -286,8 +285,20 @@ export const preloadImage = (url: string, options?: ImageOptimizationOptions): P
     link.as = 'image';
     link.href = isCDNAvailable() ? getCDNUrl(url, options) : url;
 
-    link.onload = (): void => resolve();
-    link.onerror = (): void => reject(new Error(`Failed to preload image: ${url}`));
+    const cleanup = (): void => {
+      if (link.parentNode) {
+        link.parentNode.removeChild(link);
+      }
+    };
+
+    link.onload = (): void => {
+      cleanup();
+      resolve();
+    };
+    link.onerror = (): void => {
+      cleanup();
+      reject(new Error(`Failed to preload image: ${url}`));
+    };
 
     document.head.appendChild(link);
   });

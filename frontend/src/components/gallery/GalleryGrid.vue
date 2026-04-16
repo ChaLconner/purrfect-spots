@@ -62,7 +62,7 @@
                       class="treat-btn-inner transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] drop-shadow-md group-hover:-translate-y-0.5 group-hover:scale-110 group-active:scale-95"
                     >
                       <img
-                        src="/give-treat.png"
+                        src="/give-treat.webp"
                         :alt="t('profile.treats')"
                         class="w-12 h-12 object-contain"
                       />

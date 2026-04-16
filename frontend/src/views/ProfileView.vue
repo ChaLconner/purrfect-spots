@@ -248,14 +248,6 @@ watch(
   }
 );
 
-// Watch for Route ID changes (navigation between profiles)
-watch(
-  () => route.params.id,
-  () => {
-    loadProfileData(() => syncStateFromUrl());
-  }
-);
-
 const openImageModal = (upload: CatLocation): void => {
   router.push({ query: { ...route.query, image: upload.id } });
 };
@@ -310,17 +302,20 @@ const handleSaveProfile = async (data: {
   }
 };
 
+const refreshProfileView = async (): Promise<void> => {
+  await loadProfileData(() => syncStateFromUrl());
+
+  if (isOwnProfile.value) {
+    await subscriptionStore.fetchStatus(true);
+  }
+};
+
 // Initialization logic
 onMounted(() => {
   // If auth is already initialized, load data immediately
   // Otherwise, the watcher below will handle it
   if (authStore.isInitialized) {
-    loadProfileData(() => syncStateFromUrl());
-    
-    // Fetch subscription status for the owner to get end date/cancel info
-    if (isOwnProfile.value) {
-      subscriptionStore.fetchStatus(true);
-    }
+    void refreshProfileView();
   }
 });
 
@@ -330,7 +325,7 @@ watch(
   ([isInit]): void => {
     // Only fetch if initialized
     if (isInit) {
-      loadProfileData(() => syncStateFromUrl());
+      void refreshProfileView();
     }
   },
   { immediate: false }

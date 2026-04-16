@@ -3,10 +3,9 @@ import NavBar from './components/NavBar.vue';
 import BottomNav from './components/layout/BottomNav.vue';
 import LicenseOverlay from './components/layout/LicenseOverlay.vue';
 import ToastContainer from './components/toast/ToastContainer.vue';
-import { onErrorCaptured, onMounted, ref } from 'vue';
+import { onErrorCaptured, ref } from 'vue';
 import { isBrowserExtensionError, logBrowserExtensionError } from './utils/browserExtensionHandler';
 import { showError } from './store/toast';
-import { useAuthStore } from './store/authStore';
 import { ApiError, ApiErrorTypes } from './utils/api';
 import { useNetwork } from './composables/useNetwork';
 import { ErrorBoundary } from './components/ui';
@@ -44,13 +43,9 @@ useStructuredData({
     name: 'Purrfect Spots Community',
     logo: {
       '@type': 'ImageObject',
-      url: 'https://purrfectspots.xyz/logo.png',
+      url: 'https://purrfectspots.xyz/logo.webp',
     },
   },
-});
-
-onMounted(() => {
-  useAuthStore().verifySession();
 });
 
 // Handle browser extension errors at the app level

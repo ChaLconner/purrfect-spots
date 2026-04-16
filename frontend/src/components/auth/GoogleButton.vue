@@ -3,6 +3,7 @@ import { getEnvVar, isDev } from '../../utils/env';
 import { showError } from '../../store/toast';
 import { ref } from 'vue';
 import { getGoogleAuthUrl } from '../../utils/oauth';
+import { redirectToTrustedExternalUrl } from '../../utils/security';
 
 const isLoading = ref(false);
 
@@ -20,7 +21,9 @@ const handleGoogleLogin = async (): Promise<void> => {
     const { url, codeVerifier } = await getGoogleAuthUrl(googleClientId, redirectUri);
 
     sessionStorage.setItem('google_code_verifier', codeVerifier);
-    globalThis.location.href = url;
+    if (!redirectToTrustedExternalUrl(url)) {
+      throw new Error('Google sign-in redirect was blocked due to an unexpected destination.');
+    }
   } catch (err: unknown) {
     if (isDev()) {
       console.error('Google OAuth Error:', err);

@@ -1,5 +1,5 @@
 import re
-from datetime import UTC
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 from sqlalchemy import text
@@ -110,9 +110,7 @@ class NotificationService:
 
     async def get_notifications(self, user_id: str, limit: int = 20, offset: int = 0) -> list[dict[str, Any]]:
         """Get user notifications with actor details."""
-        from datetime import datetime, timedelta
-
-        thirty_days_ago = (datetime.now(UTC) - timedelta(days=30)).isoformat()
+        thirty_days_ago = datetime.now(UTC) - timedelta(days=30)
 
         try:
             notifications = []
@@ -138,7 +136,7 @@ class NotificationService:
                 self.supabase.table("notifications")
                 .select("*, actor:users!actor_id(name, picture)")
                 .eq("user_id", user_id)
-                .gte("created_at", thirty_days_ago)
+                .gte("created_at", thirty_days_ago.isoformat())
                 .order("created_at", desc=True)
                 .limit(limit)
                 .offset(offset)
@@ -198,9 +196,7 @@ class NotificationService:
 
     async def cleanup_old_notifications(self, days: int = 30) -> None:
         """Delete notifications older than specified days."""
-        from datetime import datetime, timedelta
-
-        cutoff_date = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+        cutoff_date = datetime.now(UTC) - timedelta(days=days)
 
         try:
             if self.db:
@@ -210,7 +206,12 @@ class NotificationService:
                 await db_session.commit()
                 deleted_count = cast(Any, result).rowcount
             else:
-                res = await self.supabase.table("notifications").delete().lt("created_at", cutoff_date).execute()
+                res = (
+                    await self.supabase.table("notifications")
+                    .delete()
+                    .lt("created_at", cutoff_date.isoformat())
+                    .execute()
+                )
                 deleted_count = len(res.data) if res.data else 0
             logger.info(f"Successfully cleaned up {deleted_count} notifications older than {days} days")
         except Exception as e:

@@ -446,6 +446,57 @@ class TestAdminCommentModerationBan:
         )
 
 
+class TestAdminCommentsListing:
+    @pytest.fixture
+    def admin_user(self):
+        return User(
+            id="00000000-0000-4000-a000-000000000111",
+            email="admin@example.com",
+            name="Admin User",
+            role="admin",
+            permissions=["comments:manage"],
+        )
+
+    @pytest.fixture
+    def override_admin(self, admin_user):
+        app.dependency_overrides[get_current_user] = lambda: admin_user
+        yield
+        app.dependency_overrides.pop(get_current_user, None)
+
+    def test_list_all_comments_accepts_limit_alias(self, client, override_admin, mock_supabase_admin) -> None:
+        mock_supabase_admin.execute = AsyncMock(
+            side_effect=[
+                MagicMock(
+                    data=[
+                        {
+                            "id": "comment-1",
+                            "user_id": "user-1",
+                            "content": "hello",
+                            "created_at": "2026-03-28T00:00:00Z",
+                            "report_count": 0,
+                        }
+                    ],
+                    count=1,
+                ),
+                MagicMock(data=[{"id": "user-1", "banned_at": None}]),
+                MagicMock(data=[]),
+            ]
+        )
+
+        with patch(
+            "routes.admin.comments.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
+            response = client.get("/api/v1/admin/comments?page=1&limit=100")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["total"] == 1
+        assert payload["items"][0]["is_user_banned"] is False
+        assert payload["items"][0]["violation_count"] == 0
+
+
 class TestAdminUserProfileUpdates:
     @pytest.fixture
     def admin_user(self):

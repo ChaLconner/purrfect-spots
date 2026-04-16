@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   escapeHtml,
   sanitizeInput,
+  sanitizeRichHtml,
   sanitizeUrl,
   getCsrfToken,
   getSecureHeaders,
@@ -16,6 +17,8 @@ import {
   generateCodeVerifier,
   generateCodeChallenge,
   getSafeRedirect,
+  redirectToTrustedExternalUrl,
+  openTrustedExternalUrl,
 } from '@/utils/security';
 
 vi.mock('@/utils/env', () => ({
@@ -71,6 +74,12 @@ describe('security utils', () => {
 
     it('trims whitespace', () => {
       expect(sanitizeInput('  hello  ')).toBe('hello');
+    });
+  });
+
+  describe('sanitizeRichHtml', () => {
+    it('preserves safe markup while stripping dangerous tags', () => {
+      expect(sanitizeRichHtml('<p>Hello</p><script>alert(1)</script>')).toBe('<p>Hello</p>');
     });
   });
 
@@ -369,6 +378,65 @@ describe('security utils', () => {
 
     it('returns fallback on malformed URI', () => {
       expect(getSafeRedirect('%E0%A4%A')).toBe('/upload');
+    });
+  });
+
+  describe('trusted external URL helpers', () => {
+    it('redirects to trusted HTTPS hosts', () => {
+      const assign = vi.fn();
+      vi.stubGlobal('location', {
+        origin: 'https://purrfectspots.xyz',
+        protocol: 'https:',
+        assign,
+      });
+
+      expect(redirectToTrustedExternalUrl('https://accounts.google.com/o/oauth2/v2/auth')).toBe(
+        true
+      );
+      expect(assign).toHaveBeenCalledWith('https://accounts.google.com/o/oauth2/v2/auth');
+    });
+
+    it('blocks untrusted or insecure redirect destinations', () => {
+      const assign = vi.fn();
+      vi.stubGlobal('location', {
+        origin: 'https://purrfectspots.xyz',
+        protocol: 'https:',
+        assign,
+      });
+
+      expect(redirectToTrustedExternalUrl('http://accounts.google.com/o/oauth2/v2/auth')).toBe(
+        false
+      );
+      expect(redirectToTrustedExternalUrl('https://evil.example.com')).toBe(false);
+      expect(assign).not.toHaveBeenCalled();
+    });
+
+    it('opens trusted URLs in a safe new tab', () => {
+      const openedWindow = { opener: {} } as Window;
+      const open = vi.fn(() => openedWindow);
+      vi.stubGlobal('location', {
+        origin: 'https://purrfectspots.xyz',
+        protocol: 'https:',
+      });
+      vi.stubGlobal('open', open);
+
+      expect(openTrustedExternalUrl('https://checkout.stripe.com/pay/test')).toBe(true);
+      expect(open).toHaveBeenCalledWith(
+        'https://checkout.stripe.com/pay/test',
+        '_blank',
+        'noopener,noreferrer'
+      );
+      expect(openedWindow.opener).toBeNull();
+    });
+
+    it('returns false when opening a URL is blocked', () => {
+      vi.stubGlobal('location', {
+        origin: 'https://purrfectspots.xyz',
+        protocol: 'https:',
+      });
+      vi.stubGlobal('open', vi.fn(() => null));
+
+      expect(openTrustedExternalUrl('https://evil.example.com')).toBe(false);
     });
   });
 });

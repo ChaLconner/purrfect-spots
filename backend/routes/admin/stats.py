@@ -232,11 +232,12 @@ async def get_dashboard_summary(
                     logger.error(f"Fallback count failed for {table}: {query_err}")
                     return 0
 
-            # Execute individual counts with isolation
-            total_users = await safe_count("users")
-            total_photos = await safe_count("cat_photos")
-            pending_reports = await safe_count("reports", count_method=CountMethod.exact, filters={"status": "pending"})
-            total_reports = await safe_count("reports")
+            total_users, total_photos, pending_reports, total_reports = await asyncio.gather(
+                safe_count("users"),
+                safe_count("cat_photos"),
+                safe_count("reports", count_method=CountMethod.exact, filters={"status": "pending"}),
+                safe_count("reports"),
+            )
 
             # Try to get trends and monthly data with their own catch-all
             async def get_trends_safe() -> dict[str, Any]:
@@ -253,6 +254,8 @@ async def get_dashboard_summary(
                     logger.error(f"Fallback monthly failed: {monthly_err}")
                     return []
 
+            trends_data, monthly_data = await asyncio.gather(get_trends_safe(), get_monthly_safe())
+
             result = {
                 "stats": {
                     "total_users": total_users,
@@ -260,8 +263,8 @@ async def get_dashboard_summary(
                     "pending_reports": pending_reports,
                     "total_reports": total_reports,
                 },
-                "trends": await get_trends_safe(),
-                "monthly": await get_monthly_safe(),
+                "trends": trends_data,
+                "monthly": monthly_data,
                 "generated_at": datetime.now().isoformat(),
             }
             await redis_service.set(cache_key, result, expire=300)

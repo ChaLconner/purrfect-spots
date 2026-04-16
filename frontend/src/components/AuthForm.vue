@@ -182,11 +182,12 @@
 import { watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 
-const catIllustrationUrl = '/cat-illustration.png';
+const catIllustrationUrl = '/cat-illustration.webp';
 
 import { useAuthForm } from '@/composables/useAuthForm';
 import { useAuthStore } from '@/store/authStore';
 import { useThrottleFn } from '@/composables/useThrottle';
+import { getSafeRedirect } from '@/utils/security';
 import PasswordStrengthMeter from '@/components/ui/PasswordStrengthMeter.vue';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 import { BaseButton, BaseInput } from '@/components/ui';
@@ -229,12 +230,12 @@ const checkAuthAndRedirect = (): void => {
     const deepLink = globalThis.sessionStorage?.getItem('redirectAfterAuth');
     if (deepLink) {
       globalThis.sessionStorage?.removeItem('redirectAfterAuth');
-      router.push(deepLink);
+      router.push(getSafeRedirect(deepLink));
       return;
     }
 
     // 2. Priority: Admin User -> Admin Dashboard
-    if (authStore.isAdmin) {
+    if (authStore.canAccessAdmin) {
       router.push('/admin');
       return;
     }

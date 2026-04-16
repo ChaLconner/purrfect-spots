@@ -1,7 +1,9 @@
 from unittest.mock import AsyncMock, MagicMock
+from uuid import uuid4
 
 import pytest
 
+from schemas.user import User
 from services.user_service import UserService
 
 
@@ -89,6 +91,51 @@ async def test_get_user_by_id(user_service):
 
 
 @pytest.mark.asyncio
+async def test_get_user_by_id_handles_roles_array():
+    client = MagicMock()
+    admin = MagicMock()
+
+    user_data = {
+        "id": "1",
+        "email": "a@a.com",
+        "name": "A",
+        "username": "A",
+        "picture": "",
+        "bio": None,
+        "role_id": "role-1",
+        "roles": [
+            {
+                "name": "admin",
+                "role_permissions": [
+                    {"permissions": {"code": "access:admin"}},
+                    {"permissions": {"code": "users:read"}},
+                ],
+            }
+        ],
+    }
+
+    mock_eq_user = MagicMock()
+    mock_eq_user.execute = AsyncMock(return_value=MagicMock(data=[user_data]))
+
+    mock_select_user = MagicMock()
+    mock_select_user.eq.return_value = mock_eq_user
+
+    def table_mock(name):
+        table = MagicMock()
+        table.select.return_value = mock_select_user
+        return table
+
+    admin.table = table_mock
+
+    service = UserService(supabase_client=client, supabase_admin=admin)
+    user = await service.get_user_by_id("1")
+
+    assert user is not None
+    assert user.role == "admin"
+    assert "access:admin" in user.permissions
+
+
+@pytest.mark.asyncio
 async def test_get_user_by_email(user_service):
     user = await user_service.get_user_by_email("a@a.com")
     assert user is not None
@@ -132,3 +179,20 @@ async def test_update_user_profile(user_service):
     res = await user_service.update_user_profile("1", {"name": "B"})
     assert res["id"] == "1"
     assert res["updated"] is True
+
+
+def test_user_model_accepts_uuid_identifiers():
+    user_id = uuid4()
+    role_id = uuid4()
+
+    user = User.model_validate(
+        {
+            "id": user_id,
+            "role_id": role_id,
+            "email": "uuid@example.com",
+            "name": "UUID User",
+        }
+    )
+
+    assert user.id == str(user_id)
+    assert user.role_id == str(role_id)

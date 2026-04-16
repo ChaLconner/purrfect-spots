@@ -66,7 +66,7 @@ class OTPService:
                         return bool(exists)
                 except Exception as e:
                     logger.debug(f"Redis lockout check failed, falling back to DB: {e}")
-                    pass
+                    # pass
 
             # Fallback to database check
             if self.db:
@@ -129,7 +129,7 @@ class OTPService:
                     return
                 except Exception as e:
                     logger.debug(f"Redis lockout record failed, falling back to DB: {e}")
-                    pass
+                    # pass
 
             # Fallback to database
             if self.db:
@@ -184,7 +184,7 @@ class OTPService:
                     return
                 except Exception as e:
                     logger.debug(f"Redis lockout deletion failed, falling back to DB: {e}")
-                    pass
+                    # pass
 
             # Fallback to database
             if self.db:
@@ -276,8 +276,10 @@ class OTPService:
             record = None
             if self.db:
                 query = text(
-                    f"SELECT {self.OTP_COLUMNS} FROM email_verifications WHERE email = :email "  # noqa: S608
-                    "AND verified_at IS NULL ORDER BY created_at DESC LIMIT 1"
+                    "SELECT id, otp_hash, attempts, max_attempts, expires_at "
+                    "FROM email_verifications "
+                    "WHERE email = :email AND verified_at IS NULL "
+                    "ORDER BY created_at DESC LIMIT 1"
                 )
                 result = await self.db.execute(query, {"email": email_lower})
                 row = result.fetchone()

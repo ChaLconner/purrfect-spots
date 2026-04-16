@@ -1,12 +1,11 @@
 <script setup lang="ts">
+import { computed, defineAsyncComponent } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../store/authStore';
 
 // Child Components
 import SearchBox from './navbar/SearchBox.vue';
-import UserMenu from './navbar/UserMenu.vue';
 import NavLink from './navbar/NavLink.vue';
-import NotificationBell from './ui/NotificationBell.vue';
 import LanguageSwitcher from './LanguageSwitcher.vue';
 
 // Icons
@@ -19,6 +18,19 @@ import ProfileIcon from './icons/profile.vue';
 const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
+const isAuthUiResolved = computed(
+  () => authStore.isInitialized || authStore.isAuthenticated || !!authStore.user
+);
+const showAuthenticatedActions = computed(() => authStore.isAuthenticated);
+const showGuestLogin = computed(() => isAuthUiResolved.value && !showAuthenticatedActions.value);
+const UserMenu = defineAsyncComponent({
+  loader: () => import('./navbar/UserMenu.vue'),
+  suspensible: false,
+});
+const NotificationBell = defineAsyncComponent({
+  loader: () => import('./ui/NotificationBell.vue'),
+  suspensible: false,
+});
 </script>
 
 <template>
@@ -42,7 +54,7 @@ const authStore = useAuthStore();
         >
           <!-- Mobile Logo (Icon only) -->
           <img
-            src="/cat-icon.png"
+            src="/cat-icon.webp"
             alt="Logo"
             class="relative z-10 w-9 h-9 sm:hidden object-contain"
             loading="eager"
@@ -50,7 +62,7 @@ const authStore = useAuthStore();
           />
           <!-- Desktop Logo (Full logo) -->
           <img
-            src="/logo.png"
+            src="/logo.webp"
             alt="Purrfect Spots — Discover cat-friendly locations"
             class="relative z-10 hidden sm:block w-auto object-contain drop-shadow-sm h-14 -my-3 md:h-20 md:-my-6 xl:h-28 xl:-my-10 max-w-[180px] sm:max-w-[220px] md:max-w-[280px] xl:max-w-[380px]"
             loading="eager"
@@ -120,25 +132,25 @@ const authStore = useAuthStore();
         <LanguageSwitcher />
 
         <!-- Authentication Dependent Section -->
-        <template v-if="authStore.isInitialized">
+        <template v-if="showGuestLogin">
           <!-- Login Button (not authenticated) - Hidden until xl, handled by BottomNav -->
-          <div v-if="!authStore.isAuthenticated" class="hidden xl:flex items-center gap-2">
+          <div class="hidden xl:flex items-center gap-2 min-w-[5.5rem] justify-end">
             <NavLink to="/login" variant="accent" :label="$t('auth.login')">
               <template #icon>
                 <ProfileIcon class="relative z-10 w-[1.1rem] h-[1.1rem]" />
               </template>
             </NavLink>
           </div>
-
-          <!-- User Menu (authenticated) -->
-          <div v-if="authStore.isAuthenticated" class="flex items-center gap-2">
+        </template>
+        <template v-else-if="showAuthenticatedActions">
+          <div class="flex items-center gap-2 min-w-[5.5rem] justify-end">
             <NotificationBell />
             <UserMenu />
           </div>
         </template>
         <template v-else>
-          <!-- Skeleton or Spacer during Auth Initialization -->
-          <div class="w-10 h-10 rounded-full animate-pulse bg-btn-shade-d"></div>
+          <!-- Preserve layout during silent auth hydration without showing a visible loading state. -->
+          <div class="hidden xl:block min-w-[5.5rem] h-10" aria-hidden="true"></div>
         </template>
       </div>
     </div>

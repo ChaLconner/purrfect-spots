@@ -167,7 +167,7 @@
 
             <button
               class="px-4 py-2 bg-terracotta-600 text-white rounded-lg hover:bg-terracotta-700 transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2 text-sm font-medium"
-              :disabled="saving || !dirty"
+              :disabled="saving || !dirty || permissionsLoadFailed"
               @click="savePermissions"
             >
               <svg
@@ -238,6 +238,13 @@
               {{ t('admin.roles.self_lockout_warning') }}
             </p>
           </div>
+        </div>
+
+        <div
+          v-if="permissionsLoadFailed"
+          class="mx-6 mt-6 p-4 bg-rose-50/70 border border-rose-100 rounded-2xl text-sm text-rose-700 font-medium"
+        >
+          {{ t('admin.roles.load_error') }}
         </div>
 
         <!-- Summary Stats -->
@@ -427,6 +434,7 @@ import { BaseConfirmModal } from '@/components/ui';
 interface AdminRole {
   id: string;
   name: string;
+  permission_count?: number;
 }
 
 interface AdminPermission {
@@ -451,6 +459,7 @@ const dirty = ref(false);
 const permissionSearch = ref('');
 const unsavedChangesConfirmOpen = ref(false);
 const pendingRoleToSelect = ref<AdminRole | null>(null);
+const permissionsLoadFailed = ref(false);
 
 const authStore = useAuthStore();
 const currentUserRole = computed(() => authStore.user?.role);
@@ -614,29 +623,47 @@ const savePermissions = async (): Promise<void> => {
 };
 
 onMounted(async () => {
+  let rolesLoaded = false;
   try {
-    const [rolesData, permsData] = await Promise.all([
+    const [rolesResult, permissionsResult] = await Promise.allSettled([
       apiV1.get<AdminRole[]>('/admin/roles'),
       apiV1.get<AdminPermission[]>('/admin/roles/permissions'),
     ]);
-    roles.value = rolesData || [];
-    permissions.value = permsData || [];
 
-    for (const role of roles.value) {
-      try {
-        const perms = await apiV1.get<string[]>(`/admin/roles/${role.id}/permissions`);
-        rolePermissionCounts.value[role.id] = perms.length;
-      } catch {
-        rolePermissionCounts.value[role.id] = 0;
-      }
+    if (rolesResult.status === 'fulfilled') {
+      rolesLoaded = true;
+      roles.value = rolesResult.value || [];
+      rolePermissionCounts.value = Object.fromEntries(
+        roles.value.map((role) => [role.id, role.permission_count || 0])
+      );
     }
+
+    if (permissionsResult.status === 'fulfilled') {
+      permissions.value = permissionsResult.value || [];
+      permissionsLoadFailed.value = false;
+      return;
+    }
+
+    permissions.value = [];
+    permissionsLoadFailed.value = true;
+    toast({
+      title: t('common.error'),
+      description: t('admin.roles.load_error'),
+      variant: 'destructive',
+    });
   } catch {
+    permissions.value = [];
+    permissionsLoadFailed.value = true;
     toast({
       title: t('common.error'),
       description: t('admin.roles.load_error'),
       variant: 'destructive',
     });
   } finally {
+    if (!rolesLoaded) {
+      roles.value = [];
+      rolePermissionCounts.value = {};
+    }
     loading.value = false;
   }
 });

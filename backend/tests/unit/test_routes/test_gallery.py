@@ -2,8 +2,10 @@
 Original gallery tests - updated for new pagination API
 """
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
+import httpx
 import pytest
 
 from main import app
@@ -98,6 +100,72 @@ def test_get_locations(client) -> None:
     assert response.json()[0]["longitude"] == pytest.approx(expected_lng, abs=1e-5)
 
 
+def test_get_ip_location(client) -> None:
+    mock_response = MagicMock()
+    mock_response.json.return_value = {"latitude": "13.7563", "longitude": "100.5018"}
+    mock_response.raise_for_status.return_value = None
+
+    with (
+        patch("routes.geo._cached_ip_location", {"latitude": None, "longitude": None}),
+        patch("routes.geo._cached_ip_location_expires_at", 0.0),
+        patch("routes.geo._rate_limit_backoff_until", 0.0),
+        patch("routes.geo.get_shared_httpx_client") as mock_get_client,
+    ):
+        mock_client = MagicMock()
+        mock_client.get = AsyncMock(return_value=mock_response)
+        mock_get_client.return_value = mock_client
+
+        response = client.get("/api/v1/geo/ip-location")
+
+    assert response.status_code == 200
+    assert response.json() == {"latitude": 13.7563, "longitude": 100.5018}
+
+
+def test_get_ip_location_returns_nulls_on_failure(client) -> None:
+    with (
+        patch("routes.geo._cached_ip_location", {"latitude": None, "longitude": None}),
+        patch("routes.geo._cached_ip_location_expires_at", 0.0),
+        patch("routes.geo._rate_limit_backoff_until", 0.0),
+        patch("routes.geo.get_shared_httpx_client") as mock_get_client,
+    ):
+        mock_client = MagicMock()
+        mock_client.get = AsyncMock(side_effect=Exception("lookup failed"))
+        mock_get_client.return_value = mock_client
+
+        response = client.get("/api/v1/geo/ip-location")
+
+    assert response.status_code == 200
+    assert response.json() == {"latitude": None, "longitude": None}
+
+
+def test_get_ip_location_skips_lookup_during_rate_limit_cooldown(client) -> None:
+    request = httpx.Request("GET", "https://ipapi.co/json/")
+    response = httpx.Response(429, request=request)
+    status_error = httpx.HTTPStatusError("Too Many Requests", request=request, response=response)
+
+    with (
+        patch("routes.geo._cached_ip_location", {"latitude": None, "longitude": None}),
+        patch("routes.geo._cached_ip_location_expires_at", 0.0),
+        patch("routes.geo._rate_limit_backoff_until", 0.0),
+        patch("routes.geo.get_shared_httpx_client") as mock_get_client,
+    ):
+        mock_client = MagicMock()
+        mock_client.get = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.raise_for_status.side_effect = status_error
+        mock_client.get.return_value = mock_response
+        mock_get_client.return_value = mock_client
+
+        first_response = client.get("/api/v1/geo/ip-location")
+        second_response = client.get("/api/v1/geo/ip-location")
+
+    assert first_response.status_code == 200
+    assert first_response.json() == {"latitude": None, "longitude": None}
+    assert second_response.status_code == 200
+    assert second_response.json() == {"latitude": None, "longitude": None}
+    assert mock_client.get.await_count == 1
+
+
 def test_get_viewport(client) -> None:
     mock_service = MagicMock()
     mock_service.get_nearby_photos = AsyncMock(
@@ -119,6 +187,33 @@ def test_get_viewport(client) -> None:
     expected_lat, expected_lng = protect_public_coordinates(10, 10, seed="1")
     assert response.json()["images"][0]["latitude"] == pytest.approx(expected_lat, abs=1e-5)
     assert response.json()["images"][0]["longitude"] == pytest.approx(expected_lng, abs=1e-5)
+
+
+def test_get_viewport_accepts_uuid_ids(client) -> None:
+    photo_id = uuid4()
+    user_id = uuid4()
+    mock_service = MagicMock()
+    mock_service.get_nearby_photos = AsyncMock(
+        return_value=[
+            {
+                "id": photo_id,
+                "user_id": user_id,
+                "image_url": "url",
+                "latitude": 10,
+                "longitude": 10,
+                "location_name": "loc",
+                "uploaded_at": "2024-03-20T10:00:00Z",
+            }
+        ]
+    )
+    app.dependency_overrides[get_gallery_service] = lambda: mock_service
+
+    response = client.get("/api/v1/gallery/viewport?north=10&south=5&east=10&west=5")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["images"][0]["id"] == str(photo_id)
+    assert data["images"][0]["user_id"] == str(user_id)
 
 
 def test_search_locations(client) -> None:

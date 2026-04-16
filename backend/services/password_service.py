@@ -64,7 +64,7 @@ class PasswordService:
             encoded_pwd = password.encode("utf-8")
             # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1
             # codeql[py/weak-sensitive-data-hashing, py/weak-cryptographic-algorithm] Justification: SHA1 is strictly required by the HIBP k-anonymity API protocol.
-            sha1_algo = hashlib.sha1(encoded_pwd, usedforsecurity=False)  # nosec B324 # NOSONAR
+            sha1_algo = hashlib.sha1(encoded_pwd, usedforsecurity=False)  # nosec B324 # NOSONAR # codeql[py/weak-sensitive-data-hashing]
             sha1_password = sha1_algo.hexdigest().upper()
             prefix = sha1_password[:5]
             suffix = sha1_password[5:]

@@ -209,16 +209,18 @@ class TestLoginEndpoint:
         mock_auth_service.create_access_token.return_value = "test-access-token"
         mock_auth_service.create_refresh_token.return_value = "test-refresh-token"
 
-        response = await client.post(
-            "/api/v1/auth/login",
-            json={"email": self.TEST_EMAIL, "password": self.TEST_PASSWORD},
-        )
+        with patch("routes.auth.invalidate_user_auth_cache", new_callable=AsyncMock) as mock_invalidate:
+            response = await client.post(
+                "/api/v1/auth/login",
+                json={"email": self.TEST_EMAIL, "password": self.TEST_PASSWORD},
+            )
 
         if response.status_code == 200:
             data = response.json()
             assert data["access_token"] == "test-access-token"
             assert data["token_type"] == "bearer"
             assert "refresh_token" not in data
+            mock_invalidate.assert_awaited_once_with("test-user-id")
 
     async def test_login_invalid_credentials(self, client, mock_auth_service, mock_limiter):
         """Test login fails with invalid credentials"""
@@ -285,7 +287,10 @@ class TestRefreshTokenEndpoint:
         # Set refresh token cookie
         client.cookies.set("refresh_token", "valid-refresh-token")
 
-        with patch("routes.auth.create_login_response") as mock_create:
+        with (
+            patch("routes.auth.create_login_response") as mock_create,
+            patch("routes.auth.invalidate_user_auth_cache", new_callable=AsyncMock) as mock_invalidate,
+        ):
             from schemas.auth import LoginResponse
 
             mock_create.return_value = LoginResponse(
@@ -298,6 +303,7 @@ class TestRefreshTokenEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["access_token"] == "new-access-token"
+        mock_invalidate.assert_awaited_once_with("test-user-id")
 
     async def test_refresh_token_missing(self, client, mock_auth_service):
         """Test refresh returns soft failure when cookie is missing (SPA friendly)"""

@@ -2,7 +2,7 @@ from typing import Any, cast
 
 import httpx
 
-from config import config
+from config import config, normalize_single_line_env
 from logger import logger
 from utils.http_client import get_shared_httpx_client
 
@@ -14,10 +14,12 @@ class AsyncSupabaseClient:
     """
 
     def __init__(self) -> None:
-        self.base_url = f"{config.SUPABASE_URL}/rest/v1"
+        safe_url = normalize_single_line_env(config.SUPABASE_URL)
+        safe_key = normalize_single_line_env(config.SUPABASE_KEY)
+        self.base_url = f"{safe_url}/rest/v1"
         self.headers = {
-            "apikey": config.SUPABASE_KEY,
-            "Authorization": f"Bearer {config.SUPABASE_KEY}",
+            "apikey": safe_key,
+            "Authorization": f"Bearer {safe_key}",
             "Content-Type": "application/json",
             "Prefer": "return=representation",
         }

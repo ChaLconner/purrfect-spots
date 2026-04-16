@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { useSubscriptionStore } from '@/store/subscriptionStore';
+import { useAuthStore } from '@/store/authStore';
 
 const mockGetStatus = vi.fn();
 const mockCreateCheckout = vi.fn();
@@ -35,7 +36,9 @@ vi.mock('@/services/treatsService', () => ({
 vi.mock('@/store/authStore', () => ({
   useAuthStore: vi.fn(() => ({
     isAuthenticated: true,
+    token: 'test-token',
     user: { id: 'user-123', is_pro: false, treat_balance: 0 },
+    initializeAuth: vi.fn().mockResolvedValue(undefined),
   })),
 }));
 
@@ -94,6 +97,27 @@ describe('subscriptionStore', () => {
 
       const store = useSubscriptionStore();
       await expect(store.fetchStatus()).resolves.not.toThrow();
+    });
+
+    it('waits for auth initialization before requesting status', async () => {
+      const initializeAuth = vi.fn().mockImplementation(async () => {
+        mockedAuthStore.token = 'restored-token';
+      });
+      const mockedAuthStore = {
+        isAuthenticated: true,
+        token: null,
+        user: { id: 'user-123', is_pro: false, treat_balance: 0 },
+        initializeAuth,
+      };
+
+      vi.mocked(useAuthStore).mockReturnValueOnce(mockedAuthStore as ReturnType<typeof useAuthStore>);
+      mockGetStatus.mockResolvedValue({ is_pro: true });
+
+      const store = useSubscriptionStore();
+      await store.fetchStatus();
+
+      expect(initializeAuth).toHaveBeenCalled();
+      expect(mockGetStatus).toHaveBeenCalledTimes(1);
     });
   });
 

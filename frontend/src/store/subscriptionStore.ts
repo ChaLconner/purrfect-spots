@@ -4,6 +4,7 @@ import { SubscriptionService } from '../services/subscriptionService';
 import { TreatsService } from '../services/treatsService';
 import { useAuthStore } from './authStore';
 import type { TreatPackage } from '@/types/subscription';
+import { setAccessToken } from '@/utils/api';
 
 export const useSubscriptionStore = defineStore('subscription', () => {
   const isPro = ref(false);
@@ -30,10 +31,25 @@ export const useSubscriptionStore = defineStore('subscription', () => {
       .sort((a, b) => a.amount - b.amount)
   );
 
+  async function ensureAccessToken(): Promise<boolean> {
+    if (!authStore.isAuthenticated) return false;
+    if (authStore.token) {
+      // Keep the API client auth header in sync with the Pinia auth state.
+      setAccessToken(authStore.token);
+      return true;
+    }
+
+    await authStore.initializeAuth();
+    if (authStore.token) {
+      setAccessToken(authStore.token);
+    }
+    return !!authStore.token;
+  }
+
   // ── Fetch subscription status ──────────────────────────────────
 
   async function fetchStatus(force = false): Promise<void> {
-    if (!authStore.isAuthenticated) return;
+    if (!(await ensureAccessToken())) return;
 
     const now = Date.now();
     if (!force && now - lastFetched.value < FETCH_COOLDOWN && isPro.value !== undefined) {
@@ -74,7 +90,7 @@ export const useSubscriptionStore = defineStore('subscription', () => {
   // ── Fetch treat balance ────────────────────────────────────────
 
   async function fetchTreatBalance(): Promise<void> {
-    if (!authStore.isAuthenticated) return;
+    if (!(await ensureAccessToken())) return;
 
     if (isLoadingBalance.value) return;
     isLoadingBalance.value = true;

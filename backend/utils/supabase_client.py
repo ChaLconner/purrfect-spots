@@ -1,13 +1,32 @@
-from config import config
+import os
+from typing import Any, cast
+
+from gotrue._async.storage import AsyncMemoryStorage
+
+from config import config, normalize_single_line_env
 from logger import logger
 from supabase import AClient, AClientOptions, Client, ClientOptions, acreate_client, create_client
+
+
+def _resolve_supabase_service_key() -> str:
+    """Resolve the service-role key from live environment first, then config cache."""
+    env_value = normalize_single_line_env(os.getenv("SUPABASE_SERVICE_ROLE_KEY", ""))
+    if env_value:
+        return env_value
+    return normalize_single_line_env(config.SUPABASE_SERVICE_KEY)
+
+
+def has_supabase_service_role_key() -> bool:
+    """Return True when a service-role key is currently available."""
+    return bool(_resolve_supabase_service_key())
+
 
 # Initialize Supabase clients
 # Use a fail-soft approach for development/test environments
 is_production = config.ENVIRONMENT.lower() == "production"
 
-supabase_url = config.SUPABASE_URL
-supabase_key = config.SUPABASE_KEY
+supabase_url = normalize_single_line_env(config.SUPABASE_URL)
+supabase_key = normalize_single_line_env(config.SUPABASE_KEY)
 
 if not supabase_url:
     if is_production:
@@ -33,6 +52,7 @@ client_options = ClientOptions(
 )
 
 async_client_options = AClientOptions(
+    storage=cast(Any, AsyncMemoryStorage()),
     postgrest_client_timeout=30.0,
     storage_client_timeout=30.0,
 )
@@ -41,7 +61,7 @@ async_client_options = AClientOptions(
 supabase: Client = create_client(supabase_url, supabase_key, options=client_options)
 
 # Admin client
-supabase_service_key = config.SUPABASE_SERVICE_KEY
+supabase_service_key = _resolve_supabase_service_key()
 supabase_admin: Client | None = None
 if supabase_service_key:
     supabase_admin = create_client(supabase_url, supabase_service_key, options=client_options)
@@ -64,6 +84,7 @@ def get_supabase_admin_client() -> Client:
 
 _async_supabase: AClient | None = None
 _async_supabase_admin: AClient | None = None
+_async_supabase_admin_key: str | None = None
 
 
 async def get_async_supabase_client() -> AClient:
@@ -74,16 +95,28 @@ async def get_async_supabase_client() -> AClient:
     return _async_supabase
 
 
-async def get_async_supabase_admin_client() -> AClient:
+def reset_async_supabase_admin_client() -> None:
+    """Drop the cached async admin client so the next request recreates it."""
+    global _async_supabase_admin, _async_supabase_admin_key
+    _async_supabase_admin = None
+    _async_supabase_admin_key = None
+
+
+async def get_async_supabase_admin_client(force_refresh: bool = False) -> AClient:
     """Get high-performance async Supabase admin client (bypasses RLS)"""
-    global _async_supabase_admin
-    if _async_supabase_admin is None:
-        service_key = config.SUPABASE_SERVICE_KEY
+    global _async_supabase_admin, _async_supabase_admin_key
+    service_key = _resolve_supabase_service_key()
+
+    if force_refresh:
+        reset_async_supabase_admin_client()
+
+    if _async_supabase_admin is None or _async_supabase_admin_key != service_key:
         if not service_key:
             logger.error("SUPABASE_SERVICE_ROLE_KEY is missing! Admin client cannot bypass RLS.")
             if config.is_production():
                 raise ValueError("SUPABASE_SERVICE_ROLE_KEY is required for admin operations")
-            service_key = config.SUPABASE_KEY  # Dev fallback
+            service_key = normalize_single_line_env(config.SUPABASE_KEY)  # Dev fallback
 
         _async_supabase_admin = await acreate_client(supabase_url, service_key, options=async_client_options)
+        _async_supabase_admin_key = service_key
     return _async_supabase_admin

@@ -77,5 +77,5 @@ fix(auth): correct password validation logic and update login styles
 
 We use **Husky** and **lint-staged** to ensure code quality before it reaches the repository.
 
-- **Pre-commit**: Runs linters and tests.
-- **Commit-msg**: (Optional/Recommended) Use a tool like `commitlint` to enforce message format.
+- **Pre-commit**: Runs linters and relevant type-checks.
+- **Commit-msg**: Enforces Conventional Commit format on the first line.

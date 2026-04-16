@@ -30,7 +30,7 @@ class TestAdminRoutesExtended:
             email="admin@example.com",
             name="Admin User",
             role="admin",
-            permissions=["users:read", "users:update", "roles:read", "system:audit_logs"],
+            permissions=["users:read", "users:update", "roles:read", "audit:read"],
         )
 
     @pytest.fixture
@@ -43,9 +43,10 @@ class TestAdminRoutesExtended:
 
     def test_list_roles_success(self, client, override_current_user, mock_supabase_admin) -> None:
         """Test listing roles"""
-        mock_supabase_admin.execute.return_value = MagicMock(
-            data=[{"id": "r1", "name": "Admin"}, {"id": "r2", "name": "User"}]
-        )
+        mock_supabase_admin.execute.side_effect = [
+            MagicMock(data=[{"id": "r1", "name": "Admin"}, {"id": "r2", "name": "User"}]),
+            MagicMock(data=[{"role_id": "r1"}, {"role_id": "r1"}, {"role_id": "r2"}]),
+        ]
 
         with patch(
             "routes.admin.roles.get_async_supabase_admin_client",
@@ -58,6 +59,66 @@ class TestAdminRoutesExtended:
         data = response.json()
         assert len(data) == 2
         assert data[0]["name"] == "Admin"
+        assert data[0]["permission_count"] == 2
+
+    def test_list_permissions_success(self, client, override_current_user, mock_supabase_admin) -> None:
+        """Test listing permissions returns the frontend-friendly group field."""
+        mock_supabase_admin.execute.return_value = MagicMock(
+            data=[
+                {
+                    "id": "p1",
+                    "code": "roles:manage",
+                    "description": "Manage roles",
+                    "group": "Role Management",
+                }
+            ]
+        )
+
+        with patch(
+            "routes.admin.roles.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
+            response = client.get("/api/v1/admin/roles/permissions")
+
+        assert response.status_code == 200
+        assert response.json() == [
+            {
+                "id": "p1",
+                "code": "roles:manage",
+                "description": "Manage roles",
+                "group": "Role Management",
+            }
+        ]
+
+    def test_update_role_permissions_invalidates_auth_cache_for_users_in_role(
+        self, client, override_current_user, mock_supabase_admin
+    ) -> None:
+        role_id = "role-123"
+        mock_supabase_admin.execute.side_effect = [
+            MagicMock(),  # delete existing role_permissions
+            MagicMock(),  # insert new role_permissions
+            MagicMock(),  # audit log insert
+            MagicMock(data=[{"id": "user-1"}, {"id": "user-2"}]),  # users in role
+        ]
+
+        with (
+            patch(
+                "routes.admin.roles.get_async_supabase_admin_client",
+                new_callable=AsyncMock,
+                return_value=mock_supabase_admin,
+            ),
+            patch("routes.admin.roles.invalidate_user_auth_cache", new_callable=AsyncMock) as mock_invalidate,
+        ):
+            response = client.post(
+                f"/api/v1/admin/roles/{role_id}/permissions",
+                json={"role_id": role_id, "permission_ids": ["perm-1", "perm-2"]},
+            )
+
+        assert response.status_code == 200
+        assert mock_invalidate.await_count == 2
+        mock_invalidate.assert_any_await("user-1")
+        mock_invalidate.assert_any_await("user-2")
 
     def test_update_user_role_success(self, client, override_current_user, mock_supabase_admin) -> None:
         """Test updating user role"""
@@ -313,3 +374,36 @@ class TestAdminContentRoutes:
 
         assert response.status_code == 200
         assert response.json()["status"] == "resolved"
+
+    def test_update_report_returns_not_found_without_masking_http_exception(
+        self, client, override_admin, mock_supabase_admin
+    ) -> None:
+        report_id = "00000000-0000-0000-0000-000000000099"
+        update_data = {"status": "resolved", "resolution_notes": "Done", "delete_content": True}
+
+        mock_supabase_admin.execute.return_value = MagicMock(data=None)
+
+        with patch(
+            "routes.admin.reports.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
+            response = client.put(f"/api/v1/admin/reports/{report_id}", json=update_data)
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Report not found"
+
+    def test_update_report_rejects_pending_status_payload(self, client, override_admin, mock_supabase_admin) -> None:
+        report_id = "00000000-0000-0000-0000-000000000003"
+
+        with patch(
+            "routes.admin.reports.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
+            response = client.put(
+                f"/api/v1/admin/reports/{report_id}",
+                json={"status": "pending", "resolution_notes": "Reopen"},
+            )
+
+        assert response.status_code == 422

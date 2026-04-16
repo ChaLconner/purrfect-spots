@@ -1,7 +1,6 @@
 from typing import Any, cast
 
 import structlog  # type: ignore[import-untyped, unused-ignore]
-
 from schemas.user import User
 from services.password_service import password_service
 from services.user.base_mixin import UserBaseMixin
@@ -56,9 +55,16 @@ class UserAuthMixin(UserBaseMixin):
         """Authenticate user using Supabase Auth (Async)"""
         try:
             res = await self.supabase.auth.sign_in_with_password({"email": email, "password": password})
+            if not res:
+                logger.error("Supabase returned None result for login", email=email)
+                return None
             if res.user and res.session:
                 # Need to use the main class's get_user_by_id (inherited via mixins)
-                user = cast(User, await self.get_user_by_id(res.user.id))
+                get_user = getattr(self, "get_user_by_id", None)
+                if get_user is None:
+                    logger.error("get_user_by_id is missing from UserService")
+                    return None
+                user = cast(User, await get_user(res.user.id))
                 if user:
                     user_dict = user.model_dump()
                     user_dict.update(
@@ -82,5 +88,5 @@ class UserAuthMixin(UserBaseMixin):
                 }
             return None
         except Exception as e:
-            logger.warning("Authentication failure: %s", e)
+            logger.error("Authentication failure", error=str(e), email=email)
             return None

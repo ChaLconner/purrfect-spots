@@ -327,6 +327,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { PERMISSIONS } from '@/constants/permissions';
 import { apiV1 } from '@/utils/api';
 import { useAuthStore } from '@/store/authStore';
 import { useToast } from '@/components/toast/use-toast';
@@ -362,10 +363,10 @@ const isLoading = ref(false);
 const previewImage = ref<AdminPhoto | null>(null);
 
 const canDeleteContent = computed(
-  (): boolean => authStore.hasPermission('content:delete') || authStore.isAdmin
+  (): boolean => authStore.hasPermission(PERMISSIONS.CONTENT_DELETE) || authStore.isAdmin
 );
 const canWriteContent = computed(
-  (): boolean => authStore.hasPermission('content:write') || authStore.isAdmin
+  (): boolean => authStore.hasPermission(PERMISSIONS.CONTENT_WRITE) || authStore.isAdmin
 );
 const searchTimeoutId = ref<ReturnType<typeof setTimeout> | null>(null);
 
@@ -384,7 +385,7 @@ const isDeleting = ref(false);
 
 const startEdit = (photo: AdminPhoto): void => {
   if (!canWriteContent.value) {
-    console.warn('User does not have content:write permission');
+    console.warn(`User does not have ${PERMISSIONS.CONTENT_WRITE} permission`);
     toast({
       title: t('admin.photos.action_denied'),
       description: t('admin.photos.no_permission'),

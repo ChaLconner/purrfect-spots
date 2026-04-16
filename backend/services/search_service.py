@@ -71,24 +71,34 @@ class SearchService:
         # Try SQL approach first
         if self.db:
             try:
-                # PostgreSQL websearch_to_tsquery example
-                sql = (
-                    f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos "  # noqa: S608
-                    f"WHERE deleted_at IS NULL AND status = '{self.APPROVED_STATUS}' "  # noqa: S608
-                    "AND search_vector @@ websearch_to_tsquery('english', :query)"
-                )
-                params: dict[str, Any] = {"query": query}
+                params: dict[str, Any] = {"query": query, "approved_status": self.APPROVED_STATUS}
 
                 if tags:
                     clean_tags = [tag.strip().lower().replace("#", "") for tag in tags]
-                    sql += " AND tags @> :tags"
                     params["tags"] = clean_tags
+                    sql_query = text(
+                        "SELECT id, image_url, latitude, longitude, description, location_name, uploaded_at, tags, "
+                        "likes_count, comments_count, user_id "
+                        "FROM cat_photos "
+                        "WHERE deleted_at IS NULL AND status = :approved_status "
+                        "AND search_vector @@ websearch_to_tsquery('english', :query) "
+                        "AND tags @> :tags "
+                        "ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
+                    )
+                else:
+                    sql_query = text(
+                        "SELECT id, image_url, latitude, longitude, description, location_name, uploaded_at, tags, "
+                        "likes_count, comments_count, user_id "
+                        "FROM cat_photos "
+                        "WHERE deleted_at IS NULL AND status = :approved_status "
+                        "AND search_vector @@ websearch_to_tsquery('english', :query) "
+                        "ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
+                    )
 
-                sql += " ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
                 params["limit"] = limit
                 params["offset"] = offset
 
-                result = await self.db.execute(text(sql), params)
+                result = await self.db.execute(sql_query, params)
                 return [dict(row._mapping) for row in result.fetchall()]
             except Exception as e:
                 logger.warning("SQL full-text search failed, falling back to Supabase client: %s", e)
@@ -121,24 +131,56 @@ class SearchService:
         # Try SQL approach first
         if self.db:
             try:
-                sql = f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE deleted_at IS NULL AND status = '{self.APPROVED_STATUS}'"  # noqa: S608
-                params: dict[str, Any] = {}
+                params: dict[str, Any] = {"approved_status": self.APPROVED_STATUS}
+                sql_query: Any
 
                 if query:
                     safe_query = f"%{escape_like_pattern(query)}%"
-                    sql += " AND (location_name ILIKE :query OR description ILIKE :query)"
                     params["query"] = safe_query
 
                 if tags:
                     clean_tags = [tag.strip().lower().replace("#", "") for tag in tags]
-                    sql += " AND tags @> :tags"
                     params["tags"] = clean_tags
-
-                sql += " ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
+                if query and tags:
+                    sql_query = text(
+                        "SELECT id, image_url, latitude, longitude, description, location_name, uploaded_at, tags, "
+                        "likes_count, comments_count, user_id "
+                        "FROM cat_photos "
+                        "WHERE deleted_at IS NULL AND status = :approved_status "
+                        "AND (location_name ILIKE :query OR description ILIKE :query) "
+                        "AND tags @> :tags "
+                        "ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
+                    )
+                elif query:
+                    sql_query = text(
+                        "SELECT id, image_url, latitude, longitude, description, location_name, uploaded_at, tags, "
+                        "likes_count, comments_count, user_id "
+                        "FROM cat_photos "
+                        "WHERE deleted_at IS NULL AND status = :approved_status "
+                        "AND (location_name ILIKE :query OR description ILIKE :query) "
+                        "ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
+                    )
+                elif tags:
+                    sql_query = text(
+                        "SELECT id, image_url, latitude, longitude, description, location_name, uploaded_at, tags, "
+                        "likes_count, comments_count, user_id "
+                        "FROM cat_photos "
+                        "WHERE deleted_at IS NULL AND status = :approved_status "
+                        "AND tags @> :tags "
+                        "ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
+                    )
+                else:
+                    sql_query = text(
+                        "SELECT id, image_url, latitude, longitude, description, location_name, uploaded_at, tags, "
+                        "likes_count, comments_count, user_id "
+                        "FROM cat_photos "
+                        "WHERE deleted_at IS NULL AND status = :approved_status "
+                        "ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
+                    )
                 params["limit"] = limit
                 params["offset"] = offset
 
-                result = await self.db.execute(text(sql), params)
+                result = await self.db.execute(sql_query, params)
                 return [dict(row._mapping) for row in result.fetchall()]
             except Exception as e:
                 logger.warning("SQL ILIKE search failed, falling back to Supabase client: %s", e)

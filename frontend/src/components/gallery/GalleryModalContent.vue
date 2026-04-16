@@ -8,6 +8,7 @@ import { showSuccess, showError } from '@/store/toast';
 import { useCatsStore } from '@/store';
 import { extractTags, getCleanDescription } from '@/store/catsStore';
 import type { CatLocation } from '@/types/api';
+import { openTrustedExternalUrl } from '@/utils/security';
 import LikeButton from '@/components/social/LikeButton.vue';
 import CommentList from '@/components/social/CommentList.vue';
 import ReportModal from '@/components/ui/ReportModal.vue';
@@ -130,7 +131,7 @@ function openDirections(): void {
   const lat = props.image.latitude;
   const lng = props.image.longitude;
   const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-  window.open(url, '_blank');
+  openTrustedExternalUrl(url);
 }
 </script>
 

@@ -248,13 +248,13 @@ const handleVerify = async (): Promise<void> => {
     const response = await AuthService.verifyOtp(email.value, otpCode.value);
 
     if (response.access_token && response.user) {
-      authStore.setAuth(response);
+      await authStore.setAuth(response);
       showSuccess(t('auth.verifyEmail.successMessage'), t('auth.verifyEmail.successTitle'));
 
-      const redirectPath = sessionStorage.getItem('redirectAfterAuth');
+      const redirectPath = getSafeRedirect(sessionStorage.getItem('redirectAfterAuth'));
       sessionStorage.removeItem('redirectAfterAuth');
 
-      router.push(getSafeRedirect(redirectPath));
+      router.push(redirectPath);
     }
   } catch (err: unknown) {
     hasError.value = true;

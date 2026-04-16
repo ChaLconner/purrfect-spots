@@ -14,6 +14,7 @@ from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp
 
 from logger import logger
+from utils.auth_utils import get_client_info
 from utils.http_client import get_shared_httpx_client
 
 
@@ -63,7 +64,7 @@ class GeoBlockingMiddleware(BaseHTTPMiddleware):
 
         try:
             client = get_shared_httpx_client()
-            response = await client.get(f"http://ip-api.com/json/{ip_address}?fields=countryCode,status", timeout=2.0)
+            response = await client.get(f"https://ip-api.com/json/{ip_address}?fields=countryCode,status", timeout=2.0)
             if response.status_code == 200:
                 data = response.json()
                 if data.get("status") == "success":
@@ -91,12 +92,7 @@ class GeoBlockingMiddleware(BaseHTTPMiddleware):
         if not self._is_admin_path(request.url.path):
             return await call_next(request)
 
-        # Get client IP (respecting proxy headers)
-        forwarded_for = request.headers.get("X-Forwarded-For", "")
-        if forwarded_for:
-            client_ip = forwarded_for.split(",")[0].strip()
-        else:
-            client_ip = request.client.host if request.client else "unknown"
+        client_ip, _ = get_client_info(request)
 
         # Get country code
         country_code = await self._get_country_code(client_ip)

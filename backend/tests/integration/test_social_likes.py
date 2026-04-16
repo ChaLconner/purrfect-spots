@@ -16,9 +16,13 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 
-@pytest.mark.skipif(
-    not SUPABASE_URL or not SUPABASE_SERVICE_KEY, reason="Supabase credentials not found in environment"
-)
+def _has_remote_supabase_target() -> bool:
+    return bool(
+        SUPABASE_URL and SUPABASE_SERVICE_KEY and "localhost" not in SUPABASE_URL and "127.0.0.1" not in SUPABASE_URL
+    )
+
+
+@pytest.mark.skipif(not _has_remote_supabase_target(), reason="Remote Supabase integration target not configured")
 @pytest.mark.skipif(isinstance(create_client, MagicMock), reason="Supabase module is mocked (missing dependencies)")
 class TestSocialLikesIntegration:
     """Integration tests for social features (likes) using real database"""
@@ -32,7 +36,12 @@ class TestSocialLikesIntegration:
         )
         assert SUPABASE_URL is not None
         assert SUPABASE_SERVICE_KEY is not None
-        return create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=options)
+        client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=options)
+        try:
+            client.auth.admin.list_users(per_page=1)
+        except Exception as exc:
+            pytest.skip(f"Supabase admin API is not reachable with the configured service key: {exc}")
+        return client
 
     @pytest.fixture(scope="class")
     def test_user(self, supabase: Client) -> Any:

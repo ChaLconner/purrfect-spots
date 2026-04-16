@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Any, cast
 
 import stripe
-from sqlalchemy import text
+from sqlalchemy import bindparam, column, select, table, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
@@ -41,6 +41,19 @@ class SubscriptionService:
         self.db = db
         self.treats_service = TreatsService(supabase_client, db=db)
 
+    @staticmethod
+    def _users_table() -> Any:
+        return table(
+            "users",
+            column("id"),
+            column("email"),
+            column("stripe_customer_id"),
+            column("is_pro"),
+            column("subscription_end_date"),
+            column("cancel_at_period_end"),
+            column("treat_balance"),
+        )
+
     # ── DB helpers ────────────────────────────────────────────────────
 
     async def _get_user_data(self, filters: dict[str, Any], fields: str = "*") -> dict[str, Any] | None:
@@ -48,12 +61,29 @@ class SubscriptionService:
         try:
             if self.db:
                 db_session = self.db
-                allowed_keys = {"id", "email", "stripe_customer_id"}
+                allowed_keys = {
+                    "id",
+                    "email",
+                    "stripe_customer_id",
+                    "is_pro",
+                    "subscription_end_date",
+                    "cancel_at_period_end",
+                    "treat_balance",
+                }
                 where_conditions = [f"{k} = :{k}" for k in filters if k in allowed_keys]
-                safe_fields = fields  # always passed as constants
-                where_clause = " AND ".join(where_conditions)
-                sql_query = text(f"SELECT {safe_fields} FROM users WHERE {where_clause}")  # noqa: S608
-                result = await db_session.execute(sql_query, filters)
+                if fields == "*":
+                    selected_fields = list(allowed_keys)
+                else:
+                    selected_fields = [field.strip() for field in fields.split(",") if field.strip() in allowed_keys]
+                if not selected_fields or not where_conditions:
+                    return None
+                users = self._users_table()
+                query = (
+                    select(*(getattr(users.c, field) for field in selected_fields))
+                    .where(*(getattr(users.c, key) == bindparam(key) for key in filters if key in allowed_keys))
+                    .limit(1)
+                )
+                result = await db_session.execute(query, {key: filters[key] for key in filters if key in allowed_keys})
                 row = result.fetchone()
                 return dict(row._mapping) if row else None
 
@@ -85,11 +115,31 @@ class SubscriptionService:
                 params = {f"val_{k}": v for k, v in updates.items() if k in allowed_updates}
                 params.update({f"find_{k}": v for k, v in filters.items() if k in allowed_filters})
 
-                set_clause = ", ".join(set_parts)
-                where_clause = " AND ".join(where_parts)
+                if not set_parts or not where_parts:
+                    return None
 
-                sql_query = text(f"UPDATE users SET {set_clause} WHERE {where_clause} RETURNING *")  # noqa: S608
-                result = await db_session.execute(sql_query, params)
+                users = self._users_table()
+                query = (
+                    update(users)
+                    .where(
+                        *(
+                            getattr(users.c, key) == bindparam(f"find_{key}")
+                            for key in filters
+                            if key in allowed_filters
+                        )
+                    )
+                    .values({key: bindparam(f"val_{key}") for key in updates if key in allowed_updates})
+                    .returning(
+                        users.c.id,
+                        users.c.email,
+                        users.c.stripe_customer_id,
+                        users.c.is_pro,
+                        users.c.subscription_end_date,
+                        users.c.cancel_at_period_end,
+                        users.c.treat_balance,
+                    )
+                )
+                result = await db_session.execute(query, params)
                 await db_session.commit()
                 row = result.fetchone()
                 return dict(row._mapping) if row else None

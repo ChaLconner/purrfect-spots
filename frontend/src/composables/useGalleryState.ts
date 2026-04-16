@@ -1,10 +1,10 @@
-import { ref, watch, nextTick, type Ref } from 'vue';
+import { ref, watch, nextTick } from 'vue';
 import { GalleryService } from '@/services/galleryService';
 import { useCatsStore } from '@/store';
 import { GALLERY_CONFIG } from '@/utils/constants';
 import type { CatLocation } from '@/types/api';
 
-export function useGalleryState(isInitialized: Ref<boolean>): {
+export function useGalleryState(): {
   loading: Ref<boolean>;
   loadingMore: Ref<boolean>;
   error: Ref<string>;
@@ -17,27 +17,30 @@ export function useGalleryState(isInitialized: Ref<boolean>): {
 } {
   const catsStore = useCatsStore();
 
-  const loading = ref(true);
+  const loading = ref(catsStore.locations.length === 0);
   const loadingMore = ref(false);
   const error = ref('');
-  const visibleImages = ref<CatLocation[]>([]);
+  const visibleImages = ref<CatLocation[]>(catsStore.locations);
 
   const currentPage = ref(1);
   const imagesPerPage = GALLERY_CONFIG.IMAGES_PER_PAGE;
-  const hasMoreImages = ref(false);
-  const totalImages = ref(0);
+  const hasMoreImages = ref(catsStore.locations.length > 0);
+  const totalImages = ref(catsStore.locations.length);
 
   const preloadedLinks: HTMLLinkElement[] = [];
 
   async function fetchGalleryData(reset = false, callback?: () => void): Promise<void> {
-    if (!isInitialized.value) return;
+    const hasData = visibleImages.value.length > 0;
 
     if (reset) {
-      loading.value = true;
+      // Only show full-page loading if we don't have any cached data
+      if (!hasData) {
+        loading.value = true;
+      }
       currentPage.value = 1;
-      visibleImages.value = [];
+      // Note: We don't clear visibleImages here if hasData is true, 
+      // were implementing stale-while-revalidate behavior.
       hasMoreImages.value = true;
-      totalImages.value = 0;
     } else {
       loadingMore.value = true;
     }
@@ -59,7 +62,7 @@ export function useGalleryState(isInitialized: Ref<boolean>): {
 
         newImages = response.results || [];
         total = response.total || 0;
-        hasNext = visibleImages.value.length + newImages.length < total;
+        hasNext = (reset ? 0 : visibleImages.value.length) + newImages.length < total;
       } else {
         const response = await GalleryService.getImages({
           page: currentPage.value,
@@ -100,8 +103,10 @@ export function useGalleryState(isInitialized: Ref<boolean>): {
     } catch (err: unknown) {
       const message = (err as Error).message || 'Failed to load images from server';
       console.error(`[Gallery] Error fetching data:`, err);
-      error.value = message;
-      if (reset) visibleImages.value = [];
+      // Only show error if we have no data
+      if (visibleImages.value.length === 0) {
+        error.value = message;
+      }
     } finally {
       loading.value = false;
       loadingMore.value = false;
@@ -121,9 +126,9 @@ export function useGalleryState(isInitialized: Ref<boolean>): {
   function preloadFirstImages(): void {
     if (preloadedLinks.length > 0) return;
 
-    const imagesToPreload = visibleImages.value.slice(0, 6);
+    const criticalImages = visibleImages.value.slice(0, 2);
 
-    imagesToPreload.forEach((image, index) => {
+    criticalImages.forEach((image, index) => {
       if (image.image_url) {
         const link = document.createElement('link');
         link.rel = 'preload';

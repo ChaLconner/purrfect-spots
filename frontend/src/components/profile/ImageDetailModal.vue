@@ -191,7 +191,7 @@ const handleReportClick = (): void => {
                     class="relative w-10 h-10 sm:w-11 sm:h-11 md:w-12 md:h-12 transition-transform hover:scale-110 active:scale-95"
                   >
                     <img
-                      src="/give-treat.png"
+                      src="/give-treat.webp"
                       :alt="t('profile.giveTreat')"
                       class="w-full h-full object-contain filter drop-shadow-sm"
                     />

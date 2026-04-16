@@ -1,5 +1,5 @@
 <template>
-  <img src="/logo.png" alt="Purrfect Spots Logo" class="purrfect-logo-img" />
+  <img src="/logo.webp" alt="Purrfect Spots Logo" class="purrfect-logo-img" />
 </template>
 
 <script lang="ts" setup>

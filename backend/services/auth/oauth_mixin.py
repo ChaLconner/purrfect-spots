@@ -1,9 +1,9 @@
 import uuid
 from typing import Any, cast
 
-import structlog
 from sqlalchemy import text
 
+import structlog
 from schemas.auth import LoginResponse
 from schemas.user import UserResponse
 from services.auth.base_mixin import AuthBaseMixin

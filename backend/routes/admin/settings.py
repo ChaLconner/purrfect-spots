@@ -17,44 +17,80 @@ from schemas.user import User
 from services.email_service import email_service
 from services.encryption_service import encryption_service
 from services.line_service import line_service
+from services.redis_service import redis_service
 
 router = APIRouter()
+
+
+PENDING_SETTINGS_CACHE_KEY = "admin_settings_pending"
+
+
+def _settings_cache_key(category: str | None) -> str:
+    return f"admin_settings:{category or 'all'}"
+
+
+def _settings_history_cache_key(key: str) -> str:
+    return f"admin_settings_history:{key}"
+
+
+async def _invalidate_settings_cache(config_key: str | None = None) -> None:
+    await redis_service.delete_pattern("admin_settings:*")
+    await redis_service.delete(PENDING_SETTINGS_CACHE_KEY)
+    if config_key:
+        await redis_service.delete(_settings_history_cache_key(config_key))
 
 
 @router.get("", response_model=list[ConfigResponse])
 async def get_all_settings(
     current_admin: Annotated[User, Depends(require_permission("system:settings"))],
     category: Annotated[str | None, Query()] = None,
+    cache_bust: Annotated[str | None, Query()] = None,
 ) -> list[dict[str, Any]]:
     """Get all system settings with metadata."""
     try:
-        admin_client = await get_async_supabase_admin_client()
-        query = (
-            admin_client.table("system_configs")
-            .select(
-                "key, value, type, description, is_public, is_encrypted, updated_at, category, requires_approval, updated_by"
+        cache_key = _settings_cache_key(category)
+        if not cache_bust:
+            cached = await redis_service.get(cache_key)
+        else:
+            cached = None
+        if cached is not None:
+            raw_items = cached
+        else:
+            admin_client = await get_async_supabase_admin_client()
+            query = (
+                admin_client.table("system_configs")
+                .select(
+                    "key, value, type, description, is_public, is_encrypted, updated_at, category, requires_approval, updated_by"
+                )
+                .order("category")
+                .order("key")
             )
-            .order("category")
-            .order("key")
-        )
-        if category:
-            query = query.eq("category", category)
-        result = await query.execute()
+            if category:
+                query = query.eq("category", category)
+            result = await query.execute()
+            raw_items = result.data or []
+            if not cache_bust:
+                await redis_service.set(cache_key, raw_items, expire=120)
 
         # SECURITY: Decrypt encrypted values before returning
         decrypted_data = []
-        for item in result.data or []:
+        for cached_item in raw_items:
+            item = dict(cached_item)
             if item.get("is_encrypted") and isinstance(item.get("value"), dict):
                 try:
                     item["value"] = encryption_service.decrypt_value(item["value"])
                     item["is_encrypted_display"] = True
                 except Exception as e:
-                    logger.warning("Failed to decrypt setting %s: %s", item.get("key"), e)
+                    logger.warning(
+                        "Failed to decrypt setting %s: %s",
+                        str(item.get("key")).replace("\n", " "),
+                        str(e).replace("\n", " "),
+                    )
                     item["value"] = "[ENCRYPTED - Unable to decrypt]"
                     item["is_encrypted_display"] = True
             decrypted_data.append(item)
 
-        return decrypted_data
+        return cast(list[dict[str, Any]], decrypted_data)
     except Exception as e:
         logger.error("Failed to fetch settings: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch system settings")
@@ -66,6 +102,11 @@ async def get_setting_history(
 ) -> list[dict[str, Any]]:
     """Get evolution history for a specific setting."""
     try:
+        cache_key = _settings_history_cache_key(key)
+        cached = await redis_service.get(cache_key)
+        if cached is not None:
+            return cast(list[dict[str, Any]], cached)
+
         admin_client = await get_async_supabase_admin_client()
         result = (
             await admin_client.table("config_history")
@@ -81,7 +122,8 @@ async def get_setting_history(
             user_info = entry.pop("user", None)
             entry["user_email"] = user_info.get("email") if isinstance(user_info, dict) else None
             history_entries.append(entry)
-        return history_entries
+        await redis_service.set(cache_key, history_entries, expire=120)
+        return cast(list[dict[str, Any]], history_entries)
     except Exception as e:
         logger.error("Failed to fetch history for %s: %s", key, e)
         raise HTTPException(status_code=500, detail="Failed to fetch config history")
@@ -140,6 +182,7 @@ async def update_setting(
             msg = f"\n[PURRFECT ADMIN]\n⚠️ Approval Required\nSetting: {key}\nRequested by: {requester_name}"
             await line_service.send_notification(msg)
 
+            await _invalidate_settings_cache(key)
             return cast(dict[str, Any], pending.data[0])
 
         # Immediate update if no approval needed
@@ -174,6 +217,7 @@ async def update_setting(
             .execute()
         )
 
+        await _invalidate_settings_cache(key)
         return cast(dict[str, Any], result.data)
     except HTTPException:
         raise
@@ -185,9 +229,14 @@ async def update_setting(
 @router.get("/pending", response_model=list[PendingConfigChangeResponse])
 async def get_pending_changes(
     current_admin: Annotated[User, Depends(require_permission("system:settings"))],
+    cache_bust: Annotated[str | None, Query()] = None,
 ) -> list[dict[str, Any]]:
     """Get all pending config changes (Checkers)"""
     try:
+        cached = None if cache_bust else await redis_service.get(PENDING_SETTINGS_CACHE_KEY)
+        if cached is not None:
+            return cast(list[dict[str, Any]], cached)
+
         admin_client = await get_async_supabase_admin_client()
         result = (
             await admin_client.table("pending_config_changes")
@@ -215,7 +264,9 @@ async def get_pending_changes(
             item["current_value"] = current_values_by_key.get(item["config_key"])
             normalized_changes.append(item)
 
-        return normalized_changes
+        if not cache_bust:
+            await redis_service.set(PENDING_SETTINGS_CACHE_KEY, normalized_changes, expire=60)
+        return cast(list[dict[str, Any]], normalized_changes)
     except Exception as e:
         logger.error("Failed to fetch pending changes: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch pending changes")
@@ -301,6 +352,7 @@ async def approve_change(
                 (current_admin.name or current_admin.email),
             )
 
+        await _invalidate_settings_cache(change["config_key"])
         return cast(dict[str, Any], update_result.data)
     except Exception as e:
         if isinstance(e, HTTPException):
@@ -356,6 +408,7 @@ async def reject_change(
                 str(payload.rejection_reason or ""),
             )
 
+        await _invalidate_settings_cache(change["config_key"])
         return {"status": "rejected", "change_id": change_id}
     except HTTPException:
         raise

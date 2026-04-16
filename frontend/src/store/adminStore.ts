@@ -168,8 +168,8 @@ export const useAdminStore = defineStore('admin', {
       }
     },
 
-    subscribeToReports() {
-      if (this.reportChannel) return;
+    subscribeToReports(enabled: boolean = true) {
+      if (!enabled || this.reportChannel) return;
 
       this.reportChannel = supabase
         .channel('admin-reports')
@@ -177,10 +177,12 @@ export const useAdminStore = defineStore('admin', {
         // to avoid unnecessary refreshes on resolution/dismissal actions.
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reports' }, () => {
           // FIX: Debounce to avoid backend hammering when multiple reports arrive quickly.
-          // FIX: force=false so the 30-second frontend cache still applies.
+          // Reflect new pending work immediately in the sidebar badge, then
+          // force a refresh so server truth reconciles counts and related stats.
+          this.stats.pending_reports += 1;
           if (this._realtimeDebounceTimer) clearTimeout(this._realtimeDebounceTimer);
           this._realtimeDebounceTimer = setTimeout(() => {
-            this.fetchStats(false);
+            void this.fetchStats(true);
           }, 5000);
         })
         .subscribe();

@@ -7,9 +7,10 @@
 import { defineStore } from 'pinia';
 import { ref, computed, watch } from 'vue';
 import { supabase } from '../lib/supabase';
-import { PERMISSIONS } from '../constants/permissions';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { User, LoginResponse } from '../types/auth';
+import { canAccessAdminShell, hasAdminBypass } from '../utils/adminAccess';
+import { normalizePermissions } from '../utils/permissionNormalization';
 
 import { apiV1, setAccessToken, setAuthCallbacks } from '../utils/api';
 import { ProfileService } from '../services/profileService';
@@ -25,23 +26,64 @@ function updateApiHeader(accessToken: string | null): void {
   }
 }
 
+function normalizeUserData(userData: User | null): User | null {
+  if (!userData) {
+    return null;
+  }
+
+  return {
+    ...userData,
+    permissions: normalizePermissions(userData.permissions),
+  };
+}
+
 /**
  * Filter sensitive fields before caching to localStorage
  */
 function sanitizeUserForCache(userData: User | null): Partial<User> | null {
   if (!userData) return null;
+  const normalizedUser = normalizeUserData(userData);
   // Omit sensitive/volatile fields that should only be trusted from the verified token/API
-  const { stripe_customer_id: _stripe, treat_balance: _balance, ...safeData } = userData;
+  const { stripe_customer_id: _stripe, treat_balance: _balance, ...safeData } = normalizedUser;
   return safeData;
+}
+
+function readCachedUser(): User | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const storedUser = localStorage.getItem('user_data') || localStorage.getItem('user');
+    if (!storedUser) {
+      return null;
+    }
+
+    const parsedUser = JSON.parse(storedUser) as unknown;
+    if (typeof parsedUser !== 'object' || parsedUser === null) {
+      return null;
+    }
+
+    const candidate = parsedUser as Record<string, unknown>;
+    if (typeof candidate.id === 'string' && typeof candidate.email === 'string') {
+      return normalizeUserData(candidate as unknown as User);
+    }
+  } catch {
+    // Ignore invalid cache contents and fall back to guest state.
+  }
+
+  return null;
 }
 
 export const useAuthStore = defineStore('auth', () => {
   // ========== State ==========
+  const cachedUser = readCachedUser();
+  let needsBackgroundRefresh = !!cachedUser;
 
-  const user = ref<User | null>(null);
+  const user = ref<User | null>(cachedUser);
   const token = ref<string | null>(null); // Memory only, no localStorage!
-  const isAuthenticated = ref(false);
-  const isInitialized = ref(false);
+  const isAuthenticated = ref(!!cachedUser);
+  const isInitialized = ref(!!cachedUser);
 
   const isLoading = ref(false);
   const error = ref<string | null>(null);
@@ -51,6 +93,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   // Singleton promise to avoid parallel refresh calls
   let refreshPromise: Promise<boolean> | null = null;
+  let initializePromise: Promise<void> | null = null;
 
   // ========== Getters ==========
   const hasCompleteProfile = computed(() => {
@@ -70,13 +113,11 @@ export const useAuthStore = defineStore('auth', () => {
   });
 
   const isAdmin = computed(() => {
-    // Primary check: permission-based
-    if (hasPermission(PERMISSIONS.ACCESS_ADMIN)) return true;
-    if (hasPermission(PERMISSIONS.USERS_READ)) return true;
+    return hasAdminBypass(user.value);
+  });
 
-    // Fallback: legacy role-based (during transition)
-    const r = user.value?.role?.toLowerCase();
-    return r === 'admin' || r === 'super_admin';
+  const canAccessAdmin = computed(() => {
+    return canAccessAdminShell(user.value);
   });
 
   function hasPermission(permission: string): boolean {
@@ -90,25 +131,26 @@ export const useAuthStore = defineStore('auth', () => {
    * Try to recover session from HttpOnly cookie via refresh endpoint
    */
   async function initializeAuth(): Promise<void> {
-    // Restore user data for UX while checking auth
-    const storedUser: string | null =
-      localStorage.getItem('user_data') || localStorage.getItem('user');
+    if (initializePromise) return initializePromise;
 
-    if (storedUser) {
-      try {
-        const parsedUser: unknown = JSON.parse(storedUser);
-        if (isValidUser(parsedUser)) {
-          user.value = parsedUser;
-        }
-      } catch {
-        // invalid user data
+    if (isInitialized.value && !needsBackgroundRefresh) return;
+
+    initializePromise = (async (): Promise<void> => {
+      if (needsBackgroundRefresh) {
+        needsBackgroundRefresh = false;
+        await refreshToken();
+        isInitialized.value = true;
+        return;
       }
-    }
 
-    // Always try to refresh token on init to check valid session
-    await refreshToken();
+      // No cached user available, so wait for the initial session check.
+      await refreshToken();
+      isInitialized.value = true;
+    })().finally(() => {
+      initializePromise = null;
+    });
 
-    isInitialized.value = true;
+    return initializePromise;
   }
 
   /**
@@ -133,11 +175,17 @@ export const useAuthStore = defineStore('auth', () => {
           token.value = response.access_token;
           isAuthenticated.value = true;
           if (response.user) {
-            user.value = response.user;
-            localStorage.setItem('user_data', JSON.stringify(sanitizeUserForCache(response.user)));
+            const normalizedUser = normalizeUserData(response.user);
+            user.value = normalizedUser;
+            localStorage.setItem('user_data', JSON.stringify(sanitizeUserForCache(normalizedUser)));
           }
           updateApiHeader(response.access_token);
           return true;
+        }
+
+        const justLoggedIn = Date.now() - lastLoginTime.value < 5000;
+        if (isAuthenticated.value && !justLoggedIn) {
+          clearAuth();
         }
         return false;
       } catch {
@@ -161,21 +209,10 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
-   * Validate user object shape
-   */
-  function isValidUser(userData: unknown): userData is User {
-    if (typeof userData !== 'object' || userData === null) {
-      return false;
-    }
-    const obj = userData as Record<string, unknown>;
-    return typeof obj.id === 'string' && typeof obj.email === 'string';
-  }
-
-  /**
    * Set authentication data after successful login
    */
   async function setAuth(data: LoginResponse): Promise<void> {
-    user.value = data.user;
+    user.value = normalizeUserData(data.user);
     token.value = data.access_token;
     isAuthenticated.value = true;
     error.value = null;
@@ -233,7 +270,7 @@ export const useAuthStore = defineStore('auth', () => {
    */
   function updateUser(updates: Partial<User>): void {
     if (user.value) {
-      user.value = { ...user.value, ...updates };
+      user.value = normalizeUserData({ ...user.value, ...updates });
       localStorage.setItem('user_data', JSON.stringify(sanitizeUserForCache(user.value)));
     }
   }
@@ -334,6 +371,7 @@ export const useAuthStore = defineStore('auth', () => {
     userDisplayName,
     userAvatar,
     isAdmin,
+    canAccessAdmin,
     hasPermission,
 
     // Actions

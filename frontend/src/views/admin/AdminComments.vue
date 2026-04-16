@@ -671,6 +671,8 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { RecycleScroller } from 'vue-virtual-scroller';
+import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
 import { apiV1 } from '@/utils/api';
 import { useToast } from '@/components/toast/use-toast';
 import { BaseConfirmModal, OptimizedImage } from '@/components/ui';
@@ -854,7 +856,7 @@ const fetchComments = async (): Promise<void> => {
   try {
     const params = new URLSearchParams({
       page: currentPage.value.toString(),
-      limit: limit.value.toString(),
+      page_size: limit.value.toString(),
     });
 
     if (searchQuery.value) {

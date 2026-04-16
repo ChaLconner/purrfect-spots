@@ -6,6 +6,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from config import config
+from constants.admin_permissions import SYSTEM_ROLE_PERMISSION_CODES, canonical_permission_records
 from utils.supabase_client import get_supabase_admin_client
 
 # Initialize Supabase Client (Service Role for seeding)
@@ -19,31 +20,14 @@ supabase = get_supabase_admin_client()
 # Initial Data Definitions
 INITIAL_ROLES = [
     {"name": "admin", "description": "Administrator with full access", "is_system": True},
+    {"name": "super_admin", "description": "Super administrator with unrestricted access", "is_system": True},
+    {"name": "moderator", "description": "Moderator with scoped admin permissions", "is_system": True},
     {"name": "user", "description": "Standard user access", "is_system": True},
 ]
 
-INITIAL_PERMISSIONS = [
-    # User Management
-    {"code": "users:read", "group": "User Management", "description": "View user list and details"},
-    {"code": "users:create", "group": "User Management", "description": "Create new users"},
-    {"code": "users:update", "group": "User Management", "description": "Edit user details"},
-    {"code": "users:delete", "group": "User Management", "description": "Delete users"},
-    {"code": "users:ban", "group": "User Management", "description": "Ban/Unban users"},
-    # Role Management
-    {"code": "roles:read", "group": "Role Management", "description": "View roles"},
-    {"code": "roles:manage", "group": "Role Management", "description": "Create/Edit/Delete roles"},
-    # Content Management
-    {"code": "content:read", "group": "Content Management", "description": "View all content"},
-    {"code": "content:delete", "group": "Content Management", "description": "Delete any content"},
-    # System
-    {"code": "system:audit_logs", "group": "System", "description": "View audit logs"},
-    {"code": "system:config", "group": "System", "description": "Manage system configurations"},
-]
+INITIAL_PERMISSIONS = canonical_permission_records()
 
-ROLE_PERMISSION_MAPPING = {
-    "admin": ["*"],  # * means all permissions
-    "user": [],  # Basic users have no admin permissions
-}
+ROLE_PERMISSION_MAPPING = SYSTEM_ROLE_PERMISSION_CODES
 
 
 async def seed_data() -> None:

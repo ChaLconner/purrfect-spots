@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from logger import logger
 from supabase import AClient
 from utils.datetime_utils import utc_now_iso
-from utils.supabase_client import get_async_supabase_admin_client
+from utils.supabase_client import get_async_supabase_admin_client, has_supabase_service_role_key
 
 
 class TokenService:
@@ -45,11 +45,16 @@ class TokenService:
         self.supabase_admin = supabase_client
         self.TOKEN_COLUMNS = "id, token_jti, user_id, expires_at, revoked_at"  # nosec S105
 
-    async def _get_admin_client(self) -> AClient:
+    async def _get_admin_client(self, force_refresh: bool = False) -> AClient:
         """Lazy load admin client if not provided"""
-        if self.supabase_admin is None:
-            self.supabase_admin = await get_async_supabase_admin_client()
+        if force_refresh or self.supabase_admin is None:
+            self.supabase_admin = await get_async_supabase_admin_client(force_refresh=force_refresh)
         return self.supabase_admin
+
+    @staticmethod
+    def _is_rls_error(exc: Exception) -> bool:
+        error_message = str(exc).lower()
+        return "42501" in error_message or "row-level security" in error_message
 
     def _hash_token(self, token: str) -> str:
         """Hash token for secure storage."""
@@ -101,8 +106,8 @@ class TokenService:
                             {
                                 "jti": jti,
                                 "user_id": user_id,
-                                "expires_at": expires_at.isoformat(),
-                                "revoked_at": utc_now_iso(),
+                                "expires_at": expires_at,
+                                "revoked_at": datetime.now(UTC),
                             },
                         )
                         await db_session.commit()
@@ -111,21 +116,40 @@ class TokenService:
                         await db_session.rollback()
                         logger.warning(f"SQL blacklist save failed, falling back to Supabase client: {e}")
 
-                admin_client = await self._get_admin_client()
-                await (
-                    admin_client.table("token_blacklist")
-                    .insert(
-                        {
-                            "token_jti": jti,
-                            "user_id": user_id,
-                            "expires_at": expires_at.isoformat(),
-                            "revoked_at": utc_now_iso(),
-                        }
+                if not has_supabase_service_role_key():
+                    logger.info(
+                        "Skipping blacklist DB persistence because no service-role key is available in runtime."
                     )
-                    .execute()
-                )
+                    return True
+
+                payload = {
+                    "token_jti": jti,
+                    "user_id": user_id,
+                    "expires_at": expires_at.isoformat(),
+                    "revoked_at": utc_now_iso(),
+                }
+
+                try:
+                    admin_client = await self._get_admin_client()
+                    await admin_client.table("token_blacklist").insert(payload).execute()
+                except Exception as exc:
+                    if not self._is_rls_error(exc):
+                        raise
+
+                    logger.warning(
+                        "token_blacklist insert hit RLS; refreshing Supabase admin client and retrying once: %s",
+                        exc,
+                    )
+                    admin_client = await self._get_admin_client(force_refresh=True)
+                    await admin_client.table("token_blacklist").insert(payload).execute()
             except Exception as e:
-                logger.error(f"Failed to persist blacklist to DB: {e}")
+                if self._is_rls_error(e):
+                    logger.warning(
+                        "Skipping blacklist DB persistence due to token_blacklist RLS policy: %s",
+                        e,
+                    )
+                else:
+                    logger.error(f"Failed to persist blacklist to DB: {e}")
 
         return True
 
@@ -181,15 +205,33 @@ class TokenService:
         result = await db_session.execute(query, {"jti": jti})
         rows = result.fetchall()
         for row in rows:
-            expires_at = datetime.fromisoformat(row[0].replace("Z", "+00:00"))
+            value = row[0]
+            expires_at = datetime.fromisoformat(value.replace("Z", "+00:00")) if isinstance(value, str) else value
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=UTC)
             if datetime.now(UTC) < expires_at:
                 return True
         return False
 
     async def _check_db_blacklist_supabase(self, jti: str) -> bool:
         """Check database blacklist using Supabase."""
-        admin_client = await self._get_admin_client()
-        supa_res = await admin_client.table("token_blacklist").select(self.TOKEN_COLUMNS).eq("token_jti", jti).execute()
+        try:
+            admin_client = await self._get_admin_client()
+            supa_res = (
+                await admin_client.table("token_blacklist").select(self.TOKEN_COLUMNS).eq("token_jti", jti).execute()
+            )
+        except Exception as exc:
+            if not self._is_rls_error(exc):
+                raise
+
+            logger.warning(
+                "token_blacklist select hit RLS; refreshing Supabase admin client and retrying once: %s",
+                exc,
+            )
+            admin_client = await self._get_admin_client(force_refresh=True)
+            supa_res = (
+                await admin_client.table("token_blacklist").select(self.TOKEN_COLUMNS).eq("token_jti", jti).execute()
+            )
 
         if supa_res.data:
             data = cast(list[dict[str, Any]], supa_res.data)
@@ -373,12 +415,11 @@ async def get_token_service(db: AsyncSession | None = None) -> TokenService:
                 redis_client = None
 
         # Admin client will be lazily loaded
-        _token_service = TokenService(redis_client, db=db)
+        _token_service = TokenService(redis_client, db=None)
         if not redis_client:
             logger.info("Initializing Token Service singleton with in-memory storage")
-    else:
-        # If singleton exists, update DB session if provided
-        if db:
-            _token_service.db = db
+
+    if db:
+        return TokenService(_token_service.redis, _token_service.supabase_admin, db=db)
 
     return _token_service

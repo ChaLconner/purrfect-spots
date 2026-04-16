@@ -1,8 +1,8 @@
 from typing import TYPE_CHECKING, Any
 
-import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import structlog
 from utils.supabase_client import AClient
 
 if TYPE_CHECKING:

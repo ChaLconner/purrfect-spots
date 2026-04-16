@@ -1,8 +1,9 @@
 from typing import Any, cast
 
-import structlog  # type: ignore[import-untyped, unused-ignore]
-from sqlalchemy import text
+from sqlalchemy import bindparam, column, func, table, text, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
+import structlog  # type: ignore[import-untyped, unused-ignore]
 from schemas.user import User
 from services.user.base_mixin import UserBaseMixin
 from utils.datetime_utils import utc_now_iso
@@ -13,6 +14,26 @@ logger = structlog.get_logger(__name__)
 
 class UserProfileMixin(UserBaseMixin):
     """Mixin for user profile management and synchronization."""
+
+    @staticmethod
+    def _users_table() -> Any:
+        return table(
+            "users",
+            column("id"),
+            column("email"),
+            column("name"),
+            column("username"),
+            column("picture"),
+            column("bio"),
+            column("google_id"),
+            column("treat_balance"),
+            column("total_treats_received"),
+            column("is_pro"),
+            column("role_id"),
+            column("created_at"),
+            column("updated_at"),
+            column("banned_at"),
+        )
 
     async def create_or_get_user(self, user_data: dict[str, Any]) -> User:
         """Create new user or get existing user from database for OAuth (Async)"""
@@ -71,17 +92,16 @@ class UserProfileMixin(UserBaseMixin):
 
         allowed_columns = {"id", "email", "name", "picture", "google_id", "bio", "created_at", "updated_at", "role_id"}
         columns_list = [c for c in user_record if c in allowed_columns]
-        columns = ", ".join(columns_list)
-        placeholders = ", ".join([f":{c}" for c in columns_list])
         update_cols = ["email", "name", "picture", "google_id", "updated_at"]
-        update_stmt = ", ".join([f"{c} = EXCLUDED.{c}" for c in update_cols])
-
-        upsert_query = text(
-            f"INSERT INTO users ({columns}) VALUES ({placeholders}) "  # noqa: S608
-            f"ON CONFLICT (id) DO UPDATE SET {update_stmt}"
+        users = self._users_table()
+        insert_values = {key: user_record[key] for key in columns_list}
+        insert_stmt = pg_insert(users).values(insert_values)
+        upsert_query = insert_stmt.on_conflict_do_update(
+            index_elements=[users.c.id],
+            set_={column_name: getattr(insert_stmt.excluded, column_name) for column_name in update_cols},
         )
 
-        await self.db.execute(upsert_query, {k: user_record[k] for k in columns_list})
+        await self.db.execute(upsert_query)
         await self.db.commit()
 
     async def _upsert_user_supabase(self, user_id: str, user_record: dict[str, Any]) -> None:
@@ -102,8 +122,32 @@ class UserProfileMixin(UserBaseMixin):
             if self.db:
                 try:
                     safe_cols = [k for k in update_data if k in {"name", "username", "bio", "picture"}]
-                    cols = ", ".join([f"{k} = :{k}" for k in safe_cols])
-                    query = text(f"UPDATE users SET {cols}, updated_at = NOW() WHERE id = :u_id RETURNING *")  # noqa: S608
+                    if not safe_cols:
+                        raise ValueError("No valid profile fields provided")
+                    users = self._users_table()
+                    update_values: dict[str, Any] = {key: bindparam(key) for key in safe_cols}
+                    update_values["updated_at"] = func.now()
+                    query = (
+                        update(users)
+                        .where(users.c.id == bindparam("u_id"))
+                        .values(update_values)
+                        .returning(
+                            users.c.id,
+                            users.c.email,
+                            users.c.name,
+                            users.c.username,
+                            users.c.picture,
+                            users.c.bio,
+                            users.c.google_id,
+                            users.c.treat_balance,
+                            users.c.total_treats_received,
+                            users.c.is_pro,
+                            users.c.role_id,
+                            users.c.created_at,
+                            users.c.updated_at,
+                            users.c.banned_at,
+                        )
+                    )
                     params = {**{k: v for k, v in update_data.items() if k in safe_cols}, "u_id": user_id}
                     db_res = await self.db.execute(query, params)
                     row = db_res.fetchone()

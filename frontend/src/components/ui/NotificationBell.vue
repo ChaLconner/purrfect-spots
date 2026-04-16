@@ -224,8 +224,9 @@ watch(isOpen, async (newVal) => {
       await store.fetchNotifications();
     } else {
       // Background refresh quietly
-      store.fetchNotifications(true);
+      void store.fetchNotifications(true);
     }
+    store.subscribeToNotifications();
     // Wait for DOM to render to find the trigger element
     await nextTick();
     if (store.hasMore) {
@@ -233,6 +234,7 @@ watch(isOpen, async (newVal) => {
     }
   } else {
     if (observer) observer.disconnect();
+    store.unsubscribe();
   }
 });
 
@@ -244,8 +246,6 @@ watch(infiniteTrigger, (newVal) => {
 });
 
 onMounted(() => {
-  store.fetchNotifications();
-  store.subscribeToNotifications();
   document.addEventListener('mousedown', handleClickOutside);
 });
 

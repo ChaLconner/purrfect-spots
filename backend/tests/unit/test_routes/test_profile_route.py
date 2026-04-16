@@ -1,6 +1,7 @@
 from collections.abc import AsyncGenerator
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -109,6 +110,28 @@ class TestProfileRoute:
         data = response.json()
         assert len(data["uploads"]) == 1
         assert data["uploads"][0]["location_name"] == mock_cat_photo["location_name"]
+
+    @pytest.mark.asyncio
+    async def test_get_user_uploads_accepts_uuid_ids(self, client, mock_user, mock_gallery_service, mock_cat_photo):
+        """Test user uploads serialize UUID-backed IDs as strings."""
+        photo_with_uuid_ids = {
+            **mock_cat_photo,
+            "id": uuid4(),
+            "user_id": uuid4(),
+        }
+        mock_gallery_service.get_user_photos = AsyncMock(return_value=[photo_with_uuid_ids])
+
+        app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
+        app.dependency_overrides[get_admin_gallery_service] = lambda: mock_gallery_service
+
+        response = await client.get("/api/v1/profile/uploads")
+
+        app.dependency_overrides = {}
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["uploads"][0]["id"] == str(photo_with_uuid_ids["id"])
+        assert data["uploads"][0]["user_id"] == str(photo_with_uuid_ids["user_id"])
 
     @pytest.mark.asyncio
     async def test_upload_profile_picture(

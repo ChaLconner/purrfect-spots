@@ -410,26 +410,55 @@ class TestAuthUtils:
         assert ua == "test-agent"
 
     def test_get_client_info_forwarded(self) -> None:
-        """Test extracting client info with X-Forwarded-For"""
+        """Test extracting forwarded IP only from a trusted proxy"""
         from utils.auth_utils import get_client_info
 
         mock_request = MagicMock()
         mock_request.headers = {"X-Forwarded-For": "5.6.7.8, 1.2.3.4"}
-        mock_request.client = None
+        mock_request.client.host = "127.0.0.1"
 
-        ip, _ = get_client_info(mock_request)
+        with patch("config.config.get_trusted_proxy_hosts", return_value=["127.0.0.1"]):
+            from utils.auth_utils import _trusted_proxy_networks
+
+            _trusted_proxy_networks.cache_clear()
+            ip, _ = get_client_info(mock_request)
+            _trusted_proxy_networks.cache_clear()
+
         assert ip == "5.6.7.8"
 
     def test_get_client_info_real_ip(self) -> None:
-        """Test extracting client info with X-Real-IP"""
+        """Test extracting real IP only from a trusted proxy"""
         from utils.auth_utils import get_client_info
 
         mock_request = MagicMock()
         mock_request.headers = {"X-Real-IP": "9.10.11.12"}
-        mock_request.client = None
+        mock_request.client.host = "127.0.0.1"
 
-        ip, _ = get_client_info(mock_request)
+        with patch("config.config.get_trusted_proxy_hosts", return_value=["127.0.0.1"]):
+            from utils.auth_utils import _trusted_proxy_networks
+
+            _trusted_proxy_networks.cache_clear()
+            ip, _ = get_client_info(mock_request)
+            _trusted_proxy_networks.cache_clear()
+
         assert ip == "9.10.11.12"
+
+    def test_get_client_info_ignores_untrusted_forwarded_headers(self) -> None:
+        """Untrusted clients must not be able to spoof forwarded headers."""
+        from utils.auth_utils import get_client_info
+
+        mock_request = MagicMock()
+        mock_request.headers = {"X-Forwarded-For": "5.6.7.8", "X-Real-IP": "9.10.11.12"}
+        mock_request.client.host = "203.0.113.10"
+
+        with patch("config.config.get_trusted_proxy_hosts", return_value=["127.0.0.1"]):
+            from utils.auth_utils import _trusted_proxy_networks
+
+            _trusted_proxy_networks.cache_clear()
+            ip, _ = get_client_info(mock_request)
+            _trusted_proxy_networks.cache_clear()
+
+        assert ip == "203.0.113.10"
 
     def test_set_refresh_cookie(self) -> None:
         """Test setting refresh cookie on response"""

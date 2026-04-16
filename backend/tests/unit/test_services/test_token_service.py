@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from services.token_service import TokenService
+from services.token_service import TokenService, get_token_service, reset_token_service
 
 
 class TestTokenService:
@@ -93,6 +93,61 @@ class TestTokenService:
         # Verify mocked table calls
         mock_supabase_admin.table.assert_called_with("token_blacklist")
         mock_supabase_admin.table.return_value.insert.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_blacklist_token_skips_supabase_persistence_without_service_role(self, mock_supabase_admin):
+        """Development environments should not hit RLS-protected insert with anon credentials."""
+        with (
+            patch(
+                "services.token_service.get_async_supabase_admin_client",
+                new=AsyncMock(return_value=mock_supabase_admin),
+            ),
+            patch("services.token_service.has_supabase_service_role_key", return_value=False),
+        ):
+            service = TokenService(None)
+            result = await service.blacklist_token(
+                token="dev-token",
+                user_id="user-123",
+                jti="jti-123",
+                expires_at=datetime.now(UTC) + timedelta(hours=1),
+            )
+
+        assert result is True
+        mock_supabase_admin.table.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_blacklist_token_refreshes_admin_client_after_rls_error(self, mock_supabase_admin):
+        """If a stale anon client slips in, the service should refresh and retry once."""
+        stale_client = MagicMock()
+        stale_chain = MagicMock()
+        stale_chain.insert.return_value = stale_chain
+        stale_chain.execute = AsyncMock(side_effect=Exception("42501 row-level security policy"))
+        stale_client.table.return_value = stale_chain
+
+        fresh_client = MagicMock()
+        fresh_chain = MagicMock()
+        fresh_chain.insert.return_value = fresh_chain
+        fresh_chain.execute = AsyncMock(return_value=MagicMock(data=[], count=1))
+        fresh_client.table.return_value = fresh_chain
+
+        with (
+            patch(
+                "services.token_service.get_async_supabase_admin_client",
+                new=AsyncMock(side_effect=[stale_client, fresh_client]),
+            ),
+            patch("services.token_service.has_supabase_service_role_key", return_value=True),
+        ):
+            service = TokenService(None)
+            result = await service.blacklist_token(
+                token="retry-token",
+                user_id="user-123",
+                jti="jti-123",
+                expires_at=datetime.now(UTC) + timedelta(hours=1),
+            )
+
+        assert result is True
+        stale_client.table.assert_called_with("token_blacklist")
+        fresh_client.table.assert_called_with("token_blacklist")
 
     @pytest.mark.asyncio
     async def test_is_blacklisted_redis(self, token_service, mock_redis):
@@ -228,3 +283,26 @@ class TestTokenService:
             service._cleanup_memory_blacklist()
             assert "old" not in service._memory_blacklist
             assert "new" in service._memory_blacklist
+
+    @pytest.mark.asyncio
+    async def test_get_token_service_returns_request_scoped_instance_when_db_provided(
+        self, mock_redis, mock_supabase_admin
+    ):
+        """Per-request DB sessions should not be stored on the singleton token service."""
+        reset_token_service()
+        request_db = AsyncMock()
+
+        with (
+            patch.dict(os.environ, {"REDIS_URL": ""}),
+            patch(
+                "services.token_service.get_async_supabase_admin_client",
+                new=AsyncMock(return_value=mock_supabase_admin),
+            ),
+        ):
+            shared_service = await get_token_service()
+            request_service = await get_token_service(db=request_db)
+
+        assert shared_service is not request_service
+        assert shared_service.db is None
+        assert request_service.db is request_db
+        assert request_service.redis is shared_service.redis

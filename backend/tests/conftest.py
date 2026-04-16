@@ -26,6 +26,9 @@ os.environ["TRUSTED_PROXY_HOSTS"] = "127.0.0.1,::1"
 
 # Disable Redis via env var (fallback if mock fails)
 os.environ["REDIS_URL"] = ""
+# Keep tests isolated from any real SQL database configured in local .env.
+# Many route/unit tests intentionally mock Supabase and DB interactions.
+os.environ["DATABASE_URL"] = ""
 
 # Add backend directory to path so imports work
 sys.path.append(str(Path(__file__).parent.parent))
@@ -83,7 +86,7 @@ sys.modules["mcp"] = mock_mcp
 sys.modules["mcp.server"] = MagicMock()
 sys.modules["mcp.server.lowlevel"] = MagicMock()
 sys.modules["mcp.server.fastmcp"] = MagicMock()
-
+#
 # Mock structlog if it is not installed in the local test environment
 try:
     import structlog  # type: ignore[import-untyped, unused-ignore] # noqa: F401

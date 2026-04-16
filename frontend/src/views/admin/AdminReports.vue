@@ -85,7 +85,7 @@
         <button
           class="p-2 rounded-lg border border-sand-300 hover:bg-sand-50 text-brown-500"
           :title="t('common.refresh')"
-          @click="loadReports(1)"
+          @click="loadReports(1, true)"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -406,7 +406,7 @@
                 ? 'bg-red-600 hover:bg-red-700'
                 : 'bg-terracotta-600 hover:bg-terracotta-700'
             "
-            :disabled="!selectedReason"
+              :disabled="!hasValidSelectedReason"
             @click="confirmAction"
           >
             {{ t('common.confirm') }}
@@ -420,6 +420,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { PERMISSIONS } from '@/constants/permissions';
 import { apiV1 } from '@/utils/api';
 import { RESOLUTION_REASONS, REPORT_REASONS } from '@/constants/moderation';
 import { useToast } from '@/components/toast/use-toast';
@@ -483,12 +484,13 @@ const {
   limit: 50,
 });
 
-const loadReports = (newPage: number = 1): void => {
+const loadReports = (newPage: number = 1, forceRefresh: boolean = false): void => {
   loadData(newPage, {
     status: statusFilter.value,
     reason: reasonFilter.value,
     start_date: startDate.value,
     end_date: endDate.value,
+    cache_bust: forceRefresh ? Date.now().toString() : undefined,
   });
 };
 
@@ -513,10 +515,13 @@ const filteredReasons = computed(() => {
   return RESOLUTION_REASONS.filter((r) => r.type === typeFilter);
 });
 
-const canManageReports = authStore.hasPermission('content:delete');
+const canManageReports = computed(() => authStore.hasPermission(PERMISSIONS.REPORTS_UPDATE));
+const hasValidSelectedReason = computed(() =>
+  filteredReasons.value.some((reason) => reason.value === selectedReason.value)
+);
 
 const openActionModal = (report: Report, type: 'resolve' | 'dismiss' | 'delete'): void => {
-  if (!canManageReports) return;
+  if (!canManageReports.value) return;
   selectedReport.value = report;
   isBulkAction.value = false;
   actionType.value = type;
@@ -525,11 +530,11 @@ const openActionModal = (report: Report, type: 'resolve' | 'dismiss' | 'delete')
 };
 
 const openBulkActionModal = (type: 'resolve' | 'dismiss' | 'delete'): void => {
-  if (!canManageReports || selectedReportIds.value.length === 0) return;
+  if (!canManageReports.value || selectedReportIds.value.length === 0) return;
   selectedReport.value = reports.value.find((r) => r.id === selectedReportIds.value[0]) || null;
   isBulkAction.value = true;
   actionType.value = type;
-  selectedReason.value = 'Bulk Action';
+  selectedReason.value = '';
   resolutionNote.value = '';
 };
 
@@ -541,7 +546,7 @@ const closeActionModal = (): void => {
 };
 
 const confirmAction = async (): Promise<void> => {
-  if (!selectedReport.value || !selectedReason.value) return;
+  if (!selectedReport.value || !hasValidSelectedReason.value) return;
 
   const finalNote = resolutionNote.value
     ? `${t('admin.reports.resolutionReasons.' + selectedReason.value)}: ${resolutionNote.value}`
