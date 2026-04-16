@@ -60,7 +60,7 @@ async def check_database() -> dict[str, Any]:
             "connection": "active",
         }
     except Exception as e:
-#         latency_ms = (datetime.now(UTC) - start_time).total_seconds() * 1000
+        #         latency_ms = (datetime.now(UTC) - start_time).total_seconds() * 1000
         logger.error("Database health check failed: %s", str(e).replace("\n", " ").replace("\r", " "))
         return {"status": "unhealthy", "error": ERROR_CONNECTION_FAILED}
 

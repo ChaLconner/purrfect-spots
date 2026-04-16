@@ -56,7 +56,7 @@ class TestPasswordService:
 
         password = "password123"
         sha1 = hashlib.sha1(password.encode()).hexdigest().upper()  # codeql[py/weak-sensitive-data-hashing]
-        
+
         suffix = sha1[5:]
 
         mock_response = MagicMock()

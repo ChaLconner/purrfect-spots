@@ -86,7 +86,7 @@ sys.modules["mcp"] = mock_mcp
 sys.modules["mcp.server"] = MagicMock()
 sys.modules["mcp.server.lowlevel"] = MagicMock()
 sys.modules["mcp.server.fastmcp"] = MagicMock()
-# 
+#
 # Mock structlog if it is not installed in the local test environment
 try:
     import structlog  # type: ignore[import-untyped, unused-ignore] # noqa: F401

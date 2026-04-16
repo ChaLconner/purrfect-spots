@@ -49,7 +49,7 @@ async def _get_cached_response(key: str) -> dict[str, Any] | None:
                 return cast(dict[str, Any], json.loads(cached))
     except Exception as e:
         logger.debug(f"Failed to fetch cached idempotency response: {e}")
-              # pass
+        # pass
 
     # Fallback to memory
     return _memory_store.get(key)

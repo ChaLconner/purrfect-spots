@@ -32,7 +32,7 @@ except ImportError:
 
         JsonFormatter = jsonlogger.JsonFormatter  # type: ignore
     except ImportError:
-#         import logging
+        #         import logging
 
         # Last resort fallback to allow application to start even if logging is degraded
         class JsonFormatter(logging.Formatter):  # type: ignore

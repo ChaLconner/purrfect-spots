@@ -66,7 +66,7 @@ class OTPService:
                         return bool(exists)
                 except Exception as e:
                     logger.debug(f"Redis lockout check failed, falling back to DB: {e}")
-                          # pass
+                    # pass
 
             # Fallback to database check
             if self.db:
@@ -129,7 +129,7 @@ class OTPService:
                     return
                 except Exception as e:
                     logger.debug(f"Redis lockout record failed, falling back to DB: {e}")
-                          # pass
+                    # pass
 
             # Fallback to database
             if self.db:
@@ -184,7 +184,7 @@ class OTPService:
                     return
                 except Exception as e:
                     logger.debug(f"Redis lockout deletion failed, falling back to DB: {e}")
-                          # pass
+                    # pass
 
             # Fallback to database
             if self.db:

@@ -40,7 +40,8 @@ def mock_supabase():
 
     mock_not_wrapper = MockNotWrapper()
 
-    # Removed MockEq to fix ineffectual-statement
+    class MockEq:
+        not_ = property(lambda self: mock_not_wrapper)
 
         def maybe_single(self):
             return self
@@ -95,52 +96,14 @@ def mock_supabase():
         def insert(self, *a, **kw):
             return self
 
-    mock_eq = MockEq()
-
-    class MockSelect:
-        not_ = property(lambda self: mock_not_wrapper)
-
-        def order(self, *a, **kw):
-            return mock_eq
-
-        def limit(self, *a, **kw):
-            return mock_eq
-
-        def eq(self, *a, **kw):
-            return mock_eq
-
-        def gte(self, *a, **kw):
-            return mock_eq
-
-        def lte(self, *a, **kw):
-            return mock_eq
-
-        def text_search(self, *a, **kw):
-            return mock_eq
-
-        def or_(self, *a, **kw):
-            return mock_eq
-
-        def contains(self, *a, **kw):
-            return mock_eq
-
         async def execute(self):
             return await mock_execute()
 
-        def single(self):
-            return mock_single
-
-        def is_(self, *a, **kw):
-            return mock_eq
-
-        def in_(self, *a, **kw):
-            return mock_eq
-
-    mock_select = MockSelect()
+    mock_eq = MockEq()
 
     class MockTable:
         def select(self, *a, **kw):
-            return mock_select
+            return mock_eq
 
         def delete(self, *a, **kw):
             return mock_eq

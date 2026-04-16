@@ -209,7 +209,10 @@ class TestOTPService:
         # Need to mock redis import inside the method or assume it fails
         # The code does import inside methods.
 
-        with patch.dict(os.environ, {"REDIS_URL": "redis://localhost"}):
+        with (
+            patch.dict(os.environ, {"REDIS_URL": "redis://localhost"}),
+            patch("services.otp_service.OTPService._is_email_locked_out", side_effect=Exception("Redis error")),
+        ):
             # We can't easily mock inner imports with patch here unless we patch sys.modules or use patch.mock_open
             # But we can patch the method _is_email_locked_out to simulate Redis fail?
             # No, we want to test the try-except logic inside.
@@ -217,17 +220,16 @@ class TestOTPService:
             # If we can't mock aioredis easily, we rely on the loop handling exception.
             # The code catches Exception.
 
-            with patch("services.otp_service.OTPService._is_email_locked_out", side_effect=Exception("Redis error")):
-                # Wait, if we mock the whole method, we aren't testing the fail-open logic INSIDE the method.
-                # We want the method to run, but Redis part to fail.
-                pass
+            # Wait, if we mock the whole method, we aren't testing the fail-open logic INSIDE the method.
+            # We want the method to run, but Redis part to fail.
+            pass
 
             # Since it does local import, mocking is hard without patching sys.modules['redis.asyncio'].
             # Let's skip deep redis mocking and assume fail-open works if we don't provide REDIS_URL (already covered)
             # or if we provide one and it fails to connect (integration test).
 
             # Instead, let's verify DB fallback is called if redis errors
-                  # pass
+            # pass
 
     @pytest.mark.asyncio
     async def test_clear_lockout_db(self, otp_service, mock_supabase_admin, mock_redis_none):

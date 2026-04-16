@@ -119,7 +119,7 @@ def get_user_tier(request: Request) -> str:
                 return str(app_metadata.get("tier", "free")).lower()
         except Exception as e:
             logger.debug(f"Failed to extract user tier from JWT: {e}")
-                  # pass
+            # pass
     return "free"
 
 
@@ -148,7 +148,7 @@ def get_user_id_from_request(request: Request) -> str:
                     return f"user:{clean_user_id[0:128]}:{tier}"
         except Exception as e:
             logger.debug(f"Failed to extract user ID from JWT: {e}")
-                  # pass
+            # pass
 
     # Fallback to IP address with tier
     return f"{get_remote_address(request)}:{tier}"
