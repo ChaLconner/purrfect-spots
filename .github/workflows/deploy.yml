@@ -1,34 +1,12 @@
-# ==============================================================================
-# Purrfect Spots - Deployment Pipeline (Production)
-# ==============================================================================
-# Handles deployment to staging and production environments on Vercel
-#
-# Deployment Strategy:
-# - Staging: Auto-deploy on push to 'dev' branch (after CI passes)
-# - Production: Manual trigger or auto-deploy on push to 'main' branch
-#
-# Security:
-# - All secrets accessed via env vars only, never in shell interpolation
-# - All actions pinned to full SHA
-# - Minimal permissions scope per job
-#
-# Prerequisites:
-# - Configure repository secrets for each environment
-# - Set up environment protection rules in GitHub Settings
-# - Branch protection on 'main' must allow tag pushes from github-actions[bot]
-# ==============================================================================
-
 name: Deploy
 
 on:
-  # Trigger after CI/CD Pipeline completes successfully
   workflow_run:
     workflows: ["CI/CD Pipeline"]
     types:
       - completed
     branches: [main, dev]
 
-  # Manual deployment trigger
   workflow_dispatch:
     inputs:
       environment:
@@ -45,30 +23,22 @@ on:
         type: boolean
         default: false
 
-# FIX #7: cancel-in-progress is disabled for production (main branch)
-# to prevent cancelling a live smoke-test or release-tag step mid-flight.
-# Staging (dev branch) still cancels eagerly so only the latest commit deploys.
 concurrency:
-  # FIX: github.ref in workflow_run is always the default branch (main).
-  # Use head_branch from workflow_run for the actual branch; fallback to
-  # github.ref for workflow_dispatch.
   group: deploy-${{ github.event.workflow_run.head_branch || github.ref_name }}-${{ github.workflow }}
   cancel-in-progress: ${{ (github.event.workflow_run.head_branch || github.ref_name) != 'main' }}
 
-# ==============================================================================
-# PERMISSIONS - Principle of least privilege
-# ==============================================================================
 permissions:
-
   contents: read
-  packages: write
-  deployments: write
-  id-token: write
+
+env:
+  NODE_VERSION: "24"
+  VERCEL_CLI_VERSION: "47.0.5"
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
-  # ============================================================================
-  # DETERMINE DEPLOYMENT TARGET
-  # ============================================================================
   prepare:
     name: Prepare Deployment
     runs-on: ubuntu-latest
@@ -77,303 +47,311 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.status == 'completed')
+       github.event.workflow_run.status == 'completed' &&
+       github.event.workflow_run.event == 'push')
     outputs:
-      environment: ${{ steps.set-env.outputs.environment }}
-      should_deploy: ${{ steps.set-env.outputs.should_deploy }}
+      environment: ${{ steps.meta.outputs.environment }}
+      should_deploy: ${{ steps.meta.outputs.should_deploy }}
       version: ${{ steps.version.outputs.version }}
       start_time: ${{ steps.timer.outputs.start_time }}
-      branch: ${{ steps.set-env.outputs.branch }}
+      branch: ${{ steps.meta.outputs.branch }}
+      source_sha: ${{ steps.meta.outputs.source_sha }}
+      source_run_url: ${{ steps.meta.outputs.source_run_url }}
+      skip_health_check: ${{ steps.meta.outputs.skip_health_check }}
     steps:
-      - name: Start Timer
+      - name: Start timer
         id: timer
-        run: echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
+        run: echo "start_time=$(date +%s)" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout code
-        # FIX #2: All actions pinned to full SHA — consistent with security policy
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      # FIX #14: reliably detect the branch name when triggered by workflow_run.
-      # github.ref in workflow_run is always the default branch (main).
-      # We must use github.event.workflow_run.head_branch for the actual branch.
-      - name: Determine environment
-        id: set-env
+      - name: Resolve deployment metadata
+        id: meta
         env:
           EVENT_NAME: ${{ github.event_name }}
           INPUT_ENV: ${{ inputs.environment }}
+          INPUT_SKIP_HEALTH_CHECK: ${{ inputs.skip_health_check }}
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           REF_NAME: ${{ github.ref_name }}
+          CURRENT_SHA: ${{ github.sha }}
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
         run: |
-          # Use HEAD_BRANCH for workflow_run, otherwise use REF_NAME
-          if [ "$EVENT_NAME" == "workflow_run" ]; then
-            BRANCH_NAME="$HEAD_BRANCH"
+          set -euo pipefail
+
+          if [ "$EVENT_NAME" = "workflow_run" ]; then
+            SOURCE_BRANCH="$HEAD_BRANCH"
+            SOURCE_SHA="$HEAD_SHA"
+            SKIP_HEALTH_CHECK=false
+            SOURCE_RUN_URL="${SERVER_URL}/${REPOSITORY}/actions/runs/${WORKFLOW_RUN_ID}"
           else
-            BRANCH_NAME="$REF_NAME"
+            SOURCE_BRANCH="$REF_NAME"
+            SOURCE_SHA="$CURRENT_SHA"
+            SKIP_HEALTH_CHECK="$INPUT_SKIP_HEALTH_CHECK"
+            SOURCE_RUN_URL="${SERVER_URL}/${REPOSITORY}/actions/runs/${CURRENT_RUN_ID}"
           fi
 
-          echo "🔍 Detected branch: $BRANCH_NAME"
-          echo "branch=${BRANCH_NAME}" >> $GITHUB_OUTPUT
-
-          if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
-            echo "environment=${INPUT_ENV}" >> $GITHUB_OUTPUT
-            echo "should_deploy=true" >> $GITHUB_OUTPUT
-          elif [ "$BRANCH_NAME" == "main" ]; then
-            echo "environment=production" >> $GITHUB_OUTPUT
-            echo "should_deploy=true" >> $GITHUB_OUTPUT
-          elif [ "$BRANCH_NAME" == "dev" ]; then
-            echo "environment=staging" >> $GITHUB_OUTPUT
-            echo "should_deploy=true" >> $GITHUB_OUTPUT
-          else
-            echo "environment=none" >> $GITHUB_OUTPUT
-            echo "should_deploy=false" >> $GITHUB_OUTPUT
+          if [ -z "${SOURCE_BRANCH:-}" ] || [ -z "${SOURCE_SHA:-}" ]; then
+            echo "::error::Unable to resolve the source branch or commit for deployment."
+            exit 1
           fi
 
-      - name: Validate required secrets
-        id: validate-secrets
-        env:
-          # FIX #6: Read TARGET_ENV from the output of the previous step instead
-          # of re-deriving it with duplicate if/elif logic.
-          TARGET_ENV: ${{ steps.set-env.outputs.environment }}
-          HAS_VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN != '' }}
-          HAS_STAGING_API_URL: ${{ secrets.STAGING_API_URL != '' || secrets.PROD_API_URL != '' }}
-          HAS_PROD_API_URL: ${{ secrets.PROD_API_URL != '' }}
-          HAS_DATABASE_URL: ${{ secrets.DATABASE_URL != '' }}
-          HAS_SUPABASE_URL: ${{ secrets.SUPABASE_URL != '' }}
-          HAS_SUPABASE_KEY: ${{ secrets.SUPABASE_KEY != '' }}
-          HAS_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY != '' }}
-        run: |
-          echo "🔒 Validating required secrets..."
+          TARGET_ENV=none
+          SHOULD_DEPLOY=false
 
-          # Validate secrets for staging
-          if [ "$TARGET_ENV" == "staging" ]; then
-            if [ "$HAS_VERCEL_TOKEN" != "true" ]; then
-              echo "::error::VERCEL_TOKEN is required for staging deployment"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            TARGET_ENV="$INPUT_ENV"
+            SHOULD_DEPLOY=true
+
+            if [ "$TARGET_ENV" = "production" ] && [ "$SOURCE_BRANCH" != "main" ]; then
+              echo "::error::Manual production deployments must run from the main branch."
               exit 1
             fi
-            if [ "$HAS_STAGING_API_URL" != "true" ]; then
-              echo "::error::STAGING_API_URL or PROD_API_URL is required for staging deployment"
+
+            if [ "$TARGET_ENV" = "staging" ] && [ "$SOURCE_BRANCH" != "dev" ]; then
+              echo "::error::Manual staging deployments must run from the dev branch."
               exit 1
             fi
-            if [ "$HAS_DATABASE_URL" != "true" ]; then
-              echo "::error::DATABASE_URL is required for staging backend deployment consistency"
-              exit 1
-            fi
-            if [ "$HAS_SUPABASE_SERVICE_ROLE_KEY" != "true" ]; then
-              echo "::error::SUPABASE_SERVICE_ROLE_KEY is required for staging backend deployment"
-              exit 1
-            fi
+          elif [ "$SOURCE_BRANCH" = "main" ]; then
+            TARGET_ENV=production
+            SHOULD_DEPLOY=true
+          elif [ "$SOURCE_BRANCH" = "dev" ]; then
+            TARGET_ENV=staging
+            SHOULD_DEPLOY=true
           fi
 
-          # Validate secrets for production
-          if [ "$TARGET_ENV" == "production" ]; then
-            if [ "$HAS_VERCEL_TOKEN" != "true" ]; then
-              echo "::error::VERCEL_TOKEN is required for production deployment"
-              exit 1
-            fi
-            if [ "$HAS_PROD_API_URL" != "true" ]; then
-              echo "::error::PROD_API_URL is required for production deployment"
-              exit 1
-            fi
-            if [ "$HAS_SUPABASE_URL" != "true" ]; then
-              echo "::error::SUPABASE_URL is required for production deployment"
-              exit 1
-            fi
-            if [ "$HAS_SUPABASE_KEY" != "true" ]; then
-              echo "::error::SUPABASE_KEY is required for production deployment"
-              exit 1
-            fi
-            if [ "$HAS_DATABASE_URL" != "true" ]; then
-              echo "::error::DATABASE_URL is required for production backend deployment consistency"
-              exit 1
-            fi
-            if [ "$HAS_SUPABASE_SERVICE_ROLE_KEY" != "true" ]; then
-              echo "::error::SUPABASE_SERVICE_ROLE_KEY is required for production deployment"
-              exit 1
-            fi
-          fi
+          echo "branch=${SOURCE_BRANCH}" >> "$GITHUB_OUTPUT"
+          echo "source_sha=${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "environment=${TARGET_ENV}" >> "$GITHUB_OUTPUT"
+          echo "should_deploy=${SHOULD_DEPLOY}" >> "$GITHUB_OUTPUT"
+          echo "source_run_url=${SOURCE_RUN_URL}" >> "$GITHUB_OUTPUT"
+          echo "skip_health_check=${SKIP_HEALTH_CHECK}" >> "$GITHUB_OUTPUT"
 
-          echo "✅ Secrets validation passed"
+      - name: Checkout source revision
+        if: ${{ steps.meta.outputs.should_deploy == 'true' }}
+        uses: actions/checkout@93cb6efb55429cc090adc62e6ed358297f0cfee8 # v5.0.1
+        with:
+          ref: ${{ steps.meta.outputs.source_sha }}
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
 
       - name: Generate version
+        if: ${{ steps.meta.outputs.should_deploy == 'true' }}
         id: version
         env:
-          TARGET_ENV: ${{ steps.set-env.outputs.environment }}
+          TARGET_ENV: ${{ steps.meta.outputs.environment }}
         run: |
+          set -euo pipefail
+
           SHORT_SHA=$(git rev-parse --short HEAD)
           TIMESTAMP=$(date +%Y%m%d%H%M%S)
 
-          if [ "$TARGET_ENV" == "production" ]; then
-            TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-            VERSION="${TAG}-${SHORT_SHA}"
+          if [ "$TARGET_ENV" = "production" ]; then
+            VERSION="production-${TIMESTAMP}-${SHORT_SHA}"
           else
             VERSION="staging-${TIMESTAMP}-${SHORT_SHA}"
           fi
 
-          # Validate version format
-          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-[a-f0-9]+$ ]] && [[ ! "$VERSION" =~ ^staging-[0-9]{14}-[a-f0-9]+$ ]]; then
-            echo "::warning::Version format may be invalid: $VERSION"
-          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Resolved version ${VERSION}"
 
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "Generated version: ${VERSION}"
-
-  # ============================================================================
-  # STAGING - PARALLEL DEPLOYMENTS
-  # ============================================================================
   staging-frontend:
     name: Staging - Frontend
     runs-on: ubuntu-latest
     needs: prepare
-    if: ${{ needs.prepare.outputs.environment == 'staging' }}
+    if: ${{ needs.prepare.outputs.environment == 'staging' && needs.prepare.outputs.should_deploy == 'true' }}
     timeout-minutes: 15
-    # FIX #13: Expose the preview URL as a job output so staging-verify
-    # can include it in the Slack / Discord notification.
     outputs:
       deployment_url: ${{ steps.deploy.outputs.deployment_url }}
     environment:
       name: staging
       url: ${{ vars.STAGING_FRONTEND_URL }}
     steps:
-      - name: Checkout code
-        # FIX #2: Pinned to full SHA
-        uses: actions/checkout@v5
+      - name: Checkout source revision
+        uses: actions/checkout@93cb6efb55429cc090adc62e6ed358297f0cfee8 # v5.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.source_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate staging frontend configuration
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          set -euo pipefail
+          required_vars=(
+            VERCEL_TOKEN
+            VERCEL_ORG_ID
+            VERCEL_PROJECT_ID
+            STAGING_API_URL
+            SUPABASE_URL
+            SUPABASE_KEY
+          )
+
+          for var_name in "${required_vars[@]}"; do
+            if [ -z "${!var_name:-}" ]; then
+              echo "::error::${var_name} is required for the staging frontend deployment."
+              exit 1
+            fi
+          done
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c245d4dbd38b7f14a2ab0dcbda9a941144d # v5.0.0
         with:
-          node-version: "24"
-          cache: "npm"
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
 
       - name: Install Vercel CLI
-        run: npm install -g vercel@latest
+        run: npm install -g "vercel@${VERCEL_CLI_VERSION}"
 
       - name: Authenticate Vercel
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: vercel whoami --token="$VERCEL_TOKEN"
 
-      - name: Cache API Client Node Modules
-        # FIX #12: Pinned to full SHA (or tag)
-        uses: actions/cache@v5
+      - name: Cache API client node_modules
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.0
         with:
           path: api-client/node_modules
           key: ${{ runner.os }}-api-client-${{ hashFiles('api-client/package.json') }}
 
-      - name: Validate API Client Generation
+      - name: Validate API client generation
         run: |
-          echo "🧪 Validating API Client Generation..."
+          set -euo pipefail
+
           if [ ! -f "api-client/package.json" ]; then
-            echo "::warning::api-client/package.json not found — skipping validation."
+            echo "::notice::api-client/package.json not found; skipping OpenAPI validation."
             exit 0
           fi
+
           cd api-client
           [ -d node_modules ] || npm install --prefer-offline --no-audit
-          # FIX: Use absolute path via $GITHUB_WORKSPACE because the Java-based
-          # openapi-generator-cli cannot resolve relative paths (../) on the
-          # JVM classpath inside GitHub Actions.
           npx @openapitools/openapi-generator-cli validate \
             -i "$GITHUB_WORKSPACE/docs/openapi-baseline.json"
 
-      # FIX #5: Remove any stale .vercel directory before linking, matching the
-      # pattern already used in staging-backend. Prevents wrong-project errors
-      # if the repo happens to contain a committed .vercel folder.
-      - name: Deploy Frontend to Vercel (Staging)
+      - name: Deploy frontend to Vercel (staging)
         id: deploy
-        shell: bash
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          STAGING_API_URL: ${{ secrets.STAGING_API_URL || secrets.PROD_API_URL }}
+          STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          # FIX #5: Purge any committed / cached .vercel config before linking
+          set -euo pipefail
+
           rm -rf .vercel
 
-          echo "🚀 Linking and Pulling Frontend Config..."
           vercel link --yes --token="$VERCEL_TOKEN"
           vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
 
-          # Build --build-env flags using a bash array to preserve quoting
-          # for values that may contain spaces, dollar signs, or special chars.
-          # Targeted the repo root ('.') instead of './frontend' because the Vercel project
-          # is already configured with a 'Root Directory' setting of 'frontend'.
           DEPLOY_ARGS=(deploy . --yes --token="$VERCEL_TOKEN")
           DEPLOY_ARGS+=(--build-env "VITE_SUPABASE_URL=$SUPABASE_URL")
           DEPLOY_ARGS+=(--build-env "VITE_SUPABASE_ANON_KEY=$SUPABASE_KEY")
-          [ -n "$STAGING_API_URL" ] && DEPLOY_ARGS+=(--build-env "VITE_API_BASE_URL=$STAGING_API_URL")
+          DEPLOY_ARGS+=(--build-env "VITE_API_BASE_URL=$STAGING_API_URL")
           [ -n "$GOOGLE_MAPS_API_KEY" ] && DEPLOY_ARGS+=(--build-env "VITE_GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY")
 
-          echo "🚀 Deploying Frontend..."
-          # FIX #13: Capture the deployment URL for downstream notification
           DEPLOY_OUTPUT=$(vercel "${DEPLOY_ARGS[@]}")
           URL=$(echo "$DEPLOY_OUTPUT" | grep -oE 'https://[a-zA-Z0-9.-]+\.vercel\.app' | head -1)
-          echo "deployment_url=${URL}" >> $GITHUB_OUTPUT
-          echo "✅ Deployed to: ${URL}"
 
-      - name: Create Sentry Release (Staging)
+          if [ -z "${URL:-}" ]; then
+            echo "::error::Unable to determine the staging frontend deployment URL."
+            exit 1
+          fi
+
+          echo "deployment_url=${URL}" >> "$GITHUB_OUTPUT"
+          echo "Staging frontend deployed to ${URL}"
+
+      - name: Create Sentry release (staging)
         if: success()
+        continue-on-error: true
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          if [ -z "$SENTRY_AUTH_TOKEN" ] || [ -z "$SENTRY_ORG" ] || [ -z "$SENTRY_PROJECT" ]; then
-            echo "::notice::SENTRY_AUTH_TOKEN, SENTRY_ORG, or SENTRY_PROJECT not set — skipping Sentry release"
+          set -euo pipefail
+
+          if [ -z "${SENTRY_AUTH_TOKEN:-}" ] || [ -z "${SENTRY_ORG:-}" ] || [ -z "${SENTRY_PROJECT:-}" ]; then
+            echo "::notice::Sentry release configuration is incomplete; skipping release creation."
             exit 0
           fi
+
           npm install -g @sentry/cli --silent
-          echo "📦 Creating Sentry release: ${VERSION} (staging)"
-          sentry-cli releases new "${VERSION}" \
-            --org="$SENTRY_ORG" \
-            --project="$SENTRY_PROJECT"
-          sentry-cli releases set-commits "${VERSION}" \
-            --auto \
-            --org="$SENTRY_ORG" \
-            --project="$SENTRY_PROJECT"
-          sentry-cli releases deploys "${VERSION}" new \
-            --env staging \
-            --org="$SENTRY_ORG" \
-            --project="$SENTRY_PROJECT"
-          sentry-cli releases finalize "${VERSION}" \
-            --org="$SENTRY_ORG" \
-            --project="$SENTRY_PROJECT"
-          echo "✅ Sentry staging release created: ${VERSION}"
+          sentry-cli releases new "${VERSION}" --org="$SENTRY_ORG" --project="$SENTRY_PROJECT"
+          sentry-cli releases set-commits "${VERSION}" --auto --org="$SENTRY_ORG" --project="$SENTRY_PROJECT"
+          sentry-cli releases deploys "${VERSION}" new --env staging --org="$SENTRY_ORG" --project="$SENTRY_PROJECT"
+          sentry-cli releases finalize "${VERSION}" --org="$SENTRY_ORG" --project="$SENTRY_PROJECT"
 
   staging-backend:
     name: Staging - Backend
     runs-on: ubuntu-latest
     needs: prepare
-    if: ${{ needs.prepare.outputs.environment == 'staging' }}
+    if: ${{ needs.prepare.outputs.environment == 'staging' && needs.prepare.outputs.should_deploy == 'true' }}
     timeout-minutes: 15
     environment:
       name: staging
     steps:
-      - name: Checkout code
-        # FIX #2: Pinned to full SHA
-        uses: actions/checkout@v5
+      - name: Checkout source revision
+        uses: actions/checkout@93cb6efb55429cc090adc62e6ed358297f0cfee8 # v5.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.source_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate staging backend configuration
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_BACKEND_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -euo pipefail
+          required_vars=(
+            VERCEL_TOKEN
+            VERCEL_ORG_ID
+            VERCEL_BACKEND_PROJECT_ID
+            DATABASE_URL
+            SUPABASE_URL
+            SUPABASE_KEY
+            SUPABASE_SERVICE_ROLE_KEY
+          )
+
+          for var_name in "${required_vars[@]}"; do
+            if [ -z "${!var_name:-}" ]; then
+              echo "::error::${var_name} is required for the staging backend deployment."
+              exit 1
+            fi
+          done
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c245d4dbd38b7f14a2ab0dcbda9a941144d # v5.0.0
         with:
-          node-version: "24"
-          cache: "npm"
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
 
       - name: Install Vercel CLI
-        run: npm install -g vercel@latest
+        run: npm install -g "vercel@${VERCEL_CLI_VERSION}"
 
       - name: Authenticate Vercel
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: vercel whoami --token="$VERCEL_TOKEN"
 
-      - name: Deploy Backend to Vercel (Staging)
-        shell: bash
+      - name: Deploy backend to Vercel (staging)
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -382,134 +360,192 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          BRANCH_NAME: ${{ needs.prepare.outputs.branch }}
         run: |
-          echo "🚀 Linking and Pulling Backend Config..."
+          set -euo pipefail
+
           rm -rf .vercel
           vercel link --yes --token="$VERCEL_TOKEN"
           vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
 
-          echo "🚀 Deploying Backend..."
           DEPLOY_ARGS=(deploy . --yes --token="$VERCEL_TOKEN")
-          [ -n "$DATABASE_URL" ] && DEPLOY_ARGS+=(-e "DATABASE_URL=$DATABASE_URL")
-          [ -n "$SUPABASE_URL" ] && DEPLOY_ARGS+=(-e "SUPABASE_URL=$SUPABASE_URL")
-          [ -n "$SUPABASE_KEY" ] && DEPLOY_ARGS+=(-e "SUPABASE_KEY=$SUPABASE_KEY")
-          [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] && DEPLOY_ARGS+=(-e "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY")
-          
-          # Targeted the repo root ('.') instead of './backend' because the Vercel project
-          # is already configured with a 'Root Directory' setting of 'backend'.
+          DEPLOY_ARGS+=(-e "DATABASE_URL=$DATABASE_URL")
+          DEPLOY_ARGS+=(-e "SUPABASE_URL=$SUPABASE_URL")
+          DEPLOY_ARGS+=(-e "SUPABASE_KEY=$SUPABASE_KEY")
+          DEPLOY_ARGS+=(-e "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY")
+
           vercel "${DEPLOY_ARGS[@]}"
 
   staging-verify:
     name: Staging - Verification
     runs-on: ubuntu-latest
     needs: [prepare, staging-frontend, staging-backend]
-    if: ${{ always() && needs.prepare.outputs.environment == 'staging' }}
+    if: ${{ always() && needs.prepare.outputs.environment == 'staging' && needs.prepare.outputs.should_deploy == 'true' }}
     timeout-minutes: 10
+    environment:
+      name: staging
     steps:
-      # FIX #8: Replace single curl with a retry loop.
-      # Vercel preview deployments can take >10 s to cold-start; 5 × 10 s
-      # retries give a 50 s window before the health check is declared failed.
-      - name: Staging Health Check
-        if: inputs.skip_health_check != true && needs.staging-frontend.result == 'success' && needs.staging-backend.result == 'success'
-        env:
-          STAGING_API_URL: ${{ secrets.STAGING_API_URL || secrets.PROD_API_URL }}
+      - name: Fail when a staging deployment job fails
+        if: ${{ needs.staging-frontend.result != 'success' || needs.staging-backend.result != 'success' }}
         run: |
-          echo "🏥 Running staging health check..."
-          MAX_ATTEMPTS=5
-          for i in $(seq 1 $MAX_ATTEMPTS); do
-            echo "Attempt $i / $MAX_ATTEMPTS..."
-            curl -sf --max-time 15 "${STAGING_API_URL}/health/ready" && {
-              echo "✅ Staging Backend is Healthy"
-              exit 0
-            }
-            [ "$i" -lt "$MAX_ATTEMPTS" ] && echo "Not ready yet, retrying in 10s..." && sleep 10
-          done
-          echo "❌ Staging Health Check Failed after $MAX_ATTEMPTS attempts"
+          echo "::error::At least one staging deployment job failed."
           exit 1
 
-      - name: Notify Staging Result
+      - name: Staging health check
+        if: ${{ needs.prepare.outputs.skip_health_check != 'true' && needs.staging-frontend.result == 'success' && needs.staging-backend.result == 'success' }}
+        env:
+          STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${STAGING_API_URL:-}" ]; then
+            echo "::error::STAGING_API_URL is required for the staging health check."
+            exit 1
+          fi
+
+          MAX_ATTEMPTS=5
+          for i in $(seq 1 "$MAX_ATTEMPTS"); do
+            echo "Health check attempt ${i}/${MAX_ATTEMPTS}"
+            if curl --fail --show-error --silent --max-time 15 "${STAGING_API_URL}/health/ready"; then
+              echo "Staging backend is healthy"
+              exit 0
+            fi
+            [ "$i" -lt "$MAX_ATTEMPTS" ] && sleep 10
+          done
+
+          echo "::error::Staging health check failed after ${MAX_ATTEMPTS} attempts."
+          exit 1
+
+      - name: Notify staging result
         if: always()
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          FE_RESULT: ${{ needs.staging-frontend.result }}
-          BE_RESULT: ${{ needs.staging-backend.result }}
           VERSION: ${{ needs.prepare.outputs.version }}
-          # FIX #13: Frontend URL is now available from staging-frontend output
           FRONTEND_URL: ${{ needs.staging-frontend.outputs.deployment_url }}
+          JOB_STATUS: ${{ job.status }}
+          SOURCE_BRANCH: ${{ needs.prepare.outputs.branch }}
+          SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
         run: |
-          if [ "$FE_RESULT" == "success" ] && [ "$BE_RESULT" == "success" ]; then
-            TITLE="✅ Staging Deployment Successful"
+          set +e
+
+          if [ "$JOB_STATUS" = "success" ]; then
+            TITLE="Staging deployment successful"
             COLOR_SLACK="good"
             COLOR_DISCORD=5763719
           else
-            TITLE="❌ Staging Deployment Failed"
+            TITLE="Staging deployment failed"
             COLOR_SLACK="danger"
             COLOR_DISCORD=15548997
           fi
 
-          [ -n "$SLACK_WEBHOOK_URL" ] && curl -X POST "$SLACK_WEBHOOK_URL" \
-            -H "Content-Type: application/json" \
-            -d "{\"text\": \"${TITLE}\", \"attachments\": [{\"color\": \"${COLOR_SLACK}\", \"fields\": [{\"title\": \"Environment\", \"value\": \"Staging\", \"short\": true}, {\"title\": \"Version\", \"value\": \"${VERSION}\", \"short\": true}, {\"title\": \"URL\", \"value\": \"${FRONTEND_URL}\", \"short\": false}]}]}" \
-            2>/dev/null || true
-          [ -n "$DISCORD_WEBHOOK_URL" ] && curl -X POST "$DISCORD_WEBHOOK_URL" \
-            -H "Content-Type: application/json" \
-            -d "{\"embeds\": [{\"title\": \"${TITLE}\", \"color\": ${COLOR_DISCORD}, \"fields\": [{\"name\": \"Environment\", \"value\": \"Staging\"}, {\"name\": \"Version\", \"value\": \"${VERSION}\"}, {\"name\": \"URL\", \"value\": \"${FRONTEND_URL}\"}]}]}" \
-            2>/dev/null || true
-          echo "Notifying: $TITLE"
+          if [ -n "${SLACK_WEBHOOK_URL:-}" ]; then
+            curl -X POST "$SLACK_WEBHOOK_URL" \
+              -H "Content-Type: application/json" \
+              -d "{\"text\":\"${TITLE}\",\"attachments\":[{\"color\":\"${COLOR_SLACK}\",\"fields\":[{\"title\":\"Environment\",\"value\":\"staging\",\"short\":true},{\"title\":\"Version\",\"value\":\"${VERSION}\",\"short\":true},{\"title\":\"Branch\",\"value\":\"${SOURCE_BRANCH}\",\"short\":true},{\"title\":\"Commit\",\"value\":\"${SOURCE_SHA}\",\"short\":false},{\"title\":\"URL\",\"value\":\"${FRONTEND_URL}\",\"short\":false}]}]}" \
+              >/dev/null 2>&1 || true
+          fi
 
-  # ============================================================================
-  # PRODUCTION - MODULAR FLOW
-  # ============================================================================
+          if [ -n "${DISCORD_WEBHOOK_URL:-}" ]; then
+            curl -X POST "$DISCORD_WEBHOOK_URL" \
+              -H "Content-Type: application/json" \
+              -d "{\"embeds\":[{\"title\":\"${TITLE}\",\"color\":${COLOR_DISCORD},\"fields\":[{\"name\":\"Environment\",\"value\":\"staging\",\"inline\":true},{\"name\":\"Version\",\"value\":\"${VERSION}\",\"inline\":true},{\"name\":\"Branch\",\"value\":\"${SOURCE_BRANCH}\",\"inline\":true},{\"name\":\"Commit\",\"value\":\"${SOURCE_SHA}\"},{\"name\":\"URL\",\"value\":\"${FRONTEND_URL}\"}]}]}" \
+              >/dev/null 2>&1 || true
+          fi
+
   production-backup:
     name: Production - Backup
     runs-on: ubuntu-latest
     needs: prepare
-    if: ${{ needs.prepare.outputs.environment == 'production' }}
+    if: ${{ needs.prepare.outputs.environment == 'production' && needs.prepare.outputs.should_deploy == 'true' }}
     timeout-minutes: 10
+    environment:
+      name: production
     steps:
       - name: Pre-deployment backup
         env:
           BACKUP_WEBHOOK_URL: ${{ secrets.BACKUP_WEBHOOK_URL }}
           BACKUP_API_KEY: ${{ secrets.BACKUP_API_KEY }}
           VERSION: ${{ needs.prepare.outputs.version }}
+          SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
         run: |
-          echo "💾 Creating pre-deployment backup..."
-          if [ -n "$BACKUP_WEBHOOK_URL" ]; then
-            curl -X POST "$BACKUP_WEBHOOK_URL" \
-              -H "Authorization: Bearer $BACKUP_API_KEY" \
-              -H "Content-Type: application/json" \
-              -d "{\"type\": \"pre-deployment\", \"version\": \"${VERSION}\"}"
+          set -euo pipefail
+
+          if [ -z "${BACKUP_WEBHOOK_URL:-}" ]; then
+            echo "::notice::BACKUP_WEBHOOK_URL is not configured; skipping backup hook."
+            exit 0
           fi
+
+          if [ -z "${BACKUP_API_KEY:-}" ]; then
+            echo "::error::BACKUP_API_KEY is required when BACKUP_WEBHOOK_URL is configured."
+            exit 1
+          fi
+
+          curl --fail --show-error --silent -X POST "$BACKUP_WEBHOOK_URL" \
+            -H "Authorization: Bearer $BACKUP_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"type\":\"pre-deployment\",\"version\":\"${VERSION}\",\"source_sha\":\"${SOURCE_SHA}\"}"
 
   production-frontend:
     name: Production - Frontend
     runs-on: ubuntu-latest
     needs: [prepare, production-backup]
-    if: ${{ needs.prepare.outputs.environment == 'production' }}
+    if: ${{ needs.prepare.outputs.environment == 'production' && needs.prepare.outputs.should_deploy == 'true' }}
     timeout-minutes: 15
     outputs:
       deployment_url: ${{ steps.deploy.outputs.deployment_url }}
     environment:
       name: production
-      url: https://purrfect-spots.vercel.app
-      # Require manual approval for production deployments
-      # Configure in GitHub Settings > Environments > production > Protection rules
+      url: ${{ vars.PROD_FRONTEND_URL || 'https://purrfect-spots.vercel.app' }}
     steps:
-      - name: Checkout code
-        # FIX #2: Pinned to full SHA
-        uses: actions/checkout@v5
+      - name: Checkout source revision
+        uses: actions/checkout@93cb6efb55429cc090adc62e6ed358297f0cfee8 # v5.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.source_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate production frontend configuration
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          PROD_API_URL: ${{ secrets.PROD_API_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          set -euo pipefail
+          required_vars=(
+            VERCEL_TOKEN
+            VERCEL_ORG_ID
+            VERCEL_PROJECT_ID
+            PROD_API_URL
+            SUPABASE_URL
+            SUPABASE_KEY
+          )
+
+          for var_name in "${required_vars[@]}"; do
+            if [ -z "${!var_name:-}" ]; then
+              echo "::error::${var_name} is required for the production frontend deployment."
+              exit 1
+            fi
+          done
+
       - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with: { node-version: "24", cache: "npm" }
+        uses: actions/setup-node@a0853c245d4dbd38b7f14a2ab0dcbda9a941144d # v5.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
       - name: Install Vercel CLI
-        run: npm install -g vercel@latest
+        run: npm install -g "vercel@${VERCEL_CLI_VERSION}"
+
       - name: Authenticate Vercel
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: vercel whoami --token="$VERCEL_TOKEN"
-      - id: deploy
+
+      - name: Deploy frontend to Vercel (production)
+        id: deploy
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -519,363 +555,321 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
         run: |
-          # FIX #5: Purge stale .vercel config before linking
+          set -euo pipefail
+
           rm -rf .vercel
 
-          echo "🚀 Linking and Pulling Frontend Production Config..."
           vercel link --yes --token="$VERCEL_TOKEN"
           vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
 
-          # Build --build-env flags using a bash array to preserve quoting
-          # Targeted the repo root ('.') instead of './frontend' because the Vercel project
-          # is already configured with a 'Root Directory' setting of 'frontend'.
           DEPLOY_ARGS=(deploy . --prod --yes --token="$VERCEL_TOKEN")
           DEPLOY_ARGS+=(--build-env "VITE_SUPABASE_URL=$SUPABASE_URL")
           DEPLOY_ARGS+=(--build-env "VITE_SUPABASE_ANON_KEY=$SUPABASE_KEY")
-          [ -n "$PROD_API_URL" ] && DEPLOY_ARGS+=(--build-env "VITE_API_BASE_URL=$PROD_API_URL")
+          DEPLOY_ARGS+=(--build-env "VITE_API_BASE_URL=$PROD_API_URL")
           [ -n "$GOOGLE_MAPS_API_KEY" ] && DEPLOY_ARGS+=(--build-env "VITE_GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY")
 
-          echo "🚀 Triggering Vercel Production Deployment..."
           DEPLOY_OUTPUT=$(vercel "${DEPLOY_ARGS[@]}")
           URL=$(echo "$DEPLOY_OUTPUT" | grep -oE 'https://[a-zA-Z0-9.-]+\.vercel\.app' | head -1)
-          echo "deployment_url=${URL}" >> $GITHUB_OUTPUT
-          echo "✅ Deployed to: ${URL}"
 
-      - name: Create Sentry Release (Production)
+          if [ -z "${URL:-}" ]; then
+            echo "::error::Unable to determine the production frontend deployment URL."
+            exit 1
+          fi
+
+          echo "deployment_url=${URL}" >> "$GITHUB_OUTPUT"
+          echo "Production frontend deployed to ${URL}"
+
+      - name: Create Sentry release (production)
         if: success()
+        continue-on-error: true
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          if [ -z "$SENTRY_AUTH_TOKEN" ] || [ -z "$SENTRY_ORG" ] || [ -z "$SENTRY_PROJECT" ]; then
-            echo "::notice::SENTRY_AUTH_TOKEN, SENTRY_ORG, or SENTRY_PROJECT not set — skipping Sentry release"
+          set -euo pipefail
+
+          if [ -z "${SENTRY_AUTH_TOKEN:-}" ] || [ -z "${SENTRY_ORG:-}" ] || [ -z "${SENTRY_PROJECT:-}" ]; then
+            echo "::notice::Sentry release configuration is incomplete; skipping release creation."
             exit 0
           fi
+
           npm install -g @sentry/cli --silent
-          echo "📦 Creating Sentry release: ${VERSION} (production)"
-          sentry-cli releases new "${VERSION}" \
-            --org="$SENTRY_ORG" \
-            --project="$SENTRY_PROJECT"
-          sentry-cli releases set-commits "${VERSION}" \
-            --auto \
-            --org="$SENTRY_ORG" \
-            --project="$SENTRY_PROJECT"
-          sentry-cli releases deploys "${VERSION}" new \
-            --env production \
-            --org="$SENTRY_ORG" \
-            --project="$SENTRY_PROJECT"
-          sentry-cli releases finalize "${VERSION}" \
-            --org="$SENTRY_ORG" \
-            --project="$SENTRY_PROJECT"
-          echo "✅ Sentry production release created: ${VERSION}"
+          sentry-cli releases new "${VERSION}" --org="$SENTRY_ORG" --project="$SENTRY_PROJECT"
+          sentry-cli releases set-commits "${VERSION}" --auto --org="$SENTRY_ORG" --project="$SENTRY_PROJECT"
+          sentry-cli releases deploys "${VERSION}" new --env production --org="$SENTRY_ORG" --project="$SENTRY_PROJECT"
+          sentry-cli releases finalize "${VERSION}" --org="$SENTRY_ORG" --project="$SENTRY_PROJECT"
 
   production-backend:
     name: Production - Backend
     runs-on: ubuntu-latest
     needs: [prepare, production-backup]
-    if: ${{ needs.prepare.outputs.environment == 'production' }}
+    if: ${{ needs.prepare.outputs.environment == 'production' && needs.prepare.outputs.should_deploy == 'true' }}
     timeout-minutes: 15
     environment:
       name: production
     steps:
-      - name: Checkout code
-        # FIX #2: Pinned to full SHA
-        uses: actions/checkout@v5
+      - name: Checkout source revision
+        uses: actions/checkout@93cb6efb55429cc090adc62e6ed358297f0cfee8 # v5.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.source_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate production backend configuration
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_BACKEND_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -euo pipefail
+          required_vars=(
+            VERCEL_TOKEN
+            VERCEL_ORG_ID
+            VERCEL_BACKEND_PROJECT_ID
+            DATABASE_URL
+            SUPABASE_URL
+            SUPABASE_KEY
+            SUPABASE_SERVICE_ROLE_KEY
+          )
+
+          for var_name in "${required_vars[@]}"; do
+            if [ -z "${!var_name:-}" ]; then
+              echo "::error::${var_name} is required for the production backend deployment."
+              exit 1
+            fi
+          done
+
       - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with: { node-version: "24", cache: "npm" }
+        uses: actions/setup-node@a0853c245d4dbd38b7f14a2ab0dcbda9a941144d # v5.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
       - name: Install Vercel CLI
-        run: npm install -g vercel@latest
+        run: npm install -g "vercel@${VERCEL_CLI_VERSION}"
+
       - name: Authenticate Vercel
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: vercel whoami --token="$VERCEL_TOKEN"
-      - name: Deploy Backend
+
+      - name: Deploy backend to Vercel (production)
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          # FIX #10: Backend explicitly uses VERCEL_BACKEND_PROJECT_ID, not the
-          # shared VERCEL_PROJECT_ID, so the correct project is always targeted.
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          echo "🚀 Linking and Pulling Backend Production Config..."
+          set -euo pipefail
+
           rm -rf .vercel
           vercel link --yes --token="$VERCEL_TOKEN"
           vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
 
-          echo "🚀 Triggering Backend Deployment..."
           DEPLOY_ARGS=(deploy . --prod --yes --token="$VERCEL_TOKEN")
-          [ -n "$DATABASE_URL" ] && DEPLOY_ARGS+=(-e "DATABASE_URL=$DATABASE_URL")
-          [ -n "$SUPABASE_URL" ] && DEPLOY_ARGS+=(-e "SUPABASE_URL=$SUPABASE_URL")
-          [ -n "$SUPABASE_KEY" ] && DEPLOY_ARGS+=(-e "SUPABASE_KEY=$SUPABASE_KEY")
-          [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] && DEPLOY_ARGS+=(-e "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY")
-          
-          # Targeted the repo root ('.') instead of './backend' because the Vercel project
-          # is already configured with a 'Root Directory' setting of 'backend'.
+          DEPLOY_ARGS+=(-e "DATABASE_URL=$DATABASE_URL")
+          DEPLOY_ARGS+=(-e "SUPABASE_URL=$SUPABASE_URL")
+          DEPLOY_ARGS+=(-e "SUPABASE_KEY=$SUPABASE_KEY")
+          DEPLOY_ARGS+=(-e "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY")
+
           vercel "${DEPLOY_ARGS[@]}"
 
   production-verify:
     name: Production - Verification
     runs-on: ubuntu-latest
     needs: [prepare, production-frontend, production-backend]
-    if: ${{ always() && needs.prepare.outputs.environment == 'production' }}
+    if: ${{ always() && needs.prepare.outputs.environment == 'production' && needs.prepare.outputs.should_deploy == 'true' }}
     timeout-minutes: 15
-    permissions:
-      contents: write
-      pull-requests: read
+    environment:
+      name: production
     steps:
-      - name: Checkout code
-        # Need repo access for tagging
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
       - name: Setup Node.js
-        # Need node for Vercel CLI (which is used in rollback)
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c245d4dbd38b7f14a2ab0dcbda9a941144d # v5.0.0
         with:
-          node-version: "24"
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Install Vercel CLI
-        run: npm install -g vercel@latest
+        run: npm install -g "vercel@${VERCEL_CLI_VERSION}"
 
-      # jq is pre-installed on ubuntu-latest runners — no manual install needed.
+      - name: Fail when a production deployment job fails
+        if: ${{ needs.production-frontend.result != 'success' || needs.production-backend.result != 'success' }}
+        run: |
+          echo "::error::At least one production deployment job failed."
+          exit 1
 
-      - name: Smoke Tests
-        if: needs.production-frontend.result == 'success' && needs.production-backend.result == 'success'
+      - name: Smoke tests
+        if: ${{ needs.production-frontend.result == 'success' && needs.production-backend.result == 'success' }}
         env:
           PROD_API_URL: ${{ secrets.PROD_API_URL }}
-          # PROD_FRONTEND_URL is the stable canonical alias (e.g. https://purrfect-spots.vercel.app).
-          # This avoids hitting a unique deployment URL which has Vercel Deployment Protection
-          # enabled and returns HTTP 401. Use vars.PROD_FRONTEND_URL (a GitHub Actions variable)
-          # as the primary target, and fall back to the dynamic deployment URL only if unset.
           PROD_FRONTEND_URL: ${{ vars.PROD_FRONTEND_URL }}
           DEPLOYMENT_URL: ${{ needs.production-frontend.outputs.deployment_url }}
-          # Optional: Vercel Deployment Protection bypass secret (set in GitHub Secrets).
-          # Allows the smoke test to access unique deployment URLs protected by Vercel.
-          # Generate via: Vercel Dashboard > Project > Settings > Deployment Protection.
           VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
         run: |
-          echo "🧪 Running Production Smoke Tests..."
-          echo ""
+          set -euo pipefail
+
+          if [ -z "${PROD_API_URL:-}" ]; then
+            echo "::error::PROD_API_URL is required for production smoke tests."
+            exit 1
+          fi
 
           FAILED=0
-
-          # --- Backend Health Check ---
-          echo "=== Backend Health Check ==="
           MAX_ATTEMPTS=5
           BACKEND_OK=false
-          for i in $(seq 1 $MAX_ATTEMPTS); do
-            echo "Attempt $i / $MAX_ATTEMPTS..."
+
+          for i in $(seq 1 "$MAX_ATTEMPTS"); do
             START_MS=$(date +%s%3N)
-            if curl -sf --max-time 15 "${PROD_API_URL}/health/ready"; then
+            if curl --fail --show-error --silent --max-time 15 "${PROD_API_URL}/health/ready"; then
               END_MS=$(date +%s%3N)
               RESPONSE_TIME=$((END_MS - START_MS))
-              echo ""
-              echo "✅ Backend is healthy (${RESPONSE_TIME}ms)"
-
-              # Response time assertion
-              if [ "$RESPONSE_TIME" -gt 5000 ]; then
-                echo "::warning::Backend response time ${RESPONSE_TIME}ms exceeds 5000ms threshold"
-              fi
+              echo "Backend health check passed in ${RESPONSE_TIME}ms"
+              [ "$RESPONSE_TIME" -gt 5000 ] && echo "::warning::Backend response time ${RESPONSE_TIME}ms exceeded the 5000ms threshold."
               BACKEND_OK=true
               break
             fi
-            [ "$i" -lt "$MAX_ATTEMPTS" ] && echo "Not ready yet, retrying in 15s..." && sleep 15
+            [ "$i" -lt "$MAX_ATTEMPTS" ] && sleep 15
           done
 
           if [ "$BACKEND_OK" != "true" ]; then
-            echo "❌ Backend health check failed after $MAX_ATTEMPTS attempts"
+            echo "::error::Production backend health check failed after ${MAX_ATTEMPTS} attempts."
             FAILED=1
           fi
 
-          echo ""
-
-          # --- Frontend Health Check ---
-          # Prefer the stable canonical URL (set via vars.PROD_FRONTEND_URL) over the
-          # unique deployment URL to avoid Vercel Deployment Protection (HTTP 401).
-          echo "=== Frontend Health Check ==="
           FRONTEND_URL="${PROD_FRONTEND_URL:-$DEPLOYMENT_URL}"
-          if [ -n "$FRONTEND_URL" ]; then
-            echo "🔗 Checking: ${FRONTEND_URL}"
-            MAX_ATTEMPTS=3
+          if [ -n "${FRONTEND_URL:-}" ]; then
+            MAX_FRONTEND_ATTEMPTS=3
             FRONTEND_OK=false
-            # Build curl args. If a protection bypass secret is configured, include
-            # the x-vercel-protection-bypass header so Vercel lets the request
-            # through even on unique deployment URLs with protection enabled.
             CURL_ARGS=(-s -o /dev/null -w "%{http_code}" --max-time 15)
-            [ -n "$VERCEL_PROTECTION_BYPASS" ] && CURL_ARGS+=(-H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS")
-            for i in $(seq 1 $MAX_ATTEMPTS); do
-              echo "Attempt $i / $MAX_ATTEMPTS..."
+            [ -n "${VERCEL_PROTECTION_BYPASS:-}" ] && CURL_ARGS+=(-H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS")
+
+            for i in $(seq 1 "$MAX_FRONTEND_ATTEMPTS"); do
               HTTP_STATUS=$(curl "${CURL_ARGS[@]}" "${FRONTEND_URL}")
               if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 400 ]; then
-                echo "✅ Frontend is accessible (HTTP $HTTP_STATUS)"
+                echo "Frontend health check passed with HTTP ${HTTP_STATUS}"
                 FRONTEND_OK=true
                 break
               fi
-              [ "$i" -lt "$MAX_ATTEMPTS" ] && echo "HTTP $HTTP_STATUS — retrying in 10s..." && sleep 10
+              [ "$i" -lt "$MAX_FRONTEND_ATTEMPTS" ] && sleep 10
             done
 
             if [ "$FRONTEND_OK" != "true" ]; then
-              echo "❌ Frontend health check failed (last HTTP status: $HTTP_STATUS)"
+              echo "::error::Production frontend health check failed with HTTP ${HTTP_STATUS}."
               FAILED=1
             fi
           else
-            echo "::warning::Frontend URL not available — skipping frontend health check"
+            echo "::warning::No production frontend URL is available; skipping frontend smoke test."
           fi
 
-          echo ""
-          if [ "$FAILED" -eq 1 ]; then
-            echo "❌ Smoke tests FAILED"
-            exit 1
-          else
-            echo "✅ All smoke tests PASSED"
-          fi
+          [ "$FAILED" -eq 0 ] || exit 1
 
-      - name: Create Release Tag
-        if: success()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ needs.prepare.outputs.version }}
-        run: |
-          echo "🏷️ Creating release tag..."
-
-          TAG_NAME="release-${VERSION}"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          git tag -a "${TAG_NAME}" -m "Production release ${VERSION}"
-          git push origin "${TAG_NAME}"
-
-          gh release create "${TAG_NAME}" \
-            --title "Release ${VERSION}" \
-            --notes "Automated production release
-
-          - Version: ${VERSION}
-          - Deployed by: ${{ github.actor }}
-          - Commit: ${{ github.sha }}" \
-            --latest
-
-          echo "✅ Release tag ${TAG_NAME} created and pushed"
-
-      - name: Rollback on Failure
+      - name: Roll back Vercel deployments on failure
         if: failure()
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERSION: ${{ needs.prepare.outputs.version }}
-          # FIX #10: Both project IDs are explicitly present so each rollback
-          # targets the correct Vercel project independently.
           VERCEL_FRONTEND_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_BACKEND_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
         run: |
-          echo "🔄 Initiating rollback..."
+          set -euo pipefail
 
-          PREVIOUS_TAG=$(git describe --tags --abbrev=0 --exclude="release-${VERSION}" 2>/dev/null || echo "")
-
-          if [ -n "$PREVIOUS_TAG" ]; then
-            echo "Rolling back to $PREVIOUS_TAG"
-
-            # FIX #3: Each rollback now targets its own project explicitly via
-            # VERCEL_PROJECT_ID env var instead of the unsupported --project flag.
-            echo "Rolling back frontend..."
-            VERCEL_PROJECT_ID="$VERCEL_FRONTEND_PROJECT_ID" vercel rollback \
-              --yes \
-              --token="$VERCEL_TOKEN" \
-              || echo "::warning::Frontend rollback failed"
-
-            if [ -n "$VERCEL_BACKEND_PROJECT_ID" ]; then
-              echo "Rolling back backend..."
-              VERCEL_PROJECT_ID="$VERCEL_BACKEND_PROJECT_ID" vercel rollback \
-                --yes \
-                --token="$VERCEL_TOKEN" \
-                || echo "::warning::Backend rollback failed"
-            fi
-
-            echo "✅ Rollback completed"
-          else
-            echo "::warning::No previous tag found for rollback – this appears to be the first deployment."
-            echo "ℹ️ Manual intervention may be needed. Check the deployment dashboard."
+          if [ -z "${VERCEL_TOKEN:-}" ] || [ -z "${VERCEL_ORG_ID:-}" ]; then
+            echo "::warning::Vercel credentials are incomplete; skipping rollback."
+            exit 0
           fi
 
-      - name: Notify Deployment Result
+          if [ -n "${VERCEL_FRONTEND_PROJECT_ID:-}" ]; then
+            VERCEL_PROJECT_ID="$VERCEL_FRONTEND_PROJECT_ID" vercel rollback --yes --token="$VERCEL_TOKEN" || \
+              echo "::warning::Frontend rollback failed."
+          fi
+
+          if [ -n "${VERCEL_BACKEND_PROJECT_ID:-}" ]; then
+            VERCEL_PROJECT_ID="$VERCEL_BACKEND_PROJECT_ID" vercel rollback --yes --token="$VERCEL_TOKEN" || \
+              echo "::warning::Backend rollback failed."
+          fi
+
+      - name: Notify deployment result
         if: always()
         env:
-          # FIX #4: Was incorrectly reading from steps.deploy-frontend (a step
-          # that does not exist in this job). Now reads from the correct
-          # needs.production-frontend job output.
           FRONTEND_URL: ${{ needs.production-frontend.outputs.deployment_url }}
           VERSION: ${{ needs.prepare.outputs.version }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           JOB_STATUS: ${{ job.status }}
+          SOURCE_BRANCH: ${{ needs.prepare.outputs.branch }}
+          SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
         run: |
-          if [ "$JOB_STATUS" == "success" ]; then
-            echo "✅ Production deployment successful!"
-            echo "🔗 URL: ${FRONTEND_URL}"
-            echo "📦 Version: ${VERSION}"
+          set +e
+
+          if [ "$JOB_STATUS" = "success" ]; then
+            TITLE="Production deployment successful"
             COLOR_SLACK="good"
             COLOR_DISCORD=5763719
-            TITLE="✅ Production Deployment Successful"
           else
-            echo "❌ Production deployment failed!"
-            echo "🔄 Rollback initiated automatically."
+            TITLE="Production deployment failed"
             COLOR_SLACK="danger"
             COLOR_DISCORD=15548997
-            TITLE="❌ Production Deployment Failed - Rollback Initiated"
           fi
 
-          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+          if [ -n "${SLACK_WEBHOOK_URL:-}" ]; then
             curl -X POST "$SLACK_WEBHOOK_URL" \
               -H "Content-Type: application/json" \
-              -d "{
-                \"text\": \"${TITLE}\",
-                \"attachments\": [{
-                  \"color\": \"${COLOR_SLACK}\",
-                  \"fields\": [
-                    {\"title\": \"Environment\", \"value\": \"Production\", \"short\": true},
-                    {\"title\": \"Version\", \"value\": \"${VERSION}\", \"short\": true},
-                    {\"title\": \"URL\", \"value\": \"${FRONTEND_URL}\", \"short\": false},
-                    {\"title\": \"Deployed by\", \"value\": \"${{ github.actor }}\", \"short\": true},
-                    {\"title\": \"Run\", \"value\": \"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\", \"short\": false}
-                  ]
-                }]
-              }" 2>/dev/null || echo "Slack notification failed"
+              -d "{\"text\":\"${TITLE}\",\"attachments\":[{\"color\":\"${COLOR_SLACK}\",\"fields\":[{\"title\":\"Environment\",\"value\":\"production\",\"short\":true},{\"title\":\"Version\",\"value\":\"${VERSION}\",\"short\":true},{\"title\":\"Branch\",\"value\":\"${SOURCE_BRANCH}\",\"short\":true},{\"title\":\"Commit\",\"value\":\"${SOURCE_SHA}\",\"short\":false},{\"title\":\"URL\",\"value\":\"${FRONTEND_URL}\",\"short\":false},{\"title\":\"Run\",\"value\":\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\",\"short\":false}]}]}" \
+              >/dev/null 2>&1 || true
           fi
 
-          if [ -n "$DISCORD_WEBHOOK_URL" ]; then
+          if [ -n "${DISCORD_WEBHOOK_URL:-}" ]; then
             curl -X POST "$DISCORD_WEBHOOK_URL" \
               -H "Content-Type: application/json" \
-              -d "{
-                \"embeds\": [{
-                  \"title\": \"${TITLE}\",
-                  \"color\": ${COLOR_DISCORD},
-                  \"fields\": [
-                    {\"name\": \"Environment\", \"value\": \"Production\", \"inline\": true},
-                    {\"name\": \"Version\", \"value\": \"${VERSION}\", \"inline\": true},
-                    {\"name\": \"URL\", \"value\": \"${FRONTEND_URL}\"},
-                    {\"name\": \"Deployed by\", \"value\": \"${{ github.actor }}\", \"inline\": true},
-                    {\"name\": \"Run\", \"value\": \"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}
-                  ]
-                }]
-              }" 2>/dev/null || echo "Discord notification failed"
+              -d "{\"embeds\":[{\"title\":\"${TITLE}\",\"color\":${COLOR_DISCORD},\"fields\":[{\"name\":\"Environment\",\"value\":\"production\",\"inline\":true},{\"name\":\"Version\",\"value\":\"${VERSION}\",\"inline\":true},{\"name\":\"Branch\",\"value\":\"${SOURCE_BRANCH}\",\"inline\":true},{\"name\":\"Commit\",\"value\":\"${SOURCE_SHA}\"},{\"name\":\"URL\",\"value\":\"${FRONTEND_URL}\"},{\"name\":\"Run\",\"value\":\"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}]}]}" \
+              >/dev/null 2>&1 || true
           fi
 
-  # ============================================================================
-  # DEPLOYMENT SUMMARY
-  # FIX #9: summary no longer depends on both staging-verify AND production-verify.
-  # Only the relevant verify job for the current environment is waited on, which
-  # prevents a production run from blocking on a skipped staging job (and vice
-  # versa). The 'always()' guard ensures the summary still runs on failures.
-  # ============================================================================
+  production-record:
+    name: Production - Deployment Record
+    runs-on: ubuntu-latest
+    needs: [prepare, production-verify]
+    if: ${{ needs.prepare.outputs.environment == 'production' && needs.prepare.outputs.should_deploy == 'true' && needs.production-verify.result == 'success' }}
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout released revision
+        uses: actions/checkout@93cb6efb55429cc090adc62e6ed358297f0cfee8 # v5.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.source_sha }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Create deployment audit tag
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
+          SOURCE_BRANCH: ${{ needs.prepare.outputs.branch }}
+        run: |
+          set -euo pipefail
+
+          TAG_NAME="deploy-${VERSION}"
+
+          if git ls-remote --exit-code --tags origin "${TAG_NAME}" >/dev/null 2>&1; then
+            echo "::notice::Deployment tag ${TAG_NAME} already exists; skipping tag creation."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git tag -a "${TAG_NAME}" "${SOURCE_SHA}" -m "Production deployment ${VERSION} from ${SOURCE_BRANCH}"
+          git push origin "refs/tags/${TAG_NAME}"
+          echo "Created deployment tag ${TAG_NAME} for ${SOURCE_SHA}"
+
   summary-staging:
     name: Deployment Summary (Staging)
     runs-on: ubuntu-latest
@@ -889,38 +883,37 @@ jobs:
           FRONTEND_URL: ${{ needs.staging-frontend.outputs.deployment_url }}
           STAGING_RESULT: ${{ needs.staging-verify.result }}
           START_TIME: ${{ needs.prepare.outputs.start_time }}
+          SOURCE_BRANCH: ${{ needs.prepare.outputs.branch }}
+          SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
+          SOURCE_RUN_URL: ${{ needs.prepare.outputs.source_run_url }}
         run: |
-          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Environment | staging |" >> $GITHUB_STEP_SUMMARY
-          echo "| Version | \`${VERSION}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| URL | ${FRONTEND_URL} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Trigger | ${{ github.event_name }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Actor | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Staging Deployment" >> $GITHUB_STEP_SUMMARY
-          STATUS="❌ Failed"
-          [ "${STAGING_RESULT}" == "success" ] && STATUS="✅ Success"
-          [ "${STAGING_RESULT}" == "skipped" ] && STATUS="⏭️ Skipped"
-          echo "| Status | ${STATUS} |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📊 Deployment Metrics" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Workflow Run ID**: \`${{ github.run_id }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Workflow Run Number**: \`${{ github.run_number }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Commit SHA**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch**: \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Repository**: ${{ github.server_url }}/${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          if [ -n "$START_TIME" ] && [ "$START_TIME" != "null" ]; then
+          echo "## Deployment Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|----------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Environment | staging |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Version | \`${VERSION}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| URL | ${FRONTEND_URL} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Trigger | ${{ github.event_name }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Actor | ${{ github.actor }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Source Branch | \`${SOURCE_BRANCH}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Source Commit | \`${SOURCE_SHA}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Source Run | ${SOURCE_RUN_URL} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          STATUS="Failed"
+          [ "${STAGING_RESULT}" = "success" ] && STATUS="Success"
+          [ "${STAGING_RESULT}" = "skipped" ] && STATUS="Skipped"
+          echo "| Final Status | ${STATUS} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -n "${START_TIME:-}" ] && [ "$START_TIME" != "null" ]; then
             END_TIME=$(date +%s)
             DURATION=$((END_TIME - START_TIME))
-            if [ $DURATION -gt 0 ]; then
+            if [ "$DURATION" -gt 0 ]; then
               MINUTES=$((DURATION / 60))
               SECONDS=$((DURATION % 60))
-              echo "- **Deployment Duration**: ${MINUTES}m ${SECONDS}s" >> $GITHUB_STEP_SUMMARY
+              echo "- Duration: ${MINUTES}m ${SECONDS}s" >> "$GITHUB_STEP_SUMMARY"
             fi
           fi
 
@@ -928,7 +921,7 @@ jobs:
     name: Deployment Summary (Production)
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [prepare, production-frontend, production-verify]
+    needs: [prepare, production-frontend, production-verify, production-record]
     if: ${{ always() && needs.prepare.outputs.environment == 'production' && needs.prepare.outputs.should_deploy == 'true' }}
     steps:
       - name: Create production deployment summary
@@ -936,38 +929,43 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
           FRONTEND_URL: ${{ needs.production-frontend.outputs.deployment_url }}
           PRODUCTION_RESULT: ${{ needs.production-verify.result }}
+          RECORD_RESULT: ${{ needs.production-record.result }}
           START_TIME: ${{ needs.prepare.outputs.start_time }}
+          SOURCE_BRANCH: ${{ needs.prepare.outputs.branch }}
+          SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
+          SOURCE_RUN_URL: ${{ needs.prepare.outputs.source_run_url }}
         run: |
-          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Environment | production |" >> $GITHUB_STEP_SUMMARY
-          echo "| Version | \`${VERSION}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| URL | ${FRONTEND_URL} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Trigger | ${{ github.event_name }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Actor | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Production Deployment" >> $GITHUB_STEP_SUMMARY
-          STATUS="❌ Failed"
-          [ "${PRODUCTION_RESULT}" == "success" ] && STATUS="✅ Success"
-          [ "${PRODUCTION_RESULT}" == "skipped" ] && STATUS="⏭️ Skipped"
-          echo "| Status | ${STATUS} |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📊 Deployment Metrics" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Workflow Run ID**: \`${{ github.run_id }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Workflow Run Number**: \`${{ github.run_number }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Commit SHA**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch**: \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Repository**: ${{ github.server_url }}/${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          if [ -n "$START_TIME" ] && [ "$START_TIME" != "null" ]; then
+          echo "## Deployment Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|----------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Environment | production |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Version | \`${VERSION}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| URL | ${FRONTEND_URL} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Trigger | ${{ github.event_name }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Actor | ${{ github.actor }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Source Branch | \`${SOURCE_BRANCH}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Source Commit | \`${SOURCE_SHA}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Source Run | ${SOURCE_RUN_URL} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          STATUS="Failed"
+          [ "${PRODUCTION_RESULT}" = "success" ] && STATUS="Success"
+          [ "${PRODUCTION_RESULT}" = "skipped" ] && STATUS="Skipped"
+          echo "| Verification | ${STATUS} |" >> "$GITHUB_STEP_SUMMARY"
+
+          RECORD_STATUS="Failed"
+          [ "${RECORD_RESULT}" = "success" ] && RECORD_STATUS="Success"
+          [ "${RECORD_RESULT}" = "skipped" ] && RECORD_STATUS="Skipped"
+          echo "| Deployment Record | ${RECORD_STATUS} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -n "${START_TIME:-}" ] && [ "$START_TIME" != "null" ]; then
             END_TIME=$(date +%s)
             DURATION=$((END_TIME - START_TIME))
-            if [ $DURATION -gt 0 ]; then
+            if [ "$DURATION" -gt 0 ]; then
               MINUTES=$((DURATION / 60))
               SECONDS=$((DURATION % 60))
-              echo "- **Deployment Duration**: ${MINUTES}m ${SECONDS}s" >> $GITHUB_STEP_SUMMARY
+              echo "- Duration: ${MINUTES}m ${SECONDS}s" >> "$GITHUB_STEP_SUMMARY"
             fi
           fi
