@@ -1,3 +1,4 @@
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -20,10 +21,16 @@ class PhotoUpdateAdmin(BaseModel):
     description: str | None = Field(None, max_length=1000)
 
 
+class ReportResolutionUpdate(BaseModel):
+    status: Literal["resolved", "dismissed"]
+    resolution_notes: str | None = Field(None, max_length=1000)
+    delete_content: bool = False
+
+
 class BulkReportUpdate(BaseModel):
     report_ids: list[UUID] = Field(..., min_length=1)
-    status: str = Field(..., pattern="^(pending|resolved|dismissed)$")
-    resolution_notes: str | None = None
+    status: Literal["resolved", "dismissed"]
+    resolution_notes: str | None = Field(None, max_length=1000)
     delete_content: bool = False
 
 

@@ -13,7 +13,7 @@ from dependencies import (
 from limiter import limiter
 from logger import logger
 from middleware.auth_middleware import require_permission
-from schemas.admin_schemas import BulkReportUpdate
+from schemas.admin_schemas import BulkReportUpdate, ReportResolutionUpdate
 from schemas.user import User
 from services.email_service import EmailService
 from services.gallery_service import GalleryService
@@ -116,7 +116,7 @@ async def list_reports(
 @limiter.limit("20/minute")
 async def update_report(
     report_id: str,
-    update_data: dict[str, Any],
+    update_data: ReportResolutionUpdate,
     background_tasks: BackgroundTasks,
     request: Request,
     current_admin: Annotated[User, Depends(require_permission("reports:update"))],
@@ -135,9 +135,10 @@ async def update_report(
     _validate_uuid(report_id, "report_id")
     try:
         admin_client = await get_async_supabase_admin_client()
+        update_payload = update_data.model_dump()
 
         # Handle 'delete_content' action
-        if update_data.get("delete_content") is True:
+        if update_payload["delete_content"] is True:
             # Fetch report to get photo_id
             report_check = await admin_client.table("reports").select("photo_id").eq("id", report_id).single().execute()
             if not report_check.data:
@@ -213,8 +214,8 @@ async def update_report(
             await admin_client.table("reports")
             .update(
                 {
-                    "status": update_data.get("status"),
-                    "resolution_notes": update_data.get("resolution_notes"),
+                    "status": update_payload["status"],
+                    "resolution_notes": update_payload["resolution_notes"],
                     "resolved_by": current_admin.id,
                     "resolved_at": datetime.now(UTC).isoformat(),
                 }
@@ -229,12 +230,12 @@ async def update_report(
         report = result.data[0]
 
         # Notify reporter
-        new_status = update_data.get("status")
+        new_status = update_payload["status"]
         if new_status in ["resolved", "dismissed"] and report.get("reporter_id"):
             status_desc = "resolved" if new_status == "resolved" else "dismissed"
             message = f"Your report has been {status_desc}."
-            if update_data.get("resolution_notes"):
-                message += f" Note: {update_data.get('resolution_notes')}"
+            if update_payload["resolution_notes"]:
+                message += f" Note: {update_payload['resolution_notes']}"
 
             background_tasks.add_task(
                 notification_service.create_notification,
@@ -248,6 +249,8 @@ async def update_report(
 
         await _invalidate_reports_cache()
         return cast(dict[str, Any], report)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Failed to update report: %s", e)
         raise HTTPException(status_code=500, detail="Failed to update report")
@@ -358,6 +361,8 @@ async def bulk_update_reports(
 
         await _invalidate_reports_cache()
         return {"message": f"Successfully updated {len(updated_reports)} reports", "count": len(updated_reports)}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Failed to bulk update reports: %s", e)
         raise HTTPException(status_code=500, detail="Failed to bulk update reports")

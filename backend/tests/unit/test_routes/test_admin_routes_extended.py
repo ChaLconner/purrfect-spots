@@ -374,3 +374,38 @@ class TestAdminContentRoutes:
 
         assert response.status_code == 200
         assert response.json()["status"] == "resolved"
+
+    def test_update_report_returns_not_found_without_masking_http_exception(
+        self, client, override_admin, mock_supabase_admin
+    ) -> None:
+        report_id = "00000000-0000-0000-0000-000000000099"
+        update_data = {"status": "resolved", "resolution_notes": "Done", "delete_content": True}
+
+        mock_supabase_admin.execute.return_value = MagicMock(data=None)
+
+        with patch(
+            "routes.admin.reports.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
+            response = client.put(f"/api/v1/admin/reports/{report_id}", json=update_data)
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Report not found"
+
+    def test_update_report_rejects_pending_status_payload(
+        self, client, override_admin, mock_supabase_admin
+    ) -> None:
+        report_id = "00000000-0000-0000-0000-000000000003"
+
+        with patch(
+            "routes.admin.reports.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
+            response = client.put(
+                f"/api/v1/admin/reports/{report_id}",
+                json={"status": "pending", "resolution_notes": "Reopen"},
+            )
+
+        assert response.status_code == 422
