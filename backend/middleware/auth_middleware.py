@@ -30,10 +30,9 @@ security = HTTPBearer(auto_error=False)
 USER_AUTH_CACHE_TTL = 300
 
 # JWKS Cache
-_jwks_state: dict[str, dict[str, Any] | int | None] = {
-    "cache": None,
-    "last_update": 0,
-}
+# Keep these module-level names for test patching and backwards compatibility.
+_jwks_cache: dict[str, Any] | None = None
+_jwks_last_update = 0
 JWKS_CACHE_TTL = 3600  # 1 hour
 
 
@@ -58,6 +57,7 @@ def _assert_user_not_banned(user: User) -> User:
 
 async def get_jwks() -> dict | None:
     """Lazily fetch and cache JWKS"""
+    global _jwks_cache, _jwks_last_update  # noqa: PLW0603
     supabase_url = normalize_single_line_env(config.SUPABASE_URL)
     if not supabase_url:
         return None
@@ -69,10 +69,8 @@ async def get_jwks() -> dict | None:
     )
 
     current_time = time.time()
-    cached_jwks = cast(dict[str, Any] | None, _jwks_state["cache"])
-    last_update = cast(int, _jwks_state["last_update"])
-    if cached_jwks and (current_time - last_update < JWKS_CACHE_TTL):
-        return cached_jwks
+    if _jwks_cache and (current_time - _jwks_last_update < JWKS_CACHE_TTL):
+        return _jwks_cache
 
     from utils.http_client import get_shared_httpx_client
 
@@ -86,9 +84,9 @@ async def get_jwks() -> dict | None:
             response = await client.get(jwks_url, headers=headers, timeout=5)
             last_response = response
             if response.status_code == 200:
-                _jwks_state["cache"] = response.json()
-                _jwks_state["last_update"] = int(current_time)
-                return cast(dict[str, Any], _jwks_state["cache"])
+                _jwks_cache = response.json()
+                _jwks_last_update = int(current_time)
+                return cast(dict[str, Any], _jwks_cache)
         if last_response is not None:
             logger.warning(
                 "JWKS fetch failed for %s with status %d: %s",
@@ -99,7 +97,7 @@ async def get_jwks() -> dict | None:
     except Exception as e:
         logger.warning("Failed to refresh JWKS cache: %s", e)
 
-    return cast(dict[str, Any] | None, _jwks_state["cache"])
+    return _jwks_cache
 
 
 async def decode_supabase_token(token: str) -> dict:

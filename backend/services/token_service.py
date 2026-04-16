@@ -136,16 +136,12 @@ class TokenService:
                     if not self._is_rls_error(exc):
                         raise
 
-                    logger.warning(
-                        "token_blacklist insert hit RLS; refreshing Supabase admin client and retrying once"
-                    )
+                    logger.warning("token_blacklist insert hit RLS; refreshing Supabase admin client and retrying once")
                     admin_client = await self._get_admin_client(force_refresh=True)
                     await admin_client.table("token_blacklist").insert(payload).execute()
             except Exception as e:
                 if self._is_rls_error(e):
-                    logger.warning(
-                        "Skipping blacklist DB persistence due to token_blacklist RLS policy"
-                    )
+                    logger.warning("Skipping blacklist DB persistence due to token_blacklist RLS policy")
                 else:
                     logger.error("Failed to persist blacklist to DB")
 
@@ -222,9 +218,7 @@ class TokenService:
             if not self._is_rls_error(exc):
                 raise
 
-            logger.warning(
-                "token_blacklist select hit RLS; refreshing Supabase admin client and retrying once"
-            )
+            logger.warning("token_blacklist select hit RLS; refreshing Supabase admin client and retrying once")
             admin_client = await self._get_admin_client(force_refresh=True)
             supa_res = (
                 await admin_client.table("token_blacklist").select(self.TOKEN_COLUMNS).eq("token_jti", jti).execute()
