@@ -107,6 +107,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, nextTick, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import type { LocationQueryRaw, LocationQueryValue } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { GalleryService } from '../services/galleryService';
 import { showError } from '../store/toast';
@@ -121,7 +122,7 @@ import { getEnvVar } from '../utils/env';
 import { FALLBACK_LOCATION, MAP_CONFIG, EXTERNAL_URLS } from '../utils/constants';
 import { openTrustedExternalUrl } from '../utils/security';
 import { useCatsStore } from '../store';
-import type { CatLocation } from '../types/api';
+import type { CatLocation } from '../store';
 
 // Composables
 import { useGeolocation } from '../composables/useGeolocation';
@@ -152,6 +153,13 @@ const { updateMarkers, updateUserMarker, clearMarkers } = useMapMarkers(map);
 // SEO Setup
 const { setMetaTags, resetMetaTags } = useSeo();
 
+const getQueryString = (
+  value: LocationQueryValue | LocationQueryValue[] | undefined
+): string => {
+  const firstValue = Array.isArray(value) ? value[0] : value;
+  return firstValue ?? '';
+};
+
 // Search Query
 const searchQuery = computed(() => catsStore.searchQuery);
 const displayedLocations = computed(() => catsStore.filteredLocations);
@@ -173,7 +181,7 @@ const visibleCount = computed(() => {
   if (!map.value || !mapBounds.value) return displayedLocations.value.length;
   
   const currentBounds = mapBounds.value;
-  return displayedLocations.value.filter(loc => {
+  return displayedLocations.value.filter((loc: CatLocation): boolean => {
     try {
       // Use Google Maps LatLngBounds.contains API for accurate geometric check
       return currentBounds.contains({ lat: loc.latitude, lng: loc.longitude });
@@ -189,7 +197,7 @@ const visibleCount = computed(() => {
 // ==========================================
 
 const searchByTag = (tag: string): void => {
-  const query = { ...route.query, search: `#${tag}` };
+  const query: LocationQueryRaw = { ...route.query, search: `#${tag}` };
   delete query.image;
   router.push({ query });
   catsStore.setSearchQuery(`#${tag}`);
@@ -197,17 +205,18 @@ const searchByTag = (tag: string): void => {
 
 const clearSearch = (): void => {
   catsStore.clearSearch();
-  const query = { ...route.query };
+  const query: LocationQueryRaw = { ...route.query };
   delete query.search;
   router.push({ query });
 };
 
 const selectCat = (cat: CatLocation): void => {
-  router.push({ query: { ...route.query, image: cat.id } });
+  const query: LocationQueryRaw = { ...route.query, image: cat.id };
+  router.push({ query });
 };
 
 const closeModal = (): void => {
-  const query = { ...route.query };
+  const query: LocationQueryRaw = { ...route.query };
   delete query.image;
   router.push({ query });
 };
@@ -280,7 +289,7 @@ const initializeMap = async (): Promise<void> => {
     mapBounds.value = map.value.getBounds() || null;
 
     // Listeners with requestAnimationFrame for smooth performance
-    map.value.addListener('idle', () => {
+    map.value.addListener('idle', (): void => {
       if (map.value) {
         mapBounds.value = map.value.getBounds() || null;
       }
@@ -294,7 +303,7 @@ const initializeMap = async (): Promise<void> => {
     });
 
     // Initial Render - use RAF for smooth transition
-    requestAnimationFrame(() => {
+    requestAnimationFrame((): void => {
       if (userLocation.value) {
         updateUserMarker(userLocation.value);
       }
@@ -374,7 +383,7 @@ const debouncedViewportFetch = (): void => {
 // 1. Update markers when data changes (ISOLATED from map movement)
 watch(
   displayedLocations,
-  (locations) => {
+  (locations): void => {
     updateMarkers(locations, selectCat);
   },
   { deep: false, immediate: true }
@@ -382,45 +391,51 @@ watch(
 
 // 2. ONLY Fit bounds when searching (Manual trigger via searchQuery change)
 const hasFittedForCurrentSearch = ref(false);
+const getDisplayedLocationCount = (): number => displayedLocations.value.length;
+const fitBoundsForSearchResults = ([count]: [number]): void => {
+  if (
+    searchQuery.value &&
+    map.value &&
+    count > 0 &&
+    !hasFittedForCurrentSearch.value
+  ) {
+    const locations = displayedLocations.value;
+    if (locations.length > 1) {
+      const bounds = new google.maps.LatLngBounds();
+      locations.forEach((loc: CatLocation): void => {
+        bounds.extend({ lat: loc.latitude, lng: loc.longitude });
+      });
 
-watch(searchQuery, () => {
+      // Use a temporary flag to prevent the 'idle' listener from refetching immediately
+      isViewportFetching.value = true;
+      map.value.fitBounds(bounds, MAP_CONFIG.FIT_BOUNDS_PADDING);
+      hasFittedForCurrentSearch.value = true;
+
+      // Release the lock after animation roughly finishes
+      setTimeout((): void => {
+        isViewportFetching.value = false;
+      }, 1000);
+    } else if (locations.length === 1) {
+      map.value.panTo({ lat: locations[0].latitude, lng: locations[0].longitude });
+      map.value.setZoom(15);
+      hasFittedForCurrentSearch.value = true;
+    }
+  }
+};
+
+watch(searchQuery, (): void => {
   hasFittedForCurrentSearch.value = false;
 });
 
 // Fit bounds only when (search changed AND we have new data AND we haven't fitted yet)
 watch(
-  [(): number => displayedLocations.value.length],
-  ([count]): void => {
-    if (
-      searchQuery.value && 
-      map.value && 
-      count > 0 && 
-      !hasFittedForCurrentSearch.value
-    ) {
-      const locations = displayedLocations.value;
-      if (locations.length > 1) {
-        const bounds = new google.maps.LatLngBounds();
-        locations.forEach((loc) => bounds.extend({ lat: loc.latitude, lng: loc.longitude }));
-        
-        // Use a temporary flag to prevent the 'idle' listener from refetching immediately
-        isViewportFetching.value = true; 
-        map.value.fitBounds(bounds, MAP_CONFIG.FIT_BOUNDS_PADDING);
-        hasFittedForCurrentSearch.value = true;
-        
-        // Release the lock after animation roughly finishes
-        setTimeout(() => { isViewportFetching.value = false; }, 1000);
-      } else if (locations.length === 1) {
-        map.value.panTo({ lat: locations[0].latitude, lng: locations[0].longitude });
-        map.value.setZoom(15);
-        hasFittedForCurrentSearch.value = true;
-      }
-    }
-  },
+  [getDisplayedLocationCount],
+  fitBoundsForSearchResults,
   { immediate: false }
 );
 
 // Watch user location
-watch(userLocation, (pos, oldPos) => {
+watch(userLocation, (pos, oldPos): void => {
   updateUserMarker(pos);
 
   // Auto-pan to user's location if newly detected and map is ready
@@ -432,7 +447,7 @@ watch(userLocation, (pos, oldPos) => {
 });
 
 // Watch Map Instance - Fix for race condition where data loads before map
-watch(map, (newMap) => {
+watch(map, (newMap): void => {
   if (newMap && displayedLocations.value.length > 0) {
     updateMarkers(displayedLocations.value, selectCat);
   }
@@ -441,8 +456,8 @@ watch(map, (newMap) => {
 // Watch Search from URL - ensure store syncs even when query is removed
 watch(
   () => route.query.search,
-  (newSearch) => {
-    const query = (newSearch as string) || '';
+  (newSearch): void => {
+    const query = getQueryString(newSearch);
     if (query !== catsStore.searchQuery) {
       catsStore.setSearchQuery(query);
     }
@@ -452,15 +467,15 @@ watch(
 
 // Watch selected image from URL to sync state
 watch(
-  () => route.query.image,
-  () => {
+  (): LocationQueryValue | LocationQueryValue[] | undefined => route.query.image,
+  (): void => {
     syncStateFromUrl();
   }
 );
 
 const syncStateFromUrl = async (): Promise<void> => {
   const requestId = ++latestImageRequestId.value;
-  const imageId = route.query.image as string;
+  const imageId = getQueryString(route.query.image);
 
   if (!imageId) {
     selectedCat.value = null;
@@ -468,7 +483,7 @@ const syncStateFromUrl = async (): Promise<void> => {
   }
 
   // 1. Try to find in currently displayed locations (fastest) for immediate panning/preview
-  let found = displayedLocations.value.find((loc) => loc.id.toString() === imageId);
+  let found = displayedLocations.value.find((loc: CatLocation): boolean => loc.id.toString() === imageId);
 
   // 2. If present, set it immediately (optimistic UI)
   if (found) {
@@ -491,7 +506,7 @@ const syncStateFromUrl = async (): Promise<void> => {
     if (requestId !== latestImageRequestId.value) return;
     console.warn(`Could not fetch details for cat ${imageId}:`, err);
     if (!found) {
-      const q = { ...route.query };
+      const q: LocationQueryRaw = { ...route.query };
       delete q.image;
       router.replace({ query: q });
       return;
@@ -526,7 +541,7 @@ const openDirections = (cat: CatLocation): void => {
 // Lifecycle
 // ==========================================
 
-onMounted(() => {
+onMounted((): void => {
   // Set SEO meta tags
   setMetaTags({
     title: `${t('map.metaTitle')} | Purrfect Spots`,
@@ -565,7 +580,7 @@ onMounted(() => {
   }
 });
 
-onUnmounted(() => {
+onUnmounted((): void => {
   stopWatchingPosition();
   if (viewportFetchTimer.value) {
     clearTimeout(viewportFetchTimer.value);

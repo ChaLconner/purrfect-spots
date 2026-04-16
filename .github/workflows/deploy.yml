@@ -323,8 +323,8 @@ jobs:
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
-            echo "::notice::SENTRY_AUTH_TOKEN not set — skipping Sentry release"
+          if [ -z "$SENTRY_AUTH_TOKEN" ] || [ -z "$SENTRY_ORG" ] || [ -z "$SENTRY_PROJECT" ]; then
+            echo "::notice::SENTRY_AUTH_TOKEN, SENTRY_ORG, or SENTRY_PROJECT not set — skipping Sentry release"
             exit 0
           fi
           npm install -g @sentry/cli --silent
@@ -549,8 +549,8 @@ jobs:
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
-            echo "::notice::SENTRY_AUTH_TOKEN not set — skipping Sentry release"
+          if [ -z "$SENTRY_AUTH_TOKEN" ] || [ -z "$SENTRY_ORG" ] || [ -z "$SENTRY_PROJECT" ]; then
+            echo "::notice::SENTRY_AUTH_TOKEN, SENTRY_ORG, or SENTRY_PROJECT not set — skipping Sentry release"
             exit 0
           fi
           npm install -g @sentry/cli --silent
