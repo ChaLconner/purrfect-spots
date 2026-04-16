@@ -62,7 +62,7 @@ class RedisService:
             val = await self.client.get(key)
             return json.loads(val) if val else None
         except Exception as e:
-            logger.error("Redis get error for %s: %s", key, e)
+            logger.error("Redis get error for %s: %s", str(key).replace("\n", " "), str(e).replace("\n", " "))
             return None
 
     async def set(self, key: str, value: Any, expire: int = 300) -> bool:
@@ -74,7 +74,7 @@ class RedisService:
             await self.client.set(key, serialized_value, ex=expire)
             return True
         except Exception as e:
-            logger.error("Redis set error for %s: %s", key, e)
+            logger.error("Redis set error for %s: %s", str(key).replace("\n", " "), str(e).replace("\n", " "))
             return False
 
     async def delete(self, key: str) -> bool:
@@ -84,7 +84,7 @@ class RedisService:
             await self.client.delete(key)
             return True
         except Exception as e:
-            logger.error("Redis delete error for %s: %s", key, e)
+            logger.error("Redis delete error for %s: %s", str(key).replace("\n", " "), str(e).replace("\n", " "))
             return False
 
     async def delete_pattern(self, pattern: str) -> int:

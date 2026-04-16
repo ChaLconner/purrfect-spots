@@ -153,7 +153,7 @@ async def clear_cache(pattern: str = "cache:*") -> None:
                 await redis_client.delete(*keys)
         except Exception as e:
             logger.debug(f"Failed to clear Redis cache: {e}")
-            pass
+                  # pass
 
 
 async def invalidate_all_caches() -> None:

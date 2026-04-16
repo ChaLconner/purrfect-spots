@@ -3,7 +3,6 @@ import uuid
 from typing import Any
 from unittest.mock import MagicMock
 
-import httpx
 import pytest
 from dotenv import load_dotenv
 
@@ -37,12 +36,12 @@ class TestSocialLikesIntegration:
         )
         assert SUPABASE_URL is not None
         assert SUPABASE_SERVICE_KEY is not None
+        client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=options)
         try:
-            health = httpx.get(f"{SUPABASE_URL.rstrip('/')}/auth/v1/health", timeout=5.0)
-            health.raise_for_status()
+            client.auth.admin.list_users(per_page=1)
         except Exception as exc:
-            pytest.skip(f"Supabase auth endpoint is not reachable: {exc}")
-        return create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=options)
+            pytest.skip(f"Supabase admin API is not reachable with the configured service key: {exc}")
+        return client
 
     @pytest.fixture(scope="class")
     def test_user(self, supabase: Client) -> Any:

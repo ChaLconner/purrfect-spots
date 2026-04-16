@@ -4,7 +4,7 @@
 
 export const getAvatarFallback = (name?: string | null): string => {
   if (!name) return '/cat-icon.webp';
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'User')}&background=EBE4DD&color=C26D45`;
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=EBE4DD&color=C26D45`;
 };
 
 export const handleAvatarError = (event: Event, name?: string | null): void => {

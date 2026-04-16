@@ -152,7 +152,7 @@ async def record_consent(
             )
 
         action = "granted" if consent.granted else "withdrawn"
-        logger.info(f"Consent {action} | user_id={current_user.id} | type={consent.consent_type} | version={version}")
+        logger.info(f"Consent {action} | user_id={current_user.id} | type={str(consent.consent_type).replace('\n', '')} | version={version}")
 
         return {
             "message": f"Consent {action} successfully",

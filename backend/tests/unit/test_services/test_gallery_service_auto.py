@@ -40,10 +40,7 @@ def mock_supabase():
 
     mock_not_wrapper = MockNotWrapper()
 
-    class MockEq:
-        def __init__(self): ...
-        async def execute(self):
-            return await mock_execute()
+    # Removed MockEq to fix ineffectual-statement
 
         def maybe_single(self):
             return self

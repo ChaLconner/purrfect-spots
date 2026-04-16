@@ -15,7 +15,7 @@ class LineService:
         """
         if not self.line_notify_token:
             logger.warning("LINE_NOTIFY_TOKEN not set. Skipping LINE notification.")
-            logger.debug(f"LINE NOTIFICATION MOCK: {message}")
+            logger.debug(f"LINE NOTIFICATION MOCK: {str(message).replace('\n', ' ').replace('\r', '')}")
             return True
 
         try:

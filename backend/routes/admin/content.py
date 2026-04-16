@@ -169,7 +169,7 @@ async def delete_photo_admin(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Failed to delete photo %s: %s", photo_id, e)
+        logger.error("Failed to delete photo %s: %s", str(photo_id).replace("\n", " "), str(e).replace("\n", " "))
         raise HTTPException(status_code=500, detail=f"Failed to delete photo: {e}")
 
 
@@ -204,5 +204,5 @@ async def update_photo_admin(
 
         return cast(dict[str, Any], result.data[0])
     except Exception as e:
-        logger.error("Failed to update photo %s: %s", photo_id, e)
+        logger.error("Failed to update photo %s: %s", str(photo_id).replace("\n", " "), str(e).replace("\n", " "))
         raise HTTPException(status_code=500, detail="Failed to update photo")

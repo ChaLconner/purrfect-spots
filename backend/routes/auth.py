@@ -170,7 +170,7 @@ async def verify_otp(
         # 2. Confirm email in Auth system
         confirmed = await auth_service.confirm_user_email(req.email)
         if not confirmed:
-            logger.error("Email confirmation failed for %s", req.email)
+            logger.error("Email confirmation failed for %s", str(req.email).replace("\n", " "))
             raise HTTPException(status_code=500, detail="Failed to verify email. Please contact support.")
 
         # 3. Retrieve user to create session

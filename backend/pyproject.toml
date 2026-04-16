@@ -29,6 +29,7 @@ dependencies = [
     "structlog==25.5.0",
     "python-json-logger>=3.0.0,<5.0.0",
     "sqlalchemy==2.0.41",
+    "greenlet==3.2.4",
     "asyncpg==0.30.0",
     "email-validator>=2.1.0",
     "bleach>=6.1.0",

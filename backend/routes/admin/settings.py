@@ -81,7 +81,7 @@ async def get_all_settings(
                     item["value"] = encryption_service.decrypt_value(item["value"])
                     item["is_encrypted_display"] = True
                 except Exception as e:
-                    logger.warning("Failed to decrypt setting %s: %s", item.get("key"), e)
+                    logger.warning("Failed to decrypt setting %s: %s", str(item.get("key")).replace("\n", " "), str(e).replace("\n", " "))
                     item["value"] = "[ENCRYPTED - Unable to decrypt]"
                     item["is_encrypted_display"] = True
             decrypted_data.append(item)

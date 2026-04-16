@@ -227,7 +227,7 @@ class TestOTPService:
             # or if we provide one and it fails to connect (integration test).
 
             # Instead, let's verify DB fallback is called if redis errors
-            pass
+                  # pass
 
     @pytest.mark.asyncio
     async def test_clear_lockout_db(self, otp_service, mock_supabase_admin, mock_redis_none):
