@@ -21,6 +21,7 @@
 <script setup lang="ts">
 import { ref, watchEffect, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { sanitizeRichHtml } from '@/utils/security';
 
 const { t } = useI18n();
 const contentRef = ref<HTMLElement | null>(null);
@@ -28,9 +29,9 @@ const contentRef = ref<HTMLElement | null>(null);
 onMounted(() => {
   watchEffect(() => {
     if (contentRef.value) {
-      contentRef.value.innerHTML = t('termsOfService.content', {
+      contentRef.value.innerHTML = sanitizeRichHtml(t('termsOfService.content', {
         date: new Date().toLocaleDateString(),
-      });
+      }));
     }
   });
 });

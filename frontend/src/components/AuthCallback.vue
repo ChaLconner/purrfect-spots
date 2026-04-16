@@ -75,9 +75,9 @@ const handleMagicLink = async (hash: string): Promise<boolean> => {
     if (type === 'recovery') {
       router.push('/reset-password');
     } else {
-      const redirectPath = sessionStorage.getItem('redirectAfterAuth');
+      const redirectPath = getSafeRedirect(sessionStorage.getItem('redirectAfterAuth'));
       sessionStorage.removeItem('redirectAfterAuth');
-      setTimeout(() => router.push(getSafeRedirect(redirectPath)), 1000);
+      setTimeout(() => router.push(redirectPath), 1000);
     }
     return true;
   }
@@ -98,9 +98,9 @@ const handleGoogleCode = async (code: string, codeVerifier: string): Promise<boo
   success.value = true;
 
   setTimeout(() => {
-    const redirectPath = sessionStorage.getItem('redirectAfterAuth');
+    const redirectPath = getSafeRedirect(sessionStorage.getItem('redirectAfterAuth'));
     sessionStorage.removeItem('redirectAfterAuth');
-    router.push(getSafeRedirect(redirectPath));
+    router.push(redirectPath);
   }, 1000);
   return true;
 };

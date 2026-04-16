@@ -119,6 +119,7 @@ import OnboardingBanner from '@/components/map/OnboardingBanner.vue';
 import { loadGoogleMaps, isGoogleMapsLoaded } from '../utils/googleMapsLoader';
 import { getEnvVar } from '../utils/env';
 import { FALLBACK_LOCATION, MAP_CONFIG, EXTERNAL_URLS } from '../utils/constants';
+import { openTrustedExternalUrl } from '../utils/security';
 import { useCatsStore } from '../store';
 import type { CatLocation } from '../types/api';
 
@@ -517,7 +518,7 @@ const openDirections = (cat: CatLocation): void => {
   url += `&destination=${cat.latitude},${cat.longitude}`;
   if (cat.location_name) url += `&destination_place_id=`;
   url += `&travelmode=walking`;
-  window.open(url, '_blank');
+  openTrustedExternalUrl(url);
   closeModal();
 };
 

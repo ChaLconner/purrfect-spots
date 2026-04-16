@@ -251,10 +251,10 @@ const handleVerify = async (): Promise<void> => {
       await authStore.setAuth(response);
       showSuccess(t('auth.verifyEmail.successMessage'), t('auth.verifyEmail.successTitle'));
 
-      const redirectPath = sessionStorage.getItem('redirectAfterAuth');
+      const redirectPath = getSafeRedirect(sessionStorage.getItem('redirectAfterAuth'));
       sessionStorage.removeItem('redirectAfterAuth');
 
-      router.push(getSafeRedirect(redirectPath));
+      router.push(redirectPath);
     }
   } catch (err: unknown) {
     hasError.value = true;

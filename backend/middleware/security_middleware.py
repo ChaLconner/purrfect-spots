@@ -17,6 +17,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import RedirectResponse, Response
 from starlette.types import ASGIApp
 
+from utils.auth_utils import _is_trusted_proxy_client
+
 
 class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
     """
@@ -31,13 +33,12 @@ class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         # Only enforce in production
         if self.is_production:
-            # Check for forwarded proto (set by reverse proxy)
-            forwarded_proto = request.headers.get("X-Forwarded-Proto", "")
-
-            # Also check CF-Visitor header (Cloudflare)
-            cf_visitor = request.headers.get("CF-Visitor", "")
-
-            is_http = forwarded_proto == "http" or '"scheme":"http"' in cf_visitor
+            is_http = request.url.scheme == "http"
+            if _is_trusted_proxy_client(request):
+                # Check proxy-provided scheme only when the request came from a trusted proxy.
+                forwarded_proto = request.headers.get("X-Forwarded-Proto", "")
+                cf_visitor = request.headers.get("CF-Visitor", "")
+                is_http = is_http or forwarded_proto == "http" or '"scheme":"http"' in cf_visitor
 
             if is_http:
                 url = request.url.replace(scheme="https")

@@ -288,6 +288,7 @@ import { useSeo } from '@/composables/useSeo';
 import PlanCard from '@/components/subscription/PlanCard.vue';
 import { BaseConfirmModal } from '@/components/ui';
 import { config } from '@/config';
+import { redirectToTrustedExternalUrl } from '@/utils/security';
 
 const { t, locale } = useI18n();
 const subscriptionStore = useSubscriptionStore();
@@ -405,7 +406,9 @@ async function handleSubscribe(): Promise<void> {
   isLoading.value = true;
   try {
     const { checkout_url } = await SubscriptionService.createCheckout(selectedPlan.value);
-    window.location.href = checkout_url;
+    if (!redirectToTrustedExternalUrl(checkout_url)) {
+      throw new Error('Blocked unexpected checkout destination.');
+    }
   } catch (e: unknown) {
     console.error(e);
     toastStore.addToast({
@@ -423,7 +426,9 @@ async function handleManageSubscription(): Promise<void> {
   isLoading.value = true;
   try {
     const { url } = await SubscriptionService.createPortalSession('/subscription');
-    window.location.href = url;
+    if (!redirectToTrustedExternalUrl(url)) {
+      throw new Error('Blocked unexpected billing portal destination.');
+    }
   } catch (e) {
     console.error(e);
     toastStore.addToast({
@@ -465,7 +470,9 @@ async function buyTreats(packageType: string): Promise<void> {
   purchasingPackage.value = packageType;
   try {
     const { checkout_url } = await TreatsService.purchaseCheckout(packageType);
-    window.location.href = checkout_url;
+    if (!redirectToTrustedExternalUrl(checkout_url)) {
+      throw new Error('Blocked unexpected treat checkout destination.');
+    }
   } catch (e) {
     console.error(e);
     toastStore.addToast({

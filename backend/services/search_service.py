@@ -73,11 +73,13 @@ class SearchService:
             try:
                 # PostgreSQL websearch_to_tsquery example
                 sql = (
-                    f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos "  # noqa: S608
-                    f"WHERE deleted_at IS NULL AND status = '{self.APPROVED_STATUS}' "  # noqa: S608
+                    "SELECT "
+                    + self.PHOTO_COLUMNS
+                    + " FROM cat_photos "
+                    + "WHERE deleted_at IS NULL AND status = :approved_status "
                     "AND search_vector @@ websearch_to_tsquery('english', :query)"
                 )
-                params: dict[str, Any] = {"query": query}
+                params: dict[str, Any] = {"query": query, "approved_status": self.APPROVED_STATUS}
 
                 if tags:
                     clean_tags = [tag.strip().lower().replace("#", "") for tag in tags]
@@ -121,8 +123,12 @@ class SearchService:
         # Try SQL approach first
         if self.db:
             try:
-                sql = f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE deleted_at IS NULL AND status = '{self.APPROVED_STATUS}'"  # noqa: S608
-                params: dict[str, Any] = {}
+                sql = (
+                    "SELECT "
+                    + self.PHOTO_COLUMNS
+                    + " FROM cat_photos WHERE deleted_at IS NULL AND status = :approved_status"
+                )
+                params: dict[str, Any] = {"approved_status": self.APPROVED_STATUS}
 
                 if query:
                     safe_query = f"%{escape_like_pattern(query)}%"

@@ -1,4 +1,6 @@
+import ipaddress
 import logging
+from functools import lru_cache
 from typing import Any
 
 import jwt
@@ -7,6 +9,39 @@ from config import config
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+
+@lru_cache(maxsize=1)
+def _trusted_proxy_networks() -> tuple[ipaddress._BaseNetwork, ...]:
+    """Parse configured trusted proxy hosts/CIDRs into network objects."""
+    networks: list[ipaddress._BaseNetwork] = []
+    for host in config.get_trusted_proxy_hosts():
+        try:
+            if "/" in host:
+                networks.append(ipaddress.ip_network(host, strict=False))
+            else:
+                address = ipaddress.ip_address(host)
+                prefix = 32 if address.version == 4 else 128
+                networks.append(ipaddress.ip_network(f"{address}/{prefix}", strict=False))
+        except ValueError:
+            logger.warning("Ignoring invalid trusted proxy host: %s", host)
+    return tuple(networks)
+
+
+def _is_trusted_proxy_client(request: Any) -> bool:
+    """Return True when the immediate client is a configured trusted proxy."""
+    client = getattr(request, "client", None)
+    client_host = getattr(client, "host", None)
+    if not client_host:
+        return False
+
+    try:
+        client_ip = ipaddress.ip_address(client_host)
+    except ValueError:
+        logger.warning("Ignoring invalid client host for proxy trust evaluation: %s", client_host)
+        return False
+
+    return any(client_ip in network for network in _trusted_proxy_networks())
 
 
 def decode_token(token: str) -> dict[str, Any]:
@@ -53,15 +88,15 @@ def get_client_info(request: Any) -> tuple[str, str]:
     Extract client IP and User-Agent from request.
     Checks X-Forwarded-For, X-Real-IP, and falls back to client.host.
     """
-    # Try X-Forwarded-For first (common in many proxy setups)
-    ip = request.headers.get("X-Forwarded-For", "")
-    if ip:
-        # Take the leftmost IP if there's a comma-separated list
-        ip = ip.split(",")[0].strip()
+    ip = ""
+    if _is_trusted_proxy_client(request):
+        # Only trust forwarded headers when the immediate client is a known proxy.
+        forwarded_for = request.headers.get("X-Forwarded-For", "")
+        if forwarded_for:
+            ip = forwarded_for.split(",")[0].strip()
 
-    # Fallback to X-Real-IP
-    if not ip:
-        ip = request.headers.get("X-Real-IP", "")
+        if not ip:
+            ip = request.headers.get("X-Real-IP", "")
 
     # Final fallback to request.client.host
     if not ip and request.client and getattr(request.client, "host", None):

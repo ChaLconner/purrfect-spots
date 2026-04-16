@@ -48,11 +48,25 @@ class SubscriptionService:
         try:
             if self.db:
                 db_session = self.db
-                allowed_keys = {"id", "email", "stripe_customer_id"}
+                allowed_keys = {
+                    "id",
+                    "email",
+                    "stripe_customer_id",
+                    "is_pro",
+                    "subscription_end_date",
+                    "cancel_at_period_end",
+                    "treat_balance",
+                }
                 where_conditions = [f"{k} = :{k}" for k in filters if k in allowed_keys]
-                safe_fields = fields  # always passed as constants
+                if fields == "*":
+                    safe_fields = "*"
+                else:
+                    requested_fields = [field.strip() for field in fields.split(",")]
+                    safe_fields = ", ".join(field for field in requested_fields if field in allowed_keys)
+                if not safe_fields or not where_conditions:
+                    return None
                 where_clause = " AND ".join(where_conditions)
-                sql_query = text(f"SELECT {safe_fields} FROM users WHERE {where_clause}")  # noqa: S608
+                sql_query = text("SELECT " + safe_fields + " FROM users WHERE " + where_clause)
                 result = await db_session.execute(sql_query, filters)
                 row = result.fetchone()
                 return dict(row._mapping) if row else None
@@ -85,10 +99,13 @@ class SubscriptionService:
                 params = {f"val_{k}": v for k, v in updates.items() if k in allowed_updates}
                 params.update({f"find_{k}": v for k, v in filters.items() if k in allowed_filters})
 
+                if not set_parts or not where_parts:
+                    return None
+
                 set_clause = ", ".join(set_parts)
                 where_clause = " AND ".join(where_parts)
 
-                sql_query = text(f"UPDATE users SET {set_clause} WHERE {where_clause} RETURNING *")  # noqa: S608
+                sql_query = text("UPDATE users SET " + set_clause + " WHERE " + where_clause + " RETURNING *")
                 result = await db_session.execute(sql_query, params)
                 await db_session.commit()
                 row = result.fetchone()

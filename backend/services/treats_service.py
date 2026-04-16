@@ -255,7 +255,7 @@ class TreatsService:
 
                 # Get recent transactions
                 trans_query = text(
-                    f"SELECT {self.TRANSACTION_COLUMNS} FROM treats_transactions "  # noqa: S608
+                    "SELECT " + self.TRANSACTION_COLUMNS + " FROM treats_transactions "
                     "WHERE from_user_id = :u_id OR to_user_id = :u_id "
                     "ORDER BY created_at DESC "
                     "LIMIT 10"

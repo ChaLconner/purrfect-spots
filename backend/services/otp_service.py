@@ -276,7 +276,7 @@ class OTPService:
             record = None
             if self.db:
                 query = text(
-                    f"SELECT {self.OTP_COLUMNS} FROM email_verifications WHERE email = :email "  # noqa: S608
+                    "SELECT " + self.OTP_COLUMNS + " FROM email_verifications WHERE email = :email "
                     "AND verified_at IS NULL ORDER BY created_at DESC LIMIT 1"
                 )
                 result = await self.db.execute(query, {"email": email_lower})

@@ -5,6 +5,7 @@ import { AuthService } from '@/services/authService';
 import { showSuccess, showError } from '@/store/toast';
 import { isDev, getEnvVar } from '@/utils/env';
 import { getGoogleAuthUrl } from '@/utils/oauth';
+import { getSafeRedirect, redirectToTrustedExternalUrl } from '@/utils/security';
 
 export interface UseAuthFormReturn {
   isLogin: Ref<boolean>;
@@ -117,7 +118,7 @@ export function useAuthForm(initialMode: 'login' | 'register' = 'login'): UseAut
       await authStore.setAuth(data);
       showSuccess(`Welcome back, ${data.user.name || 'Traveler'}!`, 'Successful');
 
-      const redirectPath = sessionStorage.getItem('redirectAfterAuth') || '/upload';
+      const redirectPath = getSafeRedirect(sessionStorage.getItem('redirectAfterAuth'), '/upload');
       sessionStorage.removeItem('redirectAfterAuth');
       router.push(redirectPath);
     } catch (err: unknown) {
@@ -147,7 +148,9 @@ export function useAuthForm(initialMode: 'login' | 'register' = 'login'): UseAut
       const { url, codeVerifier } = await getGoogleAuthUrl(googleClientId, redirectUri);
 
       globalThis.sessionStorage.setItem('google_code_verifier', codeVerifier);
-      globalThis.location.href = url;
+      if (!redirectToTrustedExternalUrl(url)) {
+        throw new Error('Google sign-in redirect was blocked due to an unexpected destination.');
+      }
     } catch (err: unknown) {
       if (isDev()) {
         console.error('Google OAuth Error:', err);

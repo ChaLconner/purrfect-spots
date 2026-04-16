@@ -77,8 +77,8 @@ class UserProfileMixin(UserBaseMixin):
         update_stmt = ", ".join([f"{c} = EXCLUDED.{c}" for c in update_cols])
 
         upsert_query = text(
-            f"INSERT INTO users ({columns}) VALUES ({placeholders}) "  # noqa: S608
-            f"ON CONFLICT (id) DO UPDATE SET {update_stmt}"
+            "INSERT INTO users (" + columns + ") VALUES (" + placeholders + ") "
+            "ON CONFLICT (id) DO UPDATE SET " + update_stmt
         )
 
         await self.db.execute(upsert_query, {k: user_record[k] for k in columns_list})
@@ -102,8 +102,10 @@ class UserProfileMixin(UserBaseMixin):
             if self.db:
                 try:
                     safe_cols = [k for k in update_data if k in {"name", "username", "bio", "picture"}]
+                    if not safe_cols:
+                        raise ValueError("No valid profile fields provided")
                     cols = ", ".join([f"{k} = :{k}" for k in safe_cols])
-                    query = text(f"UPDATE users SET {cols}, updated_at = NOW() WHERE id = :u_id RETURNING *")  # noqa: S608
+                    query = text("UPDATE users SET " + cols + ", updated_at = NOW() WHERE id = :u_id RETURNING *")
                     params = {**{k: v for k, v in update_data.items() if k in safe_cols}, "u_id": user_id}
                     db_res = await self.db.execute(query, params)
                     row = db_res.fetchone()

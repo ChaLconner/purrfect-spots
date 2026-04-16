@@ -50,6 +50,17 @@ export function sanitizeInput(input: string, maxLength = 1000): string {
 }
 
 /**
+ * Sanitize rich HTML content before rendering.
+ */
+export function sanitizeRichHtml(input: string): string {
+  if (!input) return '';
+
+  return DOMPurify.sanitize(input, {
+    USE_PROFILES: { html: true },
+  }).trim();
+}
+
+/**
  * Sanitize URL to prevent javascript: protocol attacks
  */
 export function sanitizeUrl(url: string): string {
@@ -75,6 +86,60 @@ export function sanitizeUrl(url: string): string {
   }
 
   return url;
+}
+
+const TRUSTED_EXTERNAL_HOSTS = new Set([
+  'accounts.google.com',
+  'www.google.com',
+  'google.com',
+  'checkout.stripe.com',
+  'billing.stripe.com',
+]);
+
+function parseTrustedExternalUrl(url: string, allowedHosts: Iterable<string> = TRUSTED_EXTERNAL_HOSTS): URL | null {
+  if (!url) return null;
+
+  try {
+    const parsed = new URL(url, globalThis.location?.origin || 'https://purrfectspots.xyz');
+    const normalizedHost = parsed.hostname.toLowerCase();
+    const isTrustedHost = Array.from(allowedHosts, (host) => host.toLowerCase()).includes(normalizedHost);
+
+    if (parsed.protocol !== 'https:' || !isTrustedHost) {
+      if (isDev()) {
+        console.warn(`Blocked untrusted external URL: ${url}`);
+      }
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Redirect the current page to a trusted external HTTPS URL.
+ */
+export function redirectToTrustedExternalUrl(url: string, allowedHosts?: Iterable<string>): boolean {
+  const parsed = parseTrustedExternalUrl(url, allowedHosts);
+  if (!parsed) return false;
+
+  globalThis.location.assign(parsed.toString());
+  return true;
+}
+
+/**
+ * Open a trusted external HTTPS URL in a new tab without exposing window.opener.
+ */
+export function openTrustedExternalUrl(url: string, allowedHosts?: Iterable<string>): boolean {
+  const parsed = parseTrustedExternalUrl(url, allowedHosts);
+  if (!parsed) return false;
+
+  const newWindow = globalThis.open(parsed.toString(), '_blank', 'noopener,noreferrer');
+  if (newWindow) {
+    newWindow.opener = null;
+  }
+  return true;
 }
 
 // ==============================================================================

@@ -58,7 +58,12 @@ class GalleryLocationMixin(GalleryBaseMixin):
             try:
                 result = await self.db.execute(
                     text(
-                        f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos WHERE latitude >= :min_lat AND latitude <= :max_lat AND longitude >= :min_lng AND longitude <= :max_lng AND {self._sql_visibility_clause()} ORDER BY uploaded_at DESC LIMIT :limit"  # noqa: S608
+                        "SELECT "
+                        + self.PHOTO_COLUMNS
+                        + " FROM cat_photos WHERE latitude >= :min_lat AND latitude <= :max_lat "
+                        + "AND longitude >= :min_lng AND longitude <= :max_lng AND "
+                        + self._sql_visibility_clause()
+                        + " ORDER BY uploaded_at DESC LIMIT :limit"
                     ),
                     {
                         "min_lat": min_lat,
