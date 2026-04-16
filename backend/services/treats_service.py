@@ -255,7 +255,8 @@ class TreatsService:
 
                 # Get recent transactions
                 trans_query = text(
-                    "SELECT " + self.TRANSACTION_COLUMNS + " FROM treats_transactions "
+                    "SELECT id, from_user_id, to_user_id, photo_id, amount, transaction_type, created_at "
+                    "FROM treats_transactions "
                     "WHERE from_user_id = :u_id OR to_user_id = :u_id "
                     "ORDER BY created_at DESC "
                     "LIMIT 10"

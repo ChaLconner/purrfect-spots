@@ -1,9 +1,9 @@
 from collections import Counter
 from typing import TYPE_CHECKING, Any, cast
 
-import structlog  # type: ignore[import-untyped, unused-ignore]
 from sqlalchemy import text
 
+import structlog  # type: ignore[import-untyped, unused-ignore]
 from services.gallery.base_mixin import GalleryBaseMixin
 from utils.cache import cache, cached_tags
 from utils.supabase_client import AClient

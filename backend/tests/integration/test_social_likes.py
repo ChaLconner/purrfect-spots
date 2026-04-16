@@ -18,12 +18,12 @@ SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 
 def _has_remote_supabase_target() -> bool:
-    return bool(SUPABASE_URL and SUPABASE_SERVICE_KEY and "localhost" not in SUPABASE_URL and "127.0.0.1" not in SUPABASE_URL)
+    return bool(
+        SUPABASE_URL and SUPABASE_SERVICE_KEY and "localhost" not in SUPABASE_URL and "127.0.0.1" not in SUPABASE_URL
+    )
 
 
-@pytest.mark.skipif(
-    not _has_remote_supabase_target(), reason="Remote Supabase integration target not configured"
-)
+@pytest.mark.skipif(not _has_remote_supabase_target(), reason="Remote Supabase integration target not configured")
 @pytest.mark.skipif(isinstance(create_client, MagicMock), reason="Supabase module is mocked (missing dependencies)")
 class TestSocialLikesIntegration:
     """Integration tests for social features (likes) using real database"""

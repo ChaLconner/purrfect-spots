@@ -207,7 +207,10 @@ class NotificationService:
                 deleted_count = cast(Any, result).rowcount
             else:
                 res = (
-                    await self.supabase.table("notifications").delete().lt("created_at", cutoff_date.isoformat()).execute()
+                    await self.supabase.table("notifications")
+                    .delete()
+                    .lt("created_at", cutoff_date.isoformat())
+                    .execute()
                 )
                 deleted_count = len(res.data) if res.data else 0
             logger.info(f"Successfully cleaned up {deleted_count} notifications older than {days} days")

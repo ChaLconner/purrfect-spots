@@ -54,9 +54,7 @@ async def list_roles(
         roles_res, permissions_res = await asyncio.gather(roles_query, permissions_query)
 
         permission_counts = Counter(
-            row["role_id"]
-            for row in cast(list[dict[str, Any]], permissions_res.data or [])
-            if row.get("role_id")
+            row["role_id"] for row in cast(list[dict[str, Any]], permissions_res.data or []) if row.get("role_id")
         )
         roles = []
         for row in cast(list[dict[str, Any]], roles_res.data or []):

@@ -11,157 +11,73 @@ export default defineConfig(async ({ mode }) => {
     const { default: tailwindcss } = await import('@tailwindcss/vite');
     const { default: viteCompression } = await import('vite-plugin-compression');
     const { ViteImageOptimizer } = await import('vite-plugin-image-optimizer');
-    const { VitePWA } = await import('vite-plugin-pwa');
 
     plugins.push(
       tailwindcss(),
-      VitePWA({
-      registerType: 'autoUpdate',
-      includeAssets: ['cat-icon-192.png', 'cat-icon-512.png', 'default-avatar.svg'],
-      manifest: {
-        name: 'Purrfect Spots',
-        short_name: 'PurrfectSpots',
-        description: 'Discover and share cat-friendly locations with AI-powered cat detection',
-        theme_color: '#6b8e7d',
-        background_color: '#ffffff',
-        display: 'standalone',
-        orientation: 'portrait',
-        icons: [
-          {
-            src: 'favicon-48x48.png',
-            sizes: '48x48',
-            type: 'image/png',
-          },
-          {
-            src: 'cat-icon-192.png',
-            sizes: '192x192',
-            type: 'image/png',
-          },
-          {
-            src: 'cat-icon-256.png',
-            sizes: '256x256',
-            type: 'image/png',
-          },
-          {
-            src: 'cat-icon-512.png',
-            sizes: '512x512',
-            type: 'image/png',
-          },
-        ],
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // 10 MiB to accommodate large images
-        runtimeCaching: [
-          {
-            urlPattern: ({ url }) => url.pathname.startsWith('/api/v1/gallery'),
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'api-gallery-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60, // 1 hour
-              },
-              cacheableResponse: {
-                statuses: [0, 200],
-              },
-            },
-          },
-          {
-            urlPattern: ({ url }) => url.pathname.startsWith('/api/v1/gallery/locations'),
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'api-locations-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60, // 1 hour
-              },
-              cacheableResponse: {
-                statuses: [0, 200],
-              },
-            },
-          },
-          {
-            urlPattern: ({ url }) => url.pathname.startsWith('/api/v1/gallery/popular-tags'),
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'api-tags-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 24 * 60 * 60, // 24 hours
-              },
-              cacheableResponse: {
-                statuses: [0, 200],
-              },
-            },
-          },
-        ],
-      },
-    }),
       viteCompression({
-      verbose: true,
-      disable: false,
-      threshold: 10240,
-      algorithm: 'gzip',
-      ext: '.gz',
-    }),
+        verbose: true,
+        disable: false,
+        threshold: 10240,
+        algorithm: 'gzip',
+        ext: '.gz',
+      }),
       viteCompression({
-      verbose: true,
-      disable: false,
-      threshold: 10240,
-      algorithm: 'brotliCompress',
-      ext: '.br',
-    }),
+        verbose: true,
+        disable: false,
+        threshold: 10240,
+        algorithm: 'brotliCompress',
+        ext: '.br',
+      }),
       ViteImageOptimizer({
-      test: /\.(jpe?g|png|gif|tiff|webp|svg|avif)$/i,
-      exclude: undefined,
-      include: undefined,
-      includePublic: true,
-      logStats: true,
-      ansiColors: true,
-      svg: {
-        multipass: true,
-        plugins: [
-          {
-            name: 'preset-default',
-            params: {
-              overrides: {
-                cleanupNumericValues: false,
+        test: /\.(jpe?g|png|gif|tiff|webp|svg|avif)$/i,
+        exclude: undefined,
+        include: undefined,
+        includePublic: true,
+        logStats: true,
+        ansiColors: true,
+        svg: {
+          multipass: true,
+          plugins: [
+            {
+              name: 'preset-default',
+              params: {
+                overrides: {
+                  cleanupNumericValues: false,
+                },
               },
             },
-          },
-          'sortAttrs',
-          {
-            name: 'addAttributesToSVGElement',
-            params: {
-              attributes: [{ xmlns: 'http://www.w3.org/2000/svg' }],
+            'sortAttrs',
+            {
+              name: 'addAttributesToSVGElement',
+              params: {
+                attributes: [{ xmlns: 'http://www.w3.org/2000/svg' }],
+              },
             },
-          },
-        ],
-      },
-      png: {
-        // quality: 1-100
-        quality: 85,
-      },
-      jpeg: {
-        // quality: 1-100
-        quality: 85,
-      },
-      jpg: {
-        // quality: 1-100
-        quality: 85,
-      },
-      webp: {
-        // lossy used for webp
-        lossless: false,
-        quality: 85,
-      },
-      avif: {
-        // lossy used for avif
-        lossless: false,
-        quality: 85,
-      },
-    }),
+          ],
+        },
+        png: {
+          // quality: 1-100
+          quality: 85,
+        },
+        jpeg: {
+          // quality: 1-100
+          quality: 85,
+        },
+        jpg: {
+          // quality: 1-100
+          quality: 85,
+        },
+        webp: {
+          // lossy used for webp
+          lossless: false,
+          quality: 85,
+        },
+        avif: {
+          // lossy used for avif
+          lossless: false,
+          quality: 85,
+        },
+      }),
     );
   }
 

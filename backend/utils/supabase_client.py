@@ -7,6 +7,7 @@ from config import config, normalize_single_line_env
 from logger import logger
 from supabase import AClient, AClientOptions, Client, ClientOptions, acreate_client, create_client
 
+
 def _resolve_supabase_service_key() -> str:
     """Resolve the service-role key from live environment first, then config cache."""
     env_value = normalize_single_line_env(os.getenv("SUPABASE_SERVICE_ROLE_KEY", ""))

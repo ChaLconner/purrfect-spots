@@ -1,8 +1,8 @@
 from datetime import UTC, datetime, timedelta
 
-import structlog  # type: ignore[import-untyped, unused-ignore]
 from sqlalchemy import text
 
+import structlog  # type: ignore[import-untyped, unused-ignore]
 from services.user.base_mixin import UserBaseMixin
 from utils.exceptions import ConflictError, PurrfectSpotsException
 

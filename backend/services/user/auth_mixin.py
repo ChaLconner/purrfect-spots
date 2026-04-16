@@ -1,7 +1,6 @@
 from typing import Any, cast
 
 import structlog  # type: ignore[import-untyped, unused-ignore]
-
 from schemas.user import User
 from services.password_service import password_service
 from services.user.base_mixin import UserBaseMixin

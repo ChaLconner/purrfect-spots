@@ -1,8 +1,8 @@
 from typing import Any, cast
 
-import structlog
 from sqlalchemy import text
 
+import structlog
 from config import config
 from services.auth.base_mixin import AuthBaseMixin
 from services.email_service import email_service

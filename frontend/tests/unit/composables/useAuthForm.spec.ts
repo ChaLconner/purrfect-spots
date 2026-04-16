@@ -7,6 +7,8 @@ import { useRouter } from 'vue-router';
 import { setActivePinia, createPinia } from 'pinia';
 import { defineComponent } from 'vue';
 import { mount } from '@vue/test-utils';
+import { redirectToTrustedExternalUrl } from '@/utils/security';
+import { getEnvVar } from '@/utils/env';
 
 // Mock dependencies
 vi.mock('@/services/authService');
@@ -19,7 +21,14 @@ vi.mock('@/utils/env', () => ({
   isDev: vi.fn(() => true),
 }));
 vi.mock('@/utils/oauth', () => ({
-  getGoogleAuthUrl: vi.fn().mockResolvedValue({ url: 'http://google.com/auth', codeVerifier: 'xyz' }),
+  getGoogleAuthUrl: vi.fn().mockResolvedValue({
+    url: 'https://accounts.google.com/o/oauth2/v2/auth',
+    codeVerifier: 'xyz',
+  }),
+}));
+vi.mock('@/utils/security', () => ({
+  getSafeRedirect: vi.fn((path: string | null, fallback: string) => path || fallback),
+  redirectToTrustedExternalUrl: vi.fn(() => true),
 }));
 
 describe('useAuthForm', () => {
@@ -56,6 +65,8 @@ describe('useAuthForm', () => {
     });
 
     vi.clearAllMocks();
+    (getEnvVar as unknown as ReturnType<typeof vi.fn>).mockReturnValue('mock-env-value');
+    (redirectToTrustedExternalUrl as unknown as ReturnType<typeof vi.fn>).mockReturnValue(true);
   });
 
   const createTestComponent = (initialMode: 'login' | 'register' = 'login') => defineComponent({
@@ -189,6 +200,49 @@ describe('useAuthForm', () => {
       expect(mockRouter.push).toHaveBeenCalledWith('/upload');
     });
 
+    it('redirects to email verification when signup requires verification', async () => {
+      const wrapper = mount(createTestComponent('register'));
+      const vm = wrapper.vm;
+
+      vm.form.name = 'New User';
+      vm.form.email = 'verify@example.com';
+      vm.form.password = 'password123';
+
+      (AuthService.signup as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+        requires_verification: true,
+        email: 'verify@example.com',
+      });
+
+      await vm.handleSubmit();
+
+      expect(showSuccess).toHaveBeenCalledWith(
+        'Please check your email for the verification code.',
+        'Registration Successful'
+      );
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        name: 'VerifyEmail',
+        query: { email: 'verify@example.com' },
+      });
+    });
+
+    it('falls back to login mode when signup returns a legacy success message', async () => {
+      const wrapper = mount(createTestComponent('register'));
+      const vm = wrapper.vm as any;
+
+      vm.form.name = 'Legacy User';
+      vm.form.email = 'legacy@example.com';
+      vm.form.password = 'password123';
+
+      (AuthService.signup as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+        message: 'Account created',
+      });
+
+      await vm.handleSubmit();
+
+      expect(showSuccess).toHaveBeenCalledWith('Account created', 'Registration Successful');
+      expect(vm.isLogin).toBe(true);
+    });
+
     it('should handle API errors', async () => {
       const wrapper = mount(createTestComponent('login'));
       const vm = wrapper.vm;
@@ -203,24 +257,86 @@ describe('useAuthForm', () => {
       expect(showError).toHaveBeenCalledWith('Invalid credentials', 'Authentication Failed');
       expect(vm.isLoading).toBe(false);
     });
+
+    it('sanitizes transport-level auth errors for the UI', async () => {
+      const wrapper = mount(createTestComponent('login'));
+      const vm = wrapper.vm;
+
+      vm.form.email = 'test@example.com';
+      vm.form.password = 'password123';
+
+      (AuthService.login as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error('Request failed with status code 401')
+      );
+
+      await vm.handleSubmit();
+
+      expect(showError).toHaveBeenCalledWith(
+        'Invalid email or password',
+        'Authentication Failed'
+      );
+    });
+
+    it('maps non-auth status code errors to a generic service message', async () => {
+      const wrapper = mount(createTestComponent('login'));
+      const vm = wrapper.vm;
+
+      vm.form.email = 'test@example.com';
+      vm.form.password = 'password123';
+
+      (AuthService.login as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error('Request failed with status code 503')
+      );
+
+      await vm.handleSubmit();
+
+      expect(showError).toHaveBeenCalledWith(
+        'Service unavailable. Please try again later.',
+        'Authentication Failed'
+      );
+    });
   });
 
   describe('Google Login', () => {
     it('should initiate Google login', async () => {
-      // Mock window.location.href
-      const originalLocation = window.location;
-      delete (window as any).location;
-      window.location = { href: '', origin: 'http://localhost:3000' } as any;
+      const wrapper = mount(createTestComponent('login'));
+      const vm = wrapper.vm;
+
+      await vm.handleGoogleLogin();
+
+      expect(redirectToTrustedExternalUrl).toHaveBeenCalledWith(
+        'https://accounts.google.com/o/oauth2/v2/auth'
+      );
+      expect(globalThis.sessionStorage.getItem('google_code_verifier')).toBe('xyz');
+    });
+
+    it('shows an error when Google OAuth is not configured', async () => {
+      (getEnvVar as unknown as ReturnType<typeof vi.fn>).mockReturnValue('');
 
       const wrapper = mount(createTestComponent('login'));
       const vm = wrapper.vm;
 
       await vm.handleGoogleLogin();
 
-      expect(window.location.href).toBe('http://google.com/auth'); // from mock
-      
-      // Restore
-      window.location = originalLocation;
+      expect(showError).toHaveBeenCalledWith(
+        'Google OAuth is not configured. Please contact administrator.',
+        'Google Login Error'
+      );
+      expect(redirectToTrustedExternalUrl).not.toHaveBeenCalled();
+    });
+
+    it('shows an error when the redirect destination is blocked', async () => {
+      (redirectToTrustedExternalUrl as unknown as ReturnType<typeof vi.fn>).mockReturnValue(false);
+
+      const wrapper = mount(createTestComponent('login'));
+      const vm = wrapper.vm;
+
+      await vm.handleGoogleLogin();
+
+      expect(showError).toHaveBeenCalledWith(
+        'Google sign-in redirect was blocked due to an unexpected destination.',
+        'Google Login Error'
+      );
     });
   });
 });

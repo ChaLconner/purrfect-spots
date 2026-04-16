@@ -1,8 +1,9 @@
+import math
 from typing import Any, cast
 
-import structlog
-from sqlalchemy import text
+from sqlalchemy import bindparam, column, desc, select, table
 
+import structlog
 from services.gallery.base_mixin import GalleryBaseMixin
 from utils.cache import cache
 
@@ -45,8 +46,6 @@ class GalleryLocationMixin(GalleryBaseMixin):
     ) -> list[dict[str, Any]]:
         """Fetch photos in a bounding box with SQL fallback to Supabase client."""
         lat_delta = radius_km / 111.0
-        # math was imported inside but better use protected access
-        import math
 
         lng_delta = radius_km / (111.0 * max(0.001, abs(math.cos(math.radians(latitude)))))
         min_lat, max_lat = latitude - lat_delta, latitude + lat_delta
@@ -56,21 +55,54 @@ class GalleryLocationMixin(GalleryBaseMixin):
         # Try SQL approach first
         if self.db:
             try:
+                cat_photos = table(
+                    "cat_photos",
+                    column("id"),
+                    column("image_url"),
+                    column("latitude"),
+                    column("longitude"),
+                    column("description"),
+                    column("location_name"),
+                    column("uploaded_at"),
+                    column("tags"),
+                    column("likes_count"),
+                    column("comments_count"),
+                    column("user_id"),
+                    column("deleted_at"),
+                    column("status"),
+                )
+                query = (
+                    select(
+                        cat_photos.c.id,
+                        cat_photos.c.image_url,
+                        cat_photos.c.latitude,
+                        cat_photos.c.longitude,
+                        cat_photos.c.description,
+                        cat_photos.c.location_name,
+                        cat_photos.c.uploaded_at,
+                        cat_photos.c.tags,
+                        cat_photos.c.likes_count,
+                        cat_photos.c.comments_count,
+                        cat_photos.c.user_id,
+                    )
+                    .where(
+                        cat_photos.c.latitude >= bindparam("min_lat"),
+                        cat_photos.c.latitude <= bindparam("max_lat"),
+                        cat_photos.c.longitude >= bindparam("min_lng"),
+                        cat_photos.c.longitude <= bindparam("max_lng"),
+                        cat_photos.c.deleted_at.is_(None),
+                        cat_photos.c.status == bindparam("approved_status"),
+                    )
+                    .order_by(desc(cat_photos.c.uploaded_at))
+                    .limit(limit)
+                )
                 result = await self.db.execute(
-                    text(
-                        "SELECT "
-                        + self.PHOTO_COLUMNS
-                        + " FROM cat_photos WHERE latitude >= :min_lat AND latitude <= :max_lat "
-                        + "AND longitude >= :min_lng AND longitude <= :max_lng AND "
-                        + self._sql_visibility_clause()
-                        + " ORDER BY uploaded_at DESC LIMIT :limit"
-                    ),
+                    query,
                     {
                         "min_lat": min_lat,
                         "max_lat": max_lat,
                         "min_lng": min_lng,
                         "max_lng": max_lng,
-                        "limit": limit,
                         "approved_status": self.APPROVED_STATUS,
                     },
                 )

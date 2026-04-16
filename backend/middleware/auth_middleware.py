@@ -14,8 +14,8 @@ from config import config, normalize_single_line_env
 from constants.admin_permissions import has_admin_access, normalize_permission_code, normalize_permissions
 from logger import logger
 from schemas.user import User
-from services.user.base_mixin import UserBaseMixin
 from services.token_service import get_token_service
+from services.user.base_mixin import UserBaseMixin
 from supabase import AClient
 from utils.auth_utils import decode_token
 from utils.security_alerts import (

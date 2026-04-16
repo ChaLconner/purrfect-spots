@@ -8,8 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from services.token_service import TokenService
-from services.token_service import get_token_service, reset_token_service
+from services.token_service import TokenService, get_token_service, reset_token_service
 
 
 class TestTokenService:
@@ -99,7 +98,10 @@ class TestTokenService:
     async def test_blacklist_token_skips_supabase_persistence_without_service_role(self, mock_supabase_admin):
         """Development environments should not hit RLS-protected insert with anon credentials."""
         with (
-            patch("services.token_service.get_async_supabase_admin_client", new=AsyncMock(return_value=mock_supabase_admin)),
+            patch(
+                "services.token_service.get_async_supabase_admin_client",
+                new=AsyncMock(return_value=mock_supabase_admin),
+            ),
             patch("services.token_service.has_supabase_service_role_key", return_value=False),
         ):
             service = TokenService(None)
@@ -290,13 +292,15 @@ class TestTokenService:
         reset_token_service()
         request_db = AsyncMock()
 
-        with patch.dict(os.environ, {"REDIS_URL": ""}):
-            with patch(
+        with (
+            patch.dict(os.environ, {"REDIS_URL": ""}),
+            patch(
                 "services.token_service.get_async_supabase_admin_client",
                 new=AsyncMock(return_value=mock_supabase_admin),
-            ):
-                shared_service = await get_token_service()
-                request_service = await get_token_service(db=request_db)
+            ),
+        ):
+            shared_service = await get_token_service()
+            request_service = await get_token_service(db=request_db)
 
         assert shared_service is not request_service
         assert shared_service.db is None

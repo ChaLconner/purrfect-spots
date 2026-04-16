@@ -1,7 +1,7 @@
 from unittest.mock import AsyncMock, MagicMock
+from uuid import uuid4
 
 import pytest
-from uuid import uuid4
 
 from schemas.user import User
 from services.user_service import UserService
@@ -185,7 +185,14 @@ def test_user_model_accepts_uuid_identifiers():
     user_id = uuid4()
     role_id = uuid4()
 
-    user = User(id=user_id, role_id=role_id, email="uuid@example.com", name="UUID User")
+    user = User.model_validate(
+        {
+            "id": user_id,
+            "role_id": role_id,
+            "email": "uuid@example.com",
+            "name": "UUID User",
+        }
+    )
 
     assert user.id == str(user_id)
     assert user.role_id == str(role_id)

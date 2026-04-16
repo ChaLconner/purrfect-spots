@@ -1,9 +1,9 @@
 from typing import Any
 
-import structlog  # type: ignore[import-untyped, unused-ignore]
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import structlog  # type: ignore[import-untyped, unused-ignore]
 from schemas.user import User
 from supabase import AClient
 from utils.supabase_client import get_async_supabase_admin_client

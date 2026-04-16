@@ -8,6 +8,7 @@ import html
 import re
 
 import bleach
+
 try:
     import filetype  # type: ignore[import-not-found, unused-ignore]
 except ImportError:  # pragma: no cover - exercised indirectly when dependency is missing

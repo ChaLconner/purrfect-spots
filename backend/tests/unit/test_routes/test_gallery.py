@@ -2,8 +2,8 @@
 Original gallery tests - updated for new pagination API
 """
 
-from uuid import uuid4
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import httpx
 import pytest

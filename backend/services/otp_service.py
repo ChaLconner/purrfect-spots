@@ -276,8 +276,10 @@ class OTPService:
             record = None
             if self.db:
                 query = text(
-                    "SELECT " + self.OTP_COLUMNS + " FROM email_verifications WHERE email = :email "
-                    "AND verified_at IS NULL ORDER BY created_at DESC LIMIT 1"
+                    "SELECT id, otp_hash, attempts, max_attempts, expires_at "
+                    "FROM email_verifications "
+                    "WHERE email = :email AND verified_at IS NULL "
+                    "ORDER BY created_at DESC LIMIT 1"
                 )
                 result = await self.db.execute(query, {"email": email_lower})
                 row = result.fetchone()

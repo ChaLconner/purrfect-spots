@@ -1,8 +1,8 @@
 from typing import Any
 
-import structlog
 from sqlalchemy import text
 
+import structlog
 from schemas.user import User
 from services.user.base_mixin import UserBaseMixin
 
@@ -18,9 +18,7 @@ class UserReadMixin(UserBaseMixin):
             if self.db:
                 try:
                     query = text(
-                        "SELECT "
-                        + self._prefixed_user_columns("u")
-                        + ", r.name as role_name "
+                        "SELECT " + self._prefixed_user_columns("u") + ", r.name as role_name "
                         "FROM users u "
                         "LEFT JOIN roles r ON u.role_id = r.id "
                         "WHERE u.id = :u_id LIMIT 1"
@@ -62,7 +60,11 @@ class UserReadMixin(UserBaseMixin):
         try:
             if self.db:
                 try:
-                    query = text("SELECT " + self.USER_COLUMNS + " FROM users WHERE email = :email LIMIT 1")
+                    query = text(
+                        "SELECT id, email, name, username, picture, bio, google_id, treat_balance, "
+                        "total_treats_received, is_pro, role_id, created_at, updated_at, banned_at "
+                        "FROM users WHERE email = :email LIMIT 1"
+                    )
                     db_res = await self.db.execute(query, {"email": email})
                     row = db_res.fetchone()
                     if row:
@@ -85,9 +87,7 @@ class UserReadMixin(UserBaseMixin):
             if self.db:
                 try:
                     query = text(
-                        "SELECT "
-                        + self._prefixed_user_columns("u")
-                        + ", r.name as role_name "
+                        "SELECT " + self._prefixed_user_columns("u") + ", r.name as role_name "
                         "FROM users u "
                         "LEFT JOIN roles r ON u.role_id = r.id "
                         "WHERE LOWER(u.username) = LOWER(:username) LIMIT 1"

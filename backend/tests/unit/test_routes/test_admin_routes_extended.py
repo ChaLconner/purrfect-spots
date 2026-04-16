@@ -393,9 +393,7 @@ class TestAdminContentRoutes:
         assert response.status_code == 404
         assert response.json()["detail"] == "Report not found"
 
-    def test_update_report_rejects_pending_status_payload(
-        self, client, override_admin, mock_supabase_admin
-    ) -> None:
+    def test_update_report_rejects_pending_status_payload(self, client, override_admin, mock_supabase_admin) -> None:
         report_id = "00000000-0000-0000-0000-000000000003"
 
         with patch(
