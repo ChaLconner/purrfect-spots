@@ -72,7 +72,7 @@ jobs:
       fork_pr_limited_backend_checks: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && (inputs.force_full_run == true || steps.detect.outputs.backend == 'true' || steps.detect.outputs.ci == 'true' || steps.detect.outputs.api_spec == 'true') }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@93cb6efb55429cc090adc62e6ed358297f0cfee8 # v5.0.1
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           fetch-depth: 0
 
@@ -170,7 +170,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@93cb6efb55429cc090adc62e6ed358297f0cfee8 # v5.0.1
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -191,7 +191,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@93cb6efb55429cc090adc62e6ed358297f0cfee8 # v5.0.1
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -214,7 +214,7 @@ jobs:
         options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
       - name: Checkout code
-        uses: actions/checkout@93cb6efb55429cc090adc62e6ed358297f0cfee8 # v5.0.1
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -248,7 +248,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@93cb6efb55429cc090adc62e6ed358297f0cfee8 # v5.0.1
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -280,7 +280,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@93cb6efb55429cc090adc62e6ed358297f0cfee8 # v5.0.1
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -309,7 +309,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout code
-        uses: actions/checkout@93cb6efb55429cc090adc62e6ed358297f0cfee8 # v5.0.1
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Setup Frontend
         uses: ./.github/actions/setup-frontend
         with:
@@ -327,7 +327,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout code
-        uses: actions/checkout@93cb6efb55429cc090adc62e6ed358297f0cfee8 # v5.0.1
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Setup Frontend
         uses: ./.github/actions/setup-frontend
         with:
@@ -348,7 +348,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@93cb6efb55429cc090adc62e6ed358297f0cfee8 # v5.0.1
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Setup Frontend
         uses: ./.github/actions/setup-frontend
         with:
@@ -371,7 +371,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@93cb6efb55429cc090adc62e6ed358297f0cfee8 # v5.0.1
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Pull Trivy image
         shell: bash
         run: |
@@ -415,7 +415,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@93cb6efb55429cc090adc62e6ed358297f0cfee8 # v5.0.1
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           fetch-depth: 0
       - name: Pull Trufflehog Image
@@ -442,7 +442,7 @@ jobs:
       image: semgrep/semgrep:1.99.0
     steps:
       - name: Checkout code
-        uses: actions/checkout@93cb6efb55429cc090adc62e6ed358297f0cfee8 # v5.0.1
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Semgrep
         run: |
           semgrep scan --config "p/default" --config "p/security-audit" --sarif --output semgrep.sarif .
@@ -463,7 +463,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@93cb6efb55429cc090adc62e6ed358297f0cfee8 # v5.0.1
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Dependency Review
         uses: actions/dependency-review-action@1a7f050e4130f1d533475191c9533f86e330b621 # v4.9.0
         with:

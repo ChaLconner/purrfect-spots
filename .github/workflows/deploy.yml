@@ -130,7 +130,7 @@ jobs:
 
       - name: Checkout source revision
         if: ${{ steps.meta.outputs.should_deploy == 'true' }}
-        uses: actions/checkout@93cb6efb55429cc090adc62e6ed358297f0cfee8 # v5.0.1
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ steps.meta.outputs.source_sha }}
           fetch-depth: 0
@@ -170,7 +170,7 @@ jobs:
       url: ${{ vars.STAGING_FRONTEND_URL }}
     steps:
       - name: Checkout source revision
-        uses: actions/checkout@93cb6efb55429cc090adc62e6ed358297f0cfee8 # v5.0.1
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ needs.prepare.outputs.source_sha }}
           fetch-depth: 0
@@ -303,7 +303,7 @@ jobs:
       name: staging
     steps:
       - name: Checkout source revision
-        uses: actions/checkout@93cb6efb55429cc090adc62e6ed358297f0cfee8 # v5.0.1
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ needs.prepare.outputs.source_sha }}
           fetch-depth: 0
@@ -498,7 +498,7 @@ jobs:
       url: ${{ vars.PROD_FRONTEND_URL || 'https://purrfect-spots.vercel.app' }}
     steps:
       - name: Checkout source revision
-        uses: actions/checkout@93cb6efb55429cc090adc62e6ed358297f0cfee8 # v5.0.1
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ needs.prepare.outputs.source_sha }}
           fetch-depth: 0
@@ -611,7 +611,7 @@ jobs:
       name: production
     steps:
       - name: Checkout source revision
-        uses: actions/checkout@93cb6efb55429cc090adc62e6ed358297f0cfee8 # v5.0.1
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ needs.prepare.outputs.source_sha }}
           fetch-depth: 0
@@ -842,7 +842,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout released revision
-        uses: actions/checkout@93cb6efb55429cc090adc62e6ed358297f0cfee8 # v5.0.1
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ needs.prepare.outputs.source_sha }}
           fetch-depth: 0
