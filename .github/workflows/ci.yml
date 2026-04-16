@@ -68,8 +68,8 @@ jobs:
       backend_requested: ${{ inputs.force_full_run == true || steps.detect.outputs.backend == 'true' || steps.detect.outputs.ci == 'true' || steps.detect.outputs.api_spec == 'true' }}
       run_backend: ${{ inputs.force_full_run == true || steps.detect.outputs.backend == 'true' || steps.detect.outputs.ci == 'true' || steps.detect.outputs.api_spec == 'true' }}
       run_frontend: ${{ inputs.force_full_run == true || steps.detect.outputs.frontend == 'true' || steps.detect.outputs.ci == 'true' }}
-      backend_runtime_checks_enabled: ${{ (inputs.force_full_run == true || steps.detect.outputs.backend == 'true' || steps.detect.outputs.ci == 'true' || steps.detect.outputs.api_spec == 'true') && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && secrets.TEST_JWT_SECRET != '' && secrets.TEST_JWT_REFRESH_SECRET != '' && secrets.DATABASE_URL != '' && secrets.SUPABASE_SERVICE_ROLE_KEY != '' }}
-      fork_pr_limited_backend_checks: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && (inputs.force_full_run == true || steps.detect.outputs.backend == 'true' || steps.detect.outputs.ci == 'true' || steps.detect.outputs.api_spec == 'true') }}
+      backend_runtime_checks_enabled: ${{ inputs.force_full_run == true || steps.detect.outputs.backend == 'true' || steps.detect.outputs.ci == 'true' || steps.detect.outputs.api_spec == 'true' }}
+      fork_pr_limited_backend_checks: 'false'
     steps:
       - name: Checkout code
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
@@ -223,12 +223,12 @@ jobs:
         env:
           ENVIRONMENT: test
           REDIS_URL: redis://localhost:6379
-          JWT_SECRET: ${{ secrets.TEST_JWT_SECRET }}
-          JWT_REFRESH_SECRET: ${{ secrets.TEST_JWT_REFRESH_SECRET }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'http://localhost:54321' }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          JWT_SECRET: ci-test-jwt-secret-at-least-32-characters-long
+          JWT_REFRESH_SECRET: ci-test-refresh-secret-at-least-32-chars
+          DATABASE_URL: ""
+          SUPABASE_URL: http://localhost:54321
+          SUPABASE_KEY: dummy-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
         run: |
           cd backend
           pytest --cov=. --cov-report=xml:coverage.xml --cov-report=term-missing --cov-fail-under=60 -v --tb=short
@@ -256,10 +256,12 @@ jobs:
       - name: Check Contract
         env:
           ENVIRONMENT: test
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'http://localhost:54321' }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY || 'dummy-anon-key' }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          JWT_SECRET: ci-test-jwt-secret-at-least-32-characters-long
+          JWT_REFRESH_SECRET: ci-test-refresh-secret-at-least-32-chars
+          DATABASE_URL: ""
+          SUPABASE_URL: http://localhost:54321
+          SUPABASE_KEY: dummy-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
         run: |
           cd backend
           if [ -f "../docs/openapi-baseline.json" ]; then
@@ -289,10 +291,12 @@ jobs:
       - name: Verify
         env:
           ENVIRONMENT: test
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'http://localhost:54321' }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY || 'dummy-anon-key' }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          JWT_SECRET: ci-test-jwt-secret-at-least-32-characters-long
+          JWT_REFRESH_SECRET: ci-test-refresh-secret-at-least-32-chars
+          DATABASE_URL: ""
+          SUPABASE_URL: http://localhost:54321
+          SUPABASE_KEY: dummy-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
         run: |
           cd backend
           python -m compileall -q .
@@ -403,7 +407,7 @@ jobs:
             --exit-code 1 \
             .
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@b56ba49b26e50535fa1e7f7db0f4f7b4bf65d80d # v3.28.10
+        uses: github/codeql-action/upload-sarif@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4.35.2
         if: always() && hashFiles('trivy-results.sarif') != ''
         with:
           sarif_file: "trivy-results.sarif"
@@ -447,7 +451,7 @@ jobs:
         run: |
           semgrep scan --config "p/default" --config "p/security-audit" --sarif --output semgrep.sarif .
       - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@b56ba49b26e50535fa1e7f7db0f4f7b4bf65d80d # v3.28.10
+        uses: github/codeql-action/upload-sarif@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4.35.2
         if: always() && hashFiles('semgrep.sarif') != ''
         with:
           sarif_file: semgrep.sarif
