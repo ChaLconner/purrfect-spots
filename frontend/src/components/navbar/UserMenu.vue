@@ -113,9 +113,9 @@ onUnmounted(() => {
         {{ $t('auth.logout') }}
       </button>
 
-      <div v-if="authStore.isAdmin" class="h-[2px] bg-btn-shade-b"></div>
+      <div v-if="authStore.canAccessAdmin" class="h-[2px] bg-btn-shade-b"></div>
       <router-link
-        v-if="authStore.isAdmin"
+        v-if="authStore.canAccessAdmin"
         to="/admin"
         class="block w-full px-4 py-3 font-accent text-[0.85rem] font-semibold text-btn-shade-a text-left bg-transparent border-none cursor-pointer transition-all duration-[175ms] ease-in-out hover:bg-btn-shade-d hover:translate-x-1"
         @click="showUserMenu = false"

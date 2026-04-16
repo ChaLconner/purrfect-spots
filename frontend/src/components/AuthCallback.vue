@@ -5,7 +5,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onErrorCaptured } from 'vue';
+import { ref, onMounted, onErrorCaptured, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { AuthService } from '../services/authService';
@@ -13,6 +13,7 @@ import { useAuthStore } from '../store/authStore';
 import { showError, showSuccess } from '../store/toast';
 import { getSafeRedirect } from '../utils/security';
 import type { LoginResponse } from '../types/auth';
+import { apiV1 } from '@/utils/api';
 
 const { t } = useI18n();
 
@@ -33,16 +34,22 @@ onErrorCaptured((err) => {
 });
 
 // Handle unhandled promise rejections (often from extensions)
+const handleUnhandledRejection = (event: PromiseRejectionEvent): void => {
+  if (
+    event.reason &&
+    event.reason.message &&
+    event.reason.message.includes('message channel closed')
+  ) {
+    event.preventDefault();
+  }
+};
+
 onMounted(() => {
-  globalThis.addEventListener('unhandledrejection', (event) => {
-    if (
-      event.reason &&
-      event.reason.message &&
-      event.reason.message.includes('message channel closed')
-    ) {
-      event.preventDefault();
-    }
-  });
+  globalThis.addEventListener('unhandledrejection', handleUnhandledRejection);
+});
+
+onUnmounted(() => {
+  globalThis.removeEventListener('unhandledrejection', handleUnhandledRejection);
 });
 
 const handleMagicLink = async (hash: string): Promise<boolean> => {
@@ -52,7 +59,6 @@ const handleMagicLink = async (hash: string): Promise<boolean> => {
   const type = params.get('type');
 
   if (accessToken && refreshToken) {
-    const { apiV1 } = await import('../utils/api');
     const response = await apiV1.post<LoginResponse>('/auth/session-exchange', {
       access_token: accessToken,
       refresh_token: refreshToken,
@@ -69,7 +75,9 @@ const handleMagicLink = async (hash: string): Promise<boolean> => {
     if (type === 'recovery') {
       router.push('/reset-password');
     } else {
-      setTimeout(() => router.push('/upload'), 1000);
+      const redirectPath = sessionStorage.getItem('redirectAfterAuth');
+      sessionStorage.removeItem('redirectAfterAuth');
+      setTimeout(() => router.push(getSafeRedirect(redirectPath)), 1000);
     }
     return true;
   }
@@ -78,7 +86,7 @@ const handleMagicLink = async (hash: string): Promise<boolean> => {
 
 const handleGoogleCode = async (code: string, codeVerifier: string): Promise<boolean> => {
   const data = await AuthService.googleCodeExchange(code, codeVerifier);
-  useAuthStore().setAuth(data);
+  await useAuthStore().setAuth(data);
 
   try {
     await AuthService.syncUser();

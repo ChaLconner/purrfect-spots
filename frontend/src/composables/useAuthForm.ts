@@ -114,7 +114,7 @@ export function useAuthForm(initialMode: 'login' | 'register' = 'login'): UseAut
         return;
       }
 
-      authStore.setAuth(data);
+      await authStore.setAuth(data);
       showSuccess(`Welcome back, ${data.user.name || 'Traveler'}!`, 'Successful');
 
       const redirectPath = sessionStorage.getItem('redirectAfterAuth') || '/upload';

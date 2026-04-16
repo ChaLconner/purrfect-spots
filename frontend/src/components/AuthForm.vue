@@ -234,7 +234,7 @@ const checkAuthAndRedirect = (): void => {
     }
 
     // 2. Priority: Admin User -> Admin Dashboard
-    if (authStore.isAdmin) {
+    if (authStore.canAccessAdmin) {
       router.push('/admin');
       return;
     }

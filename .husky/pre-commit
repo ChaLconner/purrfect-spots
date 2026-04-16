@@ -1,1 +1,26 @@
+#!/usr/bin/env sh
+. "$(dirname "$0")/_/h"
+
+echo "husky: running lint-staged"
 npx lint-staged
+
+staged_files="$(git diff --cached --name-only --diff-filter=ACMR)"
+
+printf '%s\n' "$staged_files" | grep -Eq '^frontend/src/.*\.(ts|vue)$'
+has_frontend_changes=$?
+
+printf '%s\n' "$staged_files" | grep -Eq '^backend/.*\.py$'
+has_backend_changes=$?
+
+if [ "$has_frontend_changes" -eq 0 ]; then
+  echo "husky: running frontend type-check"
+  npm --workspace frontend run type-check
+fi
+
+if [ "$has_backend_changes" -eq 0 ]; then
+  echo "husky: running backend mypy"
+  (
+    cd backend || exit 1
+    python -m mypy . --config-file pyproject.toml
+  )
+fi

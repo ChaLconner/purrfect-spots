@@ -415,12 +415,11 @@ async def get_token_service(db: AsyncSession | None = None) -> TokenService:
                 redis_client = None
 
         # Admin client will be lazily loaded
-        _token_service = TokenService(redis_client, db=db)
+        _token_service = TokenService(redis_client, db=None)
         if not redis_client:
             logger.info("Initializing Token Service singleton with in-memory storage")
-    else:
-        # If singleton exists, update DB session if provided
-        if db:
-            _token_service.db = db
+
+    if db:
+        return TokenService(_token_service.redis, _token_service.supabase_admin, db=db)
 
     return _token_service

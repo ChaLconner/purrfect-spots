@@ -7,17 +7,13 @@
 import { defineStore } from 'pinia';
 import { ref, computed, watch } from 'vue';
 import { supabase } from '../lib/supabase';
-import { PERMISSIONS } from '../constants/permissions';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { User, LoginResponse } from '../types/auth';
+import { canAccessAdminShell, hasAdminBypass } from '../utils/adminAccess';
+import { normalizePermissions } from '../utils/permissionNormalization';
 
 import { apiV1, setAccessToken, setAuthCallbacks } from '../utils/api';
 import { ProfileService } from '../services/profileService';
-
-const LEGACY_PERMISSION_ALIASES: Record<string, string> = {
-  admin_access: PERMISSIONS.ACCESS_ADMIN,
-};
-const ADMIN_PERMISSION_SET = new Set<string>(Object.values(PERMISSIONS));
 
 // Module-level helper to update API header - avoids recreation on every store access
 function updateApiHeader(accessToken: string | null): void {
@@ -28,26 +24,6 @@ function updateApiHeader(accessToken: string | null): void {
     localStorage.removeItem('auth_token'); // Clean up legacy
     localStorage.removeItem('access_token'); // Clean up legacy
   }
-}
-
-function normalizePermissions(permissions: unknown): string[] {
-  if (!Array.isArray(permissions)) {
-    return [];
-  }
-
-  const normalized = new Set<string>();
-  for (const permission of permissions) {
-    if (typeof permission !== 'string' || !permission) {
-      continue;
-    }
-    normalized.add(permission);
-    const alias = LEGACY_PERMISSION_ALIASES[permission];
-    if (alias) {
-      normalized.add(alias);
-    }
-  }
-
-  return [...normalized];
 }
 
 function normalizeUserData(userData: User | null): User | null {
@@ -137,13 +113,11 @@ export const useAuthStore = defineStore('auth', () => {
   });
 
   const isAdmin = computed(() => {
-    // Primary check: any recognized admin permission grants access to the admin shell.
-    // Individual admin views still enforce their own route/API permissions.
-    if ((user.value?.permissions || []).some((permission) => ADMIN_PERMISSION_SET.has(permission))) return true;
+    return hasAdminBypass(user.value);
+  });
 
-    // Fallback: legacy role-based (during transition)
-    const r = user.value?.role?.toLowerCase();
-    return r === 'admin' || r === 'super_admin';
+  const canAccessAdmin = computed(() => {
+    return canAccessAdminShell(user.value);
   });
 
   function hasPermission(permission: string): boolean {
@@ -397,6 +371,7 @@ export const useAuthStore = defineStore('auth', () => {
     userDisplayName,
     userAvatar,
     isAdmin,
+    canAccessAdmin,
     hasPermission,
 
     // Actions

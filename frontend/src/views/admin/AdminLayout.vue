@@ -113,10 +113,7 @@
           </router-link>
 
           <router-link
-            v-if="
-              canAccess(PERMISSIONS.REPORTS_READ) ||
-              canAccess(PERMISSIONS.CONTENT_READ)
-            "
+            v-if="canAccess(PERMISSIONS.REPORTS_READ)"
             to="/admin/reports"
             class="flex items-center px-4 py-2 rounded-lg text-brown-600 hover:bg-sand-50 hover:text-brown-900 transition-colors group relative"
             active-class="bg-terracotta-50 text-terracotta-700 font-medium"
@@ -355,7 +352,7 @@ onMounted(() => {
   // NOTE: fetchStats() removed — AdminDashboard.vue handles its own data via fetchSummary().
   // Calling fetchStats() here caused a double /admin/summary request on every page load.
   // Start real-time subscription for reports (sidebar badge needs pending count)
-  adminStore.subscribeToReports();
+  adminStore.subscribeToReports(canAccess(PERMISSIONS.REPORTS_READ));
 });
 
 onUnmounted(() => {

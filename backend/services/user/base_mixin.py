@@ -66,6 +66,17 @@ class UserBaseMixin:
             logger.warning("Failed to fetch default user role ID: %s", e)
         return None
 
+    @staticmethod
+    def _extract_role_dict(role_data: Any) -> dict[str, Any] | None:
+        """Normalize Supabase embedded role relations that may be returned as dict or list."""
+        if isinstance(role_data, dict):
+            return role_data
+        if isinstance(role_data, list) and role_data:
+            first = role_data[0]
+            if isinstance(first, dict):
+                return first
+        return None
+
     def _map_db_user_to_model(self, data: dict[str, Any]) -> User:
         """Map DB result with nested role/permissions to User model"""
         from typing import cast
@@ -73,8 +84,8 @@ class UserBaseMixin:
         permissions: list[str] = []
 
         role_data = data.get("roles")
-        if role_data and isinstance(role_data, dict):
-            role_dict = cast(dict[str, Any], role_data)
+        role_dict = self._extract_role_dict(role_data)
+        if role_dict:
             rps = cast(list[dict[str, Any]], role_dict.get("role_permissions", []))
             for rp in rps:
                 perm = cast(dict[str, Any] | None, rp.get("permissions"))
@@ -82,8 +93,8 @@ class UserBaseMixin:
                     permissions.append(cast(str, perm["code"]))
 
         user_fields = data.copy()
-        if isinstance(role_data, dict) and "name" in role_data:
-            user_fields["role"] = role_data["name"]
+        if role_dict and "name" in role_dict:
+            user_fields["role"] = role_dict["name"]
 
         user_fields.pop("roles", None)
 

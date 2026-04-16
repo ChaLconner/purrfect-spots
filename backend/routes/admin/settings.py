@@ -86,7 +86,7 @@ async def get_all_settings(
                     item["is_encrypted_display"] = True
             decrypted_data.append(item)
 
-        return decrypted_data
+        return cast(list[dict[str, Any]], decrypted_data)
     except Exception as e:
         logger.error("Failed to fetch settings: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch system settings")
@@ -101,7 +101,7 @@ async def get_setting_history(
         cache_key = _settings_history_cache_key(key)
         cached = await redis_service.get(cache_key)
         if cached is not None:
-            return cached
+            return cast(list[dict[str, Any]], cached)
 
         admin_client = await get_async_supabase_admin_client()
         result = (
@@ -119,7 +119,7 @@ async def get_setting_history(
             entry["user_email"] = user_info.get("email") if isinstance(user_info, dict) else None
             history_entries.append(entry)
         await redis_service.set(cache_key, history_entries, expire=120)
-        return history_entries
+        return cast(list[dict[str, Any]], history_entries)
     except Exception as e:
         logger.error("Failed to fetch history for %s: %s", key, e)
         raise HTTPException(status_code=500, detail="Failed to fetch config history")
@@ -231,7 +231,7 @@ async def get_pending_changes(
     try:
         cached = None if cache_bust else await redis_service.get(PENDING_SETTINGS_CACHE_KEY)
         if cached is not None:
-            return cached
+            return cast(list[dict[str, Any]], cached)
 
         admin_client = await get_async_supabase_admin_client()
         result = (
@@ -262,7 +262,7 @@ async def get_pending_changes(
 
         if not cache_bust:
             await redis_service.set(PENDING_SETTINGS_CACHE_KEY, normalized_changes, expire=60)
-        return normalized_changes
+        return cast(list[dict[str, Any]], normalized_changes)
     except Exception as e:
         logger.error("Failed to fetch pending changes: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch pending changes")

@@ -121,4 +121,25 @@ describe('LikeButton.vue', () => {
     mountButton();
     expect(supabase.channel).toHaveBeenCalledWith('photo_likes_photo-1');
   });
+
+  it('re-subscribes and resets local state when photoId changes', async () => {
+    const { supabase } = await import('@/lib/supabase');
+    const wrapper = mountButton({
+      photoId: 'photo-1',
+      initialLiked: false,
+      initialCount: 5,
+    });
+
+    await wrapper.setProps({
+      photoId: 'photo-2',
+      initialLiked: true,
+      initialCount: 9,
+    });
+    await nextTick();
+
+    expect(supabase.removeChannel).toHaveBeenCalledTimes(1);
+    expect(supabase.channel).toHaveBeenLastCalledWith('photo_likes_photo-2');
+    expect(wrapper.text()).toContain('9');
+    expect(wrapper.find('svg').classes()).toContain('fill-current');
+  });
 });

@@ -1,6 +1,14 @@
 from datetime import datetime
+from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+def _stringify_uuid(value: str | UUID | None) -> str | None:
+    """Normalize UUID objects from DB clients into API-safe string IDs."""
+    if isinstance(value, UUID):
+        return str(value)
+    return value
 
 
 class CommentCreate(BaseModel):
@@ -21,6 +29,11 @@ class CommentResponse(BaseModel):
     user_name: str | None = None
     user_picture: str | None = None
     user_is_pro: bool | None = False
+
+    @field_validator("id", "user_id", "photo_id", mode="before")
+    @classmethod
+    def stringify_uuid_fields(cls, value: str | UUID | None) -> str | None:
+        return _stringify_uuid(value)
 
 
 class LikeResponse(BaseModel):

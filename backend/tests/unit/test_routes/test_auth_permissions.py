@@ -61,3 +61,35 @@ async def test_require_permission_fail():
     with pytest.raises(HTTPException) as exc:
         await checker(request=mock_request, user=user)
     assert exc.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_require_permission_legacy_permission_alias_succeeds():
+    """Legacy permission codes should be normalized during permission checks."""
+    user = User(id="123", email="legacy@example.com", name="Legacy User", permissions=["system:config"], role="user")
+
+    checker = require_permission("system:settings")
+    mock_request = MagicMock()
+    mock_request.url.path = "/test"
+
+    result = await checker(request=mock_request, user=user)
+    assert result == user
+
+
+@pytest.mark.asyncio
+async def test_require_permission_legacy_admin_alias_bypasses():
+    """Legacy admin permission alias should still grant admin bypass."""
+    user = User(
+        id="123",
+        email="legacy-admin@example.com",
+        name="Legacy Admin",
+        permissions=["admin_access"],
+        role="user",
+    )
+
+    checker = require_permission("content:write")
+    mock_request = MagicMock()
+    mock_request.url.path = "/test"
+
+    result = await checker(request=mock_request, user=user)
+    assert result == user

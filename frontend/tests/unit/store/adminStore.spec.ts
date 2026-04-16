@@ -1,13 +1,28 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { useAdminStore } from '@/store/adminStore';
 
 // Mock apiV1
 const mockApiGet = vi.fn();
+const mockSubscribe = vi.fn();
+const mockChannelOn = vi.fn();
+const mockUnsubscribe = vi.fn();
+let reportInsertHandler: (() => void) | null = null;
+
 vi.mock('@/utils/api', () => ({
   apiV1: {
     get: (...args: any[]) => mockApiGet(...args)
   }
+}));
+
+vi.mock('@/lib/supabase', () => ({
+  supabase: {
+    channel: vi.fn(() => ({
+      on: mockChannelOn,
+      subscribe: mockSubscribe,
+      unsubscribe: mockUnsubscribe,
+    })),
+  },
 }));
 
 const makeSummaryResponse = (stats: Record<string, unknown>) => ({
@@ -21,6 +36,19 @@ describe('Admin Store', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
+    vi.useFakeTimers();
+    reportInsertHandler = null;
+    mockChannelOn.mockImplementation((_event, _filter, handler) => {
+      reportInsertHandler = handler;
+      return { subscribe: mockSubscribe };
+    });
+    mockSubscribe.mockImplementation(() => ({
+      unsubscribe: mockUnsubscribe,
+    }));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('initializes with zero stats', () => {
@@ -121,6 +149,30 @@ describe('Admin Store', () => {
     
     // Test unsubscription cleans up
     store.unsubscribeReports();
+    expect(store.reportChannel).toBeNull();
+  });
+
+  it('increments pending reports immediately and forces a debounced refresh on realtime insert', async () => {
+    const store = useAdminStore();
+    store.stats.pending_reports = 2;
+    const fetchStatsSpy = vi.spyOn(store, 'fetchStats').mockResolvedValue(undefined as never);
+
+    store.subscribeToReports();
+    reportInsertHandler?.();
+
+    expect(store.stats.pending_reports).toBe(3);
+    expect(fetchStatsSpy).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(5000);
+
+    expect(fetchStatsSpy).toHaveBeenCalledWith(true);
+  });
+
+  it('skips realtime subscriptions when disabled', () => {
+    const store = useAdminStore();
+
+    store.subscribeToReports(false);
+
     expect(store.reportChannel).toBeNull();
   });
 });

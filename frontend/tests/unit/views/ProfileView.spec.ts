@@ -6,6 +6,9 @@ import { useAuthStore } from '@/store/authStore';
 import { ProfileService } from '@/services/profileService';
 import { nextTick } from 'vue';
 
+const mockFetchStatus = vi.fn().mockResolvedValue(undefined);
+const mockGiveTreat = vi.fn().mockResolvedValue(undefined);
+
 const mockPush = vi.fn();
 const mockReplace = vi.fn();
 const mockRoute = {
@@ -47,6 +50,19 @@ vi.mock('@/composables/useSeo', (): Record<string, unknown> => ({
   useSeo: (): Record<string, unknown> => ({
     setMetaTags: vi.fn(),
     resetMetaTags: vi.fn(),
+  }),
+}));
+
+vi.mock('@/store/subscriptionStore', () => ({
+  useSubscriptionStore: () => ({
+    isPro: false,
+    subscriptionEndDate: null,
+    cancelAtPeriodEnd: false,
+    treatBalance: 0,
+    fetchStatus: mockFetchStatus,
+    refreshAll: vi.fn(),
+    giveTreat: mockGiveTreat,
+    fetchPackages: vi.fn(),
   }),
 }));
 
@@ -161,6 +177,7 @@ describe('ProfileView.vue', (): void => {
     await nextTick();
 
     expect(ProfileService.getUserUploads).toHaveBeenCalled();
+    expect(mockFetchStatus).toHaveBeenCalledWith(true);
   });
 
   it('loads public profile for other users', async () => {
@@ -178,6 +195,7 @@ describe('ProfileView.vue', (): void => {
 
     expect(ProfileService.getPublicProfile).toHaveBeenCalledWith('other-user');
     expect(ProfileService.getPublicUserUploads).toHaveBeenCalledWith('other-user');
+    expect(mockFetchStatus).not.toHaveBeenCalled();
   });
 
   it('redirects to login if viewing own profile but not authenticated', async () => {
@@ -191,6 +209,22 @@ describe('ProfileView.vue', (): void => {
     await nextTick();
 
     expect(mockPush).toHaveBeenCalledWith('/login');
+  });
+
+  it('fetches own subscription status after auth initializes post-mount', async () => {
+    mockRoute.params = {};
+    const { authStore } = mountProfile({
+      isInitialized: false,
+    });
+
+    expect(mockFetchStatus).not.toHaveBeenCalled();
+
+    authStore.isInitialized = true;
+    await nextTick();
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(mockFetchStatus).toHaveBeenCalledWith(true);
   });
 
   it('handles logout successfully', async () => {

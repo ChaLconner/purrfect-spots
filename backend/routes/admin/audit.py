@@ -1,4 +1,4 @@
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from postgrest.types import CountMethod
@@ -39,7 +39,7 @@ async def list_audit_logs(
         if not cache_bust:
             cached = await redis_service.get(cache_key)
             if cached is not None:
-                return cached
+                return cast(dict[str, Any], cached)
 
         admin_client = await get_async_supabase_admin_client()
         query = (

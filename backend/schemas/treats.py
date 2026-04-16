@@ -1,6 +1,14 @@
 from datetime import datetime
+from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+def _stringify_uuid(value: str | UUID | None) -> str | None:
+    """Normalize UUID objects from DB clients into API-safe string IDs."""
+    if isinstance(value, UUID):
+        return str(value)
+    return value
 
 
 class GiveTreatRequest(BaseModel):
@@ -20,6 +28,11 @@ class TreatTransaction(BaseModel):
     photo_id: str | None = None
     from_user_id: str | None = None
     to_user_id: str | None = None
+
+    @field_validator("id", "photo_id", "from_user_id", "to_user_id", mode="before")
+    @classmethod
+    def stringify_uuid_fields(cls, value: str | UUID | None) -> str | None:
+        return _stringify_uuid(value)
 
 
 class TreatBalanceResponse(BaseModel):
@@ -64,3 +77,8 @@ class LeaderboardEntry(BaseModel):
     username: str | None = None
     picture: str | None = None
     total_treats_received: int = 0
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def stringify_uuid_field(cls, value: str | UUID | None) -> str | None:
+        return _stringify_uuid(value)

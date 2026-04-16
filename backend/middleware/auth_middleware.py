@@ -11,8 +11,10 @@ from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from config import config, normalize_single_line_env
+from constants.admin_permissions import has_admin_access, normalize_permission_code, normalize_permissions
 from logger import logger
 from schemas.user import User
+from services.user.base_mixin import UserBaseMixin
 from services.token_service import get_token_service
 from supabase import AClient
 from utils.auth_utils import decode_token
@@ -26,7 +28,6 @@ from utils.supabase_client import (
 
 security = HTTPBearer(auto_error=False)
 USER_AUTH_CACHE_TTL = 300
-ADMIN_PERMISSION_CODES = {"admin_access", "access:admin"}
 
 # JWKS Cache
 _jwks_cache: dict | None = None
@@ -153,7 +154,9 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
     cache_key = get_user_auth_cache_key(user_id)
     cached_data = await redis_service.get(cache_key)
     if cached_data:
-        return _assert_user_not_banned(User(**cached_data))
+        cached_user = User(**cached_data)
+        cached_user.permissions = normalize_permissions(cached_user.permissions)
+        return _assert_user_not_banned(cached_user)
 
     # Try to get user from database (bypassing RLS)
     try:
@@ -179,8 +182,8 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
             role_name = cast(str, data.get("role", "user"))  # Default to legacy column
 
             role_data = data.get("roles")
-            if role_data and isinstance(role_data, dict):
-                role_dict = cast(dict[str, Any], role_data)
+            role_dict = UserBaseMixin._extract_role_dict(role_data)
+            if role_dict:
                 if role_dict.get("name"):
                     role_name = cast(str, role_dict.get("name"))
 
@@ -188,7 +191,9 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
                 for rp in rps:
                     perm = cast(dict[str, Any], rp.get("permissions"))
                     if perm and isinstance(perm, dict) and "code" in perm:
-                        permissions_set.add(cast(str, perm["code"]))
+                        permission_code = normalize_permission_code(cast(str, perm["code"]))
+                        if permission_code:
+                            permissions_set.add(permission_code)
 
             from utils.datetime_utils import from_iso as parse_iso8601
 
@@ -241,14 +246,17 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
 
 def require_permission(permission_code: str) -> Any:
     """Dependency factory to check for specific permission"""
+    required_permission = normalize_permission_code(permission_code) or permission_code
 
     async def permission_checker(request: Request, user: User = Depends(get_current_user)) -> User:
+        user_permissions = set(normalize_permissions(user.permissions))
+
         # 1. Direct permission check
-        if permission_code in user.permissions:
+        if required_permission in user_permissions:
             return user
 
         # 2. General admin permission or role check
-        if ADMIN_PERMISSION_CODES.intersection(user.permissions) or user.role.lower() in ("admin", "super_admin"):
+        if has_admin_access(user.role, user_permissions):
             return user
 
         # SECURITY: Track failed permission checks for alerting
@@ -256,7 +264,7 @@ def require_permission(permission_code: str) -> Any:
         user_agent = request.headers.get("user-agent", "unknown")
         track_failed_permission_check(
             user_id=user.id,
-            required_permission=permission_code,
+            required_permission=required_permission,
             ip_address=ip_address,
             endpoint=str(request.url.path),
         )
@@ -264,7 +272,7 @@ def require_permission(permission_code: str) -> Any:
         # Track suspicious user agents
         track_suspicious_user_agent(user_agent, ip_address)
 
-        raise HTTPException(status_code=403, detail=f"Insufficient permissions. Required: {permission_code}")
+        raise HTTPException(status_code=403, detail=f"Insufficient permissions. Required: {required_permission}")
 
     return permission_checker
 

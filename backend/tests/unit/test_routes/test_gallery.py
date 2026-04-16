@@ -2,6 +2,7 @@
 Original gallery tests - updated for new pagination API
 """
 
+from uuid import uuid4
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -186,6 +187,33 @@ def test_get_viewport(client) -> None:
     expected_lat, expected_lng = protect_public_coordinates(10, 10, seed="1")
     assert response.json()["images"][0]["latitude"] == pytest.approx(expected_lat, abs=1e-5)
     assert response.json()["images"][0]["longitude"] == pytest.approx(expected_lng, abs=1e-5)
+
+
+def test_get_viewport_accepts_uuid_ids(client) -> None:
+    photo_id = uuid4()
+    user_id = uuid4()
+    mock_service = MagicMock()
+    mock_service.get_nearby_photos = AsyncMock(
+        return_value=[
+            {
+                "id": photo_id,
+                "user_id": user_id,
+                "image_url": "url",
+                "latitude": 10,
+                "longitude": 10,
+                "location_name": "loc",
+                "uploaded_at": "2024-03-20T10:00:00Z",
+            }
+        ]
+    )
+    app.dependency_overrides[get_gallery_service] = lambda: mock_service
+
+    response = client.get("/api/v1/gallery/viewport?north=10&south=5&east=10&west=5")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["images"][0]["id"] == str(photo_id)
+    assert data["images"][0]["user_id"] == str(user_id)
 
 
 def test_search_locations(client) -> None:

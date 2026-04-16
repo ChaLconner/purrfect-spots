@@ -333,8 +333,11 @@ onMounted(async () => {
     description: t('subscription.meta.description'),
   });
 
+  const returnedFromSuccess = route.path.includes('/success') || route.query.purchase === 'success';
+  const returnedFromCancel = route.path.includes('/cancel') || route.query.purchase === 'cancel';
+
   // Handle Return from Stripe (Success)
-  if (route.path.includes('/success') || route.query.purchase === 'success') {
+  if (returnedFromSuccess) {
     toastStore.addToast({
       title: t('subscription.toast.successTitle'),
       message: t('subscription.toast.successMessage'),
@@ -342,19 +345,21 @@ onMounted(async () => {
     });
 
     // Clean URL first so a hard-refresh doesn’t re-trigger polling
-    router.replace('/subscription');
+    await router.replace('/subscription');
 
     // Stripe webhooks can take 1–5 s to reach our server.
     // Poll fetchStatus until Pro status or treat balance changes, then stop.
     await pollForStatusChange();
+    await subscriptionStore.fetchPackages();
+    return;
   }
 
   // Handle Return from Stripe (Cancel)
-  if (route.path.includes('/cancel') || route.query.purchase === 'cancel') {
-    router.replace('/subscription');
+  if (returnedFromCancel) {
+    await router.replace('/subscription');
   }
 
-  // Parallel fetch: status + packages
+  // Default load: current status + packages
   await Promise.all([subscriptionStore.fetchStatus(), subscriptionStore.fetchPackages()]);
 });
 

@@ -41,10 +41,10 @@
       "ruff format"
     ],
     "frontend/src/**/*.{ts,vue}": [
-      "bash -c 'cd frontend && npx eslint --fix'"
+      "npm exec --prefix frontend -- eslint --fix"
     ],
     "frontend/src/**/*.css": [
-      "bash -c 'cd frontend && npx prettier --write'"
+      "npm exec --prefix frontend -- prettier --write"
     ]
   },
   "overrides": {

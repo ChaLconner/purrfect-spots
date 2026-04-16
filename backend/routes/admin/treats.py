@@ -1,4 +1,4 @@
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from postgrest.types import CountMethod
@@ -105,7 +105,7 @@ async def get_treat_stats(
     """Get global treat statistics."""
     cached = await redis_service.get(TREAT_STATS_CACHE_KEY)
     if cached:
-        return cached
+        return cast(dict[str, Any], cached)
     try:
         admin_client = await get_async_supabase_admin_client()
 

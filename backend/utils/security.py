@@ -8,7 +8,10 @@ import html
 import re
 
 import bleach
-import filetype  # type: ignore[import-not-found, unused-ignore]
+try:
+    import filetype  # type: ignore[import-not-found, unused-ignore]
+except ImportError:  # pragma: no cover - exercised indirectly when dependency is missing
+    filetype = None
 
 from logger import logger
 
@@ -182,6 +185,27 @@ def sanitize_description(description: str) -> str:
 
 
 # ========== File Validation with Magic Bytes ==========
+def _guess_mime_from_magic_bytes(file_content: bytes) -> str | None:
+    """Detect common image MIME types without requiring the optional ``filetype`` package."""
+    if filetype is not None:
+        kind = filetype.guess(file_content)
+        return kind.mime if kind else None
+
+    if file_content.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+
+    if file_content.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+
+    if file_content.startswith((b"GIF87a", b"GIF89a")):
+        return "image/gif"
+
+    if file_content.startswith(b"RIFF") and file_content[8:12] == b"WEBP":
+        return "image/webp"
+
+    return None
+
+
 def validate_image_magic_bytes(file_content: bytes) -> tuple[bool, str, str]:
     """
     Validate image file using magic bytes (file signature).
@@ -202,8 +226,7 @@ def validate_image_magic_bytes(file_content: bytes) -> tuple[bool, str, str]:
             return False, "", "File content too short for validation (at least 8 characters required)"
 
         # Detect MIME type from file content
-        kind = filetype.guess(file_content)
-        detected_mime = kind.mime if kind else "application/octet-stream"
+        detected_mime = _guess_mime_from_magic_bytes(file_content) or "application/octet-stream"
 
         logger.debug(f"Detected MIME type from magic bytes: {detected_mime}")
 

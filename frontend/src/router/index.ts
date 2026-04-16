@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory, type RouteLocationRaw } from 'vue-router';
+import { PERMISSIONS } from '@/constants/permissions';
 import { useAuthStore } from '@/store/authStore';
+import { getDefaultAdminPath, hasAdminPermission } from '@/utils/adminAccess';
 
 // Lazy-loaded route components (extracted for Vite code-splitting and to avoid duplication)
 const MapView = (): Promise<unknown> => import('@/views/MapView.vue');
@@ -128,51 +130,61 @@ const routes = [
         path: '',
         name: 'AdminDashboard',
         component: AdminDashboard,
+        meta: { adminPermission: PERMISSIONS.SYSTEM_STATS },
       },
       {
         path: 'users',
         name: 'AdminUsers',
         component: AdminUsers,
+        meta: { adminPermission: PERMISSIONS.USERS_READ },
       },
       {
         path: 'photos',
         name: 'AdminPhotos',
         component: AdminPhotos,
+        meta: { adminPermission: PERMISSIONS.CONTENT_READ },
       },
       {
         path: 'reports',
         name: 'AdminReports',
         component: AdminReports,
+        meta: { adminPermission: PERMISSIONS.REPORTS_READ },
       },
       {
         path: 'audit-logs',
         name: 'AdminAuditLogs',
         component: AdminAuditLogs,
+        meta: { adminPermission: PERMISSIONS.AUDIT_READ },
       },
       {
         path: 'settings',
         name: 'AdminSettings',
         component: AdminSettings,
+        meta: { adminPermission: PERMISSIONS.SYSTEM_SETTINGS },
       },
       {
         path: 'treats',
         name: 'AdminTreats',
         component: AdminTreats,
+        meta: { adminPermission: PERMISSIONS.TREATS_MANAGE },
       },
       {
         path: 'roles',
         name: 'AdminRoles',
         component: AdminRoles,
+        meta: { adminPermission: PERMISSIONS.ROLES_MANAGE },
       },
       {
         path: 'comments',
         name: 'AdminComments',
         component: AdminComments,
+        meta: { adminPermission: PERMISSIONS.COMMENTS_MANAGE },
       },
       {
         path: 'security',
         name: 'AdminSecurity',
         component: AdminSecurity,
+        meta: { adminPermission: PERMISSIONS.SYSTEM_STATS },
       },
     ],
   },
@@ -236,8 +248,29 @@ router.beforeEach(async (to): Promise<RouteLocationRaw | boolean | void> => {
     }
 
     // 3. Admin Access Guard
-    if (to.meta.requiresAdmin && !authStore.isAdmin) {
+    if (to.meta.requiresAdmin && !authStore.canAccessAdmin) {
       // Security: Redirect users without admin access to 404
+      return {
+        name: 'NotFound',
+        params: { pathMatch: to.path.substring(1).split('/') },
+        query: to.query,
+        hash: to.hash,
+      };
+    }
+
+    const requiredAdminPermission =
+      typeof to.meta.adminPermission === 'string' ? to.meta.adminPermission : null;
+
+    if (
+      to.meta.requiresAdmin &&
+      requiredAdminPermission &&
+      !hasAdminPermission(authStore.user, requiredAdminPermission)
+    ) {
+      const redirectPath = getDefaultAdminPath(authStore.user);
+      if (redirectPath && redirectPath !== to.path) {
+        return { path: redirectPath };
+      }
+
       return {
         name: 'NotFound',
         params: { pathMatch: to.path.substring(1).split('/') },
@@ -251,7 +284,7 @@ router.beforeEach(async (to): Promise<RouteLocationRaw | boolean | void> => {
       (to.name === 'Login' || to.name === 'Register' || to.name === 'Auth') &&
       authStore.isUserReady
     ) {
-      if (authStore.isAdmin) {
+      if (authStore.canAccessAdmin) {
         return { path: '/admin' };
       }
       return { path: '/' };

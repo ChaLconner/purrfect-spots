@@ -10,6 +10,7 @@ export const PERMISSIONS = {
 
   // Content Management
   CONTENT_READ: 'content:read',
+  CONTENT_WRITE: 'content:write',
   CONTENT_DELETE: 'content:delete',
 
   // Moderation
@@ -21,8 +22,8 @@ export const PERMISSIONS = {
   SYSTEM_SETTINGS: 'system:settings',
   AUDIT_READ: 'audit:read',
   TREATS_MANAGE: 'treats:manage',
-  CAT_MANAGE: 'cat:manage',
   COMMENTS_MANAGE: 'comments:manage',
+  ROLES_READ: 'roles:read',
   ROLES_MANAGE: 'roles:manage',
 
   // General Access

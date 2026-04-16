@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
+import { PERMISSIONS } from '@/constants/permissions';
 import { useAuthStore } from '@/store/authStore';
 
 // Mock dependencies
@@ -276,12 +277,13 @@ describe('Auth Store', () => {
 
     expect(store.hasPermission('access:admin')).toBe(true);
     expect(store.isAdmin).toBe(true);
+    expect(store.canAccessAdmin).toBe(true);
 
     const cachedUser = JSON.parse(localStorage.getItem('user_data') || '{}');
     expect(cachedUser.permissions).toContain('access:admin');
   });
 
-  it('treats any recognized admin permission as admin shell access', async () => {
+  it('treats scoped admin permissions as admin shell access without admin bypass', async () => {
     mockApiPost.mockResolvedValueOnce({
       access_token: 'moderation-token',
       user: {
@@ -298,6 +300,30 @@ describe('Auth Store', () => {
     await store.refreshToken();
 
     expect(store.hasPermission('reports:read')).toBe(true);
-    expect(store.isAdmin).toBe(true);
+    expect(store.canAccessAdmin).toBe(true);
+    expect(store.isAdmin).toBe(false);
+  });
+
+  it('normalizes legacy permission aliases from backend responses', async () => {
+    mockApiPost.mockResolvedValueOnce({
+      access_token: 'legacy-token',
+      user: {
+        id: '3',
+        email: 'legacy@example.com',
+        name: 'Legacy Moderator',
+        created_at: new Date().toISOString(),
+        permissions: ['system:config', 'users:ban'],
+      },
+    });
+
+    const store = useAuthStore();
+    await store.refreshToken();
+
+    expect(store.hasPermission(PERMISSIONS.SYSTEM_SETTINGS)).toBe(true);
+    expect(store.hasPermission(PERMISSIONS.USERS_UPDATE)).toBe(true);
+
+    const cachedUser = JSON.parse(localStorage.getItem('user_data') || '{}');
+    expect(cachedUser.permissions).toContain(PERMISSIONS.SYSTEM_SETTINGS);
+    expect(cachedUser.permissions).toContain(PERMISSIONS.USERS_UPDATE);
   });
 });

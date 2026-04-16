@@ -38,7 +38,11 @@ describe('AdminReports.vue', () => {
     pinia = createPinia();
     setActivePinia(pinia);
     const authStore = useAuthStore();
-    authStore.user = { id: 'admin1', email: 'admin@test.com', permissions: ['content:delete'] } as any;
+    authStore.user = {
+      id: 'admin1',
+      email: 'admin@test.com',
+      permissions: ['reports:update', 'reports:read'],
+    } as any;
     
     // Default mock response for apiV1.get
     (apiV1.get as ReturnType<typeof vi.fn>).mockResolvedValue({ data: [], total: 0 });
@@ -98,8 +102,7 @@ describe('AdminReports.vue', () => {
      expect(resolveBtn?.exists()).toBe(true);
      await resolveBtn?.trigger('click');
   
-     // Modal should be visible
-     expect(wrapper.text()).toContain('Resolve Report');
+     expect(wrapper.find('#resolution-reason').exists()).toBe(true);
    });
 
   it('completes resolution flow', async (): Promise<void> => {

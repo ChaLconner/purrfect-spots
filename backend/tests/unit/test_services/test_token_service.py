@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from services.token_service import TokenService
+from services.token_service import get_token_service, reset_token_service
 
 
 class TestTokenService:
@@ -280,3 +281,24 @@ class TestTokenService:
             service._cleanup_memory_blacklist()
             assert "old" not in service._memory_blacklist
             assert "new" in service._memory_blacklist
+
+    @pytest.mark.asyncio
+    async def test_get_token_service_returns_request_scoped_instance_when_db_provided(
+        self, mock_redis, mock_supabase_admin
+    ):
+        """Per-request DB sessions should not be stored on the singleton token service."""
+        reset_token_service()
+        request_db = AsyncMock()
+
+        with patch.dict(os.environ, {"REDIS_URL": ""}):
+            with patch(
+                "services.token_service.get_async_supabase_admin_client",
+                new=AsyncMock(return_value=mock_supabase_admin),
+            ):
+                shared_service = await get_token_service()
+                request_service = await get_token_service(db=request_db)
+
+        assert shared_service is not request_service
+        assert shared_service.db is None
+        assert request_service.db is request_db
+        assert request_service.redis is shared_service.redis

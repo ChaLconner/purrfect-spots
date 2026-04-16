@@ -125,9 +125,46 @@ describe('useAuthForm', () => {
 
       await vm.handleSubmit();
 
-      expect(useAuthStore().user).toEqual(mockAuthData.user);
+      expect(useAuthStore().user).toMatchObject(mockAuthData.user);
+      expect(useAuthStore().user?.permissions).toEqual([]);
       expect(showSuccess).toHaveBeenCalled();
       expect(mockRouter.push).toHaveBeenCalledWith('/upload');
+    });
+
+    it('waits for auth state to finish updating before redirecting', async () => {
+      const store = useAuthStore();
+      const order: string[] = [];
+      vi.spyOn(store, 'setAuth').mockImplementation(async (data) => {
+        await Promise.resolve();
+        order.push('setAuth');
+        store.user = {
+          id: '1',
+          email: 'ordered@example.com',
+          name: data.user.name,
+          created_at: new Date().toISOString(),
+          permissions: [],
+        } as any;
+        store.token = data.access_token ?? null;
+        store.isAuthenticated = true;
+      });
+      mockRouter.push.mockImplementation(() => {
+        order.push('push');
+      });
+
+      const wrapper = mount(createTestComponent('login'));
+      const vm = wrapper.vm;
+
+      vm.form.email = 'ordered@example.com';
+      vm.form.password = 'password123';
+
+      (AuthService.login as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+        user: { name: 'Ordered User' },
+        access_token: 'token',
+      });
+
+      await vm.handleSubmit();
+
+      expect(order).toEqual(['setAuth', 'push']);
     });
 
     it('should handle successful registration', async () => {
@@ -146,7 +183,8 @@ describe('useAuthForm', () => {
 
       await vm.handleSubmit();
 
-      expect(useAuthStore().user).toEqual(mockAuthData.user);
+      expect(useAuthStore().user).toMatchObject(mockAuthData.user);
+      expect(useAuthStore().user?.permissions).toEqual([]);
       expect(showSuccess).toHaveBeenCalled();
       expect(mockRouter.push).toHaveBeenCalledWith('/upload');
     });

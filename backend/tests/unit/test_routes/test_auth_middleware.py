@@ -255,6 +255,45 @@ async def test_get_user_from_payload_db_success(mock_env):
 
 
 @pytest.mark.asyncio
+async def test_get_user_from_payload_parses_role_arrays(mock_env):
+    payload = {"sub": "00000000-0000-4000-a000-000000000123"}
+
+    mock_sb = MagicMock()
+    mock_sb.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute = AsyncMock(
+        return_value=MagicMock(
+            data={
+                "id": "00000000-0000-4000-a000-000000000123",
+                "email": "admin@example.com",
+                "name": "Admin User",
+                "role_id": "00000000-0000-4000-a000-000000000999",
+                "roles": [
+                    {
+                        "name": "admin",
+                        "role_permissions": [
+                            {"permissions": {"code": "access:admin"}},
+                            {"permissions": {"code": "audit:read"}},
+                        ],
+                    }
+                ],
+            },
+            error=None,
+        )
+    )
+
+    with (
+        patch("services.redis_service.redis_service.get", return_value=None),
+        patch("services.redis_service.redis_service.set", new_callable=AsyncMock),
+        patch("utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin,
+    ):
+        mock_get_admin.return_value = mock_sb
+        user = await _get_user_from_payload(payload, "supabase")
+
+    assert user.role == "admin"
+    assert "access:admin" in user.permissions
+    assert "audit:read" in user.permissions
+
+
+@pytest.mark.asyncio
 async def test_get_user_from_payload_blocks_banned_user(mock_env):
     payload = {"sub": "00000000-0000-4000-a000-000000000123"}
 

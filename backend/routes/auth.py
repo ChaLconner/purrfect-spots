@@ -13,7 +13,7 @@ from config import config
 from dependencies import get_auth_service, get_otp_service
 from limiter import auth_limiter, forgot_password_limiter
 from logger import logger, sanitize_log_value
-from middleware.auth_middleware import get_current_user, get_current_user_from_header
+from middleware.auth_middleware import get_current_user, get_current_user_from_header, invalidate_user_auth_cache
 from schemas.auth import (
     ForgotPasswordRequest,
     GoogleCodeExchangeRequest,
@@ -50,6 +50,14 @@ def _ensure_user_not_banned(user: User | dict[str, Any] | Any) -> None:
     banned_at = user.get("banned_at") if isinstance(user, dict) else getattr(user, "banned_at", None)
     if banned_at:
         raise HTTPException(status_code=403, detail="Account suspended")
+
+
+async def _invalidate_auth_cache_for_user(user: User | dict[str, Any] | Any) -> None:
+    """Clear stale auth snapshots before issuing fresh session data."""
+    user_id = user.get("id") if isinstance(user, dict) else getattr(user, "id", None)
+    if not user_id:
+        return
+    await invalidate_user_auth_cache(str(user_id))
 
 
 # ==========================================
@@ -175,6 +183,7 @@ async def verify_otp(
         # This will create or update the user in our DB and generate both tokens
         user = await auth_service.create_or_get_user(user_info)
         _ensure_user_not_banned(user)
+        await _invalidate_auth_cache_for_user(user)
 
         log_security_event("otp_verified", details={"user_id": user.id, "email": req.email}, severity="INFO")
 
@@ -251,6 +260,7 @@ async def login(
             log_security_event("login_failed_invalid_credentials", details={"email": req.email}, severity="WARNING")
             raise HTTPException(status_code=401, detail="Invalid email or password.")
         _ensure_user_not_banned(user_data)
+        await _invalidate_auth_cache_for_user(user_data)
 
         # user_data now contains data from Supabase, but we want our own tokens
         return create_login_response(auth_service, user_data, request, response)
@@ -310,6 +320,7 @@ async def refresh_token(
                 logger.debug("Failed to revoke old refresh token: %s", e)
 
         log_security_event("token_refresh", details={"user_id": user_id}, severity="INFO")
+        await _invalidate_auth_cache_for_user(user_obj)
 
         # use the central responder for consistency
         return create_login_response(auth_service, user_obj, request, response)
@@ -444,6 +455,7 @@ async def exchange_session(
             }
 
         log_security_event("session_exchange_success", details={"user_id": user_id}, severity="INFO")
+        await _invalidate_auth_cache_for_user(user_payload)
         return create_login_response(auth_service, user_payload, request, response)
 
     except HTTPException:
