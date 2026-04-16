@@ -85,7 +85,6 @@ def mock_supabase():
         def is_(self, *a, **kw):
             return self
 
-
         def in_(self, *a, **kw):
             return self
 
