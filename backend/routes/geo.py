@@ -22,7 +22,7 @@ _rate_limit_backoff_until = 0.0
 @router.get("/ip-location")
 async def get_ip_location() -> dict[str, Any]:
     """Return an approximate location derived from the request IP."""
-    global _cached_ip_location_expires_at, _rate_limit_backoff_until
+    global _cached_ip_location_expires_at, _rate_limit_backoff_until  # noqa: PLW0603
 
     now = monotonic()
     if now < _cached_ip_location_expires_at:

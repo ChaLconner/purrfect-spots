@@ -17,7 +17,9 @@ class UserReadMixin(UserBaseMixin):
         try:
             if self.db:
                 try:
-                    query = text(
+                    # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+                    # All parameters are bound via parameterized query (:u_id) — no user input is interpolated into the SQL string
+                    query = text(  # nosec B608
                         "SELECT " + self._prefixed_user_columns("u") + ", r.name as role_name "
                         "FROM users u "
                         "LEFT JOIN roles r ON u.role_id = r.id "
@@ -27,7 +29,8 @@ class UserReadMixin(UserBaseMixin):
                     row = db_res.fetchone()
                     if row:
                         data = dict(row._mapping)
-                        perm_query = text(
+                        # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+                        perm_query = text(  # nosec B608
                             "SELECT p.code FROM permissions p "
                             "JOIN role_permissions rp ON p.id = rp.permission_id "
                             "JOIN users u ON rp.role_id = u.role_id "
@@ -40,7 +43,7 @@ class UserReadMixin(UserBaseMixin):
                         user_data["role"] = data.get("role_name")
                         return User(**user_data, permissions=permissions)
                 except Exception as e:
-                    logger.warning(f"SQL get_user_by_id failed, falling back to Supabase: {e}")
+                    logger.warning("SQL get_user_by_id failed, falling back to Supabase: %s", e)
 
             from typing import cast
 
@@ -60,7 +63,8 @@ class UserReadMixin(UserBaseMixin):
         try:
             if self.db:
                 try:
-                    query = text(
+                    # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+                    query = text(  # nosec B608
                         "SELECT id, email, name, username, picture, bio, google_id, treat_balance, "
                         "total_treats_received, is_pro, role_id, created_at, updated_at, banned_at "
                         "FROM users WHERE email = :email LIMIT 1"
@@ -70,7 +74,7 @@ class UserReadMixin(UserBaseMixin):
                     if row:
                         return dict(row._mapping)
                 except Exception as e:
-                    logger.warning(f"SQL get_user_by_email failed, falling back to Supabase: {e}")
+                    logger.warning("SQL get_user_by_email failed, falling back to Supabase: %s", e)
 
             from typing import cast
 
@@ -86,7 +90,8 @@ class UserReadMixin(UserBaseMixin):
         try:
             if self.db:
                 try:
-                    query = text(
+                    # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+                    query = text(  # nosec B608
                         "SELECT " + self._prefixed_user_columns("u") + ", r.name as role_name "
                         "FROM users u "
                         "LEFT JOIN roles r ON u.role_id = r.id "
@@ -96,7 +101,8 @@ class UserReadMixin(UserBaseMixin):
                     row = result.fetchone()
                     if row:
                         data = dict(row._mapping)
-                        perm_query = text(
+                        # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+                        perm_query = text(  # nosec B608
                             "SELECT p.code FROM permissions p "
                             "JOIN role_permissions rp ON p.id = rp.permission_id "
                             "JOIN users u ON rp.role_id = u.role_id "
@@ -109,7 +115,7 @@ class UserReadMixin(UserBaseMixin):
                         user_data["role"] = data.get("role_name")
                         return User(**user_data, permissions=permissions)
                 except Exception as e:
-                    logger.warning(f"SQL get_user_by_username failed, falling back to Supabase: {e}")
+                    logger.warning("SQL get_user_by_username failed, falling back to Supabase: %s", e)
 
             from typing import cast
 

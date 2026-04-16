@@ -89,7 +89,7 @@ _async_supabase_admin_key: str | None = None
 
 async def get_async_supabase_client() -> AClient:
     """Get high-performance async Supabase client"""
-    global _async_supabase
+    global _async_supabase  # noqa: PLW0603
     if _async_supabase is None:
         _async_supabase = await acreate_client(supabase_url, supabase_key, options=async_client_options)
     return _async_supabase
@@ -97,14 +97,14 @@ async def get_async_supabase_client() -> AClient:
 
 def reset_async_supabase_admin_client() -> None:
     """Drop the cached async admin client so the next request recreates it."""
-    global _async_supabase_admin, _async_supabase_admin_key
+    global _async_supabase_admin, _async_supabase_admin_key  # noqa: PLW0603
     _async_supabase_admin = None
     _async_supabase_admin_key = None
 
 
 async def get_async_supabase_admin_client(force_refresh: bool = False) -> AClient:
     """Get high-performance async Supabase admin client (bypasses RLS)"""
-    global _async_supabase_admin, _async_supabase_admin_key
+    global _async_supabase_admin, _async_supabase_admin_key  # noqa: PLW0603
     service_key = _resolve_supabase_service_key()
 
     if force_refresh:

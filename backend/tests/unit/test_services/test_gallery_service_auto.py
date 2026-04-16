@@ -85,7 +85,6 @@ def mock_supabase():
         def is_(self, *a, **kw):
             return self
 
-        not_ = property(lambda self: mock_not_wrapper)
 
         def in_(self, *a, **kw):
             return self

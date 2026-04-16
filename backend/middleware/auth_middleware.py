@@ -56,7 +56,7 @@ def _assert_user_not_banned(user: User) -> User:
 
 async def get_jwks() -> dict | None:
     """Lazily fetch and cache JWKS"""
-    global _jwks_cache, _jwks_last_update
+    global _jwks_cache, _jwks_last_update  # noqa: PLW0603
 
     supabase_url = normalize_single_line_env(config.SUPABASE_URL)
     if not supabase_url:

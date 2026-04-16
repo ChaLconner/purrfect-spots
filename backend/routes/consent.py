@@ -152,8 +152,14 @@ async def record_consent(
             )
 
         action = "granted" if consent.granted else "withdrawn"
-        sanitized_consent_type = str(consent.consent_type).replace("\n", "")
-        logger.info(f"Consent {action} | user_id={current_user.id} | type={sanitized_consent_type} | version={version}")
+        sanitized_consent_type = str(consent.consent_type).replace("\n", "").replace("\r", "")
+        logger.info(
+            "Consent %s | user_id=%s | type=%s | version=%s",
+            action,
+            current_user.id,
+            sanitized_consent_type,
+            version,
+        )
 
         return {
             "message": f"Consent {action} successfully",

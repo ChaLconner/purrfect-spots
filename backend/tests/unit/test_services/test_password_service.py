@@ -55,7 +55,8 @@ class TestPasswordService:
         import hashlib
 
         password = "password123"
-        sha1 = hashlib.sha1(password.encode()).hexdigest().upper()  # codeql[py/weak-sensitive-data-hashing]
+        # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1
+        sha1 = hashlib.sha1(password.encode(), usedforsecurity=False).hexdigest().upper()  # codeql[py/weak-sensitive-data-hashing]
 
         suffix = sha1[5:]
 
@@ -73,7 +74,8 @@ class TestPasswordService:
         import hashlib
 
         password = "very_unique_password_2024"
-        hashlib.sha1(password.encode()).hexdigest().upper()  # codeql[py/weak-sensitive-data-hashing]
+        # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1
+        hashlib.sha1(password.encode(), usedforsecurity=False).hexdigest().upper()  # codeql[py/weak-sensitive-data-hashing]
 
         mock_response = MagicMock()
         mock_response.status_code = 200

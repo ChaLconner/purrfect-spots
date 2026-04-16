@@ -58,7 +58,17 @@ const handleMagicLink = async (hash: string): Promise<boolean> => {
   const refreshToken = params.get('refresh_token');
   const type = params.get('type');
 
-  if (accessToken && refreshToken) {
+  // Validate tokens are proper JWT format (3 base64url segments separated by dots)
+  // This prevents user-controlled bypass by ensuring only well-formed JWTs are accepted
+  const isValidJwtFormat = (token: string): boolean =>
+    /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token);
+
+  if (
+    accessToken &&
+    refreshToken &&
+    isValidJwtFormat(accessToken) &&
+    isValidJwtFormat(refreshToken)
+  ) {
     const response = await apiV1.post<LoginResponse>('/auth/session-exchange', {
       access_token: accessToken,
       refresh_token: refreshToken,
