@@ -1,7 +1,6 @@
 from typing import Any, cast
 
 from postgrest.types import CountMethod
-from sqlalchemy import text
 
 import structlog  # type: ignore[import-untyped, unused-ignore]
 from services.gallery.base_mixin import GalleryBaseMixin
@@ -59,25 +58,7 @@ class GalleryReadMixin(GalleryBaseMixin):
 
     async def _fetch_photos(self, limit: int, offset: int, user_id: str | None) -> list[dict[str, Any]]:
         """Fetch photos with hydrated user details where possible."""
-        if self.db:
-            try:
-                return await self._fetch_photos_sql(limit, offset, user_id)
-            except Exception as e:
-                logger.warning("SQL photo fetch failed, falling back to Supabase client: %s", e)
         return await self._fetch_photos_supabase(limit, offset, user_id)
-
-    async def _fetch_photos_sql(self, limit: int, offset: int, user_id: str | None) -> list[dict[str, Any]]:
-        if not self.db:
-            return []
-        query = text(
-            self.PHOTO_SELECT_SQL
-            + " WHERE deleted_at IS NULL AND status = :approved_status ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
-        )
-        result = await self.db.execute(
-            query,
-            {"approved_status": self.APPROVED_STATUS, "limit": limit, "offset": offset},
-        )
-        return [dict(row._mapping) for row in result.fetchall()]
 
     async def _fetch_photos_supabase(self, limit: int, offset: int, user_id: str | None) -> list[dict[str, Any]]:
         query = self._apply_visibility_filter(self.supabase.table("cat_photos").select(self.PHOTO_COLUMNS))
@@ -86,18 +67,6 @@ class GalleryReadMixin(GalleryBaseMixin):
 
     async def _fetch_total_count(self, data: list[dict[str, Any]]) -> int:
         """Fetch total count of photos with fallback from SQL to Supabase client."""
-        # Try SQL if db is available
-        if self.db:
-            try:
-                total_res = await self.db.execute(
-                    text("SELECT count(*) FROM cat_photos WHERE deleted_at IS NULL AND status = :approved_status"),
-                    {"approved_status": self.APPROVED_STATUS},
-                )
-                return total_res.scalar() or 0
-            except Exception as e:
-                logger.warning("SQL count fetch failed, falling back to Supabase client: %s", e)
-
-        # Fallback to Supabase Client API
         try:
             res_count = await self._apply_visibility_filter(
                 self.supabase.table("cat_photos").select("id", count=CountMethod.exact)
@@ -109,34 +78,19 @@ class GalleryReadMixin(GalleryBaseMixin):
 
     @cached_gallery
     async def get_map_locations(self) -> list[dict[str, Any]]:
-        """Fetch all cat locations with fallback from SQL to Supabase client."""
-        data = []
+        """Fetch all cat locations using the standard Supabase client path."""
         try:
-            if self.db:
-                try:
-                    result = await self.db.execute(
-                        text(
-                            self.MAP_LOCATION_SELECT_SQL
-                            + " WHERE deleted_at IS NULL AND status = :approved_status ORDER BY uploaded_at DESC LIMIT 2000"
-                        ),
-                        {"approved_status": self.APPROVED_STATUS},
+            res = (
+                await self._apply_visibility_filter(
+                    self.supabase.table("cat_photos").select(
+                        "id,latitude,longitude,location_name,image_url,user_id,uploaded_at"
                     )
-                    data = [dict(row._mapping) for row in result.fetchall()]
-                except Exception as e:
-                    logger.warning("SQL map locations fetch failed, falling back to Supabase client: %s", e)
-
-            if not data:
-                res = (
-                    await self._apply_visibility_filter(
-                        self.supabase.table("cat_photos").select(
-                            "id,latitude,longitude,location_name,image_url,user_id,uploaded_at"
-                        )
-                    )
-                    .order("uploaded_at", desc=True)
-                    .limit(2000)
-                    .execute()
                 )
-                data = cast(list[dict[str, Any]], res.data or [])
+                .order("uploaded_at", desc=True)
+                .limit(2000)
+                .execute()
+            )
+            data = cast(list[dict[str, Any]], res.data or [])
 
             # Final safety check: ensure all items are dicts and catch None image_urls
             sanitized_data = []
@@ -156,35 +110,18 @@ class GalleryReadMixin(GalleryBaseMixin):
             raise ExternalServiceError(f"Failed to fetch map locations: {e!s}", service="Supabase")
 
     async def get_photo_by_id(self, photo_id: str, include_unapproved: bool = False) -> dict[str, Any] | None:
-        """Fetch a single photo by ID with fallback from SQL to Supabase client."""
+        """Fetch a single photo by ID using the standard Supabase client path."""
         try:
-            data = None
-            if self.db:
-                try:
-                    sql = self.PHOTO_SELECT_SQL + " WHERE id = :id AND deleted_at IS NULL"
-                    params: dict[str, Any] = {"id": photo_id}
-                    if not include_unapproved:
-                        sql += " AND status = :approved_status"
-                        params["approved_status"] = self.APPROVED_STATUS
-                    sql += " LIMIT 1"
-                    result = await self.db.execute(text(sql), params)
-                    row = result.fetchone()
-                    if row:
-                        data = [dict(row._mapping)]
-                except Exception as e:
-                    logger.warning(f"SQL get_photo_by_id failed for {photo_id}, falling back to Supabase client: {e}")
-
-            if not data:
-                res = (
-                    await self._apply_visibility_filter(
-                        self.supabase.table("cat_photos").select(self.PHOTO_COLUMNS),
-                        include_unapproved=include_unapproved,
-                    )
-                    .eq("id", photo_id)
-                    .limit(1)
-                    .execute()
+            res = (
+                await self._apply_visibility_filter(
+                    self.supabase.table("cat_photos").select(self.PHOTO_COLUMNS),
+                    include_unapproved=include_unapproved,
                 )
-                data = cast(list[dict[str, Any]], res.data or [])
+                .eq("id", photo_id)
+                .limit(1)
+                .execute()
+            )
+            data = cast(list[dict[str, Any]], res.data or [])
             if data:
                 return self._process_photos(data, width=1200)[0]
             return None

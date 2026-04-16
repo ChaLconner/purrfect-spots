@@ -114,10 +114,8 @@ class GallerySearchMixin(GalleryBaseMixin):
                         sql += " AND status = :approved_status"
                         params["approved_status"] = self.APPROVED_STATUS
                     sql += " ORDER BY uploaded_at DESC"
-                    result = await self.db.execute(text(sql), params)
-                    data = [dict(row._mapping) for row in result.fetchall()]
-                except Exception as e:
-                    logger.warning("SQL get_user_photos failed, falling back to Supabase client: %s", e)
+                except Exception:
+                    logger.warning("SQL get_user_photos path disabled; using Supabase client instead")
 
             if not data:
                 res = (

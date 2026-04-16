@@ -41,7 +41,8 @@ def mock_supabase():
     mock_not_wrapper = MockNotWrapper()
 
     class MockEq:
-        not_ = property(lambda self: mock_not_wrapper)
+        def __init__(self):
+            self.not_ = mock_not_wrapper
 
         def maybe_single(self):
             return self

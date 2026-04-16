@@ -1,7 +1,5 @@
 from typing import Any
 
-from sqlalchemy import text
-
 import structlog
 from schemas.user import User
 from services.user.base_mixin import UserBaseMixin
@@ -15,36 +13,6 @@ class UserReadMixin(UserBaseMixin):
     async def get_user_by_id(self, user_id: str) -> User | None:
         """Get user by ID from database with Role and Permissions (Async)"""
         try:
-            if self.db:
-                try:
-                    # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-                    # All parameters are bound via parameterized query (:u_id) — no user input is interpolated into the SQL string
-                    query = text(  # nosec B608
-                        "SELECT " + self._prefixed_user_columns("u") + ", r.name as role_name "
-                        "FROM users u "
-                        "LEFT JOIN roles r ON u.role_id = r.id "
-                        "WHERE u.id = :u_id LIMIT 1"
-                    )
-                    db_res = await self.db.execute(query, {"u_id": user_id})
-                    row = db_res.fetchone()
-                    if row:
-                        data = dict(row._mapping)
-                        # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-                        perm_query = text(  # nosec B608
-                            "SELECT p.code FROM permissions p "
-                            "JOIN role_permissions rp ON p.id = rp.permission_id "
-                            "JOIN users u ON rp.role_id = u.role_id "
-                            "WHERE u.id = :u_id"
-                        )
-                        perm_db_res = await self.db.execute(perm_query, {"u_id": user_id})
-                        permissions = [r[0] for r in perm_db_res]
-
-                        user_data = data.copy()
-                        user_data["role"] = data.get("role_name")
-                        return User(**user_data, permissions=permissions)
-                except Exception as e:
-                    logger.warning("SQL get_user_by_id failed, falling back to Supabase: %s", e)
-
             from typing import cast
 
             query_str = f"{self.USER_COLUMNS}, roles(name, role_permissions(permissions(code)))"
@@ -61,21 +29,6 @@ class UserReadMixin(UserBaseMixin):
     async def get_user_by_email(self, email: str) -> dict[str, Any] | None:
         """Get user by email from database (Async)"""
         try:
-            if self.db:
-                try:
-                    # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-                    query = text(  # nosec B608
-                        "SELECT id, email, name, username, picture, bio, google_id, treat_balance, "
-                        "total_treats_received, is_pro, role_id, created_at, updated_at, banned_at "
-                        "FROM users WHERE email = :email LIMIT 1"
-                    )
-                    db_res = await self.db.execute(query, {"email": email})
-                    row = db_res.fetchone()
-                    if row:
-                        return dict(row._mapping)
-                except Exception as e:
-                    logger.warning("SQL get_user_by_email failed, falling back to Supabase: %s", e)
-
             from typing import cast
 
             admin = await self._get_admin_client()
@@ -88,35 +41,6 @@ class UserReadMixin(UserBaseMixin):
     async def get_user_by_username(self, username: str) -> User | None:
         """Get user by username from database (Async)"""
         try:
-            if self.db:
-                try:
-                    # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-                    query = text(  # nosec B608
-                        "SELECT " + self._prefixed_user_columns("u") + ", r.name as role_name "
-                        "FROM users u "
-                        "LEFT JOIN roles r ON u.role_id = r.id "
-                        "WHERE LOWER(u.username) = LOWER(:username) LIMIT 1"
-                    )
-                    result = await self.db.execute(query, {"username": username})
-                    row = result.fetchone()
-                    if row:
-                        data = dict(row._mapping)
-                        # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-                        perm_query = text(  # nosec B608
-                            "SELECT p.code FROM permissions p "
-                            "JOIN role_permissions rp ON p.id = rp.permission_id "
-                            "JOIN users u ON rp.role_id = u.role_id "
-                            "WHERE LOWER(u.username) = LOWER(:username)"
-                        )
-                        perm_res = await self.db.execute(perm_query, {"username": username})
-                        permissions = [r[0] for r in perm_res]
-
-                        user_data = data.copy()
-                        user_data["role"] = data.get("role_name")
-                        return User(**user_data, permissions=permissions)
-                except Exception as e:
-                    logger.warning("SQL get_user_by_username failed, falling back to Supabase: %s", e)
-
             from typing import cast
 
             admin = await self._get_admin_client()

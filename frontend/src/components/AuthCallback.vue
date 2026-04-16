@@ -58,40 +58,31 @@ const handleMagicLink = async (hash: string): Promise<boolean> => {
   const refreshToken = params.get('refresh_token');
   const type = params.get('type');
 
-  // Validate tokens are proper JWT format (3 base64url segments separated by dots)
-  // This prevents user-controlled bypass by ensuring only well-formed JWTs are accepted
-  const isValidJwtFormat = (token: string): boolean =>
-    /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token);
-
-  if (
-    accessToken &&
-    refreshToken &&
-    isValidJwtFormat(accessToken) &&
-    isValidJwtFormat(refreshToken)
-  ) {
-    const response = await apiV1.post<LoginResponse>('/auth/session-exchange', {
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    });
-
-    await useAuthStore().setAuth(response);
-    success.value = true;
-    showSuccess(
-      type === 'recovery'
-        ? t('auth.callback.passwordResetVerified')
-        : t('auth.callback.emailVerified')
-    );
-
-    if (type === 'recovery') {
-      router.push('/reset-password');
-    } else {
-      const redirectPath = getSafeRedirect(sessionStorage.getItem('redirectAfterAuth'));
-      sessionStorage.removeItem('redirectAfterAuth');
-      setTimeout(() => router.push(redirectPath), 1000);
-    }
-    return true;
+  if (!accessToken || !refreshToken) {
+    throw new Error(t('auth.callback.noAuthData'));
   }
-  return false;
+
+  const response = await apiV1.post<LoginResponse>('/auth/session-exchange', {
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
+
+  await useAuthStore().setAuth(response);
+  success.value = true;
+  showSuccess(
+    type === 'recovery'
+      ? t('auth.callback.passwordResetVerified')
+      : t('auth.callback.emailVerified')
+  );
+
+  if (type === 'recovery') {
+    router.push('/reset-password');
+  } else {
+    const redirectPath = getSafeRedirect(sessionStorage.getItem('redirectAfterAuth'));
+    sessionStorage.removeItem('redirectAfterAuth');
+    setTimeout(() => router.push(redirectPath), 1000);
+  }
+  return true;
 };
 
 const handleGoogleCode = async (code: string, codeVerifier: string): Promise<boolean> => {

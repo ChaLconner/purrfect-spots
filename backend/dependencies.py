@@ -115,8 +115,8 @@ def get_current_user_from_token(authorization: str | None = Header(None)) -> dic
     token = parts[1]
     try:
         return decode_token(token)
-    except Exception as e:
-        logger.warning("Token validation failed: %s", e)
+    except Exception:
+        logger.warning("Token validation failed")
         raise HTTPException(status_code=401, detail="Invalid token")
 
 

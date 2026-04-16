@@ -90,7 +90,10 @@ export function useAdminTable<T extends { id: string }>(
       selectedIds.value = [];
       page.value = newPage;
     } catch (e) {
-      console.error(`Failed to load data from ${options.endpoint}`, e);
+      console.error('Failed to load admin table data', {
+        endpoint: options.endpoint,
+        error: e,
+      });
     } finally {
       isLoading.value = false;
     }
@@ -199,7 +202,10 @@ export function useAdminTable<T extends { id: string }>(
 
       toast({ description: 'Data exported successfully', variant: 'success' });
     } catch (e) {
-      console.error(`Failed to export data from ${options.endpoint}`, e);
+      console.error('Failed to export admin table data', {
+        endpoint: options.endpoint,
+        error: e,
+      });
       toast({
         title: 'Error',
         description: 'Failed to export data',

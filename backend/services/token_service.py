@@ -137,19 +137,17 @@ class TokenService:
                         raise
 
                     logger.warning(
-                        "token_blacklist insert hit RLS; refreshing Supabase admin client and retrying once: %s",
-                        exc,
+                        "token_blacklist insert hit RLS; refreshing Supabase admin client and retrying once"
                     )
                     admin_client = await self._get_admin_client(force_refresh=True)
                     await admin_client.table("token_blacklist").insert(payload).execute()
             except Exception as e:
                 if self._is_rls_error(e):
                     logger.warning(
-                        "Skipping blacklist DB persistence due to token_blacklist RLS policy: %s",
-                        e,
+                        "Skipping blacklist DB persistence due to token_blacklist RLS policy"
                     )
                 else:
-                    logger.error("Failed to persist blacklist to DB: %s", e)
+                    logger.error("Failed to persist blacklist to DB")
 
         return True
 
@@ -162,7 +160,7 @@ class TokenService:
             if result:
                 return True
         except Exception as e:
-            logger.warning("Redis read error: %s", e)
+            logger.warning("Redis read error")
             # If connection is dead, invalidate the singleton so it reconnects next time
             if _is_reconnect_error(e):
                 reset_token_service()
@@ -187,12 +185,12 @@ class TokenService:
             if self.db:
                 try:
                     return await self._check_db_blacklist_sql(target_jti)
-                except Exception as e:
-                    logger.warning("SQL _check_db_blacklist failed, falling back to Supabase client: %s", e)
+                except Exception:
+                    logger.warning("SQL blacklist lookup failed, falling back to Supabase client")
 
             return await self._check_db_blacklist_supabase(target_jti)
-        except Exception as e:
-            logger.warning("Database check failed: %s", e)
+        except Exception:
+            logger.warning("Database blacklist check failed")
             logger.error("Database check failed - blocking token for security")
             return True
 
@@ -225,8 +223,7 @@ class TokenService:
                 raise
 
             logger.warning(
-                "token_blacklist select hit RLS; refreshing Supabase admin client and retrying once: %s",
-                exc,
+                "token_blacklist select hit RLS; refreshing Supabase admin client and retrying once"
             )
             admin_client = await self._get_admin_client(force_refresh=True)
             supa_res = (
