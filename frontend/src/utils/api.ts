@@ -16,7 +16,7 @@ import type {
   AxiosResponse,
 } from 'axios';
 import { isBrowserExtensionError, handleBrowserExtensionError } from './browserExtensionHandler';
-import { getEnvVar } from './env';
+import { getEnvVar, isProd } from './env';
 import { getCsrfToken } from './security';
 
 import { ApiError, ApiErrorTypes } from './apiErrors';
@@ -74,6 +74,12 @@ export const getApiBaseUrl = (): string => {
       return envUrl.slice(0, -1);
     }
     return envUrl;
+  }
+
+  // In production we prefer the frontend's same-origin `/api` rewrite so the
+  // browser never needs to make a cross-origin request to the backend domain.
+  if (isProd()) {
+    return '/api';
   }
 
   // Fallback for development
