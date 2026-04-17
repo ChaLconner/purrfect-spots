@@ -52,7 +52,10 @@ def test_get_supabase_admin_client() -> None:
 
 def test_async_client_options_use_async_storage() -> None:
     """Async Supabase clients must use async-compatible session storage."""
-    assert isinstance(cast(Any, sc.async_client_options.storage), sc.AsyncMemoryStorage)
+    storage = cast(Any, sc.async_client_options.storage)
+    assert callable(getattr(storage, "get_item", None))
+    assert callable(getattr(storage, "set_item", None))
+    assert callable(getattr(storage, "remove_item", None))
 
 
 @pytest.mark.asyncio

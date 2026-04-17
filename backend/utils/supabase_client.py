@@ -5,28 +5,38 @@ from config import config, normalize_single_line_env
 from logger import logger
 from supabase import AClient, AClientOptions, Client, ClientOptions, acreate_client, create_client
 
-try:
-    # Older Supabase Python stacks exposed async auth storage through gotrue.
-    from gotrue._async.storage import AsyncMemoryStorage
-except ImportError:
+
+class _FallbackAsyncMemoryStorage:
+    """Small async in-memory session store for serverless runtimes."""
+
+    def __init__(self) -> None:
+        self.storage: dict[str, str] = {}
+
+    async def get_item(self, key: str) -> str | None:
+        return self.storage.get(key)
+
+    async def set_item(self, key: str, value: str) -> None:
+        self.storage[key] = value
+
+    async def remove_item(self, key: str) -> None:
+        self.storage.pop(key, None)
+
+
+def create_async_memory_storage() -> Any:
+    """Create async auth session storage compatible with old and new Supabase stacks."""
     try:
-        # Current auth-py releases expose the storage class from supabase_auth.
-        from supabase_auth import AsyncMemoryStorage  # type: ignore[import-not-found]
+        # Older Supabase Python stacks exposed async auth storage through gotrue.
+        from gotrue._async.storage import AsyncMemoryStorage as GoTrueAsyncMemoryStorage
+
+        return GoTrueAsyncMemoryStorage()
     except ImportError:
-        class AsyncMemoryStorage:
-            """Small async in-memory session store for serverless runtimes."""
+        try:
+            # Current auth-py releases expose the storage class from supabase_auth.
+            from supabase_auth import AsyncMemoryStorage as SupabaseAuthAsyncMemoryStorage
 
-            def __init__(self) -> None:
-                self.storage: dict[str, str] = {}
-
-            async def get_item(self, key: str) -> str | None:
-                return self.storage.get(key)
-
-            async def set_item(self, key: str, value: str) -> None:
-                self.storage[key] = value
-
-            async def remove_item(self, key: str) -> None:
-                self.storage.pop(key, None)
+            return SupabaseAuthAsyncMemoryStorage()
+        except ImportError:
+            return _FallbackAsyncMemoryStorage()
 
 
 def _resolve_supabase_service_key() -> str:
@@ -83,7 +93,7 @@ client_options = ClientOptions(
 )
 
 async_client_options = AClientOptions(
-    storage=cast(Any, AsyncMemoryStorage()),
+    storage=cast(Any, create_async_memory_storage()),
     postgrest_client_timeout=30.0,
     storage_client_timeout=30.0,
 )

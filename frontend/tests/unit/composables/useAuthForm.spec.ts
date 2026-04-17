@@ -16,10 +16,15 @@ vi.mock('@/store/toast');
 vi.mock('vue-router', () => ({
   useRouter: vi.fn(),
 }));
-vi.mock('@/utils/env', () => ({
-  getEnvVar: vi.fn((_key) => 'mock-env-value'),
-  isDev: vi.fn(() => true),
-}));
+vi.mock('@/utils/env', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/utils/env')>();
+  return {
+    ...actual,
+    getEnvVar: vi.fn((_key) => 'mock-env-value'),
+    isDev: vi.fn(() => true),
+    isProd: vi.fn(() => false),
+  };
+});
 vi.mock('@/utils/oauth', () => ({
   getGoogleAuthUrl: vi.fn().mockResolvedValue({
     url: 'https://accounts.google.com/o/oauth2/v2/auth',
