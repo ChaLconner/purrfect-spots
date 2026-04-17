@@ -135,12 +135,20 @@ VITE_DEBUG_MODE=true
 # Backend
 DEBUG=False
 ENVIRONMENT=production
-CORS_ORIGINS=https://purrfect-spots.vercel.app
+FRONTEND_URL=https://purrfectspots.xyz
+CORS_ORIGINS=https://purrfectspots.xyz,https://www.purrfectspots.xyz
+JWT_SECRET=your_access_token_secret
+JWT_REFRESH_SECRET=your_refresh_token_secret
 
 # Frontend
-VITE_API_BASE_URL=https://purrfect-spots-backend.vercel.app
+VITE_API_BASE_URL=/api
 VITE_DEBUG_MODE=false
 ```
+
+For Vercel deployments, prefer same-origin `VITE_API_BASE_URL=/api` and let
+`frontend/vercel.json` rewrite `/api/*` to the backend. This avoids browser CORS
+issues and makes backend failures surface as normal HTTP errors instead of
+misleading CORS noise.
 
 ---
 

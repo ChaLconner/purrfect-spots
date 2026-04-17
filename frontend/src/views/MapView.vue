@@ -392,37 +392,6 @@ watch(
 // 2. ONLY Fit bounds when searching (triggered by search query change, NOT every data update)
 const hasFittedForCurrentSearch = ref(false);
 const getDisplayedLocationCount = (): number => displayedLocations.value.length;
-const fitBoundsForSearchResults = ([count]: [number]): void => {
-  if (
-    searchQuery.value &&
-    map.value &&
-    count > 0 &&
-    !hasFittedForCurrentSearch.value
-  ) {
-    const locations = displayedLocations.value;
-    if (locations.length > 1) {
-      const bounds = new google.maps.LatLngBounds();
-      locations.forEach((loc: CatLocation): void => {
-        bounds.extend({ lat: loc.latitude, lng: loc.longitude });
-      });
-
-      // Use a temporary flag to prevent the 'idle' listener from refetching immediately
-      isViewportFetching.value = true;
-      map.value.fitBounds(bounds, MAP_CONFIG.FIT_BOUNDS_PADDING);
-      hasFittedForCurrentSearch.value = true;
-
-      // Release the lock after animation roughly finishes
-      setTimeout((): void => {
-        isViewportFetching.value = false;
-      }, 1000);
-    } else if (locations.length === 1) {
-      map.value.panTo({ lat: locations[0].latitude, lng: locations[0].longitude });
-      map.value.setZoom(15);
-      hasFittedForCurrentSearch.value = true;
-    }
-  }
-};
-
 watch(searchQuery, (): void => {
   hasFittedForCurrentSearch.value = false;
 });

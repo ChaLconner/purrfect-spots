@@ -18,13 +18,16 @@ vi.mock('vue-i18n', () => ({
   useI18n: (): { t: (key: string) => string } => ({ t: (key: string): string => key }),
 }));
 
-vi.mock('@/utils/env', () => ({
-  getEnvVar: vi.fn((key: string) => {
-    console.log('getEnvVar called with:', key);
-    if (key === 'VITE_GOOGLE_MAPS_API_KEY') return 'test-key';
-    return '';
-  }),
-}));
+vi.mock('@/utils/env', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/utils/env')>();
+  return {
+    ...actual,
+    getEnvVar: vi.fn((key: string) => {
+      if (key === 'VITE_GOOGLE_MAPS_API_KEY') return 'test-key';
+      return '';
+    }),
+  };
+});
 
 vi.mock('@/composables/useMapMarkers', () => ({
   useMapMarkers: vi.fn(() => ({

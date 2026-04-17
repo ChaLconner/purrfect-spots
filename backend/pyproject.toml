@@ -85,6 +85,8 @@ module = [
     "sentry_sdk.*",
     "slowapi.*",
     "supabase.*",
+    "supabase_auth",
+    "supabase_auth.*",
     "gotrue.*",
     "storage3.*",
     "google.cloud.*",

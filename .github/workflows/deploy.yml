@@ -242,7 +242,6 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
@@ -257,7 +256,7 @@ jobs:
           DEPLOY_ARGS=(deploy . --yes --token="$VERCEL_TOKEN")
           DEPLOY_ARGS+=(--build-env "VITE_SUPABASE_URL=$SUPABASE_URL")
           DEPLOY_ARGS+=(--build-env "VITE_SUPABASE_ANON_KEY=$SUPABASE_KEY")
-          DEPLOY_ARGS+=(--build-env "VITE_API_BASE_URL=$STAGING_API_URL")
+          DEPLOY_ARGS+=(--build-env "VITE_API_BASE_URL=/api")
           [ -n "$GOOGLE_MAPS_API_KEY" ] && DEPLOY_ARGS+=(--build-env "VITE_GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY")
 
           DEPLOY_OUTPUT=$(vercel "${DEPLOY_ARGS[@]}")
@@ -318,6 +317,9 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          FRONTEND_URL: ${{ vars.STAGING_FRONTEND_URL }}
         run: |
           set -euo pipefail
           required_vars=(
@@ -328,6 +330,9 @@ jobs:
             SUPABASE_URL
             SUPABASE_KEY
             SUPABASE_SERVICE_ROLE_KEY
+            JWT_SECRET
+            JWT_REFRESH_SECRET
+            FRONTEND_URL
           )
 
           for var_name in "${required_vars[@]}"; do
@@ -360,6 +365,9 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          FRONTEND_URL: ${{ vars.STAGING_FRONTEND_URL }}
         run: |
           set -euo pipefail
 
@@ -372,6 +380,10 @@ jobs:
           DEPLOY_ARGS+=(-e "SUPABASE_URL=$SUPABASE_URL")
           DEPLOY_ARGS+=(-e "SUPABASE_KEY=$SUPABASE_KEY")
           DEPLOY_ARGS+=(-e "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY")
+          DEPLOY_ARGS+=(-e "JWT_SECRET=$JWT_SECRET")
+          DEPLOY_ARGS+=(-e "JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET")
+          DEPLOY_ARGS+=(-e "FRONTEND_URL=$FRONTEND_URL")
+          DEPLOY_ARGS+=(-e "CORS_ORIGINS=$FRONTEND_URL")
 
           vercel "${DEPLOY_ARGS[@]}"
 
@@ -550,7 +562,6 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          PROD_API_URL: ${{ secrets.PROD_API_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
@@ -565,7 +576,7 @@ jobs:
           DEPLOY_ARGS=(deploy . --prod --yes --token="$VERCEL_TOKEN")
           DEPLOY_ARGS+=(--build-env "VITE_SUPABASE_URL=$SUPABASE_URL")
           DEPLOY_ARGS+=(--build-env "VITE_SUPABASE_ANON_KEY=$SUPABASE_KEY")
-          DEPLOY_ARGS+=(--build-env "VITE_API_BASE_URL=$PROD_API_URL")
+          DEPLOY_ARGS+=(--build-env "VITE_API_BASE_URL=/api")
           [ -n "$GOOGLE_MAPS_API_KEY" ] && DEPLOY_ARGS+=(--build-env "VITE_GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY")
 
           DEPLOY_OUTPUT=$(vercel "${DEPLOY_ARGS[@]}")
@@ -626,6 +637,9 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          FRONTEND_URL: ${{ vars.PROD_FRONTEND_URL || 'https://purrfect-spots.vercel.app' }}
         run: |
           set -euo pipefail
           required_vars=(
@@ -636,6 +650,9 @@ jobs:
             SUPABASE_URL
             SUPABASE_KEY
             SUPABASE_SERVICE_ROLE_KEY
+            JWT_SECRET
+            JWT_REFRESH_SECRET
+            FRONTEND_URL
           )
 
           for var_name in "${required_vars[@]}"; do
@@ -668,6 +685,9 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          FRONTEND_URL: ${{ vars.PROD_FRONTEND_URL || 'https://purrfect-spots.vercel.app' }}
         run: |
           set -euo pipefail
 
@@ -680,6 +700,10 @@ jobs:
           DEPLOY_ARGS+=(-e "SUPABASE_URL=$SUPABASE_URL")
           DEPLOY_ARGS+=(-e "SUPABASE_KEY=$SUPABASE_KEY")
           DEPLOY_ARGS+=(-e "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY")
+          DEPLOY_ARGS+=(-e "JWT_SECRET=$JWT_SECRET")
+          DEPLOY_ARGS+=(-e "JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET")
+          DEPLOY_ARGS+=(-e "FRONTEND_URL=$FRONTEND_URL")
+          DEPLOY_ARGS+=(-e "CORS_ORIGINS=$FRONTEND_URL")
 
           vercel "${DEPLOY_ARGS[@]}"
 
