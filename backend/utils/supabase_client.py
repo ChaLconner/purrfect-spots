@@ -1,11 +1,32 @@
 import os
 from typing import Any, cast
 
-from gotrue._async.storage import AsyncMemoryStorage
-
 from config import config, normalize_single_line_env
 from logger import logger
 from supabase import AClient, AClientOptions, Client, ClientOptions, acreate_client, create_client
+
+try:
+    # Older Supabase Python stacks exposed async auth storage through gotrue.
+    from gotrue._async.storage import AsyncMemoryStorage
+except ImportError:
+    try:
+        # Current auth-py releases expose the storage class from supabase_auth.
+        from supabase_auth import AsyncMemoryStorage  # type: ignore[import-not-found]
+    except ImportError:
+        class AsyncMemoryStorage:
+            """Small async in-memory session store for serverless runtimes."""
+
+            def __init__(self) -> None:
+                self.storage: dict[str, str] = {}
+
+            async def get_item(self, key: str) -> str | None:
+                return self.storage.get(key)
+
+            async def set_item(self, key: str, value: str) -> None:
+                self.storage[key] = value
+
+            async def remove_item(self, key: str) -> None:
+                self.storage.pop(key, None)
 
 
 def _resolve_supabase_service_key() -> str:
