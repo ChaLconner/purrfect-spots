@@ -23,6 +23,7 @@ def has_supabase_service_role_key() -> bool:
 
 is_production = config.ENVIRONMENT.lower() == "production"
 
+
 def _resolve_supabase_url() -> str:
     """Resolve the current Supabase URL with safe non-production fallbacks."""
     supabase_url = normalize_single_line_env(config.SUPABASE_URL)
@@ -51,6 +52,7 @@ def _resolve_supabase_anon_key() -> str:
         supabase_key = "dummy-anon-key"
 
     return supabase_key
+
 
 # Shared client options for timeouts and connection pooling
 # Using a shared http_client prevents [Errno 99] port exhaustion

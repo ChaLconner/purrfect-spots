@@ -17,10 +17,11 @@ from logger import logger
 # Load .env from backend directory
 backend_dir = Path(__file__).parent
 env_path = backend_dir / ".env"
+dotenv_override = os.getenv("ENVIRONMENT", "development").lower() not in {"test", "testing"}
 if env_path.exists():
-    load_dotenv(env_path, override=True)
+    load_dotenv(env_path, override=dotenv_override)
 else:
-    load_dotenv(override=True)
+    load_dotenv(override=dotenv_override)
 
 
 class ConfigurationError(Exception):
