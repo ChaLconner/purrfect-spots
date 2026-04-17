@@ -30,8 +30,9 @@ security = HTTPBearer(auto_error=False)
 USER_AUTH_CACHE_TTL = 300
 
 # JWKS Cache
-_jwks_cache: dict | None = None
-_jwks_last_update: int = 0
+# Keep these module-level names for test patching and backwards compatibility.
+_jwks_cache: dict[str, Any] | None = None
+_jwks_last_update = 0
 JWKS_CACHE_TTL = 3600  # 1 hour
 
 
@@ -56,8 +57,7 @@ def _assert_user_not_banned(user: User) -> User:
 
 async def get_jwks() -> dict | None:
     """Lazily fetch and cache JWKS"""
-    global _jwks_cache, _jwks_last_update
-
+    global _jwks_cache, _jwks_last_update  # noqa: PLW0603
     supabase_url = normalize_single_line_env(config.SUPABASE_URL)
     if not supabase_url:
         return None
@@ -86,7 +86,7 @@ async def get_jwks() -> dict | None:
             if response.status_code == 200:
                 _jwks_cache = response.json()
                 _jwks_last_update = int(current_time)
-                return _jwks_cache
+                return cast(dict[str, Any], _jwks_cache)
         if last_response is not None:
             logger.warning(
                 "JWKS fetch failed for %s with status %d: %s",

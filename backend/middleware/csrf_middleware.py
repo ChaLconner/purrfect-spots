@@ -12,7 +12,7 @@ import os
 import secrets
 from collections.abc import Awaitable, Callable
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -178,7 +178,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         if not parsed.scheme or not parsed.netloc:
             return None
 
-        return f"{parsed.scheme}://{parsed.netloc}"
+        return urlunsplit((parsed.scheme, parsed.netloc, "", "", "")).rstrip("/")
 
     def _set_csrf_cookie(self, request: Request, response: Response) -> Response:
         """Set CSRF token cookie if not already present"""

@@ -19,9 +19,11 @@ const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
 const isAuthUiResolved = computed(
-  () => authStore.isInitialized || authStore.isAuthenticated || !!authStore.user
+  () => authStore.isInitialized && !authStore.isHydratingSession
 );
-const showAuthenticatedActions = computed(() => authStore.isAuthenticated);
+const showAuthenticatedActions = computed(
+  () => isAuthUiResolved.value && authStore.isAuthenticated
+);
 const showGuestLogin = computed(() => isAuthUiResolved.value && !showAuthenticatedActions.value);
 const UserMenu = defineAsyncComponent({
   loader: () => import('./navbar/UserMenu.vue'),

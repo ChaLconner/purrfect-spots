@@ -52,36 +52,36 @@ onUnmounted(() => {
   globalThis.removeEventListener('unhandledrejection', handleUnhandledRejection);
 });
 
-const handleMagicLink = async (hash: string): Promise<boolean> => {
-  const params = new URLSearchParams(hash.substring(1));
+const handleMagicLink = async (params: URLSearchParams): Promise<boolean> => {
   const accessToken = params.get('access_token');
   const refreshToken = params.get('refresh_token');
   const type = params.get('type');
 
-  if (accessToken && refreshToken) {
-    const response = await apiV1.post<LoginResponse>('/auth/session-exchange', {
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    });
-
-    await useAuthStore().setAuth(response);
-    success.value = true;
-    showSuccess(
-      type === 'recovery'
-        ? t('auth.callback.passwordResetVerified')
-        : t('auth.callback.emailVerified')
-    );
-
-    if (type === 'recovery') {
-      router.push('/reset-password');
-    } else {
-      const redirectPath = getSafeRedirect(sessionStorage.getItem('redirectAfterAuth'));
-      sessionStorage.removeItem('redirectAfterAuth');
-      setTimeout(() => router.push(redirectPath), 1000);
-    }
-    return true;
+  if (!accessToken || !refreshToken) {
+    throw new Error(t('auth.callback.noAuthData'));
   }
-  return false;
+
+  const response = await apiV1.post<LoginResponse>('/auth/session-exchange', {
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
+
+  await useAuthStore().setAuth(response);
+  success.value = true;
+  showSuccess(
+    type === 'recovery'
+      ? t('auth.callback.passwordResetVerified')
+      : t('auth.callback.emailVerified')
+  );
+
+  if (type === 'recovery') {
+    router.push('/reset-password');
+  } else {
+    const redirectPath = getSafeRedirect(sessionStorage.getItem('redirectAfterAuth'));
+    sessionStorage.removeItem('redirectAfterAuth');
+    setTimeout(() => router.push(redirectPath), 1000);
+  }
+  return true;
 };
 
 const handleGoogleCode = async (code: string, codeVerifier: string): Promise<boolean> => {
@@ -131,9 +131,13 @@ const processAuthCallback = async (): Promise<boolean> => {
   const code = route.query.code as string;
   const codeVerifier = globalThis.sessionStorage.getItem('google_code_verifier');
   const hash = globalThis.location.hash;
+  const hashParams = hash ? new URLSearchParams(hash.substring(1)) : null;
+  const hasMagicLinkTokens = Boolean(
+    hashParams?.get('access_token') && hashParams.get('refresh_token')
+  );
 
-  if (hash && hash.includes('access_token=')) {
-    if (await handleMagicLink(hash)) return true;
+  if (hasMagicLinkTokens && hashParams) {
+    if (await handleMagicLink(hashParams)) return true;
   }
 
   if (code) {
@@ -143,9 +147,8 @@ const processAuthCallback = async (): Promise<boolean> => {
     throw new Error(t('auth.callback.noAuthData'));
   }
 
-  if (hash && !hash.includes('access_token=')) {
-    const params = new URLSearchParams(hash.substring(1));
-    const errorMsg = params.get('error_description');
+  if (hashParams && !hasMagicLinkTokens) {
+    const errorMsg = hashParams.get('error_description');
     if (errorMsg) throw new Error(decodeURIComponent(errorMsg.replaceAll(/\+/g, ' ')));
   }
   return false;

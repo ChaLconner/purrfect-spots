@@ -1,8 +1,6 @@
 from collections import Counter
 from typing import TYPE_CHECKING, Any, cast
 
-from sqlalchemy import text
-
 import structlog  # type: ignore[import-untyped, unused-ignore]
 from services.gallery.base_mixin import GalleryBaseMixin
 from utils.cache import cache, cached_tags
@@ -52,30 +50,7 @@ class GallerySearchMixin(GalleryBaseMixin):
             raise ExternalServiceError(f"Database error during photo retrieval: {e!s}", service="Supabase")
 
     async def get_popular_tags(self, limit: int = 20) -> list[dict[str, Any]]:
-        db_tags = await self._get_popular_tags_db(limit)
-        if db_tags is not None:
-            return db_tags
         return cast(list[dict[str, Any]], await GallerySearchMixin._get_popular_tags_impl(self.supabase, limit))
-
-    async def _get_popular_tags_db(self, limit: int) -> list[dict[str, Any]] | None:
-        if not self.db:
-            return None
-        try:
-            query = text(
-                "SELECT tag, count(*) "
-                "FROM ("
-                "SELECT unnest(tags) as tag FROM cat_photos "
-                "WHERE deleted_at IS NULL AND status = :approved_status"
-                ") as t "
-                "GROUP BY tag "
-                "ORDER BY count(*) DESC "
-                "LIMIT :limit"
-            )
-            result = await self.db.execute(query, {"approved_status": self.APPROVED_STATUS, "limit": limit})
-            return cast(list[dict[str, Any]], [{"tag": row[0], "count": row[1]} for row in result.fetchall()])
-        except Exception as e:
-            logger.warning("SQLAlchemy popular tags failed: %s", e)
-            return None
 
     @staticmethod
     @cached_tags
@@ -105,31 +80,17 @@ class GallerySearchMixin(GalleryBaseMixin):
     @cache(expire=300, key_prefix="user_photos", skip_args=1)
     async def get_user_photos(self, user_id: str, include_unapproved: bool = False) -> list[dict[str, Any]]:
         try:
-            data = []
-            if self.db:
-                try:
-                    sql = self.PHOTO_SELECT_SQL + " WHERE user_id = :u_id AND deleted_at IS NULL"
-                    params: dict[str, Any] = {"u_id": user_id}
-                    if not include_unapproved:
-                        sql += " AND status = :approved_status"
-                        params["approved_status"] = self.APPROVED_STATUS
-                    sql += " ORDER BY uploaded_at DESC"
-                    result = await self.db.execute(text(sql), params)
-                    data = [dict(row._mapping) for row in result.fetchall()]
-                except Exception as e:
-                    logger.warning("SQL get_user_photos failed, falling back to Supabase client: %s", e)
-
-            if not data:
-                res = (
-                    await self._apply_visibility_filter(
-                        self.supabase.table("cat_photos").select(self.PHOTO_COLUMNS),
-                        include_unapproved=include_unapproved,
-                    )
-                    .eq("user_id", user_id)
-                    .order("uploaded_at", desc=True)
-                    .execute()
+            data: list[dict[str, Any]]
+            res = (
+                await self._apply_visibility_filter(
+                    self.supabase.table("cat_photos").select(self.PHOTO_COLUMNS),
+                    include_unapproved=include_unapproved,
                 )
-                data = cast(list[dict[str, Any]], res.data or [])
+                .eq("user_id", user_id)
+                .order("uploaded_at", desc=True)
+                .execute()
+            )
+            data = cast(list[dict[str, Any]], res.data or [])
             return self._process_photos(data)
         except Exception as e:
             from utils.exceptions import ExternalServiceError

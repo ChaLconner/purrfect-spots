@@ -30,8 +30,8 @@ async def _invalidate_role_user_auth_caches(admin_client: Any, role_id: str) -> 
             return
 
         await asyncio.gather(*(invalidate_user_auth_cache(cast(str, user_id)) for user_id in user_ids))
-    except Exception as exc:
-        logger.warning("Failed to invalidate auth cache for users in role %s: %s", role_id, exc)
+    except Exception:
+        logger.warning("Failed to invalidate auth cache for users assigned to a role")
 
 
 class RolePermissionUpdate(BaseModel):

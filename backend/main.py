@@ -259,6 +259,7 @@ if ENVIRONMENT == "production":
         },
         license_info={
             "name": "MIT",
+            "identifier": "MIT",
         },
         openapi_tags=tags_metadata,
     )
@@ -291,6 +292,7 @@ else:
         },
         license_info={
             "name": "MIT",
+            "identifier": "MIT",
         },
         openapi_tags=tags_metadata,
     )

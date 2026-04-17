@@ -299,11 +299,11 @@ async def refresh_token(
         user_obj = await auth_service.get_user_by_id(user_id)
 
         if not user_obj:
-            logger.warning("User not found during token refresh: %s", user_id)
+            logger.warning("Token refresh aborted because the user account was not found")
             response.delete_cookie("refresh_token")
             return LoginResponse(access_token=None, token_type=None, message="User not found")
         if user_obj.banned_at:
-            logger.info("Blocked refresh for suspended user: %s", user_id)
+            logger.info("Blocked refresh for suspended user account")
             response.delete_cookie("refresh_token")
             return LoginResponse(access_token=None, token_type=None, message="Account suspended")
 
@@ -316,8 +316,8 @@ async def refresh_token(
                 exp_dt = datetime.fromtimestamp(old_exp, UTC) if isinstance(old_exp, (int, float)) else None
                 if exp_dt:
                     await auth_service.revoke_token(old_jti, user_id, exp_dt)
-            except Exception as e:
-                logger.debug("Failed to revoke old refresh token: %s", e)
+            except Exception:
+                logger.debug("Failed to revoke old refresh token during rotation")
 
         log_security_event("token_refresh", details={"user_id": user_id}, severity="INFO")
         await _invalidate_auth_cache_for_user(user_obj)
@@ -325,8 +325,8 @@ async def refresh_token(
         # use the central responder for consistency
         return create_login_response(auth_service, user_obj, request, response)
 
-    except Exception as e:
-        logger.error("Token refresh failed fundamentally: %s", e)
+    except Exception:
+        logger.error("Token refresh failed")
         response.delete_cookie("refresh_token")
         return LoginResponse(access_token=None, token_type=None, message="Refresh failed")
 

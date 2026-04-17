@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from dependencies import get_async_supabase_admin_client
 from limiter import limiter
-from logger import logger
+from logger import logger, sanitize_log_value
 from middleware.auth_middleware import get_current_user
 from schemas.consent import ConsentRecord
 from schemas.user import User
@@ -152,8 +152,16 @@ async def record_consent(
             )
 
         action = "granted" if consent.granted else "withdrawn"
-        sanitized_consent_type = str(consent.consent_type).replace("\n", "")
-        logger.info(f"Consent {action} | user_id={current_user.id} | type={sanitized_consent_type} | version={version}")
+        consent_type_for_log = (
+            "tos" if consent.consent_type == "tos" else "privacy" if consent.consent_type == "privacy" else "marketing"
+        )
+        logger.info(
+            "Consent %s | user_id=%s | type=%s | version=%s",
+            action,
+            sanitize_log_value(current_user.id),
+            sanitize_log_value(consent_type_for_log),
+            sanitize_log_value(version),
+        )
 
         return {
             "message": f"Consent {action} successfully",
@@ -163,6 +171,6 @@ async def record_consent(
         }
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error("Failed to record consent: %s", e)
+    except Exception:
+        logger.error("Failed to record consent")
         raise HTTPException(status_code=500, detail="Failed to record consent")

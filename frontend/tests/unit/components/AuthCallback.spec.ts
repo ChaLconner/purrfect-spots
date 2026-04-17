@@ -8,6 +8,8 @@ const mockRoute = {
 };
 const mockSetAuth = vi.fn().mockResolvedValue(undefined);
 const mockSessionExchange = vi.fn();
+const validAccessToken = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.signature';
+const validRefreshToken = 'eyJhbGciOiJIUzI1NiJ9.eyJ0eXBlIjoicmVmcmVzaCJ9.signature';
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({
@@ -74,7 +76,7 @@ describe('AuthCallback.vue', () => {
   });
 
   it('redirects verified magic-link users to the stored safe path', async () => {
-    globalThis.location.hash = '#access_token=test-access&refresh_token=test-refresh&type=signup';
+    globalThis.location.hash = `#access_token=${validAccessToken}&refresh_token=${validRefreshToken}&type=signup`;
     sessionStorage.setItem('redirectAfterAuth', '/my-reports');
     mockSessionExchange.mockResolvedValue({
       access_token: 'session-token',
@@ -87,15 +89,15 @@ describe('AuthCallback.vue', () => {
     vi.runAllTimers();
 
     expect(mockSessionExchange).toHaveBeenCalledWith('/auth/session-exchange', {
-      access_token: 'test-access',
-      refresh_token: 'test-refresh',
+      access_token: validAccessToken,
+      refresh_token: validRefreshToken,
     });
     expect(mockSetAuth).toHaveBeenCalled();
     expect(mockPush).toHaveBeenCalledWith('/my-reports');
   });
 
   it('falls back to the default safe redirect when the stored path is unsafe', async () => {
-    globalThis.location.hash = '#access_token=test-access&refresh_token=test-refresh&type=signup';
+    globalThis.location.hash = `#access_token=${validAccessToken}&refresh_token=${validRefreshToken}&type=signup`;
     sessionStorage.setItem('redirectAfterAuth', 'https://evil.example');
     mockSessionExchange.mockResolvedValue({
       access_token: 'session-token',

@@ -116,6 +116,8 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 pythonpath = ["."]
 addopts = [
+    "-p",
+    "no:cacheprovider",
     "-v",
     "--tb=short",
     "--color=yes",

@@ -75,7 +75,8 @@ def cache(
                 # Skip first N args for key generation (e.g. self, cls, client)
                 key_args = args[skip_args:]
                 arg_hash = generate_cache_key(*key_args, **kwargs)
-                cache_key = f"cache:{key_prefix or func.__name__}:{arg_hash}"
+                namespace = key_prefix or func.__name__
+                cache_key = f"cache:{namespace}:{func.__name__}:{arg_hash}"
 
                 # 2. Try to get from Cache
                 if redis_client:

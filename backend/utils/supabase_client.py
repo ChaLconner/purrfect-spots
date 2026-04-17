@@ -21,28 +21,38 @@ def has_supabase_service_role_key() -> bool:
     return bool(_resolve_supabase_service_key())
 
 
-# Initialize Supabase clients
-# Use a fail-soft approach for development/test environments
 is_production = config.ENVIRONMENT.lower() == "production"
 
-supabase_url = normalize_single_line_env(config.SUPABASE_URL)
-supabase_key = normalize_single_line_env(config.SUPABASE_KEY)
 
-if not supabase_url:
-    if is_production:
-        raise ValueError("SUPABASE_URL must be set in environment variables")
-    # Default to localhost for development/testing if not specified
-    supabase_url = "http://127.0.0.1:54321"
+def _resolve_supabase_url() -> str:
+    """Resolve the current Supabase URL with safe non-production fallbacks."""
+    supabase_url = normalize_single_line_env(config.SUPABASE_URL)
 
-# Ensure no localhost in URL to prevent [Errno 99] IPv6 resolution issues
-if "localhost" in supabase_url:
-    supabase_url = supabase_url.replace("localhost", "127.0.0.1")
+    if not supabase_url:
+        if is_production:
+            raise ValueError("SUPABASE_URL must be set in environment variables")
+        # Default to localhost for development/testing if not specified.
+        supabase_url = "http://127.0.0.1:54321"
 
-if not supabase_key:
-    if is_production:
-        raise ValueError("SUPABASE_KEY must be set in environment variables")
-    # Use a dummy key for development/testing if not specified
-    supabase_key = "dummy-anon-key"
+    # Ensure no localhost in URL to prevent [Errno 99] IPv6 resolution issues.
+    if "localhost" in supabase_url:
+        supabase_url = supabase_url.replace("localhost", "127.0.0.1")
+
+    return supabase_url
+
+
+def _resolve_supabase_anon_key() -> str:
+    """Resolve the current anon key with safe non-production fallbacks."""
+    supabase_key = normalize_single_line_env(config.SUPABASE_KEY)
+
+    if not supabase_key:
+        if is_production:
+            raise ValueError("SUPABASE_KEY must be set in environment variables")
+        # Use a dummy key for development/testing if not specified.
+        supabase_key = "dummy-anon-key"
+
+    return supabase_key
+
 
 # Shared client options for timeouts and connection pooling
 # Using a shared http_client prevents [Errno 99] port exhaustion
@@ -57,27 +67,45 @@ async_client_options = AClientOptions(
     storage_client_timeout=30.0,
 )
 
-# Synchronous clients (for legacy support and small tasks)
-supabase: Client = create_client(supabase_url, supabase_key, options=client_options)
-
-# Admin client
-supabase_service_key = _resolve_supabase_service_key()
+# Synchronous clients (for legacy support and small tasks).
+# These stay lazy so module imports do not fail in CI/test environments that use
+# placeholder keys but never exercise sync Supabase code paths.
+supabase: Client | None = None
 supabase_admin: Client | None = None
-if supabase_service_key:
-    supabase_admin = create_client(supabase_url, supabase_service_key, options=client_options)
-    logger.info("Supabase Admin Access: Enabled")
-else:
-    logger.warning("SUPABASE_SERVICE_ROLE_KEY not found - admin operations will use regular client")
+_supabase_key: str | None = None
+_supabase_admin_key: str | None = None
+
+
+def _build_sync_client(key: str) -> Client:
+    """Construct a sync client using the current resolved Supabase URL."""
+    return create_client(_resolve_supabase_url(), key, options=client_options)
 
 
 def get_supabase_client() -> Client:
     """Get synchronous Supabase client instance"""
+    global supabase, _supabase_key  # noqa: PLW0603
+    current_key = _resolve_supabase_anon_key()
+    if supabase is None or _supabase_key != current_key:
+        supabase = _build_sync_client(current_key)
+        _supabase_key = current_key
     return supabase
 
 
 def get_supabase_admin_client() -> Client:
     """Get synchronous Supabase admin client instance (bypasses RLS)"""
-    return supabase_admin or supabase
+    global supabase_admin, _supabase_admin_key  # noqa: PLW0603
+    service_key = _resolve_supabase_service_key()
+
+    if not service_key:
+        logger.warning("SUPABASE_SERVICE_ROLE_KEY not found - admin operations will use regular client")
+        return get_supabase_client()
+
+    if supabase_admin is None or _supabase_admin_key != service_key:
+        supabase_admin = _build_sync_client(service_key)
+        _supabase_admin_key = service_key
+        logger.info("Supabase Admin Access: Enabled")
+
+    return supabase_admin
 
 
 # --- Async Clients ---
@@ -85,38 +113,48 @@ def get_supabase_admin_client() -> Client:
 _async_supabase: AClient | None = None
 _async_supabase_admin: AClient | None = None
 _async_supabase_admin_key: str | None = None
+_async_supabase_admin_state: dict[str, AClient | str | None] = {"client": None, "key": None}
 
 
 async def get_async_supabase_client() -> AClient:
     """Get high-performance async Supabase client"""
-    global _async_supabase
+    global _async_supabase  # noqa: PLW0603
     if _async_supabase is None:
-        _async_supabase = await acreate_client(supabase_url, supabase_key, options=async_client_options)
+        _async_supabase = await acreate_client(
+            _resolve_supabase_url(),
+            _resolve_supabase_anon_key(),
+            options=async_client_options,
+        )
     return _async_supabase
 
 
 def reset_async_supabase_admin_client() -> None:
     """Drop the cached async admin client so the next request recreates it."""
-    global _async_supabase_admin, _async_supabase_admin_key
+    global _async_supabase_admin, _async_supabase_admin_key  # noqa: PLW0603
     _async_supabase_admin = None
     _async_supabase_admin_key = None
+    _async_supabase_admin_state["client"] = None
+    _async_supabase_admin_state["key"] = None
 
 
 async def get_async_supabase_admin_client(force_refresh: bool = False) -> AClient:
     """Get high-performance async Supabase admin client (bypasses RLS)"""
-    global _async_supabase_admin, _async_supabase_admin_key
+    global _async_supabase_admin, _async_supabase_admin_key  # noqa: PLW0603
     service_key = _resolve_supabase_service_key()
 
     if force_refresh:
         reset_async_supabase_admin_client()
 
-    if _async_supabase_admin is None or _async_supabase_admin_key != service_key:
+    cached_service_key = _async_supabase_admin_key or cast(str | None, _async_supabase_admin_state["key"])
+    if _async_supabase_admin is None or cached_service_key != service_key:
         if not service_key:
             logger.error("SUPABASE_SERVICE_ROLE_KEY is missing! Admin client cannot bypass RLS.")
             if config.is_production():
                 raise ValueError("SUPABASE_SERVICE_ROLE_KEY is required for admin operations")
             service_key = normalize_single_line_env(config.SUPABASE_KEY)  # Dev fallback
 
-        _async_supabase_admin = await acreate_client(supabase_url, service_key, options=async_client_options)
+        _async_supabase_admin = await acreate_client(_resolve_supabase_url(), service_key, options=async_client_options)
         _async_supabase_admin_key = service_key
+        _async_supabase_admin_state["client"] = _async_supabase_admin
+        _async_supabase_admin_state["key"] = service_key
     return _async_supabase_admin

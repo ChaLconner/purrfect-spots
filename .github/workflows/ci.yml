@@ -65,11 +65,14 @@ jobs:
       docker: ${{ steps.detect.outputs.docker }}
       ci: ${{ steps.detect.outputs.ci }}
       api_spec: ${{ steps.detect.outputs.api_spec }}
+      backend_requested: ${{ inputs.force_full_run == true || steps.detect.outputs.backend == 'true' || steps.detect.outputs.ci == 'true' || steps.detect.outputs.api_spec == 'true' }}
       run_backend: ${{ inputs.force_full_run == true || steps.detect.outputs.backend == 'true' || steps.detect.outputs.ci == 'true' || steps.detect.outputs.api_spec == 'true' }}
       run_frontend: ${{ inputs.force_full_run == true || steps.detect.outputs.frontend == 'true' || steps.detect.outputs.ci == 'true' }}
+      backend_runtime_checks_enabled: ${{ inputs.force_full_run == true || steps.detect.outputs.backend == 'true' || steps.detect.outputs.ci == 'true' || steps.detect.outputs.api_spec == 'true' }}
+      fork_pr_limited_backend_checks: 'false'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           fetch-depth: 0
 
@@ -167,7 +170,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -188,7 +191,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -202,7 +205,7 @@ jobs:
     name: "Backend: Unit Tests"
     runs-on: ubuntu-latest
     needs: changes
-    if: needs.changes.outputs.run_backend == 'true'
+    if: needs.changes.outputs.backend_runtime_checks_enabled == 'true'
     timeout-minutes: 20
     services:
       redis:
@@ -211,7 +214,7 @@ jobs:
         options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -220,17 +223,17 @@ jobs:
         env:
           ENVIRONMENT: test
           REDIS_URL: redis://localhost:6379
-          JWT_SECRET: ${{ secrets.TEST_JWT_SECRET }}
-          JWT_REFRESH_SECRET: ${{ secrets.TEST_JWT_REFRESH_SECRET }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'http://localhost:54321' }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          JWT_SECRET: ci-test-jwt-secret-at-least-32-characters-long
+          JWT_REFRESH_SECRET: ci-test-refresh-secret-at-least-32-chars
+          DATABASE_URL: ""
+          SUPABASE_URL: http://localhost:54321
+          SUPABASE_KEY: dummy-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
         run: |
           cd backend
           pytest --cov=. --cov-report=xml:coverage.xml --cov-report=term-missing --cov-fail-under=60 -v --tb=short
       - name: Upload Report
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: backend/coverage.xml
@@ -241,11 +244,11 @@ jobs:
     name: "Backend: API Contract"
     runs-on: ubuntu-latest
     needs: changes
-    if: needs.changes.outputs.run_backend == 'true'
+    if: needs.changes.outputs.backend_runtime_checks_enabled == 'true'
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -253,10 +256,12 @@ jobs:
       - name: Check Contract
         env:
           ENVIRONMENT: test
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'http://localhost:54321' }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY || 'dummy-anon-key' }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          JWT_SECRET: ci-test-jwt-secret-at-least-32-characters-long
+          JWT_REFRESH_SECRET: ci-test-refresh-secret-at-least-32-chars
+          DATABASE_URL: ""
+          SUPABASE_URL: http://localhost:54321
+          SUPABASE_KEY: dummy-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
         run: |
           cd backend
           if [ -f "../docs/openapi-baseline.json" ]; then
@@ -264,7 +269,7 @@ jobs:
           fi
           python scripts/export_openapi.py --output ../docs/openapi-current.json
       - name: Upload Spec
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: openapi-specs
           path: docs/openapi-*.json
@@ -272,12 +277,12 @@ jobs:
   backend-verify:
     name: "Backend: Build Verify"
     runs-on: ubuntu-latest
-    needs: [backend-lint, backend-test]
-    if: always() && (needs.backend-lint.result == 'success' || needs.backend-lint.result == 'skipped') && (needs.backend-test.result == 'success' || needs.backend-test.result == 'skipped')
+    needs: [changes, backend-lint, backend-test]
+    if: needs.changes.outputs.backend_runtime_checks_enabled == 'true' && needs.backend-lint.result == 'success' && needs.backend-test.result == 'success'
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Setup Backend
         uses: ./.github/actions/setup-backend
         with:
@@ -286,10 +291,12 @@ jobs:
       - name: Verify
         env:
           ENVIRONMENT: test
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'http://localhost:54321' }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY || 'dummy-anon-key' }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          JWT_SECRET: ci-test-jwt-secret-at-least-32-characters-long
+          JWT_REFRESH_SECRET: ci-test-refresh-secret-at-least-32-chars
+          DATABASE_URL: ""
+          SUPABASE_URL: http://localhost:54321
+          SUPABASE_KEY: dummy-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
         run: |
           cd backend
           python -m compileall -q .
@@ -306,7 +313,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Setup Frontend
         uses: ./.github/actions/setup-frontend
         with:
@@ -324,7 +331,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Setup Frontend
         uses: ./.github/actions/setup-frontend
         with:
@@ -332,7 +339,7 @@ jobs:
       - name: Run Vitest
         run: npm run test:coverage -w frontend
       - name: Upload Coverage
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: frontend-coverage-report
           path: frontend/coverage
@@ -340,12 +347,12 @@ jobs:
   frontend-build:
     name: "Frontend: Build Bundle"
     runs-on: ubuntu-latest
-    needs: [frontend-check, frontend-test]
-    if: always() && (needs.frontend-check.result == 'success' || needs.frontend-check.result == 'skipped') && (needs.frontend-test.result == 'success' || needs.frontend-test.result == 'skipped')
+    needs: [changes, frontend-check, frontend-test]
+    if: needs.changes.outputs.run_frontend == 'true' && needs.frontend-check.result == 'success' && needs.frontend-test.result == 'success'
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Setup Frontend
         uses: ./.github/actions/setup-frontend
         with:
@@ -353,7 +360,7 @@ jobs:
       - name: Build
         run: npm run build -w frontend
       - name: Upload Artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: frontend-build
           path: frontend/dist
@@ -368,7 +375,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Pull Trivy image
         shell: bash
         run: |
@@ -400,7 +407,7 @@ jobs:
             --exit-code 1 \
             .
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4.35.2
         if: always() && hashFiles('trivy-results.sarif') != ''
         with:
           sarif_file: "trivy-results.sarif"
@@ -412,7 +419,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           fetch-depth: 0
       - name: Pull Trufflehog Image
@@ -425,7 +432,7 @@ jobs:
             }
           done
       - name: Run TruffleHog OSS
-        uses: trufflesecurity/trufflehog@v3.94.2
+        uses: trufflesecurity/trufflehog@6bd2d14f7a4bc1e569fa3550efa7ec632a4fa67b # v3.94.2
         with:
           path: ./
           extra_args: --debug --only-verified
@@ -439,12 +446,12 @@ jobs:
       image: semgrep/semgrep:1.99.0
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Semgrep
         run: |
           semgrep scan --config "p/default" --config "p/security-audit" --sarif --output semgrep.sarif .
       - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4.35.2
         if: always() && hashFiles('semgrep.sarif') != ''
         with:
           sarif_file: semgrep.sarif
@@ -460,7 +467,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Dependency Review
         uses: actions/dependency-review-action@1a7f050e4130f1d533475191c9533f86e330b621 # v4.9.0
         with:
@@ -472,24 +479,94 @@ jobs:
   quality-gate:
     name: "Final: Quality Gate"
     runs-on: ubuntu-latest
-    needs: [backend-verify, frontend-build, security-vuln, security-secrets, backend-typecheck, api-contract, security-sast, security-deps]
+    needs: [changes, backend-verify, frontend-build, security-vuln, security-secrets, backend-typecheck, api-contract, security-sast, security-deps]
     if: always()
     steps:
       - name: Check Status
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          BACKEND_REQUESTED: ${{ needs.changes.outputs.backend_requested }}
+          RUN_BACKEND: ${{ needs.changes.outputs.run_backend }}
+          RUN_FRONTEND: ${{ needs.changes.outputs.run_frontend }}
+          BACKEND_RUNTIME_CHECKS_ENABLED: ${{ needs.changes.outputs.backend_runtime_checks_enabled }}
+          FORK_PR_LIMITED_BACKEND_CHECKS: ${{ needs.changes.outputs.fork_pr_limited_backend_checks }}
+          BACKEND_VERIFY_RESULT: ${{ needs.backend-verify.result }}
+          BACKEND_TYPECHECK_RESULT: ${{ needs.backend-typecheck.result }}
+          API_CONTRACT_RESULT: ${{ needs.api-contract.result }}
+          FRONTEND_BUILD_RESULT: ${{ needs.frontend-build.result }}
+          SECURITY_VULN_RESULT: ${{ needs.security-vuln.result }}
+          SECURITY_SECRETS_RESULT: ${{ needs.security-secrets.result }}
+          SECURITY_SAST_RESULT: ${{ needs.security-sast.result }}
+          SECURITY_DEPS_RESULT: ${{ needs.security-deps.result }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          echo "Verifying quality gate..."
-          if [[ "${{ needs.backend-verify.result }}" == "failure" || "${{ needs.backend-verify.result }}" == "cancelled" || \
-                "${{ needs.frontend-build.result }}" == "failure" || "${{ needs.frontend-build.result }}" == "cancelled" || \
-                "${{ needs.security-vuln.result }}" == "failure" || "${{ needs.security-vuln.result }}" == "cancelled" || \
-                "${{ needs.security-secrets.result }}" == "failure" || "${{ needs.security-secrets.result }}" == "cancelled" || \
-                "${{ needs.backend-typecheck.result }}" == "failure" || "${{ needs.backend-typecheck.result }}" == "cancelled" || \
-                "${{ needs.api-contract.result }}" == "failure" || "${{ needs.api-contract.result }}" == "cancelled" || \
-                "${{ needs.security-sast.result }}" == "failure" || "${{ needs.security-sast.result }}" == "cancelled" || \
-                "${{ needs.security-deps.result }}" == "failure" || "${{ needs.security-deps.result }}" == "cancelled" ]]; then
-            echo "::error::Quality checks failed or were cancelled. Please review the workflow logs."
+          set -euo pipefail
+
+          fail=0
+
+          check_required_success() {
+            local name="$1"
+            local result="$2"
+            if [ "$result" != "success" ]; then
+              echo "::error::${name} must succeed, but its result was '${result}'."
+              fail=1
+            fi
+          }
+
+          check_expected_skip() {
+            local name="$1"
+            local result="$2"
+            if [ "$result" != "skipped" ]; then
+              echo "::error::${name} was expected to be skipped, but its result was '${result}'."
+              fail=1
+            fi
+          }
+
+          if [ "$CHANGES_RESULT" != "success" ]; then
+            echo "::error::Change detection did not complete successfully."
             exit 1
           fi
-          echo "✅ All core checks passed or were skipped."
+
+          check_required_success "Security: Trivy Scan" "$SECURITY_VULN_RESULT"
+          check_required_success "Security: Secret Scan" "$SECURITY_SECRETS_RESULT"
+          check_required_success "Security: SAST Semgrep" "$SECURITY_SAST_RESULT"
+
+          if [ "$BACKEND_REQUESTED" = "true" ]; then
+            check_required_success "Backend: Type Check" "$BACKEND_TYPECHECK_RESULT"
+          else
+            check_expected_skip "Backend: Type Check" "$BACKEND_TYPECHECK_RESULT"
+          fi
+
+          if [ "$BACKEND_RUNTIME_CHECKS_ENABLED" = "true" ]; then
+            check_required_success "Backend: Build Verify" "$BACKEND_VERIFY_RESULT"
+            check_required_success "Backend: API Contract" "$API_CONTRACT_RESULT"
+          else
+            check_expected_skip "Backend: Build Verify" "$BACKEND_VERIFY_RESULT"
+            check_expected_skip "Backend: API Contract" "$API_CONTRACT_RESULT"
+          fi
+
+          if [ "$RUN_FRONTEND" = "true" ]; then
+            check_required_success "Frontend: Build Bundle" "$FRONTEND_BUILD_RESULT"
+          else
+            check_expected_skip "Frontend: Build Bundle" "$FRONTEND_BUILD_RESULT"
+          fi
+
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            check_required_success "Security: Dep Review" "$SECURITY_DEPS_RESULT"
+          else
+            check_expected_skip "Security: Dep Review" "$SECURITY_DEPS_RESULT"
+          fi
+
+          if [ "$FORK_PR_LIMITED_BACKEND_CHECKS" = "true" ]; then
+            echo "::notice::Backend runtime checks were skipped because this pull request comes from a fork and repository secrets are unavailable."
+          fi
+
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::Quality gate failed. Review the job results above."
+            exit 1
+          fi
+
+          echo "✅ Quality gate passed."
 
   summary:
     name: "Final: Summary"
@@ -499,6 +576,8 @@ jobs:
     if: always()
     steps:
       - name: Build Summary Report
+        env:
+          FORK_PR_LIMITED_BACKEND_CHECKS: ${{ needs.changes.outputs.fork_pr_limited_backend_checks }}
         run: |
           echo "## CI/CD Pipeline Summary" >> $GITHUB_STEP_SUMMARY
           echo "| Stage | Status |" >> $GITHUB_STEP_SUMMARY
@@ -508,3 +587,7 @@ jobs:
           echo "| Security SAST | ${{ needs.security-sast.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| API Contract | ${{ needs.api-contract.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Backend Types | ${{ needs.backend-typecheck.result }} |" >> $GITHUB_STEP_SUMMARY
+          if [ "$FORK_PR_LIMITED_BACKEND_CHECKS" = "true" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "> Note: Backend runtime checks were skipped for this forked pull request because GitHub does not expose repository secrets to fork workflows." >> $GITHUB_STEP_SUMMARY
+          fi

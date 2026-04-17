@@ -84,6 +84,7 @@ export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(null); // Memory only, no localStorage!
   const isAuthenticated = ref(!!cachedUser);
   const isInitialized = ref(!!cachedUser);
+  const isHydratingSession = ref(false);
 
   const isLoading = ref(false);
   const error = ref<string | null>(null);
@@ -136,16 +137,21 @@ export const useAuthStore = defineStore('auth', () => {
     if (isInitialized.value && !needsBackgroundRefresh) return;
 
     initializePromise = (async (): Promise<void> => {
-      if (needsBackgroundRefresh) {
-        needsBackgroundRefresh = false;
+      isHydratingSession.value = true;
+      try {
+        if (needsBackgroundRefresh) {
+          needsBackgroundRefresh = false;
+          await refreshToken();
+          isInitialized.value = true;
+          return;
+        }
+
+        // No cached user available, so wait for the initial session check.
         await refreshToken();
         isInitialized.value = true;
-        return;
+      } finally {
+        isHydratingSession.value = false;
       }
-
-      // No cached user available, so wait for the initial session check.
-      await refreshToken();
-      isInitialized.value = true;
     })().finally(() => {
       initializePromise = null;
     });
@@ -361,6 +367,7 @@ export const useAuthStore = defineStore('auth', () => {
     token,
     isAuthenticated,
     isInitialized,
+    isHydratingSession,
     isLoading,
     error,
     lastLoginTime,

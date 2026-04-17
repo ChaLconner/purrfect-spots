@@ -83,12 +83,12 @@ class TokenService:
                 await self.redis.setex(key, ttl, reason)
                 logger.debug("Identifier stored in fast cache (Hash: %s)", token_hash[:8])
             except Exception as e:
-                logger.warning(f"Redis blacklist failed: {e}")
+                logger.warning("Redis blacklist failed: %s", e)
         else:
             # Memory fallback
             expiry = datetime.now(UTC) + timedelta(seconds=ttl)
             self._memory_blacklist[token_hash] = expiry
-            logger.debug(f"Token blacklisted in memory. Reason: {reason}")
+            logger.debug("Token blacklisted in memory. Reason: %s", reason)
             self._cleanup_memory_blacklist()
 
         # 3. Persist to Database (Supabase) if we have enough info
@@ -114,7 +114,7 @@ class TokenService:
                         return True
                     except Exception as e:
                         await db_session.rollback()
-                        logger.warning(f"SQL blacklist save failed, falling back to Supabase client: {e}")
+                        logger.warning("SQL blacklist save failed, falling back to Supabase client: %s", e)
 
                 if not has_supabase_service_role_key():
                     logger.info(
@@ -136,20 +136,14 @@ class TokenService:
                     if not self._is_rls_error(exc):
                         raise
 
-                    logger.warning(
-                        "token_blacklist insert hit RLS; refreshing Supabase admin client and retrying once: %s",
-                        exc,
-                    )
+                    logger.warning("token_blacklist insert hit RLS; refreshing Supabase admin client and retrying once")
                     admin_client = await self._get_admin_client(force_refresh=True)
                     await admin_client.table("token_blacklist").insert(payload).execute()
             except Exception as e:
                 if self._is_rls_error(e):
-                    logger.warning(
-                        "Skipping blacklist DB persistence due to token_blacklist RLS policy: %s",
-                        e,
-                    )
+                    logger.warning("Skipping blacklist DB persistence due to token_blacklist RLS policy")
                 else:
-                    logger.error(f"Failed to persist blacklist to DB: {e}")
+                    logger.error("Failed to persist blacklist to DB")
 
         return True
 
@@ -162,7 +156,7 @@ class TokenService:
             if result:
                 return True
         except Exception as e:
-            logger.warning(f"Redis read error: {e}")
+            logger.warning("Redis read error")
             # If connection is dead, invalidate the singleton so it reconnects next time
             if _is_reconnect_error(e):
                 reset_token_service()
@@ -187,12 +181,12 @@ class TokenService:
             if self.db:
                 try:
                     return await self._check_db_blacklist_sql(target_jti)
-                except Exception as e:
-                    logger.warning(f"SQL _check_db_blacklist failed, falling back to Supabase client: {e}")
+                except Exception:
+                    logger.warning("SQL blacklist lookup failed, falling back to Supabase client")
 
             return await self._check_db_blacklist_supabase(target_jti)
-        except Exception as e:
-            logger.warning(f"Database check failed: {e}")
+        except Exception:
+            logger.warning("Database blacklist check failed")
             logger.error("Database check failed - blocking token for security")
             return True
 
@@ -224,10 +218,7 @@ class TokenService:
             if not self._is_rls_error(exc):
                 raise
 
-            logger.warning(
-                "token_blacklist select hit RLS; refreshing Supabase admin client and retrying once: %s",
-                exc,
-            )
+            logger.warning("token_blacklist select hit RLS; refreshing Supabase admin client and retrying once")
             admin_client = await self._get_admin_client(force_refresh=True)
             supa_res = (
                 await admin_client.table("token_blacklist").select(self.TOKEN_COLUMNS).eq("token_jti", jti).execute()
@@ -272,7 +263,7 @@ class TokenService:
                 await self.redis.expire(key, self.default_ttl)
                 logger.info("Session state cleared in Redis for user: %s (Reason: %s)", user_id, reason)
             except Exception as e:
-                logger.warning(f"Redis user invalidation failed: {e}")
+                logger.warning("Redis user invalidation failed: %s", e)
 
         # 2. Persist to Database (Source of Truth)
         try:
@@ -292,7 +283,7 @@ class TokenService:
             logger.info("Persistent revocation set for user: %s", user_id)
             return 1
         except Exception as e:
-            logger.error(f"Failed to persist global revocation for user {user_id}: {e}")
+            logger.error("Failed to persist global revocation for user %s: %s", user_id, e)
             # If we can't persist it, we have a security risk if Redis goes down later
             return 0
 
@@ -313,7 +304,7 @@ class TokenService:
                         invalidated_at = invalidated_at.replace(tzinfo=UTC)
                     return token_issued_at < invalidated_at
             except Exception as e:
-                logger.warning(f"Redis user check failed: {e}")
+                logger.warning("Redis user check failed: %s", e)
 
         # 2. Check Database (Source of truth/Fallback)
         try:
@@ -352,7 +343,7 @@ class TokenService:
                 return token_issued_at < db_invalidated_at
 
         except Exception as e:
-            logger.error(f"Database user invalidation check failed: {e}")
+            logger.error("Database user invalidation check failed: %s", e)
             # If we can't verify if a user should be invalidated, we should fail closed in the middleware
             # or raise an error here to be caught by the middleware.
             raise e
@@ -411,7 +402,7 @@ async def get_token_service(db: AsyncSession | None = None) -> TokenService:
                 await redis_client.ping()
                 logger.info("Initializing Token Service singleton with Redis backend")
             except Exception as e:
-                logger.warning(f"Could not connect to Redis: {e}")
+                logger.warning("Could not connect to Redis: %s", e)
                 redis_client = None
 
         # Admin client will be lazily loaded

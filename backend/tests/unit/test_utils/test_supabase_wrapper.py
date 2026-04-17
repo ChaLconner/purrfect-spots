@@ -13,19 +13,42 @@ import utils.supabase_client as sc
 
 def test_get_supabase_client() -> None:
     """Test standard client retrieval"""
-    client = sc.get_supabase_client()
-    assert client is not None
-    assert client == sc.supabase
+    mock_client = MagicMock(name="supabase-client")
+
+    with (
+        patch("utils.supabase_client.supabase", None),
+        patch("utils.supabase_client._supabase_key", None),
+        patch("utils.supabase_client._resolve_supabase_url", return_value="http://127.0.0.1:54321"),
+        patch("utils.supabase_client._resolve_supabase_anon_key", return_value="test-anon-key"),
+        patch("utils.supabase_client.create_client", return_value=mock_client) as mock_create,
+    ):
+        client = sc.get_supabase_client()
+        cached_client = sc.get_supabase_client()
+        assert sc.supabase is mock_client
+
+    assert client is mock_client
+    assert cached_client is mock_client
+    mock_create.assert_called_once()
 
 
 def test_get_supabase_admin_client() -> None:
     """Test admin client retrieval"""
-    client = sc.get_supabase_admin_client()
-    assert client is not None
-    # Since we set SUPABASE_SERVICE_KEY in conftest, it should be different if initialized correctly
-    # But for now we just care that it returns something
-    expected = sc.supabase_admin or sc.supabase
-    assert client == expected
+    mock_admin_client = MagicMock(name="supabase-admin-client")
+
+    with (
+        patch("utils.supabase_client.supabase_admin", None),
+        patch("utils.supabase_client._supabase_admin_key", None),
+        patch("utils.supabase_client._resolve_supabase_url", return_value="http://127.0.0.1:54321"),
+        patch("utils.supabase_client._resolve_supabase_service_key", return_value="test-service-role-key"),
+        patch("utils.supabase_client.create_client", return_value=mock_admin_client) as mock_create,
+    ):
+        client = sc.get_supabase_admin_client()
+        cached_client = sc.get_supabase_admin_client()
+        assert sc.supabase_admin is mock_admin_client
+
+    assert client is mock_admin_client
+    assert cached_client is mock_admin_client
+    mock_create.assert_called_once()
 
 
 def test_async_client_options_use_async_storage() -> None:
