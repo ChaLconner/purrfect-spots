@@ -204,8 +204,8 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
 import { SocialService, type Comment } from '@/services/socialService';
-import { useAuthStore } from '@/store';
 import { useToastStore } from '@/store';
+import { useAuthStore } from '@/store/authStore';
 import { BaseButton, BaseCard, BaseInput, BaseConfirmModal } from '@/components/ui';
 import { EXTERNAL_URLS } from '@/utils/constants';
 import { useI18n } from 'vue-i18n';

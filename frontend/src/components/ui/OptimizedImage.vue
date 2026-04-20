@@ -68,12 +68,21 @@ const srcset = computed(() => {
 
   // Check if it's an external URL (CDN, S3, etc.)
   const isExternalUrl = props.src.startsWith('http');
+  
+  // Don't append size parameters to known avatar domains
+  const isAvatarUrl = /googleusercontent\.com|githubusercontent\.com|discordapp\.com|ui-avatars\.com/.test(props.src);
 
-  if (isExternalUrl) {
-    const baseUrl = props.src.split('?')[0];
-    const sizes = [320, 640, 960, 1280, 1920];
-
-    return sizes.map((size) => `${baseUrl}?w=${size} ${size}w`).join(', ');
+  if (isExternalUrl && !isAvatarUrl) {
+    try {
+      const sizes = [320, 640, 960, 1280, 1920];
+      return sizes.map((size) => {
+        const newUrl = new URL(props.src);
+        newUrl.searchParams.set('w', size.toString());
+        return `${newUrl.toString()} ${size}w`;
+      }).join(', ');
+    } catch {
+      // Ignore invalid URLs
+    }
   }
 
   return props.src;

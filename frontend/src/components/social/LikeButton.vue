@@ -35,8 +35,8 @@
 <script setup lang="ts">
 import { ref, watch, onUnmounted } from 'vue';
 import { SocialService } from '@/services/socialService';
-import { useAuthStore } from '@/store';
 import { useToastStore } from '@/store';
+import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
 
 const props = defineProps<{
