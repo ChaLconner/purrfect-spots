@@ -2,6 +2,7 @@
 Authentication middleware for protecting routes with Supabase Auth
 """
 
+import asyncio
 import time
 from datetime import UTC, datetime
 from typing import Any, cast
@@ -148,20 +149,45 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid token payload")
 
-    # Try Redis Cache first
+    # Try Redis Cache first (stale-while-revalidate pattern)
+    import time
+
     from services.redis_service import redis_service
 
     cache_key = get_user_auth_cache_key(user_id)
     cached_data = await redis_service.get(cache_key)
+
+    # Logical TTL for stale-while-revalidate (60 seconds)
+    # The actual Redis TTL is 300s to ensure we have stale data available
+    SWR_TTL = 60
+    current_time = time.time()
+
+    needs_refresh = True
     if cached_data:
-        cached_user = User(**cached_data)
+        cached_at = cached_data.get("_cached_at", 0)
+        needs_refresh = (current_time - cached_at) > SWR_TTL
+
+        cached_user = User(**{k: v for k, v in cached_data.items() if k != "_cached_at"})
         cached_user.permissions = normalize_permissions(cached_user.permissions)
+
+        if not needs_refresh:
+            return _assert_user_not_banned(cached_user)
+
+        # If we need refresh but have stale data, we return stale data immediately
+        # and refresh in background to avoid blocking the request
+        asyncio.create_task(_refresh_user_auth_cache(user_id, cache_key, current_time))
         return _assert_user_not_banned(cached_user)
 
-    # Try to get user from database (bypassing RLS)
-    try:
-        from utils.supabase_client import get_async_supabase_admin_client
+    # Cache miss - block and fetch
+    return await _refresh_user_auth_cache(user_id, cache_key, current_time)
 
+
+async def _refresh_user_auth_cache(user_id: str, cache_key: str, current_time: float) -> User:
+    """Fetch user from database and update cache."""
+    from services.redis_service import redis_service
+    from utils.supabase_client import get_async_supabase_admin_client
+
+    try:
         supabase_admin = await get_async_supabase_admin_client()
         # Fetch user with role and permissions
         query = "*, roles(name, role_permissions(permissions(code)))"
@@ -169,7 +195,6 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
 
         if result is not None and hasattr(result, "error") and result.error:
             logger.error(f"Supabase auth query error for user {user_id}: {result.error}")
-            # If we get a permission denied here, it means supabase_admin isn't actually an admin
             if "permission denied" in str(result.error).lower():
                 logger.warning("Supabase admin client received permission denied - check service role key")
             raise HTTPException(status_code=401, detail="User database sync failure")
@@ -219,8 +244,10 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
                 banned_at=parse_iso8601(cast(str, data.get("banned_at"))) if data.get("banned_at") else None,
             )
 
-            # Save to Redis
-            await redis_service.set(cache_key, user_obj.model_dump(), expire=USER_AUTH_CACHE_TTL)
+            # Save to Redis with 5 minutes actual TTL, but logical TTL handles SWR
+            cache_data = user_obj.model_dump()
+            cache_data["_cached_at"] = current_time
+            await redis_service.set(cache_key, cache_data, expire=300)
 
             return _assert_user_not_banned(user_obj)
 

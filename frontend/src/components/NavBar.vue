@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent } from 'vue';
+import { defineAsyncComponent } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { useAuthStore } from '../store/authStore';
 
 // Child Components
 import SearchBox from './navbar/SearchBox.vue';
@@ -13,24 +12,11 @@ import MapIcon from './icons/map.vue';
 import Upload from './icons/upload.vue';
 import Gallery from './icons/gallery.vue';
 import Trophy from './icons/trophy.vue';
-import ProfileIcon from './icons/profile.vue';
 
 const router = useRouter();
 const route = useRoute();
-const authStore = useAuthStore();
-const isAuthUiResolved = computed(
-  () => authStore.isInitialized && !authStore.isHydratingSession
-);
-const showAuthenticatedActions = computed(
-  () => isAuthUiResolved.value && authStore.isAuthenticated
-);
-const showGuestLogin = computed(() => isAuthUiResolved.value && !showAuthenticatedActions.value);
-const UserMenu = defineAsyncComponent({
-  loader: () => import('./navbar/UserMenu.vue'),
-  suspensible: false,
-});
-const NotificationBell = defineAsyncComponent({
-  loader: () => import('./ui/NotificationBell.vue'),
+const NavAuthSection = defineAsyncComponent({
+  loader: () => import('./navbar/NavAuthSection.vue'),
   suspensible: false,
 });
 </script>
@@ -133,27 +119,7 @@ const NotificationBell = defineAsyncComponent({
         <!-- Language Switcher (Always visible) -->
         <LanguageSwitcher />
 
-        <!-- Authentication Dependent Section -->
-        <template v-if="showGuestLogin">
-          <!-- Login Button (not authenticated) - Hidden until xl, handled by BottomNav -->
-          <div class="hidden xl:flex items-center gap-2 min-w-[5.5rem] justify-end">
-            <NavLink to="/login" variant="accent" :label="$t('auth.login')">
-              <template #icon>
-                <ProfileIcon class="relative z-10 w-[1.1rem] h-[1.1rem]" />
-              </template>
-            </NavLink>
-          </div>
-        </template>
-        <template v-else-if="showAuthenticatedActions">
-          <div class="flex items-center gap-2 min-w-[5.5rem] justify-end">
-            <NotificationBell />
-            <UserMenu />
-          </div>
-        </template>
-        <template v-else>
-          <!-- Preserve layout during silent auth hydration without showing a visible loading state. -->
-          <div class="hidden xl:block min-w-[5.5rem] h-10" aria-hidden="true"></div>
-        </template>
+        <NavAuthSection />
       </div>
     </div>
   </nav>
