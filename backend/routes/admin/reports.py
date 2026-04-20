@@ -20,17 +20,15 @@ from services.gallery_service import GalleryService
 from services.notification_service import NotificationService
 from services.redis_service import redis_service
 from services.storage_service import storage_service
+from utils.audit_logger import log_admin_action
 
 router = APIRouter()
 
-# Helper to validate UUID (duplicated for now, could move to shared utils)
-import re
-
-_UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
+from utils.db_security import validate_uuid
 
 
 def _validate_uuid(value: str, label: str = "ID") -> None:
-    if not _UUID_RE.match(value):
+    if not validate_uuid(value):
         raise HTTPException(status_code=400, detail=f"Invalid {label} format: expected UUID")
 
 
@@ -194,19 +192,13 @@ async def update_report(
                                 reason="Violation of Community Guidelines",
                             )
 
-                    await (
-                        admin_client.table("audit_logs")
-                        .insert(
-                            {
-                                "user_id": current_admin.id,
-                                "action": "DELETE_PHOTO_VIA_REPORT",
-                                "resource": "photos",
-                                "changes": {"photo_id": photo_id, "report_id": report_id},
-                                "ip_address": request.client.host if request.client else "unknown",
-                                "user_agent": "system",
-                            }
-                        )
-                        .execute()
+                    await log_admin_action(
+                        admin_client=admin_client,
+                        admin_id=current_admin.id,
+                        action="DELETE_PHOTO_VIA_REPORT",
+                        target_type="photos",
+                        target_id=photo_id,
+                        details={"report_id": report_id, "ip": request.client.host if request.client else "unknown"},
                     )
 
         # Update report status
@@ -312,19 +304,16 @@ async def bulk_update_reports(
                             resource_type="photo",
                         )
 
-                    await (
-                        admin_client.table("audit_logs")
-                        .insert(
-                            {
-                                "user_id": current_admin.id,
-                                "action": "DELETE_PHOTO_VIA_BULK_REPORT",
-                                "resource": "photos",
-                                "changes": {"photo_id": photo_id, "report_id": report.get("id")},
-                                "ip_address": request.client.host if request.client else "unknown",
-                                "user_agent": "system",
-                            }
-                        )
-                        .execute()
+                    await log_admin_action(
+                        admin_client=admin_client,
+                        admin_id=current_admin.id,
+                        action="DELETE_PHOTO_VIA_BULK_REPORT",
+                        target_type="photos",
+                        target_id=photo_id,
+                        details={
+                            "report_id": report.get("id"),
+                            "ip": request.client.host if request.client else "unknown",
+                        },
                     )
 
         result = (

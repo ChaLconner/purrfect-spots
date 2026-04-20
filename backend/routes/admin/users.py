@@ -17,6 +17,7 @@ from schemas.user import User
 from services.email_service import EmailService
 from services.redis_service import redis_service
 from services.token_service import get_token_service
+from utils.audit_logger import log_admin_action
 from utils.security_alerts import track_bulk_operation
 
 router = APIRouter()
@@ -179,19 +180,13 @@ async def bulk_ban_users(
             )
 
         # Log Audit
-        await (
-            admin_client.table("audit_logs")
-            .insert(
-                {
-                    "user_id": current_admin.id,
-                    "action": "BULK_BAN",
-                    "resource": "users",
-                    "changes": {"target_user_ids": target_uids, "reason": action.reason},
-                    "ip_address": request.client.host if request.client else "unknown",
-                    "user_agent": request.headers.get("user-agent", "unknown"),
-                }
-            )
-            .execute()
+        await log_admin_action(
+            admin_client=admin_client,
+            admin_id=current_admin.id,
+            action="BULK_BAN",
+            target_type="users",
+            target_id="multiple",
+            details={"target_user_ids": target_uids, "reason": action.reason, "ip": ip_address},
         )
 
         await _invalidate_user_list_cache()
@@ -219,19 +214,13 @@ async def bulk_unban_users(
         await _invalidate_auth_cache_for_users(user_ids_str)
 
         # Log Audit
-        await (
-            admin_client.table("audit_logs")
-            .insert(
-                {
-                    "user_id": current_admin.id,
-                    "action": "BULK_UNBAN",
-                    "resource": "users",
-                    "changes": {"target_user_ids": user_ids_str},
-                    "ip_address": request.client.host if request.client else "unknown",
-                    "user_agent": request.headers.get("user-agent", "unknown"),
-                }
-            )
-            .execute()
+        await log_admin_action(
+            admin_client=admin_client,
+            admin_id=current_admin.id,
+            action="BULK_UNBAN",
+            target_type="users",
+            target_id="multiple",
+            details={"target_user_ids": user_ids_str, "ip": request.client.host if request.client else "unknown"},
         )
 
         await _invalidate_user_list_cache()
@@ -287,19 +276,16 @@ async def delete_user(
         await _invalidate_banned_user_auth_state([user_id_str], reason="admin_delete")
 
         # Log action
-        await (
-            admin_client.table("audit_logs")
-            .insert(
-                {
-                    "user_id": current_admin.id,
-                    "action": "SOFT_DELETE_USER",
-                    "resource": "users",
-                    "changes": {"target_user_id": user_id_str, "original_email": user_data.get("email")},
-                    "ip_address": request.client.host if request.client else "unknown",
-                    "user_agent": request.headers.get("user-agent", "unknown"),
-                }
-            )
-            .execute()
+        await log_admin_action(
+            admin_client=admin_client,
+            admin_id=current_admin.id,
+            action="SOFT_DELETE_USER",
+            target_type="users",
+            target_id=user_id_str,
+            details={
+                "original_email": user_data.get("email"),
+                "ip": request.client.host if request.client else "unknown",
+            },
         )
 
         await _invalidate_user_list_cache()
@@ -373,18 +359,14 @@ async def update_user_role(
         await invalidate_user_auth_cache(user_id_str)
         await _invalidate_user_list_cache()
 
-        await (
-            admin_client.table("audit_logs")
-            .insert(
-                {
-                    "user_id": current_admin.id,
-                    "action": "UPDATE_ROLE",
-                    "resource": "users",
-                    "changes": {"target_user_id": user_id_str, "new_role": role_name},
-                    "ip_address": request.client.host if request.client else "unknown",
-                }
-            )
-            .execute()
+        # Log Audit
+        await log_admin_action(
+            admin_client=admin_client,
+            admin_id=current_admin.id,
+            action="UPDATE_ROLE",
+            target_type="users",
+            target_id=user_id_str,
+            details={"new_role": role_name, "ip": request.client.host if request.client else "unknown"},
         )
 
         return cast(dict[str, Any], result.data[0])
@@ -439,18 +421,14 @@ async def ban_user(
                 email_service.send_ban_notification, to_email=user_data["email"], reason=ban_data.reason
             )
 
-        await (
-            admin_client.table("audit_logs")
-            .insert(
-                {
-                    "user_id": current_admin.id,
-                    "action": "BAN_USER",
-                    "resource": "users",
-                    "changes": {"target_user_id": user_id_str, "reason": ban_data.reason},
-                    "ip_address": request.client.host if request.client else "unknown",
-                }
-            )
-            .execute()
+        # Log Audit
+        await log_admin_action(
+            admin_client=admin_client,
+            admin_id=current_admin.id,
+            action="BAN_USER",
+            target_type="users",
+            target_id=user_id_str,
+            details={"reason": ban_data.reason, "ip": request.client.host if request.client else "unknown"},
         )
 
         await _invalidate_user_list_cache()
@@ -478,18 +456,14 @@ async def unban_user(
         await admin_client.table("users").update({"banned_at": None}).eq("id", user_id_str).execute()
         await invalidate_user_auth_cache(user_id_str)
 
-        await (
-            admin_client.table("audit_logs")
-            .insert(
-                {
-                    "user_id": current_admin.id,
-                    "action": "UNBAN_USER",
-                    "resource": "users",
-                    "changes": {"target_user_id": user_id_str},
-                    "ip_address": request.client.host if request.client else "unknown",
-                }
-            )
-            .execute()
+        # Log Audit
+        await log_admin_action(
+            admin_client=admin_client,
+            admin_id=current_admin.id,
+            action="UNBAN_USER",
+            target_type="users",
+            target_id=user_id_str,
+            details={"ip": request.client.host if request.client else "unknown"},
         )
 
         await _invalidate_user_list_cache()

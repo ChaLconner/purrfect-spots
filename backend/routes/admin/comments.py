@@ -11,6 +11,7 @@ from middleware.auth_middleware import invalidate_user_auth_cache, require_permi
 from schemas.user import User
 from services.notification_service import NotificationService
 from services.token_service import get_token_service
+from utils.audit_logger import log_admin_action
 
 router = APIRouter()
 
@@ -163,19 +164,13 @@ async def resolve_comment_reports(
         )
 
         # Log Audit
-        await (
-            admin_client.table("audit_logs")
-            .insert(
-                {
-                    "user_id": current_admin.id,
-                    "action": "RESOLVE_COMMENT_REPORTS",
-                    "resource": "photo_comments",
-                    "changes": {"comment_id": comment_id, "action": "dismissed_reports"},
-                    "ip_address": request.client.host if request.client else "unknown",
-                    "user_agent": request.headers.get("user-agent", "unknown"),
-                }
-            )
-            .execute()
+        await log_admin_action(
+            admin_client=admin_client,
+            admin_id=current_admin.id,
+            action="RESOLVE_COMMENT_REPORTS",
+            target_type="photo_comments",
+            target_id=comment_id,
+            details={"action": "dismissed_reports", "ip": request.client.host if request.client else "unknown"},
         )
 
         return {"message": "Reports dismissed successfully"}
@@ -220,23 +215,17 @@ async def delete_comment(
         await admin_client.table("photo_comments").delete().eq("id", comment_id).execute()
 
         # Log Audit
-        await (
-            admin_client.table("audit_logs")
-            .insert(
-                {
-                    "user_id": current_admin.id,
-                    "action": "DELETE_COMMENT",
-                    "resource": "photo_comments",
-                    "changes": {
-                        "comment_id": comment_id,
-                        "deleted_content": comment_res.data["content"],
-                        "author_id": comment_res.data["user_id"],
-                    },
-                    "ip_address": request.client.host if request.client else "unknown",
-                    "user_agent": request.headers.get("user-agent", "unknown"),
-                }
-            )
-            .execute()
+        await log_admin_action(
+            admin_client=admin_client,
+            admin_id=current_admin.id,
+            action="DELETE_COMMENT",
+            target_type="photo_comments",
+            target_id=comment_id,
+            details={
+                "deleted_content": comment_res.data["content"],
+                "author_id": comment_res.data["user_id"],
+                "ip": request.client.host if request.client else "unknown",
+            },
         )
 
         # Notify User
@@ -292,23 +281,17 @@ async def ban_user_by_comment(
         await _invalidate_banned_user_auth_state(user_id)
 
         # Log Audit
-        await (
-            admin_client.table("audit_logs")
-            .insert(
-                {
-                    "user_id": current_admin.id,
-                    "action": "BAN_USER",
-                    "resource": "users",
-                    "changes": {
-                        "user_id": user_id,
-                        "reason": "Banned via comment moderation",
-                        "comment_id": comment_id,
-                    },
-                    "ip_address": request.client.host if request.client else "unknown",
-                    "user_agent": request.headers.get("user-agent", "unknown"),
-                }
-            )
-            .execute()
+        await log_admin_action(
+            admin_client=admin_client,
+            admin_id=current_admin.id,
+            action="BAN_USER",
+            target_type="users",
+            target_id=user_id,
+            details={
+                "reason": "Banned via comment moderation",
+                "comment_id": comment_id,
+                "ip": request.client.host if request.client else "unknown",
+            },
         )
 
         # Notify User (System notification might not be visible if they can't login, but good for records)
