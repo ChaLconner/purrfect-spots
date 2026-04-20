@@ -1,12 +1,15 @@
 <template>
-  <div class="bg-white rounded-xl shadow-sm border border-sand-100 overflow-hidden">
-    <div
-      class="p-4 border-b border-sand-100 flex flex-col sm:flex-row justify-between items-center gap-4"
+  <div class="admin-users-page">
+    <AdminPageHeader
+      v-model="searchQuery"
+      :title="t('admin.users.title_simple')"
+      :subtitle="t('admin.users.subtitle_simple')"
+      show-search
+      :search-placeholder="t('admin.users.search_placeholder')"
     >
-      <div class="flex items-center gap-4">
-        <h2 class="text-xl font-bold text-brown-900">{{ t('admin.users.title_simple') }}</h2>
+      <template #actions>
         <button
-          class="px-3 py-1.5 text-sm font-medium text-brown-600 bg-sand-50 border border-sand-200 rounded-lg hover:bg-sand-100 transition-colors flex items-center gap-2"
+          class="admin-users-export-button"
           @click="exportUsers"
         >
           <svg
@@ -25,40 +28,17 @@
           </svg>
           {{ t('common.exportCsv') }}
         </button>
-      </div>
-      <div class="relative max-w-xs w-full">
-        <input
-          v-model="searchQuery"
-          type="text"
-          :placeholder="t('admin.users.search_placeholder')"
-          class="w-full pl-10 pr-4 py-2 border border-sand-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 transition-colors"
-        />
-        <div class="absolute left-3 top-1/2 -translate-y-1/2 text-brown-400">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
-        </div>
-      </div>
-    </div>
+      </template>
+    </AdminPageHeader>
 
-    <div class="overflow-x-auto">
+    <div class="admin-users-shell">
+<div class="admin-users-table-wrap">
       <table class="min-w-full divide-y divide-sand-200">
         <thead class="bg-sand-50">
           <tr>
             <th
               scope="col"
-              class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-wider cursor-pointer hover:text-brown-700 group select-none"
+              class="admin-users-sortable-header group"
               @click="handleSort('name')"
             >
               <div class="flex items-center gap-1">
@@ -71,13 +51,13 @@
             </th>
             <th
               scope="col"
-              class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-wider"
+              class="admin-users-header-cell"
             >
               {{ t('admin.users.table.role') }}
             </th>
             <th
               scope="col"
-              class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-wider cursor-pointer hover:text-brown-700 group select-none"
+              class="admin-users-sortable-header group"
               @click="handleSort('created_at')"
             >
               <div class="flex items-center gap-1">
@@ -90,7 +70,7 @@
             </th>
             <th
               scope="col"
-              class="px-6 py-3 text-right text-xs font-medium text-brown-500 uppercase tracking-wider"
+              class="admin-users-header-cell admin-users-header-cell-right"
             >
               {{ t('admin.users.table.actions') }}
             </th>
@@ -224,102 +204,75 @@
     </div>
 
     <!-- Pagination -->
-    <div
-      v-if="users.length > 0"
-      class="px-6 py-4 border-t border-sand-200 flex items-center justify-between"
-    >
-      <button
-        :disabled="page === 1"
-        class="px-4 py-2 border border-sand-300 rounded-md text-sm font-medium text-brown-700 bg-white hover:bg-sand-50 disabled:opacity-50 disabled:cursor-not-allowed"
-        @click="page > 1 && loadUsers(page - 1)"
-      >
-        {{ t('admin.pagination.previous') }}
-      </button>
-      <span class="text-sm text-brown-600">
-        {{ t('admin.pagination.page_number', { page }) }}
-      </span>
-      <button
-        :disabled="users.length < limit || page * limit >= totalUsers"
-        class="px-4 py-2 border border-sand-300 rounded-md text-sm font-medium text-brown-700 bg-white hover:bg-sand-50 disabled:opacity-50 disabled:cursor-not-allowed"
-        @click="loadUsers(page + 1)"
-      >
-        {{ t('admin.pagination.next') }}
-      </button>
+    <AdminPagination
+      v-model:page="page"
+      :limit="limit"
+      :total-items="totalUsers"
+      :items-length="users.length"
+      :previous-text="t('admin.pagination.previous')"
+      :next-text="t('admin.pagination.next')"
+      :page-text="t('admin.pagination.page_number', { page })"
+      @update:page="loadUsers"
+    />
     </div>
 
     <!-- Profile Edit Modal -->
-    <div
-      v-if="editingProfileUser"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+    <ActionModal
+      v-model="isEditingProfileUser"
+      :title="t('admin.users.editProfile_title', { name: editingProfileUser?.name })"
+      :cancel-text="t('common.cancel')"
+      :confirm-text="isSavingProfile ? t('common.saving') : t('common.saveChanges')"
+      confirm-button-class="bg-terracotta-600 hover:bg-terracotta-700"
+      :disable-confirm="isSavingProfile"
+      @confirm="saveProfile"
     >
-      <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-        <h3 class="text-lg font-bold text-brown-900 mb-4">
-          {{ t('admin.users.editProfile_title', { name: editingProfileUser.name }) }}
-        </h3>
-
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-brown-700 mb-1">
-              {{ t('admin.users.fullName') }}
-            </label>
-            <input
-              v-model="profileForm.name"
-              type="text"
-              class="w-full border-sand-300 rounded-lg shadow-sm focus:border-terracotta-500 focus:ring-terracotta-500"
-            />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-brown-700 mb-1">
-              {{ t('admin.users.bio') }}
-            </label>
-            <textarea
-              v-model="profileForm.bio"
-              rows="3"
-              class="w-full border-sand-300 rounded-lg shadow-sm focus:border-terracotta-500 focus:ring-terracotta-500"
-            ></textarea>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-brown-700 mb-1">
-              {{ t('admin.users.pictureUrl') }}
-            </label>
-            <input
-              v-model="profileForm.picture"
-              type="text"
-              class="w-full border-sand-300 rounded-lg shadow-sm focus:border-terracotta-500 focus:ring-terracotta-500"
-              placeholder="https://..."
-            />
-            <p class="mt-1 text-xs text-brown-400">{{ t('admin.users.clearToRevert') }}</p>
-          </div>
+      <div class="space-y-4 text-left">
+        <div>
+          <label class="block text-sm font-medium text-brown-700 mb-1">
+            {{ t('admin.users.fullName') }}
+          </label>
+          <input
+            v-model="profileForm.name"
+            type="text"
+            class="w-full border-sand-300 rounded-lg shadow-sm focus:border-terracotta-500 focus:ring-terracotta-500"
+          />
         </div>
-
-        <div class="flex justify-end gap-3 mt-6">
-          <button
-            class="px-4 py-2 border border-sand-300 rounded-lg text-brown-600 hover:bg-sand-50"
-            @click="editingProfileUser = null"
-          >
-            {{ t('common.cancel') }}
-          </button>
-          <button
-            :disabled="isSavingProfile"
-            class="px-4 py-2 bg-terracotta-600 text-white rounded-lg hover:bg-terracotta-700 disabled:opacity-50"
-            @click="saveProfile"
-          >
-            {{ isSavingProfile ? t('common.saving') : t('common.saveChanges') }}
-          </button>
+        <div>
+          <label class="block text-sm font-medium text-brown-700 mb-1">
+            {{ t('admin.users.bio') }}
+          </label>
+          <textarea
+            v-model="profileForm.bio"
+            rows="3"
+            class="w-full border-sand-300 rounded-lg shadow-sm focus:border-terracotta-500 focus:ring-terracotta-500"
+          ></textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-brown-700 mb-1">
+            {{ t('admin.users.pictureUrl') }}
+          </label>
+          <input
+            v-model="profileForm.picture"
+            type="text"
+            class="w-full border-sand-300 rounded-lg shadow-sm focus:border-terracotta-500 focus:ring-terracotta-500"
+            placeholder="https://..."
+          />
+          <p class="mt-1 text-xs text-brown-400">{{ t('admin.users.clearToRevert') }}</p>
         </div>
       </div>
-    </div>
+    </ActionModal>
     <!-- Ban User Modal -->
-    <div
-      v-if="banModal.isOpen"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+    <ActionModal
+      v-model="banModal.isOpen"
+      :title="t('admin.users.banUser_title', { name: banModal.user?.name })"
+      :cancel-text="t('common.cancel')"
+      :confirm-text="t('admin.users.confirmBan')"
+      confirm-button-class="bg-red-600 hover:bg-red-700"
+      @confirm="processBan"
     >
-      <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-        <h3 class="text-lg font-bold text-brown-900 mb-4">
-          {{ t('admin.users.banUser_title', { name: banModal.user?.name }) }}
-        </h3>
+      <div class="text-left">
         <p class="text-sm text-brown-600 mb-4">{{ t('admin.users.provideBanReason') }}</p>
-        <div class="mb-6">
+        <div class="mb-2">
           <label class="block text-sm font-medium text-brown-700 mb-2">
             {{ t('admin.users.banReason') }}
           </label>
@@ -330,52 +283,20 @@
             :placeholder="t('admin.users.banReasonPlaceholder')"
           />
         </div>
-        <div class="flex justify-end gap-3">
-          <button
-            class="px-4 py-2 border border-sand-300 rounded-lg text-brown-600 hover:bg-sand-50"
-            @click="closeBanModal"
-          >
-            {{ t('common.cancel') }}
-          </button>
-          <button
-            class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-            @click="processBan"
-          >
-            {{ t('admin.users.confirmBan') }}
-          </button>
-        </div>
       </div>
-    </div>
+    </ActionModal>
 
     <!-- Confirmation Modal -->
-    <div
-      v-if="confirmModal.isOpen"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+    <ActionModal
+      v-model="confirmModal.isOpen"
+      :title="confirmModal.title"
+      :cancel-text="t('common.cancel')"
+      :confirm-text="confirmModal.confirmText"
+      :confirm-button-class="confirmModal.isDestructive ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'"
+      @confirm="processConfirm"
     >
-      <div class="bg-white rounded-xl shadow-xl max-sm w-full p-6 text-center">
-        <h3 class="text-lg font-bold text-brown-900 mb-2">{{ confirmModal.title }}</h3>
-        <p class="text-brown-600 mb-6">{{ confirmModal.message }}</p>
-        <div class="flex justify-center gap-3">
-          <button
-            class="px-4 py-2 border border-sand-300 rounded-lg text-brown-600 hover:bg-sand-50"
-            @click="closeConfirmModal"
-          >
-            {{ t('common.cancel') }}
-          </button>
-          <button
-            class="px-4 py-2 rounded-lg text-white"
-            :class="
-              confirmModal.isDestructive
-                ? 'bg-red-600 hover:bg-red-700'
-                : 'bg-green-600 hover:bg-green-700'
-            "
-            @click="processConfirm"
-          >
-            {{ confirmModal.confirmText }}
-          </button>
-        </div>
-      </div>
-    </div>
+      <p class="text-brown-600 mb-2 text-center">{{ confirmModal.message }}</p>
+    </ActionModal>
   </div>
 </template>
 
@@ -389,6 +310,9 @@ import { useAuthStore } from '@/store/authStore';
 import { useAdminTable } from '@/composables/useAdminTable';
 import { OptimizedImage } from '@/components/ui';
 import TableSkeleton from '@/components/ui/TableSkeleton.vue';
+import AdminPagination from '@/components/ui/AdminPagination.vue';
+import ActionModal from '@/components/ui/ActionModal.vue';
+import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 
 const { t } = useI18n();
 const { toast } = useToast();
@@ -662,6 +586,12 @@ const roles = ref<Role[]>([]);
 
 // Profile Management
 const editingProfileUser = ref<User | null>(null);
+const isEditingProfileUser = computed({
+  get: () => editingProfileUser.value !== null,
+  set: (val) => {
+    if (!val) editingProfileUser.value = null;
+  }
+});
 const profileForm = ref({
   name: '',
   bio: '',
@@ -742,3 +672,67 @@ onMounted(async () => {
   await Promise.all([loadUsers(), loadRoles()]);
 });
 </script>
+
+<style scoped>
+.admin-users-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.admin-users-export-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-sand-200);
+  border-radius: 0.75rem;
+  background: white;
+  color: var(--color-brown-600, #57534e);
+  font-size: 0.875rem;
+  font-weight: 700;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
+}
+
+.admin-users-export-button:hover {
+  background: var(--color-sand-50);
+}
+
+.admin-users-shell {
+  overflow: hidden;
+  border: 1px solid rgba(245, 245, 244, 0.95);
+  border-radius: 0.75rem;
+  background: white;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.admin-users-table-wrap {
+  overflow-x: auto;
+}
+
+.admin-users-header-cell,
+.admin-users-sortable-header {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-brown-500, #78716c);
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.admin-users-sortable-header {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.2s ease;
+}
+
+.admin-users-sortable-header:hover {
+  color: var(--color-brown-700, #44403c);
+}
+
+.admin-users-header-cell-right {
+  text-align: right;
+}
+</style>

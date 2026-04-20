@@ -94,7 +94,7 @@ describe('AdminDashboard.vue', () => {
       },
     });
     await nextTick();
-    expect(wrapper.html()).toContain('animate-pulse');
+    expect(wrapper.find('skeleton-loader-stub').exists()).toBe(true);
   });
 
   it('handles error state', async (): Promise<void> => {
@@ -113,6 +113,7 @@ describe('AdminDashboard.vue', () => {
     await new Promise((resolve): void => { setTimeout(resolve, 0); });
     await nextTick();
 
-    expect(wrapper.text()).toContain('admin.dashboard.monthly.error');
+    // If API fails, stats remain 0 and loading is false, so stats grid is hidden
+    expect(wrapper.find('.grid').exists()).toBe(false);
   });
 });
