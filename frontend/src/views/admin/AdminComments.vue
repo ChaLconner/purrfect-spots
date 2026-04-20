@@ -146,9 +146,6 @@
                         {{ t('admin.comments.banned_status') }}
                       </span>
                     </div>
-                    <span class="admin-comment-timestamp">
-                      {{ new Date(comment.created_at).toLocaleString() }}
-                    </span>
                   </div>
 
                   <div
@@ -189,6 +186,10 @@
                 </button>
               </div>
             </div>
+
+            <span class="admin-comment-timestamp">
+              {{ formatTimestamp(comment.created_at) }}
+            </span>
           </div>
         </RecycleScroller>
       </div>
@@ -271,6 +272,22 @@ interface AdminComment {
 
 const { t } = useI18n();
 const { toast } = useToast();
+
+const formatTimestamp = (dateString: string): string => {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  
+  const time = date.toLocaleTimeString(useI18n().locale.value, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+  
+  return `${day}/${month}/${year} ${time}`;
+};
 
 const searchQuery = ref('');
 const showReportedOnly = ref(false);
@@ -558,9 +575,13 @@ const viewReports = (comment: AdminComment) => {
 }
 
 .admin-comment-timestamp {
-  margin-top: 0.25rem;
+  position: absolute;
+  top: 1rem;
+  right: 1.5rem;
   font-size: 0.75rem;
+  font-weight: 500;
   color: var(--color-brown-500, #78716c);
+  opacity: 0.8;
 }
 
 .admin-comment-report-pill {

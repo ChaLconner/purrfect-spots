@@ -154,7 +154,7 @@
               </span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-500">
-              {{ user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A' }}
+              {{ formatTimestamp(user.created_at) }}
             </td>
             <td
               class="px-6 py-3 whitespace-nowrap text-right text-sm font-medium flex gap-2 justify-end"
@@ -314,7 +314,23 @@ import AdminPagination from '@/components/ui/AdminPagination.vue';
 import ActionModal from '@/components/ui/ActionModal.vue';
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
+
+const formatTimestamp = (dateString: string | null | undefined) => {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  
+  const time = date.toLocaleTimeString(locale.value, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+  
+  return `${day}/${month}/${year} ${time}`;
+};
 const { toast } = useToast();
 const authStore = useAuthStore();
 
@@ -412,7 +428,8 @@ const formatRoleName = (role: string | undefined): string => {
 
 const isUserAdmin = (role: string | undefined): boolean => {
   if (!role) return false;
-  return role.toLowerCase() === 'admin' || role.toLowerCase() === 'superadmin';
+  const normalizedRole = role.toLowerCase().replace(/_/g, '');
+  return normalizedRole === 'admin' || normalizedRole === 'superadmin';
 };
 
 const canDeleteUser = (targetUser: User): boolean => {

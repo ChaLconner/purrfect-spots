@@ -60,7 +60,7 @@
         <tbody class="admin-audit-table-body">
           <tr v-for="log in logs" :key="log.id" class="admin-audit-row">
             <td class="admin-audit-cell admin-audit-cell-nowrap admin-audit-cell-muted">
-              {{ new Date(log.created_at).toLocaleString(locale) }}
+              {{ formatTimestamp(log.created_at) }}
             </td>
             <td class="admin-audit-cell admin-audit-cell-nowrap admin-audit-cell-primary">
               <div v-if="log.users">
@@ -146,7 +146,7 @@
             <div>
               <span class="admin-audit-modal-label">{{ t('admin.audit.table.date') }}</span>
               <span class="admin-audit-modal-value">
-                {{ new Date(selectedLog.created_at).toLocaleString(locale) }}
+                {{ formatTimestamp(selectedLog.created_at) }}
               </span>
             </div>
           </div>
@@ -208,6 +208,22 @@ interface AuditLog {
 }
 
 const { t, locale } = useI18n();
+
+const formatTimestamp = (dateString: string) => {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  
+  const time = date.toLocaleTimeString(locale.value, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+  
+  return `${day}/${month}/${year} ${time}`;
+};
 const logs = ref<AuditLog[]>([]);
 const page = ref(1);
 const limit = 50;

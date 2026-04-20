@@ -150,10 +150,7 @@
               />
             </td>
             <td class="px-6 py-3 whitespace-nowrap text-sm text-brown-500">
-              {{ new Date(report.created_at).toLocaleDateString(locale) }}<br />
-              <span class="text-xs text-brown-400">{{
-                new Date(report.created_at).toLocaleTimeString(locale)
-              }}</span>
+              {{ formatTimestamp(report.created_at) }}
             </td>
             <td class="px-6 py-4">
               <span
@@ -381,6 +378,22 @@ import ActionModal from '@/components/ui/ActionModal.vue';
 import { OptimizedImage } from '@/components/ui';
 
 const { t, locale } = useI18n();
+
+const formatTimestamp = (dateString: string) => {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  
+  const time = date.toLocaleTimeString(locale.value, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+  
+  return `${day}/${month}/${year} ${time}`;
+};
 const { toast } = useToast();
 const authStore = useAuthStore();
 

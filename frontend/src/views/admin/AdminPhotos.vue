@@ -65,7 +65,7 @@
                   </div>
                 </td>
                 <td class="admin-photos-cell admin-photos-cell-date">
-                  {{ new Date(photo.uploaded_at).toLocaleDateString() }}
+                  {{ formatTimestamp(photo.uploaded_at) }}
                 </td>
                 <td class="admin-photos-cell admin-photos-cell-actions">
                   <div class="admin-photo-actions">
@@ -141,7 +141,23 @@ interface AdminPhoto {
   users?: { email: string; name: string };
 }
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
+
+const formatTimestamp = (dateString: string) => {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  
+  const time = date.toLocaleTimeString(locale.value, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+  
+  return `${day}/${month}/${year} ${time}`;
+};
 const { toast } = useToast();
 const authStore = useAuthStore();
 
@@ -164,7 +180,7 @@ const {
   limit: 50,
 });
 
-const fetchPhotos = (newPage: number = 1) => {
+const fetchPhotos = (newPage: number = 1): void => {
   loadData(newPage, { search: searchQuery.value });
 };
 
@@ -174,11 +190,11 @@ onMounted(() => fetchPhotos());
 // Editing
 const editingPhotoId = ref<string | null>(null);
 const editForm = ref({ location_name: '', description: '' });
-const startEdit = (photo: AdminPhoto) => {
+const startEdit = (photo: AdminPhoto): void => {
   editingPhotoId.value = photo.id;
   editForm.value = { location_name: photo.location_name, description: photo.description };
 };
-const saveEdit = async (photo: AdminPhoto) => {
+const saveEdit = async (photo: AdminPhoto): Promise<void> => {
   try {
     const updated = await apiV1.patch(`/admin/photos/${photo.id}`, editForm.value);
     photo.location_name = updated.location_name;
@@ -194,11 +210,11 @@ const saveEdit = async (photo: AdminPhoto) => {
 const deleteConfirmOpen = ref(false);
 const photoToDelete = ref<AdminPhoto | null>(null);
 const previewImage = ref<AdminPhoto | null>(null);
-const confirmDelete = (photo: AdminPhoto) => {
+const confirmDelete = (photo: AdminPhoto): void => {
   photoToDelete.value = photo;
   deleteConfirmOpen.value = true;
 };
-const executeDelete = async () => {
+const executeDelete = async (): Promise<void> => {
   if (!photoToDelete.value) return;
   try {
     await apiV1.delete(`/admin/photos/${photoToDelete.value.id}`);

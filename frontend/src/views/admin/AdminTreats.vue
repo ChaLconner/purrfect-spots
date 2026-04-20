@@ -95,7 +95,7 @@
               </svg>
             </div>
           </div>
-          <RefreshButton :loading="loading" @click="fetchTransactions" />
+          <RefreshButton :title="t('common.refresh')" @refresh="fetchTransactions" />
         </div>
       </div>
 
@@ -133,7 +133,7 @@
               class="hover:bg-sand-50/50 transition-colors"
             >
               <td class="px-6 py-4 text-xs text-brown-500">
-                {{ new Date(txn.created_at).toLocaleString() }}
+                {{ formatTimestamp(txn.created_at) }}
               </td>
               <td class="px-6 py-4">
                 <span
@@ -410,7 +410,23 @@ interface UserSearchResult {
 const PAGE_SIZE = 50;
 
 const { toast } = useToast();
-const { t } = useI18n();
+const { t, locale } = useI18n();
+
+const formatTimestamp = (dateString: string) => {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  
+  const time = date.toLocaleTimeString(locale.value, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+  
+  return `${day}/${month}/${year} ${time}`;
+};
 
 const loading = ref(true);
 const statsLoading = ref(true);

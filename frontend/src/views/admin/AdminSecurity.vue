@@ -28,7 +28,7 @@ interface SecuritySummary {
   }>;
 }
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const authStore = useAuthStore();
 const summary = ref<SecuritySummary | null>(null);
 const loading = ref(true);
@@ -86,7 +86,19 @@ const getStatusColor = (level: string): string => {
 };
 
 const formatTime = (timestamp: string): string => {
-  return new Date(timestamp).toLocaleString();
+  if (!timestamp) return 'N/A';
+  const date = new Date(timestamp);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  
+  const time = date.toLocaleTimeString(locale.value, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+  
+  return `${day}/${month}/${year} ${time}`;
 };
 </script>
 
@@ -273,7 +285,7 @@ const formatTime = (timestamp: string): string => {
               {{ t('admin.security.recentAlertsTitle') }}
             </h2>
             <p class="text-xs text-brown-500 font-medium italic mt-1 ml-1">
-              {{ t('admin.security.lastUpdated') }}: {{ new Date().toLocaleTimeString() }}
+              {{ t('admin.security.lastUpdated') }}: {{ formatTime(new Date().toISOString()) }}
             </p>
           </div>
         </div>
