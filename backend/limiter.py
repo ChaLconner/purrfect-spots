@@ -91,7 +91,8 @@ def get_storage_uri() -> str | None:
     """
     redis_url = get_redis_url()
 
-    if redis_url and test_redis_connection(redis_url):
+    if redis_url:
+        # Optimization: Do not test redis connection synchronously on module import
         return redis_url
 
     logger.info("Using in-memory storage for rate limiting")

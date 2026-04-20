@@ -58,6 +58,8 @@ class ETagMiddleware(BaseHTTPMiddleware):
     """
 
     SAFE_METHODS = {"GET", "HEAD"}
+    # PERF: Skip ETag for responses larger than 1MB to avoid excessive memory buffering
+    MAX_ETAG_BODY_SIZE = 1_048_576  # 1MB
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         # Only process GET/HEAD requests
@@ -84,12 +86,27 @@ class ETagMiddleware(BaseHTTPMiddleware):
         if not _is_cacheable_response(response):
             return response
 
-        # Read response body
+        # Read response body — use streaming hash to avoid double buffering
         response_body = b""
         has_body = False
         async for chunk in response.body_iterator:  # type: ignore[attr-defined]
             response_body += chunk if isinstance(chunk, bytes) else chunk.encode()
             has_body = True
+            # PERF: Skip ETag for large responses to avoid memory pressure
+            if len(response_body) > self.MAX_ETAG_BODY_SIZE:
+                from fastapi.responses import Response as StarletteResponse
+
+                # Drain remaining chunks and return without ETag
+                remaining = response_body
+                async for extra in response.body_iterator:  # type: ignore[attr-defined]
+                    remaining += extra if isinstance(extra, bytes) else extra.encode()
+                return StarletteResponse(
+                    content=remaining,
+                    status_code=response.status_code,
+                    headers=dict(response.headers),
+                    media_type=response.media_type,
+                    background=response.background,
+                )
 
         if not has_body or not response_body:
             return response

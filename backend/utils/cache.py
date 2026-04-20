@@ -18,7 +18,8 @@ redis_client: redis.Redis | None = None
 # Export is_dev for compatibility with tests
 is_dev = config.ENVIRONMENT.lower() in ["development", "testing"]
 
-# Memory cache fallback for dev/test
+# Memory cache fallback for dev/test — with size limit to prevent leaks
+_MEMORY_CACHE_MAX_SIZE = 500
 memory_cache: dict[str, Any] = {}
 
 if redis_url:
@@ -57,7 +58,7 @@ def generate_cache_key(*args: Any, **kwargs: Any) -> str:
     arg_str = json.dumps(
         {"args": [str(a) for a in args], "kwargs": {k: str(v) for k, v in kwargs.items()}}, default=str, sort_keys=True
     )
-    return hashlib.sha256(arg_str.encode()).hexdigest()
+    return hashlib.md5(arg_str.encode(), usedforsecurity=False).hexdigest()  # nosec B303
 
 
 def cache(
@@ -112,6 +113,12 @@ def cache(
                     except Exception as e:
                         if "Event loop is closed" not in str(e):
                             logger.warning(f"Redis write error: {e}")
+
+                # PERF: Evict oldest entries when cache exceeds max size
+                if len(memory_cache) >= _MEMORY_CACHE_MAX_SIZE and cache_key not in memory_cache:
+                    evict_count = _MEMORY_CACHE_MAX_SIZE // 5
+                    for old_key in list(memory_cache.keys())[:evict_count]:
+                        del memory_cache[old_key]
 
                 memory_cache[cache_key] = result
             except Exception as e:
