@@ -7,6 +7,17 @@ export default defineConfig(async ({ mode }) => {
   const isTest = mode === 'test' || process.env.VITEST === 'true';
   const plugins = [vue()];
 
+  const normalizeModuleId = (id: string): string => id.replace(/\\/g, '/');
+  const matchesNodeModulePackage = (id: string, packageName: string): boolean => {
+    const normalizedId = normalizeModuleId(id);
+    return (
+      normalizedId.includes(`/node_modules/${packageName}/`) ||
+      normalizedId.endsWith(`/node_modules/${packageName}`)
+    );
+  };
+  const matchesAnyPackage = (id: string, packageNames: string[]): boolean =>
+    packageNames.some((packageName) => matchesNodeModulePackage(id, packageName));
+
   if (!isTest) {
     const { default: tailwindcss } = await import('@tailwindcss/vite');
     const { default: viteCompression } = await import('vite-plugin-compression');
@@ -155,33 +166,16 @@ export default defineConfig(async ({ mode }) => {
         output: {
           // Code splitting for better caching
           manualChunks: (id) => {
-            // Vue and related packages
-            if (
-              id.includes('node_modules/vue') ||
-              id.includes('node_modules/@vue') ||
-              id.includes('node_modules/pinia')
-            ) {
-              return 'vue-vendor';
+            const normalizedId = normalizeModuleId(id);
+
+            if (matchesAnyPackage(normalizedId, ['@sentry/vue', '@sentry/core', '@sentry/browser'])) {
+              return 'sentry';
             }
-            // Supabase
-            if (id.includes('node_modules/@supabase')) {
-              return 'supabase';
-            }
-            // Axios
-            if (id.includes('node_modules/axios')) {
-              return 'axios';
-            }
-            // Google Maps
-            if (id.includes('node_modules/@googlemaps')) {
+            if (matchesNodeModulePackage(normalizedId, '@googlemaps')) {
               return 'google-maps';
             }
-            // ApexCharts - very large library
-            if (id.includes('node_modules/apexcharts') || id.includes('node_modules/vue3-apexcharts')) {
-              return 'apexcharts';
-            }
-            // Tailwind utilities - can grow large
-            if (id.includes('node_modules/tailwindcss')) {
-              return 'tailwind';
+            if (matchesNodeModulePackage(normalizedId, '@supabase')) {
+              return 'supabase';
             }
           },
           // Optimize asset file names

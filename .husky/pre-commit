@@ -1,16 +1,19 @@
-#!/usr/bin/env sh
-. "$(dirname "$0")/_/h"
-
 echo "husky: running lint-staged"
 npx lint-staged
 
 staged_files="$(git diff --cached --name-only --diff-filter=ACMR)"
 
-printf '%s\n' "$staged_files" | grep -Eq '^frontend/src/.*\.(ts|vue)$'
-has_frontend_changes=$?
+if printf '%s\n' "$staged_files" | grep -Eq '^frontend/src/.*\.(ts|vue)$'; then
+  has_frontend_changes=0
+else
+  has_frontend_changes=1
+fi
 
-printf '%s\n' "$staged_files" | grep -Eq '^backend/.*\.py$'
-has_backend_changes=$?
+if printf '%s\n' "$staged_files" | grep -Eq '^backend/.*\.py$'; then
+  has_backend_changes=0
+else
+  has_backend_changes=1
+fi
 
 if [ "$has_frontend_changes" -eq 0 ]; then
   echo "husky: running frontend type-check"

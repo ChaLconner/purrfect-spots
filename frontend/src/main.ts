@@ -3,14 +3,13 @@ import './styles/main.css';
 import App from './App.vue';
 import router from './router';
 import { pinia } from './store';
-import { useAuthStore } from './store/authStore';
 import { isDev } from './utils/env';
 import {
   handleUnhandledRejection,
   handleError,
   handleVueError,
 } from './utils/browserExtensionHandler';
-import i18n from './i18n';
+import i18n, { initializeI18n } from './i18n';
 
 // ========== Sentry Initialization ==========
 // Only initialize in production or if explicitly enabled
@@ -87,12 +86,6 @@ initSentry(app);
 // Install Pinia BEFORE using any stores
 app.use(pinia);
 
-// Initialize auth state asynchronously to prevent blocking FCP/LCP
-const authStore = useAuthStore();
-authStore.initializeAuth().catch((e) => {
-  console.warn('[Auth] Failed to initialize auth:', e);
-});
-
 // Handle browser extension conflicts globally
 globalThis.addEventListener('unhandledrejection', handleUnhandledRejection);
 globalThis.addEventListener('error', handleError);
@@ -141,7 +134,52 @@ app.use(i18n);
 // Mount immediately - router will handle initial navigation internally
 app.mount('#app');
 
-// Web Vitals tracking is handled below
+// Continue non-critical boot work after first paint.
+void initializeI18n();
+
+const schedulePostPaintTask = (task: () => void): void => {
+  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+    window.requestIdleCallback(() => task(), { timeout: 1500 });
+    return;
+  }
+
+  setTimeout(task, 0);
+};
+
+const loadDeferredStylesheet = (href: string): void => {
+  if (typeof document === 'undefined') {
+    return;
+  }
+
+  const existingStylesheet = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
+  if (existingStylesheet) {
+    return;
+  }
+
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = href;
+  document.head.appendChild(link);
+};
+
+// Kick off auth initialization immediately so the background session check
+// starts as soon as possible, reducing skeleton visibility time.
+queueMicrotask(() => {
+  import('./store/authStore')
+    .then(({ useAuthStore }) => useAuthStore().initializeAuth())
+    .catch((e) => {
+      console.warn('[Auth] Failed to initialize auth:', e);
+    });
+});
+
+schedulePostPaintTask(() => {
+  loadDeferredStylesheet(
+    'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap'
+  );
+  loadDeferredStylesheet(
+    'https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap'
+  );
+});
 
 // Initialize Web Vitals tracking after app mount
 try {

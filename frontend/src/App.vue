@@ -10,8 +10,6 @@ import { ApiError, ApiErrorTypes } from './utils/api';
 import { useNetwork } from './composables/useNetwork';
 import { ErrorBoundary } from './components/ui';
 import { useStructuredData } from './composables/useStructuredData';
-
-import { useWebVitals } from './composables/usePerformance';
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 
@@ -23,9 +21,6 @@ const showNav = computed(() => {
 });
 const errorCount = ref(0);
 const MAX_ERRORS_BEFORE_REFRESH = 5;
-
-// Initialize Web Vitals monitoring
-useWebVitals();
 
 // Global SEO Schema
 useStructuredData({

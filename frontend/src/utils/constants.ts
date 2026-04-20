@@ -18,13 +18,13 @@ export const MAP_CONFIG = {
   DEFAULT_ZOOM: 13,
   MIN_ZOOM: 3,
   MAX_ZOOM: 20,
-  MARKER_ANIMATION_DELAY_MS: 50,
+  MARKER_ANIMATION_DELAY_MS: 10,
   MIN_ZOOM_FOR_VIEWPORT_FETCH: 10,
   MAX_MARKERS_PER_VIEWPORT: 100,
   VIEWPORT_FETCH_DEBOUNCE_MS: 300, // Reduced from 500ms to 300ms for better responsiveness
   FIT_BOUNDS_PADDING: 50,
   LIBRARIES: 'places,marker',
-  VERSION: 'beta', // Required for some Advanced Marker features or 'weekly'
+  VERSION: 'weekly', // Required for some Advanced Marker features or 'weekly'
 } as const;
 
 // ========== Image Constants ==========
@@ -70,8 +70,8 @@ export const ANIMATION_CONFIG = {
 // ========== API Constants ==========
 export const API_CONFIG = {
   TIMEOUT_MS: 30000,
-  MAX_RETRIES: 3,
-  RETRY_BASE_DELAY_MS: 1000,
+  MAX_RETRIES: 2,
+  RETRY_BASE_DELAY_MS: 500,
   RETRY_MAX_DELAY_MS: 10000,
 } as const;
 
