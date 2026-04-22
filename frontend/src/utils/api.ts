@@ -16,8 +16,8 @@ import type {
   AxiosResponse,
 } from 'axios';
 import { isBrowserExtensionError, handleBrowserExtensionError } from './browserExtensionHandler';
-import { getEnvVar, isProd } from './env';
-import { getCsrfToken } from './security';
+import { getEnvVar } from './env';
+import { getCsrfToken } from './csrf';
 
 import { ApiError, ApiErrorTypes } from './apiErrors';
 export { ApiError, ApiErrorTypes };
@@ -76,14 +76,10 @@ export const getApiBaseUrl = (): string => {
     return envUrl;
   }
 
-  // In production we prefer the frontend's same-origin `/api` rewrite so the
-  // browser never needs to make a cross-origin request to the backend domain.
-  if (isProd()) {
-    return '/api';
-  }
-
-  // Fallback for development
-  return 'http://localhost:8000';
+  // Prefer the frontend's same-origin `/api` rewrite in every environment.
+  // In development, Vite proxies `/api` to the local backend; in production,
+  // Vercel/nginx rewrites keep requests same-origin and avoid extra CORS cost.
+  return '/api';
 };
 
 export const getApiUrl = (endpoint: string): string => {

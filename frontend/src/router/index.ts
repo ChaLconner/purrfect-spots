@@ -210,7 +210,7 @@ const router = createRouter({
   routes,
 });
 
-const getAuthStore = async () => {
+const getAuthStore = async (): Promise<unknown> => {
   const { useAuthStore } = await import('@/store/authStore');
   return useAuthStore();
 };

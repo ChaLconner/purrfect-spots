@@ -17,7 +17,6 @@ import {
   getDefaultHeaders
 } from '@/utils/api';
 import { getEnvVar } from '@/utils/env';
-import { isProd } from '@/utils/env';
 
 vi.mock('axios', () => {
   const mockInstance = {
@@ -36,7 +35,6 @@ vi.mock('axios', () => {
 vi.mock('@/utils/env', () => ({
   getEnvVar: vi.fn(),
   isDev: vi.fn(() => true),
-  isProd: vi.fn(() => false),
 }));
 
 vi.mock('@/utils/security', () => ({
@@ -49,7 +47,6 @@ describe('API Utils', () => {
     setAccessToken(null);
     vi.useFakeTimers();
     vi.mocked(getEnvVar).mockReturnValue('');
-    vi.mocked(isProd).mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -67,14 +64,8 @@ describe('API Utils', () => {
       expect(getApiBaseUrl()).toBe('https://api.example.com');
     });
 
-    it('returns default localhost URL when env not set', () => {
+    it('returns same-origin api path when env not set', () => {
       vi.mocked(getEnvVar).mockReturnValue('');
-      expect(getApiBaseUrl()).toBe('http://localhost:8000');
-    });
-
-    it('returns same-origin api path in production when env not set', () => {
-      vi.mocked(getEnvVar).mockReturnValue('');
-      vi.mocked(isProd).mockReturnValue(true);
       expect(getApiBaseUrl()).toBe('/api');
     });
   });
@@ -92,7 +83,6 @@ describe('API Utils', () => {
 
     it('builds same-origin URLs in production fallback mode', () => {
       vi.mocked(getEnvVar).mockReturnValue('');
-      vi.mocked(isProd).mockReturnValue(true);
       expect(getApiUrl('/users')).toBe('/api/users');
     });
   });

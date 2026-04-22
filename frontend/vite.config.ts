@@ -158,11 +158,16 @@ export default defineConfig(async ({ mode }) => {
     build: {
       outDir: 'dist',
       assetsDir: 'assets',
-      // Chunk size warning limit (500kb)
-      chunkSizeWarningLimit: 500,
+      // Admin charts are already route- and viewport-lazy; align the warning
+      // threshold with the known apexcharts vendor payload to avoid noisy
+      // alerts for this intentional split point.
+      chunkSizeWarningLimit: 550,
       // Skip gzip size reporting (handled by compression plugin) - saves memory
       reportCompressedSize: false,
-      rollupOptions: {
+      rolldownOptions: {
+        checks: {
+          pluginTimings: false,
+        },
         output: {
           // Code splitting for better caching
           manualChunks: (id) => {
