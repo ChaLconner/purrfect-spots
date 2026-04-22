@@ -5,6 +5,9 @@ import { useToast } from '@/components/toast/use-toast';
 interface UseAdminTableOptions<T> {
   endpoint: string;
   limit?: number;
+  exportMaxRows?: number;
+  exportBatchSize?: number;
+  exportConcurrentBatches?: number;
   exportHeaders: string[];
   formatExportRow: (item: T) => string[];
   exportFileNamePrefix: string;
@@ -105,8 +108,9 @@ export function useAdminTable<T extends { id: string }>(
   ): Promise<void> => {
     isLoading.value = true;
     try {
-      const MAX_BATCH_SIZE = 100;
-      const MAX_CONCURRENT_BATCHES = 5;
+      const MAX_BATCH_SIZE = options.exportBatchSize ?? 100;
+      const MAX_CONCURRENT_BATCHES = options.exportConcurrentBatches ?? 3;
+      const EXPORT_MAX_ROWS = options.exportMaxRows ?? 2000;
       let allData: T[] = [];
       let total = 0;
       let offset = 0;
@@ -130,10 +134,20 @@ export function useAdminTable<T extends { id: string }>(
       const firstBatch = firstResponse.data || firstResponse.items || [];
       allData = [...firstBatch];
       total = firstResponse.total || firstBatch.length;
+      const cappedTotal = Math.min(total, EXPORT_MAX_ROWS);
+
+      if (total > EXPORT_MAX_ROWS) {
+        allData = allData.slice(0, EXPORT_MAX_ROWS);
+        toast({
+          title: 'Large export limited',
+          description: `Exported first ${EXPORT_MAX_ROWS.toLocaleString()} rows to keep admin responsive.`,
+          variant: 'default',
+        });
+      }
 
       // Fetch subsequent batches in small parallel groups to reduce total export time
       const remainingOffsets: number[] = [];
-      for (offset = MAX_BATCH_SIZE; offset < total; offset += MAX_BATCH_SIZE) {
+      for (offset = MAX_BATCH_SIZE; offset < cappedTotal; offset += MAX_BATCH_SIZE) {
         remainingOffsets.push(offset);
       }
 
@@ -162,6 +176,10 @@ export function useAdminTable<T extends { id: string }>(
           const nextBatch = response.data || response.items || [];
           allData.push(...nextBatch);
         });
+      }
+
+      if (allData.length > cappedTotal) {
+        allData = allData.slice(0, cappedTotal);
       }
 
       if (allData.length === 0) {

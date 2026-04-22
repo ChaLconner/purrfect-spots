@@ -66,19 +66,13 @@ async def list_all_comments(
         # Parallelize additional data fetching
         user_ids = list({item["user_id"] for item in items})
 
-        async def fetch_additional_data() -> tuple[dict[str, Any], dict[str, int]]:
+        async def fetch_additional_data() -> dict[str, Any]:
             if not user_ids:
-                return {}, {}
+                return {}
 
-            # Resolve only the per-page metadata the frontend actually renders.
-            tasks = [
-                admin_client.table("users").select("id, banned_at").in_("id", user_ids).execute(),
-                admin_client.table("photo_comments")
-                .select("user_id, reports!inner(id)")
-                .eq("reports.status", "resolved")
-                .in_("user_id", user_ids)
-                .execute(),
-            ]
+            # Resolve only the per-page metadata the frontend currently renders.
+            # Avoid heavy user-level report fan-out queries on every admin comments page load.
+            tasks = [admin_client.table("users").select("id, banned_at").in_("id", user_ids).execute()]
 
             import asyncio
 
@@ -90,25 +84,15 @@ async def list_all_comments(
             if not isinstance(res0, Exception) and hasattr(res0, "data"):
                 status_map = {u["id"]: u["banned_at"] for u in res0.data}
 
-            v_counts: dict[str, int] = {}
-            res1 = responses[1]
-            if not isinstance(res1, Exception) and hasattr(res1, "data"):
-                for row in res1.data:
-                    uid = row["user_id"]
-                    v_counts[uid] = v_counts.get(uid, 0) + 1
+            return status_map
 
-            return status_map, v_counts
-
-        status_map: dict[str, Any]
-        v_counts: dict[str, int]
-
-        status_map, v_counts = await fetch_additional_data()
+        status_map = await fetch_additional_data()
 
         # Merge additional data into items
         for item in items:
             uid = item["user_id"]
             item["is_user_banned"] = status_map.get(uid) is not None
-            item["violation_count"] = v_counts.get(uid, 0)
+            item["violation_count"] = 0
 
         return {"items": items, "total": total_count, "page": page, "pages": pages}
     except Exception as e:

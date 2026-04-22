@@ -150,7 +150,7 @@
               />
             </td>
             <td class="px-6 py-3 whitespace-nowrap text-sm text-brown-500">
-              {{ formatTimestamp(report.created_at) }}
+              {{ formatTimestampWithLocale(report.created_at) }}
             </td>
             <td class="px-6 py-4">
               <span
@@ -376,24 +376,12 @@ import RefreshButton from '@/components/ui/RefreshButton.vue';
 import AdminPagination from '@/components/ui/AdminPagination.vue';
 import ActionModal from '@/components/ui/ActionModal.vue';
 import { OptimizedImage } from '@/components/ui';
+import { formatTimestamp } from '@/utils/date';
 
 const { t, locale } = useI18n();
 
-const formatTimestamp = (dateString: string) => {
-  if (!dateString) return 'N/A';
-  const date = new Date(dateString);
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
-  
-  const time = date.toLocaleTimeString(locale.value, {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  });
-  
-  return `${day}/${month}/${year} ${time}`;
-};
+// Local formatTimestamp removed, using imported one with locale
+const formatTimestampWithLocale = (date: string): string => formatTimestamp(date, locale.value);
 const { toast } = useToast();
 const authStore = useAuthStore();
 

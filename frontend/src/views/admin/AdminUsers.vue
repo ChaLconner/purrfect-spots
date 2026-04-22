@@ -32,191 +32,185 @@
     </AdminPageHeader>
 
     <div class="admin-users-shell">
-<div class="admin-users-table-wrap">
-      <table class="min-w-full divide-y divide-sand-200">
-        <thead class="bg-sand-50">
-          <tr>
-            <th
-              scope="col"
-              class="admin-users-sortable-header group"
-              @click="handleSort('name')"
-            >
-              <div class="flex items-center gap-1">
-                {{ t('admin.users.table.user') }}
-                <span v-if="sortBy === 'name'" class="text-terracotta-500">
-                  {{ sortOrder === 'asc' ? '↑' : '↓' }}
-                </span>
-                <span v-else class="opacity-0 group-hover:opacity-50 transition-opacity">↕</span>
-              </div>
-            </th>
-            <th
-              scope="col"
-              class="admin-users-header-cell"
-            >
-              {{ t('admin.users.table.role') }}
-            </th>
-            <th
-              scope="col"
-              class="admin-users-sortable-header group"
-              @click="handleSort('created_at')"
-            >
-              <div class="flex items-center gap-1">
-                {{ t('admin.users.table.joined') }}
-                <span v-if="sortBy === 'created_at'" class="text-terracotta-500">
-                  {{ sortOrder === 'asc' ? '↑' : '↓' }}
-                </span>
-                <span v-else class="opacity-0 group-hover:opacity-50 transition-opacity">↕</span>
-              </div>
-            </th>
-            <th
-              scope="col"
-              class="admin-users-header-cell admin-users-header-cell-right"
-            >
-              {{ t('admin.users.table.actions') }}
-            </th>
-          </tr>
-        </thead>
-        <tbody class="bg-white divide-y divide-sand-200">
-          <tr v-for="user in users" :key="user.id" class="hover:bg-sand-50 transition-colors">
-            <td class="px-6 py-3 whitespace-nowrap">
-              <div class="flex items-center">
-                <div class="h-10 w-10 flex-shrink-0">
-                  <OptimizedImage
-                    class="h-10 w-10 rounded-full object-cover"
-                    :src="user.picture || '/default-avatar.svg'"
-                    :alt="user.name || ''"
-                    :width="40"
-                    :height="40"
-                    fallback-src="/default-avatar.svg"
-                  />
+      <div class="admin-users-table-wrap">
+        <table class="min-w-full divide-y divide-sand-200">
+          <thead class="bg-sand-50">
+            <tr>
+              <th
+                scope="col"
+                class="admin-users-sortable-header group"
+                @click="handleSort('name')"
+              >
+                <div class="flex items-center gap-1">
+                  {{ t('admin.users.table.user') }}
+                  <span v-if="sortBy === 'name'" class="text-terracotta-500">
+                    {{ sortOrder === 'asc' ? '↑' : '↓' }}
+                  </span>
+                  <span v-else class="opacity-0 group-hover:opacity-50 transition-opacity">↕</span>
                 </div>
-                <div class="ml-4">
-                  <div class="text-sm font-medium text-brown-900">{{ user.name }}</div>
-                  <div class="text-sm text-brown-500">{{ user.email }}</div>
+              </th>
+              <th
+                scope="col"
+                class="admin-users-header-cell"
+              >
+                {{ t('admin.users.table.role') }}
+              </th>
+              <th
+                scope="col"
+                class="admin-users-sortable-header group"
+                @click="handleSort('created_at')"
+              >
+                <div class="flex items-center gap-1">
+                  {{ t('admin.users.table.joined') }}
+                  <span v-if="sortBy === 'created_at'" class="text-terracotta-500">
+                    {{ sortOrder === 'asc' ? '↑' : '↓' }}
+                  </span>
+                  <span v-else class="opacity-0 group-hover:opacity-50 transition-opacity">↕</span>
                 </div>
-              </div>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <div v-if="canEditRole" class="relative inline-block w-32">
-                <select
-                  :value="user.role?.toLowerCase()"
-                  :disabled="updatingUserIds.has(user.id)"
-                  class="block w-full pl-3 pr-10 py-1.5 text-xs font-semibold border-sand-200 rounded-lg bg-sand-50 focus:ring-terracotta-500 focus:border-terracotta-500 appearance-none cursor-pointer transition-all duration-200"
-                  :class="[
-                    isUserAdmin(user.role)
-                      ? 'text-terracotta-800 bg-terracotta-50 border-terracotta-100'
-                      : 'text-green-800 bg-green-50 border-green-100',
-                  ]"
-                  @change="(e) => handleRoleChange(user, (e.target as HTMLSelectElement).value)"
-                >
-                  <option value="user">{{ t('admin.users.roles.user') }}</option>
-                  <option value="admin">{{ t('admin.users.roles.admin') }}</option>
-                </select>
-                <div
-                  class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-brown-400"
-                >
-                  <svg
-                    v-if="!updatingUserIds.has(user.id)"
-                    class="h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M19 9l-7 7-7-7"
+              </th>
+              <th
+                scope="col"
+                class="admin-users-header-cell admin-users-header-cell-right"
+              >
+                {{ t('admin.users.table.actions') }}
+              </th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-sand-200">
+            <tr v-for="user in users" :key="user.id" class="hover:bg-sand-50 transition-colors">
+              <td class="px-6 py-3 whitespace-nowrap">
+                <div class="flex items-center">
+                  <div class="h-10 w-10 flex-shrink-0">
+                    <OptimizedImage
+                      class="h-10 w-10 rounded-full object-cover"
+                      :src="user.picture || '/default-avatar.svg'"
+                      :alt="user.name || ''"
+                      :width="40"
+                      :height="40"
+                      fallback-src="/default-avatar.svg"
                     />
-                  </svg>
-                  <div
-                    v-else
-                    class="w-3 h-3 border-2 border-terracotta-600 border-t-transparent rounded-full animate-spin"
-                  ></div>
+                  </div>
+                  <div class="ml-4">
+                    <div class="text-sm font-medium text-brown-900">{{ user.name }}</div>
+                    <div class="text-sm text-brown-500">{{ user.email }}</div>
+                  </div>
                 </div>
-              </div>
-              <span
-                v-else
-                class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full capitalize"
-                :class="
-                  isUserAdmin(user.role)
-                    ? 'bg-terracotta-100 text-terracotta-800'
-                    : 'bg-green-100 text-green-800'
-                "
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div v-if="canEditRole" class="relative inline-block w-32">
+                  <select
+                    :value="user.role?.toLowerCase()"
+                    :disabled="updatingUserIds.has(user.id)"
+                    class="block w-full pl-3 pr-10 py-1.5 text-xs font-semibold border-sand-200 rounded-lg bg-sand-50 focus:ring-terracotta-500 focus:border-terracotta-500 appearance-none cursor-pointer transition-all duration-200"
+                    :class="[
+                      isUserAdmin(user.role)
+                        ? 'text-terracotta-800 bg-terracotta-50 border-terracotta-100'
+                        : 'text-green-800 bg-green-50 border-green-100',
+                    ]"
+                    @change="(e) => handleRoleChange(user, (e.target as HTMLSelectElement).value)"
+                  >
+                    <option value="user">{{ t('admin.users.roles.user') }}</option>
+                    <option value="admin">{{ t('admin.users.roles.admin') }}</option>
+                  </select>
+                  <div
+                    class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-brown-400"
+                  >
+                    <svg
+                      v-if="!updatingUserIds.has(user.id)"
+                      class="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                    <div
+                      v-else
+                      class="w-3 h-3 border-2 border-terracotta-600 border-t-transparent rounded-full animate-spin"
+                    ></div>
+                  </div>
+                </div>
+                <span
+                  v-else
+                  class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full capitalize"
+                  :class="
+                    isUserAdmin(user.role)
+                      ? 'bg-terracotta-100 text-terracotta-800'
+                      : 'bg-green-100 text-green-800'
+                  "
+                >
+                  {{ formatRoleName(user.role) }}
+                </span>
+                <span
+                  v-if="user.banned_at"
+                  class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-800 text-white"
+                >
+                  {{ t('admin.users.banned') }}
+                </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-500">
+                {{ formatTimestamp(user.created_at, locale) }}
+              </td>
+              <td
+                class="px-6 py-3 whitespace-nowrap text-right text-sm font-medium flex gap-2 justify-end"
               >
-                {{ formatRoleName(user.role) }}
-              </span>
-              <span
-                v-if="user.banned_at"
-                class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-800 text-white"
-              >
-                {{ t('admin.users.banned') }}
-              </span>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-500">
-              {{ formatTimestamp(user.created_at) }}
-            </td>
-            <td
-              class="px-6 py-3 whitespace-nowrap text-right text-sm font-medium flex gap-2 justify-end"
-            >
-              <button
-                v-if="canEditProfile"
-                class="text-brown-600 hover:text-brown-900 font-medium transition-colors"
-                @click="openProfileModal(user)"
-              >
-                {{ t('admin.users.profile') }}
-              </button>
+                <button
+                  v-if="canEditProfile"
+                  class="text-brown-600 hover:text-brown-900 font-medium transition-colors"
+                  @click="openProfileModal(user)"
+                >
+                  {{ t('admin.users.profile') }}
+                </button>
+                <button
+                  v-if="canBanUser(user) && !user.banned_at"
+                  class="text-orange-600 hover:text-orange-900 font-medium transition-colors disabled:opacity-50"
+                  @click="openBanModal(user)"
+                >
+                  {{ t('admin.users.banUser') }}
+                </button>
+                <button
+                  v-if="canBanUser(user) && user.banned_at"
+                  class="text-green-600 hover:text-green-900 font-medium transition-colors disabled:opacity-50"
+                  @click="confirmUnban(user)"
+                >
+                  {{ t('admin.users.unban') }}
+                </button>
+                <button
+                  v-if="canDeleteUser(user)"
+                  class="text-red-600 hover:text-red-900 font-medium transition-colors disabled:opacity-50"
+                  @click="confirmDelete(user)"
+                >
+                  {{ t('admin.users.deleteUser') }}
+                </button>
+              </td>
+            </tr>
+            <tr v-if="users.length === 0 && !isLoading">
+              <td colspan="4" class="px-6 py-12 text-center text-brown-500">
+                {{ t('admin.users.table.noUsers') }}
+              </td>
+            </tr>
+            <TableSkeleton v-if="isLoading" :columns="4" :avatar-column="1" />
+          </tbody>
+        </table>
+      </div>
 
-              <!-- Ban/Unban -->
-              <button
-                v-if="canBanUser(user) && !user.banned_at"
-                class="text-orange-600 hover:text-orange-900 font-medium transition-colors disabled:opacity-50"
-                @click="openBanModal(user)"
-              >
-                {{ t('admin.users.banUser') }}
-              </button>
-              <button
-                v-if="canBanUser(user) && user.banned_at"
-                class="text-green-600 hover:text-green-900 font-medium transition-colors disabled:opacity-50"
-                @click="confirmUnban(user)"
-              >
-                {{ t('admin.users.unban') }}
-              </button>
-
-              <!-- Delete -->
-              <button
-                v-if="canDeleteUser(user)"
-                class="text-red-600 hover:text-red-900 font-medium transition-colors disabled:opacity-50"
-                @click="confirmDelete(user)"
-              >
-                {{ t('admin.users.deleteUser') }}
-              </button>
-            </td>
-          </tr>
-          <tr v-if="users.length === 0 && !isLoading">
-            <td colspan="4" class="px-6 py-12 text-center text-brown-500">
-              {{ t('admin.users.table.noUsers') }}
-            </td>
-          </tr>
-          <TableSkeleton v-if="isLoading" :columns="4" :avatar-column="1" />
-        </tbody>
-      </table>
+      <AdminPagination
+        v-model:page="page"
+        :limit="limit"
+        :total-items="totalUsers"
+        :items-length="users.length"
+        :previous-text="t('admin.pagination.previous')"
+        :next-text="t('admin.pagination.next')"
+        :page-text="t('admin.pagination.page_number', { page })"
+        @update:page="loadUsers"
+      />
     </div>
 
-    <!-- Pagination -->
-    <AdminPagination
-      v-model:page="page"
-      :limit="limit"
-      :total-items="totalUsers"
-      :items-length="users.length"
-      :previous-text="t('admin.pagination.previous')"
-      :next-text="t('admin.pagination.next')"
-      :page-text="t('admin.pagination.page_number', { page })"
-      @update:page="loadUsers"
-    />
-    </div>
-
-    <!-- Profile Edit Modal -->
     <ActionModal
       v-model="isEditingProfileUser"
       :title="t('admin.users.editProfile_title', { name: editingProfileUser?.name })"
@@ -261,7 +255,7 @@
         </div>
       </div>
     </ActionModal>
-    <!-- Ban User Modal -->
+
     <ActionModal
       v-model="banModal.isOpen"
       :title="t('admin.users.banUser_title', { name: banModal.user?.name })"
@@ -286,7 +280,6 @@
       </div>
     </ActionModal>
 
-    <!-- Confirmation Modal -->
     <ActionModal
       v-model="confirmModal.isOpen"
       :title="confirmModal.title"
@@ -313,24 +306,11 @@ import TableSkeleton from '@/components/ui/TableSkeleton.vue';
 import AdminPagination from '@/components/ui/AdminPagination.vue';
 import ActionModal from '@/components/ui/ActionModal.vue';
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
+import { formatTimestamp } from '@/utils/date';
 
 const { t, locale } = useI18n();
 
-const formatTimestamp = (dateString: string | null | undefined) => {
-  if (!dateString) return 'N/A';
-  const date = new Date(dateString);
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
-  
-  const time = date.toLocaleTimeString(locale.value, {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  });
-  
-  return `${day}/${month}/${year} ${time}`;
-};
+// Local formatTimestamp removed, using imported one with locale
 const { toast } = useToast();
 const authStore = useAuthStore();
 

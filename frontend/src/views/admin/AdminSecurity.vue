@@ -5,6 +5,7 @@ import { useAuthStore } from '@/store/authStore';
 import { apiV1 } from '@/utils/api';
 import { showSuccess, showError } from '@/store/toast';
 import { PERMISSIONS } from '@/constants/permissions';
+import { formatTimestamp } from '@/utils/date';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import SkeletonLoader from '@/components/ui/SkeletonLoader.vue';
 import TableSkeleton from '@/components/ui/TableSkeleton.vue';
@@ -28,7 +29,7 @@ interface SecuritySummary {
   }>;
 }
 
-const { t, locale } = useI18n();
+const { t } = useI18n();
 const authStore = useAuthStore();
 const summary = ref<SecuritySummary | null>(null);
 const loading = ref(true);
@@ -83,22 +84,6 @@ const getStatusColor = (level: string): string => {
     case 'warning': return 'text-amber-600 bg-amber-50 border-amber-100';
     default: return 'text-sage-600 bg-sage-50 border-sage-100';
   }
-};
-
-const formatTime = (timestamp: string): string => {
-  if (!timestamp) return 'N/A';
-  const date = new Date(timestamp);
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
-  
-  const time = date.toLocaleTimeString(locale.value, {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  });
-  
-  return `${day}/${month}/${year} ${time}`;
 };
 </script>
 
@@ -285,14 +270,14 @@ const formatTime = (timestamp: string): string => {
               {{ t('admin.security.recentAlertsTitle') }}
             </h2>
             <p class="text-xs text-brown-500 font-medium italic mt-1 ml-1">
-              {{ t('admin.security.lastUpdated') }}: {{ formatTime(new Date().toISOString()) }}
+              {{ t('admin.security.lastUpdated') }}: {{ formatTimestamp(new Date().toISOString()) }}
             </p>
           </div>
         </div>
 
         <div v-if="!summary.recent || summary.recent.length === 0" class="text-center py-16 bg-sand-50/30 rounded-2xl border border-dashed border-sand-200">
            <div class="mb-4 text-brown-200/60">
-              <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" class="mx-auto"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" /><path d="m9 12 2 2 4-4" /></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" class="mx-auto"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" /><path d="m9 12 2 2 4-4" /></svg>
            </div>
            <p class="text-brown-500 text-sm font-medium">{{ t('admin.security.noRecentAlerts') }}</p>
         </div>
@@ -321,7 +306,7 @@ const formatTime = (timestamp: string): string => {
                   </span>
                 </td>
                 <td class="p-3 sm:p-4 text-xs text-brown-500 font-bold whitespace-nowrap italic">
-                  {{ formatTime(alert.timestamp) }}
+                  {{ formatTimestamp(alert.timestamp) }}
                 </td>
                 <td class="p-3 sm:p-4">
                    <p class="text-xs text-brown-600 font-medium max-w-md line-clamp-2 md:line-clamp-none">{{ alert.details }}</p>

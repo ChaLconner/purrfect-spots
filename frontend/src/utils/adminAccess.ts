@@ -11,6 +11,9 @@ type AdminRoute = {
 
 const ADMIN_BYPASS_PERMISSIONS = new Set<string>([PERMISSIONS.ACCESS_ADMIN]);
 const ADMIN_SHELL_PERMISSIONS = new Set<string>(Object.values(PERMISSIONS));
+const LEGACY_ADMIN_ROLE_ALIASES: Record<string, string> = {
+  superadmin: 'super_admin',
+};
 
 const ADMIN_ROUTE_ORDER: AdminRoute[] = [
   { path: '/admin', permission: PERMISSIONS.SYSTEM_STATS },
@@ -30,7 +33,8 @@ function getPermissions(user: AdminUser): string[] {
 }
 
 export function hasAdminBypass(user: AdminUser): boolean {
-  const role = user?.role?.toLowerCase();
+  const rawRole = user?.role?.toLowerCase();
+  const role = rawRole ? LEGACY_ADMIN_ROLE_ALIASES[rawRole] || rawRole : rawRole;
   if (role === 'admin' || role === 'super_admin') {
     return true;
   }

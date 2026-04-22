@@ -65,7 +65,7 @@
                   </div>
                 </td>
                 <td class="admin-photos-cell admin-photos-cell-date">
-                  {{ formatTimestamp(photo.uploaded_at) }}
+                  {{ formatTimestamp(photo.uploaded_at, locale) }}
                 </td>
                 <td class="admin-photos-cell admin-photos-cell-actions">
                   <div class="admin-photo-actions">
@@ -131,6 +131,7 @@ import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import AdminPagination from '@/components/ui/AdminPagination.vue';
 import TableSkeleton from '@/components/ui/TableSkeleton.vue';
 import { BaseConfirmModal, OptimizedImage } from '@/components/ui';
+import { formatTimestamp } from '@/utils/date';
 
 interface AdminPhoto {
   id: string;
@@ -142,22 +143,6 @@ interface AdminPhoto {
 }
 
 const { t, locale } = useI18n();
-
-const formatTimestamp = (dateString: string) => {
-  if (!dateString) return 'N/A';
-  const date = new Date(dateString);
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
-  
-  const time = date.toLocaleTimeString(locale.value, {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  });
-  
-  return `${day}/${month}/${year} ${time}`;
-};
 const { toast } = useToast();
 const authStore = useAuthStore();
 

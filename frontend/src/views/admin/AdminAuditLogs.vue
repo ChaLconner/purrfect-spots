@@ -60,7 +60,7 @@
         <tbody class="admin-audit-table-body">
           <tr v-for="log in logs" :key="log.id" class="admin-audit-row">
             <td class="admin-audit-cell admin-audit-cell-nowrap admin-audit-cell-muted">
-              {{ formatTimestamp(log.created_at) }}
+              {{ formatTimestamp(log.created_at, locale) }}
             </td>
             <td class="admin-audit-cell admin-audit-cell-nowrap admin-audit-cell-primary">
               <div v-if="log.users">
@@ -146,7 +146,7 @@
             <div>
               <span class="admin-audit-modal-label">{{ t('admin.audit.table.date') }}</span>
               <span class="admin-audit-modal-value">
-                {{ formatTimestamp(selectedLog.created_at) }}
+                {{ formatTimestamp(selectedLog.created_at, locale) }}
               </span>
             </div>
           </div>
@@ -193,6 +193,7 @@ import { useToast } from '@/components/toast/use-toast';
 import TableSkeleton from '@/components/ui/TableSkeleton.vue';
 import RefreshButton from '@/components/ui/RefreshButton.vue';
 import AdminPagination from '@/components/ui/AdminPagination.vue';
+import { formatTimestamp } from '@/utils/date';
 
 interface AuditLog {
   id: string;
@@ -209,21 +210,6 @@ interface AuditLog {
 
 const { t, locale } = useI18n();
 
-const formatTimestamp = (dateString: string) => {
-  if (!dateString) return 'N/A';
-  const date = new Date(dateString);
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
-  
-  const time = date.toLocaleTimeString(locale.value, {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  });
-  
-  return `${day}/${month}/${year} ${time}`;
-};
 const logs = ref<AuditLog[]>([]);
 const page = ref(1);
 const limit = 50;

@@ -50,6 +50,7 @@ export const useAdminStore = defineStore('admin', {
     showPerformanceStats: true,
     reportChannel: null as RealtimeChannel | null,
     _realtimeDebounceTimer: null as ReturnType<typeof setTimeout> | null,
+    _lastRealtimeForcedSyncAt: 0,
   }),
   actions: {
     async fetchSummary(force: boolean = false) {
@@ -182,7 +183,12 @@ export const useAdminStore = defineStore('admin', {
           this.stats.pending_reports += 1;
           if (this._realtimeDebounceTimer) clearTimeout(this._realtimeDebounceTimer);
           this._realtimeDebounceTimer = setTimeout(() => {
-            void this.fetchStats(true);
+            const now = Date.now();
+            if (now - this._lastRealtimeForcedSyncAt < 30000) {
+              return;
+            }
+            this._lastRealtimeForcedSyncAt = now;
+            void this.fetchSummary(true);
           }, 5000);
         })
         .subscribe();
@@ -193,6 +199,7 @@ export const useAdminStore = defineStore('admin', {
         clearTimeout(this._realtimeDebounceTimer);
         this._realtimeDebounceTimer = null;
       }
+      this._lastRealtimeForcedSyncAt = 0;
       if (this.reportChannel) {
         this.reportChannel.unsubscribe();
         this.reportChannel = null;

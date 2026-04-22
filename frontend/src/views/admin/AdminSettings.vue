@@ -411,7 +411,7 @@
                   }}</span>
                 </div>
                 <span class="text-xs text-brown-400 italic">{{
-                  formatDate(entry.created_at)
+                  formatTimestamp(entry.created_at, locale)
                 }}</span>
               </div>
 
@@ -467,7 +467,7 @@ import { apiV1 } from '@/utils/api';
 import { useToast } from '@/components/toast/use-toast';
 import { useI18n } from 'vue-i18n';
 import { BaseConfirmModal } from '@/components/ui';
-
+import { formatTimestamp } from '@/utils/date';
 interface SystemConfig {
   key: string;
   value: unknown;
@@ -679,22 +679,6 @@ const formatValue = (val: unknown): string => {
   if (typeof val === 'boolean') return val ? t('common.enabled') : t('common.disabled');
   if (typeof val === 'object' && val !== null) return JSON.stringify(val);
   return String(val ?? '');
-};
-
-const formatDate = (dateStr: string): string => {
-  if (!dateStr) return 'N/A';
-  const date = new Date(dateStr);
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
-  
-  const time = date.toLocaleTimeString(locale.value, {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  });
-  
-  return `${day}/${month}/${year} ${time}`;
 };
 
 onMounted(() => {

@@ -162,7 +162,7 @@
                 class="admin-monthly-table-row"
               >
                 <td class="admin-monthly-table-month">
-                  {{ new Date(row.month_timestamp).toLocaleDateString(locale, { month: 'long' }) }}
+                  {{ formatDate(row.month_timestamp, { month: 'long' }, locale) }}
                 </td>
                 <td class="py-2 text-right">{{ row.new_users }}</td>
                 <td class="py-2 text-right">{{ row.new_photos }}</td>
@@ -236,6 +236,7 @@ import type { Component } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAdminStore } from '@/store/adminStore';
 import { format, parseISO } from 'date-fns';
+import { formatDate } from '@/utils/date';
 
 const { t, locale } = useI18n();
 const adminStore = useAdminStore();

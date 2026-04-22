@@ -177,10 +177,10 @@ async def get_dashboard_summary(
 
         # Parallel fetch for all dashboard components
         stats_tasks = [
-            admin_client.table("users").select("id", count=CountMethod.estimated).limit(1).execute(),
-            admin_client.table("cat_photos").select("id", count=CountMethod.estimated).limit(1).execute(),
+            admin_client.table("users").select("id", count=CountMethod.exact).limit(1).execute(),
+            admin_client.table("cat_photos").select("id", count=CountMethod.exact).limit(1).execute(),
             admin_client.table("reports").select("id", count=CountMethod.exact).eq("status", "pending").execute(),
-            admin_client.table("reports").select("id", count=CountMethod.estimated).limit(1).execute(),
+            admin_client.table("reports").select("id", count=CountMethod.exact).limit(1).execute(),
         ]
         trends_task = admin_client.rpc("get_admin_trends", {"days_back": 30}).execute()
         monthly_task = admin_client.rpc("get_monthly_report", {"report_year": datetime.now().year}).execute()
@@ -218,7 +218,7 @@ async def get_dashboard_summary(
 
             async def safe_count(
                 table: str,
-                count_method: CountMethod = CountMethod.estimated,
+                count_method: CountMethod = CountMethod.exact,
                 filters: dict[str, Any] | None = None,
             ) -> int:
                 try:

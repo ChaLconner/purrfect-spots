@@ -188,7 +188,7 @@
             </div>
 
             <span class="admin-comment-timestamp">
-              {{ formatTimestamp(comment.created_at) }}
+              {{ formatTimestampWithLocale(comment.created_at) }}
             </span>
           </div>
         </RecycleScroller>
@@ -247,7 +247,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { RecycleScroller } from 'vue-virtual-scroller';
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
@@ -258,6 +259,7 @@ import AdminPagination from '@/components/ui/AdminPagination.vue';
 import ActionModal from '@/components/ui/ActionModal.vue';
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import { useAdminTable } from '@/composables/useAdminTable';
+import { formatTimestamp } from '@/utils/date';
 
 interface AdminComment {
   id: string;
@@ -272,22 +274,10 @@ interface AdminComment {
 
 const { t } = useI18n();
 const { toast } = useToast();
+const router = useRouter();
 
-const formatTimestamp = (dateString: string): string => {
-  if (!dateString) return 'N/A';
-  const date = new Date(dateString);
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
-  
-  const time = date.toLocaleTimeString(useI18n().locale.value, {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  });
-  
-  return `${day}/${month}/${year} ${time}`;
-};
+// Local formatTimestamp removed, using imported one with locale
+const formatTimestampWithLocale = (date: string): string => formatTimestamp(date, useI18n().locale.value);
 
 const searchQuery = ref('');
 const showReportedOnly = ref(false);
@@ -306,7 +296,9 @@ const {
   exportHeaders: ['ID', 'User', 'Content', 'Reports', 'Created At'],
   exportFileNamePrefix: 'comments_export',
   formatExportRow: (c) => [c.id, c.user_email || 'N/A', c.content, c.report_count.toString(), c.created_at],
-  limit: 100,
+  limit: 50,
+  exportMaxRows: 1000,
+  exportConcurrentBatches: 2,
 });
 
 const fetchComments = (newPage: number = 1): void => {
@@ -316,18 +308,27 @@ const fetchComments = (newPage: number = 1): void => {
   });
 };
 
-watch([searchQuery, showReportedOnly], () => fetchComments(1));
+let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+watch(searchQuery, () => {
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(() => fetchComments(1), 300);
+});
+watch(showReportedOnly, () => fetchComments(1));
 
 onMounted(() => fetchComments());
+onUnmounted(() => {
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = null;
+});
 
 // Delete Logic
 const deleteModalOpen = ref(false);
 const commentToDelete = ref<AdminComment | null>(null);
-const confirmDelete = (comment: AdminComment) => {
+const confirmDelete = (comment: AdminComment): void => {
   commentToDelete.value = comment;
   deleteModalOpen.value = true;
 };
-const executeDelete = async () => {
+const executeDelete = async (): Promise<void> => {
   if (!commentToDelete.value) return;
   try {
     await apiV1.delete(`/admin/comments/${commentToDelete.value.id}`);
@@ -343,11 +344,11 @@ const executeDelete = async () => {
 const banConfirmOpen = ref(false);
 const commentToBan = ref<AdminComment | null>(null);
 const banning = ref(false);
-const handleBanUser = (comment: AdminComment) => {
+const handleBanUser = (comment: AdminComment): void => {
   commentToBan.value = comment;
   banConfirmOpen.value = true;
 };
-const executeBan = async () => {
+const executeBan = async (): Promise<void> => {
   if (!commentToBan.value) return;
   banning.value = true;
   try {
@@ -364,11 +365,11 @@ const executeBan = async () => {
 const bulkConfirmOpen = ref(false);
 const currentBulkType = ref<'delete' | 'dismiss'>('delete');
 const bulkProcessing = ref(false);
-const bulkAction = (type: 'delete' | 'dismiss') => {
+const bulkAction = (type: 'delete' | 'dismiss'): void => {
   currentBulkType.value = type;
   bulkConfirmOpen.value = true;
 };
-const executeBulkAction = async () => {
+const executeBulkAction = async (): Promise<void> => {
   bulkProcessing.value = true;
   try {
     const endpoint = currentBulkType.value === 'delete' ? '/admin/comments/bulk-delete' : '/admin/comments/bulk-resolve';
@@ -383,7 +384,7 @@ const executeBulkAction = async () => {
 };
 
 // Dismiss Reports
-const dismissReports = async (comment: AdminComment) => {
+const dismissReports = async (comment: AdminComment): Promise<void> => {
   try {
     await apiV1.put(`/admin/comments/${comment.id}/resolve`, {});
     toast({ description: t('admin.comments.dismiss_success'), variant: 'success' });
@@ -393,9 +394,15 @@ const dismissReports = async (comment: AdminComment) => {
   }
 };
 
-const viewReports = (comment: AdminComment) => {
-  // Logic to view reports (can be a separate modal or redirect)
-  console.log('View reports for:', comment.id);
+const viewReports = (comment: AdminComment): void => {
+  void router.push({
+    name: 'AdminReports',
+    query: {
+      status: 'pending',
+      source: 'comments',
+      commentId: comment.id,
+    },
+  });
 };
 </script>
 

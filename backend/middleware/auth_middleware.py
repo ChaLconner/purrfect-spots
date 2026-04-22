@@ -187,6 +187,29 @@ async def _refresh_user_auth_cache(user_id: str, cache_key: str, current_time: f
     from services.redis_service import redis_service
     from utils.supabase_client import get_async_supabase_admin_client
 
+    def _collect_permission_codes(raw_role_permissions: Any) -> set[str]:
+        codes: set[str] = set()
+        if isinstance(raw_role_permissions, dict):
+            raw_role_permissions = [raw_role_permissions]
+        if not isinstance(raw_role_permissions, list):
+            return codes
+
+        for rp in raw_role_permissions:
+            if not isinstance(rp, dict):
+                continue
+            raw_permissions = rp.get("permissions")
+            if isinstance(raw_permissions, dict):
+                raw_permissions = [raw_permissions]
+            if not isinstance(raw_permissions, list):
+                continue
+            for permission in raw_permissions:
+                if not isinstance(permission, dict):
+                    continue
+                code = normalize_permission_code(cast(str | None, permission.get("code")))
+                if code:
+                    codes.add(code)
+        return codes
+
     try:
         supabase_admin = await get_async_supabase_admin_client()
         # Fetch user with role and permissions
@@ -204,7 +227,9 @@ async def _refresh_user_auth_cache(user_id: str, cache_key: str, current_time: f
 
             # Extract permissions from nested structure
             permissions_set = set()
-            role_name = cast(str, data.get("role", "user"))  # Default to legacy column
+            # Source of truth: derive role from relational RBAC tables only.
+            # This avoids inconsistent auth behavior when legacy role fields diverge.
+            role_name = "user"
 
             role_data = data.get("roles")
             role_dict = UserBaseMixin._extract_role_dict(role_data)
@@ -212,13 +237,25 @@ async def _refresh_user_auth_cache(user_id: str, cache_key: str, current_time: f
                 if role_dict.get("name"):
                     role_name = cast(str, role_dict.get("name"))
 
-                rps = cast(list[dict[str, Any]], role_dict.get("role_permissions", []))
-                for rp in rps:
-                    perm = cast(dict[str, Any], rp.get("permissions"))
-                    if perm and isinstance(perm, dict) and "code" in perm:
-                        permission_code = normalize_permission_code(cast(str, perm["code"]))
-                        if permission_code:
-                            permissions_set.add(permission_code)
+                permissions_set.update(_collect_permission_codes(role_dict.get("role_permissions")))
+
+            role_id = cast(str | None, data.get("role_id"))
+            should_lookup_role = (not role_dict or not permissions_set) and role_id
+
+            if should_lookup_role:
+                role_res = await supabase_admin.table("roles").select("name").eq("id", role_id).maybe_single().execute()
+                role_data = cast(dict[str, Any] | None, getattr(role_res, "data", None))
+                if role_data and role_data.get("name"):
+                    role_name = cast(str, role_data["name"])
+
+                role_permissions_res = (
+                    await supabase_admin.table("role_permissions")
+                    .select("permissions(code)")
+                    .eq("role_id", role_id)
+                    .execute()
+                )
+                role_permissions_rows = cast(list[dict[str, Any]], role_permissions_res.data or [])
+                permissions_set.update(_collect_permission_codes(role_permissions_rows))
 
             from utils.datetime_utils import from_iso as parse_iso8601
 

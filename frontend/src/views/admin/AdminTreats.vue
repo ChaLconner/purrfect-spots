@@ -133,7 +133,7 @@
               class="hover:bg-sand-50/50 transition-colors"
             >
               <td class="px-6 py-4 text-xs text-brown-500">
-                {{ formatTimestamp(txn.created_at) }}
+                {{ formatTimestamp(txn.created_at, locale) }}
               </td>
               <td class="px-6 py-4">
                 <span
@@ -384,6 +384,7 @@ import { useToast } from '@/components/toast/use-toast';
 import { useI18n } from 'vue-i18n';
 import RefreshButton from '@/components/ui/RefreshButton.vue';
 import AdminPagination from '@/components/ui/AdminPagination.vue';
+import { formatTimestamp } from '@/utils/date';
 
 interface TreatStats {
   total_in_circulation: number;
@@ -411,22 +412,6 @@ const PAGE_SIZE = 50;
 
 const { toast } = useToast();
 const { t, locale } = useI18n();
-
-const formatTimestamp = (dateString: string) => {
-  if (!dateString) return 'N/A';
-  const date = new Date(dateString);
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
-  
-  const time = date.toLocaleTimeString(locale.value, {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  });
-  
-  return `${day}/${month}/${year} ${time}`;
-};
 
 const loading = ref(true);
 const statsLoading = ref(true);

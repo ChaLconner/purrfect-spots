@@ -611,6 +611,7 @@
     "users": {
       "title": "User Management",
       "title_simple": "Users",
+      "subtitle_simple": "Manage and monitor platform members.",
       "search_placeholder": "Search users by name or email...",
       "view_profile": "View User Profile",
       "editProfile": "Edit Profile",
