@@ -1,6 +1,6 @@
 from typing import Any, cast
 
-from sqlalchemy import bindparam, column, func, table, text, update
+from sqlalchemy import bindparam, func, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 import structlog  # type: ignore[import-untyped, unused-ignore]
@@ -14,26 +14,6 @@ logger = structlog.get_logger(__name__)
 
 class UserProfileMixin(UserBaseMixin):
     """Mixin for user profile management and synchronization."""
-
-    @staticmethod
-    def _users_table() -> Any:
-        return table(
-            "users",
-            column("id"),
-            column("email"),
-            column("name"),
-            column("username"),
-            column("picture"),
-            column("bio"),
-            column("google_id"),
-            column("treat_balance"),
-            column("total_treats_received"),
-            column("is_pro"),
-            column("role_id"),
-            column("created_at"),
-            column("updated_at"),
-            column("banned_at"),
-        )
 
     async def create_or_get_user(self, user_data: dict[str, Any]) -> User:
         """Create new user or get existing user from database for OAuth (Async)"""

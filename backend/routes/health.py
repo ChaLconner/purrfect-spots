@@ -46,11 +46,9 @@ async def check_database() -> dict[str, Any]:
         from dependencies import get_async_supabase_client
 
         supabase = await get_async_supabase_client()
-
-        # Simple query to verify connection - count users (lightweight)
-        from postgrest.types import CountMethod
-
-        _ = await supabase.table("cat_photos").select("count", count=CountMethod.exact).limit(1).execute()
+        # Connectivity check only: avoid expensive exact counts on frequently
+        # polled readiness endpoints.
+        _ = await supabase.table("cat_photos").select("id").limit(1).execute()
 
         latency_ms = (datetime.now(UTC) - start_time).total_seconds() * 1000
 

@@ -5,6 +5,7 @@ Tests for gallery service with pagination
 from unittest.mock import MagicMock
 
 import pytest
+from postgrest.types import CountMethod
 
 from services.gallery_service import GalleryService
 
@@ -211,6 +212,35 @@ class TestGalleryService:
         # Verify the call completes successfully
         # Mocking issues prevent deep assertion here, but execution is verified
         assert True
+
+    async def test_get_all_photos_retries_count_with_head_only_query(
+        self, gallery_service, mock_supabase, mock_cat_photo
+    ):
+        """Retry count failures with a HEAD-style count-only query to avoid JSON serialization."""
+        data_response = MagicMock()
+        data_response.data = [mock_cat_photo]
+        data_response.count = None
+
+        count_response = MagicMock()
+        count_response.data = None
+        count_response.count = 42
+
+        mock_supabase.execute.side_effect = [
+            Exception("{'message': 'JSON could not be generated', 'code': 416}"),
+            data_response,
+            count_response,
+        ]
+
+        result = await gallery_service.get_all_photos(limit=7, offset=14)
+
+        assert result["data"][0]["id"] == mock_cat_photo["id"]
+        assert result["total"] == 42
+        assert result["has_more"] is True
+        mock_supabase.select.assert_any_call(
+            gallery_service.PHOTO_COLUMNS,
+            count=CountMethod.exact,
+        )
+        mock_supabase.select.assert_any_call(count=CountMethod.exact)
 
     async def test_search_photos_error_handling(self, gallery_service, mock_supabase):
         """Test error handling in search_photos"""

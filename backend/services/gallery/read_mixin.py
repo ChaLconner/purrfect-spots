@@ -93,16 +93,37 @@ class GalleryReadMixin(GalleryBaseMixin):
         )
         # PERF: Sort at DB level instead of Python
         order_field = sort_field or "uploaded_at"
-        res = await query.order(order_field, desc=sort_desc).range(offset, offset + limit - 1).execute()
-        data = cast(list[dict[str, Any]], res.data or [])
-        total = res.count if include_count and res.count is not None else None
-        return data, total
+
+        try:
+            res = await query.order(order_field, desc=sort_desc).range(offset, offset + limit - 1).execute()
+            data = cast(list[dict[str, Any]], res.data or [])
+            total = res.count if include_count and res.count is not None else None
+            return data, total
+        except Exception as e:
+            # BUGFIX: Handle Supabase error 416 'JSON could not be generated' which occurs
+            # on some rows when count='exact' is used.
+            if "JSON could not be generated" in str(e) and include_count:
+                logger.warning(f"Supabase count='exact' failed, retrying without count: {e!s}")
+                # Retry without count
+                query_no_count = self._apply_visibility_filter(
+                    self.supabase.table("cat_photos").select(self.PHOTO_COLUMNS)
+                )
+                res = (
+                    await query_no_count.order(order_field, desc=sort_desc).range(offset, offset + limit - 1).execute()
+                )
+                data = cast(list[dict[str, Any]], res.data or [])
+                # Fetch count separately as fallback
+                total = await self._fetch_total_count_fallback(data)
+                return data, total
+
+            # Re-raise if it's not the specific count error or if we weren't asking for count
+            raise
 
     async def _fetch_total_count_fallback(self, data: list[dict[str, Any]]) -> int:
-        """Fallback: fetch total count separately (only used if merged count fails)."""
+        """Fallback: fetch total count separately using a HEAD-style count-only query."""
         try:
             res_count = await self._apply_visibility_filter(
-                self.supabase.table("cat_photos").select("id", count=CountMethod.exact)
+                self.supabase.table("cat_photos").select(count=CountMethod.exact)
             ).execute()
             return res_count.count or 0
         except Exception as e:

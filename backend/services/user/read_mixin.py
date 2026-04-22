@@ -1,6 +1,7 @@
 from typing import Any
 
-from sqlalchemy import column, select, table
+from sqlalchemy import bindparam, select
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 
 import structlog
 from schemas.user import User
@@ -12,38 +13,6 @@ logger = structlog.get_logger(__name__)
 class UserReadMixin(UserBaseMixin):
     """Mixin for user-related read operations."""
 
-    @staticmethod
-    def _users_table() -> Any:
-        return table(
-            "users",
-            column("id"),
-            column("email"),
-            column("name"),
-            column("username"),
-            column("picture"),
-            column("bio"),
-            column("google_id"),
-            column("treat_balance"),
-            column("total_treats_received"),
-            column("is_pro"),
-            column("role_id"),
-            column("created_at"),
-            column("updated_at"),
-            column("banned_at"),
-        )
-
-    @staticmethod
-    def _roles_table() -> Any:
-        return table("roles", column("id"), column("name"))
-
-    @staticmethod
-    def _permissions_table() -> Any:
-        return table("permissions", column("id"), column("code"))
-
-    @staticmethod
-    def _role_permissions_table() -> Any:
-        return table("role_permissions", column("role_id"), column("permission_id"))
-
     async def get_user_by_id(self, user_id: str) -> User | None:
         """Get user by ID from database with Role and Permissions (Async)"""
         try:
@@ -51,13 +20,14 @@ class UserReadMixin(UserBaseMixin):
                 try:
                     users = self._users_table()
                     roles = self._roles_table()
+                    user_id_param = bindparam("user_id", type_=PGUUID(as_uuid=False))
                     user_query = (
                         select(*users.c, roles.c.name.label("role_name"))
                         .select_from(users.outerjoin(roles, users.c.role_id == roles.c.id))
-                        .where(users.c.id == user_id)
+                        .where(users.c.id == user_id_param)
                         .limit(1)
                     )
-                    db_res = await self.db.execute(user_query)
+                    db_res = await self.db.execute(user_query, {"user_id": user_id})
                     row = db_res.fetchone()
                     if row:
                         permissions = await self._get_permissions_for_user_id(user_id)
@@ -147,6 +117,7 @@ class UserReadMixin(UserBaseMixin):
         permissions = self._permissions_table()
         role_permissions = self._role_permissions_table()
         users = self._users_table()
+        user_id_param = bindparam("user_id", type_=PGUUID(as_uuid=False))
         perm_query = (
             select(permissions.c.code)
             .select_from(
@@ -154,9 +125,9 @@ class UserReadMixin(UserBaseMixin):
                     users, role_permissions.c.role_id == users.c.role_id
                 )
             )
-            .where(users.c.id == user_id)
+            .where(users.c.id == user_id_param)
         )
-        perm_db_res = await self.db.execute(perm_query)
+        perm_db_res = await self.db.execute(perm_query, {"user_id": user_id})
         return [str(row[0]) for row in perm_db_res]
 
     async def _get_permissions_for_username(self, username: str) -> list[str]:

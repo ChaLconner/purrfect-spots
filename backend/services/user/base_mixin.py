@@ -1,6 +1,6 @@
 from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import column, table, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import structlog  # type: ignore[import-untyped, unused-ignore]
@@ -65,6 +65,38 @@ class UserBaseMixin:
         except Exception as e:
             logger.warning("Failed to fetch default user role ID: %s", e)
         return None
+
+    @staticmethod
+    def _users_table() -> Any:
+        return table(
+            "users",
+            column("id"),
+            column("email"),
+            column("name"),
+            column("username"),
+            column("picture"),
+            column("bio"),
+            column("google_id"),
+            column("treat_balance"),
+            column("total_treats_received"),
+            column("is_pro"),
+            column("role_id"),
+            column("created_at"),
+            column("updated_at"),
+            column("banned_at"),
+        )
+
+    @staticmethod
+    def _roles_table() -> Any:
+        return table("roles", column("id"), column("name"))
+
+    @staticmethod
+    def _permissions_table() -> Any:
+        return table("permissions", column("id"), column("code"))
+
+    @staticmethod
+    def _role_permissions_table() -> Any:
+        return table("role_permissions", column("role_id"), column("permission_id"))
 
     @staticmethod
     def _extract_role_dict(role_data: Any) -> dict[str, Any] | None:
