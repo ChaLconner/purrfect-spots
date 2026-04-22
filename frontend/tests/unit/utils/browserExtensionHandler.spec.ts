@@ -37,14 +37,19 @@ describe('browserExtensionHandler', () => {
       expect(browserHandler.isBrowserExtensionError({ name: 'ChunkLoadError' })).toBe(true);
     });
 
-    it('detects error codes', () => {
-      expect(browserHandler.isBrowserExtensionError({ code: 'NETWORK_ERROR' })).toBe(true);
-      expect(browserHandler.isBrowserExtensionError({ code: 'ERR_NETWORK' })).toBe(true);
+    it('detects extension URLs and chunk load errors', () => {
+      expect(
+        browserHandler.isBrowserExtensionError({
+          message: 'Script failed from chrome-extension://example/script.js',
+        })
+      ).toBe(true);
+      expect(browserHandler.isBrowserExtensionError({ name: 'ChunkLoadError' })).toBe(true);
     });
 
     it('returns false for normal errors', () => {
       expect(browserHandler.isBrowserExtensionError({ message: 'Network timeout' })).toBeFalsy();
       expect(browserHandler.isBrowserExtensionError({ message: 'Server error 500' })).toBeFalsy();
+      expect(browserHandler.isBrowserExtensionError({ message: 'Network Error', code: 'ERR_NETWORK' })).toBeFalsy();
     });
 
     it('returns false for null/undefined', () => {

@@ -227,10 +227,7 @@ router.beforeEach(async (to): Promise<RouteLocationRaw | boolean | void> => {
   }
 
   const needsAuthStore =
-    !!to.meta.requiresAuth ||
-    to.name === 'Login' ||
-    to.name === 'Register' ||
-    to.name === 'Auth';
+    !!to.meta.requiresAuth || to.name === 'Auth';
   const authStore = needsAuthStore ? await getAuthStore() : null;
 
   // 2. Auth Protection Guard
@@ -282,17 +279,8 @@ router.beforeEach(async (to): Promise<RouteLocationRaw | boolean | void> => {
       };
     }
   } else {
-    // Check if user is already logged in and trying to access auth pages
-    if (
-      authStore &&
-      (to.name === 'Login' || to.name === 'Register' || to.name === 'Auth') &&
-      authStore.isUserReady
-    ) {
-      if (authStore.canAccessAdmin) {
-        return { path: '/admin' };
-      }
-      return { path: '/' };
-    }
+    // Auth pages handle cached-user redirects after the first paint so the
+    // login/register UI is never blocked on a store import or session check.
   }
 
   return true;

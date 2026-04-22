@@ -1,10 +1,8 @@
 import { reactive, ref, computed, type Ref, type ComputedRef } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/store/authStore';
-import { AuthService } from '@/services/authService';
 import { showSuccess, showError } from '@/store/toast';
 import { isDev, getEnvVar } from '@/utils/env';
-import { getGoogleAuthUrl } from '@/utils/oauth';
 import { getSafeRedirect, redirectToTrustedExternalUrl } from '@/utils/security';
 
 export interface UseAuthFormReturn {
@@ -88,6 +86,7 @@ export function useAuthForm(initialMode: 'login' | 'register' = 'login'): UseAut
     isEmailLoading.value = true;
 
     try {
+      const { AuthService } = await import('@/services/authService');
       let data;
       if (isLogin.value) {
         data = await AuthService.login(form.email, form.password);
@@ -145,6 +144,7 @@ export function useAuthForm(initialMode: 'login' | 'register' = 'login'): UseAut
       }
 
       const redirectUri = `${globalThis.location.origin}/auth/callback`;
+      const { getGoogleAuthUrl } = await import('@/utils/oauth');
       const { url, codeVerifier } = await getGoogleAuthUrl(googleClientId, redirectUri);
 
       globalThis.sessionStorage.setItem('google_code_verifier', codeVerifier);

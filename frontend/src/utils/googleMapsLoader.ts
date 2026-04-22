@@ -13,6 +13,40 @@ let isLoading = false;
 let isLoaded = false;
 let loadPromise: Promise<void> | null = null;
 let pendingCallbacks: Array<() => void> = [];
+let hasInjectedPreconnectHints = false;
+
+const ensureGoogleMapsPreconnectHints = (): void => {
+  if (hasInjectedPreconnectHints || typeof document === 'undefined') {
+    return;
+  }
+
+  const hintConfigs = [
+    { href: 'https://maps.googleapis.com' },
+    { href: 'https://maps.gstatic.com', crossOrigin: 'anonymous' },
+  ];
+
+  hintConfigs.forEach(({ href, crossOrigin }) => {
+    const existingHint = document.head.querySelector<HTMLLinkElement>(
+      `link[rel="preconnect"][href="${href}"]`
+    );
+
+    if (existingHint) {
+      return;
+    }
+
+    const link = document.createElement('link');
+    link.rel = 'preconnect';
+    link.href = href;
+
+    if (crossOrigin) {
+      link.crossOrigin = crossOrigin;
+    }
+
+    document.head.appendChild(link);
+  });
+
+  hasInjectedPreconnectHints = true;
+};
 
 /**
  * Load Google Maps API script only once
@@ -32,6 +66,7 @@ export const loadGoogleMaps = async (options: GoogleMapsLoaderOptions): Promise<
 
   // Start loading process
   isLoading = true;
+  ensureGoogleMapsPreconnectHints();
 
   // Create a unique callback name to avoid conflicts
   // nosec typescript:S2245 - Math.random() for unique callback naming, not security-sensitive
@@ -41,7 +76,7 @@ export const loadGoogleMaps = async (options: GoogleMapsLoaderOptions): Promise<
   const script = document.createElement('script');
   script.async = true;
   script.defer = true;
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${options.apiKey}&v=${options.version || 'weekly'}&libraries=${options.libraries || 'places'}&callback=${callbackName}`;
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${options.apiKey}&v=${options.version || 'weekly'}&libraries=${options.libraries || 'places'}&loading=async&callback=${callbackName}`;
 
   // Create the load promise
   loadPromise = new Promise<void>((resolve, reject) => {

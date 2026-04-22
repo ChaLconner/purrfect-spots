@@ -44,7 +44,7 @@ npm run build
 
 ## 🔗 API Integration
 
-Connects to FastAPI backend at `http://localhost:8000`:
+Connects to the FastAPI backend through the frontend's same-origin `/api` proxy in development:
 - **Auth**: Google OAuth & JWT
 - **Photos**: Upload and gallery listing
 - **Locations**: Geolocation data

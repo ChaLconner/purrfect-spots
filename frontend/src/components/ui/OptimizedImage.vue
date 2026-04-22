@@ -9,8 +9,9 @@
  * - Error handling with fallback
  * - WebP support detection
  */
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useImageLoader } from '@/composables/useImageLoader';
+import { isAvatarUrl } from '@/utils/avatar';
 
 interface Props {
   src: string;
@@ -37,6 +38,9 @@ const emit = defineEmits<{
   (e: 'error', error: Event): void;
 }>();
 
+const currentSrc = ref(props.src);
+const isUsingFallback = ref(false);
+
 // Use the composable for loading logic
 const {
   isLoaded,
@@ -51,6 +55,15 @@ const {
   lazy: props.lazy,
 });
 
+watch(
+  () => props.src,
+  (nextSrc) => {
+    currentSrc.value = nextSrc;
+    isUsingFallback.value = false;
+    retry();
+  }
+);
+
 // Event handlers
 function handleLoad(): void {
   onInternalLoad();
@@ -58,25 +71,35 @@ function handleLoad(): void {
 }
 
 function handleError(event: Event): void {
+  const canSwapToFallback =
+    !!props.fallbackSrc &&
+    currentSrc.value !== props.fallbackSrc &&
+    (isAvatarUrl(currentSrc.value) || currentSrc.value.startsWith('http'));
+
+  if (canSwapToFallback) {
+    currentSrc.value = props.fallbackSrc;
+    isUsingFallback.value = true;
+    retry();
+    return;
+  }
+
   onInternalError(event);
   emit('error', event);
 }
 
 // Generate srcset for responsive images
 const srcset = computed(() => {
-  if (!props.src) return '';
+  if (!currentSrc.value) return '';
 
   // Check if it's an external URL (CDN, S3, etc.)
-  const isExternalUrl = props.src.startsWith('http');
-  
-  // Don't append size parameters to known avatar domains
-  const isAvatarUrl = /googleusercontent\.com|githubusercontent\.com|discordapp\.com|ui-avatars\.com/.test(props.src);
+  const isExternalUrl = currentSrc.value.startsWith('http');
+  const isAvatarImage = isAvatarUrl(currentSrc.value);
 
-  if (isExternalUrl && !isAvatarUrl) {
+  if (isExternalUrl && !isAvatarImage) {
     try {
       const sizes = [320, 640, 960, 1280, 1920];
       return sizes.map((size) => {
-        const newUrl = new URL(props.src);
+        const newUrl = new URL(currentSrc.value);
         newUrl.searchParams.set('w', size.toString());
         return `${newUrl.toString()} ${size}w`;
       }).join(', ');
@@ -85,7 +108,11 @@ const srcset = computed(() => {
     }
   }
 
-  return props.src;
+  return currentSrc.value;
+});
+
+const referrerPolicy = computed(() => {
+  return isAvatarUrl(currentSrc.value) ? 'no-referrer' : undefined;
 });
 
 // Aspect ratio style
@@ -124,7 +151,7 @@ const aspectRatioStyle = computed(() => {
     <!-- Actual Image -->
     <img
       v-if="isIntersecting && !hasError"
-      :src="src"
+      :src="currentSrc"
       :srcset="srcset"
       :sizes="sizes"
       :alt="alt"
@@ -132,6 +159,7 @@ const aspectRatioStyle = computed(() => {
       :height="height"
       :loading="lazy ? 'lazy' : 'eager'"
       :decoding="lazy ? 'async' : 'auto'"
+      :referrerpolicy="referrerPolicy"
       class="w-full h-full opacity-0 transition-opacity duration-300 ease-out"
       :class="{
         'opacity-100': isLoaded,
@@ -148,7 +176,7 @@ const aspectRatioStyle = computed(() => {
     >
       <img
         :src="fallbackSrc"
-        :alt="`Failed to load: ${alt}`"
+        :alt="isUsingFallback ? alt : `Failed to load: ${alt}`"
         class="w-1/2 max-w-[100px] opacity-50"
       />
       <button

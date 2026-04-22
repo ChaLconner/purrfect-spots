@@ -255,6 +255,7 @@ import { showError, showSuccess } from '@/store/toast';
 import { useUploadCat } from '@/composables/useUploadCat';
 import { useUploadMap } from '@/composables/useUploadMap';
 import { formatTimestamp } from '@/utils/date';
+import { ApiError, ApiErrorTypes } from '@/utils/api';
 
 // Components
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
@@ -270,6 +271,7 @@ const router = useRouter();
 const authStore = useAuthStore();
 const { t, locale } = useI18n();
 const isAuthenticated = computed(() => authStore.isAuthenticated);
+const canRequestQuota = computed(() => authStore.isInitialized && authStore.isAuthenticated);
 
 // State
 const currentStep = ref(1);
@@ -331,7 +333,7 @@ let lastQuotaFetchAt = 0;
 
 // Fetch real quota from API
 const refreshQuota = async (force = false): Promise<void> => {
-  if (!isAuthenticated.value) {
+  if (!canRequestQuota.value) {
     quotaStatus.value = null;
     return;
   }
@@ -348,7 +350,9 @@ const refreshQuota = async (force = false): Promise<void> => {
       }
       lastQuotaFetchAt = Date.now();
     } catch (err) {
-      console.warn('Could not fetch upload quota:', err);
+      if (!(err instanceof ApiError && err.type === ApiErrorTypes.AUTHENTICATION_ERROR)) {
+        console.warn('Could not fetch upload quota:', err);
+      }
     } finally {
       quotaFetchPromise = null;
     }
@@ -358,7 +362,13 @@ const refreshQuota = async (force = false): Promise<void> => {
 };
 
 onMounted(() => {
-  void refreshQuota();
+  if (authStore.isAuthenticated) {
+    void authStore.initializeAuth().finally(() => {
+      if (canRequestQuota.value) {
+        void refreshQuota(true);
+      }
+    });
+  }
 });
 
 // Refresh quota when auth initializes (important for F5 refresh)

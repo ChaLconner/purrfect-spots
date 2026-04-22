@@ -52,7 +52,9 @@ export function useUploadCat(): {
       }>('/api/v1/upload/quota');
       return response;
     } catch (err) {
-      console.error('Failed to fetch quota:', err);
+      if (!(err instanceof ApiError && err.type === ApiErrorTypes.AUTHENTICATION_ERROR)) {
+        console.error('Failed to fetch quota:', err);
+      }
       return null;
     }
   };

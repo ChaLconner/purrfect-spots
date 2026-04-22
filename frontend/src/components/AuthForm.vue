@@ -3,7 +3,7 @@
     class="min-h-screen flex items-center justify-center p-4 sm:p-8 relative overflow-hidden bg-[#eaf6f3]"
   >
     <!-- Animated Background Clouds -->
-    <GhibliBackground />
+    <GhibliBackground v-if="shouldRenderDeferredVisuals" />
 
     <!-- Main Content -->
     <div
@@ -79,7 +79,10 @@
 
             <!-- Password Strength Meter (Register only) -->
             <transition name="fade">
-              <PasswordStrengthMeter v-if="!isLogin" :password="form.password" />
+              <PasswordStrengthMeter
+                v-if="shouldRenderDeferredVisuals && shouldShowPasswordStrength"
+                :password="form.password"
+              />
             </transition>
 
             <p v-if="!isLogin" class="font-sans text-sm text-[#5a4632] mt-1 ml-2">
@@ -179,7 +182,7 @@
 </template>
 
 <script setup lang="ts">
-import { watch, onMounted } from 'vue';
+import { watch, onMounted, defineAsyncComponent, computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 const catIllustrationUrl = '/cat-illustration.webp';
@@ -188,9 +191,12 @@ import { useAuthForm } from '@/composables/useAuthForm';
 import { useAuthStore } from '@/store/authStore';
 import { useThrottleFn } from '@/composables/useThrottle';
 import { getSafeRedirect } from '@/utils/security';
-import PasswordStrengthMeter from '@/components/ui/PasswordStrengthMeter.vue';
-import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 import { BaseButton, BaseInput } from '@/components/ui';
+
+const GhibliBackground = defineAsyncComponent(() => import('@/components/ui/GhibliBackground.vue'));
+const PasswordStrengthMeter = defineAsyncComponent(
+  () => import('@/components/ui/PasswordStrengthMeter.vue')
+);
 
 interface Props {
   initialMode?: 'login' | 'register';
@@ -201,6 +207,8 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const router = useRouter();
+const authStore = useAuthStore();
+const shouldRenderDeferredVisuals = ref(false);
 const {
   isLogin,
   isEmailLoading,
@@ -210,6 +218,10 @@ const {
   handleSubmit,
   handleGoogleLogin,
 } = useAuthForm(props.initialMode);
+const isRegisterMode = computed(() => !isLogin.value);
+const shouldShowPasswordStrength = computed(
+  () => isRegisterMode.value && form.password.trim().length > 0
+);
 
 // Throttle submit to prevent double-click issues even before loading state kicks in
 const throttledSubmit = useThrottleFn(handleSubmit, 1000, { trailing: false });
@@ -224,7 +236,6 @@ watch(
 
 // Check if user is already logged in
 const checkAuthAndRedirect = (): void => {
-  const authStore = useAuthStore();
   if (authStore.isUserReady) {
     // 1. Priority: Deep Linking (Return to intended page)
     const deepLink = globalThis.sessionStorage?.getItem('redirectAfterAuth');
@@ -246,12 +257,26 @@ const checkAuthAndRedirect = (): void => {
 };
 
 onMounted(() => {
+  const enableDeferredVisuals = (): void => {
+    shouldRenderDeferredVisuals.value = true;
+  };
+
+  if ('requestIdleCallback' in globalThis) {
+    (
+      globalThis as unknown as {
+        requestIdleCallback: (cb: () => void, options?: { timeout: number }) => void;
+      }
+    ).requestIdleCallback(enableDeferredVisuals, { timeout: 250 });
+  } else {
+    globalThis.setTimeout(enableDeferredVisuals, 150);
+  }
+
   checkAuthAndRedirect();
 });
 
 // Watch for delayed auth initialization (e.g. refresh token success)
 watch(
-  () => useAuthStore().isUserReady,
+  () => authStore.isUserReady,
   (isReady) => {
     if (isReady) {
       checkAuthAndRedirect();

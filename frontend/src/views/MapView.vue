@@ -270,19 +270,18 @@ const initializeMap = async (): Promise<void> => {
 
     const defaultCenter = userLocation.value || FALLBACK_LOCATION;
 
-    // Create map
-    // Note: When using mapId, styles must be configured in Google Cloud Console
-    // The 'styles' property is ignored when mapId is present
+    // Create a standard raster map.
+    // The previous hardcoded vector map ID triggered Google's shared label
+    // worker, which then failed under our strict CSP because it relies on
+    // WebAssembly instantiation paths that require `unsafe-eval`.
     map.value = new google.maps.Map(mapElement, {
       zoom: MAP_CONFIG.DEFAULT_ZOOM,
       center: defaultCenter,
-      mapId: '2e9b14b966a476a5ec49973f',
       disableDefaultUI: true,
       mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: false,
       zoomControl: false,
-      // styles: ghibliMapStyle, // Disabled: styles are controlled via Cloud Console when mapId is set
     });
 
     // Initialize bounds immediately

@@ -15,14 +15,12 @@ const BROWSER_EXTENSION_ERROR_PATTERNS = [
   'listener indicated an asynchronous response',
   'Non-Error promise rejection captured',
   'ChunkLoadError',
-  'Rejected',
+  'chrome-extension://',
+  'moz-extension://',
 ];
 
 // Error names that indicate browser extension conflicts
-const BROWSER_EXTENSION_ERROR_NAMES = new Set(['ChunkLoadError', 'TypeError']);
-
-// Error codes that indicate browser extension conflicts
-const BROWSER_EXTENSION_ERROR_CODES = new Set(['NETWORK_ERROR', 'ERR_NETWORK']);
+const BROWSER_EXTENSION_ERROR_NAMES = new Set(['ChunkLoadError']);
 
 /**
  * Check if an error is related to browser extension conflicts
@@ -43,10 +41,7 @@ export const isBrowserExtensionError = (error: unknown): boolean => {
     return true;
   }
 
-  return (
-    (typeof err?.name === 'string' && BROWSER_EXTENSION_ERROR_NAMES.has(err.name)) ||
-    (typeof err?.code === 'string' && BROWSER_EXTENSION_ERROR_CODES.has(err.code))
-  );
+  return typeof err?.name === 'string' && BROWSER_EXTENSION_ERROR_NAMES.has(err.name);
 };
 
 /**
