@@ -22,6 +22,7 @@
 import { ref, watchEffect, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { sanitizeRichHtml } from '@/utils/security';
+import { formatDate } from '@/utils/date';
 
 const { t } = useI18n();
 const contentRef = ref<HTMLElement | null>(null);
@@ -30,7 +31,7 @@ onMounted(() => {
   watchEffect(() => {
     if (contentRef.value) {
       contentRef.value.innerHTML = sanitizeRichHtml(t('privacyPolicy.content', {
-        date: new Date().toLocaleDateString(),
+        date: formatDate(new Date().toISOString()),
       }));
     }
   });

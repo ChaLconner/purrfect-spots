@@ -9,6 +9,7 @@ import { useCatsStore } from '@/store';
 import { extractTags, getCleanDescription } from '@/store/catsStore';
 import type { CatLocation } from '@/types/api';
 import { openTrustedExternalUrl } from '@/utils/security';
+import { formatDate } from '@/utils/date';
 import LikeButton from '@/components/social/LikeButton.vue';
 import CommentList from '@/components/social/CommentList.vue';
 import ReportModal from '@/components/ui/ReportModal.vue';
@@ -45,16 +46,7 @@ const imageTags = computed((): string[] => {
 
 // Formatted Date
 const dateFormatted = computed((): string => {
-  if (!props.image?.uploaded_at) return '';
-  try {
-    return new Date(props.image.uploaded_at).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  } catch {
-    return '';
-  }
+  return formatDate(props.image?.uploaded_at);
 });
 
 // Robust visibility check for Give Treats button

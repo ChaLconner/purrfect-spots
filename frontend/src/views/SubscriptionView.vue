@@ -118,13 +118,11 @@
                   {{ $t('subscription.proPlan.active') }}
                 </div>
                 <div
-                  v-if="
-                    subscriptionStore.cancelAtPeriodEnd && subscriptionStore.subscriptionEndDate
-                  "
+                  v-if="subscriptionStore.cancelAtPeriodEnd && subscriptionStore.subscriptionEndDate"
                   class="text-center mb-4 text-amber-600 font-medium text-sm"
                 >
                   {{ $t('subscription.proPlan.cancelsOn') }}
-                  {{ new Date(subscriptionStore.subscriptionEndDate).toLocaleDateString() }}
+                  {{ formatDate(subscriptionStore.subscriptionEndDate) }}
                 </div>
                 <button
                   class="w-full bg-stone-100 text-stone-500 py-3 rounded-2xl hover:bg-stone-200 transition-colors font-bold text-sm"
@@ -289,6 +287,7 @@ import PlanCard from '@/components/subscription/PlanCard.vue';
 import { BaseConfirmModal } from '@/components/ui';
 import { config } from '@/config';
 import { redirectToTrustedExternalUrl } from '@/utils/security';
+import { formatDate } from '@/utils/date';
 
 const { t, locale } = useI18n();
 const subscriptionStore = useSubscriptionStore();

@@ -8,7 +8,7 @@
 
       <div class="gallery-mint-container p-0 min-h-[600px] w-full relative z-[5]">
         <!-- Loading state -->
-        <output v-if="loading" class="loading-container" aria-live="polite">
+        <output v-if="loading && visibleImages.length === 0" class="loading-container" aria-live="polite">
           <GhibliLoader :text="$t('galleryPage.loading')" />
         </output>
 

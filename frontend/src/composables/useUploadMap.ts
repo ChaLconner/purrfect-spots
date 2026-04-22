@@ -1,8 +1,6 @@
 import { ref, type Ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { showError } from '@/store/toast';
-import { loadGoogleMaps } from '@/utils/googleMapsLoader';
-import { getEnvVar } from '@/utils/env';
 
 export interface UseUploadMapOptions {
   onLocationUpdate: (lat: number, lng: number) => void;
@@ -25,6 +23,11 @@ export function useUploadMap(options: UseUploadMapOptions): {
 
   const initMap = async (): Promise<void> => {
     try {
+      const [{ loadGoogleMaps }, { getEnvVar }] = await Promise.all([
+        import('@/utils/googleMapsLoader'),
+        import('@/utils/env'),
+      ]);
+
       await loadGoogleMaps({ apiKey: getEnvVar('VITE_GOOGLE_MAPS_API_KEY') });
 
       const elementId = options.mapElementId || 'uploadMap';

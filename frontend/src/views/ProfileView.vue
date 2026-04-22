@@ -258,19 +258,9 @@ const closeImageModal = (): void => {
   router.push({ query });
 };
 
-const handleSaveProfile = async (data: {
-  name: string;
-  username: string;
-  bio: string;
-  picture: string;
-}): Promise<void> => {
+const handleSaveProfile = async (data: ProfileUpdateData): Promise<void> => {
   try {
-    const updateData: ProfileUpdateData = {
-      name: data.name,
-      username: data.username,
-      bio: data.bio,
-      picture: data.picture,
-    };
+    const updateData: ProfileUpdateData = { ...data };
 
     const updatedUser = await ProfileService.updateProfile(updateData);
 

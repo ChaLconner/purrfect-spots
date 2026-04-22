@@ -177,7 +177,6 @@
 import { ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { showError } from '@/store/toast';
-import { validateImageFile } from '@/utils/imageUtils';
 import type { CatDetectionResult } from '@/types/upload';
 
 const { t } = useI18n();
@@ -244,7 +243,9 @@ function handleDrop(e: DragEvent): void {
   if (dropped) processFile(dropped);
 }
 
-const processFile = (imageFile: File): void => {
+const processFile = async (imageFile: File): Promise<void> => {
+  const { validateImageFile } = await import('@/utils/imageUtils');
+
   // Validate file using shared utility (type and size)
   const validation = validateImageFile(imageFile);
   if (!validation.valid) {

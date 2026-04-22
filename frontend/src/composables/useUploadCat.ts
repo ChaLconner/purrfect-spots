@@ -1,7 +1,7 @@
 import { ref, type Ref } from 'vue';
-import { uploadFile, ApiError, ApiErrorTypes } from '../utils/api';
-import { optimizeImage, validateImageFile, getImageDimensions } from '../utils/imageUtils';
 import { getEnvVar } from '../utils/env';
+import { getImageDimensions, optimizeImage, validateImageFile } from '../utils/imageUtils';
+import { api, ApiError, ApiErrorTypes, uploadFile } from '../utils/api';
 
 export function useUploadCat(): {
   isUploading: Ref<boolean>;
@@ -42,8 +42,6 @@ export function useUploadCat(): {
     reset_type: string | null;
   } | null> => {
     try {
-      // Lazy import api to avoid circular dependencies if any
-      const { api } = await import('../utils/api');
       const response = await api.get<{
         used: number;
         limit: number;
@@ -71,11 +69,11 @@ export function useUploadCat(): {
     },
     catDetectionData?: Record<string, unknown>
   ): Promise<unknown | null> => {
-    try {
-      isUploading.value = true;
-      error.value = null;
-      uploadProgress.value = 0;
+    isUploading.value = true;
+    error.value = null;
+    uploadProgress.value = 0;
 
+    try {
       // Validate image file
       const validation = validateImageFile(file);
       if (!validation.valid) {

@@ -72,6 +72,7 @@ import { showError } from '@/store/toast';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 import GhibliLoader from '@/components/ui/GhibliLoader.vue';
 import { useSeo } from '@/composables/useSeo';
+import { formatDate } from '@/utils/date';
 
 const { t } = useI18n();
 const { setMetaTags } = useSeo();
@@ -91,13 +92,7 @@ const statusClass = (status: string): string => {
   }
 };
 
-const formatDate = (dateStr: string): string => {
-  return new Date(dateStr).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-};
+// Local formatDate removed, using import from @/utils/date
 
 const fetchReports = async (): Promise<void> => {
   loading.value = true;

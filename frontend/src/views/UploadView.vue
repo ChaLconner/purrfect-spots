@@ -252,11 +252,9 @@ import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '@/store/authStore';
 import { showError, showSuccess } from '@/store/toast';
-import { catDetectionService as CatDetectionService } from '@/services/catDetectionService';
 import { useUploadCat } from '@/composables/useUploadCat';
 import { useUploadMap } from '@/composables/useUploadMap';
-import { format } from 'date-fns';
-import { th, enUS } from 'date-fns/locale';
+import { formatTimestamp } from '@/utils/date';
 
 // Components
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
@@ -281,38 +279,99 @@ const showLoginModal = ref(false);
 
 const uploadResult = ref<unknown>(null);
 
-// Placeholder for quota - ideally fetched from API
-const quotaStatus = ref<{
+type UploadQuotaStatus = {
   used: number;
   limit: number;
   remaining: number;
   is_pro: boolean;
   resets_at: string | null;
   reset_type: string | null;
-} | null>(null);
+};
+
+const QUOTA_CACHE_KEY = 'upload_quota_cache_v1';
+const QUOTA_CACHE_TTL_MS = 60 * 1000;
+
+const readQuotaCache = (): UploadQuotaStatus | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(QUOTA_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as {
+      userId?: string;
+      timestamp?: number;
+      data?: UploadQuotaStatus;
+    };
+
+    const currentUserId = authStore.user?.id;
+    if (!currentUserId || parsed.userId !== currentUserId) return null;
+    if (!parsed.timestamp || Date.now() - parsed.timestamp > QUOTA_CACHE_TTL_MS) return null;
+    return parsed.data ?? null;
+  } catch {
+    return null;
+  }
+};
+
+const writeQuotaCache = (data: UploadQuotaStatus): void => {
+  if (typeof window === 'undefined') return;
+  const currentUserId = authStore.user?.id;
+  if (!currentUserId) return;
+  sessionStorage.setItem(
+    QUOTA_CACHE_KEY,
+    JSON.stringify({
+      userId: currentUserId,
+      timestamp: Date.now(),
+      data,
+    })
+  );
+};
+
+const quotaStatus = ref<UploadQuotaStatus | null>(readQuotaCache());
+let quotaFetchPromise: Promise<void> | null = null;
+let lastQuotaFetchAt = 0;
 
 // Fetch real quota from API
-const refreshQuota = async (): Promise<void> => {
-  if (isAuthenticated.value) {
+const refreshQuota = async (force = false): Promise<void> => {
+  if (!isAuthenticated.value) {
+    quotaStatus.value = null;
+    return;
+  }
+
+  if (!force && quotaFetchPromise) return quotaFetchPromise;
+  if (!force && Date.now() - lastQuotaFetchAt < 15000) return;
+
+  quotaFetchPromise = (async (): Promise<void> => {
     try {
       const quota = await getUploadQuota();
       if (quota) {
         quotaStatus.value = quota;
+        writeQuotaCache(quota);
       }
+      lastQuotaFetchAt = Date.now();
     } catch (err) {
       console.warn('Could not fetch upload quota:', err);
+    } finally {
+      quotaFetchPromise = null;
     }
-  }
+  })();
+
+  return quotaFetchPromise;
 };
 
-onMounted(refreshQuota);
+onMounted(() => {
+  void refreshQuota();
+});
 
 // Refresh quota when auth initializes (important for F5 refresh)
 watch(
-  () => authStore.isInitialized,
-  (isInit) => {
-    if (isInit) {
-      refreshQuota();
+  () => [authStore.isInitialized, authStore.isAuthenticated] as const,
+  ([isInit, isAuth]) => {
+    if (isInit && isAuth) {
+      if (!quotaStatus.value) {
+        quotaStatus.value = readQuotaCache();
+      }
+      void refreshQuota();
+    } else if (!isAuth) {
+      quotaStatus.value = null;
     }
   }
 );
@@ -336,13 +395,7 @@ const uploadData = ref({
 
 const formatResetTime = (isoString: string): string => {
   if (!isoString) return '';
-  try {
-    const date = new Date(isoString);
-    const dateLocale = locale.value === 'th' ? th : enUS;
-    return format(date, 'd MMM, HH:mm', { locale: dateLocale });
-  } catch {
-    return isoString;
-  }
+  return formatTimestamp(isoString, locale.value);
 };
 
 // Computed Validation
@@ -372,8 +425,10 @@ const handleFileSelected = async ({ file, url }: { file: File; url: string }): P
   // Detect cats
   isDetectingCats.value = true;
   try {
+    const { catDetectionService } = await import('@/services/catDetectionService');
+
     // Simulate or call real service
-    const result = await CatDetectionService.detectCats(file);
+    const result = await catDetectionService.detectCats(file);
     uploadData.value.catDetectionResult = result;
 
     if (result.has_cats) {
@@ -448,7 +503,7 @@ const submitUpload = async (): Promise<void> => {
       uploadResult.value = result;
       currentStep.value = 4;
       showSuccess(t('upload.successMessage'));
-      refreshQuota(); // Refresh quota after success
+      void refreshQuota(true); // Refresh quota after success
     } else {
       // Use the specific error message from the composable if available
       showError(error.value || t('upload.uploadFailed'), t('common.error'));

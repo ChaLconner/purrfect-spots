@@ -8,6 +8,7 @@ import { useToast } from '@/components/toast/use-toast';
 import { useI18n } from 'vue-i18n';
 import { getAvatarFallback, handleAvatarError } from '@/utils/avatar';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
+import { formatDate } from '@/utils/date';
 
 const props = defineProps<{
   image: CatLocation | null;
@@ -121,7 +122,7 @@ const handleReportClick = (): void => {
                   class="text-[10px] sm:text-xs text-stone-400 font-medium uppercase tracking-widest"
                 >
                   {{ t('profile.uploaded') }}
-                  {{ new Date(image.uploaded_at).toLocaleDateString(locale) }}
+                  {{ formatDate(image.uploaded_at, undefined, locale) }}
                 </p>
               </div>
             </div>

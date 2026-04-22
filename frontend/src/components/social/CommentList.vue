@@ -60,7 +60,7 @@
               </span>
               <span
                 class="text-[10px] uppercase tracking-wider font-bold text-brown-light/60 whitespace-nowrap flex-shrink-0"
-                >{{ formatDate(comment.created_at) }}</span
+                >{{ formatTimestamp(comment.created_at, locale) }}</span
               >
             </div>
             <div v-if="editingId === comment.id" class="mt-2">
@@ -208,9 +208,10 @@ import { useToastStore } from '@/store';
 import { useAuthStore } from '@/store/authStore';
 import { BaseButton, BaseCard, BaseInput, BaseConfirmModal } from '@/components/ui';
 import { EXTERNAL_URLS } from '@/utils/constants';
+import { formatTimestamp } from '@/utils/date';
 import { useI18n } from 'vue-i18n';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const props = defineProps<{
   photoId: string;
 }>();
@@ -372,12 +373,5 @@ async function saveEdit(id: string): Promise<void> {
   }
 }
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
+// formatDate local version removed, using formatTimestamp from import
 </script>

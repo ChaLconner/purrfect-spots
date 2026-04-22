@@ -168,6 +168,7 @@ import { useNotificationStore } from '@/store/notificationStore';
 import { useRouter } from 'vue-router';
 import type { Notification } from '@/services/notificationService';
 import { getAvatarFallback, handleAvatarError } from '@/utils/avatar';
+import { formatDate as sharedFormatDate } from '@/utils/date';
 
 const store = useNotificationStore();
 const router = useRouter();
@@ -202,7 +203,7 @@ function formatDate(dateStr: string): string {
   if (diff < 60) return 'Just now';
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return d.toLocaleDateString();
+  return sharedFormatDate(dateStr);
 }
 
 // Close on click outside

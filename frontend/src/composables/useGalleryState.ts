@@ -27,10 +27,21 @@ export function useGalleryState(): {
   const hasMoreImages = ref(catsStore.galleryLocations.length > 0);
   const totalImages = ref(catsStore.galleryLocations.length);
   let latestRequestId = 0;
+  let inFlightRequestKey: string | null = null;
+  let inFlightRequest: Promise<void> | null = null;
+  let lastLoadMoreRequestAt = 0;
 
   const preloadedLinks: HTMLLinkElement[] = [];
 
   async function fetchGalleryData(reset = false, callback?: () => void): Promise<void> {
+    const requestKey = `${reset ? 'reset' : 'append'}:${catsStore.gallerySearchQuery}:${currentPage.value}:${imagesPerPage}`;
+
+    // Deduplicate identical in-flight requests triggered by multiple watchers/observers.
+    if (inFlightRequest && inFlightRequestKey === requestKey) {
+      return inFlightRequest;
+    }
+
+    const runRequest = async (): Promise<void> => {
     const requestId = ++latestRequestId;
     const hasData = visibleImages.value.length > 0;
 
@@ -120,6 +131,17 @@ export function useGalleryState(): {
         loadingMore.value = false;
       }
     }
+    };
+
+    inFlightRequestKey = requestKey;
+    inFlightRequest = runRequest().finally(() => {
+      if (inFlightRequestKey === requestKey) {
+        inFlightRequestKey = null;
+        inFlightRequest = null;
+      }
+    });
+
+    return inFlightRequest;
   }
 
   function fetchImages(callback?: () => void): void {
@@ -128,6 +150,10 @@ export function useGalleryState(): {
 
   function loadMoreImages(): void {
     if (loadingMore.value || !hasMoreImages.value) return;
+    const now = Date.now();
+    // Prevent request bursts when the observer re-initializes while trigger is still visible.
+    if (now - lastLoadMoreRequestAt < 500) return;
+    lastLoadMoreRequestAt = now;
     currentPage.value++;
     fetchGalleryData(false);
   }
