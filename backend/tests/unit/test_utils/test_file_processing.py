@@ -51,9 +51,31 @@ class TestProcessUploadedImage:
                 extension,
             ) = await process_uploaded_image(mock_file, optimize=False)
 
-            assert contents == mock_file.file
+            assert contents == sample_image_bytes
             assert content_type == "image/jpeg"
             assert extension == "jpg"
+
+    @pytest.mark.asyncio
+    async def test_process_optimizes_image_when_enabled(self, create_mock_upload_file, sample_image_bytes):
+        """Test optimized uploads return optimized bytes and updated MIME metadata."""
+        mock_file = create_mock_upload_file(sample_image_bytes, "cat.jpg", "image/jpeg")
+
+        with (
+            patch("utils.file_processing.validate_image_file"),
+            patch("utils.file_processing.is_valid_image", return_value=True),
+            patch("utils.file_processing.validate_image_magic_bytes", return_value=(True, "image/jpeg", None)),
+            patch("utils.file_processing.validate_content_type_matches", return_value=(True, "image/jpeg")),
+            patch("utils.file_processing.optimize_image", return_value=(b"optimized", "image/webp")) as mock_optimize,
+            patch("utils.file_processing.get_safe_file_extension", return_value=".webp"),
+        ):
+            from utils.file_processing import process_uploaded_image
+
+            contents, content_type, extension = await process_uploaded_image(mock_file, optimize=True)
+
+            mock_optimize.assert_called_once_with(sample_image_bytes, "image/jpeg", max_dimension=1920)
+            assert contents == b"optimized"
+            assert content_type == "image/webp"
+            assert extension == "webp"
 
     @pytest.mark.asyncio
     async def test_process_invalid_file_type(self, create_mock_upload_file):

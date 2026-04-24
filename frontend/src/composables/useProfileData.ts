@@ -80,12 +80,9 @@ export function useProfileData(): {
         uploads.value = await ProfileService.getUserUploads();
       } else {
         if (!targetUserId) return;
-        const [publicProfile, publicUploads] = await Promise.all([
-          ProfileService.getPublicProfile(targetUserId),
-          ProfileService.getPublicUserUploads(targetUserId),
-        ]);
-        viewedUser.value = publicProfile;
-        uploads.value = publicUploads;
+        const publicData = await ProfileService.getPublicProfileBundle(targetUserId);
+        viewedUser.value = publicData.profile;
+        uploads.value = publicData.uploads;
       }
 
       if (viewedUser.value) {

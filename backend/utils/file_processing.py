@@ -10,7 +10,7 @@ from fastapi import HTTPException, UploadFile
 
 from logger import logger
 from utils.file_utils import get_safe_file_extension, validate_image_file
-from utils.image_utils import is_valid_image
+from utils.image_utils import is_valid_image, optimize_image
 from utils.security import (
     is_safe_filename,
     log_security_event,
@@ -111,8 +111,15 @@ async def process_uploaded_image(
             raise HTTPException(status_code=400, detail="Invalid or corrupted image file")
 
         await file.seek(0)
-
+        raw_content = await file.read()
         content_type_str = actual_mime
+
+        if optimize:
+            raw_content, content_type_str = optimize_image(
+                raw_content,
+                content_type_str,
+                max_dimension=max_dimension,
+            )
 
         # Get safe file extension based on final content type
         file_extension = get_safe_file_extension(file.filename or "", content_type_str)
@@ -123,7 +130,7 @@ async def process_uploaded_image(
             details={"final_type": content_type_str, "final_size_kb": original_size / 1024},
         )
 
-        return file.file, content_type_str, file_extension.lstrip(".")
+        return raw_content, content_type_str, file_extension.lstrip(".")
 
     except HTTPException:
         raise

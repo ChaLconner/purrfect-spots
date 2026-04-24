@@ -42,10 +42,29 @@ class UserReadMixin(UserBaseMixin):
 
             query_str = f"{self.USER_COLUMNS}, roles(name, role_permissions(permissions(code)))"
             admin = await self._get_admin_client()
-            supa_res = await admin.table("users").select(query_str).eq("id", user_id).execute()
-            if supa_res.data:
-                data_list = cast(list[dict[str, Any]], supa_res.data)
-                return self._map_db_user_to_model(data_list[0])
+            supa_res = await admin.table("users").select(query_str).eq("id", user_id).maybe_single().execute()
+            if supa_res and supa_res.data:
+                user_data = cast(dict[str, Any], supa_res.data)
+                role_dict = self._extract_role_dict(user_data.get("roles"))
+                role_permissions = role_dict.get("role_permissions") if role_dict else None
+                role_id = user_data.get("role_id")
+
+                if role_id and (not role_dict or not role_permissions):
+                    role_res = await admin.table("roles").select("name").eq("id", role_id).maybe_single().execute()
+                    role_row = cast(dict[str, Any] | None, getattr(role_res, "data", None))
+                    role_permissions_res = (
+                        await admin.table("role_permissions")
+                        .select("permissions(code)")
+                        .eq("role_id", role_id)
+                        .execute()
+                    )
+                    role_name = role_row.get("name") if role_row else None
+                    user_data["roles"] = {
+                        "name": role_name,
+                        "role_permissions": cast(list[dict[str, Any]], role_permissions_res.data or []),
+                    }
+
+                return self._map_db_user_to_model(user_data)
             return None
         except Exception as e:
             logger.debug("Failed to retrieve profile by ID: %s", e)

@@ -125,10 +125,11 @@ class UserBaseMixin:
                     permissions.append(cast(str, perm["code"]))
 
         user_fields = data.copy()
+        user_fields.pop("roles", None)
+        user_fields.pop("permissions", None)
+        user_fields.pop("role", None)
         if role_dict and "name" in role_dict:
             user_fields["role"] = role_dict["name"]
-
-        user_fields.pop("roles", None)
 
         return User(**user_fields, permissions=permissions)
 

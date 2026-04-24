@@ -158,10 +158,8 @@ export default defineConfig(async ({ mode }) => {
     build: {
       outDir: 'dist',
       assetsDir: 'assets',
-      // Admin charts are already route- and viewport-lazy; align the warning
-      // threshold with the known apexcharts vendor payload to avoid noisy
-      // alerts for this intentional split point.
-      chunkSizeWarningLimit: 550,
+      // Keep warnings meaningful now that admin charts use native SVG.
+      chunkSizeWarningLimit: 500,
       // Skip gzip size reporting (handled by compression plugin) - saves memory
       reportCompressedSize: false,
       rolldownOptions: {

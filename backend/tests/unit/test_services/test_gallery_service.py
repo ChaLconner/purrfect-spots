@@ -2,7 +2,7 @@
 Tests for gallery service with pagination
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from postgrest.types import CountMethod
@@ -231,11 +231,13 @@ class TestGalleryService:
             count_response,
         ]
 
-        result = await gallery_service.get_all_photos(limit=7, offset=14)
+        with patch("services.gallery.read_mixin.logger") as mock_logger:
+            result = await gallery_service.get_all_photos(limit=7, offset=14)
 
         assert result["data"][0]["id"] == mock_cat_photo["id"]
         assert result["total"] == 42
         assert result["has_more"] is True
+        mock_logger.warning.assert_not_called()
         mock_supabase.select.assert_any_call(
             gallery_service.PHOTO_COLUMNS,
             count=CountMethod.exact,

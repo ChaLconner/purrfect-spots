@@ -37,6 +37,12 @@ export interface ChangePasswordData {
   new_password: string;
 }
 
+export interface PublicProfileBundle {
+  profile: User;
+  uploads: CatLocation[];
+  count: number;
+}
+
 /**
  * Service class for managing user profile operations.
  * All methods are static and handle authentication errors automatically.
@@ -120,6 +126,16 @@ export class ProfileService {
   // Get public profile by ID
   static async getPublicProfile(userId: string): Promise<User> {
     return await apiV1.get<User>(`/profile/public/${userId}`);
+  }
+
+  // Get public profile and uploads together
+  static async getPublicProfileBundle(userId: string): Promise<PublicProfileBundle> {
+    const result = await apiV1.get<PublicProfileBundle>(`/profile/public/${userId}/bundle`);
+    return {
+      profile: result.profile,
+      uploads: result.uploads || [],
+      count: result.count || 0,
+    };
   }
 
   // Get public uploads by user ID

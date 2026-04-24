@@ -103,7 +103,7 @@ class GalleryReadMixin(GalleryBaseMixin):
             # BUGFIX: Handle Supabase error 416 'JSON could not be generated' which occurs
             # on some rows when count='exact' is used.
             if "JSON could not be generated" in str(e) and include_count:
-                logger.warning(f"Supabase count='exact' failed, retrying without count: {e!s}")
+                logger.debug("Supabase count='exact' failed, retrying without count: %s", e)
                 # Retry without count
                 query_no_count = self._apply_visibility_filter(
                     self.supabase.table("cat_photos").select(self.PHOTO_COLUMNS)

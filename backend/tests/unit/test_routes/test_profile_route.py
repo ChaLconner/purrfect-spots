@@ -228,6 +228,27 @@ class TestProfileRoute:
         assert data["uploads"][0]["location_name"] == mock_cat_photo["location_name"]
 
     @pytest.mark.asyncio
+    async def test_get_public_profile_bundle(self, client, mock_user, mock_gallery_service, mock_cat_photo):
+        """Test getting public profile and uploads in one request."""
+        from routes.profile import resolve_user_by_identifier
+
+        mock_gallery_service.get_user_photos = AsyncMock(return_value=[mock_cat_photo])
+
+        app.dependency_overrides[resolve_user_by_identifier] = lambda: mock_user
+        app.dependency_overrides[get_admin_gallery_service] = lambda: mock_gallery_service
+
+        response = await client.get("/api/v1/profile/public/user123/bundle")
+
+        app.dependency_overrides = {}
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["profile"]["name"] == mock_user.name
+        assert len(data["uploads"]) == 1
+        assert data["count"] == 1
+        assert "email" not in data["profile"]
+
+    @pytest.mark.asyncio
     async def test_update_user_photo(self, client, mock_user, mock_gallery_service):
         """Test updating user photo"""
         mock_gallery_service.get_photo_by_id = AsyncMock(

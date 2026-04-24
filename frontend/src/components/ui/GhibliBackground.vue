@@ -4,7 +4,7 @@
     style="background: linear-gradient(180deg, #eaf6f3 0%, #ffffff 100%)"
   >
     <!-- Decorative Background Elements -->
-    <div class="absolute inset-0 w-full h-full z-0">
+    <div v-if="animated" class="absolute inset-0 w-full h-full z-0">
       <!-- CSS Clouds -->
       <div
         class="absolute bg-white/96 rounded-[50px] blur-[8px] animate-float-cloud before:content-[''] before:absolute before:bg-inherit before:rounded-full after:content-[''] after:absolute after:bg-inherit after:rounded-full w-[120px] h-[40px] before:w-[40px] before:h-[40px] before:-top-[15px] before:left-[55px] after:w-[50px] after:h-[50px] after:-top-[25px] after:left-[20px] top-[15%] -left-[150px] [animation-duration:45s] scale-[1.2] will-change-transform"
@@ -39,10 +39,19 @@
       ></div>
     </div>
 
-    <ShootingStarBackground />
+    <ShootingStarBackground v-if="animated" />
   </div>
 </template>
 
 <script setup lang="ts">
 import ShootingStarBackground from '@/components/ui/ShootingStarBackground.vue';
+
+withDefaults(
+  defineProps<{
+    animated?: boolean;
+  }>(),
+  {
+    animated: true,
+  }
+);
 </script>

@@ -61,11 +61,11 @@ class TestUserService:
     async def test_get_user_by_id_success(self, user_service, mock_supabase_admin):
         """Test retrieving user by ID"""
         user_id = "user-123"
-        mock_result = MagicMock(data=[{"id": user_id, "email": "test@example.com", "name": "Test User"}])
+        mock_result = MagicMock(data={"id": user_id, "email": "test@example.com", "name": "Test User"})
 
         # Configure the mock chain return value
         chain = mock_supabase_admin.table.return_value
-        chain.select.return_value.eq.return_value.execute.return_value = mock_result
+        chain.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = mock_result
 
         user = await user_service.get_user_by_id(user_id)
 

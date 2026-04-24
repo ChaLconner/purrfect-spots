@@ -16,7 +16,7 @@ from constants.admin_permissions import has_admin_access, normalize_permission_c
 from logger import logger
 from schemas.user import User
 from services.token_service import get_token_service
-from services.user.base_mixin import UserBaseMixin
+from services.user_service import UserService
 from supabase import AClient
 from utils.auth_utils import decode_token
 from utils.security_alerts import (
@@ -29,6 +29,7 @@ from utils.supabase_client import (
 
 security = HTTPBearer(auto_error=False)
 USER_AUTH_CACHE_TTL = 300
+USER_AUTH_CACHE_VERSION = "v3"
 
 # JWKS Cache
 # Keep these module-level names for test patching and backwards compatibility.
@@ -39,7 +40,7 @@ JWKS_CACHE_TTL = 3600  # 1 hour
 
 def get_user_auth_cache_key(user_id: str) -> str:
     """Build the Redis cache key used for authenticated user snapshots."""
-    return f"user_auth_cache:{user_id}"
+    return f"user_auth_cache:{USER_AUTH_CACHE_VERSION}:{user_id}"
 
 
 async def invalidate_user_auth_cache(user_id: str) -> None:
@@ -47,6 +48,7 @@ async def invalidate_user_auth_cache(user_id: str) -> None:
     from services.redis_service import redis_service
 
     await redis_service.delete(get_user_auth_cache_key(user_id))
+    await redis_service.delete(f"user_auth_cache:{user_id}")
 
 
 def _assert_user_not_banned(user: User) -> User:
@@ -187,105 +189,23 @@ async def _refresh_user_auth_cache(user_id: str, cache_key: str, current_time: f
     from services.redis_service import redis_service
     from utils.supabase_client import get_async_supabase_admin_client
 
-    def _collect_permission_codes(raw_role_permissions: Any) -> set[str]:
-        codes: set[str] = set()
-        if isinstance(raw_role_permissions, dict):
-            raw_role_permissions = [raw_role_permissions]
-        if not isinstance(raw_role_permissions, list):
-            return codes
-
-        for rp in raw_role_permissions:
-            if not isinstance(rp, dict):
-                continue
-            raw_permissions = rp.get("permissions")
-            if isinstance(raw_permissions, dict):
-                raw_permissions = [raw_permissions]
-            if not isinstance(raw_permissions, list):
-                continue
-            for permission in raw_permissions:
-                if not isinstance(permission, dict):
-                    continue
-                code = normalize_permission_code(cast(str | None, permission.get("code")))
-                if code:
-                    codes.add(code)
-        return codes
-
     try:
         supabase_admin = await get_async_supabase_admin_client()
-        # Fetch user with role and permissions
-        query = "*, roles(name, role_permissions(permissions(code)))"
-        result = await supabase_admin.table("users").select(query).eq("id", user_id).maybe_single().execute()
+        user_service = UserService(supabase_client=supabase_admin, supabase_admin=supabase_admin)
+        user_obj = await user_service.get_user_by_id(user_id)
+        if not user_obj:
+            from database import AsyncSessionLocal
 
-        if result is not None and hasattr(result, "error") and result.error:
-            logger.error(f"Supabase auth query error for user {user_id}: {result.error}")
-            if "permission denied" in str(result.error).lower():
-                logger.warning("Supabase admin client received permission denied - check service role key")
-            raise HTTPException(status_code=401, detail="User database sync failure")
+            if AsyncSessionLocal is not None:
+                async with AsyncSessionLocal() as db:
+                    user_service = UserService(supabase_client=supabase_admin, supabase_admin=supabase_admin, db=db)
+                    user_obj = await user_service.get_user_by_id(user_id)
 
-        if result and hasattr(result, "data") and result.data:
-            data = cast(dict[str, Any], result.data)
-
-            # Extract permissions from nested structure
-            permissions_set = set()
-            # Source of truth: derive role from relational RBAC tables only.
-            # This avoids inconsistent auth behavior when legacy role fields diverge.
-            role_name = "user"
-
-            role_data = data.get("roles")
-            role_dict = UserBaseMixin._extract_role_dict(role_data)
-            if role_dict:
-                if role_dict.get("name"):
-                    role_name = cast(str, role_dict.get("name"))
-
-                permissions_set.update(_collect_permission_codes(role_dict.get("role_permissions")))
-
-            role_id = cast(str | None, data.get("role_id"))
-            should_lookup_role = (not role_dict or not permissions_set) and role_id
-
-            if should_lookup_role:
-                role_res = await supabase_admin.table("roles").select("name").eq("id", role_id).maybe_single().execute()
-                role_data = cast(dict[str, Any] | None, getattr(role_res, "data", None))
-                if role_data and role_data.get("name"):
-                    role_name = cast(str, role_data["name"])
-
-                role_permissions_res = (
-                    await supabase_admin.table("role_permissions")
-                    .select("permissions(code)")
-                    .eq("role_id", role_id)
-                    .execute()
-                )
-                role_permissions_rows = cast(list[dict[str, Any]], role_permissions_res.data or [])
-                permissions_set.update(_collect_permission_codes(role_permissions_rows))
-
-            from utils.datetime_utils import from_iso as parse_iso8601
-
-            user_obj = User(
-                id=cast(str, data["id"]),
-                username=cast(str, data.get("username")),
-                email=cast(str, data.get("email", "")),
-                name=cast(str, data.get("name")),
-                picture=cast(str, data.get("picture")),
-                bio=cast(str, data.get("bio")),
-                is_pro=cast(bool, data.get("is_pro", False)),
-                stripe_customer_id=cast(str, data.get("stripe_customer_id")),
-                subscription_end_date=parse_iso8601(cast(str, data.get("subscription_end_date")))
-                if data.get("subscription_end_date")
-                else None,
-                cancel_at_period_end=cast(bool, data.get("cancel_at_period_end", False)),
-                treat_balance=cast(int, data.get("treat_balance", 0)),
-                role=role_name,
-                role_id=cast(str, data.get("role_id")),
-                permissions=list(permissions_set),
-                created_at=parse_iso8601(cast(str, data.get("created_at"))) if data.get("created_at") else None,
-                google_id=cast(str, data.get("google_id")),
-                banned_at=parse_iso8601(cast(str, data.get("banned_at"))) if data.get("banned_at") else None,
-            )
-
-            # Save to Redis with 5 minutes actual TTL, but logical TTL handles SWR
+        if user_obj:
+            user_obj.permissions = normalize_permissions(user_obj.permissions)
             cache_data = user_obj.model_dump()
             cache_data["_cached_at"] = current_time
-            await redis_service.set(cache_key, cache_data, expire=300)
-
+            await redis_service.set(cache_key, cache_data, expire=USER_AUTH_CACHE_TTL)
             return _assert_user_not_banned(user_obj)
 
         logger.warning(f"User {user_id} not found or permission denied in auth query")

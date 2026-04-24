@@ -1,6 +1,6 @@
 <template>
   <div class="min-h-screen pt-24 pb-12 px-4 sm:px-6 lg:px-8">
-    <GhibliBackground />
+    <GhibliBackground :animated="false" />
     <div class="max-w-5xl mx-auto relative z-10">
       <!-- Profile Header -->
       <ProfileHeader
@@ -240,6 +240,13 @@ const syncStateFromUrl = (): void => {
   }
 };
 
+const isCurrentRouteOwnProfile = (): boolean => {
+  const routeId = route.params.id as string | undefined;
+  if (!routeId) return true;
+  if (!authStore.user) return false;
+  return routeId === authStore.user.id || routeId === authStore.user.username;
+};
+
 // Watch for URL changes
 watch(
   () => route.query.image,
@@ -293,11 +300,15 @@ const handleSaveProfile = async (data: ProfileUpdateData): Promise<void> => {
 };
 
 const refreshProfileView = async (): Promise<void> => {
-  await loadProfileData(() => syncStateFromUrl());
+  const shouldFetchSubscription = authStore.isAuthenticated && isCurrentRouteOwnProfile();
+  const loadTask = loadProfileData(() => syncStateFromUrl());
 
-  if (isOwnProfile.value) {
-    await subscriptionStore.fetchStatus(true);
+  if (shouldFetchSubscription) {
+    await Promise.all([loadTask, subscriptionStore.fetchStatus()]);
+    return;
   }
+
+  await loadTask;
 };
 
 // Initialization logic

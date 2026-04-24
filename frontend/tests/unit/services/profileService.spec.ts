@@ -96,6 +96,20 @@ describe('ProfileService', () => {
     expect(result).toEqual(mockUser);
   });
 
+  it('getPublicProfileBundle returns profile and uploads', async () => {
+    const mockBundle = {
+      profile: { id: 'user-456', name: 'Public User' },
+      uploads: [{ id: 'img1', location_name: 'Location 1' }],
+      count: 1,
+    };
+    vi.mocked(apiV1.get).mockResolvedValue(mockBundle);
+
+    const result = await ProfileService.getPublicProfileBundle('user-456');
+
+    expect(apiV1.get).toHaveBeenCalledWith('/profile/public/user-456/bundle');
+    expect(result).toEqual(mockBundle);
+  });
+
   it('getPublicUserUploads returns uploads array', async () => {
     const mockUploads = [{ id: 'img1', location_name: 'Location 1' }];
     vi.mocked(apiV1.get).mockResolvedValue({ uploads: mockUploads });

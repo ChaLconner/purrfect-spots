@@ -78,17 +78,46 @@
         class="admin-chart-host"
         :class="{ 'opacity-60 grayscale-[0.4] pointer-events-none blur-[1px]': adminStore.isTrendsLoading }"
       >
-          <component
-            :is="ApexChartComponent"
-            v-if="ApexChartComponent && shouldRenderTrendsChart"
-            id="admin-trends-chart"
-          ref="chartRef"
-          :key="`trends-${adminStore.lastFetched}`"
-          height="350"
-          type="area"
-          :options="chartOptions"
-          :series="chartSeries"
-        />
+        <svg
+          v-if="shouldRenderTrendsChart"
+          id="admin-trends-chart"
+          class="admin-native-chart"
+          viewBox="0 0 640 320"
+          role="img"
+          :aria-label="t('admin.dashboard.trends.title')"
+        >
+          <g class="admin-chart-grid">
+            <line v-for="line in 5" :key="line" x1="40" x2="620" :y1="gridY(line)" :y2="gridY(line)" />
+          </g>
+          <g class="admin-chart-axis-labels">
+            <text
+              v-for="label in trendAxisLabels"
+              :key="label.key"
+              :x="label.x"
+              y="302"
+              text-anchor="middle"
+            >
+              {{ label.text }}
+            </text>
+          </g>
+          <polyline
+            v-for="series in visibleTrendSeries"
+            :key="series.name"
+            class="admin-chart-line"
+            :points="series.points"
+            :stroke="series.color"
+          />
+          <circle
+            v-for="point in visibleTrendPoints"
+            :key="point.key"
+            class="admin-chart-point"
+            :cx="point.x"
+            :cy="point.y"
+            :fill="point.color"
+          >
+            <title>{{ point.label }}</title>
+          </circle>
+        </svg>
         <div v-else class="admin-chart-library-skeleton" aria-hidden="true"></div>
       </div>
 
@@ -132,16 +161,36 @@
         :class="{ 'opacity-60 pointer-events-none grayscale-[0.2]': adminStore.isMonthlyLoading }"
       >
         <div class="admin-monthly-chart-panel">
-          <component
-            :is="ApexChartComponent"
-            v-if="ApexChartComponent && shouldRenderMonthlyChart"
+          <svg
+            v-if="shouldRenderMonthlyChart"
             id="admin-monthly-chart"
-            :key="`monthly-${adminStore.lastFetched}`"
-            height="300"
-            type="bar"
-            :options="monthlyChartOptions"
-            :series="monthlyChartSeries"
-          />
+            class="admin-native-chart admin-native-chart-short"
+            viewBox="0 0 640 300"
+            role="img"
+            :aria-label="t('admin.dashboard.monthly.title')"
+          >
+            <g class="admin-chart-grid">
+              <line v-for="line in 5" :key="line" x1="40" x2="620" :y1="monthlyGridY(line)" :y2="monthlyGridY(line)" />
+            </g>
+            <g v-for="group in monthlyBarGroups" :key="group.key">
+              <rect
+                v-for="bar in group.bars"
+                :key="bar.key"
+                class="admin-chart-bar"
+                :x="bar.x"
+                :y="bar.y"
+                :width="bar.width"
+                :height="bar.height"
+                :fill="bar.color"
+                rx="4"
+              >
+                <title>{{ bar.label }}</title>
+              </rect>
+              <text class="admin-chart-axis-label" :x="group.labelX" y="282" text-anchor="middle">
+                {{ group.label }}
+              </text>
+            </g>
+          </svg>
           <div v-else class="admin-chart-library-skeleton" aria-hidden="true"></div>
         </div>
 
@@ -231,8 +280,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue';
-import type { Component } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAdminStore } from '@/store/adminStore';
 import { format, parseISO } from 'date-fns';
@@ -240,9 +288,7 @@ import { formatDate } from '@/utils/date';
 
 const { t, locale } = useI18n();
 const adminStore = useAdminStore();
-const ApexChartComponent = shallowRef<Component | null>(null);
 
-const chartRef = ref<{ toggleSeries: (name: string) => void } | null>(null);
 const trendsSectionRef = ref<HTMLElement | null>(null);
 const monthlySectionRef = ref<HTMLElement | null>(null);
 const hiddenSeries = ref<string[]>([]);
@@ -250,15 +296,6 @@ const shouldRenderTrendsChart = ref(false);
 const shouldRenderMonthlyChart = ref(false);
 let trendsObserver: IntersectionObserver | null = null;
 let monthlyObserver: IntersectionObserver | null = null;
-
-const loadChartLibrary = async (): Promise<void> => {
-  if (ApexChartComponent.value) {
-    return;
-  }
-
-  const module = await import('vue3-apexcharts');
-  ApexChartComponent.value = module.default;
-};
 
 const isHidden = (name: string): boolean => hiddenSeries.value.includes(name);
 
@@ -273,12 +310,6 @@ const getSeriesColor = (name: string): string => {
 };
 
 const toggleSeries = (name: string): void => {
-  if (!chartRef.value) {
-    return;
-  }
-
-  chartRef.value.toggleSeries(name);
-
   if (hiddenSeries.value.includes(name)) {
     hiddenSeries.value = hiddenSeries.value.filter((entry) => entry !== name);
   } else {
@@ -308,62 +339,6 @@ const chartSeries = computed(() => [
   },
 ]);
 
-const chartOptions = computed(() => ({
-  chart: {
-    id: 'admin-trends-chart',
-    type: 'area',
-    toolbar: { show: false },
-    zoom: { enabled: false },
-    animations: {
-      enabled: true,
-      easing: 'easeinout',
-      speed: 800,
-    },
-    fontFamily: 'Inter, system-ui, sans-serif',
-  },
-  dataLabels: { enabled: false },
-  stroke: {
-    curve: 'smooth',
-    width: 3,
-  },
-  colors: ['#4A3728', '#E67E22', '#E74C3C'],
-  fill: {
-    type: 'gradient',
-    gradient: {
-      shadeIntensity: 1,
-      opacityFrom: 0.45,
-      opacityTo: 0.05,
-      stops: [20, 100, 100, 100],
-    },
-  },
-  grid: {
-    borderColor: '#F1E9E4',
-    strokeDashArray: 4,
-  },
-  xaxis: {
-    categories: adminStore.trends.users.map((item) => format(parseISO(item.date), 'MMM dd')),
-    labels: {
-      style: { colors: '#8C7B70', fontSize: '11px' },
-      rotate: -45,
-    },
-    axisBorder: { show: false },
-    axisTicks: { show: false },
-  },
-  yaxis: {
-    labels: {
-      style: { colors: '#8C7B70', fontSize: '11px' },
-    },
-  },
-  tooltip: {
-    theme: 'light',
-    x: { show: true },
-    marker: { show: true },
-  },
-  legend: {
-    show: false,
-  },
-}));
-
 const monthlyChartSeries = computed(() => [
   {
     name: t('admin.dashboard.monthly.table.users'),
@@ -379,78 +354,104 @@ const monthlyChartSeries = computed(() => [
   },
 ]);
 
-const monthlyChartOptions = computed(() => ({
-  chart: {
-    id: 'admin-monthly-chart',
-    type: 'bar',
-    stacked: false,
-    toolbar: { show: false },
-    fontFamily: 'Inter, system-ui, sans-serif',
-    dropShadow: {
-      enabled: true,
-      top: 2,
-      left: 1,
-      blur: 4,
-      opacity: 0.1,
-    },
-  },
-  stroke: {
-    width: 1,
-    colors: ['#fff'],
-  },
-  plotOptions: {
-    bar: {
-      horizontal: false,
-      columnWidth: '55%',
-      borderRadius: 10,
-      dataLabels: { position: 'top' },
-    },
-  },
-  dataLabels: {
-    enabled: false,
-    offsetY: -20,
-    style: { fontSize: '12px', colors: ['#304758'] },
-  },
-  colors: ['#5D4037', '#8D6E63', '#4CAF50'],
-  xaxis: {
-    categories: adminStore.monthlyData.map((item) => format(parseISO(item.month_timestamp), 'MMM')),
-    position: 'bottom',
-    axisBorder: { show: false },
-    axisTicks: { show: false },
-    labels: {
-      style: { colors: '#8C7B70', fontSize: '12px', fontWeight: 600 },
-    },
-  },
-  yaxis: {
-    axisBorder: { show: false },
-    axisTicks: { show: false },
-    labels: {
-      show: true,
-      style: { colors: '#8C7B70', fontSize: '12px' },
-    },
-  },
-  grid: {
-    borderColor: '#F1E9E4',
-    strokeDashArray: 2,
-  },
-  tooltip: {
-    theme: 'light',
-    y: {
-      formatter: (value: number): string => value.toLocaleString(),
-    },
-  },
-  legend: {
-    position: 'top',
-    horizontalAlign: 'right',
-    offsetY: -10,
-    fontWeight: 700,
-    itemMargin: { horizontal: 15, vertical: 0 },
-  },
-}));
-
 const activeMonthlyRows = computed(() =>
   adminStore.monthlyData.filter((item) => item.new_users > 0 || item.new_photos > 0)
 );
+
+const trendColors = ['#4A3728', '#E67E22', '#E74C3C'];
+const monthlyColors = ['#5D4037', '#8D6E63', '#4CAF50'];
+const chartLeft = 40;
+const chartRight = 620;
+const trendTop = 24;
+const trendBottom = 272;
+const monthlyTop = 24;
+const monthlyBottom = 250;
+
+const trendMaxValue = computed(() =>
+  Math.max(1, ...chartSeries.value.flatMap((series) => series.data))
+);
+
+const monthlyMaxValue = computed(() =>
+  Math.max(1, ...monthlyChartSeries.value.flatMap((series) => series.data))
+);
+
+const scaleX = (index: number, total: number): number => {
+  if (total <= 1) {
+    return (chartLeft + chartRight) / 2;
+  }
+  return chartLeft + (index / (total - 1)) * (chartRight - chartLeft);
+};
+
+const scaleY = (value: number, maxValue: number, top: number, bottom: number): number =>
+  bottom - (value / maxValue) * (bottom - top);
+
+const gridY = (line: number): number => trendTop + ((line - 1) / 4) * (trendBottom - trendTop);
+const monthlyGridY = (line: number): number => monthlyTop + ((line - 1) / 4) * (monthlyBottom - monthlyTop);
+
+const visibleTrendSeries = computed(() =>
+  chartSeries.value
+    .map((series, seriesIndex) => ({
+      name: series.name,
+      color: trendColors[seriesIndex] || '#8C7B70',
+      points: series.data
+        .map((value, index) => `${scaleX(index, series.data.length)},${scaleY(value, trendMaxValue.value, trendTop, trendBottom)}`)
+        .join(' '),
+    }))
+    .filter((series) => !isHidden(series.name))
+);
+
+const visibleTrendPoints = computed(() =>
+  chartSeries.value.flatMap((series, seriesIndex) =>
+    isHidden(series.name)
+      ? []
+      : series.data.map((value, index) => ({
+          key: `${series.name}-${index}`,
+          x: scaleX(index, series.data.length),
+          y: scaleY(value, trendMaxValue.value, trendTop, trendBottom),
+          color: trendColors[seriesIndex] || '#8C7B70',
+          label: `${series.name}: ${value.toLocaleString()}`,
+        }))
+  )
+);
+
+const trendAxisLabels = computed(() => {
+  const labels = adminStore.trends.users.map((item) => format(parseISO(item.date), 'MMM dd'));
+  if (labels.length <= 6) {
+    return labels.map((text, index) => ({ key: `${text}-${index}`, text, x: scaleX(index, labels.length) }));
+  }
+  const step = Math.ceil(labels.length / 6);
+  return labels
+    .map((text, index) => ({ key: `${text}-${index}`, text, x: scaleX(index, labels.length), visible: index % step === 0 }))
+    .filter((item) => item.visible);
+});
+
+const monthlyBarGroups = computed(() => {
+  const rows = adminStore.monthlyData;
+  const groupWidth = (chartRight - chartLeft) / Math.max(1, rows.length);
+  const barWidth = Math.max(8, Math.min(24, groupWidth / 5));
+
+  return rows.map((row, rowIndex) => {
+    const baseX = chartLeft + rowIndex * groupWidth + groupWidth / 2;
+    const values = [row.new_users, row.new_photos, row.resolved_reports];
+    return {
+      key: row.month_timestamp,
+      label: format(parseISO(row.month_timestamp), 'MMM'),
+      labelX: baseX,
+      bars: values.map((value, valueIndex) => {
+        const height = monthlyBottom - scaleY(value, monthlyMaxValue.value, monthlyTop, monthlyBottom);
+        return {
+          key: `${row.month_timestamp}-${valueIndex}`,
+          x: baseX + (valueIndex - 1) * (barWidth + 3) - barWidth / 2,
+          y: monthlyBottom - height,
+          width: barWidth,
+          height: Math.max(1, height),
+          color: monthlyColors[valueIndex] || '#8C7B70',
+          label: `${monthlyChartSeries.value[valueIndex].name}: ${value.toLocaleString()}`,
+        };
+      }),
+    };
+  });
+});
 
 onMounted(() => {
   const setupDeferredObserver = (
@@ -481,12 +482,10 @@ onMounted(() => {
 
   trendsObserver = setupDeferredObserver(trendsSectionRef.value, () => {
     shouldRenderTrendsChart.value = true;
-    void loadChartLibrary();
   });
 
   monthlyObserver = setupDeferredObserver(monthlySectionRef.value, () => {
     shouldRenderMonthlyChart.value = true;
-    void loadChartLibrary();
   });
 });
 
@@ -619,6 +618,45 @@ onUnmounted(() => {
   min-height: 350px;
   overflow: hidden;
   transition: all 0.7s ease;
+}
+
+.admin-native-chart {
+  width: 100%;
+  min-height: 350px;
+  color: var(--color-brown-500, #8c7e7a);
+}
+
+.admin-native-chart-short {
+  min-height: 300px;
+}
+
+.admin-chart-grid line {
+  stroke: #f1e9e4;
+  stroke-dasharray: 4;
+}
+
+.admin-chart-line {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.admin-chart-point {
+  r: 4;
+  stroke: white;
+  stroke-width: 2;
+}
+
+.admin-chart-bar {
+  filter: drop-shadow(0 4px 8px rgba(45, 36, 32, 0.08));
+}
+
+.admin-chart-axis-labels text,
+.admin-chart-axis-label {
+  fill: var(--color-brown-400, #a8a29e);
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .admin-chart-library-skeleton {
