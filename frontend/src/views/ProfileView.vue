@@ -304,8 +304,11 @@ const refreshProfileView = async (): Promise<void> => {
   const loadTask = loadProfileData(() => syncStateFromUrl());
 
   if (shouldFetchSubscription) {
-    await Promise.all([loadTask, subscriptionStore.fetchStatus()]);
-    return;
+    void subscriptionStore.fetchStatus().catch((error: unknown) => {
+      if (isDev()) {
+        console.error('Error fetching subscription status:', error);
+      }
+    });
   }
 
   await loadTask;

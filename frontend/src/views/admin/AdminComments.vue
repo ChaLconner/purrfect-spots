@@ -263,7 +263,6 @@ import { formatTimestamp } from '@/utils/date';
 
 interface AdminComment {
   id: string;
-  cat_photo_id: string;
   user_id: string;
   content: string;
   created_at: string;

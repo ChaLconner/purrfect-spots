@@ -80,9 +80,6 @@ async function initSentry(app: VueApp): Promise<void> {
 
 const app = createApp(App);
 
-// Non-blocking initialization
-initSentry(app); 
-
 // Install Pinia BEFORE using any stores
 app.use(pinia);
 
@@ -134,9 +131,6 @@ app.use(i18n);
 // Mount immediately - router will handle initial navigation internally
 app.mount('#app');
 
-// Continue non-critical boot work after first paint.
-void initializeI18n();
-
 const schedulePostPaintTask = (task: () => void): void => {
   if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
     window.requestIdleCallback(() => task(), { timeout: 1500 });
@@ -162,6 +156,17 @@ const loadDeferredStylesheet = (href: string): void => {
   document.head.appendChild(link);
 };
 
+// Continue non-critical boot work after first paint.
+schedulePostPaintTask(() => {
+  void initializeI18n();
+  void initSentry(app);
+  import('./utils/webVitals')
+    .then(({ initWebVitals }) => initWebVitals())
+    .catch(() => {
+      // Web Vitals tracking is optional, don't break the app
+    });
+});
+
 // Kick off auth initialization immediately so the background session check
 // starts as soon as possible, reducing skeleton visibility time.
 queueMicrotask(() => {
@@ -180,11 +185,3 @@ schedulePostPaintTask(() => {
     'https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap'
   );
 });
-
-// Initialize Web Vitals tracking after app mount
-try {
-  const { initWebVitals } = await import('./utils/webVitals');
-  initWebVitals();
-} catch {
-  // Web Vitals tracking is optional, don't break the app
-}

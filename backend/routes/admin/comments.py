@@ -14,6 +14,10 @@ from services.token_service import get_token_service
 from utils.audit_logger import log_admin_action
 
 router = APIRouter()
+MAX_COMMENTS_PAGE_SIZE = 100
+ADMIN_COMMENT_COLUMNS = (
+    "id, content, user_id, photo_id, created_at, user_display_name, user_username, user_avatar, report_count"
+)
 
 
 class BulkCommentAction(BaseModel):
@@ -29,8 +33,8 @@ async def _invalidate_banned_user_auth_state(user_id: str) -> None:
 @router.get("")
 async def list_all_comments(
     page: Annotated[int, Query(ge=1)] = 1,
-    page_size: Annotated[int | None, Query(ge=1, le=1000)] = None,
-    limit: Annotated[int | None, Query(ge=1, le=1000)] = None,
+    page_size: Annotated[int | None, Query(ge=1, le=MAX_COMMENTS_PAGE_SIZE)] = None,
+    limit: Annotated[int | None, Query(ge=1, le=MAX_COMMENTS_PAGE_SIZE)] = None,
     search: Annotated[str | None, Query()] = None,
     reported_only: Annotated[bool, Query()] = False,
     current_admin: User = Depends(require_permission("comments:manage")),
@@ -45,7 +49,7 @@ async def list_all_comments(
         # Base query for data using the view admin_comment_list
         query = (
             admin_client.table("admin_comment_list")
-            .select("*", count=CountMethod.exact)
+            .select(ADMIN_COMMENT_COLUMNS, count=CountMethod.exact)
             .order("created_at", desc=True)
             .range(offset, offset + effective_page_size - 1)
         )
@@ -64,7 +68,7 @@ async def list_all_comments(
         pages = (total_count + effective_page_size - 1) // effective_page_size
 
         # Parallelize additional data fetching
-        user_ids = list({item["user_id"] for item in items})
+        user_ids = list({item["user_id"] for item in items if item.get("user_id")})
 
         async def fetch_additional_data() -> dict[str, Any]:
             if not user_ids:
@@ -72,26 +76,28 @@ async def list_all_comments(
 
             # Resolve only the per-page metadata the frontend currently renders.
             # Avoid heavy user-level report fan-out queries on every admin comments page load.
-            tasks = [admin_client.table("users").select("id, banned_at").in_("id", user_ids).execute()]
+            tasks = [admin_client.table("users").select("id, email, banned_at").in_("id", user_ids).execute()]
 
             import asyncio
 
             responses = await asyncio.gather(*tasks, return_exceptions=True)
 
             # Process responses safely
-            status_map = {}
+            user_map = {}
             res0 = responses[0]
             if not isinstance(res0, Exception) and hasattr(res0, "data"):
-                status_map = {u["id"]: u["banned_at"] for u in res0.data}
+                user_map = {u["id"]: u for u in res0.data}
 
-            return status_map
+            return user_map
 
-        status_map = await fetch_additional_data()
+        user_map = await fetch_additional_data()
 
         # Merge additional data into items
         for item in items:
             uid = item["user_id"]
-            item["is_user_banned"] = status_map.get(uid) is not None
+            user = user_map.get(uid, {})
+            item["user_email"] = user.get("email")
+            item["is_user_banned"] = user.get("banned_at") is not None
             item["violation_count"] = 0
 
         return {"items": items, "total": total_count, "page": page, "pages": pages}

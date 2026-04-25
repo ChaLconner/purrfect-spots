@@ -478,7 +478,7 @@ class TestAdminCommentsListing:
                     ],
                     count=1,
                 ),
-                MagicMock(data=[{"id": "user-1", "banned_at": None}]),
+                MagicMock(data=[{"id": "user-1", "email": "user@example.com", "banned_at": None}]),
                 MagicMock(data=[]),
             ]
         )
@@ -493,8 +493,12 @@ class TestAdminCommentsListing:
         assert response.status_code == 200
         payload = response.json()
         assert payload["total"] == 1
+        assert payload["items"][0]["user_email"] == "user@example.com"
         assert payload["items"][0]["is_user_banned"] is False
         assert payload["items"][0]["violation_count"] == 0
+        selected_columns = mock_supabase_admin.select.call_args_list[0].args[0]
+        assert "cat_photo_id" not in selected_columns
+        assert "user_email" not in selected_columns
 
 
 class TestAdminUserProfileUpdates:
