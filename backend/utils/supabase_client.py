@@ -103,8 +103,8 @@ async_client_options = AClientOptions(
 # placeholder keys but never exercise sync Supabase code paths.
 supabase: Client | None = None
 supabase_admin: Client | None = None
-_supabase_key: str | None = None
-_supabase_admin_key: str | None = None
+_sync_supabase_state: dict[str, str | None] = {"key": None}
+_sync_supabase_admin_state: dict[str, str | None] = {"key": None}
 
 
 def _build_sync_client(key: str) -> Client:
@@ -114,26 +114,26 @@ def _build_sync_client(key: str) -> Client:
 
 def get_supabase_client() -> Client:
     """Get synchronous Supabase client instance"""
-    global supabase, _supabase_key  # noqa: PLW0603
+    global supabase  # noqa: PLW0603
     current_key = _resolve_supabase_anon_key()
-    if supabase is None or _supabase_key != current_key:
+    if supabase is None or _sync_supabase_state["key"] != current_key:
         supabase = _build_sync_client(current_key)
-        _supabase_key = current_key
+        _sync_supabase_state["key"] = current_key
     return supabase
 
 
 def get_supabase_admin_client() -> Client:
     """Get synchronous Supabase admin client instance (bypasses RLS)"""
-    global supabase_admin, _supabase_admin_key  # noqa: PLW0603
+    global supabase_admin  # noqa: PLW0603
     service_key = _resolve_supabase_service_key()
 
     if not service_key:
         logger.warning("SUPABASE_SERVICE_ROLE_KEY not found - admin operations will use regular client")
         return get_supabase_client()
 
-    if supabase_admin is None or _supabase_admin_key != service_key:
+    if supabase_admin is None or _sync_supabase_admin_state["key"] != service_key:
         supabase_admin = _build_sync_client(service_key)
-        _supabase_admin_key = service_key
+        _sync_supabase_admin_state["key"] = service_key
         logger.info("Supabase Admin Access: Enabled")
 
     return supabase_admin
@@ -145,7 +145,6 @@ import asyncio
 
 _async_supabase: AClient | None = None
 _async_supabase_admin: AClient | None = None
-_async_supabase_admin_key: str | None = None
 _async_supabase_admin_state: dict[str, AClient | str | None] = {"client": None, "key": None}
 
 # Locks to prevent race conditions during cold starts
@@ -175,22 +174,21 @@ async def get_async_supabase_client() -> AClient:
 
 def reset_async_supabase_admin_client() -> None:
     """Drop the cached async admin client so the next request recreates it."""
-    global _async_supabase_admin, _async_supabase_admin_key  # noqa: PLW0603
+    global _async_supabase_admin  # noqa: PLW0603
     _async_supabase_admin = None
-    _async_supabase_admin_key = None
     _async_supabase_admin_state["client"] = None
     _async_supabase_admin_state["key"] = None
 
 
 async def get_async_supabase_admin_client(force_refresh: bool = False) -> AClient:
     """Get high-performance async Supabase admin client (Thread/Async safe Singleton)"""
-    global _async_supabase_admin, _async_supabase_admin_key  # noqa: PLW0603
+    global _async_supabase_admin  # noqa: PLW0603
     service_key = _resolve_supabase_service_key()
 
     if force_refresh:
         reset_async_supabase_admin_client()
 
-    cached_service_key = _async_supabase_admin_key or cast(str | None, _async_supabase_admin_state["key"])
+    cached_service_key = cast(str | None, _async_supabase_admin_state["key"])
 
     # Fast path
     if _async_supabase_admin is not None and cached_service_key == service_key and not force_refresh:
@@ -199,7 +197,7 @@ async def get_async_supabase_admin_client(force_refresh: bool = False) -> AClien
     # Slow path with lock
     async with _supabase_admin_lock:
         # Double-check inside lock
-        cached_service_key = _async_supabase_admin_key or cast(str | None, _async_supabase_admin_state["key"])
+        cached_service_key = cast(str | None, _async_supabase_admin_state["key"])
         if _async_supabase_admin is None or cached_service_key != service_key:
             if not service_key:
                 logger.error("SUPABASE_SERVICE_ROLE_KEY is missing! Admin client cannot bypass RLS.")
@@ -210,7 +208,6 @@ async def get_async_supabase_admin_client(force_refresh: bool = False) -> AClien
             _async_supabase_admin = await acreate_client(
                 _resolve_supabase_url(), service_key, options=async_client_options
             )
-            _async_supabase_admin_key = service_key
             _async_supabase_admin_state["client"] = _async_supabase_admin
             _async_supabase_admin_state["key"] = service_key
 

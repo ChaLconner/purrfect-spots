@@ -13,6 +13,7 @@ ehthumbs.db
 *~
 .sonarlint/
 .sonar/
+.sonarcloud.properties
 .kilocode/
 .kilo/
 .codex/
@@ -92,9 +93,10 @@ backend/dist/
 frontend/dist/
 build-reports/
 .vercel/
-trivy-results.sarif
+*.sarif
 *.tmp
 *.temp
+openapi-specs/
 
 # --- Local Review Archives ---
 docs/archive/

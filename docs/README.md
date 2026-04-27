@@ -22,7 +22,7 @@ Documentation for the Purrfect Spots project. This project is a platform for sha
 
 ### 🎨 Design & API
 
-- [API Spec (OpenAPI)](../openapi-specs/openapi-baseline.json) - Direct link to API documentation.
+- [API Spec (OpenAPI)](./openapi-baseline.json) - Direct link to API documentation.
 - [Design Tokens](./design_tokens.md) - Style guides and design constants.
 
 ### 📜 History & Archive

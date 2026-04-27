@@ -16,7 +16,7 @@ def test_get_supabase_client() -> None:
 
     with (
         patch("utils.supabase_client.supabase", None),
-        patch("utils.supabase_client._supabase_key", None),
+        patch.dict("utils.supabase_client._sync_supabase_state", {"key": None}),
         patch("utils.supabase_client._resolve_supabase_url", return_value="http://127.0.0.1:54321"),
         patch("utils.supabase_client._resolve_supabase_anon_key", return_value="test-anon-key"),
         patch("utils.supabase_client.create_client", return_value=mock_client) as mock_create,
@@ -36,7 +36,7 @@ def test_get_supabase_admin_client() -> None:
 
     with (
         patch("utils.supabase_client.supabase_admin", None),
-        patch("utils.supabase_client._supabase_admin_key", None),
+        patch.dict("utils.supabase_client._sync_supabase_admin_state", {"key": None}),
         patch("utils.supabase_client._resolve_supabase_url", return_value="http://127.0.0.1:54321"),
         patch("utils.supabase_client._resolve_supabase_service_key", return_value="test-service-role-key"),
         patch("utils.supabase_client.create_client", return_value=mock_admin_client) as mock_create,
@@ -83,7 +83,7 @@ async def test_get_async_supabase_admin_client():
     # Reset the global state to force initialization
     with (
         patch("utils.supabase_client._async_supabase_admin", None),
-        patch("utils.supabase_client._async_supabase_admin_key", None),
+        patch.dict("utils.supabase_client._async_supabase_admin_state", {"client": None, "key": None}),
         patch("utils.supabase_client.acreate_client", new_callable=AsyncMock) as mock_ac,
     ):
         mock_ac.return_value = MagicMock()
@@ -105,7 +105,7 @@ async def test_get_async_supabase_admin_client_recreates_when_service_key_change
 
     with (
         patch("utils.supabase_client._async_supabase_admin", None),
-        patch("utils.supabase_client._async_supabase_admin_key", None),
+        patch.dict("utils.supabase_client._async_supabase_admin_state", {"client": None, "key": None}),
         patch("utils.supabase_client.acreate_client", new_callable=AsyncMock) as mock_ac,
         patch("utils.supabase_client._resolve_supabase_service_key", side_effect=["key-one", "key-two"]),
     ):

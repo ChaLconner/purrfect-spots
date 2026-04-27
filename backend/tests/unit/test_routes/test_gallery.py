@@ -118,8 +118,7 @@ def test_get_ip_location(client) -> None:
 
     with (
         patch("routes.geo._cached_ip_location", {"latitude": None, "longitude": None}),
-        patch("routes.geo._cached_ip_location_expires_at", 0.0),
-        patch("routes.geo._rate_limit_backoff_until", 0.0),
+        patch.dict("routes.geo._ip_location_cache_state", {"expires_at": 0.0, "rate_limit_backoff_until": 0.0}),
         patch("routes.geo.get_shared_httpx_client") as mock_get_client,
     ):
         mock_client = MagicMock()
@@ -135,8 +134,7 @@ def test_get_ip_location(client) -> None:
 def test_get_ip_location_returns_nulls_on_failure(client) -> None:
     with (
         patch("routes.geo._cached_ip_location", {"latitude": None, "longitude": None}),
-        patch("routes.geo._cached_ip_location_expires_at", 0.0),
-        patch("routes.geo._rate_limit_backoff_until", 0.0),
+        patch.dict("routes.geo._ip_location_cache_state", {"expires_at": 0.0, "rate_limit_backoff_until": 0.0}),
         patch("routes.geo.get_shared_httpx_client") as mock_get_client,
     ):
         mock_client = MagicMock()
@@ -156,8 +154,7 @@ def test_get_ip_location_skips_lookup_during_rate_limit_cooldown(client) -> None
 
     with (
         patch("routes.geo._cached_ip_location", {"latitude": None, "longitude": None}),
-        patch("routes.geo._cached_ip_location_expires_at", 0.0),
-        patch("routes.geo._rate_limit_backoff_until", 0.0),
+        patch.dict("routes.geo._ip_location_cache_state", {"expires_at": 0.0, "rate_limit_backoff_until": 0.0}),
         patch("routes.geo.get_shared_httpx_client") as mock_get_client,
     ):
         mock_client = MagicMock()

@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from logger import logger
+from logger import logger, sanitize_log_value
 from supabase import AClient
 from utils.datetime_utils import utc_now_iso
 from utils.supabase_client import get_async_supabase_admin_client, has_supabase_service_role_key
@@ -64,7 +64,7 @@ class TokenService:
         """Store blacklist entry in process memory when a durable fast cache is unavailable."""
         expiry = datetime.now(UTC) + timedelta(seconds=ttl)
         self._memory_blacklist[token_hash] = expiry
-        logger.debug("Token blacklisted in memory. Reason: %s", reason)
+        logger.debug("Token blacklisted in memory. Reason: %s", sanitize_log_value(reason))
         self._cleanup_memory_blacklist()
 
     async def blacklist_token(
