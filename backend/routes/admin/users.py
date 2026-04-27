@@ -395,7 +395,7 @@ async def ban_user(
         admin_client = await get_async_supabase_admin_client()
         supa_res = (
             await admin_client.table("users")
-            .select("id, email, name, username, picture, bio, created_at, banned_at")
+            .select("id, email, name, username, picture, bio, created_at, banned_at, roles(name)")
             .eq("id", user_id)
             .single()
             .execute()

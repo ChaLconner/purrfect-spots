@@ -182,12 +182,13 @@ async def get_gallery(
 async def get_locations(
     response: Response,
     gallery_service: Annotated[GalleryService, Depends(get_gallery_service)],
+    limit: int = Query(500, ge=1, le=500, description="Maximum number of legacy marker results"),
 ) -> list[CatLocation]:
-    """Get all cat locations from Supabase (for map display)."""
+    """Get a bounded legacy marker list from Supabase."""
     response.headers["Cache-Control"] = "public, max-age=300"
 
     try:
-        photos = await gallery_service.get_map_locations()
+        photos = await gallery_service.get_map_locations(limit=limit)
         if not photos:
             return []
         photos = protect_photo_locations(photos)

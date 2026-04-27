@@ -54,6 +54,7 @@ def mock_supabase():
             return self
 
         def limit(self, *a, **kw):
+            self.last_limit = a[0] if a else None
             return self
 
         def range(self, *a, **kw):
@@ -116,6 +117,7 @@ def mock_supabase():
     mock_table = MockTable()
 
     mock.table.return_value = mock_table
+    mock.query = mock_eq
     mock.rpc.return_value.execute = mock_execute
     return mock
 
@@ -135,6 +137,12 @@ async def test_get_all_photos_simple(gallery_service):
 async def test_get_map_locations(gallery_service):
     res = await gallery_service.get_map_locations()
     assert len(res) == 1
+
+
+@pytest.mark.asyncio
+async def test_get_map_locations_clamps_limit(gallery_service, mock_supabase):
+    await gallery_service.get_map_locations(limit=2000)
+    assert mock_supabase.query.last_limit == 500
 
 
 @pytest.mark.asyncio

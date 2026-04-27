@@ -181,9 +181,14 @@ async def clear_cache(pattern: str = "cache:*") -> None:
             except RuntimeError:
                 return  # No running loop
 
-            keys = await redis_client.keys(pattern)
-            if keys:
-                await redis_client.delete(*keys)
+            batch: list[str] = []
+            async for key in redis_client.scan_iter(match=pattern, count=500):
+                batch.append(str(key))
+                if len(batch) >= 500:
+                    await redis_client.delete(*batch)
+                    batch.clear()
+            if batch:
+                await redis_client.delete(*batch)
         except Exception as e:
             logger.debug(f"Failed to clear Redis cache: {e}")
             # pass

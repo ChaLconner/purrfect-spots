@@ -94,10 +94,21 @@ def test_get_locations(client) -> None:
     app.dependency_overrides[get_gallery_service] = lambda: mock_service
     response = client.get("/api/v1/gallery/locations")
     assert response.status_code == 200
+    mock_service.get_map_locations.assert_awaited_once_with(limit=500)
     assert len(response.json()) == 1
     expected_lat, expected_lng = protect_public_coordinates(10, 10, seed="1")
     assert response.json()[0]["latitude"] == pytest.approx(expected_lat, abs=1e-5)
     assert response.json()[0]["longitude"] == pytest.approx(expected_lng, abs=1e-5)
+
+
+def test_get_locations_accepts_bounded_limit(client) -> None:
+    mock_service = MagicMock()
+    mock_service.get_map_locations = AsyncMock(return_value=[])
+    app.dependency_overrides[get_gallery_service] = lambda: mock_service
+    response = client.get("/api/v1/gallery/locations?limit=25")
+    assert response.status_code == 200
+    mock_service.get_map_locations.assert_awaited_once_with(limit=25)
+    app.dependency_overrides = {}
 
 
 def test_get_ip_location(client) -> None:

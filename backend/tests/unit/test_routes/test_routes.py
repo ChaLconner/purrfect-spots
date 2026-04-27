@@ -160,6 +160,7 @@ class TestGalleryRoutes:
         response = client.get("/api/v1/gallery/locations")
 
         assert response.status_code == 200
+        mock_service.get_map_locations.assert_awaited_once_with(limit=500)
         data = response.json()
         assert len(data) == 1
         expected_lat, expected_lng = protect_public_coordinates(13.7563, 100.5018, seed=mock_cat_photo["id"])

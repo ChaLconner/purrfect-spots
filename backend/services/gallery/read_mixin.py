@@ -131,9 +131,10 @@ class GalleryReadMixin(GalleryBaseMixin):
             return len(data)
 
     @cached_gallery
-    async def get_map_locations(self) -> list[dict[str, Any]]:
-        """Fetch all cat locations using the standard Supabase client path."""
+    async def get_map_locations(self, limit: int = 500) -> list[dict[str, Any]]:
+        """Fetch a bounded legacy marker list using the standard Supabase client path."""
         try:
+            limit = min(max(1, limit), 500)
             res = (
                 await self._apply_visibility_filter(
                     self.supabase.table("cat_photos").select(
@@ -141,7 +142,7 @@ class GalleryReadMixin(GalleryBaseMixin):
                     )
                 )
                 .order("uploaded_at", desc=True)
-                .limit(2000)
+                .limit(limit)
                 .execute()
             )
             data = cast(list[dict[str, Any]], res.data or [])

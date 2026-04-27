@@ -316,6 +316,22 @@ class TestAdminUserCacheInvalidation:
         mock_invalidate.assert_called_once_with(user_id)
         mock_token_service.blacklist_all_user_tokens.assert_awaited_once_with(user_id, reason="admin_ban")
 
+    def test_ban_user_rejects_admin_target(self, client, override_admin, mock_supabase_admin) -> None:
+        user_id = "00000000-0000-4000-a000-000000000999"
+        mock_supabase_admin.execute.return_value = MagicMock(
+            data={"email": "target-admin@example.com", "roles": {"name": "admin"}}
+        )
+
+        with patch(
+            "routes.admin.users.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
+            response = client.post(f"/api/v1/admin/users/{user_id}/ban", json={"reason": "Violation"})
+
+        assert response.status_code == 400
+        assert "Cannot ban an admin user" in str(response.json())
+
 
 class TestAdminCommentBulkDelete:
     @pytest.fixture(autouse=True)
