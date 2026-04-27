@@ -25,8 +25,8 @@ def mock_supabase():
     role_data = {"id": "user-role-id"}
 
     mock_eq_user = MagicMock()
-    mock_eq_user.execute = AsyncMock(return_value=MagicMock(data=[user_data]))
     mock_eq_user.maybe_single.return_value.execute = AsyncMock(return_value=MagicMock(data=user_data))
+    mock_eq_user.execute = AsyncMock(return_value=MagicMock(data=[{"role_id": "user-role-id"}]))
 
     mock_eq_role = MagicMock()
     mock_eq_role.execute = AsyncMock(return_value=MagicMock(data=[role_data]))
@@ -115,7 +115,7 @@ async def test_get_user_by_id_handles_roles_array():
     }
 
     mock_eq_user = MagicMock()
-    mock_eq_user.execute = AsyncMock(return_value=MagicMock(data=[user_data]))
+    mock_eq_user.maybe_single.return_value.execute = AsyncMock(return_value=MagicMock(data=user_data))
 
     mock_select_user = MagicMock()
     mock_select_user.eq.return_value = mock_eq_user

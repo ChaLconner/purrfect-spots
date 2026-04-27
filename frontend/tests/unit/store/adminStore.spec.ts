@@ -152,20 +152,20 @@ describe('Admin Store', () => {
     expect(store.reportChannel).toBeNull();
   });
 
-  it('increments pending reports immediately and forces a debounced refresh on realtime insert', async () => {
+  it('increments pending reports immediately and forces a debounced summary refresh on realtime insert', async () => {
     const store = useAdminStore();
     store.stats.pending_reports = 2;
-    const fetchStatsSpy = vi.spyOn(store, 'fetchStats').mockResolvedValue(undefined as never);
+    const fetchSummarySpy = vi.spyOn(store, 'fetchSummary').mockResolvedValue(undefined as never);
 
     store.subscribeToReports();
     reportInsertHandler?.();
 
     expect(store.stats.pending_reports).toBe(3);
-    expect(fetchStatsSpy).not.toHaveBeenCalled();
+    expect(fetchSummarySpy).not.toHaveBeenCalled();
 
     await vi.advanceTimersByTimeAsync(5000);
 
-    expect(fetchStatsSpy).toHaveBeenCalledWith(true);
+    expect(fetchSummarySpy).toHaveBeenCalledWith(true);
   });
 
   it('skips realtime subscriptions when disabled', () => {

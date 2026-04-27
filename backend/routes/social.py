@@ -1,5 +1,4 @@
 from typing import Annotated
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -19,11 +18,12 @@ from utils.exceptions import ExternalServiceError, NotFoundError
 router = APIRouter(prefix="/social", tags=["Social"])
 
 
+from utils.db_security import validate_uuid
+
+
 def _validate_uuid_param(value: str, field_name: str) -> None:
-    try:
-        UUID(value)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=f"Invalid {field_name}") from exc
+    if not validate_uuid(value):
+        raise HTTPException(status_code=400, detail=f"Invalid {field_name}")
 
 
 @router.post(

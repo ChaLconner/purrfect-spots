@@ -79,9 +79,9 @@ export function useProfileData(): {
         viewedUser.value = authStore.user;
         uploads.value = await ProfileService.getUserUploads();
       } else {
-        if (!targetUserId) return;
-        viewedUser.value = await ProfileService.getPublicProfile(targetUserId);
-        uploads.value = await ProfileService.getPublicUserUploads(targetUserId);
+        const publicData = await ProfileService.getPublicProfileBundle(targetUserId);
+        viewedUser.value = publicData.profile;
+        uploads.value = publicData.uploads;
       }
 
       if (viewedUser.value) {

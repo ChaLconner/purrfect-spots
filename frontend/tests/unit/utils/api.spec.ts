@@ -17,7 +17,6 @@ import {
   getDefaultHeaders
 } from '@/utils/api';
 import { getEnvVar } from '@/utils/env';
-import { isProd } from '@/utils/env';
 
 vi.mock('axios', () => {
   const mockInstance = {
@@ -36,7 +35,6 @@ vi.mock('axios', () => {
 vi.mock('@/utils/env', () => ({
   getEnvVar: vi.fn(),
   isDev: vi.fn(() => true),
-  isProd: vi.fn(() => false),
 }));
 
 vi.mock('@/utils/security', () => ({
@@ -49,7 +47,6 @@ describe('API Utils', () => {
     setAccessToken(null);
     vi.useFakeTimers();
     vi.mocked(getEnvVar).mockReturnValue('');
-    vi.mocked(isProd).mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -67,15 +64,24 @@ describe('API Utils', () => {
       expect(getApiBaseUrl()).toBe('https://api.example.com');
     });
 
-    it('returns default localhost URL when env not set', () => {
+    it('returns same-origin api path when env not set', () => {
       vi.mocked(getEnvVar).mockReturnValue('');
-      expect(getApiBaseUrl()).toBe('http://localhost:8000');
+      expect(getApiBaseUrl()).toBe('');
     });
 
-    it('returns same-origin api path in production when env not set', () => {
-      vi.mocked(getEnvVar).mockReturnValue('');
-      vi.mocked(isProd).mockReturnValue(true);
-      expect(getApiBaseUrl()).toBe('/api');
+    it('normalizes same-origin versioned path to proxy base', () => {
+      vi.mocked(getEnvVar).mockReturnValue('/api/v1');
+      expect(getApiBaseUrl()).toBe('');
+    });
+
+    it('normalizes localhost backend URLs to the same-origin proxy during local development', () => {
+      vi.mocked(getEnvVar).mockReturnValue('http://localhost:8000/api/v1');
+      expect(getApiBaseUrl()).toBe('');
+    });
+
+    it('normalizes same-origin api proxy base to avoid duplicate /api prefixes', () => {
+      vi.mocked(getEnvVar).mockReturnValue('/api');
+      expect(getApiBaseUrl()).toBe('');
     });
   });
 
@@ -92,8 +98,7 @@ describe('API Utils', () => {
 
     it('builds same-origin URLs in production fallback mode', () => {
       vi.mocked(getEnvVar).mockReturnValue('');
-      vi.mocked(isProd).mockReturnValue(true);
-      expect(getApiUrl('/users')).toBe('/api/users');
+      expect(getApiUrl('/users')).toBe('/users');
     });
   });
 
@@ -147,6 +152,22 @@ describe('API Utils', () => {
         const config = { headers: {} } as any;
         const result = handler(config);
         expect(result.headers.Authorization).toBe('Bearer token123');
+      }
+    });
+
+    it('request interceptor rewrites loopback absolute URLs to same-origin paths', () => {
+      const useMock = vi.mocked(apiInstance.interceptors.request.use);
+      if (useMock.mock.calls.length > 0) {
+        const handler = useMock.mock.calls[0][0];
+        const config = {
+          baseURL: '/api',
+          url: 'http://localhost:8000/api/v1/gallery/viewport?limit=100',
+          headers: {},
+        } as any;
+
+        const result = handler(config);
+        expect(result.baseURL).toBe('');
+        expect(result.url).toBe('/api/v1/gallery/viewport?limit=100');
       }
     });
 

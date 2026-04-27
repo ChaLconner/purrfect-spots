@@ -28,7 +28,7 @@ const { t } = useI18n();
 
 const emit = defineEmits<{
   (e: 'close'): void;
-  (e: 'save', data: { name: string; username: string; bio: string; picture: string }): void;
+  (e: 'save', data: ProfileUpdateData): void;
 }>();
 
 const modalRef = ref<HTMLElement | null>(null);
@@ -38,7 +38,6 @@ const isSaving = ref(false);
 const isUpdatingPassword = ref(false);
 const showPasswordSection = ref(false);
 const showPasswords = ref(false); // Toggle for password visibility
-const showUsernameEdit = ref(false); // Toggle for username edit
 
 const passwordRequirements = computed(() => {
   const p = passwordForm.new;
@@ -74,6 +73,16 @@ const isSocialUser = computed(() => {
   return !!authStore.user?.google_id;
 });
 
+const usernameUrlPreview = computed(() => {
+  const normalized = editForm.username.trim().replace(/^@+/, '').replace(/[^a-zA-Z0-9_]/g, '');
+  return normalized || 'username';
+});
+
+const publicProfileUrlPreview = computed(() => `@${usernameUrlPreview.value}`);
+const normalizedUsernameForSave = computed(() =>
+  editForm.username.trim().replace(/^@+/, '').replace(/[^a-zA-Z0-9_]/g, '')
+);
+
 const isAccountScheduledForDeletion = computed(() => {
   // If backend returns deleted_at or similar user property indicating pending deletion
   return !!authStore.user?.deleted_at;
@@ -88,7 +97,6 @@ watch(
       editForm.username = props.initialUsername || '';
       editForm.bio = props.initialBio;
       editForm.picture = props.initialPicture;
-      showUsernameEdit.value = false;
       
       // Pre-fetch consents so they are ready when the user opens the section
       loadConsents();
@@ -250,9 +258,9 @@ const handleSave = async (): Promise<void> => {
     picture: editForm.picture,
   };
 
-  // Only include username if explicitly editing AND it changed
-  if (showUsernameEdit.value && editForm.username !== props.initialUsername) {
-    updateData.username = editForm.username;
+  // Include username whenever it changed after normalization
+  if (normalizedUsernameForSave.value !== (props.initialUsername || '')) {
+    updateData.username = normalizedUsernameForSave.value;
   }
 
   isSaving.value = true;
@@ -407,9 +415,10 @@ const handleKeydown = (event: KeyboardEvent): void => {
                   />
                 </div>
                 <p class="text-[10px] text-stone-400 mt-1.5 pl-1">
-                  {{ t('profile.publicProfileLink') }} /profile/{{
-                    editForm.username || 'username'
-                  }}
+                  {{ t('profile.publicProfileLink') }}
+                  <span class="ml-1 text-[11px] text-brown font-mono break-all">
+                    {{ publicProfileUrlPreview }}
+                  </span>
                 </p>
               </div>
 
@@ -555,7 +564,7 @@ const handleKeydown = (event: KeyboardEvent): void => {
                         for="confirm-password"
                         class="block text-xs font-bold text-brown-light mb-1 uppercase tracking-wider"
                       >
-                        {{ t('auth.confirmPassword') }}
+                        {{ t('auth.confirmNewPassword') }}
                       </label>
                       <input
                         id="confirm-password"

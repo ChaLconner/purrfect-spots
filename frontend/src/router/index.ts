@@ -1,6 +1,5 @@
 import { createRouter, createWebHistory, type RouteLocationRaw } from 'vue-router';
 import { PERMISSIONS } from '@/constants/permissions';
-import { useAuthStore } from '@/store/authStore';
 import { getDefaultAdminPath, hasAdminPermission } from '@/utils/adminAccess';
 
 // Lazy-loaded route components (extracted for Vite code-splitting and to avoid duplication)
@@ -211,34 +210,35 @@ const router = createRouter({
   routes,
 });
 
+const getAuthStore = async (): Promise<unknown> => {
+  const { useAuthStore } = await import('@/store/authStore');
+  return useAuthStore();
+};
+
 // Initialize auth state before navigation
 // Initialize auth state is handled by Pinia store automatically on first use
 
 // Global navigation guard
 router.beforeEach(async (to): Promise<RouteLocationRaw | boolean | void> => {
-  const authStore = useAuthStore();
-
   // 1. Handle Supabase Auth Redirects (e.g. Email Verification links landing on root)
   // If we see a hash with access_token, redirect to AuthCallback to process it
   if (to.hash && to.hash.includes('access_token=') && to.name !== 'AuthCallback') {
     return { name: 'AuthCallback', query: to.query, hash: to.hash };
   }
 
-  // 2. Auth Protection Guard
-  if (to.meta.requiresAuth) {
-    // Wait for auth initialization if needed
-    if (!authStore.isInitialized) {
-      await authStore.initializeAuth();
-    }
+  const needsAuthStore =
+    !!to.meta.requiresAuth || to.name === 'Auth';
+  const authStore = needsAuthStore ? await getAuthStore() : null;
 
-    // If auth was restored from cache during a hard refresh, verify the
-    // real session before granting access to protected routes.
-    if (authStore.isAuthenticated && !authStore.token) {
-      const hasActiveSession = await authStore.refreshToken();
-      if (!hasActiveSession) {
-        sessionStorage.setItem('redirectAfterAuth', to.fullPath);
-        return { name: 'Login' };
-      }
+  // 2. Auth Protection Guard
+  if (to.meta.requiresAuth && authStore) {
+    // For admin routes, always await the full session check to prevent the race
+    // condition where cached state passes the guard but a failed background
+    // refresh then calls clearAuth() and boots the user out mid-session.
+    // For regular auth routes, proceed optimistically with cached state.
+    const isAdminRoute = !!to.meta.requiresAdmin;
+    if (!authStore.isInitialized || isAdminRoute) {
+      await authStore.initializeAuth();
     }
 
     if (!authStore.isUserReady) {
@@ -279,16 +279,8 @@ router.beforeEach(async (to): Promise<RouteLocationRaw | boolean | void> => {
       };
     }
   } else {
-    // Check if user is already logged in and trying to access auth pages
-    if (
-      (to.name === 'Login' || to.name === 'Register' || to.name === 'Auth') &&
-      authStore.isUserReady
-    ) {
-      if (authStore.canAccessAdmin) {
-        return { path: '/admin' };
-      }
-      return { path: '/' };
-    }
+    // Auth pages handle cached-user redirects after the first paint so the
+    // login/register UI is never blocked on a store import or session check.
   }
 
   return true;

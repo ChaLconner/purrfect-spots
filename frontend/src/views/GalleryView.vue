@@ -8,7 +8,7 @@
 
       <div class="gallery-mint-container p-0 min-h-[600px] w-full relative z-[5]">
         <!-- Loading state -->
-        <output v-if="loading" class="loading-container" aria-live="polite">
+        <output v-if="loading && visibleImages.length === 0" class="loading-container" aria-live="polite">
           <GhibliLoader :text="$t('galleryPage.loading')" />
         </output>
 
@@ -61,7 +61,8 @@ import GalleryHeader from '@/components/gallery/GalleryHeader.vue';
 import GalleryGrid from '@/components/gallery/GalleryGrid.vue';
 import type { CatLocation } from '@/types/api';
 import { useGalleryState } from '@/composables/useGalleryState';
-import { useCatsStore, useAuthStore } from '@/store';
+import { useCatsStore } from '@/store';
+import { useAuthStore } from '@/store/authStore';
 
 const authStore = useAuthStore();
 
@@ -121,6 +122,7 @@ const {
 const selectedImage = ref<CatLocation | null>(null);
 const currentImageIndex = ref(-1);
 const hasFetchedWithAuthContext = ref(false);
+const isApplyingSearchFromRoute = ref(false);
 
 // Pagination and virtual scrolling
 const isDeepLinked = ref(false); // Track if current view is a deep link to a specific image
@@ -128,17 +130,24 @@ const isDeepLinked = ref(false); // Track if current view is a deep link to a sp
 onMounted(() => {
   // Check for search query in URL on mount
   if (route.query.q) {
+    isApplyingSearchFromRoute.value = true;
     catsStore.setGallerySearchQuery(route.query.q as string);
+    isApplyingSearchFromRoute.value = false;
   }
-
-  fetchImages(() => {
-    if (props.id) {
-      syncStateFromUrl();
-    }
-  });
 
   if (authStore.isInitialized && authStore.isAuthenticated) {
     hasFetchedWithAuthContext.value = true;
+  }
+
+  // PERF: Skip fetch if auth is still hydrating — the auth watcher
+  // (immediate: true) will trigger a single fetch once auth resolves,
+  // preventing duplicate API calls.
+  if (!authStore.isHydratingSession) {
+    fetchImages(() => {
+      if (props.id) {
+        syncStateFromUrl();
+      }
+    });
   }
 
   // Set SEO meta tags
@@ -153,6 +162,9 @@ onUnmounted(() => {
   // Reset SEO meta tags
   resetMetaTags();
   cleanupPreloads();
+  if (searchDebounce) {
+    clearTimeout(searchDebounce);
+  }
 });
 
 // Watch search query from store to update URL and fetch data
@@ -160,6 +172,10 @@ let searchDebounce: ReturnType<typeof setTimeout> | null = null;
 watch(
   () => catsStore.gallerySearchQuery,
   (newQuery) => {
+    if (isApplyingSearchFromRoute.value) {
+      return;
+    }
+
     // Sync URL query param
     const query = { ...route.query };
     if (newQuery) {
@@ -197,7 +213,14 @@ watch(
   (newSearch) => {
     const term = (newSearch as string) || '';
     if (term !== catsStore.gallerySearchQuery) {
+      isApplyingSearchFromRoute.value = true;
       catsStore.setGallerySearchQuery(term);
+      isApplyingSearchFromRoute.value = false;
+      fetchImages(() => {
+        if (props.id) {
+          syncStateFromUrl();
+        }
+      });
     }
   }
 );
@@ -340,16 +363,27 @@ function handleModalNavigate(direction: 'prev' | 'next'): void {
 watch(
   () => [authStore.isInitialized, authStore.isAuthenticated] as const,
   ([isInit, isAuthenticated]) => {
-    if (!isInit || !isAuthenticated || hasFetchedWithAuthContext.value) {
+    if (!isInit) return;
+
+    if (isAuthenticated && !hasFetchedWithAuthContext.value) {
+      hasFetchedWithAuthContext.value = true;
+      fetchImages(() => {
+        if (props.id) {
+          syncStateFromUrl();
+        }
+      });
       return;
     }
 
-    hasFetchedWithAuthContext.value = true;
-    fetchImages(() => {
-      if (props.id) {
-        syncStateFromUrl();
-      }
-    });
+    // Auth resolved as unauthenticated — trigger initial fetch if we haven't yet
+    // (covers the case where onMounted skipped fetch due to auth hydrating)
+    if (!isAuthenticated && visibleImages.value.length === 0 && !loading.value) {
+      fetchImages(() => {
+        if (props.id) {
+          syncStateFromUrl();
+        }
+      });
+    }
   },
   { immediate: true }
 );

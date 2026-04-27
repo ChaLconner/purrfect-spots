@@ -1,7 +1,9 @@
 import functools
 import hashlib
 import json
+import time
 from collections.abc import Callable, Coroutine
+from dataclasses import dataclass
 from typing import Any, TypeVar
 
 T = TypeVar("T")
@@ -18,8 +20,17 @@ redis_client: redis.Redis | None = None
 # Export is_dev for compatibility with tests
 is_dev = config.ENVIRONMENT.lower() in ["development", "testing"]
 
-# Memory cache fallback for dev/test
-memory_cache: dict[str, Any] = {}
+# Memory cache fallback for dev/test — with size limit to prevent leaks
+_MEMORY_CACHE_MAX_SIZE = 500
+
+
+@dataclass
+class MemoryCacheEntry:
+    value: Any
+    expires_at: float
+
+
+memory_cache: dict[str, MemoryCacheEntry] = {}
 
 if redis_url:
     try:
@@ -52,12 +63,19 @@ class JSONEncoder(json.JSONEncoder):
         return super().default(o)
 
 
+def _purge_expired_memory_entries(now: float | None = None) -> None:
+    current_time = time.monotonic() if now is None else now
+    expired_keys = [key for key, entry in memory_cache.items() if entry.expires_at <= current_time]
+    for key in expired_keys:
+        del memory_cache[key]
+
+
 def generate_cache_key(*args: Any, **kwargs: Any) -> str:
     """Helper to generate a consistent cache key for given args/kwargs"""
     arg_str = json.dumps(
         {"args": [str(a) for a in args], "kwargs": {k: str(v) for k, v in kwargs.items()}}, default=str, sort_keys=True
     )
-    return hashlib.sha256(arg_str.encode()).hexdigest()
+    return hashlib.md5(arg_str.encode(), usedforsecurity=False).hexdigest()  # nosec B303
 
 
 def cache(
@@ -72,6 +90,8 @@ def cache(
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             # 1. Generate Cache Key
             try:
+                _purge_expired_memory_entries()
+
                 # Skip first N args for key generation (e.g. self, cls, client)
                 key_args = args[skip_args:]
                 arg_hash = generate_cache_key(*key_args, **kwargs)
@@ -90,10 +110,11 @@ def cache(
                         if "Event loop is closed" not in str(e):
                             logger.warning(f"Redis read error: {e}")
 
-                if cache_key in memory_cache:
+                memory_entry = memory_cache.get(cache_key)
+                if memory_entry is not None:
                     if is_dev:
                         logger.debug(f"Cache hit (Memory): {cache_key}")
-                    return memory_cache[cache_key]
+                    return memory_entry.value
 
                 if is_dev:
                     logger.debug(f"Cache miss: {cache_key}")
@@ -113,7 +134,18 @@ def cache(
                         if "Event loop is closed" not in str(e):
                             logger.warning(f"Redis write error: {e}")
 
-                memory_cache[cache_key] = result
+                _purge_expired_memory_entries()
+
+                # PERF: Evict oldest entries when cache exceeds max size
+                if len(memory_cache) >= _MEMORY_CACHE_MAX_SIZE and cache_key not in memory_cache:
+                    evict_count = _MEMORY_CACHE_MAX_SIZE // 5
+                    for old_key in list(memory_cache.keys())[:evict_count]:
+                        del memory_cache[old_key]
+
+                memory_cache[cache_key] = MemoryCacheEntry(
+                    value=result,
+                    expires_at=time.monotonic() + max(expire, 0),
+                )
             except Exception as e:
                 logger.warning(f"Memory cache write error: {e}")
 
@@ -149,9 +181,14 @@ async def clear_cache(pattern: str = "cache:*") -> None:
             except RuntimeError:
                 return  # No running loop
 
-            keys = await redis_client.keys(pattern)
-            if keys:
-                await redis_client.delete(*keys)
+            batch: list[str] = []
+            async for key in redis_client.scan_iter(match=pattern, count=500):
+                batch.append(str(key))
+                if len(batch) >= 500:
+                    await redis_client.delete(*batch)
+                    batch.clear()
+            if batch:
+                await redis_client.delete(*batch)
         except Exception as e:
             logger.debug(f"Failed to clear Redis cache: {e}")
             # pass
@@ -191,6 +228,7 @@ async def invalidate_user_cache(user_id: str | None = None) -> None:
 
 
 def get_cache_stats() -> dict[str, Any]:
+    _purge_expired_memory_entries()
     return {
         "mode": "redis" if redis_client else "memory",
         "redis_connected": redis_client is not None,

@@ -51,6 +51,18 @@ async def test_require_permission_super_admin_bypass():
 
 
 @pytest.mark.asyncio
+async def test_require_permission_legacy_superadmin_role_bypass():
+    """Legacy superadmin role alias should bypass permission checks."""
+    user = User(id="123", email="super@example.com", name="Super Admin", permissions=[], role="superadmin")
+
+    checker = require_permission("content:write")
+    mock_request = MagicMock()
+    mock_request.url.path = "/test"
+    result = await checker(request=mock_request, user=user)
+    assert result == user
+
+
+@pytest.mark.asyncio
 async def test_require_permission_fail():
     """Test failure when no permission and not admin"""
     user = User(id="123", email="user@example.com", name="Normal User", permissions=["other:permission"], role="user")

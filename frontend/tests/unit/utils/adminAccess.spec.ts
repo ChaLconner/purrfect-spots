@@ -17,6 +17,14 @@ describe('adminAccess', () => {
     expect(getDefaultAdminPath(user)).toBe('/admin');
   });
 
+  it('treats legacy superadmin role alias as bypass access', () => {
+    const user = { role: 'superadmin', permissions: [] };
+
+    expect(hasAdminBypass(user)).toBe(true);
+    expect(canAccessAdminShell(user)).toBe(true);
+    expect(hasAdminPermission(user, PERMISSIONS.SYSTEM_SETTINGS)).toBe(true);
+  });
+
   it('treats access:admin permission as bypass access', () => {
     const user = { role: 'user', permissions: [PERMISSIONS.ACCESS_ADMIN] };
 

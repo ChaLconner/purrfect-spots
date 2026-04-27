@@ -8,11 +8,14 @@ from services.gallery_service import GalleryService
 @pytest.fixture(autouse=True)
 async def clear_test_cache():
     """Clear the cache before each test to prevent cross-test contamination"""
+    from services import search_service
     from utils.cache import memory_cache
 
     memory_cache.clear()
+    search_service._fulltext_available_cache = None
     yield
     memory_cache.clear()
+    search_service._fulltext_available_cache = None
 
 
 class TestGalleryServiceExtended:

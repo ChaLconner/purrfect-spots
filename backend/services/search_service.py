@@ -7,12 +7,13 @@ from logger import logger
 from supabase import AClient
 from utils.db_security import escape_like_pattern, sanitize_search_input
 
+_fulltext_available_cache: bool | None = None
+
 
 class SearchService:
     def __init__(self, supabase_client: AClient, db: AsyncSession | None = None) -> None:
         self.supabase = supabase_client
         self.db = db
-        self._fulltext_available: bool | None = None
         # Explicit column selection to avoid over-fetching
         self.PHOTO_COLUMNS = "id, image_url, latitude, longitude, description, location_name, uploaded_at, tags, likes_count, comments_count, user_id"
         self.APPROVED_STATUS = "approved"
@@ -20,9 +21,10 @@ class SearchService:
     @property
     async def fulltext_available(self) -> bool:
         """Check if full-text search column exists in database (lazy)."""
-        if self._fulltext_available is None:
-            self._fulltext_available = await self._check_fulltext_support()
-        return self._fulltext_available
+        global _fulltext_available_cache
+        if _fulltext_available_cache is None:
+            _fulltext_available_cache = await self._check_fulltext_support()
+        return _fulltext_available_cache
 
     async def _check_fulltext_support(self) -> bool:
         """Check if full-text search column exists in database."""

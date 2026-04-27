@@ -3,20 +3,20 @@ import './styles/main.css';
 import App from './App.vue';
 import router from './router';
 import { pinia } from './store';
-import { useAuthStore } from './store/authStore';
 import { isDev } from './utils/env';
 import {
   handleUnhandledRejection,
   handleError,
   handleVueError,
 } from './utils/browserExtensionHandler';
-import i18n from './i18n';
+import i18n, { initializeI18n } from './i18n';
 
 // ========== Sentry Initialization ==========
-// Only initialize in production or if explicitly enabled
+// Sentry is opt-in so production builds without monitoring enabled do not ship the SDK chunk.
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
 const ENVIRONMENT = import.meta.env.MODE;
-const ENABLE_SENTRY = ENVIRONMENT === 'production' || import.meta.env.VITE_ENABLE_SENTRY === 'true';
+const ENABLE_SENTRY = import.meta.env.VITE_ENABLE_SENTRY === 'true';
+const ENABLE_SENTRY_REPLAY = import.meta.env.VITE_SENTRY_REPLAY_ENABLED === 'true';
 
 import type { App as VueApp } from 'vue';
 
@@ -38,8 +38,8 @@ async function initSentry(app: VueApp): Promise<void> {
       tracesSampleRate: ENVIRONMENT === 'production' ? 0.1 : 1,
 
       // Session replay (optional)
-      replaysSessionSampleRate: 0.1,
-      replaysOnErrorSampleRate: 1,
+      replaysSessionSampleRate: ENABLE_SENTRY_REPLAY ? 0.1 : 0,
+      replaysOnErrorSampleRate: ENABLE_SENTRY_REPLAY ? 1 : 0,
 
       // Don't send PII
       sendDefaultPii: false,
@@ -81,17 +81,8 @@ async function initSentry(app: VueApp): Promise<void> {
 
 const app = createApp(App);
 
-// Non-blocking initialization
-initSentry(app); 
-
 // Install Pinia BEFORE using any stores
 app.use(pinia);
-
-// Initialize auth state asynchronously to prevent blocking FCP/LCP
-const authStore = useAuthStore();
-authStore.initializeAuth().catch((e) => {
-  console.warn('[Auth] Failed to initialize auth:', e);
-});
 
 // Handle browser extension conflicts globally
 globalThis.addEventListener('unhandledrejection', handleUnhandledRejection);
@@ -141,12 +132,57 @@ app.use(i18n);
 // Mount immediately - router will handle initial navigation internally
 app.mount('#app');
 
-// Web Vitals tracking is handled below
+const schedulePostPaintTask = (task: () => void): void => {
+  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+    window.requestIdleCallback(() => task(), { timeout: 1500 });
+    return;
+  }
 
-// Initialize Web Vitals tracking after app mount
-try {
-  const { initWebVitals } = await import('./utils/webVitals');
-  initWebVitals();
-} catch {
-  // Web Vitals tracking is optional, don't break the app
-}
+  setTimeout(task, 0);
+};
+
+const loadDeferredStylesheet = (href: string): void => {
+  if (typeof document === 'undefined') {
+    return;
+  }
+
+  const existingStylesheet = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
+  if (existingStylesheet) {
+    return;
+  }
+
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = href;
+  document.head.appendChild(link);
+};
+
+// Continue non-critical boot work after first paint.
+schedulePostPaintTask(() => {
+  void initializeI18n();
+  void initSentry(app);
+  import('./utils/webVitals')
+    .then(({ initWebVitals }) => initWebVitals())
+    .catch(() => {
+      // Web Vitals tracking is optional, don't break the app
+    });
+});
+
+// Kick off auth initialization immediately so the background session check
+// starts as soon as possible, reducing skeleton visibility time.
+queueMicrotask(() => {
+  import('./store/authStore')
+    .then(({ useAuthStore }) => useAuthStore().initializeAuth())
+    .catch((e) => {
+      console.warn('[Auth] Failed to initialize auth:', e);
+    });
+});
+
+schedulePostPaintTask(() => {
+  loadDeferredStylesheet(
+    'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap'
+  );
+  loadDeferredStylesheet(
+    'https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap'
+  );
+});

@@ -62,7 +62,6 @@ class GallerySearchMixin(GalleryBaseMixin):
                 .not_.is_("tags", "null")
                 .is_("deleted_at", "null")
                 .eq("status", GallerySearchMixin.APPROVED_STATUS)
-                .limit(limit)
                 .execute()
             )
             data = cast(list[dict[str, Any]], res.data or [])

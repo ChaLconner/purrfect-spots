@@ -1,4 +1,3 @@
-import re
 from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
@@ -22,14 +21,11 @@ from services.storage_service import storage_service
 
 router = APIRouter()
 
-_UUID_RE = re.compile(
-    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-    re.IGNORECASE,
-)
+from utils.db_security import validate_uuid
 
 
 def _validate_uuid(value: str, label: str = "ID") -> None:
-    if not _UUID_RE.match(value):
+    if not validate_uuid(value):
         raise HTTPException(status_code=400, detail=f"Invalid {label} format: expected UUID")
 
 

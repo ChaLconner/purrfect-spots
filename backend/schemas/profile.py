@@ -62,6 +62,12 @@ class UploadsResponse(BaseModel):
     count: int
 
 
+class PublicProfileBundleResponse(BaseModel):
+    profile: PublicProfileResponse
+    uploads: list[dict[str, Any]]
+    count: int
+
+
 class ProfilePictureResponse(BaseModel):
     message: str
     picture: str

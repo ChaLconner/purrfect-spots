@@ -26,6 +26,9 @@ ROLES_MANAGE = "roles:manage"
 ACCESS_ADMIN = "access:admin"
 
 ADMIN_ROLE_NAMES = frozenset({"admin", "super_admin"})
+LEGACY_ROLE_ALIASES: dict[str, str] = {
+    "superadmin": "super_admin",
+}
 
 
 @dataclass(frozen=True)
@@ -115,7 +118,8 @@ def normalize_permissions(permissions: Iterable[str] | None) -> list[str]:
 def is_admin_role(role: str | None) -> bool:
     if not role:
         return False
-    return role.lower() in ADMIN_ROLE_NAMES
+    normalized_role = LEGACY_ROLE_ALIASES.get(role.lower(), role.lower())
+    return normalized_role in ADMIN_ROLE_NAMES
 
 
 def has_admin_access(role: str | None, permissions: Iterable[str] | None) -> bool:

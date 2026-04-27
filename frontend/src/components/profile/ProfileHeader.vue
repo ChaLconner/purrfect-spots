@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
 import { getAvatarFallback, handleAvatarError } from '@/utils/avatar';
+import { formatDate } from '@/utils/date';
 
 /**
  * ProfileHeader Component
@@ -31,17 +32,16 @@ const { t, locale } = useI18n();
 
 const formatJoinDate = (dateString?: string): string => {
   if (!dateString) return t('common.unknown');
-  const date = new Date(dateString);
-  return date.toLocaleDateString(locale.value, { year: 'numeric', month: 'long' });
+  return formatDate(dateString, { year: 'numeric', month: 'long' }, locale);
 };
 
-const formatDate = (dateString?: string | null): string => {
+const formatLocalDate = (dateString?: string | null): string => {
   if (!dateString) return '';
-  return new Date(dateString).toLocaleDateString(locale.value, {
+  return formatDate(dateString, {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
-  });
+  }, locale);
 };
 </script>
 
@@ -213,7 +213,7 @@ const formatDate = (dateString?: string | null): string => {
                 {{ cancelAtPeriodEnd ? t('subscription.proPlan.cancelsOn') : t('subscription.proPlan.active') }}
               </p>
               <p class="text-xs sm:text-sm font-semibold text-brown">
-                {{ cancelAtPeriodEnd ? formatDate(subscriptionEndDate) : (subscriptionEndDate ? t('subscription.proPlan.active') + ' · ' + formatDate(subscriptionEndDate) : t('subscription.proPlan.active')) }}
+                {{ cancelAtPeriodEnd ? formatLocalDate(subscriptionEndDate) : (subscriptionEndDate ? t('subscription.proPlan.active') + ' · ' + formatLocalDate(subscriptionEndDate) : t('subscription.proPlan.active')) }}
               </p>
             </div>
           </div>

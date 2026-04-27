@@ -104,14 +104,9 @@
       class="load-more flex flex-col items-center gap-3 p-8 h-4 w-full"
       aria-hidden="true"
     ></div>
-    <div
-      v-if="loadingMore"
-      class="py-4 flex justify-center w-full"
-      role="status"
-      aria-live="polite"
-    >
-      <GhibliLoader size="small" />
-    </div>
+    <span v-if="loadingMore" class="sr-only" role="status" aria-live="polite">
+      {{ t('galleryPage.loading') }}
+    </span>
   </div>
 </template>
 
@@ -120,9 +115,9 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller';
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
 import { useSubscriptionStore } from '@/store/subscriptionStore';
-import { useToastStore, useAuthStore } from '@/store';
+import { useToastStore } from '@/store';
+import { useAuthStore } from '@/store/authStore';
 import { IMAGE_CONFIG, GALLERY_CONFIG } from '@/utils/constants';
-import GhibliLoader from '@/components/ui/GhibliLoader.vue';
 import type { CatLocation } from '@/types/api';
 import { useI18n } from 'vue-i18n';
 

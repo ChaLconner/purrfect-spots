@@ -22,6 +22,8 @@ class GalleryReadMixin(GalleryBaseMixin):
         include_total: bool = True,
         user_id: str | None = None,
         jwt_token: str | None = None,
+        sort_field: str | None = None,
+        sort_desc: bool = True,
     ) -> dict[str, Any]:
         """Get photos for public gallery with pagination."""
         try:
@@ -29,14 +31,21 @@ class GalleryReadMixin(GalleryBaseMixin):
             offset = max(0, offset)
             logger.info(f"Fetching gallery photos: limit={limit}, offset={offset}, user_id={user_id}")
 
-            data = await self._fetch_photos(limit, offset, user_id)
+            # PERF: Fetch data and count in a single query to eliminate N+1
+            data, total = await self._fetch_photos(
+                limit,
+                offset,
+                user_id,
+                include_count=include_total,
+                sort_field=sort_field,
+                sort_desc=sort_desc,
+            )
             if data and user_id:
                 data = await self.enrich_with_user_data(data, user_id)
             data = self._process_photos(data)
 
-            total = 0
-            if include_total:
-                total = await self._fetch_total_count(data)
+            if total is None:
+                total = 0
 
             return {
                 "data": data,
@@ -56,20 +65,65 @@ class GalleryReadMixin(GalleryBaseMixin):
         res = await self.get_all_photos(include_total=False)
         return cast(list[dict[str, Any]], res["data"])
 
-    async def _fetch_photos(self, limit: int, offset: int, user_id: str | None) -> list[dict[str, Any]]:
+    async def _fetch_photos(
+        self,
+        limit: int,
+        offset: int,
+        user_id: str | None,
+        include_count: bool = False,
+        sort_field: str | None = None,
+        sort_desc: bool = True,
+    ) -> tuple[list[dict[str, Any]], int | None]:
         """Fetch photos with hydrated user details where possible."""
-        return await self._fetch_photos_supabase(limit, offset, user_id)
+        return await self._fetch_photos_supabase(limit, offset, user_id, include_count, sort_field, sort_desc)
 
-    async def _fetch_photos_supabase(self, limit: int, offset: int, user_id: str | None) -> list[dict[str, Any]]:
-        query = self._apply_visibility_filter(self.supabase.table("cat_photos").select(self.PHOTO_COLUMNS))
-        res = await query.order("uploaded_at", desc=True).range(offset, offset + limit - 1).execute()
-        return cast(list[dict[str, Any]], res.data or [])
+    async def _fetch_photos_supabase(
+        self,
+        limit: int,
+        offset: int,
+        user_id: str | None,
+        include_count: bool = False,
+        sort_field: str | None = None,
+        sort_desc: bool = True,
+    ) -> tuple[list[dict[str, Any]], int | None]:
+        # PERF: Include count in same query to avoid separate roundtrip
+        count_method = CountMethod.exact if include_count else None
+        query = self._apply_visibility_filter(
+            self.supabase.table("cat_photos").select(self.PHOTO_COLUMNS, count=count_method)
+        )
+        # PERF: Sort at DB level instead of Python
+        order_field = sort_field or "uploaded_at"
 
-    async def _fetch_total_count(self, data: list[dict[str, Any]]) -> int:
-        """Fetch total count of photos with fallback from SQL to Supabase client."""
+        try:
+            res = await query.order(order_field, desc=sort_desc).range(offset, offset + limit - 1).execute()
+            data = cast(list[dict[str, Any]], res.data or [])
+            total = res.count if include_count and res.count is not None else None
+            return data, total
+        except Exception as e:
+            # BUGFIX: Handle Supabase error 416 'JSON could not be generated' which occurs
+            # on some rows when count='exact' is used.
+            if "JSON could not be generated" in str(e) and include_count:
+                logger.debug("Supabase count='exact' failed, retrying without count: %s", e)
+                # Retry without count
+                query_no_count = self._apply_visibility_filter(
+                    self.supabase.table("cat_photos").select(self.PHOTO_COLUMNS)
+                )
+                res = (
+                    await query_no_count.order(order_field, desc=sort_desc).range(offset, offset + limit - 1).execute()
+                )
+                data = cast(list[dict[str, Any]], res.data or [])
+                # Fetch count separately as fallback
+                total = await self._fetch_total_count_fallback(data)
+                return data, total
+
+            # Re-raise if it's not the specific count error or if we weren't asking for count
+            raise
+
+    async def _fetch_total_count_fallback(self, data: list[dict[str, Any]]) -> int:
+        """Fallback: fetch total count separately using a HEAD-style count-only query."""
         try:
             res_count = await self._apply_visibility_filter(
-                self.supabase.table("cat_photos").select("id", count=CountMethod.exact)
+                self.supabase.table("cat_photos").select(count=CountMethod.exact)
             ).execute()
             return res_count.count or 0
         except Exception as e:
@@ -77,9 +131,10 @@ class GalleryReadMixin(GalleryBaseMixin):
             return len(data)
 
     @cached_gallery
-    async def get_map_locations(self) -> list[dict[str, Any]]:
-        """Fetch all cat locations using the standard Supabase client path."""
+    async def get_map_locations(self, limit: int = 500) -> list[dict[str, Any]]:
+        """Fetch a bounded legacy marker list using the standard Supabase client path."""
         try:
+            limit = min(max(1, limit), 500)
             res = (
                 await self._apply_visibility_filter(
                     self.supabase.table("cat_photos").select(
@@ -87,7 +142,7 @@ class GalleryReadMixin(GalleryBaseMixin):
                     )
                 )
                 .order("uploaded_at", desc=True)
-                .limit(2000)
+                .limit(limit)
                 .execute()
             )
             data = cast(list[dict[str, Any]], res.data or [])

@@ -26,6 +26,7 @@ describe('GalleryService', () => {
     it('should handle array response', async () => {
       vi.mocked(apiV1.get).mockResolvedValue([{ id: '1' }] as any);
       const res = await GalleryService.getLocations();
+      expect(apiV1.get).toHaveBeenCalledWith('/gallery/locations', { params: { limit: 500 } });
       expect(res).toEqual([{ id: '1' }]);
     });
 

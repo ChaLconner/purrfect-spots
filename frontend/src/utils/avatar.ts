@@ -7,21 +7,32 @@ export const getAvatarFallback = (name?: string | null): string => {
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=EBE4DD&color=C26D45`;
 };
 
+export const isAvatarUrl = (url?: string | null): boolean => {
+  if (!url) return false;
+
+  try {
+    const parsedUrl = new URL(url, globalThis.location?.origin);
+    const hostname = parsedUrl.hostname.toLowerCase();
+
+    return (
+      hostname === 'ui-avatars.com' ||
+      hostname === 'lh3.googleusercontent.com' ||
+      hostname.endsWith('.googleusercontent.com') ||
+      hostname === 'avatars.githubusercontent.com' ||
+      hostname.endsWith('.githubusercontent.com') ||
+      hostname === 'cdn.discordapp.com' ||
+      hostname.endsWith('.discordapp.com')
+    );
+  } catch {
+    return false;
+  }
+};
+
 export const handleAvatarError = (event: Event, name?: string | null): void => {
   const target = event.target as HTMLImageElement;
   const fallbackUrl = getAvatarFallback(name);
 
-  // Use proper URL parsing to check the hostname instead of substring matching
-  // to prevent bypasses like "evil.com?q=ui-avatars.com"
-  let isAvatarService = false;
-  try {
-    const parsedUrl = new URL(target.src);
-    isAvatarService = parsedUrl.hostname === 'ui-avatars.com';
-  } catch {
-    // Invalid URL - not an avatar service URL
-  }
-
-  if (target.src !== fallbackUrl && !isAvatarService) {
+  if (target.src !== fallbackUrl && !isAvatarUrl(target.src)) {
     target.src = fallbackUrl;
   }
 };

@@ -1,6 +1,3 @@
-#!/usr/bin/env sh
-. "$(dirname "$0")/_/h"
-
 message_file="$1"
 header="$(sed -n '1p' "$message_file" | tr -d '\r')"
 

@@ -79,6 +79,24 @@ class TestTokenService:
             assert expiry > datetime.now(UTC)
 
     @pytest.mark.asyncio
+    async def test_blacklist_token_redis_failure_falls_back_to_memory(self, mock_supabase_admin):
+        """Redis write failures should still blacklist inside current process."""
+        mock_redis = AsyncMock()
+        mock_redis.setex.side_effect = Exception("redis unavailable")
+
+        with patch(
+            "services.token_service.get_async_supabase_admin_client", new=AsyncMock(return_value=mock_supabase_admin)
+        ):
+            service = TokenService(mock_redis)
+            token = "redis-down-token"
+            token_hash = service._hash_token(token)
+
+            result = await service.blacklist_token(token=token, reason="redis-down")
+
+        assert result is True
+        assert token_hash in service._memory_blacklist
+
+    @pytest.mark.asyncio
     async def test_blacklist_token_db_persistence(self, token_service, mock_supabase_admin):
         """Test blacklisting with DB persistence"""
         token = "db-token"

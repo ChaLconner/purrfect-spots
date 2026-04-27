@@ -17,19 +17,32 @@ export function useGalleryState(): {
 } {
   const catsStore = useCatsStore();
 
-  const loading = ref(catsStore.locations.length === 0);
+  const loading = ref(catsStore.galleryLocations.length === 0);
   const loadingMore = ref(false);
   const error = ref('');
-  const visibleImages = ref<CatLocation[]>(catsStore.locations);
+  const visibleImages = ref<CatLocation[]>([...catsStore.galleryLocations]);
 
   const currentPage = ref(1);
   const imagesPerPage = GALLERY_CONFIG.IMAGES_PER_PAGE;
-  const hasMoreImages = ref(catsStore.locations.length > 0);
-  const totalImages = ref(catsStore.locations.length);
+  const hasMoreImages = ref(catsStore.galleryLocations.length > 0);
+  const totalImages = ref(catsStore.galleryLocations.length);
+  let latestRequestId = 0;
+  let inFlightRequestKey: string | null = null;
+  let inFlightRequest: Promise<void> | null = null;
+  let lastLoadMoreRequestAt = 0;
 
   const preloadedLinks: HTMLLinkElement[] = [];
 
   async function fetchGalleryData(reset = false, callback?: () => void): Promise<void> {
+    const requestKey = `${reset ? 'reset' : 'append'}:${catsStore.gallerySearchQuery}:${currentPage.value}:${imagesPerPage}`;
+
+    // Deduplicate identical in-flight requests triggered by multiple watchers/observers.
+    if (inFlightRequest && inFlightRequestKey === requestKey) {
+      return inFlightRequest;
+    }
+
+    const runRequest = async (): Promise<void> => {
+    const requestId = ++latestRequestId;
     const hasData = visibleImages.value.length > 0;
 
     if (reset) {
@@ -76,16 +89,20 @@ export function useGalleryState(): {
         }
       }
 
+      if (requestId !== latestRequestId) {
+        return;
+      }
+
       if (reset) {
         visibleImages.value = newImages;
       } else {
-        visibleImages.value.push(...newImages);
+        visibleImages.value = [...visibleImages.value, ...newImages];
       }
 
       hasMoreImages.value = hasNext;
       if (total > 0) {
         totalImages.value = total;
-        catsStore.setLocations(visibleImages.value, {
+        catsStore.setGalleryLocations(visibleImages.value, {
           total,
           limit: imagesPerPage,
           offset: (currentPage.value - 1) * imagesPerPage,
@@ -95,6 +112,7 @@ export function useGalleryState(): {
         });
       } else {
         totalImages.value = visibleImages.value.length;
+        catsStore.setGalleryLocations(visibleImages.value);
       }
 
       if (reset && callback) {
@@ -108,9 +126,22 @@ export function useGalleryState(): {
         error.value = message;
       }
     } finally {
-      loading.value = false;
-      loadingMore.value = false;
+      if (requestId === latestRequestId) {
+        loading.value = false;
+        loadingMore.value = false;
+      }
     }
+    };
+
+    inFlightRequestKey = requestKey;
+    inFlightRequest = runRequest().finally(() => {
+      if (inFlightRequestKey === requestKey) {
+        inFlightRequestKey = null;
+        inFlightRequest = null;
+      }
+    });
+
+    return inFlightRequest;
   }
 
   function fetchImages(callback?: () => void): void {
@@ -119,6 +150,10 @@ export function useGalleryState(): {
 
   function loadMoreImages(): void {
     if (loadingMore.value || !hasMoreImages.value) return;
+    const now = Date.now();
+    // Prevent request bursts when the observer re-initializes while trigger is still visible.
+    if (now - lastLoadMoreRequestAt < 500) return;
+    lastLoadMoreRequestAt = now;
     currentPage.value++;
     fetchGalleryData(false);
   }

@@ -141,7 +141,6 @@ export function useLocationPicker(options: LocationPickerOptions = {}): {
       const mapOptions = {
         center: mapCenter.value,
         zoom: DEFAULT_ZOOM_NO_SELECTION, // Start zoomed out
-        mapId: '2e9b14b966a476a5ec49973f',
         disableDefaultUI: true,
         zoomControl: true,
         gestureHandling: 'cooperative', // Best for mobile to prevent scroll trapping

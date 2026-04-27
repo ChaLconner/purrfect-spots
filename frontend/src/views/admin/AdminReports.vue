@@ -1,12 +1,12 @@
 <template>
-  <div class="bg-white rounded-xl shadow-sm border border-sand-100 overflow-hidden">
+  <div class="admin-reports-shell">
     <div
-      class="p-4 border-b border-sand-100 flex flex-col sm:flex-row justify-between items-center gap-4"
+      class="admin-reports-toolbar"
     >
-      <div class="flex items-center gap-4">
-        <h2 class="text-xl font-bold text-brown-900">{{ t('admin.reports.title') }}</h2>
+      <div class="admin-reports-toolbar-main">
+        <h2 class="admin-reports-title">{{ t('admin.reports.title') }}</h2>
         <button
-          class="px-3 py-1.5 text-sm font-medium text-brown-600 bg-sand-50 border border-sand-200 rounded-lg hover:bg-sand-100 transition-colors flex items-center gap-2"
+          class="admin-reports-export-button"
           @click="exportReports"
         >
           <svg
@@ -26,10 +26,10 @@
           {{ t('admin.reports.exportCsv') }}
         </button>
       </div>
-      <div class="flex gap-2">
+      <div class="admin-reports-filters">
         <select
           v-model="statusFilter"
-          class="pl-3 pr-10 py-2 border border-sand-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 text-brown-700 bg-white"
+          class="admin-reports-filter-select"
           @change="loadReports(1)"
         >
           <option value="">{{ t('admin.reports.filters.allStatuses') }}</option>
@@ -39,7 +39,7 @@
         </select>
         <select
           v-model="reasonFilter"
-          class="pl-3 pr-10 py-2 border border-sand-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 text-brown-700 bg-white"
+          class="admin-reports-filter-select"
           @change="loadReports(1)"
         >
           <option value="">{{ t('admin.reports.filters.allReasons') }}</option>
@@ -47,61 +47,45 @@
             {{ reason.label }}
           </option>
         </select>
-        <div class="flex items-center gap-2">
+        <div class="admin-reports-date-range">
           <input
             v-model="startDate"
             type="date"
-            class="pl-3 pr-3 py-2 border border-sand-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 text-brown-700 bg-white text-sm"
+            class="admin-reports-date-input"
             @change="loadReports(1)"
           />
           <span class="text-brown-400">-</span>
           <input
             v-model="endDate"
             type="date"
-            class="pl-3 pr-3 py-2 border border-sand-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 text-brown-700 bg-white text-sm"
+            class="admin-reports-date-input"
             @change="loadReports(1)"
           />
         </div>
         <div
           v-if="selectedReportIds.length > 0 && canManageReports"
-          class="flex items-center bg-terracotta-50 px-3 py-1.5 rounded-lg border border-terracotta-100 gap-2"
+          class="admin-reports-bulk-bar"
         >
-          <span class="text-xs font-medium text-terracotta-700">
+          <span class="admin-reports-bulk-count">
             {{ t('admin.reports.selectedCount', { count: selectedReportIds.length }) }}
           </span>
           <button
-            class="text-xs px-2 py-1 bg-white border border-terracotta-200 rounded hover:bg-terracotta-100 text-terracotta-700 font-medium"
+            class="admin-reports-bulk-button"
             @click="openBulkActionModal('resolve')"
           >
             {{ t('admin.reports.actions.resolve') }}
           </button>
           <button
-            class="text-xs px-2 py-1 bg-white border border-terracotta-200 rounded hover:bg-terracotta-100 text-terracotta-700 font-medium"
+            class="admin-reports-bulk-button"
             @click="openBulkActionModal('dismiss')"
           >
             {{ t('admin.reports.actions.dismiss') }}
           </button>
         </div>
-        <button
-          class="p-2 rounded-lg border border-sand-300 hover:bg-sand-50 text-brown-500"
+        <RefreshButton
           :title="t('common.refresh')"
-          @click="loadReports(1, true)"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            />
-          </svg>
-        </button>
+          @refresh="loadReports(1, true)"
+        />
       </div>
     </div>
 
@@ -166,10 +150,7 @@
               />
             </td>
             <td class="px-6 py-3 whitespace-nowrap text-sm text-brown-500">
-              {{ new Date(report.created_at).toLocaleDateString(locale) }}<br />
-              <span class="text-xs text-brown-400">{{
-                new Date(report.created_at).toLocaleTimeString(locale)
-              }}</span>
+              {{ formatTimestampWithLocale(report.created_at) }}
             </td>
             <td class="px-6 py-4">
               <span
@@ -283,26 +264,16 @@
     </div>
 
     <!-- Pagination -->
-    <div
-      v-if="reports.length > 0"
-      class="px-6 py-4 border-t border-sand-200 flex items-center justify-between"
-    >
-      <button
-        :disabled="page === 1"
-        class="px-4 py-2 border border-sand-300 rounded-md text-sm font-medium text-brown-700 bg-white hover:bg-sand-50 disabled:opacity-50 disabled:cursor-not-allowed"
-        @click="page > 1 && loadReports(page - 1)"
-      >
-        {{ t('common.previous') }}
-      </button>
-      <span class="text-sm text-brown-600">{{ t('common.page', { n: page }) }}</span>
-      <button
-        :disabled="reports.length < limit || page * limit >= totalReports"
-        class="px-4 py-2 border border-sand-300 rounded-md text-sm font-medium text-brown-700 bg-white hover:bg-sand-50 disabled:opacity-50 disabled:cursor-not-allowed"
-        @click="loadReports(page + 1)"
-      >
-        {{ t('common.next') }}
-      </button>
-    </div>
+    <AdminPagination
+      v-model:page="page"
+      :limit="limit"
+      :total-items="totalReports"
+      :items-length="reports.length"
+      :previous-text="t('common.previous')"
+      :next-text="t('common.next')"
+      :page-text="t('common.page', { n: page })"
+      @update:page="loadReports"
+    />
 
     <!-- Image Preview Modal -->
     <div
@@ -339,14 +310,9 @@
       </div>
     </div>
     <!-- Resolution/Action Modal -->
-    <div
-      v-if="selectedReport"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-    >
-      <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-        <h3 class="text-lg font-bold text-brown-900 mb-4">
-          {{
-            isBulkAction
+    <ActionModal
+      :model-value="!!selectedReport"
+      :title="isBulkAction
               ? t('admin.reports.modal.bulkTitle', {
                   action: t(`admin.reports.modal.bulkLabel`, { action: actionType }),
                   count: selectedReportIds.length,
@@ -355,65 +321,44 @@
                 ? t('admin.reports.modal.deleteTitle')
                 : actionType === 'resolve'
                   ? t('admin.reports.modal.resolveTitle')
-                  : t('admin.reports.modal.dismissTitle')
-          }}
-        </h3>
-
-        <div v-if="actionType === 'delete'" class="mb-4 text-sm text-red-600 font-medium">
-          {{ t('admin.reports.modal.deleteWarning') }}
-        </div>
-
-        <div class="mb-4">
-          <label for="resolution-reason" class="block text-sm font-medium text-brown-700 mb-1">{{
-            t('admin.reports.modal.reasonLabel')
-          }}</label>
-          <select
-            id="resolution-reason"
-            v-model="selectedReason"
-            class="w-full border border-sand-300 rounded-md shadow-sm p-2 focus:ring-terracotta-500 focus:border-terracotta-500"
-          >
-            <option value="">{{ t('admin.reports.modal.reasonPlaceholder') }}</option>
-            <option v-for="reason in filteredReasons" :key="reason.value" :value="reason.value">
-              {{ t('admin.reports.resolutionReasons.' + reason.value) }}
-            </option>
-          </select>
-        </div>
-
-        <div class="mb-6">
-          <label for="resolution-note" class="block text-sm font-medium text-brown-700 mb-1">
-            {{ t('admin.reports.modal.notesLabel') }}
-          </label>
-          <textarea
-            id="resolution-note"
-            v-model="resolutionNote"
-            rows="3"
-            class="w-full border border-sand-300 rounded-md shadow-sm p-2 focus:ring-terracotta-500 focus:border-terracotta-500"
-            :placeholder="t('admin.reports.modal.notesPlaceholder')"
-          ></textarea>
-        </div>
-
-        <div class="flex justify-end gap-3">
-          <button
-            class="px-4 py-2 border border-sand-300 rounded-md text-brown-700 hover:bg-sand-50"
-            @click="closeActionModal"
-          >
-            {{ t('common.cancel') }}
-          </button>
-          <button
-            class="px-4 py-2 rounded-md text-white font-medium"
-            :class="
-              actionType === 'delete'
-                ? 'bg-red-600 hover:bg-red-700'
-                : 'bg-terracotta-600 hover:bg-terracotta-700'
-            "
-              :disabled="!hasValidSelectedReason"
-            @click="confirmAction"
-          >
-            {{ t('common.confirm') }}
-          </button>
-        </div>
+                  : t('admin.reports.modal.dismissTitle')"
+      :warning="actionType === 'delete' ? t('admin.reports.modal.deleteWarning') : undefined"
+      :cancel-text="t('common.cancel')"
+      :confirm-text="t('common.confirm')"
+      :confirm-button-class="actionType === 'delete' ? 'bg-red-600 hover:bg-red-700' : 'bg-terracotta-600 hover:bg-terracotta-700'"
+      :disable-confirm="!hasValidSelectedReason"
+      @update:model-value="!$event && closeActionModal()"
+      @confirm="confirmAction"
+    >
+      <div class="mb-4">
+        <label for="resolution-reason" class="block text-sm font-medium text-brown-700 mb-1">{{
+          t('admin.reports.modal.reasonLabel')
+        }}</label>
+        <select
+          id="resolution-reason"
+          v-model="selectedReason"
+          class="w-full border border-sand-300 rounded-md shadow-sm p-2 focus:ring-terracotta-500 focus:border-terracotta-500"
+        >
+          <option value="">{{ t('admin.reports.modal.reasonPlaceholder') }}</option>
+          <option v-for="reason in filteredReasons" :key="reason.value" :value="reason.value">
+            {{ t('admin.reports.resolutionReasons.' + reason.value) }}
+          </option>
+        </select>
       </div>
-    </div>
+
+      <div class="mb-6">
+        <label for="resolution-note" class="block text-sm font-medium text-brown-700 mb-1">
+          {{ t('admin.reports.modal.notesLabel') }}
+        </label>
+        <textarea
+          id="resolution-note"
+          v-model="resolutionNote"
+          rows="3"
+          class="w-full border border-sand-300 rounded-md shadow-sm p-2 focus:ring-terracotta-500 focus:border-terracotta-500"
+          :placeholder="t('admin.reports.modal.notesPlaceholder')"
+        ></textarea>
+      </div>
+    </ActionModal>
   </div>
 </template>
 
@@ -427,9 +372,16 @@ import { useToast } from '@/components/toast/use-toast';
 import { useAuthStore } from '@/store/authStore';
 import { useAdminTable } from '@/composables/useAdminTable';
 import TableSkeleton from '@/components/ui/TableSkeleton.vue';
+import RefreshButton from '@/components/ui/RefreshButton.vue';
+import AdminPagination from '@/components/ui/AdminPagination.vue';
+import ActionModal from '@/components/ui/ActionModal.vue';
 import { OptimizedImage } from '@/components/ui';
+import { formatTimestamp } from '@/utils/date';
 
 const { t, locale } = useI18n();
+
+// Local formatTimestamp removed, using imported one with locale
+const formatTimestampWithLocale = (date: string): string => formatTimestamp(date, locale.value);
 const { toast } = useToast();
 const authStore = useAuthStore();
 
@@ -605,3 +557,110 @@ onMounted(() => {
   loadReports();
 });
 </script>
+
+<style scoped>
+.admin-reports-shell {
+  overflow: hidden;
+  border: 1px solid rgba(245, 245, 244, 0.95);
+  border-radius: 0.75rem;
+  background: white;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.admin-reports-toolbar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid rgba(245, 245, 244, 0.95);
+}
+
+.admin-reports-toolbar-main {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.admin-reports-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-brown-900, #2d2420);
+}
+
+.admin-reports-export-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--color-sand-200);
+  border-radius: 0.5rem;
+  background: var(--color-sand-50);
+  color: var(--color-brown-600, #57534e);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.admin-reports-export-button:hover {
+  background: var(--color-sand-100);
+}
+
+.admin-reports-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.admin-reports-filter-select,
+.admin-reports-date-input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-sand-300);
+  border-radius: 0.5rem;
+  background: white;
+  color: var(--color-brown-700, #44403c);
+}
+
+.admin-reports-date-range {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.admin-reports-bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--color-terracotta-100, #f7ebe6);
+  border-radius: 0.5rem;
+  background: var(--color-terracotta-50, #fbf5f2);
+}
+
+.admin-reports-bulk-count {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-terracotta-700, #a04f2c);
+}
+
+.admin-reports-bulk-button {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--color-terracotta-200, #eecfb9);
+  border-radius: 0.25rem;
+  background: white;
+  color: var(--color-terracotta-700, #a04f2c);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.admin-reports-bulk-button:hover {
+  background: var(--color-terracotta-100, #f7ebe6);
+}
+
+@media (min-width: 640px) {
+  .admin-reports-toolbar {
+    flex-direction: row;
+  }
+}
+</style>

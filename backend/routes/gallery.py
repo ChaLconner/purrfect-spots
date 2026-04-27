@@ -128,6 +128,8 @@ async def get_gallery(
             include_total=True,
             user_id=current_user.id if current_user else None,
             jwt_token=token if current_user else None,
+            sort_field=sort.value if sort else None,
+            sort_desc=(order == SortOrder.DESC),
         )
 
         if not result["data"]:
@@ -143,9 +145,8 @@ async def get_gallery(
                 ),
             )
 
-        # Apply sorting
-        sorted_data = _apply_sort(result["data"], sort, order)
-        protected_data = protect_photo_locations(sorted_data)
+        # Sorting is now handled at the DB level via sort_field/sort_desc
+        protected_data = protect_photo_locations(result["data"])
 
         # Apply field selection
         if selected_fields:
@@ -181,12 +182,13 @@ async def get_gallery(
 async def get_locations(
     response: Response,
     gallery_service: Annotated[GalleryService, Depends(get_gallery_service)],
+    limit: int = Query(500, ge=1, le=500, description="Maximum number of legacy marker results"),
 ) -> list[CatLocation]:
-    """Get all cat locations from Supabase (for map display)."""
+    """Get a bounded legacy marker list from Supabase."""
     response.headers["Cache-Control"] = "public, max-age=300"
 
     try:
-        photos = await gallery_service.get_map_locations()
+        photos = await gallery_service.get_map_locations(limit=limit)
         if not photos:
             return []
         photos = protect_photo_locations(photos)
@@ -201,6 +203,7 @@ async def get_locations(
 
 @router.get("/viewport", response_model=GalleryResponse)
 async def get_locations_in_viewport(
+    response: Response,
     gallery_service: Annotated[GalleryService, Depends(get_gallery_service)],
     current_user: Annotated[User | None, Depends(get_current_user_optional)],
     north: float = Query(..., description="North latitude bound"),
@@ -210,6 +213,11 @@ async def get_locations_in_viewport(
     limit: int = Query(100, ge=1, le=500, description="Maximum number of results"),
 ) -> GalleryResponse:
     """Get cat locations within a geographic viewport (bounding box)."""
+    # PERF: Enable caching for viewport data so ETag middleware can work
+    if current_user:
+        response.headers["Cache-Control"] = "private, max-age=60, stale-while-revalidate=30"
+    else:
+        response.headers["Cache-Control"] = "public, max-age=60, stale-while-revalidate=30"
     try:
         center_lat = (north + south) / 2
         center_lng = (east + west) / 2

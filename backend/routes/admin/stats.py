@@ -17,6 +17,7 @@ router = APIRouter()
 from services.redis_service import redis_service
 
 # Legacy stats cache removed
+MONTHLY_FALLBACK_POINTS_SUPPORTED = False
 
 
 def _coerce_date(value: Any) -> date | None:
@@ -94,64 +95,50 @@ async def _fetch_trends_fallback(admin_client: Any, days_back: int = 30) -> dict
 
 
 async def _fetch_monthly_report_fallback(admin_client: Any, report_year: int) -> list[dict[str, Any]]:
-    """Compute monthly dashboard data in Python when DB RPCs are stale or missing."""
-    year_start = datetime(report_year, 1, 1)
-    next_year_start = datetime(report_year + 1, 1, 1)
-    start_iso = year_start.isoformat()
-    end_iso = next_year_start.isoformat()
+    """Compute monthly dashboard data with bounded DB work when RPCs are stale or missing."""
 
-    users_task = (
-        admin_client.table("users")
-        .select("created_at")
-        .gte("created_at", start_iso)
-        .lt("created_at", end_iso)
-        .execute()
-    )
-    photos_task = (
-        admin_client.table("cat_photos")
-        .select("uploaded_at")
-        .gte("uploaded_at", start_iso)
-        .lt("uploaded_at", end_iso)
-        .execute()
-    )
-    reports_task = (
-        admin_client.table("reports")
-        .select("updated_at")
-        .eq("status", "resolved")
-        .gte("updated_at", start_iso)
-        .lt("updated_at", end_iso)
-        .execute()
-    )
-    treats_task = (
-        admin_client.table("treats_transactions")
-        .select("created_at,amount")
-        .eq("transaction_type", "PURCHASE")
-        .gte("created_at", start_iso)
-        .lt("created_at", end_iso)
-        .execute()
-    )
+    async def count_rows(
+        table: str,
+        field_name: str,
+        month: int,
+        *,
+        filters: dict[str, Any] | None = None,
+    ) -> int:
+        month_start = datetime(report_year, month, 1)
+        month_end = datetime(report_year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 1)
+        query = (
+            admin_client.table(table)
+            .select("id", count=CountMethod.exact)
+            .gte(field_name, month_start.isoformat())
+            .lt(field_name, month_end.isoformat())
+            .limit(1)
+        )
+        if filters:
+            for key, value in filters.items():
+                query = query.eq(key, value)
+        result = await query.execute()
+        return result.count or 0
 
-    user_res, photo_res, report_res, treats_res = await asyncio.gather(
-        users_task, photos_task, reports_task, treats_task
-    )
+    monthly_tasks = []
+    for month in range(1, 13):
+        monthly_tasks.extend(
+            [
+                count_rows("users", "created_at", month),
+                count_rows("cat_photos", "uploaded_at", month),
+                count_rows("reports", "updated_at", month, filters={"status": "resolved"}),
+            ]
+        )
 
-    user_counts = _build_monthly_series(user_res.data or [], "created_at", report_year)
-    photo_counts = _build_monthly_series(photo_res.data or [], "uploaded_at", report_year)
-    report_counts = _build_monthly_series(report_res.data or [], "updated_at", report_year)
-
-    points_earned = [0] * 12
-    for row in treats_res.data or []:
-        parsed_date = _coerce_date(row.get("created_at"))
-        if parsed_date and parsed_date.year == report_year:
-            points_earned[parsed_date.month - 1] += int(row.get("amount") or 0)
+    monthly_counts = await asyncio.gather(*monthly_tasks)
 
     return [
         {
             "month_timestamp": datetime(report_year, month, 1).isoformat(),
-            "new_users": user_counts[month - 1],
-            "new_photos": photo_counts[month - 1],
-            "resolved_reports": report_counts[month - 1],
-            "points_earned": points_earned[month - 1],
+            "new_users": monthly_counts[(month - 1) * 3],
+            "new_photos": monthly_counts[(month - 1) * 3 + 1],
+            "resolved_reports": monthly_counts[(month - 1) * 3 + 2],
+            "points_earned": 0,
+            "points_earned_degraded": not MONTHLY_FALLBACK_POINTS_SUPPORTED,
         }
         for month in range(1, 13)
     ]
@@ -177,10 +164,10 @@ async def get_dashboard_summary(
 
         # Parallel fetch for all dashboard components
         stats_tasks = [
-            admin_client.table("users").select("id", count=CountMethod.estimated).limit(1).execute(),
-            admin_client.table("cat_photos").select("id", count=CountMethod.estimated).limit(1).execute(),
+            admin_client.table("users").select("id", count=CountMethod.exact).limit(1).execute(),
+            admin_client.table("cat_photos").select("id", count=CountMethod.exact).limit(1).execute(),
             admin_client.table("reports").select("id", count=CountMethod.exact).eq("status", "pending").execute(),
-            admin_client.table("reports").select("id", count=CountMethod.estimated).limit(1).execute(),
+            admin_client.table("reports").select("id", count=CountMethod.exact).limit(1).execute(),
         ]
         trends_task = admin_client.rpc("get_admin_trends", {"days_back": 30}).execute()
         monthly_task = admin_client.rpc("get_monthly_report", {"report_year": datetime.now().year}).execute()
@@ -218,7 +205,7 @@ async def get_dashboard_summary(
 
             async def safe_count(
                 table: str,
-                count_method: CountMethod = CountMethod.estimated,
+                count_method: CountMethod = CountMethod.exact,
                 filters: dict[str, Any] | None = None,
             ) -> int:
                 try:

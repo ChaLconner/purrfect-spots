@@ -1,12 +1,15 @@
 <template>
-  <div class="bg-white rounded-xl shadow-sm border border-sand-100 overflow-hidden">
-    <div
-      class="p-4 border-b border-sand-100 flex flex-col sm:flex-row justify-between items-center gap-4"
+  <div class="admin-users-page">
+    <AdminPageHeader
+      v-model="searchQuery"
+      :title="t('admin.users.title_simple')"
+      :subtitle="t('admin.users.subtitle_simple')"
+      show-search
+      :search-placeholder="t('admin.users.search_placeholder')"
     >
-      <div class="flex items-center gap-4">
-        <h2 class="text-xl font-bold text-brown-900">{{ t('admin.users.title_simple') }}</h2>
+      <template #actions>
         <button
-          class="px-3 py-1.5 text-sm font-medium text-brown-600 bg-sand-50 border border-sand-200 rounded-lg hover:bg-sand-100 transition-colors flex items-center gap-2"
+          class="admin-users-export-button"
           @click="exportUsers"
         >
           <svg
@@ -25,301 +28,245 @@
           </svg>
           {{ t('common.exportCsv') }}
         </button>
-      </div>
-      <div class="relative max-w-xs w-full">
-        <input
-          v-model="searchQuery"
-          type="text"
-          :placeholder="t('admin.users.search_placeholder')"
-          class="w-full pl-10 pr-4 py-2 border border-sand-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 transition-colors"
-        />
-        <div class="absolute left-3 top-1/2 -translate-y-1/2 text-brown-400">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
-        </div>
-      </div>
-    </div>
+      </template>
+    </AdminPageHeader>
 
-    <div class="overflow-x-auto">
-      <table class="min-w-full divide-y divide-sand-200">
-        <thead class="bg-sand-50">
-          <tr>
-            <th
-              scope="col"
-              class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-wider cursor-pointer hover:text-brown-700 group select-none"
-              @click="handleSort('name')"
-            >
-              <div class="flex items-center gap-1">
-                {{ t('admin.users.table.user') }}
-                <span v-if="sortBy === 'name'" class="text-terracotta-500">
-                  {{ sortOrder === 'asc' ? '↑' : '↓' }}
-                </span>
-                <span v-else class="opacity-0 group-hover:opacity-50 transition-opacity">↕</span>
-              </div>
-            </th>
-            <th
-              scope="col"
-              class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-wider"
-            >
-              {{ t('admin.users.table.role') }}
-            </th>
-            <th
-              scope="col"
-              class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-wider cursor-pointer hover:text-brown-700 group select-none"
-              @click="handleSort('created_at')"
-            >
-              <div class="flex items-center gap-1">
-                {{ t('admin.users.table.joined') }}
-                <span v-if="sortBy === 'created_at'" class="text-terracotta-500">
-                  {{ sortOrder === 'asc' ? '↑' : '↓' }}
-                </span>
-                <span v-else class="opacity-0 group-hover:opacity-50 transition-opacity">↕</span>
-              </div>
-            </th>
-            <th
-              scope="col"
-              class="px-6 py-3 text-right text-xs font-medium text-brown-500 uppercase tracking-wider"
-            >
-              {{ t('admin.users.table.actions') }}
-            </th>
-          </tr>
-        </thead>
-        <tbody class="bg-white divide-y divide-sand-200">
-          <tr v-for="user in users" :key="user.id" class="hover:bg-sand-50 transition-colors">
-            <td class="px-6 py-3 whitespace-nowrap">
-              <div class="flex items-center">
-                <div class="h-10 w-10 flex-shrink-0">
-                  <OptimizedImage
-                    class="h-10 w-10 rounded-full object-cover"
-                    :src="user.picture || '/default-avatar.svg'"
-                    :alt="user.name || ''"
-                    :width="40"
-                    :height="40"
-                    fallback-src="/default-avatar.svg"
-                  />
+    <div class="admin-users-shell">
+      <div class="admin-users-table-wrap">
+        <table class="min-w-full divide-y divide-sand-200">
+          <thead class="bg-sand-50">
+            <tr>
+              <th
+                scope="col"
+                class="admin-users-sortable-header group"
+                @click="handleSort('name')"
+              >
+                <div class="flex items-center gap-1">
+                  {{ t('admin.users.table.user') }}
+                  <span v-if="sortBy === 'name'" class="text-terracotta-500">
+                    {{ sortOrder === 'asc' ? '↑' : '↓' }}
+                  </span>
+                  <span v-else class="opacity-0 group-hover:opacity-50 transition-opacity">↕</span>
                 </div>
-                <div class="ml-4">
-                  <div class="text-sm font-medium text-brown-900">{{ user.name }}</div>
-                  <div class="text-sm text-brown-500">{{ user.email }}</div>
+              </th>
+              <th
+                scope="col"
+                class="admin-users-header-cell"
+              >
+                {{ t('admin.users.table.role') }}
+              </th>
+              <th
+                scope="col"
+                class="admin-users-sortable-header group"
+                @click="handleSort('created_at')"
+              >
+                <div class="flex items-center gap-1">
+                  {{ t('admin.users.table.joined') }}
+                  <span v-if="sortBy === 'created_at'" class="text-terracotta-500">
+                    {{ sortOrder === 'asc' ? '↑' : '↓' }}
+                  </span>
+                  <span v-else class="opacity-0 group-hover:opacity-50 transition-opacity">↕</span>
                 </div>
-              </div>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <div v-if="canEditRole" class="relative inline-block w-32">
-                <select
-                  :value="user.role?.toLowerCase()"
-                  :disabled="updatingUserIds.has(user.id)"
-                  class="block w-full pl-3 pr-10 py-1.5 text-xs font-semibold border-sand-200 rounded-lg bg-sand-50 focus:ring-terracotta-500 focus:border-terracotta-500 appearance-none cursor-pointer transition-all duration-200"
-                  :class="[
-                    isUserAdmin(user.role)
-                      ? 'text-terracotta-800 bg-terracotta-50 border-terracotta-100'
-                      : 'text-green-800 bg-green-50 border-green-100',
-                  ]"
-                  @change="(e) => handleRoleChange(user, (e.target as HTMLSelectElement).value)"
-                >
-                  <option value="user">{{ t('admin.users.roles.user') }}</option>
-                  <option value="admin">{{ t('admin.users.roles.admin') }}</option>
-                </select>
-                <div
-                  class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-brown-400"
-                >
-                  <svg
-                    v-if="!updatingUserIds.has(user.id)"
-                    class="h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M19 9l-7 7-7-7"
+              </th>
+              <th
+                scope="col"
+                class="admin-users-header-cell admin-users-header-cell-right"
+              >
+                {{ t('admin.users.table.actions') }}
+              </th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-sand-200">
+            <tr v-for="user in users" :key="user.id" class="hover:bg-sand-50 transition-colors">
+              <td class="px-6 py-3 whitespace-nowrap">
+                <div class="flex items-center">
+                  <div class="h-10 w-10 flex-shrink-0">
+                    <OptimizedImage
+                      class="h-10 w-10 rounded-full object-cover"
+                      :src="user.picture || '/default-avatar.svg'"
+                      :alt="user.name || ''"
+                      :width="40"
+                      :height="40"
+                      fallback-src="/default-avatar.svg"
                     />
-                  </svg>
-                  <div
-                    v-else
-                    class="w-3 h-3 border-2 border-terracotta-600 border-t-transparent rounded-full animate-spin"
-                  ></div>
+                  </div>
+                  <div class="ml-4">
+                    <div class="text-sm font-medium text-brown-900">{{ user.name }}</div>
+                    <div class="text-sm text-brown-500">{{ user.email }}</div>
+                  </div>
                 </div>
-              </div>
-              <span
-                v-else
-                class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full capitalize"
-                :class="
-                  isUserAdmin(user.role)
-                    ? 'bg-terracotta-100 text-terracotta-800'
-                    : 'bg-green-100 text-green-800'
-                "
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div v-if="canEditRole" class="relative inline-block w-32">
+                  <select
+                    :value="user.role?.toLowerCase()"
+                    :disabled="updatingUserIds.has(user.id)"
+                    class="block w-full pl-3 pr-10 py-1.5 text-xs font-semibold border-sand-200 rounded-lg bg-sand-50 focus:ring-terracotta-500 focus:border-terracotta-500 appearance-none cursor-pointer transition-all duration-200"
+                    :class="[
+                      isUserAdmin(user.role)
+                        ? 'text-terracotta-800 bg-terracotta-50 border-terracotta-100'
+                        : 'text-green-800 bg-green-50 border-green-100',
+                    ]"
+                    @change="(e) => handleRoleChange(user, (e.target as HTMLSelectElement).value)"
+                  >
+                    <option value="user">{{ t('admin.users.roles.user') }}</option>
+                    <option value="admin">{{ t('admin.users.roles.admin') }}</option>
+                  </select>
+                  <div
+                    class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-brown-400"
+                  >
+                    <svg
+                      v-if="!updatingUserIds.has(user.id)"
+                      class="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                    <div
+                      v-else
+                      class="w-3 h-3 border-2 border-terracotta-600 border-t-transparent rounded-full animate-spin"
+                    ></div>
+                  </div>
+                </div>
+                <span
+                  v-else
+                  class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full capitalize"
+                  :class="
+                    isUserAdmin(user.role)
+                      ? 'bg-terracotta-100 text-terracotta-800'
+                      : 'bg-green-100 text-green-800'
+                  "
+                >
+                  {{ formatRoleName(user.role) }}
+                </span>
+                <span
+                  v-if="user.banned_at"
+                  class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-800 text-white"
+                >
+                  {{ t('admin.users.banned') }}
+                </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-500">
+                {{ formatTimestamp(user.created_at, locale) }}
+              </td>
+              <td
+                class="px-6 py-3 whitespace-nowrap text-right text-sm font-medium flex gap-2 justify-end"
               >
-                {{ formatRoleName(user.role) }}
-              </span>
-              <span
-                v-if="user.banned_at"
-                class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-800 text-white"
-              >
-                {{ t('admin.users.banned') }}
-              </span>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-brown-500">
-              {{ user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A' }}
-            </td>
-            <td
-              class="px-6 py-3 whitespace-nowrap text-right text-sm font-medium flex gap-2 justify-end"
-            >
-              <button
-                v-if="canEditProfile"
-                class="text-brown-600 hover:text-brown-900 font-medium transition-colors"
-                @click="openProfileModal(user)"
-              >
-                {{ t('admin.users.profile') }}
-              </button>
+                <button
+                  v-if="canEditProfile"
+                  class="text-brown-600 hover:text-brown-900 font-medium transition-colors"
+                  @click="openProfileModal(user)"
+                >
+                  {{ t('admin.users.profile') }}
+                </button>
+                <button
+                  v-if="canBanUser(user) && !user.banned_at"
+                  class="text-orange-600 hover:text-orange-900 font-medium transition-colors disabled:opacity-50"
+                  @click="openBanModal(user)"
+                >
+                  {{ t('admin.users.banUser') }}
+                </button>
+                <button
+                  v-if="canBanUser(user) && user.banned_at"
+                  class="text-green-600 hover:text-green-900 font-medium transition-colors disabled:opacity-50"
+                  @click="confirmUnban(user)"
+                >
+                  {{ t('admin.users.unban') }}
+                </button>
+                <button
+                  v-if="canDeleteUser(user)"
+                  class="text-red-600 hover:text-red-900 font-medium transition-colors disabled:opacity-50"
+                  @click="confirmDelete(user)"
+                >
+                  {{ t('admin.users.deleteUser') }}
+                </button>
+              </td>
+            </tr>
+            <tr v-if="users.length === 0 && !isLoading">
+              <td colspan="4" class="px-6 py-12 text-center text-brown-500">
+                {{ t('admin.users.table.noUsers') }}
+              </td>
+            </tr>
+            <TableSkeleton v-if="isLoading" :columns="4" :avatar-column="1" />
+          </tbody>
+        </table>
+      </div>
 
-              <!-- Ban/Unban -->
-              <button
-                v-if="canBanUser(user) && !user.banned_at"
-                class="text-orange-600 hover:text-orange-900 font-medium transition-colors disabled:opacity-50"
-                @click="openBanModal(user)"
-              >
-                {{ t('admin.users.banUser') }}
-              </button>
-              <button
-                v-if="canBanUser(user) && user.banned_at"
-                class="text-green-600 hover:text-green-900 font-medium transition-colors disabled:opacity-50"
-                @click="confirmUnban(user)"
-              >
-                {{ t('admin.users.unban') }}
-              </button>
-
-              <!-- Delete -->
-              <button
-                v-if="canDeleteUser(user)"
-                class="text-red-600 hover:text-red-900 font-medium transition-colors disabled:opacity-50"
-                @click="confirmDelete(user)"
-              >
-                {{ t('admin.users.deleteUser') }}
-              </button>
-            </td>
-          </tr>
-          <tr v-if="users.length === 0 && !isLoading">
-            <td colspan="4" class="px-6 py-12 text-center text-brown-500">
-              {{ t('admin.users.table.noUsers') }}
-            </td>
-          </tr>
-          <TableSkeleton v-if="isLoading" :columns="4" :avatar-column="1" />
-        </tbody>
-      </table>
+      <AdminPagination
+        v-model:page="page"
+        :limit="limit"
+        :total-items="totalUsers"
+        :items-length="users.length"
+        :previous-text="t('admin.pagination.previous')"
+        :next-text="t('admin.pagination.next')"
+        :page-text="t('admin.pagination.page_number', { page })"
+        @update:page="loadUsers"
+      />
     </div>
 
-    <!-- Pagination -->
-    <div
-      v-if="users.length > 0"
-      class="px-6 py-4 border-t border-sand-200 flex items-center justify-between"
+    <ActionModal
+      v-model="isEditingProfileUser"
+      :title="t('admin.users.editProfile_title', { name: editingProfileUser?.name })"
+      :cancel-text="t('common.cancel')"
+      :confirm-text="isSavingProfile ? t('common.saving') : t('common.saveChanges')"
+      confirm-button-class="bg-terracotta-600 hover:bg-terracotta-700"
+      :disable-confirm="isSavingProfile"
+      @confirm="saveProfile"
     >
-      <button
-        :disabled="page === 1"
-        class="px-4 py-2 border border-sand-300 rounded-md text-sm font-medium text-brown-700 bg-white hover:bg-sand-50 disabled:opacity-50 disabled:cursor-not-allowed"
-        @click="page > 1 && loadUsers(page - 1)"
-      >
-        {{ t('admin.pagination.previous') }}
-      </button>
-      <span class="text-sm text-brown-600">
-        {{ t('admin.pagination.page_number', { page }) }}
-      </span>
-      <button
-        :disabled="users.length < limit || page * limit >= totalUsers"
-        class="px-4 py-2 border border-sand-300 rounded-md text-sm font-medium text-brown-700 bg-white hover:bg-sand-50 disabled:opacity-50 disabled:cursor-not-allowed"
-        @click="loadUsers(page + 1)"
-      >
-        {{ t('admin.pagination.next') }}
-      </button>
-    </div>
-
-    <!-- Profile Edit Modal -->
-    <div
-      v-if="editingProfileUser"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-    >
-      <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-        <h3 class="text-lg font-bold text-brown-900 mb-4">
-          {{ t('admin.users.editProfile_title', { name: editingProfileUser.name }) }}
-        </h3>
-
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-brown-700 mb-1">
-              {{ t('admin.users.fullName') }}
-            </label>
-            <input
-              v-model="profileForm.name"
-              type="text"
-              class="w-full border-sand-300 rounded-lg shadow-sm focus:border-terracotta-500 focus:ring-terracotta-500"
-            />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-brown-700 mb-1">
-              {{ t('admin.users.bio') }}
-            </label>
-            <textarea
-              v-model="profileForm.bio"
-              rows="3"
-              class="w-full border-sand-300 rounded-lg shadow-sm focus:border-terracotta-500 focus:ring-terracotta-500"
-            ></textarea>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-brown-700 mb-1">
-              {{ t('admin.users.pictureUrl') }}
-            </label>
-            <input
-              v-model="profileForm.picture"
-              type="text"
-              class="w-full border-sand-300 rounded-lg shadow-sm focus:border-terracotta-500 focus:ring-terracotta-500"
-              placeholder="https://..."
-            />
-            <p class="mt-1 text-xs text-brown-400">{{ t('admin.users.clearToRevert') }}</p>
-          </div>
+      <div class="space-y-4 text-left">
+        <div>
+          <label class="block text-sm font-medium text-brown-700 mb-1">
+            {{ t('admin.users.fullName') }}
+          </label>
+          <input
+            v-model="profileForm.name"
+            type="text"
+            class="w-full border-sand-300 rounded-lg shadow-sm focus:border-terracotta-500 focus:ring-terracotta-500"
+          />
         </div>
-
-        <div class="flex justify-end gap-3 mt-6">
-          <button
-            class="px-4 py-2 border border-sand-300 rounded-lg text-brown-600 hover:bg-sand-50"
-            @click="editingProfileUser = null"
-          >
-            {{ t('common.cancel') }}
-          </button>
-          <button
-            :disabled="isSavingProfile"
-            class="px-4 py-2 bg-terracotta-600 text-white rounded-lg hover:bg-terracotta-700 disabled:opacity-50"
-            @click="saveProfile"
-          >
-            {{ isSavingProfile ? t('common.saving') : t('common.saveChanges') }}
-          </button>
+        <div>
+          <label class="block text-sm font-medium text-brown-700 mb-1">
+            {{ t('admin.users.bio') }}
+          </label>
+          <textarea
+            v-model="profileForm.bio"
+            rows="3"
+            class="w-full border-sand-300 rounded-lg shadow-sm focus:border-terracotta-500 focus:ring-terracotta-500"
+          ></textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-brown-700 mb-1">
+            {{ t('admin.users.pictureUrl') }}
+          </label>
+          <input
+            v-model="profileForm.picture"
+            type="text"
+            class="w-full border-sand-300 rounded-lg shadow-sm focus:border-terracotta-500 focus:ring-terracotta-500"
+            placeholder="https://..."
+          />
+          <p class="mt-1 text-xs text-brown-400">{{ t('admin.users.clearToRevert') }}</p>
         </div>
       </div>
-    </div>
-    <!-- Ban User Modal -->
-    <div
-      v-if="banModal.isOpen"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+    </ActionModal>
+
+    <ActionModal
+      v-model="banModal.isOpen"
+      :title="t('admin.users.banUser_title', { name: banModal.user?.name })"
+      :cancel-text="t('common.cancel')"
+      :confirm-text="t('admin.users.confirmBan')"
+      confirm-button-class="bg-red-600 hover:bg-red-700"
+      @confirm="processBan"
     >
-      <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-        <h3 class="text-lg font-bold text-brown-900 mb-4">
-          {{ t('admin.users.banUser_title', { name: banModal.user?.name }) }}
-        </h3>
+      <div class="text-left">
         <p class="text-sm text-brown-600 mb-4">{{ t('admin.users.provideBanReason') }}</p>
-        <div class="mb-6">
+        <div class="mb-2">
           <label class="block text-sm font-medium text-brown-700 mb-2">
             {{ t('admin.users.banReason') }}
           </label>
@@ -330,52 +277,19 @@
             :placeholder="t('admin.users.banReasonPlaceholder')"
           />
         </div>
-        <div class="flex justify-end gap-3">
-          <button
-            class="px-4 py-2 border border-sand-300 rounded-lg text-brown-600 hover:bg-sand-50"
-            @click="closeBanModal"
-          >
-            {{ t('common.cancel') }}
-          </button>
-          <button
-            class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-            @click="processBan"
-          >
-            {{ t('admin.users.confirmBan') }}
-          </button>
-        </div>
       </div>
-    </div>
+    </ActionModal>
 
-    <!-- Confirmation Modal -->
-    <div
-      v-if="confirmModal.isOpen"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+    <ActionModal
+      v-model="confirmModal.isOpen"
+      :title="confirmModal.title"
+      :cancel-text="t('common.cancel')"
+      :confirm-text="confirmModal.confirmText"
+      :confirm-button-class="confirmModal.isDestructive ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'"
+      @confirm="processConfirm"
     >
-      <div class="bg-white rounded-xl shadow-xl max-sm w-full p-6 text-center">
-        <h3 class="text-lg font-bold text-brown-900 mb-2">{{ confirmModal.title }}</h3>
-        <p class="text-brown-600 mb-6">{{ confirmModal.message }}</p>
-        <div class="flex justify-center gap-3">
-          <button
-            class="px-4 py-2 border border-sand-300 rounded-lg text-brown-600 hover:bg-sand-50"
-            @click="closeConfirmModal"
-          >
-            {{ t('common.cancel') }}
-          </button>
-          <button
-            class="px-4 py-2 rounded-lg text-white"
-            :class="
-              confirmModal.isDestructive
-                ? 'bg-red-600 hover:bg-red-700'
-                : 'bg-green-600 hover:bg-green-700'
-            "
-            @click="processConfirm"
-          >
-            {{ confirmModal.confirmText }}
-          </button>
-        </div>
-      </div>
-    </div>
+      <p class="text-brown-600 mb-2 text-center">{{ confirmModal.message }}</p>
+    </ActionModal>
   </div>
 </template>
 
@@ -389,8 +303,14 @@ import { useAuthStore } from '@/store/authStore';
 import { useAdminTable } from '@/composables/useAdminTable';
 import { OptimizedImage } from '@/components/ui';
 import TableSkeleton from '@/components/ui/TableSkeleton.vue';
+import AdminPagination from '@/components/ui/AdminPagination.vue';
+import ActionModal from '@/components/ui/ActionModal.vue';
+import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
+import { formatTimestamp } from '@/utils/date';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
+
+// Local formatTimestamp removed, using imported one with locale
 const { toast } = useToast();
 const authStore = useAuthStore();
 
@@ -488,7 +408,8 @@ const formatRoleName = (role: string | undefined): string => {
 
 const isUserAdmin = (role: string | undefined): boolean => {
   if (!role) return false;
-  return role.toLowerCase() === 'admin' || role.toLowerCase() === 'superadmin';
+  const normalizedRole = role.toLowerCase().replace(/_/g, '');
+  return normalizedRole === 'admin' || normalizedRole === 'superadmin';
 };
 
 const canDeleteUser = (targetUser: User): boolean => {
@@ -662,6 +583,12 @@ const roles = ref<Role[]>([]);
 
 // Profile Management
 const editingProfileUser = ref<User | null>(null);
+const isEditingProfileUser = computed({
+  get: () => editingProfileUser.value !== null,
+  set: (val) => {
+    if (!val) editingProfileUser.value = null;
+  }
+});
 const profileForm = ref({
   name: '',
   bio: '',
@@ -742,3 +669,67 @@ onMounted(async () => {
   await Promise.all([loadUsers(), loadRoles()]);
 });
 </script>
+
+<style scoped>
+.admin-users-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.admin-users-export-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-sand-200);
+  border-radius: 0.75rem;
+  background: white;
+  color: var(--color-brown-600, #57534e);
+  font-size: 0.875rem;
+  font-weight: 700;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
+}
+
+.admin-users-export-button:hover {
+  background: var(--color-sand-50);
+}
+
+.admin-users-shell {
+  overflow: hidden;
+  border: 1px solid rgba(245, 245, 244, 0.95);
+  border-radius: 0.75rem;
+  background: white;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.admin-users-table-wrap {
+  overflow-x: auto;
+}
+
+.admin-users-header-cell,
+.admin-users-sortable-header {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-brown-500, #78716c);
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.admin-users-sortable-header {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.2s ease;
+}
+
+.admin-users-sortable-header:hover {
+  color: var(--color-brown-700, #44403c);
+}
+
+.admin-users-header-cell-right {
+  text-align: right;
+}
+</style>

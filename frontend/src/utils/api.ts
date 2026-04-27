@@ -16,8 +16,8 @@ import type {
   AxiosResponse,
 } from 'axios';
 import { isBrowserExtensionError, handleBrowserExtensionError } from './browserExtensionHandler';
-import { getEnvVar, isProd } from './env';
-import { getCsrfToken } from './security';
+import { getEnvVar } from './env';
+import { getCsrfToken } from './csrf';
 
 import { ApiError, ApiErrorTypes } from './apiErrors';
 export { ApiError, ApiErrorTypes };
@@ -67,23 +67,82 @@ export interface PaginatedResponse<T> {
 }
 
 // ========== Helpers ==========
+const SAME_ORIGIN_API_BASE_URL = '';
+
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0']);
+
+const isApiPath = (pathname: string): boolean => {
+  return pathname === '/api' || pathname.startsWith('/api/');
+};
+
+const normalizeRequestUrl = (configuredUrl: string): string => {
+  const trimmedUrl = configuredUrl.trim();
+  if (!trimmedUrl || typeof window === 'undefined') {
+    return trimmedUrl;
+  }
+
+  try {
+    const parsedUrl = new URL(trimmedUrl, window.location.origin);
+    const targetIsLoopback = LOOPBACK_HOSTS.has(parsedUrl.hostname);
+
+    if (targetIsLoopback && isApiPath(parsedUrl.pathname)) {
+      return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`;
+    }
+  } catch {
+    // Keep non-URL strings such as relative paths untouched.
+  }
+
+  return trimmedUrl;
+};
+
+const normalizeApiBaseUrl = (configuredBaseUrl: string): string => {
+  const trimmedBaseUrl = configuredBaseUrl.trim();
+  if (!trimmedBaseUrl) {
+    return SAME_ORIGIN_API_BASE_URL;
+  }
+
+  // `apiV1` already prefixes `/api/v1`, so same-origin `/api` or `/api/v1`
+  // base URLs would duplicate the path.
+  if (
+    trimmedBaseUrl === '/api' ||
+    trimmedBaseUrl === '/api/' ||
+    trimmedBaseUrl === '/api/v1' ||
+    trimmedBaseUrl === '/api/v1/'
+  ) {
+    return SAME_ORIGIN_API_BASE_URL;
+  }
+
+  if (typeof window === 'undefined') {
+    return trimmedBaseUrl.endsWith('/') ? trimmedBaseUrl.slice(0, -1) : trimmedBaseUrl;
+  }
+
+  try {
+    const parsedUrl = new URL(trimmedBaseUrl, window.location.origin);
+    const targetIsLoopback = LOOPBACK_HOSTS.has(parsedUrl.hostname);
+    const targetIsApiPath = isApiPath(parsedUrl.pathname);
+
+    // Loopback API URLs break CSP/cookie behavior once the frontend is served
+    // from another origin. Normalize them to the same-origin `/api` proxy.
+    if (targetIsLoopback && targetIsApiPath) {
+      return SAME_ORIGIN_API_BASE_URL;
+    }
+  } catch {
+    // Ignore malformed URLs and fall back to the raw configured value.
+  }
+
+  return trimmedBaseUrl.endsWith('/') ? trimmedBaseUrl.slice(0, -1) : trimmedBaseUrl;
+};
+
 export const getApiBaseUrl = (): string => {
   const envUrl = getEnvVar('VITE_API_BASE_URL');
   if (envUrl) {
-    if (envUrl.endsWith('/')) {
-      return envUrl.slice(0, -1);
-    }
-    return envUrl;
+    return normalizeApiBaseUrl(envUrl);
   }
 
-  // In production we prefer the frontend's same-origin `/api` rewrite so the
-  // browser never needs to make a cross-origin request to the backend domain.
-  if (isProd()) {
-    return '/api';
-  }
-
-  // Fallback for development
-  return 'http://localhost:8000';
+  // Prefer the frontend's same-origin `/api` rewrite in every environment.
+  // In development, Vite proxies `/api` to the local backend; in production,
+  // Vercel/nginx rewrites keep requests same-origin and avoid extra CORS cost.
+  return SAME_ORIGIN_API_BASE_URL;
 };
 
 export const getApiUrl = (endpoint: string): string => {
@@ -119,6 +178,14 @@ const createApiInstance = (): AxiosInstance => {
   // Request interceptor to add auth token
   instance.interceptors.request.use(
     (config): InternalAxiosRequestConfig => {
+      if (typeof config.baseURL === 'string') {
+        config.baseURL = normalizeApiBaseUrl(config.baseURL);
+      }
+
+      if (typeof config.url === 'string') {
+        config.url = normalizeRequestUrl(config.url);
+      }
+
       // 1. Add Auth Token
       if (currentAccessToken) {
         config.headers.Authorization = `Bearer ${currentAccessToken}`;
@@ -302,8 +369,8 @@ interface RetryConfig {
 }
 
 const DEFAULT_RETRY_CONFIG: RetryConfig = {
-  maxRetries: 3,
-  baseDelayMs: 1000,
+  maxRetries: 2,
+  baseDelayMs: 500,
   maxDelayMs: 10000,
   retryableStatuses: [408, 429, 502, 503, 504],
 };

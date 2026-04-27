@@ -141,21 +141,35 @@ def get_supabase_admin_client() -> Client:
 
 # --- Async Clients ---
 
+import asyncio
+
 _async_supabase: AClient | None = None
 _async_supabase_admin: AClient | None = None
 _async_supabase_admin_key: str | None = None
 _async_supabase_admin_state: dict[str, AClient | str | None] = {"client": None, "key": None}
 
+# Locks to prevent race conditions during cold starts
+_supabase_client_lock = asyncio.Lock()
+_supabase_admin_lock = asyncio.Lock()
+
 
 async def get_async_supabase_client() -> AClient:
-    """Get high-performance async Supabase client"""
+    """Get high-performance async Supabase client (Thread/Async safe Singleton)"""
     global _async_supabase  # noqa: PLW0603
-    if _async_supabase is None:
-        _async_supabase = await acreate_client(
-            _resolve_supabase_url(),
-            _resolve_supabase_anon_key(),
-            options=async_client_options,
-        )
+
+    # Fast path - return if already initialized
+    if _async_supabase is not None:
+        return _async_supabase
+
+    # Slow path - lock and initialize
+    async with _supabase_client_lock:
+        # Double-check locking pattern
+        if _async_supabase is None:
+            _async_supabase = await acreate_client(
+                _resolve_supabase_url(),
+                _resolve_supabase_anon_key(),
+                options=async_client_options,
+            )
     return _async_supabase
 
 
@@ -169,7 +183,7 @@ def reset_async_supabase_admin_client() -> None:
 
 
 async def get_async_supabase_admin_client(force_refresh: bool = False) -> AClient:
-    """Get high-performance async Supabase admin client (bypasses RLS)"""
+    """Get high-performance async Supabase admin client (Thread/Async safe Singleton)"""
     global _async_supabase_admin, _async_supabase_admin_key  # noqa: PLW0603
     service_key = _resolve_supabase_service_key()
 
@@ -177,15 +191,27 @@ async def get_async_supabase_admin_client(force_refresh: bool = False) -> AClien
         reset_async_supabase_admin_client()
 
     cached_service_key = _async_supabase_admin_key or cast(str | None, _async_supabase_admin_state["key"])
-    if _async_supabase_admin is None or cached_service_key != service_key:
-        if not service_key:
-            logger.error("SUPABASE_SERVICE_ROLE_KEY is missing! Admin client cannot bypass RLS.")
-            if config.is_production():
-                raise ValueError("SUPABASE_SERVICE_ROLE_KEY is required for admin operations")
-            service_key = normalize_single_line_env(config.SUPABASE_KEY)  # Dev fallback
 
-        _async_supabase_admin = await acreate_client(_resolve_supabase_url(), service_key, options=async_client_options)
-        _async_supabase_admin_key = service_key
-        _async_supabase_admin_state["client"] = _async_supabase_admin
-        _async_supabase_admin_state["key"] = service_key
+    # Fast path
+    if _async_supabase_admin is not None and cached_service_key == service_key and not force_refresh:
+        return _async_supabase_admin
+
+    # Slow path with lock
+    async with _supabase_admin_lock:
+        # Double-check inside lock
+        cached_service_key = _async_supabase_admin_key or cast(str | None, _async_supabase_admin_state["key"])
+        if _async_supabase_admin is None or cached_service_key != service_key:
+            if not service_key:
+                logger.error("SUPABASE_SERVICE_ROLE_KEY is missing! Admin client cannot bypass RLS.")
+                if config.is_production():
+                    raise ValueError("SUPABASE_SERVICE_ROLE_KEY is required for admin operations")
+                service_key = normalize_single_line_env(config.SUPABASE_KEY)  # Dev fallback
+
+            _async_supabase_admin = await acreate_client(
+                _resolve_supabase_url(), service_key, options=async_client_options
+            )
+            _async_supabase_admin_key = service_key
+            _async_supabase_admin_state["client"] = _async_supabase_admin
+            _async_supabase_admin_state["key"] = service_key
+
     return _async_supabase_admin

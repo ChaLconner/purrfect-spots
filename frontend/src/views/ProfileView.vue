@@ -1,6 +1,6 @@
 <template>
   <div class="min-h-screen pt-24 pb-12 px-4 sm:px-6 lg:px-8">
-    <GhibliBackground />
+    <GhibliBackground :animated="false" />
     <div class="max-w-5xl mx-auto relative z-10">
       <!-- Profile Header -->
       <ProfileHeader
@@ -240,6 +240,13 @@ const syncStateFromUrl = (): void => {
   }
 };
 
+const isCurrentRouteOwnProfile = (): boolean => {
+  const routeId = route.params.id as string | undefined;
+  if (!routeId) return true;
+  if (!authStore.user) return false;
+  return routeId === authStore.user.id || routeId === authStore.user.username;
+};
+
 // Watch for URL changes
 watch(
   () => route.query.image,
@@ -258,19 +265,9 @@ const closeImageModal = (): void => {
   router.push({ query });
 };
 
-const handleSaveProfile = async (data: {
-  name: string;
-  username: string;
-  bio: string;
-  picture: string;
-}): Promise<void> => {
+const handleSaveProfile = async (data: ProfileUpdateData): Promise<void> => {
   try {
-    const updateData: ProfileUpdateData = {
-      name: data.name,
-      username: data.username,
-      bio: data.bio,
-      picture: data.picture,
-    };
+    const updateData: ProfileUpdateData = { ...data };
 
     const updatedUser = await ProfileService.updateProfile(updateData);
 
@@ -303,11 +300,18 @@ const handleSaveProfile = async (data: {
 };
 
 const refreshProfileView = async (): Promise<void> => {
-  await loadProfileData(() => syncStateFromUrl());
+  const shouldFetchSubscription = authStore.isAuthenticated && isCurrentRouteOwnProfile();
+  const loadTask = loadProfileData(() => syncStateFromUrl());
 
-  if (isOwnProfile.value) {
-    await subscriptionStore.fetchStatus(true);
+  if (shouldFetchSubscription) {
+    void subscriptionStore.fetchStatus().catch((error: unknown) => {
+      if (isDev()) {
+        console.error('Error fetching subscription status:', error);
+      }
+    });
   }
+
+  await loadTask;
 };
 
 // Initialization logic

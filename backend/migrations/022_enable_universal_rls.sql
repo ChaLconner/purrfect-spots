@@ -16,7 +16,9 @@ ALTER TABLE token_blacklist ENABLE ROW LEVEL SECURITY;
 
 -- USERS
 DROP POLICY IF EXISTS "Public users can view all users" ON users;
-CREATE POLICY "Public users can view all users" ON users FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Users can view their own profile" ON users;
+CREATE POLICY "Users can view their own profile" ON users FOR SELECT
+USING (auth.uid() = id);
 
 DROP POLICY IF EXISTS "Users can update their own data" ON users;
 CREATE POLICY "Users can update their own data" ON users FOR UPDATE USING (auth.uid() = id);
@@ -91,4 +93,6 @@ USING (auth.uid() = user_id);
 
 -- TOKEN BLACKLIST
 DROP POLICY IF EXISTS "Public can view blacklisted tokens" ON token_blacklist;
-CREATE POLICY "Public can view blacklisted tokens" ON token_blacklist FOR SELECT USING (true);
+-- No public/authenticated policy is created here. The service role can still
+-- manage revocation checks while anon/authenticated clients cannot enumerate
+-- token revocation metadata.

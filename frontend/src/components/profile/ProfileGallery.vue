@@ -7,6 +7,7 @@ import ErrorState from '@/components/ui/ErrorState.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import GhibliLoader from '@/components/ui/GhibliLoader.vue';
 import type { CatLocation } from '@/types/api';
+import { formatDate } from '@/utils/date';
 
 const props = defineProps<{
   uploads: CatLocation[];
@@ -135,7 +136,7 @@ const rows = computed(() => {
                   <p
                     class="text-white/80 text-xs truncate filter drop-shadow-md transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300 delay-75"
                   >
-                    {{ new Date(upload.uploaded_at).toLocaleDateString(locale) }}
+                    {{ formatDate(upload.uploaded_at, undefined, locale) }}
                   </p>
                 </div>
               </button>

@@ -141,6 +141,14 @@ class TestRedisConfiguration:
             result = get_redis_url()
             assert result == "rediss://user:pass@prod.redis.io:6380"
 
+    def test_get_storage_uri_requires_redis_in_production(self) -> None:
+        """Production must not silently fall back to per-process rate limits."""
+        with patch("config.config.REDIS_URL", None), patch("config.config.is_production", return_value=True):
+            from limiter import get_storage_uri
+
+            with pytest.raises(RuntimeError, match="REDIS_URL is required"):
+                get_storage_uri()
+
     def test_test_redis_connection_success(self) -> None:
         """Test successful Redis connection"""
         with patch("redis.from_url") as mock_redis:

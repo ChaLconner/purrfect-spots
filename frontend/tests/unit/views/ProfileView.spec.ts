@@ -33,6 +33,7 @@ vi.mock('@/services/profileService', () => ({
   ProfileService: {
     getUserUploads: vi.fn(),
     getPublicProfile: vi.fn(),
+    getPublicProfileBundle: vi.fn(),
     getPublicUserUploads: vi.fn(),
     updateProfile: vi.fn(),
     updatePhoto: vi.fn(),
@@ -137,6 +138,14 @@ describe('ProfileView.vue', (): void => {
       id: 'other',
       name: 'Other',
     } as any);
+    vi.mocked(ProfileService.getPublicProfileBundle).mockResolvedValue({
+      profile: {
+        id: 'other',
+        name: 'Other',
+      },
+      uploads: [],
+      count: 0,
+    } as any);
 
     // Default logged-in state in store
     authStore.isAuthenticated = true;
@@ -177,14 +186,18 @@ describe('ProfileView.vue', (): void => {
     await nextTick();
 
     expect(ProfileService.getUserUploads).toHaveBeenCalled();
-    expect(mockFetchStatus).toHaveBeenCalledWith(true);
+    expect(mockFetchStatus).toHaveBeenCalledWith();
   });
 
   it('loads public profile for other users', async () => {
     mockRoute.params = { id: 'other-user' }; // isOwnProfile: false
-    vi.mocked(ProfileService.getPublicProfile).mockResolvedValue({
-      id: 'other-user',
-      name: 'Other',
+    vi.mocked(ProfileService.getPublicProfileBundle).mockResolvedValue({
+      profile: {
+        id: 'other-user',
+        name: 'Other',
+      },
+      uploads: [],
+      count: 0,
     } as any);
 
     const { wrapper } = mountProfile();
@@ -193,8 +206,9 @@ describe('ProfileView.vue', (): void => {
     await nextTick();
     await nextTick();
 
-    expect(ProfileService.getPublicProfile).toHaveBeenCalledWith('other-user');
-    expect(ProfileService.getPublicUserUploads).toHaveBeenCalledWith('other-user');
+    expect(ProfileService.getPublicProfileBundle).toHaveBeenCalledWith('other-user');
+    expect(ProfileService.getPublicProfile).not.toHaveBeenCalled();
+    expect(ProfileService.getPublicUserUploads).not.toHaveBeenCalled();
     expect(mockFetchStatus).not.toHaveBeenCalled();
   });
 
@@ -224,7 +238,7 @@ describe('ProfileView.vue', (): void => {
     await nextTick();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(mockFetchStatus).toHaveBeenCalledWith(true);
+    expect(mockFetchStatus).toHaveBeenCalledWith();
   });
 
   it('handles logout successfully', async () => {
@@ -278,7 +292,7 @@ describe('ProfileView.vue', (): void => {
 
   it('shows error state when profile fails to load', async () => {
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    vi.mocked(ProfileService.getPublicProfile).mockRejectedValue(new Error('Not found'));
+    vi.mocked(ProfileService.getPublicProfileBundle).mockRejectedValue(new Error('Not found'));
     mockRoute.params = { id: 'non-existent' };
 
     const { wrapper } = mountProfile({

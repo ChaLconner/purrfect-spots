@@ -30,8 +30,8 @@ if config.DATABASE_URL:
         engine = create_async_engine(
             db_url,
             echo=config.DEBUG,
-            pool_size=int(os.getenv("DB_POOL_SIZE", "1")),  # Vercel/lambda: 1. Locally: maybe more.
-            max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "2")),
+            pool_size=int(os.getenv("DB_POOL_SIZE", "5")),
+            max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "10")),
             pool_pre_ping=True,
             pool_timeout=30,  # Wait max 30s for connection from pool
             pool_recycle=300,  # Recycle connections every 5 minutes

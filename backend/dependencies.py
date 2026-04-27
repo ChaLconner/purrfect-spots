@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from services.subscription_service import SubscriptionService
     from services.token_service import TokenService
     from services.treats_service import TreatsService
+    from supabase import AClient
 
 from fastapi import Depends, Header, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -78,26 +79,36 @@ def get_cat_detection_service(vision_service: GoogleVisionService = Depends(get_
     return CatDetectionService(vision_service=vision_service)
 
 
-async def get_auth_service(db: AsyncSession = Depends(get_db)) -> AuthService:
+async def get_auth_service(
+    db: AsyncSession = Depends(get_db),
+    supabase_client: AClient = Depends(get_async_supabase_client),
+    supabase_admin: AClient = Depends(get_async_supabase_admin_client),
+) -> AuthService:
     from services.auth_service import AuthService
 
     return AuthService(
-        supabase_client=await get_async_supabase_client(),
-        supabase_admin=await get_async_supabase_admin_client(),
+        supabase_client=supabase_client,
+        supabase_admin=supabase_admin,
         db=db,
     )
 
 
-async def get_gallery_service(db: AsyncSession = Depends(get_db)) -> GalleryService:
+async def get_gallery_service(
+    db: AsyncSession = Depends(get_db),
+    supabase_client: AClient = Depends(get_async_supabase_client),
+) -> GalleryService:
     from services.gallery_service import GalleryService
 
-    return GalleryService(await get_async_supabase_client(), db=db)
+    return GalleryService(supabase_client, db=db)
 
 
-async def get_admin_gallery_service(db: AsyncSession = Depends(get_db)) -> GalleryService:
+async def get_admin_gallery_service(
+    db: AsyncSession = Depends(get_db),
+    supabase_admin: AClient = Depends(get_async_supabase_admin_client),
+) -> GalleryService:
     from services.gallery_service import GalleryService
 
-    return GalleryService(await get_async_supabase_admin_client(), db=db)
+    return GalleryService(supabase_admin, db=db)
 
 
 def get_current_user_from_token(authorization: str | None = Header(None)) -> dict:
@@ -167,16 +178,22 @@ async def get_quota_service(db: AsyncSession = Depends(get_db)) -> QuotaService:
     return QuotaService(await get_async_supabase_admin_client(), db=db)
 
 
-async def get_social_service(db: AsyncSession = Depends(get_db)) -> SocialService:
+async def get_social_service(
+    db: AsyncSession = Depends(get_db),
+    supabase_admin: AClient = Depends(get_async_supabase_admin_client),
+) -> SocialService:
     from services.social_service import SocialService
 
-    return SocialService(await get_async_supabase_admin_client(), db=db)
+    return SocialService(supabase_admin, db=db)
 
 
-async def get_subscription_service(db: AsyncSession = Depends(get_db)) -> SubscriptionService:
+async def get_subscription_service(
+    db: AsyncSession = Depends(get_db),
+    supabase_client: AClient = Depends(get_async_supabase_client),
+) -> SubscriptionService:
     from services.subscription_service import SubscriptionService
 
-    return SubscriptionService(await get_async_supabase_client(), db=db)
+    return SubscriptionService(supabase_client, db=db)
 
 
 async def get_treats_service(db: AsyncSession = Depends(get_db)) -> TreatsService:
@@ -185,16 +202,22 @@ async def get_treats_service(db: AsyncSession = Depends(get_db)) -> TreatsServic
     return TreatsService(await get_async_supabase_admin_client(), db=db)
 
 
-async def get_report_service(db: AsyncSession = Depends(get_db)) -> ReportService:
+async def get_report_service(
+    db: AsyncSession = Depends(get_db),
+    supabase_admin: AClient = Depends(get_async_supabase_admin_client),
+) -> ReportService:
     from services.report_service import ReportService
 
-    return ReportService(await get_async_supabase_admin_client(), db=db)
+    return ReportService(supabase_admin, db=db)
 
 
-async def get_seo_service(db: AsyncSession = Depends(get_db)) -> SeoService:
+async def get_seo_service(
+    db: AsyncSession = Depends(get_db),
+    supabase_client: AClient = Depends(get_async_supabase_client),
+) -> SeoService:
     from services.seo_service import SeoService
 
-    return SeoService(await get_async_supabase_client(), db=db)
+    return SeoService(supabase_client, db=db)
 
 
 async def get_token_service(db: AsyncSession = Depends(get_db)) -> TokenService:

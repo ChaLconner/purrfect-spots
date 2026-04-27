@@ -91,8 +91,12 @@ def get_storage_uri() -> str | None:
     """
     redis_url = get_redis_url()
 
-    if redis_url and test_redis_connection(redis_url):
+    if redis_url:
+        # Optimization: Do not test redis connection synchronously on module import
         return redis_url
+
+    if config.is_production():
+        raise RuntimeError("REDIS_URL is required in production for distributed rate limiting")
 
     logger.info("Using in-memory storage for rate limiting")
     return "memory://"
@@ -195,6 +199,8 @@ def get_identifier_with_endpoint(request: Request) -> str:
 try:
     _storage_uri = get_storage_uri()
 except Exception as e:
+    if config.is_production():
+        raise
     logger.warning(f"Failed to initialize rate limit storage: {e} — falling back to in-memory")
     _storage_uri = "memory://"
 
@@ -217,6 +223,8 @@ elif _storage_uri and _storage_uri.startswith("redis://"):
         "health_check_interval": 30,
     }
 
+_allow_rate_limit_fallback = not config.is_production()
+
 # Standard rate limiter for general API endpoints
 limiter = Limiter(
     key_func=get_user_id_from_request,
@@ -224,8 +232,8 @@ limiter = Limiter(
     storage_uri=_storage_uri,
     storage_options=cast(Any, _storage_options),
     strategy="fixed-window",
-    swallow_errors=True,
-    in_memory_fallback_enabled=True,
+    swallow_errors=_allow_rate_limit_fallback,
+    in_memory_fallback_enabled=_allow_rate_limit_fallback,
 )
 
 # Strict rate limiter for resource-intensive endpoints (cat detection, uploads)
@@ -235,8 +243,8 @@ strict_limiter = Limiter(
     storage_uri=_storage_uri,
     storage_options=cast(Any, _storage_options),
     strategy="fixed-window",
-    swallow_errors=True,
-    in_memory_fallback_enabled=True,
+    swallow_errors=_allow_rate_limit_fallback,
+    in_memory_fallback_enabled=_allow_rate_limit_fallback,
 )
 
 # Upload rate limiter - moderate limits for file uploads
@@ -246,8 +254,8 @@ upload_limiter = Limiter(
     storage_uri=_storage_uri,
     storage_options=cast(Any, _storage_options),
     strategy="fixed-window",
-    swallow_errors=True,
-    in_memory_fallback_enabled=True,
+    swallow_errors=_allow_rate_limit_fallback,
+    in_memory_fallback_enabled=_allow_rate_limit_fallback,
 )
 
 # Auth rate limiter - very strict for login/register attempts (brute force protection)
@@ -257,8 +265,8 @@ auth_limiter = Limiter(
     storage_uri=_storage_uri,
     storage_options=cast(Any, _storage_options),
     strategy="fixed-window",
-    swallow_errors=True,
-    in_memory_fallback_enabled=True,
+    swallow_errors=_allow_rate_limit_fallback,
+    in_memory_fallback_enabled=_allow_rate_limit_fallback,
 )
 
 # Forgot password rate limiter - even stricter to prevent mail bombing
@@ -268,8 +276,8 @@ forgot_password_limiter = Limiter(
     storage_uri=_storage_uri,
     storage_options=cast(Any, _storage_options),
     strategy="fixed-window",
-    swallow_errors=True,
-    in_memory_fallback_enabled=True,
+    swallow_errors=_allow_rate_limit_fallback,
+    in_memory_fallback_enabled=_allow_rate_limit_fallback,
 )
 
 

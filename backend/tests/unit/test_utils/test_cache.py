@@ -40,6 +40,16 @@ class TestCacheUtils:
         assert res3 == "data"
         assert mock_func.call_count == 2
 
+    async def test_memory_cache_fallback_respects_expiration(self):
+        mock_func = AsyncMock(return_value="data")
+        mock_func.__name__ = "mock_func"
+        decorated = cache.cache(expire=0, key_prefix="test_expire")(mock_func)
+
+        await decorated("a")
+        await decorated("a")
+
+        assert mock_func.call_count == 2
+
     async def test_invalidate_gallery_cache(self):
         mock_func = AsyncMock(return_value="data")
         mock_func.__name__ = "mock_func"

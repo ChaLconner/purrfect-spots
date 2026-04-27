@@ -2,6 +2,7 @@
 Authentication middleware for protecting routes with Supabase Auth
 """
 
+import asyncio
 import time
 from datetime import UTC, datetime
 from typing import Any, cast
@@ -15,7 +16,7 @@ from constants.admin_permissions import has_admin_access, normalize_permission_c
 from logger import logger
 from schemas.user import User
 from services.token_service import get_token_service
-from services.user.base_mixin import UserBaseMixin
+from services.user_service import UserService
 from supabase import AClient
 from utils.auth_utils import decode_token
 from utils.security_alerts import (
@@ -28,6 +29,7 @@ from utils.supabase_client import (
 
 security = HTTPBearer(auto_error=False)
 USER_AUTH_CACHE_TTL = 300
+USER_AUTH_CACHE_VERSION = "v3"
 
 # JWKS Cache
 # Keep these module-level names for test patching and backwards compatibility.
@@ -38,7 +40,7 @@ JWKS_CACHE_TTL = 3600  # 1 hour
 
 def get_user_auth_cache_key(user_id: str) -> str:
     """Build the Redis cache key used for authenticated user snapshots."""
-    return f"user_auth_cache:{user_id}"
+    return f"user_auth_cache:{USER_AUTH_CACHE_VERSION}:{user_id}"
 
 
 async def invalidate_user_auth_cache(user_id: str) -> None:
@@ -46,6 +48,7 @@ async def invalidate_user_auth_cache(user_id: str) -> None:
     from services.redis_service import redis_service
 
     await redis_service.delete(get_user_auth_cache_key(user_id))
+    await redis_service.delete(f"user_auth_cache:{user_id}")
 
 
 def _assert_user_not_banned(user: User) -> User:
@@ -148,80 +151,61 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid token payload")
 
-    # Try Redis Cache first
+    # Try Redis Cache first (stale-while-revalidate pattern)
+    import time
+
     from services.redis_service import redis_service
 
     cache_key = get_user_auth_cache_key(user_id)
     cached_data = await redis_service.get(cache_key)
+
+    # Logical TTL for stale-while-revalidate (60 seconds)
+    # The actual Redis TTL is 300s to ensure we have stale data available
+    SWR_TTL = 60
+    current_time = time.time()
+
+    needs_refresh = True
     if cached_data:
-        cached_user = User(**cached_data)
+        cached_at = cached_data.get("_cached_at", 0)
+        needs_refresh = (current_time - cached_at) > SWR_TTL
+
+        cached_user = User(**{k: v for k, v in cached_data.items() if k != "_cached_at"})
         cached_user.permissions = normalize_permissions(cached_user.permissions)
+
+        if not needs_refresh:
+            return _assert_user_not_banned(cached_user)
+
+        # If we need refresh but have stale data, we return stale data immediately
+        # and refresh in background to avoid blocking the request
+        asyncio.create_task(_refresh_user_auth_cache(user_id, cache_key, current_time))
         return _assert_user_not_banned(cached_user)
 
-    # Try to get user from database (bypassing RLS)
+    # Cache miss - block and fetch
+    return await _refresh_user_auth_cache(user_id, cache_key, current_time)
+
+
+async def _refresh_user_auth_cache(user_id: str, cache_key: str, current_time: float) -> User:
+    """Fetch user from database and update cache."""
+    from services.redis_service import redis_service
+    from utils.supabase_client import get_async_supabase_admin_client
+
     try:
-        from utils.supabase_client import get_async_supabase_admin_client
-
         supabase_admin = await get_async_supabase_admin_client()
-        # Fetch user with role and permissions
-        query = "*, roles(name, role_permissions(permissions(code)))"
-        result = await supabase_admin.table("users").select(query).eq("id", user_id).maybe_single().execute()
+        user_service = UserService(supabase_client=supabase_admin, supabase_admin=supabase_admin)
+        user_obj = await user_service.get_user_by_id(user_id)
+        if not user_obj:
+            from database import AsyncSessionLocal
 
-        if result is not None and hasattr(result, "error") and result.error:
-            logger.error(f"Supabase auth query error for user {user_id}: {result.error}")
-            # If we get a permission denied here, it means supabase_admin isn't actually an admin
-            if "permission denied" in str(result.error).lower():
-                logger.warning("Supabase admin client received permission denied - check service role key")
-            raise HTTPException(status_code=401, detail="User database sync failure")
+            if AsyncSessionLocal is not None:
+                async with AsyncSessionLocal() as db:
+                    user_service = UserService(supabase_client=supabase_admin, supabase_admin=supabase_admin, db=db)
+                    user_obj = await user_service.get_user_by_id(user_id)
 
-        if result and hasattr(result, "data") and result.data:
-            data = cast(dict[str, Any], result.data)
-
-            # Extract permissions from nested structure
-            permissions_set = set()
-            role_name = cast(str, data.get("role", "user"))  # Default to legacy column
-
-            role_data = data.get("roles")
-            role_dict = UserBaseMixin._extract_role_dict(role_data)
-            if role_dict:
-                if role_dict.get("name"):
-                    role_name = cast(str, role_dict.get("name"))
-
-                rps = cast(list[dict[str, Any]], role_dict.get("role_permissions", []))
-                for rp in rps:
-                    perm = cast(dict[str, Any], rp.get("permissions"))
-                    if perm and isinstance(perm, dict) and "code" in perm:
-                        permission_code = normalize_permission_code(cast(str, perm["code"]))
-                        if permission_code:
-                            permissions_set.add(permission_code)
-
-            from utils.datetime_utils import from_iso as parse_iso8601
-
-            user_obj = User(
-                id=cast(str, data["id"]),
-                username=cast(str, data.get("username")),
-                email=cast(str, data.get("email", "")),
-                name=cast(str, data.get("name")),
-                picture=cast(str, data.get("picture")),
-                bio=cast(str, data.get("bio")),
-                is_pro=cast(bool, data.get("is_pro", False)),
-                stripe_customer_id=cast(str, data.get("stripe_customer_id")),
-                subscription_end_date=parse_iso8601(cast(str, data.get("subscription_end_date")))
-                if data.get("subscription_end_date")
-                else None,
-                cancel_at_period_end=cast(bool, data.get("cancel_at_period_end", False)),
-                treat_balance=cast(int, data.get("treat_balance", 0)),
-                role=role_name,
-                role_id=cast(str, data.get("role_id")),
-                permissions=list(permissions_set),
-                created_at=parse_iso8601(cast(str, data.get("created_at"))) if data.get("created_at") else None,
-                google_id=cast(str, data.get("google_id")),
-                banned_at=parse_iso8601(cast(str, data.get("banned_at"))) if data.get("banned_at") else None,
-            )
-
-            # Save to Redis
-            await redis_service.set(cache_key, user_obj.model_dump(), expire=USER_AUTH_CACHE_TTL)
-
+        if user_obj:
+            user_obj.permissions = normalize_permissions(user_obj.permissions)
+            cache_data = user_obj.model_dump()
+            cache_data["_cached_at"] = current_time
+            await redis_service.set(cache_key, cache_data, expire=USER_AUTH_CACHE_TTL)
             return _assert_user_not_banned(user_obj)
 
         logger.warning(f"User {user_id} not found or permission denied in auth query")

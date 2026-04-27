@@ -1,13 +1,24 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
+import { setLocale } from '../i18n';
 
 const { locale } = useI18n();
+const isSwitching = ref(false);
 
-const toggleLanguage = (): void => {
+const toggleLanguage = async (): Promise<void> => {
+  if (isSwitching.value) {
+    return;
+  }
+
+  isSwitching.value = true;
   const newLocale = locale.value === 'en' ? 'th' : 'en';
-  locale.value = newLocale;
-  localStorage.setItem('user-locale', newLocale);
+
+  try {
+    await setLocale(newLocale);
+  } finally {
+    isSwitching.value = false;
+  }
 };
 
 const currentLabel = computed((): string => {
@@ -20,6 +31,8 @@ const currentLabel = computed((): string => {
     class="group relative flex items-center gap-2 px-3 py-1.5 bg-[var(--color-btn-shade-e)] border-2 border-[var(--color-btn-shade-a)] rounded-2xl cursor-pointer min-h-[2.5rem] transition-all duration-[150ms] ease-out hover:bg-[var(--color-btn-shade-d)] hover:translate-y-[0.1rem] active:translate-y-[0.25rem]"
     style="transform-style: preserve-3d; will-change: transform"
     :aria-label="$t('common.switchLanguage')"
+    :aria-busy="isSwitching"
+    :disabled="isSwitching"
     @click="toggleLanguage"
   >
     <span

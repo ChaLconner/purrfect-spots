@@ -34,6 +34,7 @@ export interface TagInfo {
 export const useCatsStore = defineStore('cats', () => {
   // ========== State ==========
   const locations = ref<CatLocation[]>([]);
+  const galleryLocations = ref<CatLocation[]>([]);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
 
@@ -57,32 +58,46 @@ export const useCatsStore = defineStore('cats', () => {
   });
 
   // ========== Persistence ==========
-  try {
-    const saved = localStorage.getItem('cats_store_cache');
-    if (saved) {
-      const data = JSON.parse(saved);
-      if (Array.isArray(data.locations)) {
-        locations.value = data.locations;
+  // OPTIMIZATION: Async loading to avoid blocking main thread on boot
+  if (typeof window !== 'undefined') {
+    setTimeout(() => {
+      try {
+        const savedMap = localStorage.getItem('cats_store_cache');
+        if (savedMap) {
+          const data = JSON.parse(savedMap);
+          if (Array.isArray(data.locations) && locations.value.length === 0) {
+            locations.value = data.locations;
+          }
+        }
+
+        const savedGallery = localStorage.getItem('gallery_store_cache');
+        if (savedGallery) {
+          const data = JSON.parse(savedGallery);
+          if (Array.isArray(data.locations) && galleryLocations.value.length === 0) {
+            galleryLocations.value = data.locations;
+          }
+        }
+      } catch {
+        // Ignore restoration errors
       }
-    }
-  } catch {
-    // Ignore restoration errors
+    }, 0);
   }
 
   // OPTIMIZATION: Debounced localStorage write to avoid blocking main thread
-  let localStorageWriteTimer: ReturnType<typeof setTimeout> | null = null;
+  let mapStorageWriteTimer: ReturnType<typeof setTimeout> | null = null;
+  let galleryStorageWriteTimer: ReturnType<typeof setTimeout> | null = null;
   const LOCAL_STORAGE_DEBOUNCE_MS = 2000; // 2 seconds debounce
 
   watch(
     locations,
     (newLocations) => {
       // Clear previous timer
-      if (localStorageWriteTimer) {
-        clearTimeout(localStorageWriteTimer);
+      if (mapStorageWriteTimer) {
+        clearTimeout(mapStorageWriteTimer);
       }
 
       // Debounce the write operation
-      localStorageWriteTimer = setTimeout(() => {
+      mapStorageWriteTimer = setTimeout(() => {
         try {
           // Limit cache size to avoid quota exceeded
           const cacheData = { locations: newLocations.slice(0, 100) };
@@ -93,6 +108,25 @@ export const useCatsStore = defineStore('cats', () => {
       }, LOCAL_STORAGE_DEBOUNCE_MS);
     },
     { deep: false } // OPTIMIZATION: Shallow watch - only trigger when array reference changes
+  );
+
+  watch(
+    galleryLocations,
+    (newLocations) => {
+      if (galleryStorageWriteTimer) {
+        clearTimeout(galleryStorageWriteTimer);
+      }
+
+      galleryStorageWriteTimer = setTimeout(() => {
+        try {
+          const cacheData = { locations: newLocations.slice(0, 100) };
+          localStorage.setItem('gallery_store_cache', JSON.stringify(cacheData));
+        } catch {
+          // Ignore quota errors
+        }
+      }, LOCAL_STORAGE_DEBOUNCE_MS);
+    },
+    { deep: false }
   );
 
   // ========== Getters ==========
@@ -124,8 +158,9 @@ export const useCatsStore = defineStore('cats', () => {
 
     return locations.value.filter((cat) => {
       const locationMatch = cat.location_name?.toLowerCase().includes(normalizedQuery);
-      const descriptionMatch = cat.description?.toLowerCase().includes(normalizedQuery);
-      const hashtagMatch = cat.description?.toLowerCase().includes(hashtagQuery);
+      const descriptionLower = cat.description?.toLowerCase() || '';
+      const descriptionMatch = descriptionLower.includes(normalizedQuery);
+      const hashtagMatch = descriptionLower.includes(hashtagQuery);
       const tagMatch = cat.tags?.some((tag) => tag.toLowerCase().includes(normalizedQuery));
 
       return locationMatch || descriptionMatch || hashtagMatch || tagMatch;
@@ -135,32 +170,32 @@ export const useCatsStore = defineStore('cats', () => {
   const filteredCount = computed(() => filteredLocations.value.length);
 
   /**
+   * Pre-compute tag statistics for both allTags and popularTagsComputed
+   */
+  const _tagStats = computed(() => {
+    const tagCounts = new Map<string, number>();
+    locations.value.forEach((location) => {
+      const tags = location.tags && location.tags.length > 0 ? location.tags : extractTags(location.description);
+      tags.forEach((tag) => {
+        const normalizedTag = tag.toLowerCase();
+        tagCounts.set(normalizedTag, (tagCounts.get(normalizedTag) || 0) + 1);
+      });
+    });
+    return tagCounts;
+  });
+
+  /**
    * Get all unique tags from loaded locations
    */
   const allTags = computed(() => {
-    const tagSet = new Set<string>();
-    locations.value.forEach((location) => {
-      extractTags(location.description).forEach((tag) => tagSet.add(tag));
-      location.tags?.forEach((tag) => tagSet.add(tag.toLowerCase()));
-    });
-    return Array.from(tagSet).sort((a, b) => a.localeCompare(b));
+    return Array.from(_tagStats.value.keys()).sort((a, b) => a.localeCompare(b));
   });
 
   /**
    * Get popular tags from loaded locations (computed locally)
    */
   const popularTagsComputed = computed(() => {
-    const tagCounts = new Map<string, number>();
-
-    locations.value.forEach((location) => {
-      const tags = location.tags || extractTags(location.description);
-      tags.forEach((tag) => {
-        const normalizedTag = tag.toLowerCase();
-        tagCounts.set(normalizedTag, (tagCounts.get(normalizedTag) || 0) + 1);
-      });
-    });
-
-    return Array.from(tagCounts.entries())
+    return Array.from(_tagStats.value.entries())
       .sort((a, b) => b[1] - a[1])
       .slice(0, 10)
       .map(([tag, count]) => ({ tag, count }));
@@ -181,14 +216,18 @@ export const useCatsStore = defineStore('cats', () => {
    * Prevents duplicates and ensures data freshness
    */
   function appendLocations(data: CatLocation[], paginationData?: PaginationMeta): void {
+    // Build O(1) lookup index
+    const indexMap = new Map<string, number>(
+      locations.value.map((item, idx) => [item.id, idx])
+    );
     const newData = [...locations.value];
     let hasChanged = false;
 
     data.forEach((newItem) => {
-      const index = newData.findIndex((existing) => existing.id === newItem.id);
-      if (index !== -1) {
+      const idx = indexMap.get(newItem.id);
+      if (idx !== undefined) {
         // Compare essential fields to see if we really need an update
-        const existing = newData[index];
+        const existing = newData[idx];
         const isDifferent = 
           existing.latitude !== newItem.latitude || 
           existing.longitude !== newItem.longitude ||
@@ -197,7 +236,7 @@ export const useCatsStore = defineStore('cats', () => {
           existing.location_name !== newItem.location_name;
 
         if (isDifferent) {
-          newData[index] = { ...existing, ...newItem };
+          newData[idx] = { ...existing, ...newItem };
           hasChanged = true;
         }
       } else {
@@ -215,6 +254,18 @@ export const useCatsStore = defineStore('cats', () => {
       pagination.value = paginationData;
       galleryCount.value = paginationData.total;
     }
+  }
+
+  function setGalleryLocations(data: CatLocation[], paginationData?: PaginationMeta): void {
+    galleryLocations.value = data;
+    if (paginationData) {
+      pagination.value = paginationData;
+      galleryCount.value = paginationData.total;
+    }
+  }
+
+  function clearGalleryLocations(): void {
+    galleryLocations.value = [];
   }
 
   /**
@@ -332,6 +383,7 @@ export const useCatsStore = defineStore('cats', () => {
   return {
     // State
     locations,
+    galleryLocations,
     isLoading,
     error,
     searchQuery,
@@ -356,6 +408,8 @@ export const useCatsStore = defineStore('cats', () => {
     // Actions
     setLocations,
     appendLocations,
+    setGalleryLocations,
+    clearGalleryLocations,
     setLoading,
     setError,
     setSearchQuery,

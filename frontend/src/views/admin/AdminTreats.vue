@@ -95,27 +95,7 @@
               </svg>
             </div>
           </div>
-          <button
-            class="px-3 py-1.5 text-sm font-medium text-brown-600 bg-sand-50 border border-sand-200 rounded-lg hover:bg-sand-100 transition-colors flex items-center gap-2"
-            @click="fetchTransactions"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              :class="{ 'animate-spin': loading }"
-              class="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            {{ t('common.refresh') }}
-          </button>
+          <RefreshButton :title="t('common.refresh')" @refresh="fetchTransactions" />
         </div>
       </div>
 
@@ -153,7 +133,7 @@
               class="hover:bg-sand-50/50 transition-colors"
             >
               <td class="px-6 py-4 text-xs text-brown-500">
-                {{ new Date(txn.created_at).toLocaleString() }}
+                {{ formatTimestamp(txn.created_at, locale) }}
               </td>
               <td class="px-6 py-4">
                 <span
@@ -202,41 +182,16 @@
       </div>
 
       <!-- Pagination -->
-      <div
-        v-if="totalTransactions > 0"
-        class="px-6 py-4 border-t border-sand-200 flex items-center justify-between"
-      >
-        <p class="text-sm text-brown-500">
-          {{
-            t('admin.treats.pagination_showing', {
-              from: paginationFrom,
-              to: paginationTo,
-              total: totalTransactions,
-            })
-          }}
-        </p>
-        <div class="flex items-center gap-2">
-          <button
-            :disabled="currentPage === 1"
-            :title="t('common.previous')"
-            class="px-4 py-2 border border-sand-300 rounded-md text-sm font-medium text-brown-700 bg-white hover:bg-sand-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            @click="prevPage"
-          >
-            {{ t('admin.pagination.previous') }}
-          </button>
-          <span class="text-sm text-brown-600">
-            {{ t('admin.treats.pagination_page', { page: currentPage, total: totalPages }) }}
-          </span>
-          <button
-            :disabled="currentPage >= totalPages"
-            :title="t('common.next')"
-            class="px-4 py-2 border border-sand-300 rounded-md text-sm font-medium text-brown-700 bg-white hover:bg-sand-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            @click="nextPage"
-          >
-            {{ t('admin.pagination.next') }}
-          </button>
-        </div>
-      </div>
+      <AdminPagination
+        v-model:page="currentPage"
+        :limit="PAGE_SIZE"
+        :total-items="totalTransactions"
+        :items-length="transactions.length"
+        :previous-text="t('admin.pagination.previous')"
+        :next-text="t('admin.pagination.next')"
+        :page-text="t('admin.treats.pagination_page', { page: currentPage, total: totalPages })"
+        @update:page="(p) => { currentPage = p; fetchTransactions(); }"
+      />
     </div>
 
     <!-- Manual Grant Modal -->
@@ -427,6 +382,9 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { apiV1 } from '@/utils/api';
 import { useToast } from '@/components/toast/use-toast';
 import { useI18n } from 'vue-i18n';
+import RefreshButton from '@/components/ui/RefreshButton.vue';
+import AdminPagination from '@/components/ui/AdminPagination.vue';
+import { formatTimestamp } from '@/utils/date';
 
 interface TreatStats {
   total_in_circulation: number;
@@ -453,7 +411,7 @@ interface UserSearchResult {
 const PAGE_SIZE = 50;
 
 const { toast } = useToast();
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 const loading = ref(true);
 const statsLoading = ref(true);
@@ -467,12 +425,6 @@ const currentPage = ref(1);
 const totalTransactions = ref(0);
 
 const totalPages = computed(() => Math.max(1, Math.ceil(totalTransactions.value / PAGE_SIZE)));
-const paginationFrom = computed(() =>
-  totalTransactions.value === 0 ? 0 : (currentPage.value - 1) * PAGE_SIZE + 1
-);
-const paginationTo = computed(() =>
-  Math.min(currentPage.value * PAGE_SIZE, totalTransactions.value)
-);
 
 // Filter
 const filterType = ref('');
@@ -529,20 +481,6 @@ const fetchTransactions = async (): Promise<void> => {
 const onFilterChange = (): void => {
   currentPage.value = 1;
   fetchTransactions();
-};
-
-const prevPage = (): void => {
-  if (currentPage.value > 1) {
-    currentPage.value--;
-    fetchTransactions();
-  }
-};
-
-const nextPage = (): void => {
-  if (currentPage.value < totalPages.value) {
-    currentPage.value++;
-    fetchTransactions();
-  }
 };
 
 // User search

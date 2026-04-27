@@ -140,13 +140,13 @@ class TestGalleryRoutes:
         # Page 2 with limit 10 should have offset 10
         mock_service.get_all_photos.assert_called_with(
             limit=10,
-            offset=10,  # (2-1) * 10
+            offset=10,
             include_total=True,
             user_id=None,
             jwt_token=None,
+            sort_field=None,
+            sort_desc=True,
         )
-
-        app.dependency_overrides = {}
 
         app.dependency_overrides = {}
 
@@ -160,6 +160,7 @@ class TestGalleryRoutes:
         response = client.get("/api/v1/gallery/locations")
 
         assert response.status_code == 200
+        mock_service.get_map_locations.assert_awaited_once_with(limit=500)
         data = response.json()
         assert len(data) == 1
         expected_lat, expected_lng = protect_public_coordinates(13.7563, 100.5018, seed=mock_cat_photo["id"])

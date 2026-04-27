@@ -37,6 +37,7 @@ from schemas.profile import (
     ProfileResponse,
     ProfileUpdateRequest,
     ProfileUpdateResponse,
+    PublicProfileBundleResponse,
     PublicProfileResponse,
     UpdatePhotoRequest,
     UploadsResponse,
@@ -242,6 +243,39 @@ async def resolve_user_by_identifier(
     return user
 
 
+def _public_profile_response(user: Any) -> PublicProfileResponse:
+    return PublicProfileResponse(
+        id=user.id,
+        name=user.name,
+        picture=user.picture,
+        bio=user.bio,
+        created_at=user.created_at,
+        is_pro=user.is_pro,
+    )
+
+
+def _public_upload_items(photos: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    uploads = []
+    for photo in photos:
+        try:
+            uploads.append(
+                {
+                    "id": photo["id"],
+                    "image_url": photo["image_url"],
+                    "description": photo.get("description", ""),
+                    "location_name": photo.get("location_name", ""),
+                    "uploaded_at": photo.get("uploaded_at", ""),
+                    "latitude": photo.get("latitude"),
+                    "longitude": photo.get("longitude"),
+                }
+            )
+        except Exception as e:
+            logger.debug("Skipping malformed photo %r: %s", photo.get("id"), e)
+            continue
+
+    return protect_photo_locations(uploads)
+
+
 @router.get("/public/{identifier}", response_model=PublicProfileResponse)
 async def get_public_profile(
     response: Response,
@@ -255,19 +289,37 @@ async def get_public_profile(
     """
     response.headers["Cache-Control"] = "public, max-age=60"
     try:
-        return PublicProfileResponse(
-            id=user.id,
-            name=user.name,
-            picture=user.picture,
-            bio=user.bio,
-            created_at=user.created_at,
-            is_pro=user.is_pro,
-        )
+        return _public_profile_response(user)
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error("Failed to get public profile for %s: %s", sanitize_log_value(user.id), e)
+        raise HTTPException(status_code=500, detail="Failed to retrieve user profile")
+
+
+@router.get(
+    "/public/{identifier}/bundle",
+    response_model=PublicProfileBundleResponse,
+    responses={500: {"description": "Internal Server Error"}},
+)
+async def get_public_profile_bundle(
+    response: Response,
+    user: Annotated[Any, Depends(resolve_user_by_identifier)],
+    gallery_service: Annotated[GalleryService, Depends(get_admin_gallery_service)],
+) -> PublicProfileBundleResponse:
+    """Get public profile and uploads in one request."""
+    response.headers["Cache-Control"] = "public, max-age=60"
+    try:
+        photos = await gallery_service.get_user_photos(user.id, include_unapproved=False)
+        uploads = _public_upload_items(photos)
+        return PublicProfileBundleResponse(
+            profile=_public_profile_response(user),
+            uploads=uploads,
+            count=len(uploads),
+        )
+    except Exception as e:
+        logger.error("Failed to get public profile bundle for %s: %s", sanitize_log_value(user.id), e)
         raise HTTPException(status_code=500, detail="Failed to retrieve user profile")
 
 
@@ -291,27 +343,7 @@ async def get_public_user_uploads(
     try:
         user_id = user.id
         photos = await gallery_service.get_user_photos(user_id, include_unapproved=False)
-
-        # Format data
-        uploads = []
-        for photo in photos:
-            try:
-                upload_item = {
-                    "id": photo["id"],
-                    "image_url": photo["image_url"],
-                    "description": photo.get("description", ""),
-                    "location_name": photo.get("location_name", ""),
-                    "uploaded_at": photo.get("uploaded_at", ""),
-                    "latitude": photo.get("latitude"),
-                    "longitude": photo.get("longitude"),
-                }
-                uploads.append(upload_item)
-            except Exception as e:
-                logger.debug("Skipping malformed photo %r: %s", photo.get("id"), e)
-                continue
-
-        # CRITICAL SECURITY FIX: Fuzz coordinates for public profile view
-        uploads = protect_photo_locations(uploads)
+        uploads = _public_upload_items(photos)
 
         return UploadsResponse(uploads=uploads, count=len(uploads))
 

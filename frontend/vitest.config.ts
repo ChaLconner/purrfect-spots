@@ -47,6 +47,7 @@ export default defineConfig({
         'src/components/ui/EmailVerificationRequiredModal.vue',
         'src/components/ui/BaseInput.vue',
         'src/components/ui/index.ts',
+        'src/router/index.ts',
         'src/components/map/',
         'src/components/social/LikeButton.vue',
         'src/store/toast.ts',

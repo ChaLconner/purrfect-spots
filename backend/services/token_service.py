@@ -60,6 +60,13 @@ class TokenService:
         """Hash token for secure storage."""
         return hashlib.sha256(token.encode()).hexdigest()
 
+    def _store_in_memory_blacklist(self, token_hash: str, ttl: int, reason: str) -> None:
+        """Store blacklist entry in process memory when a durable fast cache is unavailable."""
+        expiry = datetime.now(UTC) + timedelta(seconds=ttl)
+        self._memory_blacklist[token_hash] = expiry
+        logger.debug("Token blacklisted in memory. Reason: %s", reason)
+        self._cleanup_memory_blacklist()
+
     async def blacklist_token(
         self,
         token: str | None,
@@ -84,15 +91,13 @@ class TokenService:
                 logger.debug("Identifier stored in fast cache (Hash: %s)", token_hash[:8])
             except Exception as e:
                 logger.warning("Redis blacklist failed: %s", e)
+                self._store_in_memory_blacklist(token_hash, ttl, reason)
         else:
-            # Memory fallback
-            expiry = datetime.now(UTC) + timedelta(seconds=ttl)
-            self._memory_blacklist[token_hash] = expiry
-            logger.debug("Token blacklisted in memory. Reason: %s", reason)
-            self._cleanup_memory_blacklist()
+            self._store_in_memory_blacklist(token_hash, ttl, reason)
 
         # 3. Persist to Database (Supabase) if we have enough info
         if jti and user_id and expires_at:
+            persistence_succeeded = False
             try:
                 if self.db:
                     try:
@@ -111,16 +116,19 @@ class TokenService:
                             },
                         )
                         await db_session.commit()
-                        return True
+                        persistence_succeeded = True
                     except Exception as e:
                         await db_session.rollback()
                         logger.warning("SQL blacklist save failed, falling back to Supabase client: %s", e)
+
+                if persistence_succeeded:
+                    return True
 
                 if not has_supabase_service_role_key():
                     logger.info(
                         "Skipping blacklist DB persistence because no service-role key is available in runtime."
                     )
-                    return True
+                    return bool(self._memory_blacklist.get(token_hash) or self.redis)
 
                 payload = {
                     "token_jti": jti,
@@ -132,6 +140,7 @@ class TokenService:
                 try:
                     admin_client = await self._get_admin_client()
                     await admin_client.table("token_blacklist").insert(payload).execute()
+                    persistence_succeeded = True
                 except Exception as exc:
                     if not self._is_rls_error(exc):
                         raise
@@ -139,11 +148,15 @@ class TokenService:
                     logger.warning("token_blacklist insert hit RLS; refreshing Supabase admin client and retrying once")
                     admin_client = await self._get_admin_client(force_refresh=True)
                     await admin_client.table("token_blacklist").insert(payload).execute()
+                    persistence_succeeded = True
             except Exception as e:
                 if self._is_rls_error(e):
                     logger.warning("Skipping blacklist DB persistence due to token_blacklist RLS policy")
                 else:
                     logger.error("Failed to persist blacklist to DB")
+                return bool(self._memory_blacklist.get(token_hash) or self.redis)
+
+            return persistence_succeeded
 
         return True
 

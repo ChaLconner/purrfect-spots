@@ -3,6 +3,7 @@ Service for image processing, optimization, and CDN management.
 """
 
 from typing import Any
+from urllib.parse import quote
 
 from config import config
 
@@ -41,8 +42,6 @@ class ImageService:
         # This gives S3 'superpowers' to resize images on the fly
         # Only proxy if a specific width is requested and enabled in config
         if width and config.ENABLE_IMAGE_PROXY:
-            from urllib.parse import quote
-
             encoded_url = quote(final_url)
             return f"https://wsrv.nl/?url={encoded_url}&w={width}&q=80&output=webp"
 

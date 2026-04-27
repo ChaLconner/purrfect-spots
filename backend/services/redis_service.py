@@ -92,10 +92,16 @@ class RedisService:
         if not self.client:
             return 0
         try:
-            keys = await self.client.keys(pattern)
-            if keys:
-                return await self.client.delete(*keys)
-            return 0
+            deleted = 0
+            batch: list[str] = []
+            async for key in self.client.scan_iter(match=pattern, count=500):
+                batch.append(str(key))
+                if len(batch) >= 500:
+                    deleted += int(await self.client.delete(*batch))
+                    batch.clear()
+            if batch:
+                deleted += int(await self.client.delete(*batch))
+            return deleted
         except Exception as e:
             logger.error("Redis delete_pattern error for %s: %s", pattern, e)
             return 0

@@ -11,8 +11,13 @@ from middleware.auth_middleware import invalidate_user_auth_cache, require_permi
 from schemas.user import User
 from services.notification_service import NotificationService
 from services.token_service import get_token_service
+from utils.audit_logger import log_admin_action
 
 router = APIRouter()
+MAX_COMMENTS_PAGE_SIZE = 100
+ADMIN_COMMENT_COLUMNS = (
+    "id, content, user_id, photo_id, created_at, user_display_name, user_username, user_avatar, report_count"
+)
 
 
 class BulkCommentAction(BaseModel):
@@ -28,8 +33,8 @@ async def _invalidate_banned_user_auth_state(user_id: str) -> None:
 @router.get("")
 async def list_all_comments(
     page: Annotated[int, Query(ge=1)] = 1,
-    page_size: Annotated[int | None, Query(ge=1, le=1000)] = None,
-    limit: Annotated[int | None, Query(ge=1, le=1000)] = None,
+    page_size: Annotated[int | None, Query(ge=1, le=MAX_COMMENTS_PAGE_SIZE)] = None,
+    limit: Annotated[int | None, Query(ge=1, le=MAX_COMMENTS_PAGE_SIZE)] = None,
     search: Annotated[str | None, Query()] = None,
     reported_only: Annotated[bool, Query()] = False,
     current_admin: User = Depends(require_permission("comments:manage")),
@@ -44,7 +49,7 @@ async def list_all_comments(
         # Base query for data using the view admin_comment_list
         query = (
             admin_client.table("admin_comment_list")
-            .select("*", count=CountMethod.exact)
+            .select(ADMIN_COMMENT_COLUMNS, count=CountMethod.exact)
             .order("created_at", desc=True)
             .range(offset, offset + effective_page_size - 1)
         )
@@ -63,51 +68,37 @@ async def list_all_comments(
         pages = (total_count + effective_page_size - 1) // effective_page_size
 
         # Parallelize additional data fetching
-        user_ids = list({item["user_id"] for item in items})
+        user_ids = list({item["user_id"] for item in items if item.get("user_id")})
 
-        async def fetch_additional_data() -> tuple[dict[str, Any], dict[str, int]]:
+        async def fetch_additional_data() -> dict[str, Any]:
             if not user_ids:
-                return {}, {}
+                return {}
 
-            # Resolve only the per-page metadata the frontend actually renders.
-            tasks = [
-                admin_client.table("users").select("id, banned_at").in_("id", user_ids).execute(),
-                admin_client.table("photo_comments")
-                .select("user_id, reports!inner(id)")
-                .eq("reports.status", "resolved")
-                .in_("user_id", user_ids)
-                .execute(),
-            ]
+            # Resolve only the per-page metadata the frontend currently renders.
+            # Avoid heavy user-level report fan-out queries on every admin comments page load.
+            tasks = [admin_client.table("users").select("id, email, banned_at").in_("id", user_ids).execute()]
 
             import asyncio
 
             responses = await asyncio.gather(*tasks, return_exceptions=True)
 
             # Process responses safely
-            status_map = {}
+            user_map = {}
             res0 = responses[0]
             if not isinstance(res0, Exception) and hasattr(res0, "data"):
-                status_map = {u["id"]: u["banned_at"] for u in res0.data}
+                user_map = {u["id"]: u for u in res0.data}
 
-            v_counts: dict[str, int] = {}
-            res1 = responses[1]
-            if not isinstance(res1, Exception) and hasattr(res1, "data"):
-                for row in res1.data:
-                    uid = row["user_id"]
-                    v_counts[uid] = v_counts.get(uid, 0) + 1
+            return user_map
 
-            return status_map, v_counts
-
-        status_map: dict[str, Any]
-        v_counts: dict[str, int]
-
-        status_map, v_counts = await fetch_additional_data()
+        user_map = await fetch_additional_data()
 
         # Merge additional data into items
         for item in items:
             uid = item["user_id"]
-            item["is_user_banned"] = status_map.get(uid) is not None
-            item["violation_count"] = v_counts.get(uid, 0)
+            user = user_map.get(uid, {})
+            item["user_email"] = user.get("email")
+            item["is_user_banned"] = user.get("banned_at") is not None
+            item["violation_count"] = 0
 
         return {"items": items, "total": total_count, "page": page, "pages": pages}
     except Exception as e:
@@ -163,19 +154,13 @@ async def resolve_comment_reports(
         )
 
         # Log Audit
-        await (
-            admin_client.table("audit_logs")
-            .insert(
-                {
-                    "user_id": current_admin.id,
-                    "action": "RESOLVE_COMMENT_REPORTS",
-                    "resource": "photo_comments",
-                    "changes": {"comment_id": comment_id, "action": "dismissed_reports"},
-                    "ip_address": request.client.host if request.client else "unknown",
-                    "user_agent": request.headers.get("user-agent", "unknown"),
-                }
-            )
-            .execute()
+        await log_admin_action(
+            admin_client=admin_client,
+            admin_id=current_admin.id,
+            action="RESOLVE_COMMENT_REPORTS",
+            target_type="photo_comments",
+            target_id=comment_id,
+            details={"action": "dismissed_reports", "ip": request.client.host if request.client else "unknown"},
         )
 
         return {"message": "Reports dismissed successfully"}
@@ -220,23 +205,17 @@ async def delete_comment(
         await admin_client.table("photo_comments").delete().eq("id", comment_id).execute()
 
         # Log Audit
-        await (
-            admin_client.table("audit_logs")
-            .insert(
-                {
-                    "user_id": current_admin.id,
-                    "action": "DELETE_COMMENT",
-                    "resource": "photo_comments",
-                    "changes": {
-                        "comment_id": comment_id,
-                        "deleted_content": comment_res.data["content"],
-                        "author_id": comment_res.data["user_id"],
-                    },
-                    "ip_address": request.client.host if request.client else "unknown",
-                    "user_agent": request.headers.get("user-agent", "unknown"),
-                }
-            )
-            .execute()
+        await log_admin_action(
+            admin_client=admin_client,
+            admin_id=current_admin.id,
+            action="DELETE_COMMENT",
+            target_type="photo_comments",
+            target_id=comment_id,
+            details={
+                "deleted_content": comment_res.data["content"],
+                "author_id": comment_res.data["user_id"],
+                "ip": request.client.host if request.client else "unknown",
+            },
         )
 
         # Notify User
@@ -292,23 +271,17 @@ async def ban_user_by_comment(
         await _invalidate_banned_user_auth_state(user_id)
 
         # Log Audit
-        await (
-            admin_client.table("audit_logs")
-            .insert(
-                {
-                    "user_id": current_admin.id,
-                    "action": "BAN_USER",
-                    "resource": "users",
-                    "changes": {
-                        "user_id": user_id,
-                        "reason": "Banned via comment moderation",
-                        "comment_id": comment_id,
-                    },
-                    "ip_address": request.client.host if request.client else "unknown",
-                    "user_agent": request.headers.get("user-agent", "unknown"),
-                }
-            )
-            .execute()
+        await log_admin_action(
+            admin_client=admin_client,
+            admin_id=current_admin.id,
+            action="BAN_USER",
+            target_type="users",
+            target_id=user_id,
+            details={
+                "reason": "Banned via comment moderation",
+                "comment_id": comment_id,
+                "ip": request.client.host if request.client else "unknown",
+            },
         )
 
         # Notify User (System notification might not be visible if they can't login, but good for records)

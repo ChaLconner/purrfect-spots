@@ -10,10 +10,12 @@ export class GalleryService {
   }
 
   /**
-   * Get all location markers (for map)
+   * Get legacy location markers (bounded fallback for map)
    */
   static async getLocations(): Promise<CatLocation[]> {
-    const data = await apiV1.get<CatLocation[] | { images: CatLocation[] }>('/gallery/locations');
+    const data = await apiV1.get<CatLocation[] | { images: CatLocation[] }>('/gallery/locations', {
+      params: { limit: 500 },
+    });
     if (Array.isArray(data)) {
       return data;
     }

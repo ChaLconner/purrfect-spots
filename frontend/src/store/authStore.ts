@@ -6,7 +6,6 @@
  */
 import { defineStore } from 'pinia';
 import { ref, computed, watch } from 'vue';
-import { supabase } from '../lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { User, LoginResponse } from '../types/auth';
 import { canAccessAdminShell, hasAdminBypass } from '../utils/adminAccess';
@@ -14,6 +13,7 @@ import { normalizePermissions } from '../utils/permissionNormalization';
 
 import { apiV1, setAccessToken, setAuthCallbacks } from '../utils/api';
 import { ProfileService } from '../services/profileService';
+import type { supabase as supabaseInstance } from '../lib/supabase';
 
 // Module-level helper to update API header - avoids recreation on every store access
 function updateApiHeader(accessToken: string | null): void {
@@ -73,6 +73,18 @@ function readCachedUser(): User | null {
   }
 
   return null;
+}
+
+type SupabaseClient = typeof supabaseInstance;
+
+let supabaseClientPromise: Promise<SupabaseClient> | null = null;
+
+async function getSupabaseClient(): Promise<SupabaseClient> {
+  if (!supabaseClientPromise) {
+    supabaseClientPromise = import('../lib/supabase').then(({ supabase }) => supabase);
+  }
+
+  return supabaseClientPromise;
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -246,7 +258,10 @@ export const useAuthStore = defineStore('auth', () => {
 
     // Cleanup realtime
     if (balanceChannel) {
-      supabase.removeChannel(balanceChannel);
+      const existingChannel = balanceChannel;
+      void getSupabaseClient().then((supabase) => {
+        supabase.removeChannel(existingChannel);
+      });
       balanceChannel = null;
     }
   }
@@ -298,12 +313,18 @@ export const useAuthStore = defineStore('auth', () => {
       // Logout failure silently handled
     } finally {
       clearAuth();
+      // Use dynamic import for router to avoid circular dependency
+      import('../router').then(({ default: router }) => {
+        router.push('/login');
+      });
     }
   }
 
-  function setupBalanceRealtime(): void {
+  async function setupBalanceRealtime(): Promise<void> {
     const userId = user.value?.id;
     if (!userId) return;
+
+    const supabase = await getSupabaseClient();
 
     // Check if we already have a channel for this user and it's active
     const channelName = `user_balance_${userId}`;
@@ -349,10 +370,13 @@ export const useAuthStore = defineStore('auth', () => {
     () => user.value?.id,
     (newId, oldId) => {
       if (oldId && !newId && balanceChannel) {
-        supabase.removeChannel(balanceChannel);
+        const existingChannel = balanceChannel;
+        void getSupabaseClient().then((supabase) => {
+          supabase.removeChannel(existingChannel);
+        });
         balanceChannel = null;
       } else if (newId && newId !== oldId) {
-        setupBalanceRealtime();
+        void setupBalanceRealtime();
       }
     }
   );

@@ -6,6 +6,7 @@
 
 import { isDev } from './env';
 import DOMPurify from 'dompurify';
+export { getCsrfToken, getSecureHeaders } from './csrf';
 
 // ==============================================================================
 // XSS Prevention
@@ -140,45 +141,6 @@ export function openTrustedExternalUrl(url: string, allowedHosts?: Iterable<stri
     newWindow.opener = null;
   }
   return true;
-}
-
-// ==============================================================================
-// CSRF Token Management
-// ==============================================================================
-
-const CSRF_COOKIE_NAME = 'csrf_token';
-const CSRF_HEADER_NAME = 'X-CSRF-Token';
-
-/**
- * Get CSRF token from cookie
- */
-export function getCsrfToken(): string | null {
-  const cookies = document.cookie.split(';');
-
-  for (const cookie of cookies) {
-    const [name, value] = cookie.trim().split('=');
-    if (name === CSRF_COOKIE_NAME) {
-      return decodeURIComponent(value);
-    }
-  }
-
-  return null;
-}
-
-/**
- * Get headers with CSRF token for API requests
- */
-export function getSecureHeaders(): Record<string, string> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-
-  const csrfToken = getCsrfToken();
-  if (csrfToken) {
-    headers[CSRF_HEADER_NAME] = csrfToken;
-  }
-
-  return headers;
 }
 
 // ==============================================================================

@@ -1,28 +1,21 @@
 <script setup lang="ts">
-import { useRoute, useRouter } from 'vue-router';
-import { useAuthStore } from '../../store/authStore';
+import { defineAsyncComponent } from 'vue';
+import { useRoute } from 'vue-router';
 import MapIcon from '../icons/map.vue';
 import UploadIcon from '../icons/upload.vue';
 import GalleryIcon from '../icons/gallery.vue';
 import TrophyIcon from '../icons/trophy.vue';
-import ProfileIcon from '../icons/profile.vue';
 
 const route = useRoute();
-const router = useRouter();
-const authStore = useAuthStore();
+const BottomNavProfileButton = defineAsyncComponent({
+  loader: () => import('./BottomNavProfileButton.vue'),
+  suspensible: false,
+});
 
 const isActive = (path: string): boolean => {
   return route.path === path;
 };
 
-// Handle Profile Navigation based on Auth state
-const navigateToProfile = (): void => {
-  if (authStore.isAuthenticated) {
-    router.push('/profile');
-  } else {
-    router.push('/login');
-  }
-};
 </script>
 
 <template>
@@ -123,31 +116,7 @@ const navigateToProfile = (): void => {
           <span class="text-xs font-bold mt-1 font-accent">{{ $t('nav.leaderboard') }}</span>
         </router-link>
 
-        <!-- Profile / Login -->
-        <button
-          class="group flex flex-col items-center flex-1 py-1 px-2 rounded-xl transition-all duration-300 active:scale-95"
-          :class="
-            isActive('/profile') || isActive('/login')
-              ? 'text-btn-shade-a'
-              : 'text-btn-shade-b hover:text-btn-shade-c'
-          "
-          :aria-label="authStore.isAuthenticated ? $t('nav.profile') : $t('auth.login')"
-          @click="navigateToProfile"
-        >
-          <div
-            class="flex justify-center items-center w-10 h-10 rounded-full transition-all duration-300"
-            :class="
-              isActive('/profile') || isActive('/login')
-                ? 'bg-btn-shade-e text-btn-shade-a -translate-y-0.5 shadow-[0_2px_4px_rgba(0,0,0,0.1)] border border-btn-shade-b'
-                : ''
-            "
-          >
-            <ProfileIcon class="w-6 h-6" />
-          </div>
-          <span class="text-xs font-bold mt-1 font-accent">{{
-            authStore.isAuthenticated ? $t('nav.profile') : $t('auth.login')
-          }}</span>
-        </button>
+        <BottomNavProfileButton />
       </div>
     </nav>
   </div>
