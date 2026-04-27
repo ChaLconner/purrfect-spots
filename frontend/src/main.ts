@@ -12,10 +12,11 @@ import {
 import i18n, { initializeI18n } from './i18n';
 
 // ========== Sentry Initialization ==========
-// Only initialize in production or if explicitly enabled
+// Sentry is opt-in so production builds without monitoring enabled do not ship the SDK chunk.
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
 const ENVIRONMENT = import.meta.env.MODE;
-const ENABLE_SENTRY = ENVIRONMENT === 'production' || import.meta.env.VITE_ENABLE_SENTRY === 'true';
+const ENABLE_SENTRY = import.meta.env.VITE_ENABLE_SENTRY === 'true';
+const ENABLE_SENTRY_REPLAY = import.meta.env.VITE_SENTRY_REPLAY_ENABLED === 'true';
 
 import type { App as VueApp } from 'vue';
 
@@ -37,8 +38,8 @@ async function initSentry(app: VueApp): Promise<void> {
       tracesSampleRate: ENVIRONMENT === 'production' ? 0.1 : 1,
 
       // Session replay (optional)
-      replaysSessionSampleRate: 0.1,
-      replaysOnErrorSampleRate: 1,
+      replaysSessionSampleRate: ENABLE_SENTRY_REPLAY ? 0.1 : 0,
+      replaysOnErrorSampleRate: ENABLE_SENTRY_REPLAY ? 1 : 0,
 
       // Don't send PII
       sendDefaultPii: false,
