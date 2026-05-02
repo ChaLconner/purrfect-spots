@@ -120,7 +120,7 @@ realtime==1.0.6
 redis==7.2.1
 requests==2.33.0
 requests-oauthlib==2.0.0
-rich==14.3.3
+rich==15.0.0
 rsa==4.9.1
 ruff==0.15.4
 s3transfer==0.16.0
