@@ -33,7 +33,7 @@
   "devDependencies": {
     "husky": "^9.1.7",
     "lint-staged": "^15.5.2",
-    "postcss": "8.5.10",
+    "postcss": "8.5.13",
     "vite": "8.0.10"
   },
   "lint-staged": {
