@@ -138,7 +138,7 @@ supafunc==0.4.7
 tomli==2.4.0
 tomli_w==1.2.0
 trove-classifiers==2026.1.14.14
-types-bleach==6.3.0.20251115
+types-bleach==6.3.0.20260408
 types-cachetools==6.2.0.20251022
 types-cffi==1.17.0.20250915
 types-html5lib==1.1.11.20251117
