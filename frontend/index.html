@@ -6,9 +6,7 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/cat-icon-192.png" />
-    <link rel="icon" type="image/png" sizes="256x256" href="/cat-icon-256.png" />
-    <link rel="icon" type="image/png" sizes="512x512" href="/cat-icon-512.png" />
+
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
 
@@ -39,9 +37,10 @@
     />
     <meta property="twitter:image" content="/og-image.png" />
 
-    <!-- DNS and Connection Hints -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- DNS hints for deferred Google Fonts (dns-prefetch instead of preconnect
+         because fonts are loaded lazily via JS after first paint) -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" crossorigin />
 
     <title>Home | Purrfect Spots</title>
 

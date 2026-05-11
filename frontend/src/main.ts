@@ -154,6 +154,13 @@ const loadDeferredStylesheet = (href: string): void => {
   const link = document.createElement('link');
   link.rel = 'stylesheet';
   link.href = href;
+  // Silently handle font CDN failures (e.g. Google Fonts 404s) so they
+  // don't surface as unhandled resource errors in the console.
+  link.onerror = () => {
+    if (isDev()) {
+      console.warn(`[Fonts] Failed to load stylesheet: ${href}`);
+    }
+  };
   document.head.appendChild(link);
 };
 
