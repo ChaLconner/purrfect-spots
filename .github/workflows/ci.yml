@@ -376,6 +376,28 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - name: Setup Node.js for Trivy metadata
+        uses: ./.github/actions/setup-frontend
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          install-deps: "false"
+      - name: Install production npm metadata for Trivy
+        shell: bash
+        run: |
+          npm ci --omit=dev --ignore-scripts --no-audit
+      - name: Set up Python for Trivy metadata
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+          cache-dependency-path: "backend/requirements.txt"
+      - name: Install Python metadata for Trivy
+        shell: bash
+        run: |
+          python -m venv .trivy-venv
+          . .trivy-venv/bin/activate
+          python -m pip install --upgrade pip --prefer-binary
+          python -m pip install -r backend/requirements.txt --prefer-binary
       - name: Pull Trivy image
         shell: bash
         run: |
@@ -396,6 +418,7 @@ jobs:
           docker run --rm \
             -v "$PWD:/workdir" \
             -w /workdir \
+            -e VIRTUAL_ENV=/workdir/.trivy-venv \
             ghcr.io/aquasecurity/trivy:0.68.1 \
             fs \
             --skip-version-check \
