@@ -52,15 +52,8 @@ class TestPasswordService:
     @pytest.mark.asyncio
     async def test_is_password_pwned_leaked(self):
         """Test HIBP check for leaked password"""
-        import hashlib
-
         password = "password123"
-        # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1
-        sha1 = (
-            hashlib.sha1(password.encode(), usedforsecurity=False).hexdigest().upper()
-        )  # codeql[py/weak-sensitive-data-hashing]
-
-        suffix = sha1[5:]
+        suffix = "C6008F9CAB4083784CBD1874F76618D2A97"
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -73,13 +66,7 @@ class TestPasswordService:
     @pytest.mark.asyncio
     async def test_is_password_pwned_safe(self):
         """Test HIBP check for safe password"""
-        import hashlib
-
         password = "very_unique_password_2024"
-        # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1
-        hashlib.sha1(
-            password.encode(), usedforsecurity=False
-        ).hexdigest().upper()  # codeql[py/weak-sensitive-data-hashing]
 
         mock_response = MagicMock()
         mock_response.status_code = 200

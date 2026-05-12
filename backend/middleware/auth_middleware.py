@@ -32,9 +32,8 @@ USER_AUTH_CACHE_TTL = 300
 USER_AUTH_CACHE_VERSION = "v3"
 
 # JWKS Cache
-# Keep these module-level names for test patching and backwards compatibility.
 _jwks_cache: dict[str, Any] | None = None
-_jwks_last_update = 0
+_jwks_state: dict[str, float] = {"last_update": 0.0}
 JWKS_CACHE_TTL = 3600  # 1 hour
 
 
@@ -60,7 +59,7 @@ def _assert_user_not_banned(user: User) -> User:
 
 async def get_jwks() -> dict | None:
     """Lazily fetch and cache JWKS"""
-    global _jwks_cache, _jwks_last_update  # noqa: PLW0603
+    global _jwks_cache  # noqa: PLW0603
     supabase_url = normalize_single_line_env(config.SUPABASE_URL)
     if not supabase_url:
         return None
@@ -72,7 +71,7 @@ async def get_jwks() -> dict | None:
     )
 
     current_time = time.time()
-    if _jwks_cache and (current_time - _jwks_last_update < JWKS_CACHE_TTL):
+    if _jwks_cache and (current_time - _jwks_state["last_update"] < JWKS_CACHE_TTL):
         return _jwks_cache
 
     from utils.http_client import get_shared_httpx_client
@@ -88,7 +87,7 @@ async def get_jwks() -> dict | None:
             last_response = response
             if response.status_code == 200:
                 _jwks_cache = response.json()
-                _jwks_last_update = int(current_time)
+                _jwks_state["last_update"] = current_time
                 return cast(dict[str, Any], _jwks_cache)
         if last_response is not None:
             logger.warning(

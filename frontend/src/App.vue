@@ -1,17 +1,19 @@
 <script setup lang="ts">
-import NavBar from './components/NavBar.vue';
-import BottomNav from './components/layout/BottomNav.vue';
+import { defineAsyncComponent, onErrorCaptured, ref, computed } from 'vue';
 import LicenseOverlay from './components/layout/LicenseOverlay.vue';
 import ToastContainer from './components/toast/ToastContainer.vue';
-import { onErrorCaptured, ref } from 'vue';
 import { isBrowserExtensionError, logBrowserExtensionError } from './utils/browserExtensionHandler';
 import { showError } from './store/toast';
 import { ApiError, ApiErrorTypes } from './utils/api';
 import { useNetwork } from './composables/useNetwork';
 import { ErrorBoundary } from './components/ui';
 import { useStructuredData } from './composables/useStructuredData';
-import { computed } from 'vue';
 import { useRoute } from 'vue-router';
+
+// Async layout components — not needed for first contentful paint.
+// Both already use defineAsyncComponent internally (NavAuthSection, BottomNavProfileButton).
+const NavBar = defineAsyncComponent(() => import('./components/NavBar.vue'));
+const BottomNav = defineAsyncComponent(() => import('./components/layout/BottomNav.vue'));
 
 const { isOnline } = useNetwork();
 const route = useRoute();

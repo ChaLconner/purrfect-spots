@@ -48,7 +48,7 @@ async def test_get_jwks_success(mock_env, mock_jwks_response):
         patch("middleware.auth_middleware.config.SUPABASE_URL", "https://testproject.supabase.co"),
         patch("middleware.auth_middleware.config.SUPABASE_KEY", ""),
         patch("middleware.auth_middleware._jwks_cache", None),
-        patch("middleware.auth_middleware._jwks_last_update", 0),
+        patch.dict("middleware.auth_middleware._jwks_state", {"last_update": 0.0}),
     ):
         jwks = await get_jwks()
         assert jwks == mock_jwks_response
@@ -67,7 +67,7 @@ async def test_get_jwks_cached(mock_env, mock_jwks_response):
     with (
         patch("utils.http_client.get_shared_httpx_client", return_value=mock_client),
         patch("middleware.auth_middleware._jwks_cache", mock_jwks_response),
-        patch("middleware.auth_middleware._jwks_last_update", time.time()),
+        patch.dict("middleware.auth_middleware._jwks_state", {"last_update": time.time()}),
     ):
         jwks = await get_jwks()
         assert jwks == mock_jwks_response
@@ -88,7 +88,7 @@ async def test_get_jwks_sanitizes_apikey_header(mock_jwks_response):
         patch("middleware.auth_middleware.config.SUPABASE_URL", "https://testproject.supabase.co\n"),
         patch("middleware.auth_middleware.config.SUPABASE_KEY", ' "test-anon-key\r\n" '),
         patch("middleware.auth_middleware._jwks_cache", None),
-        patch("middleware.auth_middleware._jwks_last_update", 0),
+        patch.dict("middleware.auth_middleware._jwks_state", {"last_update": 0.0}),
     ):
         jwks = await get_jwks()
 
@@ -118,7 +118,7 @@ async def test_get_jwks_falls_back_to_legacy_endpoint(mock_jwks_response):
         patch("middleware.auth_middleware.config.SUPABASE_URL", "https://testproject.supabase.co"),
         patch("middleware.auth_middleware.config.SUPABASE_KEY", ""),
         patch("middleware.auth_middleware._jwks_cache", None),
-        patch("middleware.auth_middleware._jwks_last_update", 0),
+        patch.dict("middleware.auth_middleware._jwks_state", {"last_update": 0.0}),
     ):
         jwks = await get_jwks()
 
@@ -133,7 +133,7 @@ async def test_get_jwks_no_url():
     with (
         patch("middleware.auth_middleware.config.SUPABASE_URL", ""),
         patch("middleware.auth_middleware._jwks_cache", None),
-        patch("middleware.auth_middleware._jwks_last_update", 0),
+        patch.dict("middleware.auth_middleware._jwks_state", {"last_update": 0.0}),
     ):
         jwks = await get_jwks()
         assert jwks is None
