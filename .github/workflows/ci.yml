@@ -245,14 +245,24 @@ jobs:
     runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.backend_runtime_checks_enabled == 'true'
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-      - name: Setup Backend
-        uses: ./.github/actions/setup-backend
+      - name: Set up Python
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/pyproject.toml
+      - name: Install API contract dependencies
+        shell: bash
+        run: |
+          cd backend
+          python -m pip install --upgrade pip --prefer-binary
+          python -m pip install -r requirements.txt --prefer-binary
       - name: Check Contract
         env:
           ENVIRONMENT: test
