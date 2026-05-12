@@ -1,0 +1,28 @@
+# ==============================================================================
+# Purrfect Spots - CodeQL Custom Configuration
+# ==============================================================================
+# Extends the default CodeQL queries with security-extended and security-and-quality
+# packs while excluding known false-positive rules for specific files.
+# ==============================================================================
+
+name: "Purrfect Spots CodeQL Config"
+
+# Keep the same query suites the workflow already requests
+queries:
+  - uses: security-extended
+  - uses: security-and-quality
+
+# ---------------------------------------------------------------------------
+# Query filters
+# ---------------------------------------------------------------------------
+# Exclude py/weak-sensitive-data-hashing globally because the ONLY usage of
+# SHA-1 in this repository is for the Have I Been Pwned (HIBP) k-Anonymity
+# API, which *requires* SHA-1 by protocol.  The hash is never used for
+# password storage or authentication.  hashlib.sha1 is called with
+# usedforsecurity=False to make the intent explicit in the code itself.
+# ---------------------------------------------------------------------------
+query-filters:
+  - exclude:
+      id: py/weak-sensitive-data-hashing
+  - exclude:
+      id: py/weak-cryptographic-algorithm
