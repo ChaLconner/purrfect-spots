@@ -492,7 +492,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Dependency Review
-        uses: actions/dependency-review-action@1a7f050e4130f1d533475191c9533f86e330b621 # v4.9.0
+        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
         with:
           fail-on-severity: critical
 
@@ -502,7 +502,7 @@ jobs:
   quality-gate:
     name: "Final: Quality Gate"
     runs-on: ubuntu-latest
-    needs: [changes, backend-verify, frontend-build, security-vuln, security-secrets, backend-typecheck, api-contract, security-sast, security-deps]
+    needs: [changes, backend-verify, frontend-check, frontend-test, frontend-build, security-vuln, security-secrets, backend-typecheck, api-contract, security-sast, security-deps]
     if: always()
     steps:
       - name: Check Status
@@ -516,6 +516,8 @@ jobs:
           BACKEND_VERIFY_RESULT: ${{ needs.backend-verify.result }}
           BACKEND_TYPECHECK_RESULT: ${{ needs.backend-typecheck.result }}
           API_CONTRACT_RESULT: ${{ needs.api-contract.result }}
+          FRONTEND_CHECK_RESULT: ${{ needs.frontend-check.result }}
+          FRONTEND_TEST_RESULT: ${{ needs.frontend-test.result }}
           FRONTEND_BUILD_RESULT: ${{ needs.frontend-build.result }}
           SECURITY_VULN_RESULT: ${{ needs.security-vuln.result }}
           SECURITY_SECRETS_RESULT: ${{ needs.security-secrets.result }}
@@ -569,8 +571,18 @@ jobs:
           fi
 
           if [ "$RUN_FRONTEND" = "true" ]; then
-            check_required_success "Frontend: Build Bundle" "$FRONTEND_BUILD_RESULT"
+            check_required_success "Frontend: Lint & Typecheck" "$FRONTEND_CHECK_RESULT"
+            check_required_success "Frontend: Unit Tests" "$FRONTEND_TEST_RESULT"
+            if [ "$FRONTEND_CHECK_RESULT" = "success" ] && [ "$FRONTEND_TEST_RESULT" = "success" ]; then
+              check_required_success "Frontend: Build Bundle" "$FRONTEND_BUILD_RESULT"
+            elif [ "$FRONTEND_BUILD_RESULT" = "skipped" ]; then
+              echo "::notice::Frontend: Build Bundle was skipped because an earlier frontend job did not pass."
+            else
+              check_required_success "Frontend: Build Bundle" "$FRONTEND_BUILD_RESULT"
+            fi
           else
+            check_expected_skip "Frontend: Lint & Typecheck" "$FRONTEND_CHECK_RESULT"
+            check_expected_skip "Frontend: Unit Tests" "$FRONTEND_TEST_RESULT"
             check_expected_skip "Frontend: Build Bundle" "$FRONTEND_BUILD_RESULT"
           fi
 
