@@ -482,7 +482,14 @@ jobs:
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - name: Semgrep
         run: |
-          semgrep scan --config "p/default" --config "p/security-audit" --sarif --output semgrep.sarif .
+          # SHA-1 is required by the HIBP k-Anonymity API (never used for auth/storage).
+          # Exclude the Semgrep rule because SARIF-uploaded nosemgrep markers are not
+          # honoured by GitHub Code Scanning.
+          semgrep scan \
+            --config "p/default" \
+            --config "p/security-audit" \
+            --exclude-rule "python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1" \
+            --sarif --output semgrep.sarif .
       - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4.35.2
         if: always() && hashFiles('semgrep.sarif') != ''
