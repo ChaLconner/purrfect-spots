@@ -62,9 +62,13 @@ class PasswordService:
             # We ONLY use this hash for data breach checks, NEVER for storage or authentication.
             # usedforsecurity=False explicitly marks this as non-cryptographic usage.
             encoded_pwd = password.encode("utf-8")
-            # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1
             # codeql[py/weak-sensitive-data-hashing, py/weak-cryptographic-algorithm] Justification: SHA1 is strictly required by the HIBP k-anonymity API protocol.
-            sha1_algo = hashlib.sha1(encoded_pwd, usedforsecurity=False)  # nosec B324 # NOSONAR # codeql[py/weak-sensitive-data-hashing]
+            # fmt: off
+            sha1_algo = hashlib.sha1(  # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1
+                encoded_pwd,
+                usedforsecurity=False,
+            )  # nosec B324 # NOSONAR # codeql[py/weak-sensitive-data-hashing]
+            # fmt: on
             sha1_password = sha1_algo.hexdigest().upper()
             prefix = sha1_password[:5]
             suffix = sha1_password[5:]

@@ -7,6 +7,7 @@ import stripe
 from sqlalchemy import bindparam, column, select, table, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
+from stripe import SignatureVerificationError
 
 from config import config
 from logger import logger
@@ -267,7 +268,7 @@ class SubscriptionService:
         except ValueError:
             logger.error("Stripe webhook: invalid payload")
             raise
-        except stripe.error.SignatureVerificationError as e:
+        except SignatureVerificationError as e:
             logger.error("Stripe webhook: invalid signature: %s", e)
             raise
 

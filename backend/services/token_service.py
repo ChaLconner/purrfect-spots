@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from logger import logger, sanitize_log_value
+from logger import logger
 from supabase import AClient
 from utils.datetime_utils import utc_now_iso
 from utils.supabase_client import get_async_supabase_admin_client, has_supabase_service_role_key
@@ -60,11 +60,11 @@ class TokenService:
         """Hash token for secure storage."""
         return hashlib.sha256(token.encode()).hexdigest()
 
-    def _store_in_memory_blacklist(self, token_hash: str, ttl: int, reason: str) -> None:
+    def _store_in_memory_blacklist(self, token_hash: str, ttl: int) -> None:
         """Store blacklist entry in process memory when a durable fast cache is unavailable."""
         expiry = datetime.now(UTC) + timedelta(seconds=ttl)
         self._memory_blacklist[token_hash] = expiry
-        logger.debug("Token blacklisted in memory. Reason: %s", sanitize_log_value(reason))
+        logger.debug("Memory deny-list fallback updated")
         self._cleanup_memory_blacklist()
 
     async def blacklist_token(
@@ -91,9 +91,9 @@ class TokenService:
                 logger.debug("Identifier stored in fast cache (Hash: %s)", token_hash[:8])
             except Exception as e:
                 logger.warning("Redis blacklist failed: %s", e)
-                self._store_in_memory_blacklist(token_hash, ttl, reason)
+                self._store_in_memory_blacklist(token_hash, ttl)
         else:
-            self._store_in_memory_blacklist(token_hash, ttl, reason)
+            self._store_in_memory_blacklist(token_hash, ttl)
 
         # 3. Persist to Database (Supabase) if we have enough info
         if jti and user_id and expires_at:
@@ -274,7 +274,7 @@ class TokenService:
                 key = f"user_invalidated:{user_id}"
                 await self.redis.set(key, now_iso)
                 await self.redis.expire(key, self.default_ttl)
-                logger.info("Session state cleared in Redis for user: %s (Reason: %s)", user_id, reason)
+                logger.info("Session state cleared in Redis for user: %s", user_id)
             except Exception as e:
                 logger.warning("Redis user invalidation failed: %s", e)
 

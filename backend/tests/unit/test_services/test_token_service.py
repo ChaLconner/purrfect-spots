@@ -79,6 +79,27 @@ class TestTokenService:
             assert expiry > datetime.now(UTC)
 
     @pytest.mark.asyncio
+    async def test_blacklist_token_memory_fallback_does_not_log_reason(self, mock_supabase_admin):
+        """Memory fallback logs must not include revocation reasons."""
+        secret_like_reason = "password_reset: token=secret-value"
+
+        with (
+            patch(
+                "services.token_service.get_async_supabase_admin_client",
+                new=AsyncMock(return_value=mock_supabase_admin),
+            ),
+            patch("services.token_service.logger.debug") as mock_debug,
+        ):
+            service = TokenService(None)
+
+            result = await service.blacklist_token(token="memory-token", reason=secret_like_reason)
+
+        assert result is True
+        logged_values = " ".join(str(value) for call in mock_debug.call_args_list for value in call.args)
+        assert secret_like_reason not in logged_values
+        assert "Reason" not in logged_values
+
+    @pytest.mark.asyncio
     async def test_blacklist_token_redis_failure_falls_back_to_memory(self, mock_supabase_admin):
         """Redis write failures should still blacklist inside current process."""
         mock_redis = AsyncMock()
@@ -223,11 +244,14 @@ class TestTokenService:
         """Test invalidating all user tokens"""
         user_id = "user-456"
 
-        result = await token_service.blacklist_all_user_tokens(user_id)
+        with patch("services.token_service.logger.info") as mock_info:
+            result = await token_service.blacklist_all_user_tokens(user_id, reason="security_event: token=secret")
 
         assert result == 1
         mock_redis.set.assert_called_once()
         assert f"user_invalidated:{user_id}" in mock_redis.set.call_args[0][0]
+        logged_values = " ".join(str(value) for call in mock_info.call_args_list for value in call.args)
+        assert "security_event: token=secret" not in logged_values
 
     @pytest.mark.asyncio
     async def test_is_user_invalidated(self, token_service, mock_redis):
