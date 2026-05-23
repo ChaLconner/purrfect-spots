@@ -21,6 +21,18 @@ import sys
 from pathlib import Path
 from typing import Any, cast
 
+# Force UTF-8 encoding on standard output/error to prevent UnicodeEncodeError on Windows
+if sys.platform == "win32":
+    try:
+        reconfigure_out = getattr(sys.stdout, "reconfigure", None)
+        if reconfigure_out:
+            reconfigure_out(encoding="utf-8")
+        reconfigure_err = getattr(sys.stderr, "reconfigure", None)
+        if reconfigure_err:
+            reconfigure_err(encoding="utf-8")
+    except AttributeError:
+        pass
+
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 

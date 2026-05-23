@@ -1,17 +1,32 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '../../store/authStore';
 import { AuthService } from '../../services/authService';
 import { showSuccess } from '../../store/toast';
 import { isDev } from '../../utils/env';
-import { getAvatarFallback, handleAvatarError } from '@/utils/avatar';
 
 const { t } = useI18n();
 const showUserMenu = ref(false);
 const router = useRouter();
 const authStore = useAuthStore();
+const avatarLoaded = ref(false);
+const avatarLoadFailed = ref(false);
+
+const avatarSrc = computed(() => authStore.user?.picture || '');
+const userInitials = computed(() => {
+  const displayName = authStore.user?.name?.trim();
+  const emailName = authStore.user?.email?.split('@')[0]?.trim();
+  const source = displayName || emailName || 'User';
+  const parts = source.split(/\s+/).filter(Boolean);
+
+  if (parts.length > 1) {
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  }
+
+  return source.slice(0, 2).toUpperCase();
+});
 
 // Close user menu when clicking outside
 const handleClickOutside = (event: Event): void => {
@@ -21,8 +36,13 @@ const handleClickOutside = (event: Event): void => {
   }
 };
 
-const handleImageError = (event: Event): void => {
-  handleAvatarError(event, authStore.user?.name);
+const handleImageLoad = (): void => {
+  avatarLoaded.value = true;
+};
+
+const handleImageError = (): void => {
+  avatarLoaded.value = false;
+  avatarLoadFailed.value = true;
 };
 
 const logout = async (): Promise<void> => {
@@ -48,6 +68,11 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside);
 });
+
+watch(avatarSrc, () => {
+  avatarLoaded.value = false;
+  avatarLoadFailed.value = false;
+});
 </script>
 
 <template>
@@ -63,10 +88,22 @@ onUnmounted(() => {
         class="absolute inset-0 bg-btn-shade-c rounded-[inherit] shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.2rem_0_0_var(--color-btn-shade-a)] transition-all duration-[150ms] ease-out -z-10 group-hover:translate-y-[0.15rem] group-active:translate-y-0 group-active:translate-z-[-1em] group-active:shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.1em_0_0_var(--color-btn-shade-b)]"
         style="transform: translate3d(0, 0.2rem, -1em); will-change: transform"
       ></span>
+      <span
+        data-testid="user-avatar-fallback"
+        class="absolute inset-[0.15rem] z-10 flex items-center justify-center rounded-full border-2 border-btn-shade-a bg-gradient-to-br from-[#eef5ea] via-[#dbe9d4] to-[#c9ddc4] font-accent text-[0.78rem] font-extrabold leading-none tracking-[-0.04em] text-btn-shade-a shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]"
+        aria-hidden="true"
+      >
+        {{ userInitials }}
+      </span>
       <img
-        :src="authStore.user?.picture || getAvatarFallback(authStore.user?.name)"
+        v-if="avatarSrc && !avatarLoadFailed"
+        data-testid="user-avatar-image"
+        :src="avatarSrc"
         :alt="authStore.user?.name || 'User'"
-        class="relative z-10 w-full h-full rounded-full object-cover border-2 border-btn-shade-a shadow-[0_2px_4px_rgba(106,163,137,0.2)] shrink-0 bg-stone-100"
+        class="relative z-20 w-full h-full rounded-full object-cover border-2 border-btn-shade-a shadow-[0_2px_4px_rgba(106,163,137,0.2)] shrink-0 bg-stone-100 transition-opacity duration-200 ease-out"
+        :class="avatarLoaded ? 'opacity-100' : 'opacity-0'"
+        decoding="async"
+        @load="handleImageLoad"
         @error="handleImageError"
       />
     </button>

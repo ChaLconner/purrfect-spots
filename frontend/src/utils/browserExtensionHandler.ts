@@ -22,6 +22,21 @@ const BROWSER_EXTENSION_ERROR_PATTERNS = [
 // Error names that indicate browser extension conflicts
 const BROWSER_EXTENSION_ERROR_NAMES = new Set(['ChunkLoadError']);
 
+const reloadWithCacheBust = (): void => {
+  const reloadKey = 'purrfect-spots:stale-chunk-reload';
+  const now = Date.now();
+  const lastReload = Number(sessionStorage.getItem(reloadKey) || '0');
+
+  if (now - lastReload < 30_000) {
+    return;
+  }
+
+  sessionStorage.setItem(reloadKey, String(now));
+  const url = new URL(window.location.href);
+  url.searchParams.set('__reload', String(now));
+  window.location.replace(url.toString());
+};
+
 /**
  * Check if an error is related to browser extension conflicts
  * @param error The error to check
@@ -174,7 +189,7 @@ export const handleVueError = (err: unknown, info: string): boolean | undefined 
     // (common after a new deployment). The best recovery is a full page reload.
     if (errorString.includes('ChunkLoadError') || errorString.includes('Failed to fetch dynamically imported module')) {
       if (!isDev()) {
-        window.location.reload();
+        reloadWithCacheBust();
       }
     }
     
