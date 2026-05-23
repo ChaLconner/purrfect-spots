@@ -60,7 +60,7 @@
       "destination": "https://purrfect-spots-backend.vercel.app/api/:path*"
     },
     {
-      "source": "/((?!api/.*).*)",
+      "source": "/((?!api/.*|assets/.*|favicon.*|apple-touch-icon.png|cat-icon.*|cat-illustration.*|give-treat.*|logo.*|location_10753796.png|default-avatar.svg|manifest.webmanifest|robots.txt|sitemap.xml|image-worker.js).*)",
       "destination": "/index.html"
     }
   ]

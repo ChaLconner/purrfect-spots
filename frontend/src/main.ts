@@ -88,11 +88,27 @@ app.use(pinia);
 globalThis.addEventListener('unhandledrejection', handleUnhandledRejection);
 globalThis.addEventListener('error', handleError);
 
-// Handle Vite dynamic import (preload) errors
-// This occurs when the browser tries to fetch a JS chunk that no longer exists on the server
-// (common after a new deployment). The best recovery is a full page reload.
-globalThis.addEventListener('vite:preloadError', () => {
-  window.location.reload();
+const recoverFromStaleChunk = (): void => {
+  const reloadKey = 'purrfect-spots:stale-chunk-reload';
+  const now = Date.now();
+  const lastReload = Number(sessionStorage.getItem(reloadKey) || '0');
+
+  if (now - lastReload < 30_000) {
+    return;
+  }
+
+  sessionStorage.setItem(reloadKey, String(now));
+  const url = new URL(window.location.href);
+  url.searchParams.set('__reload', String(now));
+  window.location.replace(url.toString());
+};
+
+// Handle Vite dynamic import (preload) errors.
+// A stale HTML shell can point at old hashed chunks after deploy; cache-bust once
+// so Ctrl+Shift+R gets a fresh module graph instead of looping on old assets.
+globalThis.addEventListener('vite:preloadError', (event) => {
+  event.preventDefault();
+  recoverFromStaleChunk();
 });
 
 // Global error handler for browser extension conflicts
@@ -156,7 +172,7 @@ const loadDeferredStylesheet = (href: string): void => {
   link.href = href;
   // Silently handle font CDN failures (e.g. Google Fonts 404s) so they
   // don't surface as unhandled resource errors in the console.
-  link.onerror = () => {
+  link.onerror = (): void => {
     if (isDev()) {
       console.warn(`[Fonts] Failed to load stylesheet: ${href}`);
     }

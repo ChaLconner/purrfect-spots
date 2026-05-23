@@ -171,6 +171,14 @@ class Config:
     # BEST PRACTICE: Fail fast if secret is missing. Do not use hardcoded fallbacks in production.
     try:
         JWT_SECRET = get_required_env("JWT_SECRET")
+        if (
+            ENVIRONMENT.lower() == "production"
+            and JWT_SECRET == "purrfect_spots_jwt_secret_key_2025_secure_random_string_change_in_production"
+        ):
+            raise ConfigurationError(
+                "CRITICAL: JWT_SECRET environment variable is using the default development placeholder key in production. "
+                "Please change JWT_SECRET in your production settings to a strong 32+ character random string."
+            )
     except ConfigurationError:
         if ENVIRONMENT.lower() == "production":
             raise ConfigurationError(

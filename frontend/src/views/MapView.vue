@@ -357,10 +357,11 @@ const fetchLocationsInViewport = async (): Promise<void> => {
 
     // sync state from URL if needed
     syncStateFromUrl();
-  } catch {
-    const msg = t('map.errorLoadingLocations');
-    error.value = msg;
-    catsStore.setError(msg);
+  } catch (err) {
+    console.warn('Failed to fetch marker locations:', err);
+    // Keep the map interactive when the marker API is temporarily unavailable.
+    // The backend still logs the 500; users should not lose the whole map.
+    catsStore.setError(t('map.errorLoadingLocations'));
   } finally {
     isViewportFetching.value = false;
     isLoading.value = false;

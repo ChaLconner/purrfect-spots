@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/authStore';
 const mockApiPost = vi.fn();
 const mockSetAccessToken = vi.fn();
 const mockSetAuthCallbacks = vi.fn();
+const mockRouterPush = vi.fn();
 
 vi.mock('@/utils/api', () => ({
   apiV1: {
@@ -26,6 +27,12 @@ vi.mock('@/utils/api', () => ({
 vi.mock('@/services/profileService', () => ({
   ProfileService: {
     getProfile: vi.fn(),
+  },
+}));
+
+vi.mock('@/router', () => ({
+  default: {
+    push: mockRouterPush,
   },
 }));
 
@@ -114,12 +121,14 @@ describe('Auth Store', () => {
     store.isAuthenticated = true;
 
     await store.logout();
+    await vi.dynamicImportSettled();
 
     expect(mockApiPost).toHaveBeenCalledWith('/auth/logout');
     expect(store.user).toBeNull();
     expect(store.token).toBeNull();
     expect(store.isAuthenticated).toBe(false);
     expect(mockSetAccessToken).toHaveBeenCalledWith(null);
+    expect(mockRouterPush).not.toHaveBeenCalled();
   });
 
   it('initializeAuth restores user from localStorage and tries refresh', async () => {

@@ -313,10 +313,6 @@ export const useAuthStore = defineStore('auth', () => {
       // Logout failure silently handled
     } finally {
       clearAuth();
-      // Use dynamic import for router to avoid circular dependency
-      import('../router').then(({ default: router }) => {
-        router.push('/login');
-      });
     }
   }
 

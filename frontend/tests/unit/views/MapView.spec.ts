@@ -256,7 +256,7 @@ describe('MapView.vue', () => {
     expect(catsStore.locations).toEqual(expect.arrayContaining(locations));
   });
 
-  it('handles map errors gracefully', async () => {
+  it('keeps the map visible when marker fetch fails', async () => {
     vi.mocked(GalleryService.getViewportLocations).mockRejectedValue(new Error('Fetch failed'));
     
     wrapper = mount(MapView, {
@@ -290,7 +290,8 @@ describe('MapView.vue', () => {
 
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    expect(wrapper.findComponent({ name: 'ErrorState' }).exists()).toBe(true);
+    expect(wrapper.findComponent({ name: 'ErrorState' }).exists()).toBe(false);
+    expect(global.google.maps.Map).toHaveBeenCalled();
   });
 
   it('clears search when clear button is clicked', async () => {
