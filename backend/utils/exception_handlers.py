@@ -143,6 +143,9 @@ async def custom_http_exception_handler(request: Request, exc: StarletteHTTPExce
     request_id = _get_request_id(request)
     user_id = _get_user_id(request)
 
+    if SENTRY_DSN and exc.status_code >= 500:
+        sentry_sdk.capture_exception(exc)
+
     if exc.status_code >= 400:
         log_security_event(
             event_type="http_exception",

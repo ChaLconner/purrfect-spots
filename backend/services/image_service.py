@@ -20,9 +20,9 @@ class ImageService:
             return url
 
         # 1. CDN Rewrite
-        # Fallback values if config doesn't have these specific attributes directly but they are in env
-        s3_bucket = getattr(config, "aws_bucket", "purrfect-spots-bucket")
-        aws_region = getattr(config, "aws_region", "ap-southeast-2")
+        # Fetch S3 configuration from config, with backward compatible fallback keys
+        s3_bucket = getattr(config, "AWS_S3_BUCKET", getattr(config, "aws_bucket", "purrfect-spots-bucket"))
+        aws_region = getattr(config, "AWS_REGION", getattr(config, "aws_region", "ap-southeast-2"))
         s3_domain = f"{s3_bucket}.s3.{aws_region}.amazonaws.com"
 
         final_url = url

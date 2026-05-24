@@ -2,7 +2,7 @@
  * Image utilities for optimization and CDN handling
  */
 
-import { isProd, getEnvVar } from './env';
+import { getEnvVar } from './env';
 
 // Image optimization settings
 export interface ImageOptimizationOptions {
@@ -45,7 +45,7 @@ export interface CDNConfig {
 // Default CDN configuration
 const envCdnUrl = getEnvVar('VITE_CDN_BASE_URL');
 const DEFAULT_CDN_CONFIG: CDNConfig = {
-  enabled: isProd() && !!envCdnUrl, // Only enable if in prod AND url is set
+  enabled: !!envCdnUrl, // Enable if URL is set (allows dev/testing via .env)
   baseUrl: envCdnUrl || '',
   defaultParams: {
     auto: 'format,compress',

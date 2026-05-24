@@ -23,6 +23,8 @@ load_dotenv()
 
 
 # ========== Sentry Integration ==========
+# MCPIntegration removed to prevent Internal Server Errors on Vercel
+import logging
 from typing import Any, cast
 
 import sentry_sdk
@@ -32,8 +34,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from sentry_sdk.integrations.fastapi import FastApiIntegration
-
-# MCPIntegration removed to prevent Internal Server Errors on Vercel
+from sentry_sdk.integrations.logging import LoggingIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -100,6 +101,7 @@ if SENTRY_DSN and not IS_TEST_ENV:
             "MagicMock",
             "testclient",
             "Event loop is closed",
+            "SECURITY_EVENT:",
         ]
         if any(pattern in message for pattern in noise_patterns):
             return None
@@ -149,9 +151,15 @@ if SENTRY_DSN and not IS_TEST_ENV:
 
         return event
 
+    sentry_logging = LoggingIntegration(
+        level=logging.INFO,
+        event_level=None,
+    )
+
     sentry_integrations = [
         StarletteIntegration(transaction_style="endpoint"),
         FastApiIntegration(transaction_style="endpoint"),
+        sentry_logging,
     ]
 
     # MCPIntegration removed to prevent Internal Server Errors on Vercel

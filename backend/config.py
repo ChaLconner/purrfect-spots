@@ -225,6 +225,10 @@ class Config:
     # Sentry (optional)
     SENTRY_DSN = os.getenv("SENTRY_DSN")
 
+    # AWS configuration
+    AWS_S3_BUCKET = os.getenv("AWS_S3_BUCKET", "purrfect-spots-bucket")
+    AWS_REGION = os.getenv("AWS_REGION", "ap-southeast-2")
+
     # CDN Configuration
     CDN_BASE_URL = os.getenv("CDN_BASE_URL", "").rstrip("/")
 

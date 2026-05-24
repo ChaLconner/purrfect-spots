@@ -8,9 +8,7 @@ from services.auth.base_mixin import AuthBaseMixin
 from services.email_service import email_service
 from services.password_service import password_service
 from services.token_service import get_token_service
-from supabase import acreate_client
 from utils.datetime_utils import utc_now
-from utils.supabase_client import async_client_options
 
 logger = structlog.get_logger(__name__)
 
@@ -52,21 +50,19 @@ class AuthPasswordMixin(AuthBaseMixin):
             if not is_valid:
                 raise ValueError(error)
 
-            temp_client = await acreate_client(config.SUPABASE_URL, config.SUPABASE_KEY, options=async_client_options)
-            temp_client.postgrest.auth(access_token)
-            user_res = await temp_client.auth.get_user(access_token)
+            user_res = await self.supabase_client.auth.get_user(access_token)
             if not user_res or not user_res.user:
                 raise ValueError("Invalid user session")
 
             user_id = user_res.user.id
-            await temp_client.auth.update_user({"password": new_password})
+            admin = await self._get_admin_client()
+            await admin.auth.admin.update_user_by_id(user_id, {"password": new_password})
 
             if self.db:
                 query = text("UPDATE users SET updated_at = :now WHERE id = :u_id")
                 await self.db.execute(query, {"now": utc_now().isoformat(), "u_id": user_id})
                 await self.db.commit()
             else:
-                admin = await self._get_admin_client()
                 await admin.table("users").update({"updated_at": utc_now().isoformat()}).eq("id", user_id).execute()
 
             if user_res.user.email:
