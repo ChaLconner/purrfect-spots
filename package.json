@@ -33,8 +33,8 @@
   "devDependencies": {
     "husky": "^9.1.7",
     "lint-staged": "^15.5.2",
-    "postcss": "8.5.10",
-    "vite": "8.0.10"
+    "postcss": "8.5.15",
+    "vite": "8.0.16"
   },
   "lint-staged": {
     "backend/**/*.py": [
@@ -65,9 +65,9 @@
     }
   },
   "optionalDependencies": {
-    "@tailwindcss/oxide-darwin-arm64": "4.2.4",
-    "@tailwindcss/oxide-darwin-x64": "4.2.4",
-    "@tailwindcss/oxide-linux-arm64-gnu": "4.2.4",
-    "@tailwindcss/oxide-linux-x64-gnu": "4.2.4"
+    "@tailwindcss/oxide-darwin-arm64": "4.3.0",
+    "@tailwindcss/oxide-darwin-x64": "4.3.0",
+    "@tailwindcss/oxide-linux-arm64-gnu": "4.3.0",
+    "@tailwindcss/oxide-linux-x64-gnu": "4.3.0"
   }
 }
