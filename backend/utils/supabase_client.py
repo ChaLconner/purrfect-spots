@@ -1,9 +1,11 @@
 import os
 from typing import Any, cast
 
+from supabase.lib.client_options import ClientOptions
+
 from config import config, normalize_single_line_env
 from logger import logger
-from supabase import AClient, AClientOptions, Client, ClientOptions, acreate_client, create_client
+from supabase import AClient, Client, acreate_client, create_client
 
 
 class _FallbackAsyncMemoryStorage:
@@ -32,7 +34,7 @@ def create_async_memory_storage() -> Any:
     except ImportError:
         try:
             # Current auth-py releases expose the storage class from supabase_auth.
-            from supabase_auth import AsyncMemoryStorage as SupabaseAuthAsyncMemoryStorage
+            from supabase_auth._async.storage import AsyncMemoryStorage as SupabaseAuthAsyncMemoryStorage
 
             return SupabaseAuthAsyncMemoryStorage()
         except ImportError:
@@ -92,7 +94,7 @@ client_options = ClientOptions(
     storage_client_timeout=30.0,
 )
 
-async_client_options = AClientOptions(
+async_client_options = ClientOptions(
     storage=cast(Any, create_async_memory_storage()),
     postgrest_client_timeout=30.0,
     storage_client_timeout=30.0,

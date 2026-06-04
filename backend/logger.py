@@ -24,7 +24,7 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 
 try:
-    from pythonjsonlogger.json import JsonFormatter
+    from pythonjsonlogger.json import JsonFormatter as JsonFormatter  # pyright: ignore
 except ImportError:
     # Fallback for different versions or missing dependency to prevent total crash
     try:
@@ -71,11 +71,11 @@ class CustomJsonFormatter(JsonFormatter):
 
         # Add custom fields if present
         if hasattr(record, "request_id"):
-            log_record["request_id"] = record.request_id
+            log_record["request_id"] = record.request_id  # pyright: ignore[reportAttributeAccessIssue]
         if hasattr(record, "user_id"):
-            log_record["user_id"] = record.user_id
+            log_record["user_id"] = record.user_id  # pyright: ignore[reportAttributeAccessIssue]
         if hasattr(record, "duration_ms"):
-            log_record["duration_ms"] = record.duration_ms
+            log_record["duration_ms"] = record.duration_ms  # pyright: ignore[reportAttributeAccessIssue]
 
 
 class ColoredFormatter(logging.Formatter):
@@ -99,12 +99,12 @@ class ColoredFormatter(logging.Formatter):
         # Add duration if present
         duration_str = ""
         if hasattr(record, "duration_ms"):
-            duration_str = f" [{record.duration_ms:.2f}ms]"
+            duration_str = f" [{record.duration_ms:.2f}ms]"  # pyright: ignore[reportAttributeAccessIssue]
 
         # Add request ID if present
         request_str = ""
         if hasattr(record, "request_id"):
-            request_str = f" [req:{record.request_id[:8]}]"
+            request_str = f" [req:{record.request_id[:8]}]"  # pyright: ignore[reportAttributeAccessIssue]
 
         formatted = (
             f"{color}%(asctime)s - %(levelname)s{self.RESET}"

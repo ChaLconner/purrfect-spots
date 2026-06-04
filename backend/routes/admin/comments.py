@@ -85,7 +85,7 @@ async def list_all_comments(
             # Process responses safely
             user_map = {}
             res0 = responses[0]
-            if not isinstance(res0, Exception) and hasattr(res0, "data"):
+            if not isinstance(res0, BaseException) and hasattr(res0, "data"):
                 user_map = {u["id"]: u for u in res0.data}
 
             return user_map

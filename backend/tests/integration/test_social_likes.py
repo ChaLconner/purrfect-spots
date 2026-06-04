@@ -5,8 +5,9 @@ from unittest.mock import MagicMock
 
 import pytest
 from dotenv import load_dotenv
+from supabase.lib.client_options import ClientOptions
 
-from supabase import Client, ClientOptions, create_client
+from supabase import Client, create_client
 
 # Load environment variables
 load_dotenv()

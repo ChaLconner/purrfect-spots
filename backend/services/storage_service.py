@@ -23,12 +23,14 @@ class StorageService:
             pass
 
         # SECURITY: Use S3 client with additional security configurations
+        from botocore.config import Config
+
         self.s3_client = boto3.client(
             "s3",
             region_name=self.aws_region,
             aws_access_key_id=self.aws_access_key,
             aws_secret_access_key=self.aws_secret_key,
-            config=boto3.session.Config(
+            config=Config(
                 signature_version="s3v4",  # Use v4 signatures for better security
                 s3={"addressing_style": "path"},  # Use path-style addressing
             ),

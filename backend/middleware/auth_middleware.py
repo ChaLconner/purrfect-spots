@@ -10,6 +10,7 @@ from typing import Any, cast
 import jwt
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jwt.algorithms import RSAAlgorithm
 
 from config import config, normalize_single_line_env
 from constants.admin_permissions import has_admin_access, normalize_permission_code, normalize_permissions
@@ -118,7 +119,7 @@ async def decode_supabase_token(token: str) -> dict:
         if not key:
             raise ValueError(f"Key with kid '{kid}' not found in JWKS")
 
-        public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key)
+        public_key = RSAAlgorithm.from_jwk(key)
         return jwt.decode(token, cast(Any, public_key), algorithms=["RS256"], audience="authenticated")
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Invalid Supabase token: {e!s}")
