@@ -183,7 +183,7 @@ if SENTRY_DSN and not IS_TEST_ENV:
         # Filter out CancelledError and KeyboardInterrupt
         before_send=before_send,
     )
-    logger.info(f"Sentry initialized for environment: {ENVIRONMENT}")
+    logger.info("Sentry initialized for environment: %s", ENVIRONMENT)
 else:
     logger.warning("SENTRY_DSN not configured or test environment detected - error monitoring disabled")
 
@@ -319,8 +319,6 @@ app.add_exception_handler(RateLimitExceeded, cast(ExceptionHandler, _rate_limit_
 
 # ========== Exception Handlers ==========
 
-from starlette.types import ExceptionHandler
-
 from utils.exception_handlers import (
     custom_http_exception_handler,
     generic_exception_handler,
@@ -331,7 +329,7 @@ from utils.exceptions import PurrfectSpotsException
 
 
 def cancelled_error_handler(request: Request, exc: Exception) -> JSONResponse:
-    logger.info(f"Operation cancelled: {request.url.path}")
+    logger.info("Operation cancelled: %s", request.url.path)
     return JSONResponse(status_code=499, content={"detail": "Request cancelled"})
 
 
@@ -350,7 +348,7 @@ app.add_exception_handler(RequestValidationError, cast(ExceptionHandler, validat
 
 # ========== CORS Configuration (applied after all other middleware below) ==========
 allowed_origins = config.get_allowed_origins()
-logger.info(f"CORS allowed origins: {allowed_origins}")
+logger.info("CORS allowed origins: %s", allowed_origins)
 
 
 # ========== Health Check Endpoints ==========
@@ -467,6 +465,7 @@ app.add_middleware(
         "X-Api-Version",
         "Accept-Version",
         "Content-MD5",
+        "Idempotency-Key",
     ],
     expose_headers=[
         "Content-Range",

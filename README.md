@@ -189,12 +189,14 @@ Full documentation lives inside the **docs directory**.
 
 | Document                                 | Description               |
 | ---------------------------------------- | ------------------------- |
-| [docs/README.md](file:///c:/purrfect-spots/docs/README.md)                           | Documentation Hub         |
-| [docs/DATABASE_SCHEMA.md](file:///c:/purrfect-spots/docs/DATABASE_SCHEMA.md)                  | Database schema           |
-| [docs/ENV_SETUP.md](file:///c:/purrfect-spots/docs/ENV_SETUP.md)                        | Environment configuration |
-| [docs/STRIPE_SETUP.md](file:///c:/purrfect-spots/docs/STRIPE_SETUP.md)                     | Stripe Payment Setup      |
-| [docs/PRODUCTION_GUIDE.md](file:///c:/purrfect-spots/docs/PRODUCTION_GUIDE.md)                 | Production Deployment     |
-| [docs/DESIGN_TOKENS.md](file:///c:/purrfect-spots/docs/DESIGN_TOKENS.md)                    | UI design system          |
+| [docs/README.md](docs/README.md)                     | Documentation Hub         |
+| [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md)   | Database schema           |
+| [docs/ENV_SETUP.md](docs/ENV_SETUP.md)               | Environment configuration |
+| [docs/PRODUCTION_SETUP.md](docs/PRODUCTION_SETUP.md) | Production Deployment     |
+| [docs/DESIGN_TOKENS.md](docs/DESIGN_TOKENS.md)       | UI design system          |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)         | System architecture       |
+| [docs/CHANGELOG.md](docs/CHANGELOG.md)               | Release changelog         |
+| [docs/RUNBOOK.md](docs/RUNBOOK.md)                   | Operations runbook        |
 
 ---
 

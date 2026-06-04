@@ -218,7 +218,6 @@ class Config:
     REDIS_URL = os.getenv("REDIS_URL", "").replace("localhost", "127.0.0.1")
 
     # App URLs
-    # App URLs
     _frontend_urls = os.getenv("FRONTEND_URL", "http://localhost:5173").split(",")
     FRONTEND_URL = _frontend_urls[0].strip() if _frontend_urls else "http://localhost:5173"
 

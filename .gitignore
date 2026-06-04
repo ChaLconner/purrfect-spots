@@ -89,9 +89,6 @@ full_log.txt
 log.txt
 
 # --- Build Output & Other ---
-dist/
-backend/dist/
-frontend/dist/
 build-reports/
 .vercel/
 *.sarif
