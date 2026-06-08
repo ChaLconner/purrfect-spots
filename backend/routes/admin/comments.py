@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from postgrest.types import CountMethod
@@ -63,7 +63,7 @@ async def list_all_comments(
             query = query.gt("report_count", 0)
 
         result = await query.execute()
-        items = result.data
+        items = cast(list[dict[str, Any]], result.data)
         total_count = result.count or 0
         pages = (total_count + effective_page_size - 1) // effective_page_size
 
@@ -86,7 +86,8 @@ async def list_all_comments(
             user_map = {}
             res0 = responses[0]
             if not isinstance(res0, BaseException) and hasattr(res0, "data"):
-                user_map = {u["id"]: u for u in res0.data}
+                res0_data = cast(list[dict[str, Any]], res0.data)
+                user_map = {u["id"]: u for u in res0_data}
 
             return user_map
 
@@ -121,7 +122,7 @@ async def get_comment_report_details(
             .eq("status", "pending")
             .execute()
         )
-        return result.data
+        return cast(list[dict[str, Any]], result.data)
     except Exception as e:
         logger.error("Failed to fetch report details: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch report details")
@@ -210,10 +211,10 @@ async def delete_comment(
             admin_id=current_admin.id,
             action="DELETE_COMMENT",
             target_type="photo_comments",
-            target_id=comment_id,
+            target_id=str(comment_id),
             details={
-                "deleted_content": comment_res.data["content"],
-                "author_id": comment_res.data["user_id"],
+                "deleted_content": cast(dict[str, Any], comment_res.data)["content"],
+                "author_id": str(cast(dict[str, Any], comment_res.data)["user_id"]),
                 "ip": request.client.host if request.client else "unknown",
             },
         )
@@ -221,7 +222,7 @@ async def delete_comment(
         # Notify User
         background_tasks.add_task(
             notification_service.create_notification,
-            user_id=comment_res.data["user_id"],
+            user_id=str(cast(dict[str, Any], comment_res.data)["user_id"]),
             type="comment_removed",
             title="Comment Removed",
             message="One of your comments was removed by a moderator for violating community guidelines.",
@@ -255,13 +256,15 @@ async def ban_user_by_comment(
         if not comment_res.data:
             raise HTTPException(status_code=404, detail="Comment not found")
 
-        user_id = comment_res.data["user_id"]
+        comment_data = cast(dict[str, Any], comment_res.data)
+        user_id = str(comment_data["user_id"])
 
         user_check = await admin_client.table("users").select("email, roles(name)").eq("id", user_id).single().execute()
         if not user_check.data:
             raise HTTPException(status_code=404, detail="User not found")
 
-        role_info = user_check.data.get("roles")
+        user_data = cast(dict[str, Any], user_check.data)
+        role_info = user_data.get("roles")
         role_name = (role_info.get("name") if isinstance(role_info, dict) else "user") or "user"
         if role_name.lower() in ("admin", "super_admin"):
             raise HTTPException(status_code=400, detail="Cannot ban an admin user")
@@ -287,7 +290,7 @@ async def ban_user_by_comment(
         # Notify User (System notification might not be visible if they can't login, but good for records)
         background_tasks.add_task(
             notification_service.create_notification,
-            user_id=user_id,
+            user_id=str(user_id),
             type="account_banned",
             title="Account Suspended",
             message="Your account has been permanently suspended for multiple violations of our community guidelines.",
@@ -334,7 +337,8 @@ async def bulk_delete_comments(
         comments_res = await (
             admin_client.table("photo_comments").select("user_id").in_("id", action_data.comment_ids).execute()
         )
-        author_ids = list({c["user_id"] for c in comments_res.data})
+        comments_data = cast(list[dict[str, Any]], comments_res.data)
+        author_ids = list({str(c["user_id"]) for c in comments_data})
 
         # Delete comments
         await admin_client.table("photo_comments").delete().in_("id", action_data.comment_ids).execute()
@@ -358,7 +362,7 @@ async def bulk_delete_comments(
         for author_id in author_ids:
             background_tasks.add_task(
                 notification_service.create_notification,
-                user_id=author_id,
+                user_id=str(author_id),
                 type="comment_removed",
                 title="Content Removed",
                 message="One or more of your comments were removed by a moderator for violation of guidelines.",

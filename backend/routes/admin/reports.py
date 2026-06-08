@@ -221,7 +221,7 @@ async def update_report(
         if not result.data:
             raise HTTPException(status_code=404, detail="Report not found")
 
-        report = result.data[0]
+        report = cast(dict[str, Any], result.data[0])
 
         # Notify reporter
         new_status = update_payload["status"]
@@ -233,7 +233,7 @@ async def update_report(
 
             background_tasks.add_task(
                 notification_service.create_notification,
-                user_id=report.get("reporter_id"),
+                user_id=str(report.get("reporter_id")),
                 type="system",
                 title="Report Update",
                 message=message,
@@ -242,7 +242,7 @@ async def update_report(
             )
 
         await _invalidate_reports_cache()
-        return cast(dict[str, Any], report)
+        return report
     except HTTPException:
         raise
     except Exception as e:
@@ -335,7 +335,7 @@ async def bulk_update_reports(
             .execute()
         )
 
-        updated_reports = result.data if result.data else []
+        updated_reports = cast(list[dict[str, Any]], result.data if result.data else [])
 
         reporters_processed = set()
         for report in updated_reports:
@@ -345,11 +345,11 @@ async def bulk_update_reports(
                 status_desc = "resolved" if bulk_data.status == "resolved" else "dismissed"
                 background_tasks.add_task(
                     notification_service.create_notification,
-                    user_id=reporter_id,
+                    user_id=str(reporter_id),
                     type="system",
                     title="Report Update (Bulk Action)",
                     message=f"Your report has been {status_desc} (Processed in bulk)",
-                    resource_id=report.get("id"),
+                    resource_id=str(report.get("id")),
                     resource_type="report",
                 )
 

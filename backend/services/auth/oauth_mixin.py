@@ -84,13 +84,15 @@ class AuthOAuthMixin(AuthBaseMixin):
         res = await admin.table("users").select("id").eq("google_id", google_id).execute()
         assert isinstance(res.data, list)
         if res.data:
-            return cast(str | None, res.data[0]["id"])
+            data_dict = cast(dict[str, Any], res.data[0])
+            return cast(str | None, data_dict["id"])
 
         if email:
             res_email = await admin.table("users").select("id").eq("email", email).execute()
             assert isinstance(res_email.data, list)
             if res_email.data:
-                user_id = cast(str, res_email.data[0]["id"])
+                data_dict = cast(dict[str, Any], res_email.data[0])
+                user_id = cast(str, data_dict["id"])
                 await admin.table("users").update({"google_id": google_id}).eq("id", user_id).execute()
                 return user_id
         return None

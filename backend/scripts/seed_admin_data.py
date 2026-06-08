@@ -44,7 +44,8 @@ async def seed_data() -> None:
             res = supabase.table("permissions").upsert(cast(dict[str, Any], perm), on_conflict="code").execute()
             assert isinstance(res.data, list)
             if res.data:
-                permission_map[perm["code"]] = res.data[0]["id"]
+                data_dict = cast(dict[str, Any], res.data[0])
+                permission_map[perm["code"]] = data_dict["id"]
         except Exception as e:
             print(f"Error seeding permission {perm['code']}: {e}")
 
@@ -58,7 +59,8 @@ async def seed_data() -> None:
             res = supabase.table("roles").upsert(cast(dict[str, Any], role), on_conflict="name").execute()
             assert isinstance(res.data, list)
             if res.data:
-                role_map[role["name"]] = res.data[0]["id"]
+                data_dict = cast(dict[str, Any], res.data[0])
+                role_map[role["name"]] = data_dict["id"]
         except Exception as e:
             print(f"Error seeding role {role['name']}: {e}")
 

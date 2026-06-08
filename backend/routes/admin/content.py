@@ -108,41 +108,42 @@ async def delete_photo_admin(
         if not photo_check.data:
             raise HTTPException(status_code=404, detail="Photo not found")
 
-        photo_data = photo_check.data
+        photo_data = cast(dict[str, Any], photo_check.data)
 
         # 2. Schedule background deletion
         background_tasks.add_task(
             gallery_service.process_photo_deletion,
-            photo_id=photo_id,
-            image_url=photo_data.get("image_url") or "",
-            user_id=photo_data.get("user_id"),
+            photo_id=str(photo_id),
+            image_url=str(photo_data.get("image_url") or ""),
+            user_id=str(photo_data.get("user_id") or ""),
             storage_service=storage_service,
         )
 
         # Notify owner
         if photo_data.get("user_id"):
+            user_id_str = str(photo_data.get("user_id"))
             # System Notification
             background_tasks.add_task(
                 notification_service.create_notification,
-                user_id=photo_data.get("user_id"),
+                user_id=user_id_str,
                 type="system",
                 title="Content Removed",
                 message="Your photo has been removed by a moderator due to a violation of our community guidelines.",
-                resource_id=photo_id,
+                resource_id=str(photo_id),
                 resource_type="photo",
             )
 
             # Email Notification
-            user_check = (
-                await admin_client.table("users").select("email").eq("id", photo_data.get("user_id")).single().execute()
-            )
-            if user_check.data and user_check.data.get("email"):
-                background_tasks.add_task(
-                    email_service.send_content_removal_notification,
-                    to_email=user_check.data["email"],
-                    content_type="photo",
-                    reason="Violation of Community Guidelines",
-                )
+            user_check = await admin_client.table("users").select("email").eq("id", user_id_str).single().execute()
+            if user_check.data:
+                user_data = cast(dict[str, Any], user_check.data)
+                if user_data.get("email"):
+                    background_tasks.add_task(
+                        email_service.send_content_removal_notification,
+                        to_email=str(user_data["email"]),
+                        content_type="photo",
+                        reason="Violation of Community Guidelines",
+                    )
 
         # 3. Log Audit Log
         await (

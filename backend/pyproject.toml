@@ -92,15 +92,9 @@ module = [
     "google.cloud.*",
     "redis.*",
     "pythonjsonlogger.*",
-    "jose.*",
-    "passlib.*",
     "boto3.*",
     "botocore.*",
     "filetype.*",
-    "jmespath.*",
-    "pythoncom",
-    "win32api",
-    "win32com.*",
     "structlog"
 ]
 ignore_missing_imports = true
