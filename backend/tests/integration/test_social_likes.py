@@ -37,7 +37,9 @@ class TestSocialLikesIntegration:
         )
         assert SUPABASE_URL is not None
         assert SUPABASE_SERVICE_KEY is not None
-        client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=options)
+        from typing import Any, cast
+
+        client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=cast(Any, options))
         try:
             client.auth.admin.list_users(per_page=1)
         except Exception as exc:
