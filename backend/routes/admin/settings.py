@@ -118,12 +118,13 @@ async def get_setting_history(
             .execute()
         )
         history_entries = []
-        for entry in result.data or []:
+        for item in result.data or []:
+            entry = cast(dict[str, Any], item)
             user_info = entry.pop("user", None)
             entry["user_email"] = user_info.get("email") if isinstance(user_info, dict) else None
             history_entries.append(entry)
         await redis_service.set(cache_key, history_entries, expire=120)
-        return cast(list[dict[str, Any]], history_entries)
+        return history_entries
     except Exception as e:
         logger.error("Failed to fetch history for %s: %s", key, e)
         raise HTTPException(status_code=500, detail="Failed to fetch config history")
@@ -150,7 +151,7 @@ async def update_setting(
         if not check.data:
             raise HTTPException(status_code=404, detail="Setting not found")
 
-        setting = check.data
+        setting = cast(dict[str, Any], check.data)
 
         # SECURITY: Encrypt value if setting is marked as encrypted
         value_to_store = update_data.value
@@ -247,15 +248,16 @@ async def get_pending_changes(
             .execute()
         )
 
-        pending_changes = result.data or []
-        config_keys = list({item["config_key"] for item in pending_changes})
+        pending_changes = cast(list[dict[str, Any]], result.data or [])
+        config_keys = list({str(item["config_key"]) for item in pending_changes})
         current_values_by_key: dict[str, object | None] = {}
 
         if config_keys:
             configs_res = await (
                 admin_client.table("system_configs").select("key, value").in_("key", config_keys).execute()
             )
-            current_values_by_key = {config["key"]: config.get("value") for config in (configs_res.data or [])}
+            configs_res_data = cast(list[dict[str, Any]], configs_res.data or [])
+            current_values_by_key = {str(config["key"]): config.get("value") for config in configs_res_data}
 
         normalized_changes = []
         for item in pending_changes:
@@ -266,7 +268,7 @@ async def get_pending_changes(
 
         if not cache_bust:
             await redis_service.set(PENDING_SETTINGS_CACHE_KEY, normalized_changes, expire=60)
-        return cast(list[dict[str, Any]], normalized_changes)
+        return normalized_changes
     except Exception as e:
         logger.error("Failed to fetch pending changes: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch pending changes")
@@ -286,10 +288,11 @@ async def approve_change(
         pending_check = (
             await admin_client.table("pending_config_changes").select("*").eq("id", change_id).single().execute()
         )
-        if not pending_check.data or pending_check.data["status"] != "pending":
+        pending_data = cast(dict[str, Any], pending_check.data) if pending_check.data else None
+        if not pending_data or pending_data.get("status") != "pending":
             raise HTTPException(status_code=404, detail="Pending change not found or already processed")
 
-        change = pending_check.data
+        change = pending_data
 
         # Prevent self-approval (Maker cannot be Checker)
         if str(change["requester_id"]) == str(current_admin.id):
@@ -299,7 +302,7 @@ async def approve_change(
         config_check = (
             await admin_client.table("system_configs").select("*").eq("key", change["config_key"]).single().execute()
         )
-        current_config = config_check.data
+        current_config = cast(dict[str, Any], config_check.data)
 
         # 3. Update main config
         update_result = (
@@ -344,12 +347,13 @@ async def approve_change(
         requester_res = (
             await admin_client.table("users").select("email").eq("id", change["requester_id"]).single().execute()
         )
-        if requester_res.data:
+        req_data = cast(dict[str, Any], requester_res.data) if requester_res.data else None
+        if req_data:
             email_service.send_admin_config_result(
-                requester_res.data["email"],
-                change["config_key"],
+                str(req_data.get("email")),
+                str(change.get("config_key")),
                 "approved",
-                (current_admin.name or current_admin.email),
+                str(current_admin.name or current_admin.email),
             )
 
         await _invalidate_settings_cache(change["config_key"])
@@ -375,10 +379,11 @@ async def reject_change(
         pending_check = (
             await admin_client.table("pending_config_changes").select("*").eq("id", change_id).single().execute()
         )
-        if not pending_check.data or pending_check.data["status"] != "pending":
+        pending_data = cast(dict[str, Any], pending_check.data) if pending_check.data else None
+        if not pending_data or pending_data.get("status") != "pending":
             raise HTTPException(status_code=404, detail="Pending change not found or already processed")
 
-        change = pending_check.data
+        change = pending_data
 
         # 2. Update status to rejected
         await (
@@ -399,12 +404,13 @@ async def reject_change(
         requester_res = (
             await admin_client.table("users").select("email").eq("id", change["requester_id"]).single().execute()
         )
-        if requester_res.data:
+        req_data = cast(dict[str, Any], requester_res.data) if requester_res.data else None
+        if req_data:
             email_service.send_admin_config_result(
-                str(requester_res.data["email"]),
-                str(change["config_key"]),
+                str(req_data.get("email")),
+                str(change.get("config_key")),
                 "rejected",
-                (current_admin.name or current_admin.email),
+                str(current_admin.name or current_admin.email),
                 str(payload.rejection_reason or ""),
             )
 

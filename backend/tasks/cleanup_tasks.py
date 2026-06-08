@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
 from logger import logger
 from services.notification_service import NotificationService
@@ -40,7 +41,12 @@ async def _cleanup_orphaned_s3_files() -> None:
 
         # 1. Get all image URLs from database
         result = await admin_client.table("cat_photos").select("image_url").execute()
-        db_image_urls = {row["image_url"] for row in result.data} if result.data else set()
+        assert isinstance(result.data, list)
+        db_image_urls = (
+            {cast(str, row["image_url"]) for row in result.data if isinstance(row, dict) and "image_url" in row}
+            if result.data
+            else set()
+        )
 
         # 2. List all files in S3
         s3_files = await storage_service.list_files(prefix="upload/")

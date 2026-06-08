@@ -286,7 +286,7 @@ async def get_system_trends(
         admin_client = await get_async_supabase_admin_client()
         result = await admin_client.rpc("get_admin_trends", {"days_back": 30}).execute()
 
-        trends_data = result.data or {}
+        trends_data = cast(dict[str, Any], result.data or {})
         if not trends_data:
             trends_data = await _fetch_trends_fallback(admin_client, days_back=30)
         await redis_service.set(cache_key, trends_data, expire=600)

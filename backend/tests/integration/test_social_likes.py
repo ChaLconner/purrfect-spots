@@ -32,8 +32,8 @@ class TestSocialLikesIntegration:
     def supabase(self):
         """Create a Supabase client with service role for admin access"""
         options = ClientOptions(
-            postgrest_client_timeout=30.0,
-            storage_client_timeout=30.0,
+            postgrest_client_timeout=30,
+            storage_client_timeout=30,
         )
         assert SUPABASE_URL is not None
         assert SUPABASE_SERVICE_KEY is not None
@@ -110,6 +110,7 @@ class TestSocialLikesIntegration:
         # 1. Verify initial state
         # fetch directly from DB to be sure
         res = supabase.table("cat_photos").select("likes_count").eq("id", photo_id).single().execute()
+        assert isinstance(res.data, dict)
         assert res.data["likes_count"] == 0, "Initial likes count should be 0"
 
         # 2. Toggle Like (Like)
@@ -117,33 +118,41 @@ class TestSocialLikesIntegration:
         ret = supabase.rpc("toggle_photo_like", {"p_user_id": user_id, "p_photo_id": photo_id}).execute()
 
         # Check RPC return
+        assert isinstance(ret.data, list)
         assert len(ret.data) > 0, "RPC should return data"
         result = ret.data[0]
+        assert isinstance(result, dict)
         assert result["liked"] is True, "Should be liked"
         assert result["likes_count"] == 1, "Count should be 1"
 
         # 3. Verify persistence in photo_likes table
         like_entry = supabase.table("photo_likes").select("*").eq("user_id", user_id).eq("photo_id", photo_id).execute()
+        assert isinstance(like_entry.data, list)
         assert len(like_entry.data) == 1, "Like entry should exist in photo_likes"
 
         # Verify persistence in cat_photos table (trigger check)
         photo_entry = supabase.table("cat_photos").select("likes_count").eq("id", photo_id).single().execute()
+        assert isinstance(photo_entry.data, dict)
         assert photo_entry.data["likes_count"] == 1, "Trigger should update likes_count in cat_photos"
 
         # 4. Toggle Like again (Unlike)
         ret = supabase.rpc("toggle_photo_like", {"p_user_id": user_id, "p_photo_id": photo_id}).execute()
 
         # Check RPC return
+        assert isinstance(ret.data, list)
         assert len(ret.data) > 0
         result = ret.data[0]
+        assert isinstance(result, dict)
         assert result["liked"] is False, "Should be unliked"
         assert result["likes_count"] == 0, "Count should be 0"
 
         # 5. Verify persistence
         like_entry = supabase.table("photo_likes").select("*").eq("user_id", user_id).eq("photo_id", photo_id).execute()
+        assert isinstance(like_entry.data, list)
         assert len(like_entry.data) == 0, "Like entry should be removed"
 
         photo_entry = supabase.table("cat_photos").select("likes_count").eq("id", photo_id).single().execute()
+        assert isinstance(photo_entry.data, dict)
         assert photo_entry.data["likes_count"] == 0, "Trigger should decrement likes_count"
 
     def test_toggle_like_nonexistent_photo(self, supabase: Client, test_user) -> None:

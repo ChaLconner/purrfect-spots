@@ -1,6 +1,7 @@
 import asyncio
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 # Add parent directory to path to import services/config
 sys.path.append(str(Path(__file__).parent.parent))
@@ -40,7 +41,8 @@ async def seed_data() -> None:
     for perm in INITIAL_PERMISSIONS:
         try:
             # Upsert permission
-            res = supabase.table("permissions").upsert(perm, on_conflict="code").execute()
+            res = supabase.table("permissions").upsert(cast(dict[str, Any], perm), on_conflict="code").execute()
+            assert isinstance(res.data, list)
             if res.data:
                 permission_map[perm["code"]] = res.data[0]["id"]
         except Exception as e:
@@ -53,7 +55,8 @@ async def seed_data() -> None:
     for role in INITIAL_ROLES:
         try:
             # Upsert role
-            res = supabase.table("roles").upsert(role, on_conflict="name").execute()
+            res = supabase.table("roles").upsert(cast(dict[str, Any], role), on_conflict="name").execute()
+            assert isinstance(res.data, list)
             if res.data:
                 role_map[role["name"]] = res.data[0]["id"]
         except Exception as e:

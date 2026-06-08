@@ -10,7 +10,7 @@ Provides user consent tracking for:
 """
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -55,8 +55,10 @@ async def get_my_consents(
         )
 
         consents = {}
+        assert isinstance(result.data, list)
         for record in result.data or []:
-            ctype = record["consent_type"]
+            assert isinstance(record, dict)
+            ctype = str(record["consent_type"])
             if ctype not in consents:
                 consents[ctype] = {
                     "consent_type": ctype,
@@ -104,7 +106,9 @@ async def record_consent(
                 .single()
                 .execute()
             )
-            version = version_res.data.get("version", "1.0") if version_res.data else "1.0"
+            version_data = version_res.data
+            assert isinstance(version_data, dict)
+            version = str(version_data.get("version", "1.0")) if version_data else "1.0"
         except Exception as version_error:
             if not _is_missing_relation_error(version_error):
                 raise
@@ -122,7 +126,7 @@ async def record_consent(
         }
 
         try:
-            await admin_client.table("user_consents").insert(record).execute()
+            await admin_client.table("user_consents").insert(cast(dict[str, Any], record)).execute()
         except Exception as insert_error:
             if not _is_missing_relation_error(insert_error):
                 raise

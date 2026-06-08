@@ -112,8 +112,8 @@ async def get_treat_stats(
         # Try RPC first (requires migration 026)
         try:
             stats_res = await admin_client.rpc("get_treat_admin_stats").execute()
-            if stats_res.data and len(stats_res.data) > 0:
-                row = stats_res.data[0]
+            if isinstance(stats_res.data, list) and len(stats_res.data) > 0:
+                row = cast(dict[str, Any], stats_res.data[0])
                 result = {
                     "total_in_circulation": row.get("total_in_circulation", 0),
                     "total_given_to_cats": row.get("total_given_to_cats", 0),
@@ -184,7 +184,8 @@ async def grant_treats_manually(
 
         # Fallback: atomic-ish UPDATE (treat_balance = treat_balance + amount)
         if not granted:
-            new_balance = (user_check.data.get("treat_balance") or 0) + data.amount
+            assert isinstance(user_check.data, dict)
+            new_balance = int(user_check.data.get("treat_balance") or 0) + data.amount
             await admin_client.table("users").update({"treat_balance": new_balance}).eq("id", data.user_id).execute()
 
         # Record transaction

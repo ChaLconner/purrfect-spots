@@ -93,10 +93,12 @@ async def list_users(
 
         result = await query.execute()
         users_data = result.data
+        assert isinstance(users_data, list)
         total_count = result.count if result.count is not None else 0
 
         processed_data = []
-        for user in users_data:
+        for item in users_data:
+            user = cast(dict[str, Any], item)
             user_copy = user.copy()
             role_info = user_copy.pop("roles", None)
 
@@ -143,14 +145,20 @@ async def bulk_ban_users(
         target_emails = []
         skipped_admins = 0
 
-        for u in roles_check.data:
-            role_name = (u.get("roles") or {}).get("name") or "user"
-            if role_name.lower() in ("admin", "super_admin"):
+        roles_check_data = roles_check.data
+        assert isinstance(roles_check_data, list)
+
+        for item in roles_check_data:
+            u = cast(dict[str, Any], item)
+            role_info = u.get("roles")
+            role_dict = cast(dict[str, Any], role_info) if isinstance(role_info, dict) else {}
+            role_name = role_dict.get("name", "user") or "user"
+            if str(role_name).lower() in ("admin", "super_admin"):
                 skipped_admins += 1
             else:
-                target_uids.append(u["id"])
+                target_uids.append(str(u["id"]))
                 if u.get("email"):
-                    target_emails.append(u["email"])
+                    target_emails.append(str(u["email"]))
 
         if not target_uids:
             return {"message": "No valid users found to ban.", "skipped": skipped_admins}
@@ -250,9 +258,11 @@ async def delete_user(
         if not check.data:
             raise HTTPException(status_code=404, detail="User not found")
 
-        user_data = check.data[0]
+        assert isinstance(check.data, list)
+        user_data = cast(dict[str, Any], check.data[0])
         role_info = user_data.get("roles")
-        role_name = (role_info.get("name") if role_info else "user").lower()
+        role_dict = cast(dict[str, Any], role_info) if isinstance(role_info, dict) else {}
+        role_name = str(role_dict.get("name", "user")).lower()
 
         if role_name == "admin" or role_name == "super_admin":
             raise HTTPException(status_code=400, detail="Cannot delete an admin user")
@@ -352,6 +362,7 @@ async def update_user_role(
         if not role_check.data:
             raise HTTPException(status_code=404, detail="Role not found")
 
+        assert isinstance(role_check.data, dict)
         role_name = role_check.data.get("name")
         result = await admin_client.table("users").update({"role_id": role_id_str}).eq("id", user_id_str).execute()
         if not result.data:

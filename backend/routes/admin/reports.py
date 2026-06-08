@@ -142,6 +142,7 @@ async def update_report(
             if not report_check.data:
                 raise HTTPException(status_code=404, detail="Report not found")
 
+            assert isinstance(report_check.data, dict)
             photo_id = report_check.data.get("photo_id")
 
             if photo_id:
@@ -154,43 +155,44 @@ async def update_report(
                 )
 
                 if photo_check.data:
+                    assert isinstance(photo_check.data, dict)
                     photo_data = photo_check.data
 
                     # Schedule deletion
                     background_tasks.add_task(
                         gallery_service.process_photo_deletion,
-                        photo_id=photo_id,
-                        image_url=photo_data.get("image_url") or "",
-                        user_id=photo_data.get("user_id"),
+                        photo_id=str(photo_id),
+                        image_url=str(photo_data.get("image_url") or ""),
+                        user_id=str(photo_data.get("user_id") or ""),
                         storage_service=storage_service,
                     )
 
                     # Notify Owner
-                    if photo_data.get("user_id"):
+                    user_id = photo_data.get("user_id")
+                    if user_id:
                         background_tasks.add_task(
                             notification_service.create_notification,
-                            user_id=photo_data.get("user_id"),
+                            user_id=str(user_id),
                             type="system",
                             title="Content Removed",
                             message="Your photo has been removed by a moderator due to a violation of our community guidelines.",
-                            resource_id=photo_id,
+                            resource_id=str(photo_id),
                             resource_type="photo",
                         )
 
                         user_check = (
-                            await admin_client.table("users")
-                            .select("email")
-                            .eq("id", photo_data.get("user_id"))
-                            .single()
-                            .execute()
+                            await admin_client.table("users").select("email").eq("id", str(user_id)).single().execute()
                         )
-                        if user_check.data and user_check.data.get("email"):
-                            background_tasks.add_task(
-                                email_service.send_content_removal_notification,
-                                to_email=user_check.data["email"],
-                                content_type="photo",
-                                reason="Violation of Community Guidelines",
-                            )
+                        if user_check.data:
+                            assert isinstance(user_check.data, dict)
+                            email = user_check.data.get("email")
+                            if email:
+                                background_tasks.add_task(
+                                    email_service.send_content_removal_notification,
+                                    to_email=str(email),
+                                    content_type="photo",
+                                    reason="Violation of Community Guidelines",
+                                )
 
                     await log_admin_action(
                         admin_client=admin_client,
@@ -279,28 +281,31 @@ async def bulk_update_reports(
 
             processed_photos = set()
 
-            for report in reports_data.data:
-                photo = report.get("photo")
+            assert isinstance(reports_data.data, list)
+            for item in reports_data.data:
+                report = cast(dict[str, Any], item)
+                photo = cast(dict[str, Any], report.get("photo")) if isinstance(report.get("photo"), dict) else {}
                 if photo and photo.get("id") and photo.get("id") not in processed_photos:
                     photo_id = photo.get("id")
                     processed_photos.add(photo_id)
 
                     background_tasks.add_task(
                         gallery_service.process_photo_deletion,
-                        photo_id=photo_id,
-                        image_url=photo.get("image_url") or "",
-                        user_id=photo.get("user_id"),
+                        photo_id=str(photo_id),
+                        image_url=str(photo.get("image_url") or ""),
+                        user_id=str(photo.get("user_id") or ""),
                         storage_service=storage_service,
                     )
 
-                    if photo.get("user_id"):
+                    user_id = photo.get("user_id")
+                    if user_id:
                         background_tasks.add_task(
                             notification_service.create_notification,
-                            user_id=photo.get("user_id"),
+                            user_id=str(user_id),
                             type="system",
                             title="Content Removed",
                             message="Your photo has been removed by a moderator due to a violation of our community guidelines.",
-                            resource_id=photo_id,
+                            resource_id=str(photo_id),
                             resource_type="photo",
                         )
 
@@ -309,7 +314,7 @@ async def bulk_update_reports(
                         admin_id=current_admin.id,
                         action="DELETE_PHOTO_VIA_BULK_REPORT",
                         target_type="photos",
-                        target_id=photo_id,
+                        target_id=str(photo_id),
                         details={
                             "report_id": report.get("id"),
                             "ip": request.client.host if request.client else "unknown",
