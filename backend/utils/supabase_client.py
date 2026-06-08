@@ -89,16 +89,30 @@ def _resolve_supabase_anon_key() -> str:
 
 # Shared client options for timeouts and connection pooling
 # Using a shared http_client prevents [Errno 99] port exhaustion
-client_options = ClientOptions(
-    postgrest_client_timeout=30.0,
-    storage_client_timeout=30.0,
-)
+import inspect
 
-async_client_options = ClientOptions(
-    storage=cast(Any, create_async_memory_storage()),
-    postgrest_client_timeout=30.0,
-    storage_client_timeout=30.0,
-)
+import supabase.lib.client_options as _client_options_mod
+
+
+def _create_options(is_async: bool) -> Any:
+    kwargs: dict[str, Any] = {
+        "postgrest_client_timeout": 30.0,
+        "storage_client_timeout": 30.0,
+    }
+    if is_async:
+        OptionsClass = getattr(_client_options_mod, "AsyncClientOptions", ClientOptions)
+    else:
+        OptionsClass = getattr(_client_options_mod, "SyncClientOptions", ClientOptions)
+
+    sig = inspect.signature(OptionsClass)
+    if is_async and "storage" in sig.parameters:
+        kwargs["storage"] = cast(Any, create_async_memory_storage())
+
+    return OptionsClass(**kwargs)
+
+
+client_options = _create_options(is_async=False)
+async_client_options = _create_options(is_async=True)
 
 # Synchronous clients (for legacy support and small tasks).
 # These stay lazy so module imports do not fail in CI/test environments that use
