@@ -32,9 +32,9 @@
   "homepage": "https://github.com/ChaLconner/purrfect-spots#readme",
   "devDependencies": {
     "husky": "^9.1.7",
-    "lint-staged": "^17.0.7",
-    "postcss": "8.5.15",
-    "vite": "8.0.16"
+    "lint-staged": "^17.0.8",
+    "postcss": "8.5.16",
+    "vite": "8.1.2"
   },
   "lint-staged": {
     "backend/**/*.py": [
@@ -65,9 +65,9 @@
     }
   },
   "optionalDependencies": {
-    "@tailwindcss/oxide-darwin-arm64": "4.3.0",
-    "@tailwindcss/oxide-darwin-x64": "4.3.0",
-    "@tailwindcss/oxide-linux-arm64-gnu": "4.3.0",
-    "@tailwindcss/oxide-linux-x64-gnu": "4.3.0"
+    "@tailwindcss/oxide-darwin-arm64": "4.3.2",
+    "@tailwindcss/oxide-darwin-x64": "4.3.2",
+    "@tailwindcss/oxide-linux-arm64-gnu": "4.3.2",
+    "@tailwindcss/oxide-linux-x64-gnu": "4.3.2"
   }
 }
