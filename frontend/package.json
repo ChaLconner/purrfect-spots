@@ -52,7 +52,7 @@
     "@playwright/test": "^1.60.0",
     "@types/google.maps": "^3.65.0",
     "@types/lodash": "^4.17.24",
-    "@types/node": "^25.9.1",
+    "@types/node": "^26.1.0",
     "@vitejs/plugin-vue": "^6.0.7",
     "@vitest/coverage-v8": "^4.1.8",
     "@vue/test-utils": "^2.4.10",
