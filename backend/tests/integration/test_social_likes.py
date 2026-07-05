@@ -4,10 +4,14 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+import supabase.lib.client_options
 from dotenv import load_dotenv
-from supabase.lib.client_options import SyncClientOptions  # type: ignore[attr-defined]
 
 from supabase import Client, create_client
+
+ClientOptions: Any = getattr(supabase.lib.client_options, "SyncClientOptions", None) or getattr(
+    supabase.lib.client_options, "ClientOptions", None
+)
 
 # Load environment variables
 load_dotenv()
@@ -31,7 +35,7 @@ class TestSocialLikesIntegration:
     @pytest.fixture(scope="class")
     def supabase(self):
         """Create a Supabase client with service role for admin access"""
-        options = SyncClientOptions(
+        options = ClientOptions(
             postgrest_client_timeout=30,
             storage_client_timeout=30,
         )
