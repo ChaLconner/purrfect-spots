@@ -64,7 +64,7 @@
     "jsdom": "^29.1.1",
     "openapi-typescript": "^7.13.0",
     "prettier": "^3.8.3",
-    "sharp": "^0.34.5",
+    "sharp": "^0.35.3",
     "svgo": "^4.0.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.62.1",
