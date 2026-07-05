@@ -111,3 +111,6 @@ sonar_issues.json
 summarize_issues.py
 summarize_reliability.py
 repro_cleanup.py
+
+# --- API Client local lock ---
+api-client/package-lock.json

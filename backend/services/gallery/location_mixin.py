@@ -6,6 +6,7 @@ from sqlalchemy import bindparam, column, desc, select, table
 import structlog
 from services.gallery.base_mixin import GalleryBaseMixin
 from utils.cache import cache
+from utils.retry import retry_on_network_error
 
 logger = structlog.get_logger(__name__)
 
@@ -27,10 +28,12 @@ class GalleryLocationMixin(GalleryBaseMixin):
         self, latitude: float, longitude: float, radius_km: float, limit: int
     ) -> list[dict[str, Any]]:
         try:
-            res = await self.supabase.rpc(
-                "search_nearby_photos",
-                {"lat": latitude, "lng": longitude, "radius_meters": radius_km * 1000, "result_limit": limit},
-            ).execute()
+            res = await retry_on_network_error(
+                self.supabase.rpc(
+                    "search_nearby_photos",
+                    {"lat": latitude, "lng": longitude, "radius_meters": radius_km * 1000, "result_limit": limit},
+                ).execute
+            )
             data = cast(list[dict[str, Any]], res.data or [])
             if any(not isinstance(photo, dict) or "status" not in photo for photo in data):
                 logger.warning("PostGIS nearby search missing moderation status; falling back to safe public query")
@@ -96,7 +99,8 @@ class GalleryLocationMixin(GalleryBaseMixin):
                     .order_by(desc(cat_photos.c.uploaded_at))
                     .limit(limit)
                 )
-                result = await self.db.execute(
+                result = await retry_on_network_error(
+                    self.db.execute,
                     query,
                     {
                         "min_lat": min_lat,
@@ -113,7 +117,7 @@ class GalleryLocationMixin(GalleryBaseMixin):
         # Fallback to Supabase client if SQL failed or returned no data
         if not data:
             try:
-                res = await (
+                res = await retry_on_network_error(
                     self._apply_visibility_filter(self.supabase.table("cat_photos").select(self.PHOTO_COLUMNS))
                     .gte("latitude", min_lat)
                     .lte("latitude", max_lat)
@@ -121,7 +125,7 @@ class GalleryLocationMixin(GalleryBaseMixin):
                     .lte("longitude", max_lng)
                     .order("uploaded_at", desc=True)
                     .limit(limit)
-                    .execute()
+                    .execute
                 )
                 data = cast(list[dict[str, Any]], res.data or [])
             except Exception as e:

@@ -31,7 +31,7 @@ os.environ["REDIS_URL"] = ""
 os.environ["DATABASE_URL"] = ""
 
 # Add backend directory to path so imports work
-sys.path.append(str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Mock bcrypt before it's imported by services to avoid PyO3 initialization error
 try:

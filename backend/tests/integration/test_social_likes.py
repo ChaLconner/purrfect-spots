@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from dotenv import load_dotenv
-from supabase.lib.client_options import ClientOptions
+from supabase.lib.client_options import SyncClientOptions  # type: ignore[attr-defined]
 
 from supabase import Client, create_client
 
@@ -31,7 +31,7 @@ class TestSocialLikesIntegration:
     @pytest.fixture(scope="class")
     def supabase(self):
         """Create a Supabase client with service role for admin access"""
-        options = ClientOptions(
+        options = SyncClientOptions(
             postgrest_client_timeout=30,
             storage_client_timeout=30,
         )
