@@ -3,8 +3,8 @@ import { shallowMount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import GalleryView from '@/views/GalleryView.vue';
 import { GalleryService } from '@/services/galleryService';
-import { useCatsStore } from '@/store';
-import { useAuthStore } from '@/store/authStore';
+import { useCatsStore } from '@/stores';
+import { useAuthStore } from '@/stores/authStore';
 import { nextTick } from 'vue';
 
 const mockPush = vi.fn();
@@ -91,6 +91,38 @@ describe('GalleryView.vue', () => {
 
     expect(wrapper.exists()).toBe(true);
     expect(GalleryService.getImages).toHaveBeenCalled();
+  });
+
+  it('fetches initial data after guest auth hydration completes', async () => {
+    const authStore = useAuthStore();
+    authStore.isInitialized = false;
+    authStore.isHydratingSession = true;
+
+    shallowMount(GalleryView, {
+      global: {
+        stubs: {
+          GhibliBackground: true,
+          GalleryHeader: true,
+          GalleryGrid: true,
+          GalleryModal: true,
+          ErrorState: true,
+          EmptyState: true,
+          GhibliLoader: true,
+        },
+        mocks: {
+          $t: (msg: string) => msg,
+        },
+      },
+    });
+
+    await nextTick();
+    expect(GalleryService.getImages).not.toHaveBeenCalled();
+
+    authStore.isInitialized = true;
+    await nextTick();
+    await nextTick();
+
+    expect(GalleryService.getImages).toHaveBeenCalledTimes(1);
   });
 
   it('shows empty state when no images are found', async () => {

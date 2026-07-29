@@ -16,19 +16,18 @@ def test_root(client: Any) -> None:
 
 def test_health_dependencies_redacted_in_production(client: Any) -> None:
     with (
-        patch("routes.health.config.is_production", return_value=True),
-        patch("routes.health.config.EXPOSE_DETAILED_HEALTH", False),
+        patch("app.routes.health.config.is_production", return_value=True),
         patch(
-            "routes.health.check_database",
+            "app.routes.health.check_database",
             return_value={"status": "healthy", "latency_ms": 12.3, "connection": "active"},
         ),
-        patch("routes.health.check_redis", return_value={"status": "healthy", "used_memory_mb": 42}),
-        patch("routes.health.check_s3", return_value={"status": "healthy", "bucket": "secret-bucket"}),
+        patch("app.routes.health.check_redis", return_value={"status": "healthy", "used_memory_mb": 42}),
+        patch("app.routes.health.check_s3", return_value={"status": "healthy", "bucket": "secret-bucket"}),
         patch(
-            "routes.health.check_google_vision",
+            "app.routes.health.check_google_vision",
             return_value={"status": "configured", "credentials_path": "secret.json"},
         ),
-        patch("routes.health.check_sentry", return_value={"status": "configured", "environment": "production"}),
+        patch("app.routes.health.check_sentry", return_value={"status": "configured", "environment": "production"}),
     ):
         response = client.get("/health/dependencies")
 
@@ -41,8 +40,7 @@ def test_health_dependencies_redacted_in_production(client: Any) -> None:
 
 def test_health_metrics_redacted_in_production(client: Any) -> None:
     with (
-        patch("routes.health.config.is_production", return_value=True),
-        patch("routes.health.config.EXPOSE_DETAILED_HEALTH", False),
+        patch("app.routes.health.config.is_production", return_value=True),
     ):
         response = client.get("/health/metrics")
 
@@ -50,3 +48,22 @@ def test_health_metrics_redacted_in_production(client: Any) -> None:
     data = response.json()
     assert "environment" not in data
     assert "python_version" not in data
+
+
+def test_health_details_cannot_be_enabled_in_production(client: Any) -> None:
+    with (
+        patch("app.routes.health.config.is_production", return_value=True),
+        patch(
+            "app.routes.health.check_database",
+            return_value={"status": "healthy", "connection": "must-not-leak"},
+        ),
+        patch("app.routes.health.check_redis", return_value={"status": "healthy"}),
+        patch("app.routes.health.check_s3", return_value={"status": "healthy", "bucket": "must-not-leak"}),
+        patch("app.routes.health.check_google_vision", return_value={"status": "configured"}),
+        patch("app.routes.health.check_sentry", return_value={"status": "configured"}),
+    ):
+        response = client.get("/health/dependencies")
+
+    assert response.status_code == 200
+    assert "connection" not in response.json()["dependencies"]["database"]
+    assert "bucket" not in response.json()["dependencies"]["s3"]

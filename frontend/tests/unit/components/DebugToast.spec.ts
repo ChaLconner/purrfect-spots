@@ -1,4 +1,4 @@
-import { showSuccess } from '@/store/toast';
+import { showSuccess } from '@/stores/toast';
 import { describe, it, expect } from 'vitest';
 
 describe('Debug Toast', () => {

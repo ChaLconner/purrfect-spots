@@ -25,7 +25,7 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
 
-vi.mock('@/components/toast/use-toast', () => ({
+vi.mock('@/composables/useToast', () => ({
   useToast: () => ({
     toast: vi.fn(),
   }),
@@ -110,8 +110,8 @@ describe('BaseButton Component', () => {
     const wrapper = mount(BaseButton, {
       props: { variant: 'secondary' }
     });
-    // Check for some secondary color class - updated to match current implementation
-    expect(wrapper.find('button').classes()).toContain('bg-[#f6c1b1]');
+    // Check for secondary token class
+    expect(wrapper.find('button').classes()).toContain('bg-terracotta-200');
   });
 
   it('applies size classes', () => {

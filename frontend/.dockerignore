@@ -1,16 +1,29 @@
-node_modules
-npm-debug.log
-yarn-error.log
+# Secrets and local configuration
+.env
+.env.*
+
+# Version control and local tooling
 .git
 .gitignore
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-dist
-coverage
 .vscode
 .idea
+
+# Dependencies, caches, and build output
+node_modules
+.vite
+.output
+dist
+dist-local*
+coverage
+
+# Tests, reports, logs, and temporary output
+e2e
+tests
 playwright-report
 test-results
+**/*.log
+**/*.tmp
+**/*.temp
+
+# Deployment state
+.vercel

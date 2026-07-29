@@ -427,8 +427,8 @@
 import { ref, onMounted, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { apiV1 } from '@/utils/api';
-import { useToast } from '@/components/toast/use-toast';
-import { useAuthStore } from '@/store/authStore';
+import { useToast } from '@/composables/useToast';
+import { useAuthStore } from '@/stores/authStore';
 import { BaseConfirmModal } from '@/components/ui';
 
 interface AdminRole {

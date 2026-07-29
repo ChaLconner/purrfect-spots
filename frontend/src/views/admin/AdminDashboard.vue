@@ -56,7 +56,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, computed, defineAsyncComponent, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useAdminStore } from '@/store/adminStore';
+import { useAdminStore } from '@/stores/adminStore';
 import SkeletonLoader from '@/components/ui/SkeletonLoader.vue';
 const AdminDashboardCharts = defineAsyncComponent(() => import('@/components/admin/AdminDashboardCharts.vue'));
 

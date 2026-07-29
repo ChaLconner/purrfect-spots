@@ -2,7 +2,7 @@ import { createApp } from 'vue';
 import './styles/main.css';
 import App from './App.vue';
 import router from './router';
-import { pinia } from './store';
+import { pinia } from './stores';
 import { isDev } from './utils/env';
 import {
   handleUnhandledRejection,
@@ -194,7 +194,7 @@ schedulePostPaintTask(() => {
 // Kick off auth initialization immediately so the background session check
 // starts as soon as possible, reducing skeleton visibility time.
 queueMicrotask(() => {
-  import('./store/authStore')
+  import('./stores/authStore')
     .then(({ useAuthStore }) => useAuthStore().initializeAuth())
     .catch((e) => {
       console.warn('[Auth] Failed to initialize auth:', e);
@@ -203,9 +203,6 @@ queueMicrotask(() => {
 
 schedulePostPaintTask(() => {
   loadDeferredStylesheet(
-    'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap'
-  );
-  loadDeferredStylesheet(
-    'https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap'
+    'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&family=Quicksand:wght@400;500;600;700&family=Zen+Maru+Gothic:wght@400;500;700&display=swap'
   );
 });

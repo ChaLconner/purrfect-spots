@@ -8,9 +8,9 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from main import app
-from routes.gallery import get_gallery_service
-from utils.security import protect_public_coordinates
+from app.main import app
+from app.routes.gallery import get_gallery_service
+from app.utils.security import protect_public_coordinates
 
 
 def test_get_gallery_empty(client) -> None:
@@ -117,9 +117,9 @@ def test_get_ip_location(client) -> None:
     mock_response.raise_for_status.return_value = None
 
     with (
-        patch("routes.geo._cached_ip_location", {"latitude": None, "longitude": None}),
-        patch.dict("routes.geo._ip_location_cache_state", {"expires_at": 0.0, "rate_limit_backoff_until": 0.0}),
-        patch("routes.geo.get_shared_httpx_client") as mock_get_client,
+        patch("app.routes.geo._cached_ip_location", {"latitude": None, "longitude": None}),
+        patch.dict("app.routes.geo._ip_location_cache_state", {"expires_at": 0.0, "rate_limit_backoff_until": 0.0}),
+        patch("app.routes.geo.get_shared_httpx_client") as mock_get_client,
     ):
         mock_client = MagicMock()
         mock_client.get = AsyncMock(return_value=mock_response)
@@ -133,9 +133,9 @@ def test_get_ip_location(client) -> None:
 
 def test_get_ip_location_returns_nulls_on_failure(client) -> None:
     with (
-        patch("routes.geo._cached_ip_location", {"latitude": None, "longitude": None}),
-        patch.dict("routes.geo._ip_location_cache_state", {"expires_at": 0.0, "rate_limit_backoff_until": 0.0}),
-        patch("routes.geo.get_shared_httpx_client") as mock_get_client,
+        patch("app.routes.geo._cached_ip_location", {"latitude": None, "longitude": None}),
+        patch.dict("app.routes.geo._ip_location_cache_state", {"expires_at": 0.0, "rate_limit_backoff_until": 0.0}),
+        patch("app.routes.geo.get_shared_httpx_client") as mock_get_client,
     ):
         mock_client = MagicMock()
         mock_client.get = AsyncMock(side_effect=Exception("lookup failed"))
@@ -153,9 +153,9 @@ def test_get_ip_location_skips_lookup_during_rate_limit_cooldown(client) -> None
     status_error = httpx.HTTPStatusError("Too Many Requests", request=request, response=response)
 
     with (
-        patch("routes.geo._cached_ip_location", {"latitude": None, "longitude": None}),
-        patch.dict("routes.geo._ip_location_cache_state", {"expires_at": 0.0, "rate_limit_backoff_until": 0.0}),
-        patch("routes.geo.get_shared_httpx_client") as mock_get_client,
+        patch("app.routes.geo._cached_ip_location", {"latitude": None, "longitude": None}),
+        patch.dict("app.routes.geo._ip_location_cache_state", {"expires_at": 0.0, "rate_limit_backoff_until": 0.0}),
+        patch("app.routes.geo.get_shared_httpx_client") as mock_get_client,
     ):
         mock_client = MagicMock()
         mock_client.get = AsyncMock()
@@ -278,7 +278,7 @@ def test_get_photo(client) -> None:
 
 
 def test_delete_photo(client) -> None:
-    from middleware.auth_middleware import get_current_user_from_credentials
+    from app.middleware.auth_middleware import get_current_user_from_credentials
 
     mock_service = MagicMock()
     mock_service.verify_photo_ownership = AsyncMock(return_value={"id": "1", "image_url": "url"})

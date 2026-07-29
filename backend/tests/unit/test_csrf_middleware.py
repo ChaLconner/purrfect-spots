@@ -4,7 +4,7 @@ from unittest.mock import patch
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
-from middleware.csrf_middleware import CSRFMiddleware
+from app.middleware.csrf_middleware import CSRFMiddleware
 
 
 def test_csrf_middleware_safe_methods() -> None:

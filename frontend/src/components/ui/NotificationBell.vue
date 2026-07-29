@@ -164,7 +164,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, computed, nextTick } from 'vue';
-import { useNotificationStore } from '@/store/notificationStore';
+import { useNotificationStore } from '@/stores/notificationStore';
 import { useRouter } from 'vue-router';
 import type { Notification } from '@/services/notificationService';
 import { getAvatarFallback, handleAvatarError } from '@/utils/avatar';

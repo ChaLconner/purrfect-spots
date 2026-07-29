@@ -53,11 +53,11 @@ vi.mock('pinia', async (importOriginal) => {
   };
 });
 
-vi.mock('@/store/subscriptionStore', () => ({
+vi.mock('@/stores/subscriptionStore', () => ({
   useSubscriptionStore: () => mockSubscriptionStore,
 }));
 
-vi.mock('@/store/toastStore', () => ({
+vi.mock('@/stores/toastStore', () => ({
   useToastStore: () => ({
     addToast: mockAddToast,
   }),

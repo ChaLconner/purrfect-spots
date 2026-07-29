@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 
-from utils.retry import retry_on_network_error
+from app.utils.retry import retry_on_network_error
 
 
 @pytest.mark.asyncio

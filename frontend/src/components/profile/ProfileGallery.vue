@@ -6,7 +6,7 @@ import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import GhibliLoader from '@/components/ui/GhibliLoader.vue';
-import type { CatLocation } from '@/types/api';
+import type { CatLocation } from '@/generated/api';
 import { formatDate } from '@/utils/date';
 
 const props = defineProps<{

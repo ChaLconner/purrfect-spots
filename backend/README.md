@@ -6,15 +6,19 @@ FastAPI backend for Purrfect Spots application - Cat photo sharing and location 
 
 ```
 backend/
-├── main.py              # Main FastAPI application file
-├── dependencies.py      # Dependency injection
-├── schemas/             # Pydantic models
-├── services/            # Business logic
-├── routes/              # API endpoints
-├── utils/               # Helper functions
+├── app/                 # Importable application package
+│   ├── main.py          # FastAPI application entrypoint
+│   ├── dependencies.py  # Dependency injection
+│   ├── schemas/         # Pydantic models
+│   ├── services/        # Business logic
+│   ├── routes/          # API endpoints
+│   └── utils/           # Helper functions
+├── api/                 # Serverless deployment adapter
+├── scripts/             # Backend maintenance scripts
+├── tests/               # Unit and integration tests
 ├── requirements.txt     # Python dependencies
 ├── .env.example         # Example environment variables file
-└── README_API.md        # API usage guide
+└── README.md            # Backend guide
 ```
 
 ## 🚀 Installation and Getting Started
@@ -40,7 +44,7 @@ cp .env.example .env
 ### 3. Start Server
 ```bash
 # Development mode with auto-reload
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ### 4. Check Operation

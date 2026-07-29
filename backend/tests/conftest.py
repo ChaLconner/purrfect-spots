@@ -74,9 +74,9 @@ except ImportError:
     sys.modules["slowapi.errors"] = MagicMock()
     sys.modules["slowapi.util"] = MagicMock()
     # Mock limiter instance since it's used in decorators
-    sys.modules["limiter"] = MagicMock()
-    sys.modules["limiter"].limiter = MagicMock()  # type: ignore[attr-defined]
-    sys.modules["limiter"].limiter.limit = lambda x: lambda f: f  # type: ignore[attr-defined, unused-ignore]
+    sys.modules["app.limiter"] = MagicMock()
+    sys.modules["app.limiter"].limiter = MagicMock()  # type: ignore[attr-defined]
+    sys.modules["app.limiter"].limiter.limit = lambda x: lambda f: f  # type: ignore[attr-defined, unused-ignore]
 
 
 # Mock mcp module if it causes issues (e.g. issues with anyio on windows)
@@ -120,13 +120,13 @@ except ImportError:
     pass
 
 # Now we can import the app
-from main import app
+from app.main import app
 
 
 @pytest.fixture(autouse=True)
 def disable_rate_limit() -> Generator[None, None, None]:
     """Disable rate limiting for all tests"""
-    from limiter import auth_limiter, limiter, strict_limiter, upload_limiter
+    from app.limiter import auth_limiter, limiter, strict_limiter, upload_limiter
 
     limiters = [limiter, auth_limiter, strict_limiter, upload_limiter]
 
@@ -149,7 +149,7 @@ def mock_redis_service() -> Generator[None, None, None]:
     """Globally mock redis_service to prevent external connections and hangs during tests"""
     from unittest.mock import AsyncMock, patch
 
-    from services.redis_service import redis_service
+    from app.services.redis_service import redis_service
 
     # Methods to mock based on RedisService implementation
     mocks = {
@@ -167,7 +167,7 @@ def mock_redis_service() -> Generator[None, None, None]:
 @pytest.fixture(autouse=True)
 def clear_all_caches() -> Generator[None, None, None]:
     """Clear all memory and redis caches before every test to ensure test isolation"""
-    from utils.cache import memory_cache
+    from app.utils.cache import memory_cache
 
     memory_cache.clear()
     yield
@@ -279,7 +279,7 @@ def mock_async_supabase() -> Generator[MagicMock, None, None]:
     Mock the async_supabase client with proper async behavior.
     """
     # Mock acreate_client in utils.supabase_client
-    with patch("utils.supabase_client.acreate_client", new_callable=AsyncMock) as mock_ac:
+    with patch("app.utils.supabase_client.acreate_client", new_callable=AsyncMock) as mock_ac:
         mock_client = MagicMock()
         mock_ac.return_value = mock_client
 
@@ -337,7 +337,7 @@ class MockUser:
 @pytest.fixture
 def mock_supabase_auth() -> Generator[MagicMock, None, None]:
     """Mock the Supabase auth client"""
-    with patch("dependencies.get_supabase_auth") as mock:
+    with patch("app.dependencies.get_supabase_auth") as mock:
         client = MagicMock()
         mock.return_value = client
         yield client

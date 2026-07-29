@@ -1,8 +1,8 @@
 import { ref, watch, nextTick } from 'vue';
 import { GalleryService } from '@/services/galleryService';
-import { useCatsStore } from '@/store';
+import { useCatsStore } from '@/stores';
 import { GALLERY_CONFIG } from '@/utils/constants';
-import type { CatLocation } from '@/types/api';
+import type { CatLocation } from '@/generated/api';
 
 export function useGalleryState(): {
   loading: Ref<boolean>;

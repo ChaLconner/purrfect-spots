@@ -2,7 +2,7 @@
 import { ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import type { LocationQueryValue } from 'vue-router';
-import { useCatsStore } from '../../store';
+import { useCatsStore } from '../../stores';
 import { useDebounce } from '@/composables/useDebounce';
 import Search from '../icons/search.vue';
 

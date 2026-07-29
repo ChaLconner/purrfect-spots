@@ -189,7 +189,7 @@
 import { ref, reactive, watch } from 'vue';
 import { apiV1 } from '@/utils/api';
 import { REPORT_REASONS } from '@/constants/moderation';
-import { useToast } from '@/components/toast/use-toast';
+import { useToast } from '@/composables/useToast';
 import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();

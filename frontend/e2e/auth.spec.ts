@@ -59,7 +59,7 @@ test.describe('Authentication Flow', () => {
       // Note: Browser native validation might intercept this, so we check if button is still there
       // or check for specific validation UI if app implements it.
       // Assuming app shows text error:
-      await expect(page.getByText(/required|enter your email/i)).toBeVisible();
+      await expect(page.getByText('Email is required', { exact: true })).toBeVisible();
     });
     
     test('should show error for invalid credentials', async ({ page }) => {
@@ -78,7 +78,9 @@ test.describe('Authentication Flow', () => {
       await page.getByRole('button', { name: /login|sign in/i }).click();
       
       // Should show error message
-      await expect(page.getByText(/invalid|incorrect|failed/i)).toBeVisible({ timeout: 5000 });
+      await expect(page.getByText('Authentication Failed', { exact: true })).toBeVisible({
+        timeout: 5000,
+      });
     });
 
     test('should redirect to home on successful login', async ({ page }) => {
@@ -135,10 +137,12 @@ test.describe('Authentication Flow', () => {
       
       // Fill weak password
       await page.locator('#password').fill('123');
-      
-      // Should show password strength indicator or error
-      const strengthIndicator = page.locator('[class*="strength"], [class*="password"]');
-      await expect(strengthIndicator.first()).toBeVisible();
+      await page.getByRole('button', { name: /register|sign up|create/i }).click();
+
+      // The form must reject a password below the backend's minimum length.
+      await expect(
+        page.getByText('Password must be at least 8 characters', { exact: true })
+      ).toBeVisible();
     });
     
     test('should successfully register user', async ({ page }) => {
@@ -181,7 +185,9 @@ test.describe('Authentication Flow', () => {
       // Should stay on upload page
       await expect(page).toHaveURL(/\/upload/);
       // Optional: Check for page content to confirm
-      await expect(page.getByText('Share a Spot')).toBeVisible();
+      await expect(
+        page.getByRole('heading', { name: 'Share a Purrfect Spot' })
+      ).toBeVisible();
     });
 
     test('should allow access to protected route if logged in', async ({ page }) => {

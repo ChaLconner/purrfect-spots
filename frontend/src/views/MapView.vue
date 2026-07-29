@@ -110,7 +110,7 @@ import { useRoute, useRouter } from 'vue-router';
 import type { LocationQueryRaw, LocationQueryValue } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { GalleryService } from '../services/galleryService';
-import { showError } from '../store/toast';
+import { showError } from '../stores/toast';
 import GhibliLoader from '@/components/ui/GhibliLoader.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import CatDetailModal from '@/components/map/CatDetailModal.vue';
@@ -121,8 +121,8 @@ import { loadGoogleMaps, isGoogleMapsLoaded } from '../utils/googleMapsLoader';
 import { getEnvVar } from '../utils/env';
 import { FALLBACK_LOCATION, MAP_CONFIG, EXTERNAL_URLS } from '../utils/constants';
 import { openTrustedExternalUrl } from '../utils/security';
-import { useCatsStore } from '../store';
-import type { CatLocation } from '../store';
+import { useCatsStore } from '../stores';
+import type { CatLocation } from '../stores';
 
 // Composables
 import { useGeolocation } from '../composables/useGeolocation';

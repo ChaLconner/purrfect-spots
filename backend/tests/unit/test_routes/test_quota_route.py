@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from main import app
+from app.main import app
 
 
 @pytest.fixture
@@ -27,8 +27,8 @@ class TestQuotaRoute:
 
     async def test_get_quota_success(self, client, mock_user):
         """Test successful quota retrieval"""
-        from dependencies import get_quota_service
-        from middleware.auth_middleware import get_current_user
+        from app.dependencies import get_quota_service
+        from app.middleware.auth_middleware import get_current_user
 
         # Mock QuotaService
         mock_quota_service = MagicMock()
@@ -56,8 +56,8 @@ class TestQuotaRoute:
 
     async def test_get_quota_error_handling(self, client, mock_user):
         """Test quota retrieval error handling"""
-        from dependencies import get_quota_service
-        from middleware.auth_middleware import get_current_user
+        from app.dependencies import get_quota_service
+        from app.middleware.auth_middleware import get_current_user
 
         # Mock QuotaService to raise exception
         mock_quota_service = MagicMock()

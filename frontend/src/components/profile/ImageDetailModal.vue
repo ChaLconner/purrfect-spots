@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import type { CatLocation } from '@/types/api';
+import type { CatLocation } from '@/generated/api';
 import type { User } from '@/types/auth';
 import { ref } from 'vue';
 import { BaseCard } from '@/components/ui';
 import ReportModal from '@/components/ui/ReportModal.vue';
-import { useToast } from '@/components/toast/use-toast';
+import { useToast } from '@/composables/useToast';
 import { useI18n } from 'vue-i18n';
 import { getAvatarFallback, handleAvatarError } from '@/utils/avatar';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';

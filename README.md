@@ -169,7 +169,7 @@ source venv/bin/activate
 
 pip install -r requirements.txt
 
-uvicorn main:app --reload
+uvicorn app.main:app --reload
 ```
 
 ---
@@ -195,6 +195,7 @@ Full documentation lives inside the **docs directory**.
 | [docs/PRODUCTION_SETUP.md](docs/PRODUCTION_SETUP.md) | Production Deployment     |
 | [docs/DESIGN_TOKENS.md](docs/DESIGN_TOKENS.md)       | UI design system          |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)         | System architecture       |
+| [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) | Folder and dependency rules |
 | [docs/CHANGELOG.md](docs/CHANGELOG.md)               | Release changelog         |
 | [docs/RUNBOOK.md](docs/RUNBOOK.md)                   | Operations runbook        |
 
@@ -204,16 +205,29 @@ Full documentation lives inside the **docs directory**.
 
 ```
 backend/
-  middleware/
-  routes/
-  services/
-  utils/
+  app/
+    middleware/
+    routes/
+    schemas/
+    services/
+    utils/
+  api/
+  migrations/
+  scripts/
+  tests/
 
 frontend/
   src/components
+  src/generated
   src/views
   src/stores
   src/composables
+
+packages/
+  api-client/
+
+supabase/
+  migrations/
 
 docs/
 ```

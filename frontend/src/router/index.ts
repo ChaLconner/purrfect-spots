@@ -14,7 +14,7 @@ const VerifyEmailView = (): Promise<unknown> => import('@/views/VerifyEmailView.
 const LeaderboardView = (): Promise<unknown> => import('@/views/LeaderboardView.vue');
 const MyReportsView = (): Promise<unknown> => import('@/views/MyReportsView.vue');
 const SubscriptionView = (): Promise<unknown> => import('@/views/SubscriptionView.vue');
-const AuthCallback = (): Promise<unknown> => import('@/components/AuthCallback.vue');
+const AuthCallback = (): Promise<unknown> => import('@/views/AuthCallbackView.vue');
 const AdminLayout = (): Promise<unknown> => import('@/views/admin/AdminLayout.vue');
 const AdminDashboard = (): Promise<unknown> => import('@/views/admin/AdminDashboard.vue');
 const AdminUsers = (): Promise<unknown> => import('@/views/admin/AdminUsers.vue');
@@ -211,7 +211,7 @@ const router = createRouter({
 });
 
 const getAuthStore = async (): Promise<unknown> => {
-  const { useAuthStore } = await import('@/store/authStore');
+  const { useAuthStore } = await import('@/stores/authStore');
   return useAuthStore();
 };
 

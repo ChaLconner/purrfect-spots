@@ -2,8 +2,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from config import config
-from services.subscription_service import SubscriptionService
+from app.config import config
+from app.services.subscription_service import SubscriptionService
 
 
 @pytest.fixture
@@ -25,8 +25,8 @@ def subscription_service():
     return SubscriptionService(mock_supabase)
 
 
-@patch("services.subscription_service.stripe.checkout.Session.create")
-@patch("services.subscription_service.stripe.Customer.create")
+@patch("app.services.subscription_service.stripe.checkout.Session.create")
+@patch("app.services.subscription_service.stripe.Customer.create")
 async def test_create_checkout_session(mock_customer_create, mock_session_create, subscription_service):
     """Test checkout session creation with new customer."""
     # Mock user query (no existing customer id)
@@ -46,7 +46,7 @@ async def test_create_checkout_session(mock_customer_create, mock_session_create
     assert res["session_id"] == "sess_123"
 
 
-@patch("services.subscription_service.stripe.checkout.Session.create")
+@patch("app.services.subscription_service.stripe.checkout.Session.create")
 async def test_create_checkout_session_with_existing_customer(mock_session_create, subscription_service):
     """Test checkout when user already has a Stripe customer ID."""
     mock_session_create.return_value.url = "http://test.url"  # NOSONAR python:S5332 - test fixture URL
@@ -65,7 +65,7 @@ async def test_create_checkout_session_with_existing_customer(mock_session_creat
     assert res["session_id"] == "sess_456"
 
 
-@patch("services.subscription_service.stripe.Subscription.retrieve")
+@patch("app.services.subscription_service.stripe.Subscription.retrieve")
 async def test_handle_webhook_checkout_completed(mock_retrieve, subscription_service):
     """Test subscription activation via webhook."""
     session = {"metadata": {"user_id": "00000000-0000-4000-a000-000000000123"}, "subscription": "sub_123"}
@@ -83,7 +83,7 @@ async def test_handle_webhook_checkout_completed(mock_retrieve, subscription_ser
     subscription_service.supabase.table.return_value.update.assert_called()
 
 
-@patch("services.subscription_service.stripe.Subscription.retrieve")
+@patch("app.services.subscription_service.stripe.Subscription.retrieve")
 async def test_handle_webhook_checkout_completed_ignores_unexpected_price(mock_retrieve, subscription_service):
     """Test subscription activation is rejected for unknown Stripe prices."""
     session = {"metadata": {"user_id": "00000000-0000-4000-a000-000000000123"}, "subscription": "sub_123"}
@@ -100,7 +100,7 @@ async def test_handle_webhook_checkout_completed_ignores_unexpected_price(mock_r
     subscription_service.supabase.table.return_value.update.assert_not_called()
 
 
-@patch("services.subscription_service.stripe.Subscription.retrieve")
+@patch("app.services.subscription_service.stripe.Subscription.retrieve")
 async def test_handle_subscription_updated(mock_retrieve, subscription_service):
     """Test subscription update sync."""
     subscription = {
@@ -150,7 +150,7 @@ async def test_dispatch_checkout_completed_payment(subscription_service):
     subscription_service.treats_service.fulfill_treat_purchase.assert_called_once_with(session)
 
 
-@patch("services.subscription_service.stripe.billing_portal.Session.create")
+@patch("app.services.subscription_service.stripe.billing_portal.Session.create")
 async def test_create_portal_session_sanitizes_external_return_url(mock_portal_create, subscription_service):
     """Test portal sessions always return to the configured frontend."""
     subscription_service._get_user_data = AsyncMock(return_value={"stripe_customer_id": "cus_123"})

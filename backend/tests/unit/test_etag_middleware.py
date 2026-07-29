@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request, Response
 from starlette.testclient import TestClient
 
-from middleware.etag_middleware import ETagMiddleware
+from app.middleware.etag_middleware import ETagMiddleware
 
 
 def _create_app() -> FastAPI:

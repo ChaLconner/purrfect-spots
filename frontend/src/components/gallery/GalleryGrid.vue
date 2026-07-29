@@ -114,11 +114,11 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller';
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
-import { useSubscriptionStore } from '@/store/subscriptionStore';
-import { useToastStore } from '@/store';
-import { useAuthStore } from '@/store/authStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import { useToastStore } from '@/stores';
+import { useAuthStore } from '@/stores/authStore';
 import { IMAGE_CONFIG, GALLERY_CONFIG } from '@/utils/constants';
-import type { CatLocation } from '@/types/api';
+import type { CatLocation } from '@/generated/api';
 import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();

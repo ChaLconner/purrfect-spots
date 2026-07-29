@@ -1,4 +1,4 @@
-import { useToastStore } from '@/store/toastStore';
+import { useToastStore } from '@/stores/toastStore';
 import type { ToastType } from '@/types/toast';
 
 interface ToastOptions {

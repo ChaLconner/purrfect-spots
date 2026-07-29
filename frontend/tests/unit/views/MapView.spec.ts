@@ -4,9 +4,9 @@ import { createPinia, setActivePinia } from 'pinia';
 import { createRouter, createWebHistory, type Router } from 'vue-router';
 import MapView from '@/views/MapView.vue';
 import { GalleryService } from '@/services/galleryService';
-import { useCatsStore } from '@/store';
+import { useCatsStore } from '@/stores';
 import { nextTick } from 'vue';
-import type { CatLocation } from '@/types/api';
+import type { CatLocation } from '@/generated/api';
 
 // Mock map dependencies
 vi.mock('@/utils/googleMapsLoader', () => ({

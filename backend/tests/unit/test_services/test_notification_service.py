@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from services.notification_service import NotificationService
+from app.services.notification_service import NotificationService
 
 # Test UUIDs
 _USER_1 = "00000000-0000-4000-a000-000000000001"

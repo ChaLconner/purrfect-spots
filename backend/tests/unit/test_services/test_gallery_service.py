@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from postgrest.types import CountMethod
 
-from services.gallery_service import GalleryService
+from app.services.gallery_service import GalleryService
 
 
 @pytest.mark.asyncio
@@ -231,7 +231,7 @@ class TestGalleryService:
             count_response,
         ]
 
-        with patch("services.gallery.read_mixin.logger") as mock_logger:
+        with patch("app.services.gallery.read_mixin.logger") as mock_logger:
             result = await gallery_service.get_all_photos(limit=7, offset=14)
 
         assert result["data"][0]["id"] == mock_cat_photo["id"]

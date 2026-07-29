@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useAuthForm } from '@/composables/useAuthForm';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore } from '@/stores/authStore';
 import { AuthService } from '@/services/authService';
-import { showSuccess, showError } from '@/store/toast';
+import { showSuccess, showError } from '@/stores/toast';
 import { useRouter } from 'vue-router';
 import { setActivePinia, createPinia } from 'pinia';
 import { defineComponent } from 'vue';
@@ -12,7 +12,7 @@ import { getEnvVar } from '@/utils/env';
 
 // Mock dependencies
 vi.mock('@/services/authService');
-vi.mock('@/store/toast');
+vi.mock('@/stores/toast');
 vi.mock('vue-router', () => ({
   useRouter: vi.fn(),
 }));

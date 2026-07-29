@@ -16,14 +16,14 @@ python:
 api:
   - changed-files:
       - any-glob-to-any-file:
-          - 'backend/routes/**/*'
-          - 'backend/schemas/**/*'
+          - 'backend/app/routes/**/*'
+          - 'backend/app/schemas/**/*'
 
 database:
   - changed-files:
       - any-glob-to-any-file:
           - 'backend/migrations/**/*'
-          - 'backend/services/supabase*.py'
+          - 'backend/app/services/supabase*.py'
 
 # Frontend labels
 frontend:
@@ -92,10 +92,10 @@ documentation:
 security:
   - changed-files:
       - any-glob-to-any-file:
-          - 'backend/services/auth*.py'
-          - 'backend/middleware/security*.py'
-          - 'backend/utils/security*.py'
-          - 'backend/utils/jwt*.py'
+          - 'backend/app/services/auth*.py'
+          - 'backend/app/middleware/security*.py'
+          - 'backend/app/utils/security*.py'
+          - 'backend/app/utils/jwt*.py'
 
 # Dependencies
 dependencies:

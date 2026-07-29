@@ -5,9 +5,9 @@ from uuid import uuid4
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from dependencies import get_treats_service
-from main import app
-from middleware.auth_middleware import get_current_user_from_credentials
+from app.dependencies import get_treats_service
+from app.main import app
+from app.middleware.auth_middleware import get_current_user_from_credentials
 
 
 @pytest.fixture

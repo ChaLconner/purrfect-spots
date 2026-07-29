@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
 import SkeletonLoader from '@/components/ui/SkeletonLoader.vue';
-import type { CatLocation } from '@/types/api';
+import type { CatLocation } from '@/generated/api';
 
 const props = defineProps<{
   image: CatLocation | null;

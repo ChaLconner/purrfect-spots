@@ -123,8 +123,8 @@
 import { ref, onMounted, watch, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { apiV1 } from '@/utils/api';
-import { useAuthStore } from '@/store/authStore';
-import { useToast } from '@/components/toast/use-toast';
+import { useAuthStore } from '@/stores/authStore';
+import { useToast } from '@/composables/useToast';
 import { PERMISSIONS } from '@/constants/permissions';
 import { useAdminTable } from '@/composables/useAdminTable';
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';

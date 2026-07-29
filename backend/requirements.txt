@@ -58,18 +58,3 @@ stripe>=15.3.0
 # --- Media Processing ---
 Pillow>=12.3.0
 filetype>=1.2.0
-
-# --- Dev / CI Tools ---
-ruff>=0.15.20
-mypy>=2.1.0
-pytest>=9.1.1
-pytest-asyncio>=1.4.0
-pytest-cov>=7.1.0
-pytest-mock>=3.12.0
-
-# --- Type Stubs ---
-types-bleach>=6.4.0
-types-redis>=4.6.0
-types-requests>=2.33.0
-types-Pillow>=10.2.0
-types-cachetools>=7.0.0

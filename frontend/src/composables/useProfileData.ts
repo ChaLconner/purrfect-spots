@@ -1,12 +1,12 @@
 import { ref, computed, type Ref, type ComputedRef } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore } from '@/stores/authStore';
 import { ProfileService } from '@/services/profileService';
 import { isDev } from '@/utils/env';
 import { useSeo } from '@/composables/useSeo';
 import type { User } from '@/types/auth';
-import type { CatLocation } from '@/types/api';
+import type { CatLocation } from '@/generated/api';
 
 export function useProfileData(): {
   viewedUser: Ref<User | null>;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { toastState } from '../../store/toast';
+import { toastState } from '../../stores/toast';
 import ToastItem from './ToastItem.vue';
 </script>
 

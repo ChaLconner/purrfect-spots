@@ -72,14 +72,31 @@
   --color-glass-sage: rgba(122, 155, 118, 0.8);
   --color-glass-terracotta: rgba(214, 122, 79, 0.8);
 
+  /* Mint Palette */
+  --color-mint: #7fb7a4;
+  --color-mint-dark: #5a4632;
+  --color-mint-light: #eaf6f3;
+  --color-mint-hover: #6da491;
+
+  /* Wood Brown Palette */
+  --color-wood-brown: #8b5a2b;
+  --color-wood-dark: #5c4033;
+
   /* Fonts */
   --font-heading: 'Quicksand', sans-serif;
   --font-body: 'Montserrat', sans-serif;
   --font-accent: 'Zen Maru Gothic', sans-serif;
   --font-zen-maru: 'Zen Maru Gothic', sans-serif;
-  --font-nunito: 'Nunito', sans-serif;
+  --font-nunito: 'Montserrat', sans-serif;
 
-  /* Shadow & Spacing (Custom tokens if needed by tailwind) */
+  /* Z-Index Hierarchy Tokens */
+  --z-navbar: 50;
+  --z-dropdown: 60;
+  --z-map-controls: 70;
+  --z-modal: 1000;
+  --z-toast: 2000;
+
+  /* Shadow & Spacing */
   --shadow-premium: 0 12px 24px rgba(66, 33, 16, 0.12);
   --radius-premium: 20px;
 

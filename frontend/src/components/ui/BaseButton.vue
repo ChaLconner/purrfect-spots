@@ -30,21 +30,21 @@ const baseClasses =
 const variantClasses = computed(() => {
   switch (props.variant) {
     case 'primary':
-      return 'bg-sage text-white shadow-soft hover:-translate-y-0.5 hover:shadow-card hover:bg-[#6da491] active:scale-95';
+      return 'bg-sage text-white shadow-soft hover:-translate-y-0.5 hover:shadow-card hover:bg-sage-dark active:scale-95';
     case 'secondary':
-      return 'bg-[#f6c1b1] text-brown shadow-soft hover:-translate-y-0.5 hover:shadow-card hover:bg-[#e5b0a0] active:scale-95';
+      return 'bg-terracotta-200 text-brown-dark shadow-soft hover:-translate-y-0.5 hover:shadow-card hover:bg-terracotta-300 active:scale-95';
     case 'ghost':
-      return 'bg-transparent text-brown hover:bg-white/35';
+      return 'bg-transparent text-brown hover:bg-cream-dark/40';
     case 'ghibli-primary':
-      return 'bg-sage-dark text-white shadow-[0_4px_12px_rgba(109,139,106,0.3)] hover:bg-[#5a7558] hover:shadow-[0_6px_16px_rgba(109,139,106,0.4)] hover:-translate-y-px active:scale-98';
+      return 'bg-sage-dark text-white shadow-[0_4px_12px_rgba(91,120,88,0.3)] hover:bg-sage hover:shadow-[0_6px_16px_rgba(91,120,88,0.4)] hover:-translate-y-px active:scale-98';
     case 'ghibli-secondary':
-      return 'bg-[#a85d2e] text-white shadow-[0_4px_12px_rgba(168,93,46,0.3)] hover:bg-[#8c4d26] hover:shadow-[0_6px_16px_rgba(168,93,46,0.4)] hover:-translate-y-px active:scale-98';
+      return 'bg-terracotta text-white shadow-[0_4px_12px_rgba(214,122,79,0.3)] hover:bg-terracotta-dark hover:shadow-[0_6px_16px_rgba(214,122,79,0.4)] hover:-translate-y-px active:scale-98';
     case 'danger':
       return 'bg-red-500 text-white shadow-soft hover:bg-red-600 hover:-translate-y-0.5 active:scale-95';
     case 'outline':
       return 'bg-transparent border-2 border-sage text-sage hover:bg-sage hover:text-white';
     default:
-      return 'bg-sage text-white shadow-soft hover:-translate-y-0.5 hover:shadow-card hover:bg-[#6da491] active:scale-95'; // Default to primary
+      return 'bg-sage text-white shadow-soft hover:-translate-y-0.5 hover:shadow-card hover:bg-sage-dark active:scale-95';
   }
 });
 

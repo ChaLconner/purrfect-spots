@@ -135,8 +135,8 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { useAuthStore } from '../store/authStore';
-import { showSuccess, showError } from '../store/toast';
+import { useAuthStore } from '../stores/authStore';
+import { showSuccess, showError } from '../stores/toast';
 import { AuthService } from '../services/authService';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 import { getSafeRedirect, isValidEmail } from '@/utils/security';

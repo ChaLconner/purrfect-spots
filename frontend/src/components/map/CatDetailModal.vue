@@ -82,11 +82,11 @@
               {{ cat.location_name }}
             </div>
 
-            <h2 class="font-accent text-3xl font-extrabold text-[#5c4033] mb-6 leading-tight">
+            <h2 class="font-heading text-3xl font-extrabold text-wood-dark mb-6 leading-tight">
               {{ t('map.modal.catSpotted') }}
             </h2>
 
-            <div class="text-base leading-relaxed text-gray-600 mb-6 font-zen-maru">
+            <div class="text-base leading-relaxed text-stone-600 mb-6 font-body">
               {{ cleanDescription || t('map.modal.defaultDescription') }}
             </div>
 
@@ -94,7 +94,7 @@
               <span
                 v-for="tag in tags"
                 :key="tag"
-                class="text-[0.85rem] font-semibold text-gray-400"
+                class="text-xs font-semibold text-stone-400"
                 >#{{ tag }}</span
               >
             </div>
@@ -121,10 +121,10 @@
                       <button
                         v-for="amt in [1, 5, 10]"
                         :key="amt"
-                        class="w-8 h-8 flex items-center justify-center text-xs font-bold rounded-full transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b5a2b] focus-visible:ring-offset-2 active:scale-95"
+                        class="w-8 h-8 flex items-center justify-center text-xs font-bold rounded-full transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wood focus-visible:ring-offset-2 active:scale-95"
                         :class="
                           selectedAmount === amt
-                            ? 'bg-white text-[#8b5a2b] shadow-sm ring-1 ring-black/5 scale-105'
+                            ? 'bg-white text-wood shadow-sm ring-1 ring-black/5 scale-105'
                             : 'text-stone-400 hover:text-stone-600 hover:scale-105 hover:bg-white/50'
                         "
                         @click="selectedAmount = amt"
@@ -135,7 +135,7 @@
 
                     <button
                       v-if="!authStore.isAuthenticated || authStore.user?.id !== cat.user_id"
-                      class="flex-1 h-10 bg-[#8b5a2b] hover:bg-[#5c4033] text-white text-sm font-bold rounded-full shadow-sm hover:shadow-md transition-all duration-300 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b5a2b] focus-visible:ring-offset-2 flex items-center justify-center disabled:opacity-50"
+                      class="flex-1 h-10 bg-wood hover:bg-wood-dark text-white text-sm font-bold rounded-full shadow-sm hover:shadow-md transition-all duration-300 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wood focus-visible:ring-offset-2 flex items-center justify-center disabled:opacity-50"
                       :disabled="isSendingTreat"
                       @click="handleGiveTreat"
                     >
@@ -155,7 +155,7 @@
 
         <div class="p-8 pt-0">
           <button
-            class="w-full p-5 bg-[#8b5a2b] hover:bg-[#5c4033] hover:shadow-[0_10px_20px_rgba(139,77,45,0.2)] hover:-translate-y-0.5 active:translate-y-px active:scale-[0.98] border-none rounded-2xl text-white font-accent text-sm font-bold tracking-widest cursor-pointer transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b5a2b] focus-visible:ring-offset-2"
+            class="w-full p-5 bg-wood hover:bg-wood-dark hover:shadow-lg hover:-translate-y-0.5 active:translate-y-px active:scale-[0.98] border-none rounded-2xl text-white font-heading text-sm font-bold tracking-widest cursor-pointer transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wood focus-visible:ring-offset-2"
             @click="$emit('get-directions', cat)"
           >
             {{ t('map.modal.getDirections') }}
@@ -176,11 +176,11 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import type { CatLocation } from '@/types/api';
-import { extractTags, getCleanDescription } from '@/store/catsStore';
-import { useAuthStore } from '@/store/authStore';
-import { useSubscriptionStore } from '@/store/subscriptionStore';
-import { useToast } from '@/components/toast/use-toast';
+import type { CatLocation } from '@/generated/api';
+import { extractTags, getCleanDescription } from '@/stores/catsStore';
+import { useAuthStore } from '@/stores/authStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import { useToast } from '@/composables/useToast';
 import { useModalFocus } from '@/composables/useModalFocus';
 import LikeButton from '@/components/social/LikeButton.vue';
 import ReportModal from '@/components/ui/ReportModal.vue';

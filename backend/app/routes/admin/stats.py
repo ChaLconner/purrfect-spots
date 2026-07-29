@@ -1,0 +1,344 @@
+import asyncio
+from collections import Counter
+from datetime import date, datetime, timedelta
+from typing import Any, cast
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from postgrest.types import CountMethod
+
+from app.dependencies import get_async_supabase_admin_client
+from app.limiter import limiter
+from app.logger import logger
+from app.middleware.auth_middleware import require_permission
+from app.schemas.user import User
+
+router = APIRouter()
+
+from app.services.redis_service import redis_service
+
+# Legacy stats cache removed
+MONTHLY_FALLBACK_POINTS_SUPPORTED = False
+
+
+def _coerce_date(value: Any) -> date | None:
+    """Convert supported DB values to a plain date."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        normalized = value.replace("Z", "+00:00")
+        try:
+            return datetime.fromisoformat(normalized).date()
+        except ValueError:
+            return None
+    return None
+
+
+def _build_daily_series(
+    rows: list[dict[str, Any]],
+    field_name: str,
+    start_date: date,
+    end_date: date,
+) -> list[dict[str, Any]]:
+    counts = Counter(
+        parsed_date.isoformat()
+        for row in rows
+        if (parsed_date := _coerce_date(row.get(field_name))) and start_date <= parsed_date <= end_date
+    )
+
+    series: list[dict[str, Any]] = []
+    current = start_date
+    while current <= end_date:
+        key = current.isoformat()
+        series.append({"date": key, "count": counts.get(key, 0)})
+        current += timedelta(days=1)
+    return series
+
+
+def _build_monthly_series(
+    rows: list[dict[str, Any]],
+    field_name: str,
+    year: int,
+) -> list[int]:
+    counts = [0] * 12
+    for row in rows:
+        parsed_date = _coerce_date(row.get(field_name))
+        if parsed_date and parsed_date.year == year:
+            counts[parsed_date.month - 1] += 1
+    return counts
+
+
+async def _fetch_trends_fallback(admin_client: Any, days_back: int = 30) -> dict[str, Any]:
+    """Compute admin trends without relying on the RPC existing in the DB."""
+    end_date = datetime.now().date()
+    start_date = end_date - timedelta(days=days_back)
+    start_iso = datetime.combine(start_date, datetime.min.time()).isoformat()
+
+    user_task = admin_client.table("users").select("created_at").gte("created_at", start_iso).execute()
+    photo_task = admin_client.table("cat_photos").select("uploaded_at").gte("uploaded_at", start_iso).execute()
+    report_task = admin_client.table("reports").select("created_at").gte("created_at", start_iso).execute()
+
+    user_res, photo_res, report_res = await asyncio.gather(user_task, photo_task, report_task)
+
+    user_rows = user_res.data or []
+    photo_rows = photo_res.data or []
+    report_rows = report_res.data or []
+
+    return {
+        "users": _build_daily_series(user_rows, "created_at", start_date, end_date),
+        "photos": _build_daily_series(photo_rows, "uploaded_at", start_date, end_date),
+        "reports": _build_daily_series(report_rows, "created_at", start_date, end_date),
+    }
+
+
+async def _fetch_monthly_report_fallback(admin_client: Any, report_year: int) -> list[dict[str, Any]]:
+    """Compute monthly dashboard data with bounded DB work when RPCs are stale or missing."""
+
+    async def count_rows(
+        table: str,
+        field_name: str,
+        month: int,
+        *,
+        filters: dict[str, Any] | None = None,
+    ) -> int:
+        month_start = datetime(report_year, month, 1)
+        month_end = datetime(report_year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 1)
+        query = (
+            admin_client.table(table)
+            .select("id", count=CountMethod.exact)
+            .gte(field_name, month_start.isoformat())
+            .lt(field_name, month_end.isoformat())
+            .limit(1)
+        )
+        if filters:
+            for key, value in filters.items():
+                query = query.eq(key, value)
+        result = await query.execute()
+        return result.count or 0
+
+    monthly_tasks = []
+    for month in range(1, 13):
+        monthly_tasks.extend(
+            [
+                count_rows("users", "created_at", month),
+                count_rows("cat_photos", "uploaded_at", month),
+                count_rows("reports", "updated_at", month, filters={"status": "resolved"}),
+            ]
+        )
+
+    monthly_counts = await asyncio.gather(*monthly_tasks)
+
+    return [
+        {
+            "month_timestamp": datetime(report_year, month, 1).isoformat(),
+            "new_users": monthly_counts[(month - 1) * 3],
+            "new_photos": monthly_counts[(month - 1) * 3 + 1],
+            "resolved_reports": monthly_counts[(month - 1) * 3 + 2],
+            "points_earned": 0,
+            "points_earned_degraded": not MONTHLY_FALLBACK_POINTS_SUPPORTED,
+        }
+        for month in range(1, 13)
+    ]
+
+
+@router.get("/summary")
+@limiter.limit("10/minute")
+async def get_dashboard_summary(
+    request: Request,
+    current_admin: User = Depends(require_permission("system:stats")),
+) -> dict[str, Any]:
+    """
+    Consolidated dashboard summary: stats, trends, and monthly data.
+    Uses Redis for distributed caching.
+    """
+    cache_key = "admin_dashboard_summary_v1"
+    cached = await redis_service.get(cache_key)
+    if cached:
+        return cast(dict[str, Any], cached)
+
+    try:
+        admin_client = await get_async_supabase_admin_client()
+
+        # Parallel fetch for all dashboard components
+        stats_tasks = [
+            admin_client.table("users").select("id", count=CountMethod.exact).limit(1).execute(),
+            admin_client.table("cat_photos").select("id", count=CountMethod.exact).limit(1).execute(),
+            admin_client.table("reports").select("id", count=CountMethod.exact).eq("status", "pending").execute(),
+            admin_client.table("reports").select("id", count=CountMethod.exact).limit(1).execute(),
+        ]
+        trends_task = admin_client.rpc("get_admin_trends", {"days_back": 30}).execute()
+        monthly_task = admin_client.rpc("get_monthly_report", {"report_year": datetime.now().year}).execute()
+
+        all_res = await asyncio.gather(*stats_tasks, trends_task, monthly_task)
+        user_res, photo_res, pending_res, total_res, trends_res, monthly_res = all_res
+
+        trends_data: dict[str, Any] = cast(Any, trends_res.data or {})
+        monthly_data: list[Any] = cast(Any, monthly_res.data or [])
+
+        if not trends_data:
+            trends_data = await _fetch_trends_fallback(admin_client, days_back=30)
+        if not monthly_data:
+            monthly_data = await _fetch_monthly_report_fallback(admin_client, datetime.now().year)
+
+        result = {
+            "stats": {
+                "total_users": user_res.count or 0,
+                "total_photos": photo_res.count or 0,
+                "pending_reports": pending_res.count or 0,
+                "total_reports": total_res.count or 0,
+            },
+            "trends": trends_data,
+            "monthly": monthly_data,
+            "generated_at": datetime.now().isoformat(),
+        }
+
+        # Cache for 5 minutes
+        await redis_service.set(cache_key, result, expire=300)
+        return result
+    except Exception as e:
+        logger.warning("Dashboard summary RPC path failed; retrying with Python fallback: %s", e, exc_info=True)
+        try:
+            admin_client = await get_async_supabase_admin_client()
+
+            async def safe_count(
+                table: str,
+                count_method: CountMethod = CountMethod.exact,
+                filters: dict[str, Any] | None = None,
+            ) -> int:
+                try:
+                    query = admin_client.table(table).select("id", count=count_method)
+                    if filters:
+                        for k, v in filters.items():
+                            query = query.eq(k, v)
+                    res = await query.limit(1).execute()
+                    return res.count or 0
+                except Exception as query_err:
+                    logger.error(f"Fallback count failed for {table}: {query_err}")
+                    return 0
+
+            total_users, total_photos, pending_reports, total_reports = await asyncio.gather(
+                safe_count("users"),
+                safe_count("cat_photos"),
+                safe_count("reports", count_method=CountMethod.exact, filters={"status": "pending"}),
+                safe_count("reports"),
+            )
+
+            # Try to get trends and monthly data with their own catch-all
+            async def get_trends_safe() -> dict[str, Any]:
+                try:
+                    return await _fetch_trends_fallback(admin_client, days_back=30)
+                except Exception as trends_err:
+                    logger.error(f"Fallback trends failed: {trends_err}")
+                    return {"users": [], "photos": [], "reports": []}
+
+            async def get_monthly_safe() -> list[Any]:
+                try:
+                    return await _fetch_monthly_report_fallback(admin_client, datetime.now().year)
+                except Exception as monthly_err:
+                    logger.error(f"Fallback monthly failed: {monthly_err}")
+                    return []
+
+            trends_data, monthly_data = await asyncio.gather(get_trends_safe(), get_monthly_safe())
+
+            result = {
+                "stats": {
+                    "total_users": total_users,
+                    "total_photos": total_photos,
+                    "pending_reports": pending_reports,
+                    "total_reports": total_reports,
+                },
+                "trends": trends_data,
+                "monthly": monthly_data,
+                "generated_at": datetime.now().isoformat(),
+            }
+            await redis_service.set(cache_key, result, expire=300)
+            return result
+        except Exception as fallback_error:
+            logger.error("Failed to fetch dashboard summary (Ultimate Fallback): %s", fallback_error, exc_info=True)
+            # Return an empty but valid structure rather than 500ing
+            return {
+                "stats": {"total_users": 0, "total_photos": 0, "pending_reports": 0, "total_reports": 0},
+                "trends": {"users": [], "photos": [], "reports": []},
+                "monthly": [],
+                "generated_at": datetime.now().isoformat(),
+                "error": "Partial data load failed",
+            }
+
+
+@router.get("/trends")
+@limiter.limit("5/minute")
+async def get_system_trends(
+    request: Request,
+    current_admin: User = Depends(require_permission("system:stats")),
+) -> dict[str, Any]:
+    """
+    Get 30-day activity trends.
+    """
+    cache_key = "admin_trends_v1"
+    cached = await redis_service.get(cache_key)
+    if cached:
+        return cast(dict[str, Any], cached)
+
+    try:
+        admin_client = await get_async_supabase_admin_client()
+        result = await admin_client.rpc("get_admin_trends", {"days_back": 30}).execute()
+
+        trends_data = cast(dict[str, Any], result.data or {})
+        if not trends_data:
+            trends_data = await _fetch_trends_fallback(admin_client, days_back=30)
+        await redis_service.set(cache_key, trends_data, expire=600)
+        return trends_data
+    except Exception as e:
+        logger.warning("Admin trends RPC failed; using Python fallback: %s", e, exc_info=True)
+        try:
+            admin_client = await get_async_supabase_admin_client()
+            trends_data = await _fetch_trends_fallback(admin_client, days_back=30)
+            await redis_service.set(cache_key, trends_data, expire=600)
+            return trends_data
+        except Exception as fallback_error:
+            logger.error("Failed to get trends: %s", fallback_error, exc_info=True)
+            raise HTTPException(status_code=500, detail="Failed to fetch activity trends")
+
+
+@router.get("/monthly")
+@limiter.limit("5/minute")
+async def get_monthly_stats(
+    request: Request,
+    year: int | None = None,
+    current_admin: User = Depends(require_permission("system:stats")),
+) -> dict[str, Any]:
+    """
+    Get monthly system performance report.
+    """
+    cache_key = f"admin_monthly_{year or datetime.now().year}"
+    cached = await redis_service.get(cache_key)
+    if cached:
+        return cast(dict[str, Any], cached)
+
+    try:
+        admin_client = await get_async_supabase_admin_client()
+        params = {"report_year": year} if year else {}
+        result = await admin_client.rpc("get_monthly_report", params).execute()
+
+        monthly_data = result.data or []
+        if not monthly_data:
+            monthly_data = await _fetch_monthly_report_fallback(admin_client, year or datetime.now().year)
+        data = {"data": monthly_data, "year": year or datetime.now().year}
+        await redis_service.set(cache_key, data, expire=1800)  # Cache longer
+        return data
+    except Exception as e:
+        logger.warning("Monthly stats RPC failed; using Python fallback: %s", e, exc_info=True)
+        try:
+            admin_client = await get_async_supabase_admin_client()
+            data = {
+                "data": await _fetch_monthly_report_fallback(admin_client, year or datetime.now().year),
+                "year": year or datetime.now().year,
+            }
+            await redis_service.set(cache_key, data, expire=1800)
+            return data
+        except Exception as fallback_error:
+            logger.error("Failed to fetch monthly stats: %s", fallback_error, exc_info=True)
+            raise HTTPException(status_code=500, detail="Failed to fetch monthly report")

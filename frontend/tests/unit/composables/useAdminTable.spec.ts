@@ -12,7 +12,7 @@ vi.mock('@/utils/api', () => ({
 }));
 
 // Mock useToast
-vi.mock('@/components/toast/use-toast', () => ({
+vi.mock('@/composables/useToast', () => ({
   useToast: () => ({
     toast: toastMock,
   }),

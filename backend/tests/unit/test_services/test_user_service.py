@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from services.user_service import UserService
-from utils.exceptions import PurrfectSpotsException
+from app.services.user_service import UserService
+from app.utils.exceptions import PurrfectSpotsException
 
 
 @pytest.mark.asyncio
@@ -53,7 +53,8 @@ class TestUserService:
         """Create UserService instance with mocked dependencies"""
         # Patch the async getter in the mixin where it's actually used
         with patch(
-            "services.user.base_mixin.get_async_supabase_admin_client", new=AsyncMock(return_value=mock_supabase_admin)
+            "app.services.user.base_mixin.get_async_supabase_admin_client",
+            new=AsyncMock(return_value=mock_supabase_admin),
         ):
             service = UserService(mock_supabase)
             yield service

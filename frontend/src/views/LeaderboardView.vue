@@ -72,7 +72,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore } from '../stores/authStore';
 import { TreatsService } from '../services/treatsService';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 import GhibliLoader from '@/components/ui/GhibliLoader.vue';
@@ -81,7 +81,7 @@ import LeaderboardItem, {
   type LeaderboardUser,
 } from '@/components/leaderboard/LeaderboardItem.vue';
 import ProfileDrawer from '@/components/profile/ProfileDrawer.vue';
-import { showError } from '@/store/toast';
+import { showError } from '@/stores/toast';
 
 const { setMetaTags } = useSeo();
 const { t } = useI18n();

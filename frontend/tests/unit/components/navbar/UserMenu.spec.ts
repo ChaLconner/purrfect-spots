@@ -14,7 +14,7 @@ const authStoreMock = vi.hoisted(() => ({
   clearAuth: vi.fn(),
 }));
 
-vi.mock('@/store/authStore', () => ({
+vi.mock('@/stores/authStore', () => ({
   useAuthStore: () => authStoreMock,
 }));
 
@@ -24,7 +24,7 @@ vi.mock('@/services/authService', () => ({
   },
 }));
 
-vi.mock('@/store/toast', () => ({
+vi.mock('@/stores/toast', () => ({
   showSuccess: vi.fn(),
 }));
 

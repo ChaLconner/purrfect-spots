@@ -189,7 +189,7 @@ import { ref, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import { apiV1 } from '@/utils/api';
-import { useToast } from '@/components/toast/use-toast';
+import { useToast } from '@/composables/useToast';
 import TableSkeleton from '@/components/ui/TableSkeleton.vue';
 import RefreshButton from '@/components/ui/RefreshButton.vue';
 import AdminPagination from '@/components/ui/AdminPagination.vue';

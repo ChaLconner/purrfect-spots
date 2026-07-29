@@ -2,8 +2,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from services.social_service import SocialService
-from utils.exceptions import NotFoundError
+from app.services.social_service import SocialService
+from app.utils.exceptions import NotFoundError
 
 
 @pytest.fixture
@@ -18,12 +18,12 @@ async def test_toggle_like_insert(social_service):
     mock_sb = MagicMock()
     mock_sb.rpc.return_value.execute = AsyncMock(return_value=MagicMock(data=[{"liked": True, "likes_count": 5}]))
 
-    with patch("utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
+    with patch("app.utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
         mock_get_admin.return_value = mock_sb
 
         with (
-            patch("utils.cache.invalidate_user_cache", new_callable=AsyncMock),
-            patch("utils.cache.invalidate_gallery_cache", new_callable=AsyncMock),
+            patch("app.utils.cache.invalidate_user_cache", new_callable=AsyncMock),
+            patch("app.utils.cache.invalidate_gallery_cache", new_callable=AsyncMock),
         ):
             res = await social_service.toggle_like("user1", "photo1")
 
@@ -38,7 +38,7 @@ async def test_toggle_like_photo_not_found(social_service):
     mock_sb = MagicMock()
     mock_sb.rpc.return_value.execute = AsyncMock(side_effect=Exception("P0002: Photo not found"))
 
-    with patch("utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
+    with patch("app.utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
         mock_get_admin.return_value = mock_sb
 
         with pytest.raises(NotFoundError) as exc_info:
@@ -75,7 +75,7 @@ async def test_add_comment(social_service):
     social_service.supabase = mock_sb
     social_service.notification_service.create_notification = AsyncMock()
 
-    with patch("utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
+    with patch("app.utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
         mock_get_admin.return_value = admin_mock
 
         res = await social_service.add_comment("user1", "photo1", "meow")
@@ -132,7 +132,7 @@ async def test_delete_comment_success(social_service):
         return_value=MagicMock(data=[{"id": "c1"}])
     )
 
-    with patch("utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
+    with patch("app.utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
         mock_get_admin.return_value = mock_admin
 
         result = await social_service.delete_comment("user1", "c1")

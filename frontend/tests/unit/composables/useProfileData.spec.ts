@@ -28,7 +28,7 @@ const mocks = vi.hoisted(() => ({
   t: vi.fn((key: string) => key),
 }));
 
-vi.mock('@/store/authStore', () => ({
+vi.mock('@/stores/authStore', () => ({
   useAuthStore: () => mocks.authStore,
 }));
 

@@ -4,7 +4,7 @@ import AdminReports from '@/views/admin/AdminReports.vue';
 import { apiV1 } from '@/utils/api';
 import { nextTick } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore } from '@/stores/authStore';
 
 vi.mock('@/utils/api', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();

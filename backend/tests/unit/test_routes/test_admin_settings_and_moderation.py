@@ -2,11 +2,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from dependencies import get_notification_service
-from main import app
-from middleware.auth_middleware import get_current_user
-from routes.admin.settings import email_service
-from schemas.user import User
+from app.dependencies import get_notification_service
+from app.main import app
+from app.middleware.auth_middleware import get_current_user
+from app.routes.admin.settings import email_service
+from app.schemas.user import User
 
 
 class TestAdminSettingsRoutes:
@@ -50,7 +50,7 @@ class TestAdminSettingsRoutes:
         )
 
         with patch(
-            "routes.admin.settings.get_async_supabase_admin_client",
+            "app.routes.admin.settings.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):
@@ -82,7 +82,7 @@ class TestAdminSettingsRoutes:
         ]
 
         with patch(
-            "routes.admin.settings.get_async_supabase_admin_client",
+            "app.routes.admin.settings.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):
@@ -115,7 +115,7 @@ class TestAdminSettingsRoutes:
         ]
 
         with patch(
-            "routes.admin.settings.get_async_supabase_admin_client",
+            "app.routes.admin.settings.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):
@@ -159,7 +159,7 @@ class TestAdminSettingsRoutes:
 
         with (
             patch(
-                "routes.admin.settings.get_async_supabase_admin_client",
+                "app.routes.admin.settings.get_async_supabase_admin_client",
                 new_callable=AsyncMock,
                 return_value=mock_supabase_admin,
             ),
@@ -196,7 +196,7 @@ class TestAdminSettingsRoutes:
 
         with (
             patch(
-                "routes.admin.settings.get_async_supabase_admin_client",
+                "app.routes.admin.settings.get_async_supabase_admin_client",
                 new_callable=AsyncMock,
                 return_value=mock_supabase_admin,
             ),
@@ -230,7 +230,7 @@ class TestAdminSettingsRoutes:
         )
 
         with patch(
-            "routes.admin.settings.get_async_supabase_admin_client",
+            "app.routes.admin.settings.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):
@@ -276,11 +276,11 @@ class TestAdminUserCacheInvalidation:
 
         with (
             patch(
-                "routes.admin.users.get_async_supabase_admin_client",
+                "app.routes.admin.users.get_async_supabase_admin_client",
                 new_callable=AsyncMock,
                 return_value=mock_supabase_admin,
             ),
-            patch("routes.admin.users.invalidate_user_auth_cache") as mock_invalidate,
+            patch("app.routes.admin.users.invalidate_user_auth_cache") as mock_invalidate,
         ):
             response = client.put(f"/api/v1/admin/users/{user_id}/role", json={"role_id": role_id})
 
@@ -299,13 +299,13 @@ class TestAdminUserCacheInvalidation:
 
         with (
             patch(
-                "routes.admin.users.get_async_supabase_admin_client",
+                "app.routes.admin.users.get_async_supabase_admin_client",
                 new_callable=AsyncMock,
                 return_value=mock_supabase_admin,
             ),
-            patch("routes.admin.users.invalidate_user_auth_cache") as mock_invalidate,
+            patch("app.routes.admin.users.invalidate_user_auth_cache") as mock_invalidate,
             patch(
-                "routes.admin.users.get_token_service",
+                "app.routes.admin.users.get_token_service",
                 new_callable=AsyncMock,
                 return_value=mock_token_service,
             ),
@@ -323,7 +323,7 @@ class TestAdminUserCacheInvalidation:
         )
 
         with patch(
-            "routes.admin.users.get_async_supabase_admin_client",
+            "app.routes.admin.users.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):
@@ -366,7 +366,7 @@ class TestAdminCommentBulkDelete:
         ]
 
         with patch(
-            "routes.admin.comments.get_async_supabase_admin_client",
+            "app.routes.admin.comments.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):
@@ -409,7 +409,7 @@ class TestAdminCommentModerationBan:
         ]
 
         with patch(
-            "routes.admin.comments.get_async_supabase_admin_client",
+            "app.routes.admin.comments.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):
@@ -437,13 +437,13 @@ class TestAdminCommentModerationBan:
 
         with (
             patch(
-                "routes.admin.comments.get_async_supabase_admin_client",
+                "app.routes.admin.comments.get_async_supabase_admin_client",
                 new_callable=AsyncMock,
                 return_value=mock_supabase_admin,
             ),
-            patch("routes.admin.comments.invalidate_user_auth_cache") as mock_invalidate,
+            patch("app.routes.admin.comments.invalidate_user_auth_cache") as mock_invalidate,
             patch(
-                "routes.admin.comments.get_token_service",
+                "app.routes.admin.comments.get_token_service",
                 new_callable=AsyncMock,
                 return_value=mock_token_service,
             ),
@@ -500,7 +500,7 @@ class TestAdminCommentsListing:
         )
 
         with patch(
-            "routes.admin.comments.get_async_supabase_admin_client",
+            "app.routes.admin.comments.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):
@@ -536,7 +536,7 @@ class TestAdminUserProfileUpdates:
 
     def test_update_user_profile_requires_payload_fields(self, client, override_admin, mock_supabase_admin) -> None:
         with patch(
-            "routes.admin.users.get_async_supabase_admin_client",
+            "app.routes.admin.users.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):
@@ -552,7 +552,7 @@ class TestAdminUserProfileUpdates:
         mock_supabase_admin.execute.return_value = MagicMock(data=[])
 
         with patch(
-            "routes.admin.users.get_async_supabase_admin_client",
+            "app.routes.admin.users.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):

@@ -253,7 +253,7 @@ import { useI18n } from 'vue-i18n';
 import { RecycleScroller } from 'vue-virtual-scroller';
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
 import { apiV1 } from '@/utils/api';
-import { useToast } from '@/components/toast/use-toast';
+import { useToast } from '@/composables/useToast';
 import { BaseConfirmModal } from '@/components/ui';
 import AdminPagination from '@/components/ui/AdminPagination.vue';
 import ActionModal from '@/components/ui/ActionModal.vue';

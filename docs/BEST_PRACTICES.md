@@ -261,7 +261,7 @@ async def get_user_service() -> UserService:
         supabase_client=await get_async_supabase_client()
     )
 
-# backend/routes/user.py
+# backend/app/routes/user.py
 @router.get("/me")
 async def get_me(
     user_service: UserService = Depends(get_user_service),

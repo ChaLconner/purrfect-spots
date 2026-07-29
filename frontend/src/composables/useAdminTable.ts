@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue';
 import { apiV1 } from '@/utils/api';
-import { useToast } from '@/components/toast/use-toast';
+import { useToast } from '@/composables/useToast';
 
 interface UseAdminTableOptions<T> {
   endpoint: string;

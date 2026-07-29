@@ -1,78 +1,52 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-# lib/
-lib64/
-parts/
-sdist/
-# var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# Environment variables
+# Environment files and credentials
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-NEW_ENV
+.env.*
+!.env.example
+keys/
+google_vision.json
 
-# Virtual environment
+# Python environments and caches
+.Python
+.venv/
 venv/
 env/
 ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
+# Python packaging and coverage artifacts
+build/
+dist/
+*.egg
+*.egg-info/
+.eggs/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
 
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-
-# ML Models (keep only necessary ones)
+# Local runtime data and models
+*.db
+*.sqlite
+*.sqlite3
 *.pt
 *.pth
 *.h5
 *.pkl
 
-# Temporary files
+# Logs, temporary files, and deployment state
+logs/
+*.log
 *.tmp
 *.temp
+.vercel/
 
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
-# Vercel
-.vercel
-*.log
-
-# Keys & Secrets
-keys/
-google_vision.json
-
-# Error logs
+# Project-specific scratch output
+scratch/
+routes/gallery.txt
 *_errors.txt
 mypy_results.txt
-
-routes/gallery.txt

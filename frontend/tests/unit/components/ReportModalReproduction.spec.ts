@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import CatDetailModal from '@/components/map/CatDetailModal.vue';
 import { createTestingPinia } from '@pinia/testing';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore } from '@/stores/authStore';
 
 // Mock Supabase to avoid initialization errors
 vi.mock('@/lib/supabase', () => ({

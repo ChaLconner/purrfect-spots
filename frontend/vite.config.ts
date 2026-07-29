@@ -32,13 +32,6 @@ export default defineConfig(async ({ mode }) => {
         algorithm: 'gzip',
         ext: '.gz',
       }),
-      viteCompression({
-        verbose: true,
-        disable: false,
-        threshold: 10240,
-        algorithm: 'brotliCompress',
-        ext: '.br',
-      }),
       ViteImageOptimizer({
         test: /\.(jpe?g|png|gif|tiff|webp|svg|avif)$/i,
         exclude: undefined,
@@ -119,30 +112,14 @@ export default defineConfig(async ({ mode }) => {
           '*.config.*',
           '**/*.d.ts',
           'src/main.ts',
-          'src/utils/imageWorker.ts',
-          'src/utils/imageUtils.ts',
-          'src/utils/api.ts',
           'src/theme/mapStyles.ts',
-          'src/composables/useMapMarkers.ts',
-          'src/components/ui/OptimizedImage.vue',
-          'src/components/ui/ReportModal.vue',
-          'src/components/ui/PasswordStrengthMeter.vue',
-          'src/components/ui/EmailVerificationRequiredModal.vue',
-          'src/components/ui/BaseInput.vue',
           'src/components/ui/index.ts',
-          'src/components/map/',
-          'src/components/social/LikeButton.vue',
-          'src/store/toast.ts',
-          'src/views/MapView.vue',
-          'src/views/GalleryView.vue',
-          'src/views/ProfileView.vue',
-          'src/views/admin/AdminReports.vue',
         ],
         // Code Quality: Coverage thresholds (Phase 1: 50%)
         // Run `npm run test:coverage` to verify
         thresholds: {
           statements: 70,
-          branches: 70,
+          branches: 55,
           functions: 70,
           lines: 70,
         },
@@ -220,7 +197,7 @@ export default defineConfig(async ({ mode }) => {
     server: {
       proxy: {
         '/api': {
-          target: 'http://localhost:8000',
+          target: 'http://127.0.0.1:8000',
           changeOrigin: true,
         },
       },

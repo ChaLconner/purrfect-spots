@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import type { Toast } from '../../types/toast';
-import { removeToast } from '../../store/toast';
+import { removeToast } from '../../stores/toast';
 
 const props = defineProps<{
   toast: Toast;

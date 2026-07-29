@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useToast } from '@/composables/useToast';
-import { useToastStore } from '@/store/toastStore';
+import { useToastStore } from '@/stores/toastStore';
 import { setActivePinia, createPinia } from 'pinia';
 
 describe('useToast', () => {

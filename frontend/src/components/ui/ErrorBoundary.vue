@@ -8,7 +8,7 @@
 import { ref, onErrorCaptured, provide } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { useToast } from '@/components/toast/use-toast';
+import { useToast } from '@/composables/useToast';
 
 interface Props {
   fallbackMessage?: string;

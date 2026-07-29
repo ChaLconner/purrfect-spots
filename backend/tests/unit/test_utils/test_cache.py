@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from utils import cache
+from app.utils import cache
 
 pytestmark = pytest.mark.asyncio
 
@@ -105,7 +105,7 @@ class TestCacheUtils:
             assert "gallery" in stats
 
     async def test_logging_in_dev(self):
-        with patch("utils.cache.is_dev", True), patch("utils.cache.logger") as mock_logger:
+        with patch("app.utils.cache.is_dev", True), patch("app.utils.cache.logger") as mock_logger:
             mock_func = AsyncMock(return_value="val")
             mock_func.__name__ = "mock_func"
             decorated = cache.cached_gallery(mock_func)

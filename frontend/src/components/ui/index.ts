@@ -25,6 +25,8 @@ export { default as OptimizedImage } from './OptimizedImage.vue';
 export { default as GhibliBackground } from './GhibliBackground.vue';
 export { default as ShootingStarBackground } from './ShootingStarBackground.vue';
 
-// Modals
+// Modals & Badges
+export { default as BaseModal } from './BaseModal.vue';
+export { default as BaseBadge } from './BaseBadge.vue';
 export { default as LoginRequiredModal } from './LoginRequiredModal.vue';
 export { default as BaseConfirmModal } from './BaseConfirmModal.vue';

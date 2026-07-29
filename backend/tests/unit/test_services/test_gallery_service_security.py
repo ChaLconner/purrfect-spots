@@ -11,8 +11,8 @@ class TestGalleryServiceSecurity:
     def gallery_service(self, mock_supabase, mock_supabase_admin):
         """Create GalleryService instance with mocked dependencies"""
         # We patch BOTH dependencies to ensure we catch where they are used
-        with patch("dependencies.get_async_supabase_admin_client", return_value=mock_supabase_admin):
-            from services.gallery_service import GalleryService
+        with patch("app.dependencies.get_async_supabase_admin_client", return_value=mock_supabase_admin):
+            from app.services.gallery_service import GalleryService
 
             service = GalleryService(mock_supabase)
             service._admin_client_lazy = mock_supabase_admin

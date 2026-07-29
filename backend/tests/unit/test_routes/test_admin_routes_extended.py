@@ -6,13 +6,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from dependencies import (
+from app.dependencies import (
     get_admin_gallery_service,
     get_notification_service,
 )
-from main import app
-from middleware.auth_middleware import get_current_user
-from schemas.user import User
+from app.main import app
+from app.middleware.auth_middleware import get_current_user
+from app.schemas.user import User
 
 
 class TestAdminRoutesExtended:
@@ -49,7 +49,7 @@ class TestAdminRoutesExtended:
         ]
 
         with patch(
-            "routes.admin.roles.get_async_supabase_admin_client",
+            "app.routes.admin.roles.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):
@@ -75,7 +75,7 @@ class TestAdminRoutesExtended:
         )
 
         with patch(
-            "routes.admin.roles.get_async_supabase_admin_client",
+            "app.routes.admin.roles.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):
@@ -104,11 +104,11 @@ class TestAdminRoutesExtended:
 
         with (
             patch(
-                "routes.admin.roles.get_async_supabase_admin_client",
+                "app.routes.admin.roles.get_async_supabase_admin_client",
                 new_callable=AsyncMock,
                 return_value=mock_supabase_admin,
             ),
-            patch("routes.admin.roles.invalidate_user_auth_cache", new_callable=AsyncMock) as mock_invalidate,
+            patch("app.routes.admin.roles.invalidate_user_auth_cache", new_callable=AsyncMock) as mock_invalidate,
         ):
             response = client.post(
                 f"/api/v1/admin/roles/{role_id}/permissions",
@@ -141,7 +141,7 @@ class TestAdminRoutesExtended:
         ]
 
         with patch(
-            "routes.admin.users.get_async_supabase_admin_client",
+            "app.routes.admin.users.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):
@@ -169,7 +169,7 @@ class TestAdminRoutesExtended:
         mock_supabase_admin.execute.side_effect = [mock_role_res, mock_update_res]
 
         with patch(
-            "routes.admin.users.get_async_supabase_admin_client",
+            "app.routes.admin.users.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):
@@ -189,7 +189,7 @@ class TestAdminRoutesExtended:
         mock_supabase_admin.execute.return_value = mock_role_res
 
         with patch(
-            "routes.admin.users.get_async_supabase_admin_client",
+            "app.routes.admin.users.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):
@@ -205,7 +205,7 @@ class TestAdminRoutesExtended:
         )
 
         with patch(
-            "routes.admin.audit.get_async_supabase_admin_client",
+            "app.routes.admin.audit.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):
@@ -255,7 +255,7 @@ class TestAdminContentRoutes:
         mock_supabase_admin.execute.return_value = MagicMock(data=mock_data)
 
         with patch(
-            "routes.admin.content.get_async_supabase_admin_client",
+            "app.routes.admin.content.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):
@@ -271,7 +271,7 @@ class TestAdminContentRoutes:
         mock_supabase_admin.execute.return_value = MagicMock(data=[])
 
         with patch(
-            "routes.admin.content.get_async_supabase_admin_client",
+            "app.routes.admin.content.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):
@@ -300,7 +300,7 @@ class TestAdminContentRoutes:
 
         try:
             with patch(
-                "routes.admin.content.get_async_supabase_admin_client",
+                "app.routes.admin.content.get_async_supabase_admin_client",
                 new_callable=AsyncMock,
                 return_value=mock_supabase_admin,
             ):
@@ -318,7 +318,7 @@ class TestAdminContentRoutes:
         mock_supabase_admin.execute.return_value = MagicMock(data=None)
 
         with patch(
-            "routes.admin.content.get_async_supabase_admin_client",
+            "app.routes.admin.content.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):
@@ -339,7 +339,7 @@ class TestAdminContentRoutes:
         mock_supabase_admin.execute.return_value = MagicMock(data=mock_data)
 
         with patch(
-            "routes.admin.reports.get_async_supabase_admin_client",
+            "app.routes.admin.reports.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):
@@ -364,7 +364,7 @@ class TestAdminContentRoutes:
 
         try:
             with patch(
-                "routes.admin.reports.get_async_supabase_admin_client",
+                "app.routes.admin.reports.get_async_supabase_admin_client",
                 new_callable=AsyncMock,
                 return_value=mock_supabase_admin,
             ):
@@ -384,7 +384,7 @@ class TestAdminContentRoutes:
         mock_supabase_admin.execute.return_value = MagicMock(data=None)
 
         with patch(
-            "routes.admin.reports.get_async_supabase_admin_client",
+            "app.routes.admin.reports.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):
@@ -397,7 +397,7 @@ class TestAdminContentRoutes:
         report_id = "00000000-0000-0000-0000-000000000003"
 
         with patch(
-            "routes.admin.reports.get_async_supabase_admin_client",
+            "app.routes.admin.reports.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):

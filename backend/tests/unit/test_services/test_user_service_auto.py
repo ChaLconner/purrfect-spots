@@ -3,8 +3,8 @@ from uuid import uuid4
 
 import pytest
 
-from schemas.user import User
-from services.user_service import UserService
+from app.schemas.user import User
+from app.services.user_service import UserService
 
 
 @pytest.fixture

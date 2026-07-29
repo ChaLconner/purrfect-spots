@@ -4,7 +4,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import { nextTick } from 'vue';
 import LikeButton from '@/components/social/LikeButton.vue';
 import { SocialService } from '@/services/socialService';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore } from '@/stores/authStore';
 
 vi.mock('@/services/socialService', () => ({
   SocialService: {

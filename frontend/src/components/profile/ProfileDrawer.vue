@@ -5,7 +5,7 @@ import { useProfileData } from '@/composables/useProfileData';
 import { GhibliLoader, ErrorState } from '@/components/ui';
 import ProfileHeader from './ProfileHeader.vue';
 import ProfileGallery from './ProfileGallery.vue';
-import type { CatLocation } from '@/types/api';
+import type { CatLocation } from '@/generated/api';
 
 const props = defineProps<{
   isOpen: boolean;

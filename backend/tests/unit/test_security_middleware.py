@@ -4,7 +4,7 @@ from unittest.mock import patch
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
-from middleware.security_middleware import HTTPSRedirectMiddleware, SecurityHeadersMiddleware
+from app.middleware.security_middleware import HTTPSRedirectMiddleware, SecurityHeadersMiddleware
 
 
 def test_https_redirect_production() -> None:

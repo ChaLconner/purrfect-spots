@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from services.storage_service import StorageService
+from app.services.storage_service import StorageService
 
 
 class TestStorageService:
@@ -76,7 +76,7 @@ class TestStorageService:
         file_content = b"test image content"
         content_type = "image/jpeg"
 
-        with patch("config.config") as mock_config:
+        with patch("app.config.config") as mock_config:
             mock_config.CDN_BASE_URL = None
 
             url = await storage_service.upload_file(file_content, content_type, "jpg", "uploads")
@@ -101,7 +101,7 @@ class TestStorageService:
         """Test file upload with CDN URL"""
         file_content = b"test content"
 
-        with patch("config.config") as mock_config:
+        with patch("app.config.config") as mock_config:
             mock_config.CDN_BASE_URL = "https://cdn.example.com"
 
             url = await storage_service.upload_file(file_content, "image/png", "png")
@@ -114,7 +114,7 @@ class TestStorageService:
         """Test file upload to custom folder"""
         file_content = b"test"
 
-        with patch("config.config") as mock_config:
+        with patch("app.config.config") as mock_config:
             mock_config.CDN_BASE_URL = None
 
             url = await storage_service.upload_file(file_content, "image/webp", "webp", "avatars")

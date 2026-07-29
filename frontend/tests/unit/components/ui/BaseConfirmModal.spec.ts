@@ -83,17 +83,17 @@ describe('BaseConfirmModal Component', () => {
   it('applies warning variant classes', () => {
     mountModal({ variant: 'warning' });
 
-    expect(body().querySelector('.border-yellow-500')).not.toBeNull();
-    expect(body().querySelector('.bg-yellow-50')).not.toBeNull();
+    expect(body().querySelector('.border-amber-500')).not.toBeNull();
+    expect(body().querySelector('.bg-amber-50')).not.toBeNull();
     expect(body().querySelector('svg.text-yellow-500')).not.toBeNull();
   });
 
   it('applies info variant classes', () => {
     mountModal({ variant: 'info' });
 
-    expect(body().querySelector('.border-blue-500')).not.toBeNull();
-    expect(body().querySelector('.bg-blue-50')).not.toBeNull();
-    expect(body().querySelector('svg.text-blue-500')).not.toBeNull();
+    expect(body().querySelector('.border-sage')).not.toBeNull();
+    expect(body().querySelector('.bg-sage\\/10')).not.toBeNull();
+    expect(body().querySelector('svg.text-sage')).not.toBeNull();
   });
 
   it('shows loading state on confirm button', () => {

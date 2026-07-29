@@ -59,10 +59,10 @@ import { GalleryService } from '@/services/galleryService';
 import { isDev } from '@/utils/env';
 import GalleryHeader from '@/components/gallery/GalleryHeader.vue';
 import GalleryGrid from '@/components/gallery/GalleryGrid.vue';
-import type { CatLocation } from '@/types/api';
+import type { CatLocation } from '@/generated/api';
 import { useGalleryState } from '@/composables/useGalleryState';
-import { useCatsStore } from '@/store';
-import { useAuthStore } from '@/store/authStore';
+import { useCatsStore } from '@/stores';
+import { useAuthStore } from '@/stores/authStore';
 
 const authStore = useAuthStore();
 
@@ -377,7 +377,7 @@ watch(
 
     // Auth resolved as unauthenticated — trigger initial fetch if we haven't yet
     // (covers the case where onMounted skipped fetch due to auth hydrating)
-    if (!isAuthenticated && visibleImages.value.length === 0 && !loading.value) {
+    if (!isAuthenticated && visibleImages.value.length === 0) {
       fetchImages(() => {
         if (props.id) {
           syncStateFromUrl();

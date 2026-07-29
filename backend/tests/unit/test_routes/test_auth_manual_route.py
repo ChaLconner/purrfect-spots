@@ -23,8 +23,8 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 # Import routes
-from routes.auth import LoginRequest, RegisterInput, get_auth_service, router
-from schemas.user import User
+from app.routes.auth import LoginRequest, RegisterInput, get_auth_service, router
+from app.schemas.user import User
 
 
 @pytest.fixture
@@ -49,7 +49,7 @@ def mock_auth_service(app):
     """Mock AuthService and OTPService using dependency overrides"""
     from unittest.mock import AsyncMock
 
-    from routes.auth import get_otp_service
+    from app.routes.auth import get_otp_service
 
     auth_service = MagicMock()
     # Configure async methods
@@ -78,7 +78,7 @@ def mock_auth_service(app):
 @pytest.fixture
 def mock_limiter():
     """Mock rate limiter to avoid rate limit issues in tests"""
-    with patch("routes.auth.auth_limiter") as mock1, patch("routes.auth.forgot_password_limiter") as mock2:
+    with patch("app.routes.auth.auth_limiter") as mock1, patch("app.routes.auth.forgot_password_limiter") as mock2:
         mock1.limit = lambda x: lambda f: f
         mock2.limit = lambda x: lambda f: f
         yield mock1, mock2
@@ -209,7 +209,7 @@ class TestLoginEndpoint:
         mock_auth_service.create_access_token.return_value = "test-access-token"
         mock_auth_service.create_refresh_token.return_value = "test-refresh-token"
 
-        with patch("routes.auth.invalidate_user_auth_cache", new_callable=AsyncMock) as mock_invalidate:
+        with patch("app.routes.auth.invalidate_user_auth_cache", new_callable=AsyncMock) as mock_invalidate:
             response = await client.post(
                 "/api/v1/auth/login",
                 json={"email": self.TEST_EMAIL, "password": self.TEST_PASSWORD},
@@ -288,10 +288,10 @@ class TestRefreshTokenEndpoint:
         client.cookies.set("refresh_token", "valid-refresh-token")
 
         with (
-            patch("routes.auth.create_login_response") as mock_create,
-            patch("routes.auth.invalidate_user_auth_cache", new_callable=AsyncMock) as mock_invalidate,
+            patch("app.routes.auth.create_login_response") as mock_create,
+            patch("app.routes.auth.invalidate_user_auth_cache", new_callable=AsyncMock) as mock_invalidate,
         ):
-            from schemas.auth import LoginResponse
+            from app.schemas.auth import LoginResponse
 
             mock_create.return_value = LoginResponse(
                 access_token="new-access-token",
@@ -377,7 +377,7 @@ class TestForgotPasswordEndpoint:
         """Test forgot password for existing email"""
         mock_auth_service.create_password_reset_token.return_value = "reset-token"
 
-        with patch("routes.auth.email_service"):
+        with patch("app.routes.auth.email_service"):
             response = await client.post("/api/v1/auth/forgot-password", json={"email": "existing@example.com"})
 
         if response.status_code == 200:
@@ -433,9 +433,9 @@ class TestAuthMeEndpoint:
 
     async def test_get_current_user(self, client, app):
         """Test getting current user info"""
-        from middleware.auth_middleware import get_current_user as _get_current_user
-        from routes.auth import get_current_user as route_get_current_user
-        from schemas.user import UserResponse
+        from app.middleware.auth_middleware import get_current_user as _get_current_user
+        from app.routes.auth import get_current_user as route_get_current_user
+        from app.schemas.user import UserResponse
 
         mock_user_obj = UserResponse(
             id="test-id",
@@ -476,7 +476,7 @@ class TestOtherAuthEndpoints:
     async def test_verify_otp(self, client, mock_auth_service):
         from datetime import UTC
 
-        from schemas.auth import LoginResponse
+        from app.schemas.auth import LoginResponse
 
         # mock_auth_service fixture already sets up otp_service via dependency_overrides
         mock_auth_service.confirm_user_email = AsyncMock(return_value=True)
@@ -492,7 +492,7 @@ class TestOtherAuthEndpoints:
             )
         )
 
-        with patch("routes.auth.create_login_response") as mock_clr:
+        with patch("app.routes.auth.create_login_response") as mock_clr:
             mock_clr.return_value = LoginResponse(access_token="tok", token_type="bearer", message="ok")
             response = await client.post("/api/v1/auth/verify-otp", json={"email": "test@example.com", "otp": "123456"})
         assert response.status_code == 200
@@ -503,7 +503,7 @@ class TestOtherAuthEndpoints:
             return_value={"id": "1", "email": "test@example.com"}
         )
 
-        with patch("routes.auth.email_service"):
+        with patch("app.routes.auth.email_service"):
             # mock_auth_service already mocks otp_service via dependency_overrides
             response = await client.post("/api/v1/auth/resend-otp", json={"email": "test@example.com"})
             assert response.status_code == 200
@@ -512,7 +512,7 @@ class TestOtherAuthEndpoints:
     async def test_sync_user(self, client, app):
         from unittest.mock import AsyncMock, MagicMock
 
-        from middleware.auth_middleware import get_current_user_from_header
+        from app.middleware.auth_middleware import get_current_user_from_header
 
         app.dependency_overrides[get_current_user_from_header] = lambda: {"sub": "1", "email": "a@a.com"}
         mock_admin = MagicMock()
@@ -520,7 +520,7 @@ class TestOtherAuthEndpoints:
             return_value=MagicMock(data=[{"id": "1"}])
         )
 
-        with patch("dependencies.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_admin):
+        with patch("app.dependencies.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_admin):
             response = await client.post("/api/v1/auth/sync-user")
 
         assert response.status_code == 200
@@ -528,8 +528,8 @@ class TestOtherAuthEndpoints:
 
     @pytest.mark.asyncio
     async def test_google_exchange(self, client, mock_auth_service):
-        from schemas.auth import LoginResponse
-        from schemas.user import UserResponse
+        from app.schemas.auth import LoginResponse
+        from app.schemas.user import UserResponse
 
         user_resp = UserResponse(
             id="u1",
@@ -549,7 +549,7 @@ class TestOtherAuthEndpoints:
         mock_auth_service.exchange_google_code = AsyncMock(return_value=login_response)
         mock_auth_service.create_refresh_token.return_value = "test_refresh"
 
-        with patch("routes.auth._validate_google_redirect_uri", return_value=True):
+        with patch("app.routes.auth._validate_google_redirect_uri", return_value=True):
             response = await client.post(
                 "/api/v1/auth/google/exchange",
                 json={

@@ -12,12 +12,12 @@
       <div class="p-4 flex flex-col gap-3">
         <div class="flex justify-between items-start">
           <h3
-            class="font-bold text-lg text-[var(--color-text-primary)] font-['Fredoka'] tracking-wide flex items-center gap-2"
+            class="font-bold text-lg text-brown font-heading tracking-wide flex items-center gap-2"
           >
             Welcome to Purrfect Spots!
           </h3>
           <button
-            class="text-gray-400 hover:text-gray-600 transition-colors p-1"
+            class="text-stone-400 hover:text-stone-600 transition-colors p-1 cursor-pointer"
             aria-label="Close"
             @click="dismiss"
           >
@@ -31,10 +31,10 @@
             </svg>
           </button>
         </div>
-        <div class="text-sm text-gray-700 leading-relaxed space-y-2">
+        <div class="text-sm text-stone-700 leading-relaxed space-y-2 font-body">
           <p>Discover and share your favorite cat hangouts!</p>
-          <div class="bg-amber-100/50 p-3 rounded-lg border border-amber-200">
-            <div class="flex items-center gap-2 font-bold text-amber-800 mb-1">
+          <div class="bg-amber-50 p-3 rounded-xl border border-amber-200">
+            <div class="flex items-center gap-2 font-bold text-amber-800 mb-1 font-heading">
               <span class="text-xl"></span> Earn Treats!
             </div>
             <p class="text-xs text-amber-900 leading-tight">
@@ -44,7 +44,7 @@
           </div>
         </div>
         <button
-          class="mt-2 w-full py-2 bg-[var(--color-bg-primary)] hover:bg-[#d8e4d6] text-[var(--color-text-primary)] font-semibold rounded-lg border border-[var(--color-btn-shade-b)] shadow-sm transition-colors text-sm font-['Fredoka'] tracking-wide"
+          class="mt-2 w-full py-2 bg-cream hover:bg-sage/20 text-brown font-semibold rounded-xl border border-sage/30 shadow-sm transition-colors text-sm font-heading tracking-wide cursor-pointer"
           @click="dismiss"
         >
           Got it, let's explore!

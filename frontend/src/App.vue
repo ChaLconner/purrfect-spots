@@ -3,7 +3,7 @@ import { defineAsyncComponent, onErrorCaptured, ref, computed } from 'vue';
 import LicenseOverlay from './components/layout/LicenseOverlay.vue';
 import ToastContainer from './components/toast/ToastContainer.vue';
 import { isBrowserExtensionError, logBrowserExtensionError } from './utils/browserExtensionHandler';
-import { showError } from './store/toast';
+import { showError } from './stores/toast';
 import { ApiError, ApiErrorTypes } from './utils/api';
 import { useNetwork } from './composables/useNetwork';
 import { ErrorBoundary } from './components/ui';
@@ -12,7 +12,7 @@ import { useRoute } from 'vue-router';
 
 // Async layout components — not needed for first contentful paint.
 // Both already use defineAsyncComponent internally (NavAuthSection, BottomNavProfileButton).
-const NavBar = defineAsyncComponent(() => import('./components/NavBar.vue'));
+const NavBar = defineAsyncComponent(() => import('@/components/navbar/NavBar.vue'));
 const BottomNav = defineAsyncComponent(() => import('./components/layout/BottomNav.vue'));
 
 const { isOnline } = useNetwork();

@@ -71,7 +71,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue';
-import { useCatsStore } from '@/store';
+import { useCatsStore } from '@/stores';
 import { ANIMATION_CONFIG } from '@/utils/constants';
 
 const catsStore = useCatsStore();

@@ -106,7 +106,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { apiV1 } from '@/utils/api';
-import { showSuccess, showError } from '@/store/toast';
+import { showSuccess, showError } from '@/stores/toast';
 import PasswordStrengthMeter from '@/components/ui/PasswordStrengthMeter.vue';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 import { BaseButton, BaseInput } from '@/components/ui';

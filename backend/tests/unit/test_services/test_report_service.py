@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from services.report_service import ReportService
+from app.services.report_service import ReportService
 
 
 class TestReportService:

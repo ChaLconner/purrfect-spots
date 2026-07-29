@@ -3,9 +3,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from main import app
-from middleware.auth_middleware import get_current_user
-from schemas.user import User
+from app.main import app
+from app.middleware.auth_middleware import get_current_user
+from app.schemas.user import User
 
 client = TestClient(app)
 
@@ -35,7 +35,7 @@ class TestCatDetectionRouteExtended:
             "reasoning": "Test",
         }
 
-        with patch("services.google_vision.GoogleVisionService.detect_cats", side_effect=mock_vision.detect_cats):
+        with patch("app.services.google_vision.GoogleVisionService.detect_cats", side_effect=mock_vision.detect_cats):
             # Remove patch for save_detection_result as it doesn't exist
             files = {"file": ("cat.jpg", b"fakeimage", "image/jpeg")}
             # URL is /api/v1/detect/cats based on router prefix /api/v1 + /detect + /cats
@@ -56,7 +56,7 @@ class TestCatDetectionRouteExtended:
             "reasoning": "It is a dog",
         }
 
-        with patch("services.google_vision.GoogleVisionService.detect_cats", side_effect=mock_vision.detect_cats):
+        with patch("app.services.google_vision.GoogleVisionService.detect_cats", side_effect=mock_vision.detect_cats):
             files = {"file": ("dog.jpg", b"fakeimage", "image/jpeg")}
             response = client.post("/api/v1/detect/cats", files=files)
             assert response.status_code == 200
@@ -81,7 +81,7 @@ class TestCatDetectionRouteExtended:
         }
 
         with patch(
-            "services.google_vision.GoogleVisionService.analyze_cat_spot_suitability",
+            "app.services.google_vision.GoogleVisionService.analyze_cat_spot_suitability",
             side_effect=mock_vision.analyze_cat_spot_suitability,
         ):
             files = {"file": ("park.jpg", b"fakeimage", "image/jpeg")}

@@ -2,9 +2,9 @@
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { useAuthStore } from '../../store/authStore';
+import { useAuthStore } from '../../stores/authStore';
 import { AuthService } from '../../services/authService';
-import { showSuccess } from '../../store/toast';
+import { showSuccess } from '../../stores/toast';
 import { isDev } from '../../utils/env';
 
 const { t } = useI18n();

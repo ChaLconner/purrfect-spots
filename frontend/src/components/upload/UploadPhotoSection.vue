@@ -176,7 +176,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { showError } from '@/store/toast';
+import { showError } from '@/stores/toast';
 import { validateImageFile } from '@/utils/imageUtils';
 import type { CatDetectionResult } from '@/types/upload';
 

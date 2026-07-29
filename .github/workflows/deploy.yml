@@ -219,19 +219,19 @@ jobs:
       - name: Cache API client node_modules
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4.2.0
         with:
-          path: api-client/node_modules
-          key: ${{ runner.os }}-api-client-${{ hashFiles('api-client/package.json') }}
+          path: packages/api-client/node_modules
+          key: ${{ runner.os }}-api-client-${{ hashFiles('packages/api-client/package.json') }}
 
       - name: Validate API client generation
         run: |
           set -euo pipefail
 
-          if [ ! -f "api-client/package.json" ]; then
-            echo "::notice::api-client/package.json not found; skipping OpenAPI validation."
+          if [ ! -f "packages/api-client/package.json" ]; then
+            echo "::notice::packages/api-client/package.json not found; skipping OpenAPI validation."
             exit 0
           fi
 
-          cd api-client
+          cd packages/api-client
           [ -d node_modules ] || npm install --prefer-offline --no-audit
           npx @openapitools/openapi-generator-cli validate \
             -i "$GITHUB_WORKSPACE/docs/openapi-baseline.json"

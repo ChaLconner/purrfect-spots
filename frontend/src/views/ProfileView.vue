@@ -80,15 +80,15 @@
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { useAuthStore } from '../store/authStore';
-import { showError, showSuccess } from '../store/toast';
+import { useAuthStore } from '../stores/authStore';
+import { showError, showSuccess } from '../stores/toast';
 import { ProfileService, type ProfileUpdateData } from '../services/profileService';
 import { AuthService } from '../services/authService';
-import { useSubscriptionStore } from '@/store/subscriptionStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { isDev } from '../utils/env';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 import { useSeo } from '@/composables/useSeo';
-import type { CatLocation } from '@/types/api';
+import type { CatLocation } from '@/generated/api';
 
 import { useProfileData } from '@/composables/useProfileData';
 

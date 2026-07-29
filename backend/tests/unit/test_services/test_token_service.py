@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from services.token_service import TokenService, get_token_service, reset_token_service
+from app.services.token_service import TokenService, get_token_service, reset_token_service
 
 
 class TestTokenService:
@@ -38,7 +38,8 @@ class TestTokenService:
         """Create TokenService instance with mocked dependencies"""
         # Patch the async getter
         with patch(
-            "services.token_service.get_async_supabase_admin_client", new=AsyncMock(return_value=mock_supabase_admin)
+            "app.services.token_service.get_async_supabase_admin_client",
+            new=AsyncMock(return_value=mock_supabase_admin),
         ):
             service = TokenService(mock_redis)
             yield service
@@ -62,7 +63,8 @@ class TestTokenService:
     async def test_blacklist_token_memory_fallback(self, mock_supabase_admin):
         """Test blacklisting with memory fallback when Redis is None"""
         with patch(
-            "services.token_service.get_async_supabase_admin_client", new=AsyncMock(return_value=mock_supabase_admin)
+            "app.services.token_service.get_async_supabase_admin_client",
+            new=AsyncMock(return_value=mock_supabase_admin),
         ):
             service = TokenService(None)
             token = "memory-token"
@@ -85,10 +87,10 @@ class TestTokenService:
 
         with (
             patch(
-                "services.token_service.get_async_supabase_admin_client",
+                "app.services.token_service.get_async_supabase_admin_client",
                 new=AsyncMock(return_value=mock_supabase_admin),
             ),
-            patch("services.token_service.logger.debug") as mock_debug,
+            patch("app.services.token_service.logger.debug") as mock_debug,
         ):
             service = TokenService(None)
 
@@ -106,7 +108,8 @@ class TestTokenService:
         mock_redis.setex.side_effect = Exception("redis unavailable")
 
         with patch(
-            "services.token_service.get_async_supabase_admin_client", new=AsyncMock(return_value=mock_supabase_admin)
+            "app.services.token_service.get_async_supabase_admin_client",
+            new=AsyncMock(return_value=mock_supabase_admin),
         ):
             service = TokenService(mock_redis)
             token = "redis-down-token"
@@ -138,10 +141,10 @@ class TestTokenService:
         """Development environments should not hit RLS-protected insert with anon credentials."""
         with (
             patch(
-                "services.token_service.get_async_supabase_admin_client",
+                "app.services.token_service.get_async_supabase_admin_client",
                 new=AsyncMock(return_value=mock_supabase_admin),
             ),
-            patch("services.token_service.has_supabase_service_role_key", return_value=False),
+            patch("app.services.token_service.has_supabase_service_role_key", return_value=False),
         ):
             service = TokenService(None)
             result = await service.blacklist_token(
@@ -171,10 +174,10 @@ class TestTokenService:
 
         with (
             patch(
-                "services.token_service.get_async_supabase_admin_client",
+                "app.services.token_service.get_async_supabase_admin_client",
                 new=AsyncMock(side_effect=[stale_client, fresh_client]),
             ),
-            patch("services.token_service.has_supabase_service_role_key", return_value=True),
+            patch("app.services.token_service.has_supabase_service_role_key", return_value=True),
         ):
             service = TokenService(None)
             result = await service.blacklist_token(
@@ -204,7 +207,8 @@ class TestTokenService:
     async def test_is_blacklisted_memory(self, mock_supabase_admin):
         """Test checking blacklist status via Memory"""
         with patch(
-            "services.token_service.get_async_supabase_admin_client", new=AsyncMock(return_value=mock_supabase_admin)
+            "app.services.token_service.get_async_supabase_admin_client",
+            new=AsyncMock(return_value=mock_supabase_admin),
         ):
             service = TokenService(None)
             token = "memory-check"
@@ -244,7 +248,7 @@ class TestTokenService:
         """Test invalidating all user tokens"""
         user_id = "user-456"
 
-        with patch("services.token_service.logger.info") as mock_info:
+        with patch("app.services.token_service.logger.info") as mock_info:
             result = await token_service.blacklist_all_user_tokens(user_id, reason="security_event: token=secret")
 
         assert result == 1
@@ -315,7 +319,8 @@ class TestTokenService:
         """Test clearing expired entries from memory blacklist"""
         # Patch async client (not used here but for safe init)
         with patch(
-            "services.token_service.get_async_supabase_admin_client", new=AsyncMock(return_value=mock_supabase_admin)
+            "app.services.token_service.get_async_supabase_admin_client",
+            new=AsyncMock(return_value=mock_supabase_admin),
         ):
             service = TokenService(None)
             service._memory_blacklist = {
@@ -337,7 +342,7 @@ class TestTokenService:
         with (
             patch.dict(os.environ, {"REDIS_URL": ""}),
             patch(
-                "services.token_service.get_async_supabase_admin_client",
+                "app.services.token_service.get_async_supabase_admin_client",
                 new=AsyncMock(return_value=mock_supabase_admin),
             ),
         ):

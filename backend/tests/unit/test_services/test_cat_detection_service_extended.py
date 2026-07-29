@@ -5,7 +5,7 @@ import pytest
 from fastapi import HTTPException, UploadFile
 from PIL import Image
 
-from services.cat_detection_service import CatDetectionService
+from app.services.cat_detection_service import CatDetectionService
 
 
 class TestCatDetectionServiceExtended:
@@ -15,7 +15,7 @@ class TestCatDetectionServiceExtended:
     def mock_vision_service(self):
         from unittest.mock import AsyncMock
 
-        with patch("services.google_vision.GoogleVisionService") as mock:
+        with patch("app.services.google_vision.GoogleVisionService") as mock:
             mock.return_value.detect_cats = AsyncMock()
             mock.return_value.analyze_cat_spot_suitability = AsyncMock()
             yield mock.return_value
@@ -23,7 +23,7 @@ class TestCatDetectionServiceExtended:
     @pytest.fixture
     def service(self, mock_vision_service):
         # We need to patch the import inside __init__ or patch where it's used
-        with patch("services.cat_detection_service.CatDetectionService.__init__", return_value=None):
+        with patch("app.services.cat_detection_service.CatDetectionService.__init__", return_value=None):
             service = CatDetectionService()
             service.vision_service = mock_vision_service
             return service
@@ -42,7 +42,7 @@ class TestCatDetectionServiceExtended:
         img_bytes = img_byte_arr.getvalue()
 
         # Instantiate service normally to test the method
-        with patch("services.google_vision.GoogleVisionService"):
+        with patch("app.services.google_vision.GoogleVisionService"):
             service = CatDetectionService()
 
         processed_img = service.prepare_image(img_bytes)

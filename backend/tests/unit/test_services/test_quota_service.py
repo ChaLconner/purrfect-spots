@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from services.quota_service import QuotaService
+from app.services.quota_service import QuotaService
 
 
 @pytest.fixture

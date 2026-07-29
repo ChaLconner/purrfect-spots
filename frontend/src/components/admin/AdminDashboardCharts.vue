@@ -282,7 +282,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useAdminStore } from '@/store/adminStore';
+import { useAdminStore } from '@/stores/adminStore';
 import { format, parseISO } from 'date-fns';
 import { formatDate } from '@/utils/date';
 
@@ -301,10 +301,10 @@ const isHidden = (name: string): boolean => hiddenSeries.value.includes(name);
 
 const getSeriesColor = (name: string): string => {
   const colors: Record<string, string> = {
-    [t('admin.dashboard.trends.series.newUsers')]: '#4A3728',
-    [t('admin.dashboard.trends.series.newPhotos')]: '#E67E22',
-    [t('admin.dashboard.trends.series.newReports')]: '#E74C3C',
-    [t('admin.dashboard.trends.series.pointsEarned')]: '#FFD700',
+    [t('admin.dashboard.trends.series.newUsers')]: '#8B4D2D',
+    [t('admin.dashboard.trends.series.newPhotos')]: '#D67A4F',
+    [t('admin.dashboard.trends.series.newReports')]: '#C75B5B',
+    [t('admin.dashboard.trends.series.pointsEarned')]: '#E59976',
   };
   return colors[name] || '#ccc';
 };
@@ -358,8 +358,8 @@ const activeMonthlyRows = computed(() =>
   adminStore.monthlyData.filter((item) => item.new_users > 0 || item.new_photos > 0)
 );
 
-const trendColors = ['#4A3728', '#E67E22', '#E74C3C'];
-const monthlyColors = ['#5D4037', '#8D6E63', '#4CAF50'];
+const trendColors = ['#8B4D2D', '#D67A4F', '#C75B5B'];
+const monthlyColors = ['#8B4D2D', '#A65D37', '#7A9B76'];
 const chartLeft = 40;
 const chartRight = 620;
 const trendTop = 24;

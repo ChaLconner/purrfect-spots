@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mount } from '@vue/test-utils';
 import SearchBox from '@/components/navbar/SearchBox.vue';
 import { createPinia, setActivePinia } from 'pinia';
-import { useCatsStore } from '@/store/catsStore';
+import { useCatsStore } from '@/stores/catsStore';
 import { useRouter, useRoute } from 'vue-router';
 import { reactive, nextTick } from 'vue';
 

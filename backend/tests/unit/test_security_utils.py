@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from utils.security import (
+from app.utils.security import (
     is_safe_filename,
     log_audit_event,
     log_authentication_event,
@@ -62,7 +62,7 @@ def test_is_safe_filename() -> None:
     assert is_safe_filename("a" * 300 + ".jpg") is False
 
 
-@patch("utils.security.logger")
+@patch("app.utils.security.logger")
 def test_log_security_event(mock_logger) -> None:
     log_security_event(
         "test_event", user_id="u1", details={"k": "v"}, ip_address="1.1", user_agent="agent", severity="WARNING"
@@ -74,7 +74,7 @@ def test_log_security_event(mock_logger) -> None:
     mock_logger.error.assert_called_once()
 
 
-@patch("utils.security.logger")
+@patch("app.utils.security.logger")
 def test_log_audit_event(mock_logger) -> None:
     log_audit_event(
         "test_action",
@@ -92,19 +92,19 @@ def test_log_audit_event(mock_logger) -> None:
     mock_logger.warning.assert_called_once()
 
 
-@patch("utils.security.log_audit_event")
+@patch("app.utils.security.log_audit_event")
 def test_log_authentication_event(mock_audit) -> None:
     log_authentication_event("login", user_id="u1", email="test@example.com", failure_reason="bad")
     mock_audit.assert_called_once()
 
 
-@patch("utils.security.log_audit_event")
+@patch("app.utils.security.log_audit_event")
 def test_log_data_access_event(mock_audit) -> None:
     log_data_access_event("read", user_id="u1", resource_type="photo", resource_id="p1")
     mock_audit.assert_called_once()
 
 
-@patch("utils.security.log_audit_event")
+@patch("app.utils.security.log_audit_event")
 def test_log_file_operation_event(mock_audit) -> None:
     log_file_operation_event(
         "upload", user_id="u1", filename="a.jpg", file_size=100, file_type="image/jpeg", error_message="err"

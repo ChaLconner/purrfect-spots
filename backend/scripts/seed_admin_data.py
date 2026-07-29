@@ -6,9 +6,9 @@ from typing import Any, cast
 # Add parent directory to path to import services/config
 sys.path.append(str(Path(__file__).parent.parent))
 
-from config import config
-from constants.admin_permissions import SYSTEM_ROLE_PERMISSION_CODES, canonical_permission_records
-from utils.supabase_client import get_supabase_admin_client
+from app.config import config
+from app.constants.admin_permissions import SYSTEM_ROLE_PERMISSION_CODES, canonical_permission_records
+from app.utils.supabase_client import get_supabase_admin_client
 
 # Initialize Supabase Client (Service Role for seeding)
 # Check if service role key exists, otherwise warn

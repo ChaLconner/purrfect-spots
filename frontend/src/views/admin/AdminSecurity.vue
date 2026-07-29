@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore } from '@/stores/authStore';
 import { apiV1 } from '@/utils/api';
-import { showSuccess, showError } from '@/store/toast';
+import { showSuccess, showError } from '@/stores/toast';
 import { PERMISSIONS } from '@/constants/permissions';
 import { formatTimestamp } from '@/utils/date';
 import BaseButton from '@/components/ui/BaseButton.vue';

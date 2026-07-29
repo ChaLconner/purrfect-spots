@@ -43,11 +43,11 @@ defineEmits<{
           appear
         >
           <div
-            class="bg-white rounded-xl md:rounded-2xl shadow-xl p-4 sm:p-6 md:p-8 w-full max-w-sm text-center relative border-t-4"
+            class="bg-white rounded-2xl shadow-xl p-4 sm:p-6 md:p-8 w-full max-w-sm text-center relative border-t-4"
             :class="{
               'border-red-500': variant === 'danger',
-              'border-yellow-500': variant === 'warning',
-              'border-blue-500': variant === 'info' || !variant,
+              'border-amber-500': variant === 'warning',
+              'border-sage': variant === 'info' || !variant,
             }"
           >
             <slot name="icon">
@@ -55,8 +55,8 @@ defineEmits<{
                 class="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center"
                 :class="{
                   'bg-red-50': variant === 'danger',
-                  'bg-yellow-50': variant === 'warning',
-                  'bg-blue-50': variant === 'info' || !variant,
+                  'bg-amber-50': variant === 'warning',
+                  'bg-sage/10': variant === 'info' || !variant,
                 }"
               >
                 <svg
@@ -92,7 +92,7 @@ defineEmits<{
                 <svg
                   v-else
                   xmlns="http://www.w3.org/2000/svg"
-                  class="h-8 w-8 text-blue-500"
+                  class="h-8 w-8 text-sage"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -116,9 +116,9 @@ defineEmits<{
               </p>
             </slot>
 
-            <div class="flex justify-center gap-3">
+            <div class="flex justify-center gap-3 font-body">
               <button
-                class="px-5 py-2 text-stone-500 hover:bg-stone-50 rounded-lg font-medium transition-colors cursor-pointer"
+                class="px-5 py-2 text-stone-500 hover:bg-stone-50 rounded-xl font-medium transition-colors cursor-pointer"
                 :disabled="isLoading"
                 @click="$emit('close')"
               >
@@ -126,11 +126,11 @@ defineEmits<{
               </button>
               <button
                 :disabled="isLoading"
-                class="px-5 py-2 text-white rounded-lg shadow-md font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
+                class="px-5 py-2 text-white rounded-xl shadow-md font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
                 :class="{
                   'bg-red-500 hover:bg-red-600': variant === 'danger',
-                  'bg-yellow-500 hover:bg-yellow-600': variant === 'warning',
-                  'bg-blue-500 hover:bg-blue-600': variant === 'info' || !variant,
+                  'bg-amber-500 hover:bg-amber-600': variant === 'warning',
+                  'bg-sage hover:bg-sage-dark': variant === 'info' || !variant,
                 }"
                 @click="$emit('confirm')"
               >

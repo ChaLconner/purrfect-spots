@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from services.google_vision import GoogleVisionService
+from app.services.google_vision import GoogleVisionService
 
 
 class TestGoogleVisionServiceExtended:
@@ -22,8 +22,8 @@ class TestGoogleVisionServiceExtended:
         json_creds = '{"type": "service_account", "project_id": "test"}'
         with (
             patch.dict(os.environ, {"GOOGLE_VISION_SERVICE_ACCOUNT": json_creds}),
-            patch("services.google_vision.VISION_AVAILABLE", True),
-            patch("services.google_vision.vision.ImageAnnotatorClient") as mock_client_class,
+            patch("app.services.google_vision.VISION_AVAILABLE", True),
+            patch("app.services.google_vision.vision.ImageAnnotatorClient") as mock_client_class,
         ):
             mock_client_class.from_service_account_info.return_value = mock_vision_client
             service = GoogleVisionService()
@@ -33,15 +33,15 @@ class TestGoogleVisionServiceExtended:
     def test_init_with_key_path(self, mock_vision_client) -> None:
         with (
             patch.dict(os.environ, {"GOOGLE_VISION_SERVICE_ACCOUNT": "", "GOOGLE_VISION_KEY_PATH": "/tmp/key.json"}),  # noqa: S108
-            patch("services.google_vision.Path.exists", return_value=True),
-            patch("services.google_vision.VISION_AVAILABLE", True),
+            patch("app.services.google_vision.Path.exists", return_value=True),
+            patch("app.services.google_vision.VISION_AVAILABLE", True),
         ):
             service = GoogleVisionService()
             assert service.is_initialized is True
 
     def test_init_fallback(self) -> None:
         # When VISION_AVAILABLE is False
-        with patch("services.google_vision.VISION_AVAILABLE", False):
+        with patch("app.services.google_vision.VISION_AVAILABLE", False):
             service = GoogleVisionService()
             assert service.is_initialized is False
 
@@ -71,7 +71,7 @@ class TestGoogleVisionServiceExtended:
 
         with (
             patch.dict(os.environ, {"GOOGLE_VISION_SERVICE_ACCOUNT": "{}"}),
-            patch("services.google_vision.VISION_AVAILABLE", True),
+            patch("app.services.google_vision.VISION_AVAILABLE", True),
         ):
             service = GoogleVisionService()
             # Bypass init logic since we mocked client class
@@ -90,7 +90,7 @@ class TestGoogleVisionServiceExtended:
         mock_file.file.read.side_effect = [b"fakeimage", b""]  # Chunked read
 
         # Init service in fallback mode
-        with patch("services.google_vision.VISION_AVAILABLE", False):
+        with patch("app.services.google_vision.VISION_AVAILABLE", False):
             service = GoogleVisionService()
 
             result = await service.detect_cats(mock_file)

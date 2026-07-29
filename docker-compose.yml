@@ -57,12 +57,14 @@ services:
   # ==========================================================================
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
       args:
         - VITE_API_BASE_URL=http://localhost:8000
         - VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
         - VITE_GOOGLE_MAPS_API_KEY=${VITE_GOOGLE_MAPS_API_KEY}
+        - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+        - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
     container_name: purrfect-frontend
     restart: unless-stopped
     ports:
@@ -93,7 +95,7 @@ services:
   # Redis - Caching & Rate Limiting
   # ==========================================================================
   redis:
-    image: redis:7-alpine
+    image: redis:7.4.10-alpine3.21
     container_name: purrfect-redis
     restart: unless-stopped
     ports:
@@ -118,7 +120,7 @@ services:
   # Redis Commander (Development only - DB browser)
   # ==========================================================================
   redis-commander:
-    image: rediscommander/redis-commander:latest
+    image: rediscommander/redis-commander@sha256:19cd0c49f418779fa2822a0496c5e6516d0c792effc39ed20089e6268477e40a
     container_name: purrfect-redis-commander
     restart: unless-stopped
     ports:
@@ -141,7 +143,7 @@ services:
   # Jaeger - Distributed Tracing
   # ==========================================================================
   jaeger:
-    image: jaegertracing/all-in-one:latest
+    image: jaegertracing/all-in-one:1.76.0
     container_name: purrfect-jaeger
     restart: unless-stopped
     ports:

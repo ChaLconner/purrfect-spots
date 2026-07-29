@@ -1,6 +1,6 @@
 import { ref, type Ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { showError } from '@/store/toast';
+import { showError } from '@/stores/toast';
 
 export interface UseUploadMapOptions {
   onLocationUpdate: (lat: number, lng: number) => void;

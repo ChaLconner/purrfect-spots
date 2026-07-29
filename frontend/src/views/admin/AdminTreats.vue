@@ -380,7 +380,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { apiV1 } from '@/utils/api';
-import { useToast } from '@/components/toast/use-toast';
+import { useToast } from '@/composables/useToast';
 import { useI18n } from 'vue-i18n';
 import RefreshButton from '@/components/ui/RefreshButton.vue';
 import AdminPagination from '@/components/ui/AdminPagination.vue';

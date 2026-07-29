@@ -7,9 +7,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from main import app
-from middleware.auth_middleware import get_current_user_from_header
-from routes.auth import get_auth_service
+from app.main import app
+from app.middleware.auth_middleware import get_current_user_from_header
+from app.routes.auth import get_auth_service
 
 
 @pytest.fixture
@@ -59,7 +59,7 @@ class TestGoogleAuthRoutes:
 
         app.dependency_overrides[get_auth_service] = lambda: mock_service
 
-        with patch("routes.auth.config") as mock_config:
+        with patch("app.routes.auth.config") as mock_config:
             mock_config.get_allowed_origins.return_value = [
                 "http://localhost:5173"
             ]  # NOSONAR python:S5332 - test fixture localhost origin
@@ -92,7 +92,7 @@ class TestGoogleAuthRoutes:
         mock_res.data = [{"id": "00000000-0000-4000-a000-000000000123"}]
         mock_supabase_admin.table.return_value.upsert.return_value.execute = AsyncMock(return_value=mock_res)
 
-        with patch("dependencies.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
+        with patch("app.dependencies.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
             mock_get_admin.return_value = mock_supabase_admin
             app.dependency_overrides[get_current_user_from_header] = lambda: mock_jwt_payload
 

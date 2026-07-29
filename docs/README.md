@@ -11,6 +11,7 @@ Documentation for the Purrfect Spots project. This project is a platform for sha
 - [Environment Setup](./ENV_SETUP.md) - How to set up your local environment.
 - [Database Schema](./DATABASE_SCHEMA.md) - Database structure and relationships.
 - [Coding Standards](./CODING_STANDARDS.md) - Project code architecture and requirements.
+- [Project Structure](./PROJECT_STRUCTURE.md) - Folder ownership and dependency boundaries.
 - [Best Practices](./BEST_PRACTICES.md) - Concrete code examples and design patterns.
 - [Git & Commit Guidelines](./GIT_GUIDELINES.md) - Branching and deployment best practices.
 

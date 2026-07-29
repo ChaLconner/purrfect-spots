@@ -26,8 +26,9 @@ Frontend of the cat photo sharing app - Beautiful and easy to use!
 - **src/components/** - Reusable components (NavBar, Gallery, Map, etc.)
 - **src/views/** - Page views (Home, Upload, Profile, etc.)
 - **src/services/** - API communication
-- **src/store/** - State management (Pinia)
+- **src/stores/** - State management (Pinia)
 - **src/composables/** - Reusable logic (Hooks)
+- **src/generated/** - Generated API types; do not edit manually
 
 ## 🚀 Development
 

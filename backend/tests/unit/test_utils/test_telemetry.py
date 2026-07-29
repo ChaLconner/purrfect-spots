@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import FastAPI
 
-from utils.telemetry import get_tracer, setup_telemetry
+from app.utils.telemetry import get_tracer, setup_telemetry
 
 
 @pytest.fixture
@@ -14,7 +14,7 @@ def mock_app():
 
 
 def test_setup_telemetry_disabled(mock_app) -> None:
-    with patch.dict(os.environ, {"ENABLE_TELEMETRY": "false"}), patch("utils.telemetry.logger") as mock_logger:
+    with patch.dict(os.environ, {"ENABLE_TELEMETRY": "false"}), patch("app.utils.telemetry.logger") as mock_logger:
         setup_telemetry(mock_app)
         # Should log that it's disabled
         mock_logger.info.assert_called_with("Telemetry disabled (ENABLE_TELEMETRY!=true)")
@@ -36,7 +36,7 @@ def test_setup_telemetry_enabled_import_error(mock_app) -> None:
 
         with (
             patch("builtins.__import__", side_effect=mock_import),
-            patch("utils.telemetry.logger") as mock_logger,
+            patch("app.utils.telemetry.logger") as mock_logger,
         ):
             setup_telemetry(mock_app)
             mock_logger.warning.assert_called_with("OpenTelemetry packages not found. Skipping telemetry setup.")

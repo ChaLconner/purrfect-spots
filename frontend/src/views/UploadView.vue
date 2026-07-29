@@ -250,8 +250,8 @@
 import { ref, computed, watch, nextTick, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { useAuthStore } from '@/store/authStore';
-import { showError, showSuccess } from '@/store/toast';
+import { useAuthStore } from '@/stores/authStore';
+import { showError, showSuccess } from '@/stores/toast';
 import { useUploadCat } from '@/composables/useUploadCat';
 import { useUploadMap } from '@/composables/useUploadMap';
 import { formatTimestamp } from '@/utils/date';

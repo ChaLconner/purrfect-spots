@@ -13,6 +13,8 @@ import { defineConfig, devices } from '@playwright/test';
  *   npx playwright test e2e/auth.spec.ts
  */
 export default defineConfig({
+  tsconfig: './tsconfig.e2e.json',
+
   // Test directory
   testDir: './e2e',
   

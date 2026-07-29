@@ -4,7 +4,7 @@ Tests for DateTime Utilities
 
 from datetime import UTC, datetime, timezone
 
-from utils.datetime_utils import from_iso, to_utc, utc_now, utc_now_iso
+from app.utils.datetime_utils import from_iso, to_utc, utc_now, utc_now_iso
 
 
 class TestDateTimeUtils:

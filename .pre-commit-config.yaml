@@ -3,7 +3,7 @@ repos:
   # Python Linting & Formatting
   # ==============================================================================
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.9.9
+    rev: v0.16.0
     hooks:
       - id: ruff
         name: Ruff Linting
@@ -19,7 +19,7 @@ repos:
   # Security Scanning
   # ==============================================================================
   - repo: https://github.com/PyCQA/bandit
-    rev: '1.8.3'
+    rev: '1.9.4'
     hooks:
       - id: bandit
         name: Bandit Security Scan
@@ -31,7 +31,7 @@ repos:
   # Dependency Security Scanning (NEW)
   # ==============================================================================
   - repo: https://github.com/pypa/pip-audit
-    rev: v2.8.0
+    rev: v2.10.1
     hooks:
       - id: pip-audit
         name: Pip Audit (Backend Dependencies)
@@ -46,14 +46,13 @@ repos:
     hooks:
       - id: detect-secrets
         name: Detect Secrets
-        args: ['--baseline', '.secrets.baseline']
         exclude: package-lock\.json|\.env\.example|frontend/dist/
 
   # ==============================================================================
   # General Hooks
   # ==============================================================================
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
         name: Trim Trailing Whitespace

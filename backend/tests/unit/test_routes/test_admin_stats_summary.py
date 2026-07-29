@@ -2,9 +2,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from postgrest.types import CountMethod
 
-from main import app
-from middleware.auth_middleware import get_current_user
-from schemas.user import User
+from app.main import app
+from app.middleware.auth_middleware import get_current_user
+from app.schemas.user import User
 
 
 class TestAdminStatsSummary:
@@ -31,7 +31,7 @@ class TestAdminStatsSummary:
 
         try:
             with patch(
-                "routes.admin.stats.get_async_supabase_admin_client",
+                "app.routes.admin.stats.get_async_supabase_admin_client",
                 new_callable=AsyncMock,
                 return_value=mock_supabase_admin,
             ):
@@ -70,7 +70,7 @@ class TestAdminStatsSummary:
 
         try:
             with patch(
-                "routes.admin.stats.get_async_supabase_admin_client",
+                "app.routes.admin.stats.get_async_supabase_admin_client",
                 new_callable=AsyncMock,
                 return_value=mock_supabase_admin,
             ):

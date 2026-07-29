@@ -3,15 +3,15 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from tasks.cleanup_tasks import _cleanup_notifications_job, start_cleanup_jobs, stop_cleanup_jobs
+from app.tasks.cleanup_tasks import _cleanup_notifications_job, start_cleanup_jobs, stop_cleanup_jobs
 
 
 class TestCleanupTasks:
     @pytest.mark.asyncio
     async def test_start_stop_cleanup_jobs(self):
-        with patch("tasks.cleanup_tasks._cleanup_notifications_job", return_value=None):
+        with patch("app.tasks.cleanup_tasks._cleanup_notifications_job", return_value=None):
             await start_cleanup_jobs()
-            from tasks import cleanup_tasks
+            from app.tasks import cleanup_tasks
 
             assert cleanup_tasks._notification_task is not None
 
@@ -24,8 +24,8 @@ class TestCleanupTasks:
         mock_service = AsyncMock()
 
         with (
-            patch("tasks.cleanup_tasks.get_async_supabase_admin_client", return_value=mock_client),
-            patch("tasks.cleanup_tasks.NotificationService", return_value=mock_service),
+            patch("app.tasks.cleanup_tasks.get_async_supabase_admin_client", return_value=mock_client),
+            patch("app.tasks.cleanup_tasks.NotificationService", return_value=mock_service),
             patch("asyncio.sleep", side_effect=asyncio.CancelledError),
             pytest.raises(asyncio.CancelledError),
         ):
@@ -36,7 +36,7 @@ class TestCleanupTasks:
     @pytest.mark.asyncio
     async def test_cleanup_notifications_job_error(self):
         with (
-            patch("tasks.cleanup_tasks.get_async_supabase_admin_client", side_effect=Exception("DB Error")),
+            patch("app.tasks.cleanup_tasks.get_async_supabase_admin_client", side_effect=Exception("DB Error")),
             patch("asyncio.sleep", side_effect=asyncio.CancelledError),
             pytest.raises(asyncio.CancelledError),
         ):

@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from main import app
-from routes.gallery import get_gallery_service
-from utils.security import protect_public_coordinates
+from app.main import app
+from app.routes.gallery import get_gallery_service
+from app.utils.security import protect_public_coordinates
 
 
 class TestHealthEndpoints:

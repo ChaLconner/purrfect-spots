@@ -51,7 +51,7 @@ def load_schema(path: str) -> dict[str, Any]:
 
 def get_current_schema() -> dict[str, Any]:
     """Get current OpenAPI schema from FastAPI app."""
-    from main import app
+    from app.main import app
 
     return app.openapi()
 

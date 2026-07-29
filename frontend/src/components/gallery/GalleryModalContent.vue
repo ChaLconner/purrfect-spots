@@ -2,12 +2,12 @@
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { useAuthStore } from '@/store/authStore';
-import { useSubscriptionStore } from '@/store/subscriptionStore';
-import { showSuccess, showError } from '@/store/toast';
-import { useCatsStore } from '@/store';
-import { extractTags, getCleanDescription } from '@/store/catsStore';
-import type { CatLocation } from '@/types/api';
+import { useAuthStore } from '@/stores/authStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import { showSuccess, showError } from '@/stores/toast';
+import { useCatsStore } from '@/stores';
+import { extractTags, getCleanDescription } from '@/stores/catsStore';
+import type { CatLocation } from '@/generated/api';
 import { openTrustedExternalUrl } from '@/utils/security';
 import { formatDate } from '@/utils/date';
 import LikeButton from '@/components/social/LikeButton.vue';

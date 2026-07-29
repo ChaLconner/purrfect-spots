@@ -9,11 +9,10 @@
     ]"
   >
     <!-- Badge -->
-    <div
-      v-if="badge"
-      class="absolute -top-4 right-8 bg-terracotta text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg tracking-widest uppercase"
-    >
-      {{ badge }}
+    <div v-if="badge" class="absolute -top-4 right-8">
+      <BaseBadge variant="accent" size="md" class="shadow-lg tracking-widest uppercase">
+        {{ badge }}
+      </BaseBadge>
     </div>
 
     <!-- Header -->
@@ -57,6 +56,8 @@
 </template>
 
 <script setup lang="ts">
+import BaseBadge from '@/components/ui/BaseBadge.vue';
+
 defineProps<{
   title: string;
   subtitle: string;

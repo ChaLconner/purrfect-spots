@@ -6,10 +6,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from dependencies import get_current_admin_user
-from main import app
-from middleware.auth_middleware import get_current_user
-from schemas.user import User
+from app.dependencies import get_current_admin_user
+from app.main import app
+from app.middleware.auth_middleware import get_current_user
+from app.schemas.user import User
 
 
 class TestAdminRoutes:
@@ -65,7 +65,7 @@ class TestAdminRoutes:
         )
 
         with patch(
-            "routes.admin.users.get_async_supabase_admin_client",
+            "app.routes.admin.users.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):
@@ -81,7 +81,7 @@ class TestAdminRoutes:
         mock_supabase_admin.execute.return_value = MagicMock(data=[{"id": "u1", "name": "Search Result"}])
 
         with patch(
-            "routes.admin.users.get_async_supabase_admin_client",
+            "app.routes.admin.users.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):
@@ -95,7 +95,7 @@ class TestAdminRoutes:
         mock_supabase_admin.execute.side_effect = Exception("DB Error")
 
         with patch(
-            "routes.admin.users.get_async_supabase_admin_client",
+            "app.routes.admin.users.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):
@@ -113,7 +113,7 @@ class TestAdminRoutes:
         )
 
         with patch(
-            "routes.admin.users.get_async_supabase_admin_client",
+            "app.routes.admin.users.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):
@@ -127,7 +127,7 @@ class TestAdminRoutes:
         mock_supabase_admin.execute.return_value = MagicMock(data=None)
 
         with patch(
-            "routes.admin.users.get_async_supabase_admin_client",
+            "app.routes.admin.users.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):
@@ -143,7 +143,7 @@ class TestAdminRoutes:
         )
 
         with patch(
-            "routes.admin.users.get_async_supabase_admin_client",
+            "app.routes.admin.users.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):
@@ -157,7 +157,7 @@ class TestAdminRoutes:
         mock_supabase_admin.execute.side_effect = Exception("Delete error")
 
         with patch(
-            "routes.admin.users.get_async_supabase_admin_client",
+            "app.routes.admin.users.get_async_supabase_admin_client",
             new_callable=AsyncMock,
             return_value=mock_supabase_admin,
         ):

@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from services.treats_service import TreatsService
+from app.services.treats_service import TreatsService
 
 
 @pytest.fixture
@@ -33,7 +33,7 @@ async def test_give_treat_success_with_to_user_id(treats_service):
         )
     )
 
-    with patch("utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
+    with patch("app.utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
         mock_get_admin.return_value = admin_mock
 
         # Mock actor name query
@@ -64,7 +64,7 @@ async def test_give_treat_success_fallback_notification(treats_service):
     admin_mock = MagicMock()
     admin_mock.rpc.return_value.execute = AsyncMock(return_value=MagicMock(data=[{"success": True, "new_balance": 90}]))
 
-    with patch("utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
+    with patch("app.utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
         mock_get_admin.return_value = admin_mock
 
         # Mock chain for fallback queries
@@ -104,7 +104,7 @@ async def test_give_treat_failure(treats_service):
         return_value=MagicMock(data=[{"success": False, "error": "Insufficient treats"}])
     )
 
-    with patch("utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
+    with patch("app.utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
         mock_get_admin.return_value = admin_mock
 
         with pytest.raises(ValueError, match="Insufficient treats"):
