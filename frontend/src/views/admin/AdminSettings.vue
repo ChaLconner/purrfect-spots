@@ -81,7 +81,8 @@
           <p class="text-brown-500 mt-2 text-sm italic">
             {{ t('admin.settings.approval.all_processed') }}
           </p>
-        </div>        <div
+        </div>
+        <div
           v-for="req in pendingRequests"
           :key="req.id"
           class="bg-white rounded-2xl shadow-sm border border-sand-100 overflow-hidden hover:shadow-md transition-all border-l-4 border-l-orange-400 group"
@@ -194,7 +195,7 @@
                   </button>
                 </div>
                 <p class="text-xs text-brown-500 line-clamp-2 leading-relaxed opacity-80">
-                  {{ config.description || t('admin.settings.no_description') }}
+                  {{ t(`admin.settings.descriptions.${config.key}`, config.description || t('admin.settings.no_description')) }}
                 </p>
               </div>
               <div class="flex flex-col items-end gap-2 ml-4 flex-shrink-0">
@@ -463,6 +464,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { onBeforeRouteLeave } from 'vue-router';
 import { apiV1 } from '@/utils/api';
 import { useToast } from '@/composables/useToast';
 import { useI18n } from 'vue-i18n';
@@ -502,6 +504,16 @@ const { t, locale } = useI18n();
 
 const navCategories = ['all', 'general', 'security', 'infrastructure', 'pdpa', 'ui', 'pending'];
 const activeTab = ref('all');
+
+onBeforeRouteLeave((to, from, next) => {
+  if (dirtyKeys.value.size > 0) {
+    // eslint-disable-next-line no-alert
+    const answer = window.confirm(t('admin.settings.unsaved_warning', 'You have unsaved settings. Are you sure you want to leave?'));
+    if (!answer) return next(false);
+  }
+  next();
+});
+
 const loading = ref(true);
 const saving = ref<string | null>(null);
 

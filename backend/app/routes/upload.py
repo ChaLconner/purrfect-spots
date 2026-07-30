@@ -31,6 +31,7 @@ from app.utils.security import (
     log_security_event,
     sanitize_tags,
 )
+from app.utils.upload_verification import verify_upload_verification_token
 
 router = APIRouter(prefix="/upload", tags=["Upload"])
 
@@ -110,6 +111,17 @@ async def _perform_server_side_detection(
 
     detection_result = await detection_service.detect_cats(file)
 
+    if detection_result.get("service_available") is False or detection_result.get("fallback_active"):
+        log_security_event(
+            "upload_verification_unavailable",
+            user_id=user_id,
+            severity="WARNING",
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Cat verification service unavailable. Please try again later.",
+        )
+
     # Log discrepancy if client said "has_cats" but server says "no"
     if client_cat_data and client_cat_data.get("has_cats") and not detection_result.get("has_cats"):
         log_security_event(
@@ -172,6 +184,7 @@ async def upload_cat_photo(
     description: str | None = Form(""),
     tags: str | None = Form(None),
     cat_detection_data: str | None = Form(None),
+    verification_token: str | None = Form(None),
     location_blurred: str = Form("false"),
 ) -> JSONResponse:
     """
@@ -203,8 +216,16 @@ async def upload_cat_photo(
             },
         )
 
-        # Check Quota (Atomic Check & Increment)
-        allowed = await quota_service.check_and_increment(user_id, current_user.is_pro)
+        # Reject cheap invalid input before quota, image processing, storage, or Vision work.
+        latitude, longitude = validate_coordinates(lat, lng)
+        cleaned_location_name, cleaned_description = validate_location_data(location_name, description)
+        parsed_tags = parse_and_sanitize_tags(tags)
+        if parsed_tags:
+            cleaned_description = format_tags_for_description(parsed_tags, cleaned_description)
+        blurred_val = str(location_blurred).lower() in ["true", "1", "yes"]
+
+        # Quota preflight. Usage analytics is recorded only after persistence succeeds.
+        allowed = await quota_service.check_quota(user_id, current_user.is_pro)
         if not allowed:
             log_security_event("quota_exceeded", user_id=user_id, severity="WARNING")
             raise HTTPException(status_code=429, detail="Daily upload limit reached. Upgrade to Pro for more uploads.")
@@ -227,32 +248,25 @@ async def upload_cat_photo(
             except json.JSONDecodeError:
                 logger.warning("Failed to parse client detection data: %s", sanitize_log_value(cat_detection_data))
 
-        # Perform server-side detection using OPTIMIZED content (smaller, standard format)
-        # This prevents issues with large files or unsupported formats (like HEIC) failing in Vision API
-        cat_data = await _perform_server_side_detection(contents, detection_service, user_id, client_cat_data)
+        # Reuse a short-lived server-signed result only when it belongs to this user
+        # and these exact canonical bytes. Otherwise fail closed through Vision.
+        verified_detection = (
+            verify_upload_verification_token(verification_token, contents, user_id) if verification_token else None
+        )
+        if verified_detection:
+            cat_data = {
+                **verified_detection,
+                "detection_timestamp": datetime.now().isoformat(),
+                "detection_source": "verified_token",
+            }
+        else:
+            cat_data = await _perform_server_side_detection(contents, detection_service, user_id, client_cat_data)
 
-        # Use shared validation utilities for coordinates and location text
-        latitude, longitude = validate_coordinates(lat, lng)
-
-        # Apply privacy blur offset if requested
-        blurred_val = str(location_blurred).lower() in ["true", "1", "yes"]
-        if blurred_val:
-            import secrets
-
-            rng = secrets.SystemRandom()
-            latitude += rng.uniform(-0.00045, 0.00045)
-            longitude += rng.uniform(-0.00045, 0.00045)
-
-        # Consolidate text validation
-        cleaned_location_name, cleaned_description = validate_location_data(location_name, description)
-
-        # Process and sanitize tags
-        parsed_tags = parse_and_sanitize_tags(tags)
-        if parsed_tags:
-            cleaned_description = format_tags_for_description(parsed_tags, cleaned_description)
-
-        # Determine status
-        status = "pending_review" if "fallback_active" in cat_data else "approved"
+        # Determine approval status based on confidence threshold:
+        # High confidence (>= 60%) -> approved; Borderline confidence -> pending_review
+        confidence_val = float(cat_data.get("confidence", 0))
+        confidence_pct = confidence_val * 100.0 if confidence_val <= 1.0 else confidence_val
+        status = "approved" if confidence_pct >= 60.0 else "pending_review"
 
         # Upload optimized file to S3
         try:
@@ -272,7 +286,8 @@ async def upload_cat_photo(
             )
             raise HTTPException(status_code=500, detail="Failed to upload image")
 
-        # Insert into database (cat_photos table)
+        # Insert into database (cat_photos table) - original coordinates preserved in DB;
+        # dynamic privacy fuzzing is applied on public API read endpoints via location_blurred flag.
         photo_data = {
             "id": str(uuid.uuid4()),
             "user_id": current_user.id,
@@ -292,7 +307,10 @@ async def upload_cat_photo(
         except Exception as db_error:
             # Rollback: Delete file from S3 if DB insert fails
             logger.error("Database insert failed: %s. Rolling back S3 upload.", db_error)
-            await storage_service.delete_file(image_url)
+            try:
+                await storage_service.delete_file(image_url)
+            except Exception as s3_del_err:
+                logger.error("Failed to delete S3 file during DB rollback: %s", s3_del_err)
 
             log_security_event(
                 "upload_transaction_rollback",
@@ -301,6 +319,8 @@ async def upload_cat_photo(
                 severity="ERROR",
             )
             raise HTTPException(status_code=500, detail="Failed to save cat photo")
+
+        await quota_service.increment_usage(user_id)
 
         # Invalidate gallery, tags and user photos cache after new upload in background
         background_tasks.add_task(invalidate_gallery_cache)

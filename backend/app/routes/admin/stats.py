@@ -72,25 +72,36 @@ def _build_monthly_series(
 
 
 async def _fetch_trends_fallback(admin_client: Any, days_back: int = 30) -> dict[str, Any]:
-    """Compute admin trends without relying on the RPC existing in the DB."""
+    """Compute admin trends using exact SQL count queries without transferring raw rows."""
     end_date = datetime.now().date()
     start_date = end_date - timedelta(days=days_back)
-    start_iso = datetime.combine(start_date, datetime.min.time()).isoformat()
 
-    user_task = admin_client.table("users").select("created_at").gte("created_at", start_iso).execute()
-    photo_task = admin_client.table("cat_photos").select("uploaded_at").gte("uploaded_at", start_iso).execute()
-    report_task = admin_client.table("reports").select("created_at").gte("created_at", start_iso).execute()
+    async def count_day(table: str, field: str, target_date: date) -> dict[str, Any]:
+        d_start = datetime.combine(target_date, datetime.min.time())
+        d_end = d_start + timedelta(days=1)
+        res = (
+            await admin_client.table(table)
+            .select("id", count=CountMethod.exact)
+            .gte(field, d_start.isoformat())
+            .lt(field, d_end.isoformat())
+            .limit(1)
+            .execute()
+        )
+        return {"date": target_date.isoformat(), "count": res.count or 0}
 
-    user_res, photo_res, report_res = await asyncio.gather(user_task, photo_task, report_task)
+    dates = [start_date + timedelta(days=i) for i in range((end_date - start_date).days + 1)]
 
-    user_rows = user_res.data or []
-    photo_rows = photo_res.data or []
-    report_rows = report_res.data or []
+    user_tasks = [count_day("users", "created_at", d) for d in dates]
+    photo_tasks = [count_day("cat_photos", "uploaded_at", d) for d in dates]
+    report_tasks = [count_day("reports", "created_at", d) for d in dates]
 
+    all_res = await asyncio.gather(*user_tasks, *photo_tasks, *report_tasks)
+
+    n = len(dates)
     return {
-        "users": _build_daily_series(user_rows, "created_at", start_date, end_date),
-        "photos": _build_daily_series(photo_rows, "uploaded_at", start_date, end_date),
-        "reports": _build_daily_series(report_rows, "created_at", start_date, end_date),
+        "users": list(all_res[:n]),
+        "photos": list(all_res[n : 2 * n]),
+        "reports": list(all_res[2 * n :]),
     }
 
 

@@ -18,8 +18,10 @@ vi.mock('vue-i18n', () => ({
   useI18n: (): { t: (key: string) => string } => ({ t: (key: string): string => key }),
 }));
 
+import type * as EnvModule from '@/utils/env';
+
 vi.mock('@/utils/env', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/utils/env')>();
+  const actual = await importOriginal<typeof EnvModule>();
   return {
     ...actual,
     getEnvVar: vi.fn((key: string) => {

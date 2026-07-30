@@ -17,11 +17,11 @@ if TYPE_CHECKING:
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+from supabase import AClient
 
 from app.logger import logger
 from app.utils.datetime_utils import utc_now_iso
 from app.utils.supabase_client import get_async_supabase_admin_client, has_supabase_service_role_key
-from supabase import AClient
 
 
 class TokenService:

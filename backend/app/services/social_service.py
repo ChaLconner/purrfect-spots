@@ -2,12 +2,12 @@ from typing import Any, cast
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+from supabase import AClient
 
 from app.logger import logger, sanitize_log_value
 from app.schemas.notification import NotificationType
 from app.services.notification_service import NotificationService
 from app.utils.exceptions import ExternalServiceError, NotFoundError
-from supabase import AClient
 
 PHOTO_NOT_FOUND = "Photo not found"
 
@@ -28,7 +28,9 @@ class SocialService:
             if self.db:
                 try:
                     # Use SQLAlchemy to call the RPC function
-                    query = text("SELECT liked, likes_count FROM toggle_photo_like(:p_user_id, :p_photo_id)")
+                    query = text(
+                        "SELECT liked, likes_count FROM toggle_photo_like(CAST(:p_user_id AS UUID), CAST(:p_photo_id AS UUID))"
+                    )
                     result = await self.db.execute(query, {"p_user_id": user_id, "p_photo_id": photo_id})
                     row = result.fetchone()
 
@@ -233,7 +235,7 @@ class SocialService:
                     "SELECT c.*, u.name as user_name, u.picture as user_picture, u.is_pro as user_is_pro "
                     "FROM photo_comments c "
                     "LEFT JOIN users u ON c.user_id = u.id "
-                    "WHERE c.photo_id = :p_id "
+                    "WHERE c.photo_id = CAST(:p_id AS UUID) "
                     "ORDER BY c.created_at ASC "
                     "LIMIT :limit"
                 )

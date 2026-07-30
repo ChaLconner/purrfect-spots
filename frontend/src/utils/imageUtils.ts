@@ -24,11 +24,14 @@ const DEFAULT_OPTIONS: ImageOptimizationOptions = {
 
 let imageWorker: Worker | null = null;
 let msgId = 0;
+const WORKER_TIMEOUT_MS = 15_000;
 
 function getWorker(): Worker | null {
   if (typeof window !== 'undefined' && window.Worker) {
     if (!imageWorker) {
-      imageWorker = new Worker('/image-worker.js', { type: 'module' });
+      imageWorker = new Worker(new URL('../workers/image-worker.ts', import.meta.url), {
+        type: 'module',
+      });
     }
     return imageWorker;
   }
@@ -120,10 +123,26 @@ export const optimizeImage = async (
     // Check if OffscreenCanvas is supported and we have a worker instance
     if (worker && typeof OffscreenCanvas !== 'undefined') {
       const currentId = msgId++;
+      let settled = false;
+
+      const cleanup = (): void => {
+        worker.removeEventListener('message', onMessage);
+        worker.removeEventListener('error', onError);
+        clearTimeout(timeoutId);
+      };
+
+      const fallback = (): void => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        optimizeImageMainThread(file, mergedOptions).then(resolve).catch(reject);
+      };
 
       const onMessage = (e: MessageEvent): void => {
         if (e.data.id === currentId) {
-          worker.removeEventListener('message', onMessage);
+          if (settled) return;
+          settled = true;
+          cleanup();
 
           if (e.data.success) {
             const optimizedFile = new File(
@@ -136,13 +155,15 @@ export const optimizeImage = async (
             );
             resolve(optimizedFile);
           } else {
-            // Fallback to main thread if worker fails
             optimizeImageMainThread(file, mergedOptions).then(resolve).catch(reject);
           }
         }
       };
 
+      const onError = (): void => fallback();
+      const timeoutId = window.setTimeout(fallback, WORKER_TIMEOUT_MS);
       worker.addEventListener('message', onMessage);
+      worker.addEventListener('error', onError);
       worker.postMessage({ file, options: mergedOptions, id: currentId });
     } else {
       // Fallback for browsers that don't support workers or OffscreenCanvas
@@ -164,56 +185,74 @@ const optimizeImageMainThread = async (
     const img = new Image();
 
     img.onload = (): void => {
-      // Calculate new dimensions
-      let { width, height } = img;
-      const { maxWidth, maxHeight } = options;
+      try {
+        let { width, height } = img;
+        const { maxWidth, maxHeight } = options;
 
-      if (maxWidth && width > maxWidth) {
-        height = (height * maxWidth) / width;
-        width = maxWidth;
-      }
+        // Resolution safety bound: max 4096px to avoid mobile browser memory OOM
+        const MAX_CANVAS_DIM = 4096;
+        if (width > MAX_CANVAS_DIM || height > MAX_CANVAS_DIM) {
+          const maxDim = Math.max(width, height);
+          width = Math.round((width * MAX_CANVAS_DIM) / maxDim);
+          height = Math.round((height * MAX_CANVAS_DIM) / maxDim);
+        }
 
-      if (maxHeight && height > maxHeight) {
-        width = (width * maxHeight) / height;
-        height = maxHeight;
-      }
+        if (maxWidth && width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
 
-      width = Math.round(width);
-      height = Math.round(height);
+        if (maxHeight && height > maxHeight) {
+          width = (width * maxHeight) / height;
+          height = maxHeight;
+        }
 
-      // Set canvas dimensions
-      canvas.width = width;
-      canvas.height = height;
+        width = Math.round(width);
+        height = Math.round(height);
 
-      // Draw and compress image
-      ctx?.drawImage(img, 0, 0, width, height);
+        canvas.width = width;
+        canvas.height = height;
 
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            reject(new Error('Failed to optimize image'));
-            return;
-          }
+        // Drawing onto canvas strips EXIF metadata (GPS, device serial) for privacy
+        if (!ctx) {
+          throw new Error('Failed to get 2d canvas context');
+        }
+        ctx.drawImage(img, 0, 0, width, height);
 
-          // Create new file with optimized data
-          const optimizedFile = new File(
-            [blob],
-            file.name.replace(/\.[^/.]+$/, '') + `.${options.format}`,
-            {
-              type: `image/${options.format}`,
-              lastModified: Date.now(),
+        canvas.toBlob(
+          (blob) => {
+            URL.revokeObjectURL(objectUrl);
+            if (!blob) {
+              reject(new Error('Failed to optimize image'));
+              return;
             }
-          );
 
-          resolve(optimizedFile);
-        },
-        `image/${options.format}`,
-        (options.quality || 85) / 100
-      );
+            const optimizedFile = new File(
+              [blob],
+              file.name.replace(/\.[^/.]+$/, '') + `.${options.format}`,
+              {
+                type: `image/${options.format}`,
+                lastModified: Date.now(),
+              }
+            );
+
+            resolve(optimizedFile);
+          },
+          `image/${options.format}`,
+          (options.quality || 85) / 100
+        );
+      } catch (err) {
+        URL.revokeObjectURL(objectUrl);
+        reject(err instanceof Error ? err : new Error('Canvas render error'));
+      }
     };
 
-    img.onerror = (): void => reject(new Error('Failed to load image'));
-    img.src = URL.createObjectURL(file);
+    img.onerror = (): void => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Failed to load image file'));
+    };
+    const objectUrl = URL.createObjectURL(file);
+    img.src = objectUrl;
   });
 };
 
@@ -326,27 +365,43 @@ export const getImageDimensions = (file: File): Promise<{ width: number; height:
 };
 
 /**
- * Validate image file
+ * Validate image file with edge case protections
  */
 export const validateImageFile = (
   file: File,
   maxSizeMB: number = 10,
   allowedTypes: string[] = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 ): { valid: boolean; error?: string } => {
-  // Check file type
-  if (!allowedTypes.includes(file.type)) {
+  if (!file) {
     return {
       valid: false,
-      error: `Invalid file type. Allowed types: ${allowedTypes.join(', ')}`,
+      error: 'Invalid file.',
     };
   }
 
-  // Check file size
+  // Edge case: HEIC/HEIF or RAW formats from iPhone/camera
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  if (['heic', 'heif', 'raw', 'cr2', 'nef', 'dng'].includes(ext || '')) {
+    return {
+      valid: false,
+      error: 'HEIC or RAW photo format is not supported directly. Please convert to JPG or PNG before uploading.',
+    };
+  }
+
+  // Check file type
+  if (file.type && !allowedTypes.includes(file.type)) {
+    return {
+      valid: false,
+      error: `Invalid file type. Allowed formats: JPG, PNG, WEBP, GIF`,
+    };
+  }
+
+  // Check file size limit
   const maxSizeBytes = maxSizeMB * 1024 * 1024;
   if (file.size > maxSizeBytes) {
     return {
       valid: false,
-      error: `File too large. Maximum size: ${maxSizeMB}MB`,
+      error: `File too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Maximum allowed size is ${maxSizeMB}MB`,
     };
   }
 

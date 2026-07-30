@@ -267,7 +267,7 @@ router.beforeEach(async (to): Promise<RouteLocationRaw | boolean | void> => {
       !hasAdminPermission(authStore.user, requiredAdminPermission)
     ) {
       const redirectPath = getDefaultAdminPath(authStore.user);
-      if (redirectPath && redirectPath !== to.path) {
+      if (redirectPath && redirectPath !== to.path && redirectPath !== '') {
         return { path: redirectPath };
       }
 

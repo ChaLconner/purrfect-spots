@@ -14,7 +14,9 @@ services:
       - path: ./backend/.env
         required: false
     depends_on:
-      redis:
+      redis-cache:
+        condition: service_healthy
+      redis-ratelimit:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health/live"]
@@ -63,15 +65,38 @@ services:
       - purrfect-network
 
   # ==========================================================================
-  # Redis - Caching & Rate Limiting
+  # Redis - Isolated Data Caching
   # ==========================================================================
-  redis:
+  redis-cache:
     image: redis:7-alpine
-    container_name: purrfect-redis
+    container_name: purrfect-redis-cache
     restart: always
     volumes:
-      - redis-data:/data
+      - redis-cache-data:/data
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - purrfect-network
+
+  # ==========================================================================
+  # Redis - Isolated Rate Limiting
+  # ==========================================================================
+  redis-ratelimit:
+    image: redis:7-alpine
+    container_name: purrfect-redis-ratelimit
+    restart: always
+    volumes:
+      - redis-ratelimit-data:/data
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy volatile-lru
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -90,5 +115,7 @@ networks:
     driver: bridge
 
 volumes:
-  redis-data:
+  redis-cache-data:
+    driver: local
+  redis-ratelimit-data:
     driver: local

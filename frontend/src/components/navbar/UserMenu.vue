@@ -78,19 +78,19 @@ watch(avatarSrc, () => {
 <template>
   <div class="relative user-menu-container">
     <button
-      class="group relative flex items-center justify-center h-10 w-10 p-[0.15rem] bg-btn-shade-e border-2 border-btn-shade-a rounded-full cursor-pointer shrink-0 transition-all duration-[150ms] ease-out hover:bg-btn-shade-d hover:translate-y-[0.1rem] active:translate-y-[0.25rem]"
+      class="group relative w-10 h-10 flex items-center justify-center rounded-full bg-[var(--color-btn-shade-e)] border-2 border-[var(--color-btn-shade-a)] text-[var(--color-btn-shade-a)] shrink-0 cursor-pointer transition-all duration-[150ms] ease-out hover:bg-[var(--color-btn-shade-d)] hover:translate-y-[0.1rem] active:translate-y-[0.25rem]"
       style="transform-style: preserve-3d; will-change: transform"
       :aria-expanded="showUserMenu"
-      aria-label="User menu"
+      :aria-label="$t('accessibility.userMenu')"
       @click="showUserMenu = !showUserMenu"
     >
       <span
-        class="absolute inset-0 bg-btn-shade-c rounded-[inherit] shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.2rem_0_0_var(--color-btn-shade-a)] transition-all duration-[150ms] ease-out -z-10 group-hover:translate-y-[0.15rem] group-active:translate-y-0 group-active:translate-z-[-1em] group-active:shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.1em_0_0_var(--color-btn-shade-b)]"
+        class="absolute inset-0 bg-[var(--color-btn-shade-c)] rounded-[inherit] shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.2rem_0_0_var(--color-btn-shade-a)] transition-all duration-[150ms] ease-out -z-10 group-hover:translate-y-[0.15rem] group-active:translate-y-0 group-active:translate-z-[-1em] group-active:shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.1em_0_0_var(--color-btn-shade-b)]"
         style="transform: translate3d(0, 0.2rem, -1em); will-change: transform"
       ></span>
       <span
         data-testid="user-avatar-fallback"
-        class="absolute inset-[0.15rem] z-10 flex items-center justify-center rounded-full border-2 border-btn-shade-a bg-gradient-to-br from-[#eef5ea] via-[#dbe9d4] to-[#c9ddc4] font-accent text-[0.78rem] font-extrabold leading-none tracking-[-0.04em] text-btn-shade-a shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]"
+        class="absolute inset-0 flex items-center justify-center font-accent font-extrabold text-[0.85rem] text-[var(--color-btn-shade-a)] z-10 select-none"
         aria-hidden="true"
       >
         {{ userInitials }}
@@ -100,7 +100,8 @@ watch(avatarSrc, () => {
         data-testid="user-avatar-image"
         :src="avatarSrc"
         :alt="authStore.user?.name || 'User'"
-        class="relative z-20 w-full h-full rounded-full object-cover border-2 border-btn-shade-a shadow-[0_2px_4px_rgba(106,163,137,0.2)] shrink-0 bg-stone-100 transition-opacity duration-200 ease-out"
+        referrerpolicy="no-referrer"
+        class="relative z-20 w-full h-full rounded-full object-cover shrink-0 bg-stone-100 transition-opacity duration-200 ease-out"
         :class="avatarLoaded ? 'opacity-100' : 'opacity-0'"
         decoding="async"
         @load="handleImageLoad"

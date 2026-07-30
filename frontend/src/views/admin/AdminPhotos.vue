@@ -195,6 +195,32 @@ const saveEdit = async (photo: AdminPhoto): Promise<void> => {
 const deleteConfirmOpen = ref(false);
 const photoToDelete = ref<AdminPhoto | null>(null);
 const previewImage = ref<AdminPhoto | null>(null);
+
+function handleLightboxKeydown(e: KeyboardEvent) {
+  if (!previewImage.value) return;
+  if (e.key === 'Escape') {
+    previewImage.value = null;
+  } else if (e.key === 'ArrowLeft') {
+    const idx = photos.value.findIndex((p) => p.id === previewImage.value?.id);
+    if (idx > 0) {
+      previewImage.value = photos.value[idx - 1];
+    }
+  } else if (e.key === 'ArrowRight') {
+    const idx = photos.value.findIndex((p) => p.id === previewImage.value?.id);
+    if (idx >= 0 && idx < photos.value.length - 1) {
+      previewImage.value = photos.value[idx + 1];
+    }
+  }
+}
+
+watch(previewImage, (val) => {
+  if (val) {
+    window.addEventListener('keydown', handleLightboxKeydown);
+  } else {
+    window.removeEventListener('keydown', handleLightboxKeydown);
+  }
+});
+
 const confirmDelete = (photo: AdminPhoto): void => {
   photoToDelete.value = photo;
   deleteConfirmOpen.value = true;

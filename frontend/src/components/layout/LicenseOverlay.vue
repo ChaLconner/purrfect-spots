@@ -5,7 +5,7 @@
     >
       <span>&copy; 2026 Purrfect Spots</span>
       <span class="opacity-30">|</span>
-      <span>All rights reserved</span>
+      <span>{{ $t('footer.allRightsReserved') }}</span>
     </div>
   </footer>
 </template>

@@ -1,12 +1,15 @@
 import { ref, type Ref } from 'vue';
-import { getEnvVar } from '../utils/env';
-import { getImageDimensions, optimizeImage, validateImageFile } from '../utils/imageUtils';
+import { validateImageFile } from '../utils/imageUtils';
 import { api, ApiError, ApiErrorTypes, uploadFile } from '../utils/api';
+import type { UploadResponse } from '../types/upload';
+
+type UploadPhase = 'idle' | 'uploading' | 'processing';
 
 export function useUploadCat(): {
   isUploading: Ref<boolean>;
   error: Ref<string | null>;
   uploadProgress: Ref<number>;
+  uploadPhase: Ref<UploadPhase>;
   uploadCatPhoto: (
     file: File,
     locationData: {
@@ -15,9 +18,10 @@ export function useUploadCat(): {
       location_name: string;
       description?: string;
       tags?: string[];
+      location_blurred?: boolean;
     },
     catDetectionData?: Record<string, unknown>
-  ) => Promise<unknown | null>;
+  ) => Promise<UploadResponse | null>;
   getUploadQuota: () => Promise<{
     used: number;
     limit: number;
@@ -31,6 +35,7 @@ export function useUploadCat(): {
   const isUploading = ref(false);
   const error = ref<string | null>(null);
   const uploadProgress = ref(0);
+  const uploadPhase = ref<UploadPhase>('idle');
 
   // Get current quota status
   const getUploadQuota = async (): Promise<{
@@ -68,12 +73,14 @@ export function useUploadCat(): {
       location_name: string;
       description?: string;
       tags?: string[];
+      location_blurred?: boolean;
     },
     catDetectionData?: Record<string, unknown>
-  ): Promise<unknown | null> => {
+  ): Promise<UploadResponse | null> => {
     isUploading.value = true;
     error.value = null;
     uploadProgress.value = 0;
+    uploadPhase.value = 'uploading';
 
     try {
       // Validate image file
@@ -83,41 +90,32 @@ export function useUploadCat(): {
         return null;
       }
 
-      // Get image dimensions
-      const dimensions = await getImageDimensions(file);
-      // Log removed for production safety
-
-      // Optimize image before upload
-      const optimizedFile = await optimizeImage(file, {
-        maxWidth: Number.parseInt(getEnvVar('VITE_MAX_IMAGE_WIDTH') || '1920'),
-        maxHeight: Number.parseInt(getEnvVar('VITE_MAX_IMAGE_HEIGHT') || '1080'),
-        quality: Number.parseInt(getEnvVar('VITE_IMAGE_QUALITY') || '85'),
-        format: 'jpeg',
-      });
-
-      // Log removed for production safety
-
       // Prepare additional data
       const additionalData = {
         ...locationData,
         tags: locationData.tags ? JSON.stringify(locationData.tags) : undefined,
-        cat_detection_data: catDetectionData ? JSON.stringify(catDetectionData) : undefined,
-        original_filename: file.name,
-        original_size: file.size,
-        optimized_size: optimizedFile.size,
-        original_dimensions: JSON.stringify(dimensions),
+        verification_token:
+          typeof catDetectionData?.verification_token === 'string'
+            ? catDetectionData.verification_token
+            : undefined,
       };
 
       // Upload file with progress tracking
-      const result = await uploadFile(
+      const idempotencyKey =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const result = await uploadFile<UploadResponse>(
         '/api/v1/upload/cat',
-        optimizedFile,
+        file,
         additionalData,
         (progressEvent) => {
           if (progressEvent.lengthComputable && progressEvent.total) {
             uploadProgress.value = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            if (uploadProgress.value >= 100) uploadPhase.value = 'processing';
           }
-        }
+        },
+        { idempotencyKey, retryConfig: { maxRetries: 0 } }
       );
 
       return result;
@@ -153,6 +151,7 @@ export function useUploadCat(): {
       return null;
     } finally {
       isUploading.value = false;
+      uploadPhase.value = 'idle';
     }
   };
 
@@ -161,12 +160,14 @@ export function useUploadCat(): {
     isUploading.value = false;
     error.value = null;
     uploadProgress.value = 0;
+    uploadPhase.value = 'idle';
   };
 
   return {
     isUploading,
     error,
     uploadProgress,
+    uploadPhase,
     uploadCatPhoto,
     getUploadQuota,
     resetState,

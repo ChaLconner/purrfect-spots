@@ -8,7 +8,6 @@
 // Loading States
 export { default as GhibliLoader } from './GhibliLoader.vue';
 export { default as SkeletonLoader } from './SkeletonLoader.vue';
-export { default as CardSkeleton } from './CardSkeleton.vue';
 
 // Error Handling
 export { default as ErrorBoundary } from './ErrorBoundary.vue';

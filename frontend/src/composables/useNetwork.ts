@@ -1,4 +1,4 @@
-import { ref, onMounted, onUnmounted, readonly, type DeepReadonly, type Ref } from 'vue';
+import { ref, onMounted, onUnmounted, getCurrentInstance, readonly, type DeepReadonly, type Ref } from 'vue';
 
 export interface UseNetworkReturn {
   isOnline: DeepReadonly<Ref<boolean>>;
@@ -18,15 +18,17 @@ export function useNetwork(): UseNetworkReturn {
     }
   }
 
-  onMounted(() => {
-    globalThis.addEventListener('online', updateOnlineStatus);
-    globalThis.addEventListener('offline', updateOnlineStatus);
-  });
+  if (getCurrentInstance()) {
+    onMounted(() => {
+      globalThis.addEventListener('online', updateOnlineStatus);
+      globalThis.addEventListener('offline', updateOnlineStatus);
+    });
 
-  onUnmounted(() => {
-    globalThis.removeEventListener('online', updateOnlineStatus);
-    globalThis.removeEventListener('offline', updateOnlineStatus);
-  });
+    onUnmounted(() => {
+      globalThis.removeEventListener('online', updateOnlineStatus);
+      globalThis.removeEventListener('offline', updateOnlineStatus);
+    });
+  }
 
   return {
     isOnline: readonly(isOnline),

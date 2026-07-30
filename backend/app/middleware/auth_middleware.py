@@ -11,6 +11,7 @@ import jwt
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt.algorithms import RSAAlgorithm
+from supabase import AClient
 
 from app.config import config, normalize_single_line_env
 from app.constants.admin_permissions import has_admin_access, normalize_permission_code, normalize_permissions
@@ -26,7 +27,6 @@ from app.utils.security_alerts import (
 from app.utils.supabase_client import (
     get_async_supabase_client,
 )
-from supabase import AClient
 
 security = HTTPBearer(auto_error=False)
 USER_AUTH_CACHE_TTL = 300

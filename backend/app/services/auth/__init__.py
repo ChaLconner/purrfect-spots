@@ -1,1 +1,3 @@
-# services/auth/__init__.py
+"""
+Auth service mixins package
+"""

@@ -72,9 +72,11 @@ class UserResponse(BaseModel):
     """
     Public-facing user representation.
 
-    SEC-04: role_id and permissions are intentionally omitted to avoid
-    exposing the internal RBAC structure to clients. Those values are
-    embedded in the JWT claims used server-side only.
+    SEC-04: role_id is intentionally omitted to avoid exposing the
+    internal RBAC structure to clients.  The ``permissions`` list IS
+    included because the frontend admin panel reads it to gate UI
+    access (no JWT decode on the client side).  Server-side
+    authorization still relies exclusively on JWT claims.
     """
 
     id: str

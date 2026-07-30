@@ -17,7 +17,7 @@ const SITE_NAME = 'Purrfect Spots';
 const DEFAULT_TITLE = `Home | ${SITE_NAME}`;
 const DEFAULT_DESCRIPTION =
   'Discover and share adorable cat photos from around the world. Find cat-friendly spots near you.';
-const DEFAULT_IMAGE = '/og-image.png';
+const DEFAULT_IMAGE = '/logo.webp';
 
 export interface UseSeoReturn {
   setMetaTags: (options: MetaTagOptions) => void;

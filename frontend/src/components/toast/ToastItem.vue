@@ -64,14 +64,15 @@ const styles = computed(() => {
 
 <template>
   <div
-    class="pointer-events-auto w-full max-w-sm rounded-[1.5rem] shadow-xl overflow-hidden transition-all duration-500 cubic-bezier(0.68, -0.55, 0.265, 1.55)"
+    class="pointer-events-auto w-full max-w-sm rounded-[1.5rem] shadow-xl overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.68,-0.55,0.265,1.55)]"
     :class="[
       styles.wrapper,
       isVisible
         ? 'translate-x-0 opacity-100 mb-4 scale-100'
         : 'translate-x-full opacity-0 mb-0 scale-90',
     ]"
-    role="alert"
+    :role="toast.type === 'error' ? 'alert' : 'status'"
+    :aria-live="toast.type === 'error' ? 'assertive' : 'polite'"
   >
     <div class="p-4 flex items-center relative overflow-hidden">
       <!-- Background Texture Overlay -->
@@ -124,11 +125,17 @@ const styles = computed(() => {
 
         <!-- Close Button -->
         <button
-          class="inline-flex rounded-full bg-transparent p-1 text-brown/50 hover:text-brown hover:bg-black/5 focus:outline-none transition-all"
+          class="inline-flex rounded-full bg-transparent p-1 text-brown/50 hover:text-brown hover:bg-black/5 focus:outline-none focus:ring-2 focus:ring-sage transition-all"
           @click="close"
         >
           <span class="sr-only">Close</span>
-          <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" />
+          <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path
+              fill-rule="evenodd"
+              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+              clip-rule="evenodd"
+            />
+          </svg>
         </button>
       </div>
     </div>

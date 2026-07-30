@@ -1,4 +1,4 @@
-import { ref, onUnmounted, type Ref } from 'vue';
+import { ref, onUnmounted, getCurrentInstance, type Ref } from 'vue';
 
 export interface Coordinates {
   lat: number;
@@ -156,9 +156,11 @@ export function useGeolocation(): UseGeolocationReturn {
   };
 
   // Auto-cleanup on unmount if used inside a component setup
-  onUnmounted(() => {
-    stopWatchingPosition();
-  });
+  if (getCurrentInstance()) {
+    onUnmounted(() => {
+      stopWatchingPosition();
+    });
+  }
 
   return {
     userLocation,

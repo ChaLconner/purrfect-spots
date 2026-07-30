@@ -1,6 +1,6 @@
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.config import config
 from app.dependencies import get_current_token, get_treats_service
@@ -89,9 +89,11 @@ async def get_treat_packages(
 async def get_leaderboard(
     treats_service: Annotated[TreatsService, Depends(get_treats_service)],
     period: str = "all_time",
+    limit: int = Query(50, ge=1, le=100, description="Number of items to return"),
+    offset: int = Query(0, ge=0, description="Number of items to skip"),
 ) -> list[LeaderboardEntry]:
-    """Get top treat receivers."""
+    """Get top treat receivers with pagination."""
     if period not in ["weekly", "monthly", "all_time"]:
         raise HTTPException(status_code=400, detail="Invalid period")
-    results = await treats_service.get_leaderboard(period)
+    results = await treats_service.get_leaderboard(period, limit=limit, offset=offset)
     return [LeaderboardEntry(**entry) if isinstance(entry, dict) else entry for entry in results]

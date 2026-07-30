@@ -5,6 +5,7 @@ import { nextTick, reactive } from 'vue';
 
 
 const mockGetNotifications = vi.fn();
+const mockGetUnreadCount = vi.fn();
 const mockMarkAsRead = vi.fn();
 const mockMarkAllAsRead = vi.fn();
 const mockGetPublicProfile = vi.fn();
@@ -20,6 +21,7 @@ const mockAuthState = reactive<{
 vi.mock('@/services/notificationService', () => ({
   NotificationService: {
     getNotifications: (...args: any[]): Promise<any> => mockGetNotifications(...args),
+    getUnreadCount: (...args: any[]): Promise<any> => mockGetUnreadCount(...args),
     markAsRead: (...args: any[]): Promise<any> => mockMarkAsRead(...args),
     markAllAsRead: (...args: any[]): Promise<any> => mockMarkAllAsRead(...args),
   },
@@ -245,7 +247,7 @@ describe('notificationStore', () => {
   });
 
   describe('unreadCount', () => {
-    it('counts unread notifications', async () => {
+    it('counts unread notifications from loaded list when server count is null', async () => {
       mockGetNotifications.mockResolvedValue([
         { id: '1', is_read: false },
         { id: '2', is_read: true },
@@ -256,6 +258,14 @@ describe('notificationStore', () => {
       await store.fetchNotifications();
 
       expect(store.unreadCount).toBe(2);
+    });
+
+    it('uses serverUnreadCount when available', async () => {
+      mockGetUnreadCount.mockResolvedValue(10);
+      const store = useNotificationStore();
+      await store.fetchUnreadCount();
+
+      expect(store.unreadCount).toBe(10);
     });
   });
 });

@@ -196,6 +196,7 @@ const createApiInstance = (): AxiosInstance => {
       const method = config.method?.toUpperCase();
       const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
       if (method && !safeMethods.includes(method)) {
+        config.headers['X-Requested-With'] = 'XMLHttpRequest';
         const csrfToken = getCsrfToken();
         if (csrfToken) {
           config.headers['X-CSRF-Token'] = csrfToken;
@@ -268,17 +269,22 @@ const createApiInstance = (): AxiosInstance => {
           const validationMessage = (data as { detail?: string })?.detail || 'Invalid data';
           throw new ApiError(ApiErrorTypes.VALIDATION_ERROR, validationMessage, status, error);
         },
+        429: () => {
+          const retryAfter = error.response?.headers?.['retry-after'];
+          const seconds = retryAfter ? parseInt(String(retryAfter), 10) : 60;
+          const msg = `Rate limit exceeded. Please wait ${seconds} seconds before retrying.`;
+          throw new ApiError(ApiErrorTypes.SERVER_ERROR, msg, status, error);
+        },
       };
 
       if (status === 401) {
         // Don't try to refresh if the failing request IS the refresh-token call (or other auth endpoints)
-        const requestUrl = error.config?.url || '';
-        const isAuthEndpoint = AUTH_ENDPOINTS.some(
-          (ep) =>
-            requestUrl.toLowerCase().endsWith(ep.toLowerCase()) ||
-            requestUrl.toLowerCase().includes(`${ep.toLowerCase()}/`) ||
-            requestUrl.toLowerCase().includes(`${ep.toLowerCase()}?`)
-        );
+        const rawUrl = error.config?.url || '';
+        const cleanUrl = rawUrl.split('?')[0].toLowerCase();
+        const isAuthEndpoint = AUTH_ENDPOINTS.some((ep) => {
+          const lowerEp = ep.toLowerCase();
+          return cleanUrl === lowerEp || cleanUrl.endsWith(lowerEp) || cleanUrl.endsWith(`/api/v1${lowerEp}`);
+        });
 
         if (!isAuthEndpoint) {
           return handleUnauthorizedError(error, status);
@@ -317,6 +323,9 @@ interface RetryableRequestConfig extends AxiosRequestConfig {
   __is_refreshing?: boolean;
 }
 
+let isRefreshingToken = false;
+let refreshPromise: Promise<boolean> | null = null;
+
 // Handle 401 errors (Token Expiry)
 async function handleUnauthorizedError(error: AxiosError, status: number): Promise<unknown> {
   const originalRequest = error.config as RetryableRequestConfig;
@@ -334,7 +343,14 @@ async function handleUnauthorizedError(error: AxiosError, status: number): Promi
 
   try {
     if (refreshTokenCallback) {
-      const refreshed = await refreshTokenCallback();
+      if (!isRefreshingToken) {
+        isRefreshingToken = true;
+        refreshPromise = refreshTokenCallback().finally(() => {
+          isRefreshingToken = false;
+          refreshPromise = null;
+        });
+      }
+      const refreshed = await refreshPromise;
       if (refreshed) {
         // Retry original request with new token
         if (currentAccessToken && originalRequest.headers) {
@@ -366,6 +382,12 @@ interface RetryConfig {
   baseDelayMs: number;
   maxDelayMs: number;
   retryableStatuses: number[];
+}
+
+export interface UploadFileOptions {
+  signal?: AbortSignal;
+  idempotencyKey?: string;
+  retryConfig?: Partial<RetryConfig>;
 }
 
 const DEFAULT_RETRY_CONFIG: RetryConfig = {
@@ -484,7 +506,8 @@ export const uploadFile = async <T = unknown>(
   endpoint: string,
   file: File,
   additionalData?: Record<string, unknown>,
-  onUploadProgress?: (progressEvent: AxiosProgressEvent) => void
+  onUploadProgress?: (progressEvent: AxiosProgressEvent) => void,
+  options: UploadFileOptions = {}
 ): Promise<T> => {
   const formData = new FormData();
   formData.append('file', file);
@@ -500,14 +523,19 @@ export const uploadFile = async <T = unknown>(
     });
   }
 
-  return apiRequest<T>(endpoint, {
-    method: 'POST',
-    data: formData,
-    headers: {
-      'Content-Type': 'multipart/form-data',
+  return apiRequest<T>(
+    endpoint,
+    {
+      method: 'POST',
+      data: formData,
+      onUploadProgress,
+      signal: options.signal,
+      headers: options.idempotencyKey
+        ? { 'Idempotency-Key': options.idempotencyKey }
+        : undefined,
     },
-    onUploadProgress,
-  });
+    options.retryConfig ?? { maxRetries: 0 }
+  );
 };
 
 export const apiV1 = {

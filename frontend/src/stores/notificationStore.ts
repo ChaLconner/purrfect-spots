@@ -8,7 +8,14 @@ import { ProfileService } from '@/services/profileService';
 
 export const useNotificationStore = defineStore('notifications', () => {
   const notifications = ref<Notification[]>([]);
-  const unreadCount = computed(() => notifications.value.filter((n) => !n.is_read).length);
+  const serverUnreadCount = ref<number | null>(null);
+  const unreadCount = computed(() => {
+    if (serverUnreadCount.value !== null) {
+      return serverUnreadCount.value;
+    }
+    return notifications.value.filter((n) => !n.is_read).length;
+  });
+
   const authStore = useAuthStore();
   let subscription: RealtimeChannel | null = null;
   const actorCache = new Map<string, { name?: string; picture?: string }>();
@@ -21,10 +28,23 @@ export const useNotificationStore = defineStore('notifications', () => {
 
   function resetState(): void {
     notifications.value = [];
+    serverUnreadCount.value = null;
     isLoadingMore.value = false;
     isLoaded.value = false;
     hasMore.value = true;
     unsubscribe();
+  }
+
+  async function fetchUnreadCount(): Promise<void> {
+    if (!authStore.isAuthenticated) return;
+    try {
+      const count = await NotificationService.getUnreadCount();
+      if (typeof count === 'number') {
+        serverUnreadCount.value = count;
+      }
+    } catch (e) {
+      console.error('Failed to fetch unread notification count', e);
+    }
   }
 
   async function fetchNotifications(silent = false): Promise<void> {
@@ -76,7 +96,16 @@ export const useNotificationStore = defineStore('notifications', () => {
     try {
       await NotificationService.markAsRead(id);
       const n = notifications.value.find((x) => x.id === id);
-      if (n) n.is_read = true;
+      if (n) {
+        if (!n.is_read) {
+          n.is_read = true;
+          if (serverUnreadCount.value !== null && serverUnreadCount.value > 0) {
+            serverUnreadCount.value--;
+          }
+        }
+      } else if (serverUnreadCount.value !== null && serverUnreadCount.value > 0) {
+        serverUnreadCount.value--;
+      }
     } catch (e) {
       console.error(e);
     }
@@ -88,6 +117,7 @@ export const useNotificationStore = defineStore('notifications', () => {
       notifications.value.forEach((n) => {
         n.is_read = true;
       });
+      serverUnreadCount.value = 0;
     } catch (e) {
       console.error(e);
     }
@@ -109,6 +139,10 @@ export const useNotificationStore = defineStore('notifications', () => {
         },
         async (payload: { new: Notification }): Promise<void> => {
           const newNotification = payload.new as Notification;
+
+          if (serverUnreadCount.value !== null) {
+            serverUnreadCount.value++;
+          }
 
           // Fetch actor details if available
           if (newNotification.actor_id) {
@@ -155,16 +189,22 @@ export const useNotificationStore = defineStore('notifications', () => {
       if (oldUserId && newUserId !== oldUserId) {
         resetState();
       }
-    }
+
+      void fetchUnreadCount();
+      subscribeToNotifications();
+    },
+    { immediate: true }
   );
 
   return {
     notifications,
+    serverUnreadCount,
     unreadCount,
     isLoadingMore,
     isLoaded,
     hasMore,
     resetState,
+    fetchUnreadCount,
     fetchNotifications,
     fetchMoreNotifications,
     markRead,

@@ -1,7 +1,5 @@
 # Purrfect Spots Coding Standards
 
-> **Note:** For concrete code examples and patterns related to these standards, please refer to [BEST_PRACTICES.md](./BEST_PRACTICES.md).
-
 ## 1. Core Principles
 
 - **Strict Typing**: No `any` (unless documented/3rd-party).

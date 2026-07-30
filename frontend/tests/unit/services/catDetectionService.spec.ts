@@ -16,7 +16,13 @@ describe('CatDetectionService', () => {
     vi.mocked(uploadFile).mockResolvedValue({ is_cat: true } as any);
 
     const res = await catDetectionService.detectCats(file);
-    expect(uploadFile).toHaveBeenCalledWith('/api/v1/detect/cats', file);
+    expect(uploadFile).toHaveBeenCalledWith(
+      '/api/v1/detect/cats',
+      file,
+      undefined,
+      undefined,
+      { signal: undefined, retryConfig: { maxRetries: 0 } }
+    );
     expect(res).toEqual({ is_cat: true });
   });
 

@@ -203,14 +203,18 @@ async def update_setting(
             .execute()
         )
 
-        # Log to Detailed Config History
+        # Log to Detailed Config History (sanitize encrypted secrets)
+        is_secret = setting.get("is_encrypted", False)
+        history_old = "[ENCRYPTED_SECRET]" if is_secret else old_value_for_history
+        history_new = "[ENCRYPTED_SECRET]" if is_secret else value_to_store
+
         await (
             admin_client.table("config_history")
             .insert(
                 {
                     "config_key": key,
-                    "old_value": old_value_for_history,
-                    "new_value": value_to_store,
+                    "old_value": history_old,
+                    "new_value": history_new,
                     "changed_by": current_admin.id,
                     "change_reason": "Direct administrative update",
                 }

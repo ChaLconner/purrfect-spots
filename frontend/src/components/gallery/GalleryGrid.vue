@@ -47,29 +47,6 @@
                   </div>
                 </div>
 
-                <!-- Treat Button Overlay -->
-                <div
-                  class="absolute bottom-2 right-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity z-20"
-                  role="group"
-                >
-                  <button
-                    class="treat-item-btn group absolute bottom-2 right-2 bg-transparent border-none cursor-pointer p-0 transition-all z-20"
-                    :title="t('galleryPage.modal.giveTreats')"
-                    :aria-label="t('galleryPage.aria.giveTreat')"
-                    @click.stop="handleGiveTreat(image)"
-                  >
-                    <div
-                      class="treat-btn-inner transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] drop-shadow-md group-hover:-translate-y-0.5 group-hover:scale-110 group-active:scale-95"
-                    >
-                      <img
-                        src="/give-treat.webp"
-                        :alt="t('profile.treats')"
-                        class="w-12 h-12 object-contain"
-                      />
-                    </div>
-                  </button>
-                </div>
-
                 <!-- Actual Image with native lazy loading -->
                 <div
                   class="image-wrapper relative rounded overflow-hidden w-full h-full block shadow-none transition-shadow duration-300 ease-in-out"
@@ -114,9 +91,6 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller';
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
-import { useSubscriptionStore } from '@/stores/subscriptionStore';
-import { useToastStore } from '@/stores';
-import { useAuthStore } from '@/stores/authStore';
 import { IMAGE_CONFIG, GALLERY_CONFIG } from '@/utils/constants';
 import type { CatLocation } from '@/generated/api';
 import { useI18n } from 'vue-i18n';
@@ -230,42 +204,6 @@ function handleImageError(id: string, event: Event): void {
   // Clear shimmer on error
 
   loadedImages.value[id] = true;
-}
-
-// Treats
-async function handleGiveTreat(image: CatLocation): Promise<void> {
-  const authStore = useAuthStore();
-  const toastStore = useToastStore();
-
-  if (!authStore.isAuthenticated) {
-    toastStore.addToast({
-      title: t('auth.signInRequired'),
-      message: t('galleryPage.modal.signInToTreat'),
-      type: 'warning',
-    });
-    return;
-  }
-
-  const subscriptionStore = useSubscriptionStore();
-  try {
-    await subscriptionStore.giveTreat(image.id, 1);
-    toastStore.addToast({
-      title: t('profile.treatGiven'),
-      message: t('galleryPage.modal.treatsGiven', { amount: 1 }),
-      type: 'success',
-    });
-  } catch (e: unknown) {
-    const msg =
-      e instanceof Error
-        ? e.message
-        : (e as { response?: { data?: { detail?: string } } }).response?.data?.detail ||
-          'Failed to give treat';
-    toastStore.addToast({
-      title: t('galleryPage.modal.treatFailed'),
-      message: msg,
-      type: 'error',
-    });
-  }
 }
 
 // Infinite Scroll Observer

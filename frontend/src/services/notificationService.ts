@@ -20,6 +20,11 @@ export const NotificationService = {
     return apiV1.get('/notifications', { params: { limit, offset } });
   },
 
+  async getUnreadCount(): Promise<number> {
+    const res = await apiV1.get<{ unread_count: number }>('/notifications/unread-count');
+    return res.unread_count;
+  },
+
   async markAsRead(id: string): Promise<void> {
     return apiV1.put(`/notifications/${id}/read`);
   },

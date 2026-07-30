@@ -58,10 +58,7 @@ describe('ProfileService', () => {
 
     expect(apiV1.post).toHaveBeenCalledWith(
       '/profile/picture',
-      expect.any(FormData),
-      expect.objectContaining({
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
+      expect.any(FormData)
     );
     expect(result).toBe('url-to-pic');
   });

@@ -2,10 +2,10 @@ from typing import Any, cast
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+from supabase import AClient
 
 from app.logger import logger
 from app.utils.db_security import escape_like_pattern, sanitize_search_input
-from supabase import AClient
 
 _fulltext_available_cache: bool | None = None
 

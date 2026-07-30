@@ -53,8 +53,33 @@ async def test_create_notification_invalid_uuid(notification_service):
 
 
 async def test_mark_as_read(notification_service):
-    await notification_service.mark_as_read(_USER_1, _NOTIF_1)
+    notification_service.supabase.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        data=[{"id": _NOTIF_1}]
+    )
+    res = await notification_service.mark_as_read(_USER_1, _NOTIF_1)
+    assert res is True
     notification_service.supabase.table.return_value.update.assert_called_with({"is_read": True})
+
+
+async def test_mark_as_read_invalid_uuid(notification_service):
+    res = await notification_service.mark_as_read(_USER_1, "not-a-uuid")
+    assert res is False
+
+
+async def test_get_unread_count(notification_service):
+    from unittest.mock import AsyncMock
+
+    mock_select = MagicMock()
+    mock_select.select.return_value.eq.return_value.eq.return_value.execute = AsyncMock(return_value=MagicMock(count=5))
+    notification_service.supabase.table.return_value = mock_select
+
+    count = await notification_service.get_unread_count(_USER_1)
+    assert count == 5
+
+
+async def test_get_unread_count_invalid_uuid(notification_service):
+    count = await notification_service.get_unread_count("not-a-uuid")
+    assert count == 0
 
 
 async def test_cleanup_old_notifications(notification_service):

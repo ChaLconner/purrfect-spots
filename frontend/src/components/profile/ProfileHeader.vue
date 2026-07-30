@@ -71,6 +71,7 @@ const formatLocalDate = (dateString?: string | null): string => {
         <img
           :src="picture || getAvatarFallback(name)"
           :alt="name || t('profile.unknownUser')"
+          referrerpolicy="no-referrer"
           class="w-24 h-24 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-40 lg:h-40 rounded-full object-cover border-4 shadow-md relative z-10 bg-stone-100 transition-all duration-300 group-hover:scale-[1.02]"
           :class="isPro ? 'border-orange-100' : 'border-white'"
           @error="handleAvatarError($event, name)"

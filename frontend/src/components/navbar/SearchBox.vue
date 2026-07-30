@@ -74,7 +74,7 @@ const clearSearch = (): void => {
     <input
       v-model="searchQuery"
       type="text"
-      placeholder="Find a spot..."
+      :placeholder="$t('galleryPage.searchPlaceholder')"
       class="border-none bg-transparent outline-none font-accent text-[0.8rem] sm:text-[0.9rem] font-medium text-btn-shade-a flex-1 py-1 min-w-0 placeholder-btn-shade-b placeholder:italic placeholder:opacity-100"
       autocomplete="off"
       @keyup.enter="handleSearch"
@@ -83,7 +83,7 @@ const clearSearch = (): void => {
       v-if="searchQuery"
       class="group relative w-8 h-8 rounded-full border-2 cursor-pointer flex items-center justify-center transition-all duration-[175ms] ease-[cubic-bezier(0,0,1,1)] shrink-0 active:translate-y-[0.2em] hover:translate-y-[0.1em] bg-[#ffcccc] border-[#dc4a4a] text-[#dc4a4a] hover:bg-[#ffbbbb]"
       style="transform-style: preserve-3d"
-      aria-label="Clear search"
+      :aria-label="$t('accessibility.clearSearch')"
       @click="clearSearch"
     >
       <span
@@ -110,7 +110,7 @@ const clearSearch = (): void => {
       v-else
       class="group relative w-8 h-8 rounded-full border-2 cursor-pointer flex items-center justify-center transition-all duration-[175ms] ease-[cubic-bezier(0,0,1,1)] shrink-0 active:translate-y-[0.2em] hover:translate-y-[0.1em] bg-btn-shade-d border-btn-shade-a hover:bg-[var(--color-btn-shade-c)]"
       style="transform-style: preserve-3d"
-      aria-label="Search"
+      :aria-label="$t('accessibility.search')"
       @click="handleSearch"
     >
       <span

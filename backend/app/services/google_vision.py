@@ -12,35 +12,12 @@ from app.logger import logger
 from app.utils.supabase_client import get_async_supabase_admin_client
 
 try:
-    from unittest.mock import MagicMock, patch
-
     import google.cloud.vision as vision
 
     VISION_AVAILABLE = True
 except ImportError:
-    from unittest.mock import MagicMock, patch
-
     VISION_AVAILABLE = False
     vision: Any = None  # type: ignore
-    mock_instrumentor: Any = None
-
-
-class SafeMagicMock(MagicMock):
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        return super().__call__(*args, **kwargs)
-
-    @classmethod
-    def from_service_account_info(cls, info: Any) -> "SafeMagicMock":
-        """Mock method for Google Vision client initialization."""
-        return cls()
-
-    @classmethod
-    def from_service_account_json(cls, path: Any) -> "SafeMagicMock":
-        """Mock method for Google Vision client initialization from JSON file."""
-        return cls()
 
 
 class GoogleVisionService:
@@ -68,13 +45,11 @@ class GoogleVisionService:
             if service_account_json:
                 try:
                     service_account_info = json.loads(service_account_json)
-                    # nosemgrep: python.lang.security.audit.dangerous-test-usage.dangerous-test-usage
-                    patch("google.cloud.vision.ImageAnnotatorClient", new=SafeMagicMock).start()
                     self.client = vision.ImageAnnotatorClient.from_service_account_info(service_account_info)
                     self.is_initialized = True
                     logger.info("Google Vision client initialized from GOOGLE_VISION_SERVICE_ACCOUNT")
                     return
-                except (ValueError, TypeError) as env_error:
+                except (ValueError, TypeError, KeyError) as env_error:
                     logger.error(f"Failed to initialize from environment variable: {env_error!s}")
 
             # 2. Try Key File Path

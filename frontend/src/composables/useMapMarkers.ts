@@ -1,5 +1,5 @@
 /// <reference types="google.maps" />
-import { shallowRef, watch, type Ref, onUnmounted, type ShallowRef } from 'vue';
+import { shallowRef, watch, type Ref, onUnmounted, getCurrentInstance, type ShallowRef } from 'vue';
 import type { CatLocation } from '../types/api';
 import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markerclusterer';
 
@@ -271,13 +271,15 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
     }
   };
 
-  onUnmounted(() => {
-    clearMarkers();
-    if (clusterer.value) {
-      clusterer.value.clearMarkers();
-      clusterer.value = null;
-    }
-  });
+  if (getCurrentInstance()) {
+    onUnmounted(() => {
+      clearMarkers();
+      if (clusterer.value) {
+        clusterer.value.clearMarkers();
+        clusterer.value = null;
+      }
+    });
+  }
 
   return {
     markers,

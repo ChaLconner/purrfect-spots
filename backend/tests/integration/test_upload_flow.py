@@ -151,13 +151,15 @@ class TestUploadFlowIntegration:
         # Mock quota service
         mock_quota_service = MagicMock()
         mock_quota_service.check_and_increment = AsyncMock(return_value=True)
+        mock_quota_service.check_quota = AsyncMock(return_value=True)
+        mock_quota_service.increment_usage = AsyncMock(return_value=True)
 
         app.dependency_overrides[get_async_supabase_client] = lambda: mock_client
         app.dependency_overrides[get_cat_detection_service] = lambda: mock_detection_service
         app.dependency_overrides[get_storage_service] = lambda: mock_storage_service
         app.dependency_overrides[get_quota_service] = lambda: mock_quota_service
         app.dependency_overrides[get_current_user] = lambda: MagicMock(
-            id=self.TEST_USER_ID, user_id=self.TEST_USER_ID, email=self.TEST_EMAIL
+            id=self.TEST_USER_ID, user_id=self.TEST_USER_ID, email=self.TEST_EMAIL, is_pro=False
         )
 
         with (

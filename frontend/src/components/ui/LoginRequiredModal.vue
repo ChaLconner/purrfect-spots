@@ -33,11 +33,10 @@ const handleLogin = (): void => {
     </div>
 
     <div class="mt-8 text-center space-y-4 font-body">
-      <h3 class="text-2xl font-heading font-bold text-brown">Login Required</h3>
+      <h3 class="text-2xl font-heading font-bold text-brown">{{ $t('ui.loginRequired.title') }}</h3>
 
       <p class="text-brown-light leading-relaxed">
-        Join our community to share your purrfect discoveries! You need to be logged in to upload
-        spots.
+        {{ $t('ui.loginRequired.message') }}
       </p>
 
       <div class="pt-4 space-y-3">
@@ -45,14 +44,14 @@ const handleLogin = (): void => {
           class="w-full py-3 bg-terracotta text-white font-heading font-bold rounded-xl shadow-lg hover:bg-terracotta-dark transition-all duration-300 cursor-pointer"
           @click="handleLogin"
         >
-          Log In Now
+          {{ $t('ui.loginRequired.action') }}
         </button>
 
         <button
           class="w-full py-3 bg-sand-100 text-sand-600 font-heading font-bold rounded-xl hover:bg-sand-200 transition-all duration-300 cursor-pointer"
           @click="close"
         >
-          Maybe Later
+          {{ $t('common.cancel') }}
         </button>
       </div>
     </div>

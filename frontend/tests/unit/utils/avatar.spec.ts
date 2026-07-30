@@ -43,12 +43,21 @@ describe('avatar utilities', () => {
     expect(image.src).toBe(getAvatarFallback('Milo Cat'));
   });
 
-  it('keeps trusted avatar URLs unchanged after an image error', () => {
+  it('replaces a failed trusted avatar URL with a fallback image', () => {
     const image = document.createElement('img');
     image.src = 'https://avatars.githubusercontent.com/u/1';
 
     handleAvatarError({ target: image } as unknown as Event, 'Milo Cat');
 
-    expect(image.src).toBe('https://avatars.githubusercontent.com/u/1');
+    expect(image.src).toBe(getAvatarFallback('Milo Cat'));
+  });
+
+  it('falls back to local cat icon if ui-avatars fallback also fails', () => {
+    const image = document.createElement('img');
+    image.src = getAvatarFallback('Milo Cat');
+
+    handleAvatarError({ target: image } as unknown as Event, 'Milo Cat');
+
+    expect(image.src).toContain('/cat-icon.webp');
   });
 });

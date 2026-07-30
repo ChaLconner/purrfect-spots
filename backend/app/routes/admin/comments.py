@@ -74,21 +74,22 @@ async def list_all_comments(
             if not user_ids:
                 return {}
 
-            # Resolve only the per-page metadata the frontend currently renders.
-            # Avoid heavy user-level report fan-out queries on every admin comments page load.
-            tasks = [admin_client.table("users").select("id, email, banned_at").in_("id", user_ids).execute()]
-
+            # Chunk user_ids in batches of 50 to prevent query string limits
+            user_map = {}
             import asyncio
 
+            chunk_size = 50
+            chunks = [user_ids[i : i + chunk_size] for i in range(0, len(user_ids), chunk_size)]
+            tasks = [
+                admin_client.table("users").select("id, email, banned_at").in_("id", chunk).execute()
+                for chunk in chunks
+            ]
             responses = await asyncio.gather(*tasks, return_exceptions=True)
-
-            # Process responses safely
-            user_map = {}
-            res0 = responses[0]
-            if not isinstance(res0, BaseException) and hasattr(res0, "data"):
-                res0_data = cast(list[dict[str, Any]], res0.data)
-                user_map = {u["id"]: u for u in res0_data}
-
+            for res in responses:
+                if not isinstance(res, BaseException) and hasattr(res, "data"):
+                    res_data = cast(list[dict[str, Any]], res.data)
+                    for u in res_data:
+                        user_map[u["id"]] = u
             return user_map
 
         user_map = await fetch_additional_data()

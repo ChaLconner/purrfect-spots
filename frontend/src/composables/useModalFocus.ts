@@ -1,4 +1,4 @@
-import { ref, onMounted, onUnmounted, nextTick, type Ref } from 'vue';
+import { ref, onMounted, onUnmounted, getCurrentInstance, nextTick, type Ref } from 'vue';
 
 export function useModalFocus(
   modalContainer: Ref<HTMLElement | null>,
@@ -47,25 +47,27 @@ export function useModalFocus(
     }
   };
 
-  onMounted(() => {
-    previousFocus.value = document.activeElement as HTMLElement;
-    if (options.lockScroll !== false) {
-      document.body.style.overflow = 'hidden';
-    }
+  if (getCurrentInstance()) {
+    onMounted(() => {
+      previousFocus.value = document.activeElement as HTMLElement;
+      if (options.lockScroll !== false) {
+        document.body.style.overflow = 'hidden';
+      }
 
-    nextTick(() => {
-      modalContainer.value?.focus();
+      nextTick(() => {
+        modalContainer.value?.focus();
+      });
     });
-  });
 
-  onUnmounted(() => {
-    if (options.lockScroll !== false) {
-      document.body.style.overflow = '';
-    }
-    if (previousFocus.value) {
-      previousFocus.value.focus();
-    }
-  });
+    onUnmounted(() => {
+      if (options.lockScroll !== false) {
+        document.body.style.overflow = '';
+      }
+      if (previousFocus.value) {
+        previousFocus.value.focus();
+      }
+    });
+  }
 
   return {
     handleKeydown,

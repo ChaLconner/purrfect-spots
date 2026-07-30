@@ -10,7 +10,7 @@ import re
 import bleach
 
 try:
-    import filetype  # type: ignore[import-not-found, unused-ignore]
+    import filetype  # type: ignore[import-untyped, import-not-found, unused-ignore]
 except ImportError:  # pragma: no cover - exercised indirectly when dependency is missing
     filetype = None
 

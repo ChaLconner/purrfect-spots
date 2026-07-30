@@ -89,11 +89,11 @@ const maxWidthClass = {
       >
         <Transition
           enter-active-class="transition duration-300 ease-out"
-          enter-from-class="opacity-0 scale-95 translateY(10px)"
-          enter-to-class="opacity-100 scale-100 translateY(0)"
+          enter-from-class="opacity-0 scale-95 translate-y-2.5"
+          enter-to-class="opacity-100 scale-100 translate-y-0"
           leave-active-class="transition duration-200 ease-in"
-          leave-from-class="opacity-100 scale-100 translateY(0)"
-          leave-to-class="opacity-0 scale-95 translateY(10px)"
+          leave-from-class="opacity-100 scale-100 translate-y-0"
+          leave-to-class="opacity-0 scale-95 translate-y-2.5"
           appear
         >
           <div
@@ -103,7 +103,7 @@ const maxWidthClass = {
             <button
               v-if="showCloseButton"
               type="button"
-              class="absolute top-4 right-4 text-stone-400 hover:text-stone-600 w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-stone-100 cursor-pointer"
+              class="absolute top-4 right-4 text-stone-400 hover:text-stone-600 w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-stone-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage cursor-pointer"
               aria-label="Close modal"
               @click="emit('close')"
             >

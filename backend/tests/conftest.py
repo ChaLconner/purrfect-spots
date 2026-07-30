@@ -127,6 +127,9 @@ from app.main import app
 def disable_rate_limit() -> Generator[None, None, None]:
     """Disable rate limiting for all tests"""
     from app.limiter import auth_limiter, limiter, strict_limiter, upload_limiter
+    from app.services.cat_detection_service import clear_detection_cache
+
+    clear_detection_cache()
 
     limiters = [limiter, auth_limiter, strict_limiter, upload_limiter]
 
@@ -138,6 +141,8 @@ def disable_rate_limit() -> Generator[None, None, None]:
         limiter_instance.enabled = False
 
     yield
+
+    clear_detection_cache()
 
     # Restore initial states
     for i, limiter_instance in enumerate(limiters):

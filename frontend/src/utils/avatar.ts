@@ -30,9 +30,14 @@ export const isAvatarUrl = (url?: string | null): boolean => {
 
 export const handleAvatarError = (event: Event, name?: string | null): void => {
   const target = event.target as HTMLImageElement;
-  const fallbackUrl = getAvatarFallback(name);
+  if (!target) return;
 
-  if (target.src !== fallbackUrl && !isAvatarUrl(target.src)) {
+  const fallbackUrl = getAvatarFallback(name);
+  const staticFallback = '/cat-icon.webp';
+
+  if (target.src !== fallbackUrl && !target.src.includes('ui-avatars.com')) {
     target.src = fallbackUrl;
+  } else if (target.src !== staticFallback && !target.src.endsWith(staticFallback)) {
+    target.src = staticFallback;
   }
 };

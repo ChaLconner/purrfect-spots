@@ -14,11 +14,11 @@
           <h3
             class="font-bold text-lg text-brown font-heading tracking-wide flex items-center gap-2"
           >
-            Welcome to Purrfect Spots!
+            {{ $t('onboarding.title') }}
           </h3>
           <button
             class="text-stone-400 hover:text-stone-600 transition-colors p-1 cursor-pointer"
-            aria-label="Close"
+            :aria-label="$t('accessibility.closeModal')"
             @click="dismiss"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -32,14 +32,13 @@
           </button>
         </div>
         <div class="text-sm text-stone-700 leading-relaxed space-y-2 font-body">
-          <p>Discover and share your favorite cat hangouts!</p>
+          <p>{{ $t('onboarding.subtitle') }}</p>
           <div class="bg-amber-50 p-3 rounded-xl border border-amber-200">
             <div class="flex items-center gap-2 font-bold text-amber-800 mb-1 font-heading">
-              <span class="text-xl"></span> Earn Treats!
+              <span class="text-xl"></span> {{ $t('onboarding.earnTreatsTitle') }}
             </div>
             <p class="text-xs text-amber-900 leading-tight">
-              Upload photos to earn Treats. Use Treats to unlock exclusive badges and premium
-              features. Become the ultimate cat spotter in your neighborhood!
+              {{ $t('onboarding.earnTreatsDesc') }}
             </p>
           </div>
         </div>
@@ -47,7 +46,7 @@
           class="mt-2 w-full py-2 bg-cream hover:bg-sage/20 text-brown font-semibold rounded-xl border border-sage/30 shadow-sm transition-colors text-sm font-heading tracking-wide cursor-pointer"
           @click="dismiss"
         >
-          Got it, let's explore!
+          {{ $t('onboarding.exploreButton') }}
         </button>
       </div>
     </div>

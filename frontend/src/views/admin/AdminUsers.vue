@@ -544,7 +544,7 @@ interface Role {
 
 const updatingUserIds = ref(new Set<string>());
 
-const handleRoleChange = async (user: User, targetRoleName: string): Promise<void> => {
+const handleRoleChange = (user: User, targetRoleName: string): void => {
   if (user.role?.toLowerCase() === targetRoleName.toLowerCase()) return;
 
   const roleObj = roles.value.find((r) => r.name.toLowerCase() === targetRoleName.toLowerCase());
@@ -557,26 +557,34 @@ const handleRoleChange = async (user: User, targetRoleName: string): Promise<voi
     return;
   }
 
-  updatingUserIds.value.add(user.id);
-  try {
-    await apiV1.put(`/admin/users/${user.id}/role`, {
-      role_id: roleObj.id,
-    });
-    user.role = targetRoleName;
-    toast({
-      description: t('admin.users.actions.roleUpdated', { role: formatRoleName(targetRoleName) }),
-      variant: 'success',
-    });
-  } catch (e) {
-    console.error('Failed to update role', e);
-    toast({
-      title: t('common.error'),
-      description: t('admin.users.actions.failedToUpdateRole'),
-      variant: 'destructive',
-    });
-  } finally {
-    updatingUserIds.value.delete(user.id);
-  }
+  openConfirmModal(
+    t('admin.users.changeRole', 'Change User Role'),
+    t('admin.users.confirmChangeRole', { name: user.name, role: formatRoleName(targetRoleName) }),
+    t('common.confirm', 'Confirm'),
+    false,
+    async () => {
+      updatingUserIds.value.add(user.id);
+      try {
+        await apiV1.put(`/admin/users/${user.id}/role`, {
+          role_id: roleObj.id,
+        });
+        user.role = targetRoleName;
+        toast({
+          description: t('admin.users.actions.roleUpdated', { role: formatRoleName(targetRoleName) }),
+          variant: 'success',
+        });
+      } catch (e) {
+        console.error('Failed to update role', e);
+        toast({
+          title: t('common.error'),
+          description: t('admin.users.actions.failedToUpdateRole'),
+          variant: 'destructive',
+        });
+      } finally {
+        updatingUserIds.value.delete(user.id);
+      }
+    }
+  );
 };
 
 const roles = ref<Role[]>([]);

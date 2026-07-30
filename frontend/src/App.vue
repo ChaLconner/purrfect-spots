@@ -11,16 +11,17 @@ import { useStructuredData } from './composables/useStructuredData';
 import { useRoute } from 'vue-router';
 
 // Async layout components — not needed for first contentful paint.
-// Both already use defineAsyncComponent internally (NavAuthSection, BottomNavProfileButton).
 const NavBar = defineAsyncComponent(() => import('@/components/navbar/NavBar.vue'));
 const BottomNav = defineAsyncComponent(() => import('./components/layout/BottomNav.vue'));
 
 const { isOnline } = useNetwork();
 const route = useRoute();
+const SKY_BACKGROUND_ROUTES = new Set(['Home', 'Upload', 'Gallery', 'Leaderboard']);
 
 const showNav = computed(() => {
   return !route.path.startsWith('/admin');
 });
+const usesSkyBackground = computed(() => SKY_BACKGROUND_ROUTES.has(String(route.name)));
 const errorCount = ref(0);
 const MAX_ERRORS_BEFORE_REFRESH = 5;
 
@@ -86,10 +87,7 @@ onErrorCaptured((err, instance, info) => {
 
   // Handle generic errors
   if (err instanceof Error) {
-    // Don't show technical error messages to users
     let userMessage = err.message;
-
-    // Check for technical keywords
     const technicalKeywords = [
       'failed',
       'undefined',
@@ -111,20 +109,21 @@ onErrorCaptured((err, instance, info) => {
     showError('An unexpected error occurred.', 'Application Error');
   }
 
-  // Log for debugging
   console.error('[App Error Boundary]', { error: err, component: instance, info });
 
-  // Allow propagation in test environment for better debugging
   if (import.meta.env.MODE === 'test') {
     return true;
   }
 
-  return false; // Prevent error propagation
+  return false;
 });
 </script>
 
 <template>
-  <div class="flex flex-col min-h-screen relative">
+  <div
+    class="flex flex-col min-h-screen relative"
+    :class="{ 'bg-mint-light': usesSkyBackground }"
+  >
     <div class="ghibli-texture-overlay"></div>
     <NavBar v-if="showNav" />
 
@@ -135,7 +134,7 @@ onErrorCaptured((err, instance, info) => {
       role="alert"
     >
       <span class="mr-2">📡</span>
-      You are currently offline. Some features may be unavailable.
+      {{ $t('offline') }}
     </div>
 
     <ToastContainer />

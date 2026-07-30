@@ -110,6 +110,7 @@ const handleReportClick = (): void => {
             <div class="flex items-center gap-3 md:gap-4 mb-4 md:mb-6 lg:mb-8 pt-0 md:pt-2">
               <img
                 :src="user?.picture || getAvatarFallback(user?.name)"
+                referrerpolicy="no-referrer"
                 class="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full object-cover border-2 border-stone-100 shadow-sm bg-stone-100"
                 :alt="user?.name || t('profile.unknownUser')"
                 @error="handleAvatarError($event, user?.name)"

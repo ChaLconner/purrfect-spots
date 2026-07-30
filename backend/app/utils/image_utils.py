@@ -3,11 +3,12 @@ Image optimization utilities for Purrfect Spots
 Provides image compression, resizing, and format optimization before S3 upload
 """
 
+import contextlib
 import io
 import warnings
 from typing import Any
 
-from PIL import Image
+from PIL import Image, ImageOps
 
 from app.logger import logger
 from app.utils.security import MAX_IMAGE_PIXELS
@@ -37,14 +38,44 @@ def _open_image_safely(image_source: bytes | Any) -> Image.Image:
 
 
 def _preprocess_image(image_content: bytes) -> tuple[Image.Image, str | None, int]:
-    """Open image, strip EXIF, and convert mode if needed."""
+    """Open image, apply EXIF orientation transpose, strip EXIF, check aspect ratio, convert mode."""
     img = _open_image_safely(image_content)
     original_format = img.format
     original_size = len(image_content)
 
+    # Edge Case #2: Apply EXIF orientation transpose BEFORE stripping EXIF
+    try:
+        img = ImageOps.exif_transpose(img)
+    except Exception as exc:
+        logger.debug("ImageOps.exif_transpose skipped: %s", exc)
+
+    # Edge Case #3 & Animated Images: Select 1st frame if animated GIF/WebP/TIFF
+    if getattr(img, "is_animated", False):
+        with contextlib.suppress(Exception):
+            img.seek(0)
+
+    # Edge Case #15: Reject extreme aspect ratios (ratio > 20:1) or tiny images (< 10px)
+    width, height = img.size
+    if width < 10 or height < 10:
+        raise ValueError("Image dimensions too small (minimum 10x10 required)")
+    aspect_ratio = max(width, height) / max(min(width, height), 1)
+    if aspect_ratio > 20.0:
+        raise ValueError("Extreme aspect ratio rejected (maximum 20:1 ratio allowed)")
+
+    # Edge Case #15: Reject solid color / blank images (e.g. solid black or solid white)
+    extrema = img.getextrema()
+    is_blank = False
+    if isinstance(extrema, list):
+        is_blank = all(isinstance(e, tuple) and e[0] == e[1] for e in extrema)
+    elif isinstance(extrema, tuple) and len(extrema) == 2 and isinstance(extrema[0], (int, float)):
+        is_blank = extrema[0] == extrema[1]
+
+    if is_blank:
+        raise ValueError("Solid color or blank image rejected")
+
     logger.debug(f"Original image: {img.size}, format={original_format}, size={original_size / 1024:.1f}KB")
 
-    # Convert RGBA to RGB if saving as JPEG (JPEG doesn't support transparency)
+    # Edge Case #5: Convert RGBA/CMYK/LA/P/HSV/LAB safely to RGB
     if img.mode in ("RGBA", "LA", "P"):
         # Create white background for transparent images
         background = Image.new("RGB", img.size, (255, 255, 255))
@@ -55,11 +86,11 @@ def _preprocess_image(image_content: bytes) -> tuple[Image.Image, str | None, in
     elif img.mode != "RGB":
         img = img.convert("RGB")
 
-    # SECURITY: Strip EXIF metadata to protect user privacy
+    # SECURITY: Strip EXIF & comment metadata to protect user privacy
     img_no_exif = Image.new(img.mode, img.size)
     img_no_exif.paste(img, (0, 0))
     img = img_no_exif
-    logger.debug("Stripped EXIF metadata from image")
+    logger.debug("Stripped EXIF metadata and normalized image canvas")
 
     return img, original_format, original_size
 

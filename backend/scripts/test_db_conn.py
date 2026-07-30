@@ -4,6 +4,8 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.config import config
 
+__test__ = False
+
 
 async def test_conn() -> None:
     db_url = config.DATABASE_URL

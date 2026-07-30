@@ -22,7 +22,7 @@
 
       <!-- OTP Input Section -->
       <div class="mb-6">
-        <div class="flex gap-3 justify-center mb-4 w-full max-sm:gap-1">
+        <div class="flex gap-2 sm:gap-3 justify-center mb-4 w-full max-w-full">
           <input
             v-for="(_, index) in 6"
             :key="index"
@@ -31,10 +31,11 @@
             type="text"
             inputmode="numeric"
             maxlength="1"
-            class="w-[50px] h-[60px] text-center font-mono text-2xl font-bold text-[#5a4632] bg-white/90 border-2 border-[rgba(127,183,164,0.3)] rounded-2xl outline-none transition-all duration-300 shrink-0 focus:border-[#7fb7a4] focus:shadow-[0_0_0_4px_rgba(127,183,164,0.15)] focus:scale-105 max-sm:flex-1 max-sm:w-auto max-sm:min-w-[36px] max-sm:h-[50px] max-sm:text-xl max-sm:p-0"
+            :aria-label="`Digit ${index + 1}`"
+            class="w-10 h-12 sm:w-12 sm:h-14 text-center font-mono text-xl sm:text-2xl font-bold text-brown bg-white/90 border-2 border-sage/30 rounded-xl sm:rounded-2xl outline-none transition-all duration-300 shrink-0 focus:border-sage focus:ring-4 focus:ring-sage/20 focus:scale-105"
             :class="[
-              otpDigits[index] ? 'bg-white border-[#7fb7a4]' : '',
-              hasError ? 'border-[#e74c3c] animate-[shake_0.4s_ease-in-out]' : '',
+              otpDigits[index] ? 'bg-white border-sage' : '',
+              hasError ? 'border-terracotta animate-[shake_0.4s_ease-in-out]' : '',
             ]"
             @input="handleInput(index, $event)"
             @keydown="handleKeydown(index, $event)"

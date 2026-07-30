@@ -51,7 +51,7 @@ const updateValue = (event: Event): void => {
 </script>
 
 <template>
-  <div :class="[{ 'w-full': block, 'mb-4': !error }]">
+  <div :class="[block ? 'w-full' : '', 'mb-4']">
     <label v-if="label" :for="id" class="block text-sm font-bold text-brown mb-2 ml-1">
       {{ label }} <span v-if="required" class="text-terracotta">*</span>
     </label>

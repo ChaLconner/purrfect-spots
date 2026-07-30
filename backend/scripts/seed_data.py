@@ -3,10 +3,10 @@ import contextlib
 import os
 import random
 from pathlib import Path
+from typing import Any, cast
 
 from dotenv import load_dotenv
-from faker import Faker  # type: ignore[import-not-found]
-
+from faker import Faker
 from supabase import Client, create_client
 
 # Load environment variables
@@ -29,7 +29,7 @@ async def seed_data() -> None:
 
     # 1. Create Users
     print("Creating users...")
-    users = []
+    users: list[dict[str, Any]] = []
     for _ in range(5):
         {
             "email": fake.email(),
@@ -60,7 +60,7 @@ async def seed_data() -> None:
         # Let's try to fetch existing users first to be safe.
         existing_users = supabase.table("users").select("id").limit(10).execute()
         if existing_users.data:
-            users.extend(existing_users.data)
+            users.extend(cast(list[dict[str, Any]], existing_users.data))
         else:
             # Fallback: Try to insert dummy users directly (might fail on FK)
             # Better approach: Create a user via Auth API if we were doing a full integration seed.
@@ -72,7 +72,7 @@ async def seed_data() -> None:
 
     # 2. Create Cat Photos
     print("Creating cat photos...")
-    photos = []
+    photos: list[dict[str, Any]] = []
     cat_images = [
         "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba",
         "https://images.unsplash.com/photo-1573865526739-10659fec78a5",
@@ -99,7 +99,7 @@ async def seed_data() -> None:
 
         res = supabase.table("cat_photos").insert(photo_data).execute()
         if res.data:
-            photos.append(res.data[0])
+            photos.append(cast(dict[str, Any], res.data[0]))
 
     print(f"Created {len(photos)} photos.")
 

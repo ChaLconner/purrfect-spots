@@ -87,9 +87,9 @@ async def list_users(
         query = query.order(db_sort_field, desc=(order.lower() == "desc"))
 
         if search:
-            # OPTIMIZATION: Using Full Text Search (FTS) index
-            # Ensure index idx_users_search_vector remains sync'd
-            query = cast(Any, query.text_search("search_vector", f"'{search}'"))
+            clean_search = "".join(c for c in search if c.isalnum() or c in (" ", "_", "-", "@", ".")).strip()
+            if clean_search:
+                query = cast(Any, query.or_(f"email.ilike.%{clean_search}%,name.ilike.%{clean_search}%"))
 
         result = await query.execute()
         users_data = result.data

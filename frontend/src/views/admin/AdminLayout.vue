@@ -5,8 +5,11 @@
     <!-- Mobile Sidebar Toggle -->
     <div class="md:hidden fixed top-20 left-4 z-40">
       <button
-        class="bg-white p-2 rounded-lg shadow-md border border-sand-200 text-brown-600 focus:outline-none"
+        ref="toggleButtonRef"
+        class="bg-white p-2 rounded-lg shadow-md border border-sand-200 text-brown-600 focus:outline-none focus:ring-2 focus:ring-terracotta-500"
         aria-label="Toggle Menu"
+        :aria-expanded="isSidebarOpen"
+        aria-controls="admin-sidebar"
         @click="isSidebarOpen = !isSidebarOpen"
       >
         <svg
@@ -35,8 +38,12 @@
 
     <!-- Sidebar -->
     <aside
+      id="admin-sidebar"
+      ref="sidebarRef"
       class="w-64 bg-white border-r border-sand-200 fixed inset-y-0 left-0 pt-16 z-40 transition-all duration-500 ease-in-out md:translate-x-0 shadow-[4px_0_24px_rgba(0,0,0,0.02)]"
       :class="isSidebarOpen ? 'translate-x-0' : '-translate-x-full'"
+      tabindex="-1"
+      @keydown.esc="isSidebarOpen = false"
     >
       <div class="h-full flex flex-col">
         <nav class="flex-1 px-4 space-y-2 mt-6">
@@ -321,9 +328,19 @@
     <!-- Main Content -->
     <div class="flex-1 flex flex-col md:pl-64 min-w-0 transition-all duration-500 ease-in-out">
       <main class="flex-1 py-6 px-4 sm:px-6 lg:px-8 mt-4 md:mt-0 max-w-7xl mx-auto w-full">
-        <!-- Dashboard Content Container with subtle fade-in -->
+        <!-- Dashboard Content Container with subtle fade-in and Error Boundary fallback -->
         <div class="animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <router-view />
+          <div v-if="hasViewError" class="p-6 bg-red-50 border border-red-200 rounded-xl text-red-700">
+            <h3 class="text-lg font-bold mb-2">View Load Error</h3>
+            <p class="text-sm mb-4">{{ viewErrorMessage || 'An unexpected error occurred in this view.' }}</p>
+            <button
+              class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700"
+              @click="resetViewError"
+            >
+              Retry View
+            </button>
+          </div>
+          <router-view v-else />
         </div>
       </main>
     </div>
@@ -331,7 +348,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, onUnmounted } from 'vue';
+import { ref, onMounted, computed, onUnmounted, watch, onErrorCaptured } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '@/stores/authStore';
 import { useAdminStore } from '@/stores/adminStore';
@@ -341,6 +358,22 @@ const { t } = useI18n();
 const authStore = useAuthStore();
 const adminStore = useAdminStore();
 const isSidebarOpen = ref(false);
+const sidebarRef = ref<HTMLElement | null>(null);
+const toggleButtonRef = ref<HTMLButtonElement | null>(null);
+
+const hasViewError = ref(false);
+const viewErrorMessage = ref('');
+
+onErrorCaptured((err: unknown) => {
+  hasViewError.value = true;
+  viewErrorMessage.value = err instanceof Error ? err.message : String(err);
+  return false;
+});
+
+function resetViewError() {
+  hasViewError.value = false;
+  viewErrorMessage.value = '';
+}
 
 const pendingReportsCount = computed(() => adminStore.stats.pending_reports);
 
@@ -348,15 +381,29 @@ function canAccess(permission: string): boolean {
   return authStore.isAdmin || authStore.hasPermission(permission);
 }
 
+function handleKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && isSidebarOpen.value) {
+    isSidebarOpen.value = false;
+    toggleButtonRef.value?.focus();
+  }
+}
+
+watch(isSidebarOpen, (open) => {
+  if (open) {
+    window.addEventListener('keydown', handleKeydown);
+    sidebarRef.value?.focus();
+  } else {
+    window.removeEventListener('keydown', handleKeydown);
+  }
+});
+
 onMounted(() => {
-  // NOTE: fetchStats() removed — AdminDashboard.vue handles its own data via fetchSummary().
-  // Calling fetchStats() here caused a double /admin/summary request on every page load.
-  // Start real-time subscription for reports (sidebar badge needs pending count)
   adminStore.subscribeToReports(canAccess(PERMISSIONS.REPORTS_READ));
 });
 
 onUnmounted(() => {
-  // Clean up subscription
+  window.removeEventListener('keydown', handleKeydown);
   adminStore.unsubscribeReports();
 });
 </script>
+

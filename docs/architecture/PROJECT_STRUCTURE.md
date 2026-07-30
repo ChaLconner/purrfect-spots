@@ -22,7 +22,9 @@ Purrfect Spots is a monorepo with explicit application, deployment, generated-co
 │   ├── scripts/             # Backend maintenance and generation commands
 │   ├── supabase/            # Historical Supabase migration reference
 │   └── tests/               # Unit, integration, and performance tests
-├── docs/                    # Architecture, standards, operations, and API baseline
+├── docs/                    # Maintained architecture, standards, and API baseline
+│   ├── architecture/        # System and repository structure
+│   └── development/         # Coding, Git, and design conventions
 ├── frontend/
 │   ├── e2e/                 # Playwright tests
 │   ├── public/              # Static public assets
@@ -87,4 +89,3 @@ npm run type-check
 npm test
 npm run build
 ```
-

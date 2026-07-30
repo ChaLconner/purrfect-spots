@@ -102,9 +102,10 @@ class TestCatDetectionService:
         result = await detection_service.detect_cats(mock_upload_file)
 
         assert result["fallback_active"] is True
-        assert result["has_cats"] is True
+        assert result["service_available"] is False
+        assert result["has_cats"] is False
         assert result["confidence"] == 0
-        assert "Fallback mode active" in result["reasoning"]
+        assert "Cat verification service unavailable" in result["reasoning"]
 
     def test_prepare_image(self, detection_service) -> None:
         """Test image preparation"""

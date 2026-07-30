@@ -1,13 +1,18 @@
 <template>
-  <div
-    class="fixed inset-0 min-h-screen bg-transparent flex items-center justify-center z-50 pointer-events-none"
-  ></div>
+  <div class="min-h-screen flex items-center justify-center relative overflow-hidden bg-cream">
+    <GhibliBackground />
+    <div class="relative z-10 p-8 text-center bg-white/80 backdrop-blur-md rounded-3xl shadow-xl max-w-md w-full border-2 border-sage/20">
+      <GhibliLoader :text="t('auth.callback.authenticating') || 'Logging you in...'" />
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onErrorCaptured, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
+import GhibliBackground from '@/components/ui/GhibliBackground.vue';
+import GhibliLoader from '@/components/ui/GhibliLoader.vue';
 import { AuthService } from '../services/authService';
 import { useAuthStore } from '../stores/authStore';
 import { showError, showSuccess } from '../stores/toast';

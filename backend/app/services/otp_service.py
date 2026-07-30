@@ -10,11 +10,11 @@ from typing import Any, cast
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+from supabase import AClient
 
 from app.logger import logger
 from app.utils.datetime_utils import utc_now
 from app.utils.exceptions import ExternalServiceError, PurrfectSpotsException
-from supabase import AClient
 
 TIMEZONE_UTC_OFFSET = "+00:00"
 
@@ -36,7 +36,7 @@ class OTPService:
     def _generate_otp(self) -> str:
         """Generate cryptographically secure 6-digit OTP"""
         # Use secrets module for cryptographic randomness
-        return str(secrets.randbelow(900000) + 100000)  # Ensures 6 digits (100000-999999)
+        return str(secrets.randbelow(1000000)).zfill(6)
 
     def _hash_otp(self, otp: str) -> str:
         """Hash OTP using SHA-256 for secure storage"""

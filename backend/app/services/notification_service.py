@@ -4,9 +4,9 @@ from typing import Any, cast
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+from supabase import AClient
 
 from app.logger import logger
-from supabase import AClient
 
 _UUID_PATTERN = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -156,24 +156,58 @@ class NotificationService:
             logger.error(f"Failed to fetch notifications for user {user_id}: {e}")
             return []
 
-    async def mark_as_read(self, user_id: str, notification_id: str) -> None:
+    async def get_unread_count(self, user_id: str) -> int:
+        """Get unread notification count for a user."""
+        if not _is_valid_uuid(user_id):
+            return 0
+
+        try:
+            if self.db:
+                query = text("SELECT COUNT(*) FROM notifications WHERE user_id = :u_id AND is_read = False")
+                res = await self.db.execute(query, {"u_id": user_id})
+                val = res.scalar()
+                return int(val) if val is not None else 0
+
+            sb_res: Any = (
+                await self.supabase.table("notifications")
+                .select("id", count=cast(Any, "exact"))
+                .eq("user_id", user_id)
+                .eq("is_read", False)
+                .execute()
+            )
+            return sb_res.count if sb_res.count is not None else 0
+        except Exception as e:
+            logger.error(f"Failed to get unread notification count for user {user_id}: {e}")
+            return 0
+
+    async def mark_as_read(self, user_id: str, notification_id: str) -> bool:
         """Mark single notification as read."""
+        if not _is_valid_uuid(user_id) or not _is_valid_uuid(notification_id):
+            logger.warning(
+                "Invalid UUID format in mark_as_read: user_id='%s', notification_id='%s'",
+                user_id,
+                notification_id,
+            )
+            return False
+
         try:
             if self.db:
                 db_session = self.db
                 query = text("UPDATE notifications SET is_read = True WHERE id = :n_id AND user_id = :u_id")
-                await db_session.execute(query, {"n_id": notification_id, "u_id": user_id})
+                res = await db_session.execute(query, {"n_id": notification_id, "u_id": user_id})
                 await db_session.commit()
-            else:
-                await (
-                    self.supabase.table("notifications")
-                    .update({"is_read": True})
-                    .eq("id", notification_id)
-                    .eq("user_id", user_id)
-                    .execute()
-                )
+                return bool(cast(Any, res).rowcount > 0)
+            sb_res: Any = (
+                await self.supabase.table("notifications")
+                .update({"is_read": True})
+                .eq("id", notification_id)
+                .eq("user_id", user_id)
+                .execute()
+            )
+            return len(sb_res.data) > 0 if sb_res.data else False
         except Exception as e:
             logger.error(f"Failed to mark notification as read: {e}")
+            return False
 
     async def mark_all_as_read(self, user_id: str) -> None:
         """Mark all notifications as read."""

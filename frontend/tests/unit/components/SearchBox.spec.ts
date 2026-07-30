@@ -100,7 +100,13 @@ describe('SearchBox.vue', () => {
 
   it('should clear search', async () => {
     mockRoute.query.search = 'initial';
-    const wrapper = mount(SearchBox);
+    const wrapper = mount(SearchBox, {
+      global: {
+        mocks: {
+          $t: (key: string) => (key === 'accessibility.clearSearch' ? 'Clear search' : key),
+        },
+      },
+    });
     const input = wrapper.find('input');
     
     expect(input.element.value).toBe('initial');

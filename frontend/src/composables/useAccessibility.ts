@@ -6,7 +6,8 @@
  * - Screen reader announcements
  * - Keyboard navigation helpers
  */
-import { ref, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, onMounted, onUnmounted, getCurrentInstance, nextTick } from 'vue';
+
 
 // Live region for screen reader announcements
 let announcer: HTMLElement | null = null;
@@ -149,16 +150,18 @@ export function useModalFocus(
     }
   }
 
-  onMounted(() => {
-    document.addEventListener('keydown', handleEscape);
-  });
+  if (getCurrentInstance()) {
+    onMounted(() => {
+      document.addEventListener('keydown', handleEscape);
+    });
 
-  onUnmounted(() => {
-    document.removeEventListener('keydown', handleEscape);
-    if (isOpen.value) {
-      deactivate();
-    }
-  });
+    onUnmounted(() => {
+      document.removeEventListener('keydown', handleEscape);
+      if (isOpen.value) {
+        deactivate();
+      }
+    });
+  }
 
   return {
     activateFocusTrap: activate,

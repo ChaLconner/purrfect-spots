@@ -4,6 +4,7 @@ Consolidates common file handling patterns across routes
 Enhanced with security features: magic bytes validation, input sanitization
 """
 
+import asyncio
 from typing import Any
 
 from fastapi import HTTPException, UploadFile
@@ -101,7 +102,7 @@ async def process_uploaded_image(
         await file.seek(0)
 
         # Verify it's actually a valid image (PIL verification via file object)
-        if not is_valid_image(file.file):
+        if not await asyncio.to_thread(is_valid_image, file.file):
             log_security_event(
                 "corrupted_image_blocked",
                 user_id=user_id,
@@ -115,10 +116,11 @@ async def process_uploaded_image(
         content_type_str = actual_mime
 
         if optimize:
-            raw_content, content_type_str = optimize_image(
+            raw_content, content_type_str = await asyncio.to_thread(
+                optimize_image,
                 raw_content,
                 content_type_str,
-                max_dimension=max_dimension,
+                max_dimension,
             )
 
         # Get safe file extension based on final content type

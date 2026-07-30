@@ -1,7 +1,18 @@
 # Trivy Ignore File
-# Ignore rules for public keys in build arguments
+
+# DS002: Dockerfile ADD instead of COPY — used intentionally for multi-stage context.
+# Review: 2026-10-30
 DS002
+
+# SecretsUsedInArgOrEnv: Build-time ARGs for VITE_* public env vars (not secrets).
+# These are frontend config values (Google Client ID, Supabase anon key) that are
+# public by design and embedded in the JS bundle regardless.
+# Review: 2026-10-30
 SecretsUsedInArgOrEnv
+
+# CVE-2026-0994: Affects base image system lib; no upstream fix available yet.
+# Mitigated by non-root container user and network isolation.
+# Review: 2026-10-30
 CVE-2026-0994
 # minimatch ReDoS (GHSA-3ppc-4f35-3m26) - dev-only dependency chain:
 # @vue/test-utils -> js-beautify -> editorconfig -> minimatch 9.0.1

@@ -27,8 +27,12 @@ class TestGoogleVisionServiceExtended:
         ):
             mock_client_class.from_service_account_info.return_value = mock_vision_client
             service = GoogleVisionService()
+
+            mock_client_class.from_service_account_info.assert_called_once_with(
+                {"type": "service_account", "project_id": "test"}
+            )
             assert service.is_initialized is True
-            assert service.client is not None
+            assert service.client is mock_vision_client
 
     def test_init_with_key_path(self, mock_vision_client) -> None:
         with (

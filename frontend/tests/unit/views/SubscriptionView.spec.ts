@@ -43,8 +43,10 @@ vi.mock('vue-i18n', () => ({
   }),
 }));
 
+import type * as PiniaModule from 'pinia';
+
 vi.mock('pinia', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('pinia')>();
+  const actual = await importOriginal<typeof PiniaModule>();
   return {
     ...actual,
     storeToRefs: (store: { sortedPackages: unknown }) => ({

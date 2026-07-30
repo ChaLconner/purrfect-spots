@@ -1,5 +1,5 @@
 {
-  "name": "purrfect-spots-api-client-generator",
+  "name": "@purrfect-spots/api-client",
   "version": "1.0.0",
   "private": true,
   "description": "TypeScript API client generator from OpenAPI spec",

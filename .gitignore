@@ -76,6 +76,13 @@ logs/
 *.bak
 *.tmp
 *.temp
+.tmp/
+
+# Playwright CLI artifacts
+.playwright-cli/
+
+# Test output
+output/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -102,9 +109,6 @@ log.txt
 
 # Deployment tool state
 .vercel/
-
-# Local review material
-docs/archive/
 
 # Standalone API client generator uses a local, non-canonical lockfile.
 packages/api-client/package-lock.json

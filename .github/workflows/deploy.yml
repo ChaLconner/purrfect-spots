@@ -639,6 +639,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          GOOGLE_VISION_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_VISION_SERVICE_ACCOUNT }}
           FRONTEND_URL: ${{ vars.PROD_FRONTEND_URL || 'https://purrfect-spots.vercel.app' }}
         run: |
           set -euo pipefail
@@ -652,6 +653,7 @@ jobs:
             SUPABASE_SERVICE_ROLE_KEY
             JWT_SECRET
             JWT_REFRESH_SECRET
+            GOOGLE_VISION_SERVICE_ACCOUNT
             FRONTEND_URL
           )
 
@@ -687,6 +689,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          GOOGLE_VISION_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_VISION_SERVICE_ACCOUNT }}
           FRONTEND_URL: ${{ vars.PROD_FRONTEND_URL || 'https://purrfect-spots.vercel.app' }}
         run: |
           set -euo pipefail
@@ -702,6 +705,7 @@ jobs:
           DEPLOY_ARGS+=(-e "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY")
           DEPLOY_ARGS+=(-e "JWT_SECRET=$JWT_SECRET")
           DEPLOY_ARGS+=(-e "JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET")
+          DEPLOY_ARGS+=(-e "GOOGLE_VISION_SERVICE_ACCOUNT=$GOOGLE_VISION_SERVICE_ACCOUNT")
           DEPLOY_ARGS+=(-e "FRONTEND_URL=$FRONTEND_URL")
           DEPLOY_ARGS+=(-e "CORS_ORIGINS=$FRONTEND_URL")
 
@@ -764,6 +768,13 @@ jobs:
 
           if [ "$BACKEND_OK" != "true" ]; then
             echo "::error::Production backend health check failed after ${MAX_ATTEMPTS} attempts."
+            FAILED=1
+          fi
+
+          DEPENDENCY_STATUS=$(curl --fail --show-error --silent --max-time 30 "${PROD_API_URL}/health/dependencies" || true)
+          VISION_STATUS=$(echo "$DEPENDENCY_STATUS" | jq -r '.dependencies.google_vision.status // "unknown"')
+          if [ "$VISION_STATUS" != "configured" ]; then
+            echo "::error::Google Vision production dependency is ${VISION_STATUS}."
             FAILED=1
           fi
 

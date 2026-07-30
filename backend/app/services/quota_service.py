@@ -3,11 +3,11 @@ from typing import Any, cast
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+from supabase import AClient
 
 from app.config import config
 from app.logger import logger
 from app.schemas.gallery import UploadQuotaResponse
-from supabase import AClient
 
 
 class QuotaService:

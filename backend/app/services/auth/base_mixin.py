@@ -1,10 +1,10 @@
 import hashlib
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from supabase import AClient
 
 from app.compat import structlog
 from app.utils.supabase_client import get_async_supabase_admin_client
-from supabase import AClient
 
 logger = structlog.get_logger(__name__)
 

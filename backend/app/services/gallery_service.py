@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from supabase import AClient
 
 from app.compat import structlog
 from app.services.gallery.location_mixin import GalleryLocationMixin
@@ -8,7 +9,6 @@ from app.services.gallery.read_mixin import GalleryReadMixin
 from app.services.gallery.search_mixin import GallerySearchMixin
 from app.services.gallery.write_mixin import GalleryWriteMixin
 from app.services.search_service import SearchService
-from app.utils.supabase_client import AClient
 
 if TYPE_CHECKING:
     pass
@@ -29,9 +29,3 @@ class GalleryService(GalleryReadMixin, GalleryWriteMixin, GallerySearchMixin, Ga
         self.db = db
         self.search_service = SearchService(supabase_client, db=db)
         self._admin_client_lazy: AClient | None = None
-
-    # Note: methods are now provided by mixins:
-    # - GalleryReadMixin: get_all_photos, get_map_locations, get_photo_by_id, enrich_with_user_data, etc.
-    # - GalleryWriteMixin: save_photo, process_photo_deletion, verify_photo_ownership.
-    # - GallerySearchMixin: search_photos, get_popular_tags, get_user_photos.
-    # - GalleryLocationMixin: get_nearby_photos.

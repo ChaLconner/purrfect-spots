@@ -8,11 +8,11 @@ from sqlalchemy import bindparam, column, select, table, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 from stripe import SignatureVerificationError
+from supabase import AClient
 
 from app.config import config
 from app.logger import logger
 from app.services.treats_service import TreatsService
-from supabase import AClient
 
 # ── Stripe Initialisation ────────────────────────────────────────────
 # Pin the API version so a dashboard upgrade never silently breaks
@@ -476,9 +476,17 @@ class SubscriptionService:
             next_payment_attempt,
         )
 
-        # TODO: trigger an email/Sentry alert here so the team is notified of
-        # churning users early.  Example:
-        #   await self.notification_service.send_payment_failed_email(customer_id)
+        # SEC: Alert team on payment failure so churning users are caught early.
+        try:
+            import sentry_sdk
+
+            sentry_sdk.capture_message(
+                f"Invoice payment failed: invoice={invoice_id} customer={customer_id} attempt={attempt_count}",
+                level="warning",
+            )
+        except Exception:
+            # Sentry alerting is best-effort; never let it break webhook handling.
+            pass
 
     async def _handle_invoice_paid(self, invoice: dict[str, Any]) -> None:
         """Triggered when a renewal invoice is paid successfully.

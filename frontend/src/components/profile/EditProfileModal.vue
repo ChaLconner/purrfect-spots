@@ -342,6 +342,7 @@ const handleKeydown = (event: KeyboardEvent): void => {
                 <div class="relative group cursor-pointer" @click="triggerFileInput">
                   <img
                     :src="editForm.picture || getAvatarFallback(editForm.name)"
+                    referrerpolicy="no-referrer"
                     class="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-full object-cover border-4 border-white shadow-md transition-transform group-hover:scale-105 bg-stone-100"
                     :alt="editForm.name ? `${editForm.name}` : 'Current profile'"
                     @error="handleAvatarError($event, editForm.name)"

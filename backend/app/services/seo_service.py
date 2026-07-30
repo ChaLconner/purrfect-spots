@@ -3,9 +3,9 @@ from typing import Any, cast
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+from supabase import AClient
 
 from app.utils.cache import cache
-from supabase import AClient
 
 
 class SeoService:

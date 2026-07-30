@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from supabase import AClient
+
     from app.services.auth_service import AuthService
     from app.services.cat_detection_service import CatDetectionService
     from app.services.email_service import EmailService
@@ -18,7 +20,6 @@ if TYPE_CHECKING:
     from app.services.subscription_service import SubscriptionService
     from app.services.token_service import TokenService
     from app.services.treats_service import TreatsService
-    from supabase import AClient
 
 from fastapi import Depends, Header, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession

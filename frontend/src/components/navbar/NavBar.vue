@@ -22,7 +22,7 @@ const NavAuthSection = defineAsyncComponent({
 </script>
 
 <template>
-  <nav class="sticky top-0 z-50 m-3 sm:mx-6 md:mx-8 xl:mx-12 xl:my-5" aria-label="Main Navigation">
+  <nav class="sticky top-0 z-50 m-3 sm:mx-6 md:mx-8 xl:mx-12 xl:my-5" :aria-label="$t('accessibility.mainNavigation')">
     <div
       class="relative flex justify-between items-center px-4 sm:px-6 md:px-8 xl:px-10 py-2 bg-btn-bg rounded-[2rem] border-2 border-btn-shade-a gap-1.5 sm:gap-4 xl:gap-8 min-w-0"
       style="transform-style: preserve-3d"
@@ -37,7 +37,7 @@ const NavAuthSection = defineAsyncComponent({
       <div class="flex items-center gap-2 lg:gap-3 shrink-0">
         <button
           class="relative flex items-center cursor-pointer p-0.5 rounded-2xl bg-transparent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-btn-shade-a"
-          aria-label="Go to home"
+          :aria-label="$t('accessibility.goToHome')"
           @click="router.push('/')"
         >
           <!-- Mobile Logo (Icon only) -->

@@ -154,4 +154,61 @@ describe('CatDetailModal Report Integration', () => {
     const reportBtn = wrapper.find('.report-btn');
     expect(reportBtn.exists()).toBe(false);
   });
+
+  it('exposes dialog semantics and emits tag clicks', async () => {
+    const wrapper = mount(CatDetailModal, {
+      props: {
+        cat: {
+          ...mockCat,
+          description: 'A friendly cat\n\n#friendly',
+        },
+      },
+      global: {
+        plugins: [
+          createTestingPinia({
+            createSpy: vi.fn,
+          }),
+        ],
+        stubs: {
+          ReportModal: ReportModalMock,
+          LikeButton: true,
+        },
+      },
+    });
+
+    const dialog = wrapper.get('[role="dialog"]');
+    expect(dialog.attributes('aria-modal')).toBe('true');
+    expect(dialog.attributes('aria-labelledby')).toBe('cat-detail-title');
+
+    const tagButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().trim() === '#friendly');
+    expect(tagButton).toBeDefined();
+    await tagButton!.trigger('click');
+    expect(wrapper.emitted('tag-click')).toEqual([['friendly']]);
+  });
+
+  it('uses an existing fallback asset when the cat image fails', async () => {
+    const wrapper = mount(CatDetailModal, {
+      props: {
+        cat: mockCat,
+      },
+      global: {
+        plugins: [
+          createTestingPinia({
+            createSpy: vi.fn,
+          }),
+        ],
+        stubs: {
+          ReportModal: ReportModalMock,
+          LikeButton: true,
+        },
+      },
+    });
+
+    const image = wrapper.get('img');
+    await image.trigger('error');
+
+    expect(image.attributes('src')).toBe('/cat-illustration.webp');
+  });
 });

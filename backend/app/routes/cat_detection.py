@@ -6,11 +6,13 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
+from app.config import config
 from app.dependencies import get_cat_detection_service
 from app.limiter import get_strict_limit, strict_limiter
 from app.logger import logger
 from app.middleware.auth_middleware import get_current_user
-from app.utils.file_processing import read_file_for_detection
+from app.utils.file_processing import process_uploaded_image
+from app.utils.upload_verification import create_upload_verification_token
 
 router = APIRouter(prefix="/detect", tags=["Cat Detection"])
 
@@ -45,12 +47,24 @@ async def detect_cats_in_image(
         HTTPException: 500 - If detection fails due to an internal error.
     """
     # Validate and read file using shared utility
-    contents = await read_file_for_detection(file, max_size_mb=10)
+    contents, _, _ = await process_uploaded_image(
+        file,
+        max_size_mb=config.UPLOAD_MAX_SIZE_MB,
+        optimize=True,
+        max_dimension=config.UPLOAD_MAX_DIMENSION,
+        user_id=str(current_user.id),
+    )
     file_size = len(contents)
 
     try:
         # Detect cats using pre-read contents
         result = await detection_service.detect_cats(contents)
+
+        if result.get("service_available") is False or result.get("fallback_active"):
+            raise HTTPException(
+                status_code=503,
+                detail="Cat verification service unavailable. Please try again later.",
+            )
 
         # Add metadata
         result.update(
@@ -58,6 +72,11 @@ async def detect_cats_in_image(
                 "filename": file.filename,
                 "file_size": file_size,
                 "detected_by": current_user.email,
+                "verification_token": create_upload_verification_token(
+                    contents,
+                    str(current_user.id),
+                    result,
+                ),
             }
         )
 
@@ -89,7 +108,13 @@ async def analyze_cat_spot(
         HTTPException: 500 - If spot analysis fails due to an internal error.
     """
     # Validate and read file using shared utility
-    contents = await read_file_for_detection(file, max_size_mb=10)
+    contents, _, _ = await process_uploaded_image(
+        file,
+        max_size_mb=config.UPLOAD_MAX_SIZE_MB,
+        optimize=True,
+        max_dimension=config.UPLOAD_MAX_DIMENSION,
+        user_id=str(current_user.id),
+    )
 
     try:
         # Analyze spot using pre-read contents
@@ -126,7 +151,13 @@ async def combined_cat_and_spot_analysis(
         HTTPException: 500 - If combined analysis fails due to an internal error.
     """
     # Validate and read file using shared utility
-    contents = await read_file_for_detection(file, max_size_mb=10)
+    contents, _, _ = await process_uploaded_image(
+        file,
+        max_size_mb=config.UPLOAD_MAX_SIZE_MB,
+        optimize=True,
+        max_dimension=config.UPLOAD_MAX_DIMENSION,
+        user_id=str(current_user.id),
+    )
     file_size = len(contents)
 
     try:

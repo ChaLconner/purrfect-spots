@@ -5,13 +5,13 @@ from typing import Any, cast
 
 import stripe
 from starlette.concurrency import run_in_threadpool
+from supabase import AClient
 
 from app.config import config
 from app.logger import logger, sanitize_log_value
 from app.schemas.notification import NotificationType
 from app.services.notification_service import NotificationService
-from app.utils.cache import cached_leaderboard
-from supabase import AClient
+from app.utils.cache import cached_leaderboard, invalidate_leaderboard_cache
 
 # Pin the same API version as subscription_service to ensure consistent
 # webhook payload shapes across all Stripe SDK calls in this service.
@@ -56,6 +56,9 @@ class TreatsService:
             else:
                 await self._send_treat_notification_fallback(from_user_id, photo_id, amount)
 
+            # Invalidate leaderboard cache so updates reflect immediately
+            await invalidate_leaderboard_cache()
+
             return {
                 "success": True,
                 "message": f"Gave {amount} treats",
@@ -78,7 +81,7 @@ class TreatsService:
             raise ValueError("Database session is required for SQL RPC")
         db_session = self.db
         query = text(
-            "SELECT success, error, to_user_id, new_balance FROM give_treat_atomic(:p_from_user_id, :p_photo_id, :p_amount)"
+            "SELECT success, error, to_user_id, new_balance FROM give_treat_atomic(CAST(:p_from_user_id AS UUID), CAST(:p_photo_id AS UUID), CAST(:p_amount AS INTEGER))"
         )
         result = await db_session.execute(
             query,
@@ -299,41 +302,49 @@ class TreatsService:
     # ── Leaderboard ──────────────────────────────────────────────────
 
     @cached_leaderboard
-    async def get_leaderboard(self, period: str = "all_time") -> list[dict[str, Any]]:
+    async def get_leaderboard(self, period: str = "all_time", limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
         """Top treat receivers (Most Spoiled Cats owners)."""
         try:
             if self.db:
-                query = text("SELECT * FROM get_leaderboard(:p_period)")
-                result = await self.db.execute(query, {"p_period": period})
-                return [dict(row._mapping) for row in result]
-            res = await self.supabase.rpc("get_leaderboard", {"p_period": period}).execute()
-            return cast(list[dict[str, Any]], res.data or [])
+                query = text("SELECT * FROM get_leaderboard(:p_period::text, :p_limit::integer, :p_offset::integer)")
+                result = await self.db.execute(query, {"p_period": period, "p_limit": limit, "p_offset": offset})
+                rows = [dict(row._mapping) for row in result]
+            else:
+                res = await self.supabase.rpc(
+                    "get_leaderboard", {"p_period": period, "p_limit": limit, "p_offset": offset}
+                ).execute()
+                rows = cast(list[dict[str, Any]], res.data or [])
+
+            return rows
         except Exception as e:
             logger.warning("SQL leaderboard fetch failed, checking fallback: %s", e)
+            if self.db:
+                await self.db.rollback()
             # Fallback for all_time if RPC fails or during migration
             if period == "all_time":
-                return await self._get_leaderboard_fallback()
+                return await self._get_leaderboard_fallback(limit=limit, offset=offset)
             return []
 
-    async def _get_leaderboard_fallback(self) -> list[dict[str, Any]]:
+    async def _get_leaderboard_fallback(self, limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
         if self.db:
             try:
                 query = text(
                     "SELECT id, name, username, picture, total_treats_received "
                     "FROM users "
                     "ORDER BY total_treats_received DESC "
-                    "LIMIT 10"
+                    "LIMIT :limit OFFSET :offset"
                 )
-                result = await self.db.execute(query)
+                result = await self.db.execute(query, {"limit": limit, "offset": offset})
                 return [dict(row._mapping) for row in result]
             except Exception as e:
                 logger.warning(f"SQLAlchemy _get_leaderboard_fallback failed: {e}")
+                await self.db.rollback()
 
         res = (
             await self.supabase.table("users")
             .select("id, name, username, picture, total_treats_received")
             .order("total_treats_received", desc=True)
-            .limit(10)
+            .range(offset, offset + limit - 1)
             .execute()
         )
         return cast(list[dict[str, Any]], res.data or [])

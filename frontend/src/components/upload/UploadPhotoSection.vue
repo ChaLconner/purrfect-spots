@@ -28,15 +28,19 @@
     <div
       class="group relative border-2 border-dashed rounded-2xl p-8 transition-all duration-300 min-h-[300px] flex flex-col items-center justify-center text-center cursor-pointer overflow-hidden bg-white/40 hover:bg-white/60"
       :class="[
-        previewUrl
+        isDragging
+          ? 'border-terracotta bg-terracotta/10 scale-[1.01] shadow-lg border-solid'
+          : previewUrl
           ? 'border-sage-dark/50 bg-white/60'
           : 'border-stone-300 hover:border-terracotta/50',
-        isDetectingCats ? 'cursor-wait opacity-80' : '',
+        isOptimizing || isDetectingCats ? 'cursor-wait opacity-80' : '',
         !isAuthenticated ? 'opacity-75' : '',
         isQuotaFull ? 'cursor-not-allowed opacity-75 grayscale' : '',
       ]"
-      @dragover.prevent
-      @drop.prevent="!isQuotaFull && handleDrop($event)"
+      @dragenter.prevent="!isQuotaFull && (isDragging = true)"
+      @dragover.prevent="!isQuotaFull && (isDragging = true)"
+      @dragleave.prevent="isDragging = false"
+      @drop.prevent="handleDrop($event)"
       @click="isQuotaFull ? handleQuotaFullClick() : handleFrameClick()"
     >
       <label for="file-upload" class="sr-only">{{ t('upload.photoSection.uploadPhoto') }}</label>
@@ -44,24 +48,54 @@
         id="file-upload"
         ref="fileInput"
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        capture="environment"
         class="hidden"
         @change="handleFileChange"
       />
 
+      <!-- Drag Active Overlay -->
+      <div
+        v-if="isDragging"
+        class="absolute inset-0 z-30 bg-terracotta/15 backdrop-blur-[2px] flex flex-col items-center justify-center pointer-events-none animate-fade-in"
+      >
+        <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center text-terracotta shadow-lg mb-3 animate-bounce">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+          </svg>
+        </div>
+        <p class="text-terracotta font-heading font-bold text-lg">Drop your cat photo here</p>
+      </div>
+
       <!-- Preview State -->
       <div v-if="previewUrl" class="w-full h-full absolute inset-0 z-10 bg-stone-50">
-        <img :src="previewUrl" class="w-full h-full object-contain" alt="Preview" />
+        <img :src="previewUrl" class="w-full h-full object-contain" alt="Cat Preview" />
 
-        <!-- Click to change hint -->
+        <!-- Change / Clear Buttons -->
         <div
-          v-if="catDetectionResult?.has_cats && !isDetectingCats"
-          class="absolute top-4 right-4 bg-white/80 backdrop-blur-sm text-brown px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 border border-brown/5 flex items-center gap-2"
+          v-if="!isDetectingCats && !isOptimizing"
+          class="absolute top-4 right-4 flex items-center gap-2 z-20"
         >
-          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-          </svg>
-          {{ t('upload.photoSection.clickToChange') }}
+          <button
+            type="button"
+            class="bg-white/90 hover:bg-white text-brown px-3 py-1.5 rounded-lg text-xs font-semibold shadow-md backdrop-blur-sm transition-all border border-brown/10 flex items-center gap-1.5"
+            @click.stop="triggerFileInput"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+            Change
+          </button>
+          <button
+            type="button"
+            class="bg-red-500/90 hover:bg-red-600 text-white p-1.5 rounded-lg text-xs font-semibold shadow-md backdrop-blur-sm transition-all border border-red-400/20"
+            title="Remove photo"
+            @click.stop="handleClearPhoto"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         <!-- Cat Detected Info Overlay -->
@@ -69,16 +103,21 @@
           v-if="catDetectionResult?.has_cats && !isDetectingCats"
           class="absolute bottom-4 left-4 right-4 bg-white/90 backdrop-blur-md p-3 rounded-xl border border-sage/20 shadow-lg animate-fade-in-up"
         >
-          <div class="flex items-center gap-3">
-            <div class="w-8 h-8 bg-sage/20 rounded-lg flex items-center justify-center text-sage-dark shrink-0">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 bg-sage/20 rounded-lg flex items-center justify-center text-sage-dark shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div class="text-left">
+                <p class="text-xs font-bold text-sage-dark uppercase tracking-wider">
+                  {{ t('upload.photoSection.catDetected') }}
+                </p>
+              </div>
             </div>
-            <div class="text-left">
-              <p class="text-xs font-bold text-sage-dark uppercase tracking-wider">
-                {{ t('upload.photoSection.catDetected') }}
-              </p>
+            <div v-if="catDetectionResult.confidence" class="text-xs font-mono font-semibold text-sage-dark bg-sage/10 px-2 py-1 rounded-md">
+              {{ Math.round(catDetectionResult.confidence * 100) }}% match
             </div>
           </div>
         </div>
@@ -86,7 +125,7 @@
         <!-- No Cat Detected State -->
         <div
           v-if="catDetectionResult && !catDetectionResult.has_cats && !isDetectingCats"
-          class="absolute inset-0 bg-red-50/80 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center animate-fade-in"
+          class="absolute inset-0 bg-red-50/80 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center animate-fade-in z-20"
         >
           <div class="w-14 h-14 bg-red-100 rounded-2xl flex items-center justify-center text-red-500 mb-4 shadow-sm">
             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -101,7 +140,7 @@
           </p>
           <button
             class="px-5 py-2.5 bg-red-500 text-white font-bold rounded-xl shadow-md shadow-red-200 hover:bg-red-600 transition-all transform active:scale-95 flex items-center gap-2"
-            @click="triggerFileInput"
+            @click.stop="triggerFileInput"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -153,20 +192,25 @@
           <p class="text-xl font-heading font-medium text-brown mb-1">
             {{ t('upload.photoSection.dragAndDrop') }}
           </p>
-          <p class="text-stone-500 text-sm">{{ t('upload.photoSection.orClickToBrowse') }}</p>
+          <p class="text-stone-500 text-sm mb-3">{{ t('upload.photoSection.orClickToBrowse') }}</p>
+          <div class="inline-flex items-center gap-1.5 px-3 py-1 bg-stone-100/80 rounded-full text-xs text-stone-500 font-medium">
+            <span>JPG, PNG, WEBP, GIF</span>
+            <span>•</span>
+            <span>Max 10MB</span>
+          </div>
         </div>
       </div>
 
-      <!-- Detecting State Overlay -->
+      <!-- Optimizing / Detecting Overlay -->
       <div
-        v-if="isDetectingCats"
-        class="absolute inset-0 z-20 bg-white/90 flex flex-col items-center justify-center"
+        v-if="isOptimizing || isDetectingCats"
+        class="absolute inset-0 z-20 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center"
       >
         <div
           class="w-10 h-10 border-2 border-terracotta border-t-transparent rounded-full animate-spin mb-3"
         ></div>
-        <p class="text-terracotta font-medium tracking-wide text-sm uppercase">
-          {{ t('upload.photoSection.verifyingCatContent') }}
+        <p class="text-terracotta font-medium tracking-wide text-sm uppercase font-heading">
+          {{ isOptimizing ? 'Optimizing cat image...' : t('upload.photoSection.verifyingCatContent') }}
         </p>
       </div>
     </div>
@@ -177,7 +221,7 @@
 import { ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { showError } from '@/stores/toast';
-import { validateImageFile } from '@/utils/imageUtils';
+import { validateImageFile, optimizeImage } from '@/utils/imageUtils';
 import type { CatDetectionResult } from '@/types/upload';
 
 const { t } = useI18n();
@@ -193,9 +237,12 @@ const props = defineProps<{
 const emit = defineEmits<{
   'file-selected': [payload: { file: File; url: string }];
   'check-auth': [];
+  'clear-file': [];
 }>();
 
 const fileInput = ref<HTMLInputElement | null>(null);
+const isDragging = ref(false);
+const isOptimizing = ref(false);
 
 watch(
   () => props.previewUrl,
@@ -220,12 +267,18 @@ function checkAuthProps(): boolean {
 }
 
 function handleFrameClick(): void {
-  if (props.isDetectingCats) return; // Don't allow click while detecting
+  if (props.isDetectingCats || isOptimizing.value) return;
 
-  // Allow click to change photo if verified cat, or if no preview yet
   if (!props.previewUrl || props.catDetectionResult?.has_cats) {
     triggerFileInput();
   }
+}
+
+function handleClearPhoto(): void {
+  if (fileInput.value) {
+    fileInput.value.value = '';
+  }
+  emit('clear-file');
 }
 
 function handleQuotaFullClick(): void {
@@ -239,27 +292,43 @@ function handleFileChange(e: Event): void {
 }
 
 function handleDrop(e: DragEvent): void {
+  isDragging.value = false;
+  if (props.isQuotaFull) return;
   if (!checkAuthProps()) return;
   const dropped = e.dataTransfer?.files[0];
   if (dropped) processFile(dropped);
 }
 
-const processFile = (imageFile: File): void => {
-  // Validate file using shared utility (type and size)
+const processFile = async (imageFile: File): Promise<void> => {
   const validation = validateImageFile(imageFile);
   if (!validation.valid) {
     showError(validation.error || t('upload.invalidImage'), 'Upload Error');
     return;
   }
 
-  // Create temp object URL for validation
-  const tempUrl = URL.createObjectURL(imageFile);
+  isOptimizing.value = true;
+  let fileToUse = imageFile;
+
+  try {
+    // Compress and convert to webp if file > 500KB or unoptimized
+    if (imageFile.size > 500 * 1024) {
+      fileToUse = await optimizeImage(imageFile, {
+        maxWidth: 1920,
+        maxHeight: 1080,
+        quality: 85,
+        format: 'webp',
+      });
+    }
+  } catch (err) {
+    console.warn('Client image optimization fallback to original:', err);
+  } finally {
+    isOptimizing.value = false;
+  }
+
+  const tempUrl = URL.createObjectURL(fileToUse);
   const img = new Image();
   img.onload = (): void => {
     const ratio = img.width / img.height;
-    // Allow some flexibility but reject extreme panoramas or skyscrapers
-    // Standard 4:3 is 1.33, 1:1 is 1.0. 16:9 is 1.77.
-    // We want to avoid thin strips.
     if (ratio < 0.5 || ratio > 2.0) {
       showError(
         t('upload.photoSection.aspectRatioMessage'),
@@ -269,8 +338,7 @@ const processFile = (imageFile: File): void => {
       return;
     }
 
-    // If valid, emit
-    emit('file-selected', { file: imageFile, url: tempUrl });
+    emit('file-selected', { file: fileToUse, url: tempUrl });
   };
   img.onerror = (): void => {
     showError(t('upload.invalidImage'), 'Load Error');
@@ -279,3 +347,4 @@ const processFile = (imageFile: File): void => {
   img.src = tempUrl;
 };
 </script>
+

@@ -6,9 +6,31 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi import HTTPException
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app
+
+
+@pytest.mark.asyncio
+async def test_server_side_detection_reports_service_unavailable() -> None:
+    from app.routes.upload import _perform_server_side_detection
+
+    detection_service = MagicMock()
+    detection_service.detect_cats = AsyncMock(
+        return_value={
+            "has_cats": False,
+            "service_available": False,
+            "fallback_active": True,
+            "reasoning": "Cat verification service unavailable. Please try again later.",
+        }
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await _perform_server_side_detection(b"image", detection_service, "test-user", None)
+
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.detail == "Cat verification service unavailable. Please try again later."
 
 
 @pytest.fixture
@@ -89,6 +111,8 @@ class TestUploadRoute:
         # Mock quota service
         mock_quota_service = MagicMock()
         mock_quota_service.check_and_increment = AsyncMock(return_value=True)
+        mock_quota_service.check_quota = AsyncMock(return_value=True)
+        mock_quota_service.increment_usage = AsyncMock(return_value=True)
 
         # Override dependencies
         app.dependency_overrides[get_current_user] = lambda: mock_user
@@ -299,6 +323,8 @@ class TestUploadValidation:
         # Mock quota service
         mock_quota_service = MagicMock()
         mock_quota_service.check_and_increment = AsyncMock(return_value=True)
+        mock_quota_service.check_quota = AsyncMock(return_value=True)
+        mock_quota_service.increment_usage = AsyncMock(return_value=True)
 
         # Override dependencies
         app.dependency_overrides[get_current_user] = lambda: mock_user
@@ -333,21 +359,27 @@ class TestUploadValidation:
         mock_user: Any,
         mock_supabase: MagicMock,
         mock_limiter: MagicMock,
+        mock_cat_detection_service: MagicMock,
+        mock_storage_service: MagicMock,
     ) -> None:
         """Test that invalid coordinates are rejected"""
         from app.dependencies import get_async_supabase_client
         from app.main import app
         from app.middleware.auth_middleware import get_current_user
-        from app.routes.upload import get_quota_service
+        from app.routes.upload import get_cat_detection_service, get_quota_service, get_storage_service
 
         # Mock quota service
         mock_quota_service = MagicMock()
         mock_quota_service.check_and_increment = AsyncMock(return_value=True)
+        mock_quota_service.check_quota = AsyncMock(return_value=True)
+        mock_quota_service.increment_usage = AsyncMock(return_value=True)
 
         # Override dependencies
         app.dependency_overrides[get_current_user] = lambda: mock_user
         app.dependency_overrides[get_async_supabase_client] = lambda: mock_supabase
         app.dependency_overrides[get_quota_service] = lambda: mock_quota_service
+        app.dependency_overrides[get_cat_detection_service] = lambda: mock_cat_detection_service
+        app.dependency_overrides[get_storage_service] = lambda: mock_storage_service
 
         with patch("app.routes.upload.process_uploaded_image", new_callable=AsyncMock) as mock_process:
             mock_process.return_value = (sample_image_bytes, "image/jpeg", "jpg")
@@ -408,6 +440,8 @@ class TestUploadWithPredetectedCats:
         # Mock quota service
         mock_quota_service = MagicMock()
         mock_quota_service.check_and_increment = AsyncMock(return_value=True)
+        mock_quota_service.check_quota = AsyncMock(return_value=True)
+        mock_quota_service.increment_usage = AsyncMock(return_value=True)
 
         # Mock DETECTION service to return a specific "Server Truth"
         mock_cat_detection_service = MagicMock()

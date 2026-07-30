@@ -1,7 +1,0 @@
-# =============================================================================
-# Purrfect Spots - Root Requirements (mirrors backend/requirements.txt)
-# =============================================================================
-# This file is used by Trivy and other tools that scan from the project root.
-# For the canonical dependency list, see backend/requirements.txt
-# =============================================================================
--r backend/requirements.txt

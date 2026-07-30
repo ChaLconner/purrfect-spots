@@ -88,7 +88,7 @@ class TestAdminRoutes:
             response = client.get("/api/v1/admin/users?search=test")
 
         assert response.status_code == 200
-        mock_supabase_admin.text_search.assert_called()
+        mock_supabase_admin.or_.assert_called()
 
     def test_list_users_failure(self, client, override_admin, mock_supabase_admin) -> None:
         """Test list users failure handling"""

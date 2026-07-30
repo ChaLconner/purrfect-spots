@@ -249,8 +249,8 @@ class Config:
     # ==========================================
     # Quota Configuration
     # ==========================================
-    QUOTA_FREE_LIMIT = int(os.getenv("QUOTA_FREE_LIMIT", "3"))
-    QUOTA_PRO_LIMIT = int(os.getenv("QUOTA_PRO_LIMIT", "50"))
+    QUOTA_FREE_LIMIT = int(os.getenv("QUOTA_FREE_LIMIT", "2"))
+    QUOTA_PRO_LIMIT = int(os.getenv("QUOTA_PRO_LIMIT", "30"))
 
     # ==========================================
     # Gallery/Pagination Configuration

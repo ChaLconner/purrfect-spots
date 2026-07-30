@@ -26,7 +26,7 @@
           @keydown="handleKeydown"
         >
           <div
-            class="flex flex-col bg-white w-full h-full overflow-hidden relative shadow-2xl rounded-none sm:rounded-3xl sm:h-auto sm:min-h-[670px] sm:max-h-[96vh] sm:w-[840px] sm:max-w-[97vw] lg:grid lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_400px] lg:rounded-3xl lg:min-h-[750px] lg:max-h-[98vh] lg:w-full lg:max-w-full font-body"
+            class="flex flex-col bg-white w-full h-full overflow-hidden relative shadow-2xl rounded-none sm:rounded-3xl sm:h-auto sm:min-h-[550px] sm:max-h-[90vh] sm:w-[840px] sm:max-w-[95vw] lg:grid lg:grid-cols-[1fr_420px] xl:grid-cols-[1fr_440px] lg:rounded-3xl lg:h-[640px] lg:max-h-[88vh] lg:w-[1020px] lg:max-w-[90vw] font-body"
             @click.stop
           >
             <!-- Left Side: Image Stage -->

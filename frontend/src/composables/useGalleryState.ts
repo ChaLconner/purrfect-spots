@@ -30,10 +30,18 @@ export function useGalleryState(): {
   let inFlightRequestKey: string | null = null;
   let inFlightRequest: Promise<void> | null = null;
   let lastLoadMoreRequestAt = 0;
+  let activeAbortController: AbortController | null = null;
 
   const preloadedLinks: HTMLLinkElement[] = [];
 
   async function fetchGalleryData(reset = false, callback?: () => void): Promise<void> {
+    if (reset && activeAbortController) {
+      activeAbortController.abort();
+      activeAbortController = null;
+    }
+    const currentController = new AbortController();
+    activeAbortController = currentController;
+
     const requestKey = `${reset ? 'reset' : 'append'}:${catsStore.gallerySearchQuery}:${currentPage.value}:${imagesPerPage}`;
 
     // Deduplicate identical in-flight requests triggered by multiple watchers/observers.
@@ -183,6 +191,10 @@ export function useGalleryState(): {
   }
 
   function cleanupPreloads(): void {
+    if (activeAbortController) {
+      activeAbortController.abort();
+      activeAbortController = null;
+    }
     preloadedLinks.forEach((link) => {
       if (link.parentNode) {
         link.parentNode.removeChild(link);

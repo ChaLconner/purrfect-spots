@@ -6,7 +6,6 @@ from unittest.mock import MagicMock
 import pytest
 import supabase.lib.client_options
 from dotenv import load_dotenv
-
 from supabase import Client, create_client
 
 ClientOptions: Any = getattr(supabase.lib.client_options, "SyncClientOptions", None) or getattr(

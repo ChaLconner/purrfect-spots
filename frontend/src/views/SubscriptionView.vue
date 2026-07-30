@@ -260,8 +260,8 @@
     <!-- Confirm Cancel Modal -->
     <BaseConfirmModal
       :is-open="showCancelModal"
-      title="Cancel Subscription"
-      message="Are you sure you want to cancel your PRO subscription? You will keep your premium benefits until the end of this billing period."
+      :title="$t('subscription.cancelModal.title')"
+      :message="$t('subscription.cancelModal.message')"
       :confirm-text="$t('common.cancel') + ' PRO'"
       :cancel-text="$t('common.cancel')"
       :is-loading="isCanceling"

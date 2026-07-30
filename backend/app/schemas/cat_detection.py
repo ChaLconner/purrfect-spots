@@ -16,10 +16,13 @@ class CatDetectionResult(BaseModel):
     image_quality: str | None = "Medium"
     suitable_for_cat_spot: bool
     reasoning: str | None = None
+    service_available: bool = True
+    fallback_active: bool = False
     note: str | None = None
     filename: str | None = None
     file_size: int | None = None
     detected_by: str | None = None
+    verification_token: str | None = None
 
 
 class SafetyFactors(BaseModel):

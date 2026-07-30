@@ -9,9 +9,13 @@ import { createPinia } from 'pinia';
 // Create Pinia instance
 export const pinia = createPinia();
 
-// Export public stores that are safe on the unauthenticated critical path.
+// Export all stores
+export { useAdminStore } from './adminStore';
+export { useAuthStore } from './authStore';
 export { useCatsStore, extractTags, getCleanDescription, hasTag } from './catsStore';
-export { useToastStore } from './toastStore';
+export { useNotificationStore } from './notificationStore';
+export { useSubscriptionStore } from './subscriptionStore';
+export { useToastStore, toastState, addToast, removeToast, showError, showSuccess } from './toastStore';
 
 // Export types
 export type { CatLocation, PaginationMeta, TagInfo } from './catsStore';

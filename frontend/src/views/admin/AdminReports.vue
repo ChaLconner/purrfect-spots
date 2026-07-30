@@ -497,6 +497,8 @@ const closeActionModal = (): void => {
   resolutionNote.value = '';
 };
 
+const processingReportIds = ref(new Set<string>());
+
 const confirmAction = async (): Promise<void> => {
   if (!selectedReport.value || !hasValidSelectedReason.value) return;
 
@@ -504,11 +506,24 @@ const confirmAction = async (): Promise<void> => {
     ? `${t('admin.reports.resolutionReasons.' + selectedReason.value)}: ${resolutionNote.value}`
     : t('admin.reports.resolutionReasons.' + selectedReason.value);
 
+  const targetIds = isBulkAction.value ? [...selectedReportIds.value] : [selectedReport.value.id];
+  const targetNewStatus = actionType.value === 'dismiss' ? 'dismissed' : 'resolved';
+
+  // Backup previous statuses for optimistic rollback
+  const backupStatuses = new Map<string, string>();
+  reports.value.forEach((r) => {
+    if (targetIds.includes(r.id)) {
+      backupStatuses.set(r.id, r.status);
+      r.status = targetNewStatus; // Optimistic update
+      processingReportIds.value.add(r.id);
+    }
+  });
+
   try {
     if (isBulkAction.value) {
       await apiV1.post('/admin/reports/bulk', {
         report_ids: selectedReportIds.value,
-        status: actionType.value === 'dismiss' ? 'dismissed' : 'resolved',
+        status: targetNewStatus,
         resolution_notes: finalNote,
         delete_content: actionType.value === 'delete',
       });
@@ -518,6 +533,7 @@ const confirmAction = async (): Promise<void> => {
         }),
         variant: 'default',
       });
+      selectedReportIds.value = [];
     } else {
       if (actionType.value === 'delete') {
         await apiV1.put(`/admin/reports/${selectedReport.value.id}`, {
@@ -527,7 +543,7 @@ const confirmAction = async (): Promise<void> => {
         });
       } else {
         await apiV1.put(`/admin/reports/${selectedReport.value.id}`, {
-          status: actionType.value === 'dismiss' ? 'dismissed' : 'resolved',
+          status: targetNewStatus,
           resolution_notes: finalNote,
         });
       }
@@ -538,14 +554,22 @@ const confirmAction = async (): Promise<void> => {
     }
 
     closeActionModal();
-    loadReports(page.value);
+    await loadReports(page.value);
   } catch (e) {
     console.error('Failed to perform action', e);
+    // Rollback optimistic update
+    reports.value.forEach((r) => {
+      if (backupStatuses.has(r.id)) {
+        r.status = backupStatuses.get(r.id)!;
+      }
+    });
     toast({
       title: t('common.error'),
       description: t('admin.reports.actions.failed'),
       variant: 'destructive',
     });
+  } finally {
+    targetIds.forEach((id) => processingReportIds.value.delete(id));
   }
 };
 

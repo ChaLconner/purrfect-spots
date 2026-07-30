@@ -1,11 +1,11 @@
 import os
 from typing import Any, cast
 
+from supabase import AClient, Client, acreate_client, create_client
 from supabase.lib.client_options import ClientOptions
 
 from app.config import config, normalize_single_line_env
 from app.logger import logger
-from supabase import AClient, Client, acreate_client, create_client
 
 
 class _FallbackAsyncMemoryStorage:

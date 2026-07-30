@@ -1,47 +1,50 @@
-# 📄 Purrfect Spots Documentation
+# Purrfect Spots Documentation
 
-Documentation for the Purrfect Spots project. This project is a platform for sharing and discovering cute cat locations, featuring Ghibli-inspired aesthetics and advanced cat detection.
+Canonical project documentation. Start here instead of searching individual
+files.
 
----
+## Architecture
 
-## 🗺️ Navigation
+- [System architecture](./architecture/ARCHITECTURE.md) - Runtime components
+  and service boundaries.
+- [Project structure](./architecture/PROJECT_STRUCTURE.md) - Folder ownership
+  and dependency rules.
 
-### 🚀 Getting Started
+## Development
 
-- [Environment Setup](./ENV_SETUP.md) - How to set up your local environment.
-- [Database Schema](./DATABASE_SCHEMA.md) - Database structure and relationships.
-- [Coding Standards](./CODING_STANDARDS.md) - Project code architecture and requirements.
-- [Project Structure](./PROJECT_STRUCTURE.md) - Folder ownership and dependency boundaries.
-- [Best Practices](./BEST_PRACTICES.md) - Concrete code examples and design patterns.
-- [Git & Commit Guidelines](./GIT_GUIDELINES.md) - Branching and deployment best practices.
+- [Coding standards](./development/CODING_STANDARDS.md) - Enforced project
+  conventions.
+- [Git guidelines](./development/GIT_GUIDELINES.md) - Branch, commit, and PR
+  rules.
+- [Design tokens](./development/DESIGN_TOKENS.md) - UI tokens and component
+  styling.
 
-### 🛠️ Infrastructure & Ops
+## Reference
 
-- [Production Setup](./PRODUCTION_SETUP.md) - Production environment details.
-- [Runbook](./RUNBOOK.md) - Operational procedures and troubleshooting.
-- [Infrastructure Assets](./infra/) - Infrastructure configuration files.
+- [OpenAPI baseline](./openapi-baseline.json) - Machine-readable API contract
+  used by validation and client generation.
 
-### 🎨 Design & API
+## Sources of truth
 
-- [API Spec (OpenAPI)](./openapi-baseline.json) - Direct link to API documentation.
-- [Design Tokens](./design_tokens.md) - Style guides and design constants.
+- Environment variables: [root](../.env.example),
+  [frontend](../frontend/.env.example), and
+  [backend](../backend/.env.example) templates.
+- Database state: [canonical Supabase migrations](../supabase/migrations/) plus
+  historical migration locations described in
+  [Project structure](./architecture/PROJECT_STRUCTURE.md).
+- Deployment: [deploy workflow](../.github/workflows/deploy.yml).
+- Runtime health endpoints: [health routes](../backend/app/routes/health.py).
+- Release history: [release workflow](../.github/workflows/release.yml) and
+  repository releases.
 
-### 📜 History & Archive
+## Maintenance policy
 
-- [Changelog](./CHANGELOG.md) - Project history and updates.
-- [Archive](./archive/v2/) - Historical performance reviews and setup guides.
-
----
-
-## 📂 Directory Structure
-
-| File/Folder             | Description                                         |
-| ----------------------- | --------------------------------------------------- |
-| `infra/`                | Infrastructure as code and configuration templates. |
-| `*.md`                  | Detailed documentation guides.                      |
-
----
-
-## 🤝 Contributing
-
-Please refer to the [Coding Standards](./CODING_STANDARDS.md) and [Git & Commit Guidelines](./GIT_GUIDELINES.md) before making any changes to ensure consistency and security.
+- Keep one canonical document per topic.
+- Put design and coding rules in `development/`; system descriptions in
+  `architecture/`.
+- Keep generated or machine-consumed artifacts at stable paths unless every
+  consumer changes in the same commit.
+- Link to executable configuration instead of copying environment, database,
+  deployment, or operational details into manually maintained documents.
+- Use Git history for obsolete documents. Do not keep an `archive/` directory.
+- Update this index and all inbound links when moving a document.

@@ -188,19 +188,30 @@ async def grant_treats_manually(
             new_balance = int(user_check.data.get("treat_balance") or 0) + data.amount
             await admin_client.table("users").update({"treat_balance": new_balance}).eq("id", data.user_id).execute()
 
-        # Record transaction
-        await (
-            admin_client.table("treats_transactions")
-            .insert(
-                {
-                    "to_user_id": data.user_id,
-                    "amount": data.amount,
-                    "transaction_type": "system_grant",
-                    "description": data.reason,
-                }
+        # Record transaction with rollback protection if transaction insert fails
+        try:
+            await (
+                admin_client.table("treats_transactions")
+                .insert(
+                    {
+                        "to_user_id": data.user_id,
+                        "amount": data.amount,
+                        "transaction_type": "system_grant",
+                        "description": data.reason,
+                    }
+                )
+                .execute()
             )
-            .execute()
-        )
+        except Exception as tx_err:
+            if not granted:
+                # Rollback balance update
+                assert isinstance(user_check.data, dict)
+                orig_balance = int(user_check.data.get("treat_balance") or 0)
+                await (
+                    admin_client.table("users").update({"treat_balance": orig_balance}).eq("id", data.user_id).execute()
+                )
+            logger.error("Transaction record failed, rolled back balance: %s", tx_err)
+            raise HTTPException(status_code=500, detail="Failed to record treat transaction")
 
         # Log Audit
         await (

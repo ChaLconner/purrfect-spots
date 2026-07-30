@@ -7,19 +7,22 @@
   >
     <div
       v-if="cat"
-      class="fixed inset-0 z-[150] flex justify-end items-stretch pointer-events-auto"
+      class="fixed inset-0 z-[150] flex justify-end items-stretch bg-black/20 pointer-events-auto"
       @click="$emit('close')"
     >
       <div
         ref="modalContainer"
         class="relative flex flex-col w-full max-w-full sm:max-w-[450px] sm:m-6 h-screen sm:h-[calc(100vh-3rem)] bg-white sm:border sm:border-gray-200 sm:rounded-3xl shadow-[-10px_20px_40px_rgba(0,0,0,0.08)] overflow-hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cat-detail-title"
         tabindex="-1"
         @click.stop
         @keydown="handleKeydown"
       >
         <!-- Close Action (Top Corner) -->
         <button
-          class="absolute top-5 right-5 z-20 w-10 h-10 flex items-center justify-center text-white bg-black/20 hover:bg-black/60 backdrop-blur-[4px] rounded-full border-none cursor-pointer drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)] transition-all duration-300 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 hover:scale-105"
+          class="absolute top-5 right-5 z-20 w-10 h-10 flex items-center justify-center text-white bg-black/20 hover:bg-black/60 backdrop-blur-[4px] rounded-full border-none cursor-pointer drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)] transition-all duration-300 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
           :aria-label="t('map.modal.ariaClose')"
           @click="$emit('close')"
         >
@@ -38,8 +41,8 @@
 
         <!-- Report Button (Top Left) -->
         <button
-          v-if="cat && (!authStore.isAuthenticated || authStore.user?.id !== cat.user_id)"
-          class="report-btn group absolute top-5 left-5 z-20 w-10 h-10 flex items-center justify-center text-white bg-black/20 backdrop-blur-[4px] rounded-full border-none cursor-pointer drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)] transition-all duration-300 hover:bg-red-500/80 hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2"
+          v-if="canInteractWithCat"
+          class="report-btn group absolute top-5 left-5 z-20 w-10 h-10 flex items-center justify-center text-white bg-black/20 backdrop-blur-[4px] rounded-full border-none cursor-pointer drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)] transition-all duration-300 hover:bg-red-500/80 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2"
           :aria-label="t('map.modal.ariaReport')"
           :title="t('map.modal.reportTitle')"
           @click="handleReportClick"
@@ -62,48 +65,59 @@
         </button>
 
         <div
-          class="flex-grow overflow-y-auto [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-gray-100 [&::-webkit-scrollbar-thumb]:rounded-full"
+          class="min-h-0 flex-1 overflow-y-auto custom-scrollbar"
         >
           <!-- Image Section -->
-          <div class="w-full aspect-square overflow-hidden">
+          <div
+            class="w-full aspect-[4/3] sm:aspect-square overflow-hidden bg-stone-100 flex items-center justify-center"
+          >
             <img
-              :src="cat.image_url"
+              :src="catImageSrc"
               :alt="cat.location_name || t('galleryPage.modal.aCat')"
               class="w-full h-full object-cover"
               loading="lazy"
+              @error="handleImageError"
             />
           </div>
 
           <!-- Content Section -->
-          <div class="p-8">
+          <div class="p-5 sm:p-8">
             <div
-              class="font-accent text-[0.8rem] font-bold tracking-wider text-sage uppercase mb-2"
+              class="font-accent text-sm font-bold tracking-wide text-sage mb-2 break-words"
             >
               {{ cat.location_name }}
             </div>
 
-            <h2 class="font-heading text-3xl font-extrabold text-wood-dark mb-6 leading-tight">
+            <h2
+              id="cat-detail-title"
+              class="font-heading text-3xl font-extrabold text-wood-dark mb-6 leading-snug pt-0.5"
+            >
               {{ t('map.modal.catSpotted') }}
             </h2>
 
-            <div class="text-base leading-relaxed text-stone-600 mb-6 font-body">
+            <div
+              class="text-base leading-relaxed text-stone-600 mb-6 font-body break-words"
+            >
               {{ cleanDescription || t('map.modal.defaultDescription') }}
             </div>
 
             <div v-if="tags.length > 0" class="flex flex-wrap gap-3 mb-6">
-              <span
+              <button
                 v-for="tag in tags"
                 :key="tag"
-                class="text-xs font-semibold text-stone-400"
-                >#{{ tag }}</span
+                type="button"
+                class="text-xs font-semibold text-sage-dark hover:text-wood-brown focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wood-brown focus-visible:ring-offset-2 rounded-md"
+                @click="emit('tag-click', tag)"
               >
+                #{{ tag }}
+              </button>
             </div>
 
             <!-- Interaction Row -->
             <div class="mt-8 pt-6 border-t border-stone-100">
               <div class="flex flex-col gap-6">
                 <!-- Like and Treat Row -->
-                <div class="flex items-center gap-4">
+                <div class="flex flex-col sm:flex-row sm:items-center gap-4">
                   <LikeButton
                     v-if="cat"
                     :photo-id="cat.id"
@@ -114,18 +128,18 @@
                     @update:count="cat!.likes_count = $event"
                   />
 
-                  <div class="h-8 w-px bg-stone-100 mx-2"></div>
+                  <div class="hidden sm:block h-8 w-px bg-stone-100 mx-2"></div>
 
                   <div class="flex-1 flex items-center justify-between gap-3">
                     <div class="flex bg-stone-100 rounded-full p-1 gap-1">
                       <button
                         v-for="amt in [1, 5, 10]"
                         :key="amt"
-                        class="w-8 h-8 flex items-center justify-center text-xs font-bold rounded-full transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wood focus-visible:ring-offset-2 active:scale-95"
+                        class="w-8 h-8 flex items-center justify-center text-xs font-bold rounded-full transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wood-brown focus-visible:ring-offset-2 active:scale-95"
                         :class="
                           selectedAmount === amt
-                            ? 'bg-white text-wood shadow-sm ring-1 ring-black/5 scale-105'
-                            : 'text-stone-400 hover:text-stone-600 hover:scale-105 hover:bg-white/50'
+                            ? 'bg-white text-wood-brown shadow-sm ring-1 ring-black/5 scale-105'
+                            : 'text-stone-400 hover:text-stone-600 hover:bg-white/50'
                         "
                         @click="selectedAmount = amt"
                       >
@@ -134,16 +148,17 @@
                     </div>
 
                     <button
-                      v-if="!authStore.isAuthenticated || authStore.user?.id !== cat.user_id"
-                      class="flex-1 h-10 bg-wood hover:bg-wood-dark text-white text-sm font-bold rounded-full shadow-sm hover:shadow-md transition-all duration-300 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wood focus-visible:ring-offset-2 flex items-center justify-center disabled:opacity-50"
+                      v-if="canInteractWithCat"
+                      class="flex-1 min-w-0 h-10 bg-wood-brown hover:bg-wood-dark text-white text-sm font-bold rounded-full shadow-sm transition-all duration-300 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wood-brown focus-visible:ring-offset-2 flex items-center justify-center disabled:opacity-50"
                       :disabled="isSendingTreat"
                       @click="handleGiveTreat"
                     >
                       <span v-if="!isSendingTreat">{{ t('map.modal.giveTreats') }}</span>
                       <span v-else class="flex gap-1">
-                        <span class="w-1 h-1 bg-white rounded-full animate-bounce"></span>
-                        <span class="w-1 h-1 bg-white rounded-full animate-bounce delay-100"></span>
-                        <span class="w-1 h-1 bg-white rounded-full animate-bounce delay-200"></span>
+                        <span class="sr-only">{{ t('map.modal.giveTreats') }}</span>
+                        <span class="w-1 h-1 bg-white rounded-full animate-pulse"></span>
+                        <span class="w-1 h-1 bg-white rounded-full animate-pulse delay-100"></span>
+                        <span class="w-1 h-1 bg-white rounded-full animate-pulse delay-200"></span>
                       </span>
                     </button>
                   </div>
@@ -153,9 +168,9 @@
           </div>
         </div>
 
-        <div class="p-8 pt-0">
+        <div class="shrink-0 p-5 pt-3 sm:p-8 sm:pt-3 bg-white border-t border-stone-100">
           <button
-            class="w-full p-5 bg-wood hover:bg-wood-dark hover:shadow-lg hover:-translate-y-0.5 active:translate-y-px active:scale-[0.98] border-none rounded-2xl text-white font-heading text-sm font-bold tracking-widest cursor-pointer transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wood focus-visible:ring-offset-2"
+            class="w-full p-4 bg-wood-brown hover:bg-wood-dark active:translate-y-px active:scale-[0.98] border-none rounded-2xl text-white font-heading text-sm font-bold tracking-widest cursor-pointer transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-wood-brown focus-visible:ring-offset-2"
             @click="$emit('get-directions', cat)"
           >
             {{ t('map.modal.getDirections') }}
@@ -203,6 +218,24 @@ const selectedAmount = ref(1);
 const isSendingTreat = ref(false);
 const isReportOpen = ref(false);
 const modalContainer = ref<HTMLElement | null>(null);
+const isImageError = ref(false);
+
+const handleImageError = (): void => {
+  isImageError.value = true;
+};
+
+const catImageSrc = computed(() => {
+  if (isImageError.value || !props.cat?.image_url) {
+    return '/cat-illustration.webp';
+  }
+  return props.cat.image_url;
+});
+
+const canInteractWithCat = computed(() => {
+  if (!props.cat) return false;
+  if (!authStore.isAuthenticated) return true;
+  return authStore.user?.id !== props.cat.user_id;
+});
 
 const { handleKeydown } = useModalFocus(modalContainer, {
   onClose: () => emit('close'),

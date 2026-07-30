@@ -1,1 +1,3 @@
-# services/user/__init__.py
+"""
+User service mixins package
+"""

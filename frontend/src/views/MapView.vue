@@ -29,7 +29,7 @@
         >
           <div
             v-if="isLoading && !isInitialLoading"
-            class="absolute bottom-6 right-6 flex items-center gap-3 bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-lg z-20 border border-white/50 animate-bounce-subtle"
+            class="absolute bottom-6 right-6 flex items-center gap-3 bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-lg z-20 border border-white/50 animate-pulse"
           >
             <GhibliLoader size="small" :text="$t('map.findingCats')" />
           </div>
@@ -40,7 +40,7 @@
           v-if="error && !isLoading && !isInitialLoading"
           class="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md z-20 p-6 rounded-xl"
         >
-          <ErrorState :message="error" @retry="fetchLocationsInViewport" />
+          <ErrorState :message="error" @retry="initializeMap" />
         </div>
 
         <!-- Google Map -->
@@ -96,6 +96,8 @@
 
     <!-- Cat Details Modal -->
     <CatDetailModal
+      v-if="selectedCat"
+      :key="selectedCat.id"
       :cat="selectedCat"
       @close="closeModal"
       @tag-click="searchByTag"
@@ -177,20 +179,26 @@ const mapBounds = ref<google.maps.LatLngBounds | null>(null);
  * Filter markers to only those visible in the current viewport
  * Used for the "Spotted Nearby" badge to ensure the number matches what the user sees
  */
-const visibleCount = computed(() => {
-  if (!map.value || !mapBounds.value) return displayedLocations.value.length;
-  
+const visibleCount = ref(0);
+
+const updateVisibleCount = (): void => {
+  if (!map.value || !mapBounds.value) {
+    visibleCount.value = displayedLocations.value.length;
+    return;
+  }
   const currentBounds = mapBounds.value;
-  return displayedLocations.value.filter((loc: CatLocation): boolean => {
+  visibleCount.value = displayedLocations.value.filter((loc: CatLocation): boolean => {
     try {
-      // Use Google Maps LatLngBounds.contains API for accurate geometric check
       return currentBounds.contains({ lat: loc.latitude, lng: loc.longitude });
     } catch {
-      // Fallback to inclusion if geometric check fails
       return true;
     }
   }).length;
-});
+};
+
+watch([mapBounds, displayedLocations], () => {
+  updateVisibleCount();
+}, { immediate: true });
 
 // ==========================================
 // Handlers
@@ -199,7 +207,7 @@ const visibleCount = computed(() => {
 const searchByTag = (tag: string): void => {
   const query: LocationQueryRaw = { ...route.query, search: `#${tag}` };
   delete query.image;
-  router.push({ query });
+  router.push({ path: route.path, query, hash: route.hash });
   catsStore.setSearchQuery(`#${tag}`);
 };
 
@@ -207,18 +215,18 @@ const clearSearch = (): void => {
   catsStore.clearSearch();
   const query: LocationQueryRaw = { ...route.query };
   delete query.search;
-  router.push({ query });
+  router.push({ path: route.path, query, hash: route.hash });
 };
 
 const selectCat = (cat: CatLocation): void => {
   const query: LocationQueryRaw = { ...route.query, image: cat.id };
-  router.push({ query });
+  router.push({ path: route.path, query, hash: route.hash });
 };
 
 const closeModal = (): void => {
   const query: LocationQueryRaw = { ...route.query };
   delete query.image;
-  router.push({ query });
+  router.push({ path: route.path, query, hash: route.hash });
 };
 
 // ==========================================
@@ -355,8 +363,6 @@ const fetchLocationsInViewport = async (): Promise<void> => {
     // Use store action to merge locations (handles duplicates and updates)
     catsStore.appendLocations(locations);
 
-    // sync state from URL if needed
-    syncStateFromUrl();
   } catch (err) {
     console.warn('Failed to fetch marker locations:', err);
     // Keep the map interactive when the marker API is temporarily unavailable.
@@ -467,11 +473,12 @@ watch(
 watch(
   (): LocationQueryValue | LocationQueryValue[] | undefined => route.query.image,
   (): void => {
-    syncStateFromUrl();
-  }
+    void syncStateFromUrl();
+  },
+  { immediate: true }
 );
 
-const syncStateFromUrl = async (): Promise<void> => {
+async function syncStateFromUrl(): Promise<void> {
   const requestId = ++latestImageRequestId.value;
   const imageId = getQueryString(route.query.image);
 
@@ -506,7 +513,7 @@ const syncStateFromUrl = async (): Promise<void> => {
     if (!found) {
       const q: LocationQueryRaw = { ...route.query };
       delete q.image;
-      router.replace({ query: q });
+      router.replace({ path: route.path, query: q, hash: route.hash });
       return;
     }
   }
@@ -519,19 +526,23 @@ const syncStateFromUrl = async (): Promise<void> => {
       map.value.setZoom(15);
     }
   }
-};
+}
 
 // ==========================================
 // Control Handlers
 // ==========================================
 
 const openDirections = (cat: CatLocation): void => {
-  let url = `${EXTERNAL_URLS.GOOGLE_MAPS_DIRECTIONS}`;
-  if (userLocation.value) url += `&origin=${userLocation.value.lat},${userLocation.value.lng}`;
-  url += `&destination=${cat.latitude},${cat.longitude}`;
-  if (cat.location_name) url += `&destination_place_id=`;
-  url += `&travelmode=walking`;
-  openTrustedExternalUrl(url);
+  const directionsUrl = new URL(EXTERNAL_URLS.GOOGLE_MAPS_DIRECTIONS);
+  if (userLocation.value) {
+    directionsUrl.searchParams.set(
+      'origin',
+      `${userLocation.value.lat},${userLocation.value.lng}`
+    );
+  }
+  directionsUrl.searchParams.set('destination', `${cat.latitude},${cat.longitude}`);
+  directionsUrl.searchParams.set('travelmode', 'walking');
+  openTrustedExternalUrl(directionsUrl.toString());
   closeModal();
 };
 

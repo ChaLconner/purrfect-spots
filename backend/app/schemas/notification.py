@@ -24,3 +24,7 @@ class NotificationResponse(BaseModel):
     created_at: datetime
     actor_name: str | None = None
     actor_picture: str | None = None
+
+
+class NotificationUnreadCountResponse(BaseModel):
+    unread_count: int

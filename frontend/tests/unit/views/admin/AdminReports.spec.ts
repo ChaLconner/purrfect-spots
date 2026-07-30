@@ -80,7 +80,10 @@ describe('AdminReports.vue', () => {
      await new Promise(r => setTimeout(r, 50));
      await nextTick();
   
-     expect(apiV1.get).toHaveBeenCalledWith(expect.stringContaining('/admin/reports'));
+     expect(apiV1.get).toHaveBeenCalledWith(
+       expect.stringContaining('/admin/reports'),
+       expect.anything()
+     );
      expect(wrapper.text()).toContain('user@example.com');
      expect(wrapper.text()).toContain('spam');
    });

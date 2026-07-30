@@ -9,6 +9,7 @@ import { defineComponent } from 'vue';
 import { mount } from '@vue/test-utils';
 import { redirectToTrustedExternalUrl } from '@/utils/security';
 import { getEnvVar } from '@/utils/env';
+import type * as EnvModule from '@/utils/env';
 
 // Mock dependencies
 vi.mock('@/services/authService');
@@ -17,7 +18,7 @@ vi.mock('vue-router', () => ({
   useRouter: vi.fn(),
 }));
 vi.mock('@/utils/env', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/utils/env')>();
+  const actual = await importOriginal<typeof EnvModule>();
   return {
     ...actual,
     getEnvVar: vi.fn((_key) => 'mock-env-value'),

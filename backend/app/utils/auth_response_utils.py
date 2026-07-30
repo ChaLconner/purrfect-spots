@@ -46,7 +46,7 @@ def create_login_response(
         set_refresh_cookie(response, refresh_token)
 
     # Standardize User object for response
-    # role and permissions are NOT included in the public response.
+    # role_id is NOT included; permissions ARE included for frontend admin UI.
     if isinstance(user, dict):
         user_response = UserResponse(
             id=user["id"],

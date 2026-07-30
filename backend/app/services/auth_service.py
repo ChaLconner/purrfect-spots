@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, Any, cast
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from supabase import AClient
 
 from app.compat import structlog
 from app.config import config
@@ -8,7 +9,6 @@ from app.services.auth.oauth_mixin import AuthOAuthMixin
 from app.services.auth.password_mixin import AuthPasswordMixin
 from app.services.auth.token_mixin import AuthTokenMixin
 from app.services.user_service import UserService
-from supabase import AClient
 
 if TYPE_CHECKING:
     from app.schemas.user import User

@@ -13,6 +13,7 @@ These endpoints are designed for:
 """
 
 import asyncio
+import json
 import os
 import sys
 from datetime import UTC, datetime
@@ -166,10 +167,37 @@ def check_google_vision() -> dict[str, Any]:
     Returns:
         Dict with status and configuration info
     """
-    key_path = os.getenv("GOOGLE_VISION_KEY_PATH", "keys/google_vision.json")
-
     try:
         from pathlib import Path
+
+        service_account_json = os.getenv("GOOGLE_VISION_SERVICE_ACCOUNT")
+        if service_account_json:
+            try:
+                service_account_info = json.loads(service_account_json)
+            except (json.JSONDecodeError, TypeError):
+                return {
+                    "status": "unhealthy",
+                    "error": "GOOGLE_VISION_SERVICE_ACCOUNT is not valid JSON",
+                }
+
+            required_fields = {"project_id", "private_key", "client_email", "token_uri"}
+            if (
+                not isinstance(service_account_info, dict)
+                or service_account_info.get("type") != "service_account"
+                or any(not service_account_info.get(field) for field in required_fields)
+            ):
+                return {
+                    "status": "unhealthy",
+                    "error": "GOOGLE_VISION_SERVICE_ACCOUNT is incomplete or not a service account credential",
+                }
+
+            return {
+                "status": "configured",
+                "credentials_type": "service_account_json",
+                "note": "Service account JSON configured (API not called to save quota)",
+            }
+
+        key_path = os.getenv("GOOGLE_VISION_KEY_PATH", "keys/google_vision.json")
 
         # Check if credentials file exists
         if Path(key_path).exists():

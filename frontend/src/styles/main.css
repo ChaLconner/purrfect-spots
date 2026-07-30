@@ -13,14 +13,13 @@
     -webkit-tap-highlight-color: transparent;
     color: var(--color-brown-text, #2d2420);
     font-family: var(--font-body, 'Montserrat', sans-serif);
-    --text-muted: #8c7e7a;
+    --text-muted: #6e625e;
   }
 
   /* Global Cursor Pointers */
   button,
   [role='button'],
   select,
-  label,
   input[type='submit'],
   input[type='button'],
   input[type='reset'],
@@ -70,5 +69,16 @@
   /* Accessibility Utilities */
   .text-muted {
     color: var(--text-muted);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }

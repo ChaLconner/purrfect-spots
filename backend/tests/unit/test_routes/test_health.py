@@ -1,5 +1,8 @@
+import os
 from typing import Any
 from unittest.mock import patch
+
+from app.routes.health import check_google_vision
 
 
 def test_health_check(client: Any) -> None:
@@ -12,6 +15,27 @@ def test_root(client: Any) -> None:
     response = client.get("/")
     assert response.status_code == 200
     assert response.json()["status"] == "healthy"
+
+
+def test_google_vision_health_accepts_service_account_json(tmp_path: Any) -> None:
+    missing_key_path = tmp_path / "missing-google-vision.json"
+    service_account_json = (
+        '{"type":"service_account","project_id":"test-project","private_key":"test-key",'
+        '"client_email":"vision@example.com","token_uri":"https://oauth2.googleapis.com/token"}'
+    )
+
+    with patch.dict(
+        os.environ,
+        {
+            "GOOGLE_VISION_SERVICE_ACCOUNT": service_account_json,
+            "GOOGLE_VISION_KEY_PATH": str(missing_key_path),
+            "GOOGLE_APPLICATION_CREDENTIALS": "",
+        },
+    ):
+        result = check_google_vision()
+
+    assert result["status"] == "configured"
+    assert result["credentials_type"] == "service_account_json"
 
 
 def test_health_dependencies_redacted_in_production(client: Any) -> None:

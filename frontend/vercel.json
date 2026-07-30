@@ -43,15 +43,6 @@
           "value": "public, max-age=0, must-revalidate"
         }
       ]
-    },
-    {
-      "source": "/service-worker.js",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
-        }
-      ]
     }
   ],
   "rewrites": [
@@ -60,7 +51,7 @@
       "destination": "https://purrfect-spots-backend.vercel.app/api/:path*"
     },
     {
-      "source": "/((?!api/.*|assets/.*|favicon.*|apple-touch-icon.png|cat-icon.*|cat-illustration.*|give-treat.*|logo.*|location_10753796.png|default-avatar.svg|manifest.webmanifest|robots.txt|sitemap.xml|image-worker.js).*)",
+      "source": "/((?!api/.*|assets/.*|favicon.*|apple-touch-icon.png|cat-icon.*|cat-illustration.*|give-treat.*|logo.*|location_10753796.png|default-avatar.svg|manifest.webmanifest|robots.txt|sitemap.xml).*)",
       "destination": "/index.html"
     }
   ]

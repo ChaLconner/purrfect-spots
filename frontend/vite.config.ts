@@ -131,23 +131,50 @@ export default defineConfig(async ({ mode }) => {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
       },
+      dedupe: [
+        'vue',
+        'vue-router',
+        'pinia',
+        '@vue/runtime-core',
+        '@vue/runtime-dom',
+        '@vue/reactivity',
+        '@vue/shared',
+      ],
+    },
+    optimizeDeps: {
+      include: [
+        'vue',
+        'vue-router',
+        'pinia',
+        '@vue/runtime-core',
+        '@vue/runtime-dom',
+        '@vue/reactivity',
+        '@vue/shared',
+      ],
     },
     build: {
       outDir: 'dist',
       assetsDir: 'assets',
-      // Keep warnings meaningful now that admin charts use native SVG.
       chunkSizeWarningLimit: 500,
-      // Skip gzip size reporting (handled by compression plugin) - saves memory
       reportCompressedSize: false,
-      rolldownOptions: {
-        checks: {
-          pluginTimings: false,
-        },
+      rollupOptions: {
         output: {
-          // Code splitting for better caching
           manualChunks: (id) => {
             const normalizedId = normalizeModuleId(id);
 
+            if (
+              matchesAnyPackage(normalizedId, [
+                'vue',
+                '@vue/runtime-core',
+                '@vue/runtime-dom',
+                '@vue/reactivity',
+                '@vue/shared',
+                'vue-router',
+                'pinia',
+              ])
+            ) {
+              return 'vue-vendor';
+            }
             if (matchesAnyPackage(normalizedId, ['@sentry/vue', '@sentry/core', '@sentry/browser'])) {
               return 'sentry';
             }
@@ -157,8 +184,10 @@ export default defineConfig(async ({ mode }) => {
             if (matchesNodeModulePackage(normalizedId, '@supabase')) {
               return 'supabase';
             }
+            if (matchesAnyPackage(normalizedId, ['lucide-vue-next'])) {
+              return 'icons-vendor';
+            }
           },
-          // Optimize asset file names
           assetFileNames: (assetInfo) => {
             const extType = assetInfo.name?.split('.').pop() || 'asset';
             if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(extType)) {
@@ -169,29 +198,18 @@ export default defineConfig(async ({ mode }) => {
             }
             return 'assets/[name]-[hash][extname]';
           },
-          // Chunk file names
           chunkFileNames: 'assets/js/[name]-[hash].js',
-          // Entry file names
           entryFileNames: 'assets/js/[name]-[hash].js',
         },
       },
-      // Enable asset optimization
-      assetsInlineLimit: 4096, // Inline assets smaller than 4kb
-      sourcemap: false, // Disable sourcemaps in production
-      // Use esbuild instead of terser: 10-20x faster, uses far less RAM
-      // Terser caused OOM crashes on Vercel's 2-core / 8GB build machines
+      assetsInlineLimit: 4096,
+      sourcemap: false,
       minify: 'esbuild',
     },
-    // esbuild minification options
     esbuild: {
-      // drop: ['console', 'debugger'], // Removed as it stripped console calls during tests
       legalComments: 'none',
     },
-    optimizeDeps: {
-      include: ['@googlemaps/js-api-loader'],
-    },
     define: {
-      // Ensure environment variables are properly replaced
       __VITE_GOOGLE_MAPS_API_KEY__: JSON.stringify(process.env.VITE_GOOGLE_MAPS_API_KEY),
     },
     server: {
@@ -202,7 +220,6 @@ export default defineConfig(async ({ mode }) => {
         },
       },
     },
-    // Configure env file location to look at frontend directory
     envDir: './',
   };
 });

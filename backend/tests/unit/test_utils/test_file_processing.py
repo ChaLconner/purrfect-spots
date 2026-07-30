@@ -74,7 +74,7 @@ class TestProcessUploadedImage:
 
             contents, content_type, extension = await process_uploaded_image(mock_file, optimize=True)
 
-            mock_optimize.assert_called_once_with(sample_image_bytes, "image/jpeg", max_dimension=1920)
+            mock_optimize.assert_called_once_with(sample_image_bytes, "image/jpeg", 1920)
             assert contents == b"optimized"
             assert content_type == "image/webp"
             assert extension == "webp"

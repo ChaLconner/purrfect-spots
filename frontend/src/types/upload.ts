@@ -17,6 +17,7 @@ export interface CatDetectionResult {
   filename?: string;
   file_size?: number;
   detected_by?: string;
+  verification_token?: string;
   [key: string]: unknown;
 }
 

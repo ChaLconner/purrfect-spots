@@ -129,7 +129,7 @@ function openDirections(): void {
 
 <template>
   <div
-    class="flex flex-col bg-cream-bg p-5 sm:p-6 min-[900px]:py-6 min-[900px]:px-6 overflow-hidden overflow-x-hidden relative z-10 max-sm:rounded-none max-sm:mt-0 max-sm:shadow-none sm:mt-0 sm:rounded-none sm:shadow-none min-w-0 min-h-0 w-full flex-1"
+    class="flex flex-col bg-cream-bg p-5 pt-6 sm:p-6 sm:pt-6 min-[900px]:p-6 min-[900px]:pt-6 overflow-hidden relative z-10 max-sm:rounded-none sm:rounded-none min-w-0 min-h-0 h-full max-h-full w-full flex-1"
   >
     <!-- Mobile Drag Handle Visual -->
     <div class="block sm:hidden w-full flex justify-center pb-2">
@@ -137,18 +137,18 @@ function openDirections(): void {
     </div>
 
     <!-- Header -->
-    <div class="flex justify-between items-start mb-5 gap-4">
+    <div class="flex justify-between items-start mb-5 gap-4 pt-1">
       <div class="flex-1 min-w-0">
         <h3
           id="modal-title"
-          class="font-nunito text-2xl sm:text-[1.5rem] font-extrabold text-brown-text leading-tight mb-2 break-words"
+          class="font-nunito text-2xl sm:text-[1.5rem] font-extrabold text-brown-text leading-normal pt-1 mb-2 break-words"
         >
           {{ $t('galleryPage.modal.catDetails') }}
         </h3>
-        <div class="text-sm text-brown-meta flex flex-col gap-1.5 mt-1">
+        <div class="text-sm text-brown-meta flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
           <button
             v-if="image?.location_name"
-            class="text-location-badge font-bold text-sm transition-all duration-300 hover:text-terracotta-dark flex items-center group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 rounded-md px-1 -mx-1 text-left"
+            class="text-location-badge font-bold text-sm transition-all duration-300 hover:text-terracotta-dark flex items-center group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 rounded-md py-0.5 text-left"
             :title="$t('galleryPage.modal.openInMaps')"
             @click="openDirections"
           >
@@ -164,11 +164,12 @@ function openDirections(): void {
               <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
               <circle cx="12" cy="10" r="3" />
             </svg>
-            <span class="truncate">{{ image.location_name }}</span>
+            <span class="truncate max-w-[200px] sm:max-w-[240px]">{{ image.location_name }}</span>
           </button>
-          <span v-if="dateFormatted" class="font-normal text-date-bullet whitespace-nowrap">{{
-            dateFormatted
-          }}</span>
+          <span v-if="image?.location_name && dateFormatted" class="text-brown-light/40 font-bold select-none">•</span>
+          <span v-if="dateFormatted" class="font-normal text-date-bullet whitespace-nowrap text-xs sm:text-sm">
+            {{ dateFormatted }}
+          </span>
         </div>
 
         <!-- Tags moved to header -->

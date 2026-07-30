@@ -117,7 +117,7 @@ onUnmounted(() => {
           ? $t('galleryPage.modal.aCatAt', { location: image.location_name })
           : $t('galleryPage.modal.aCat')
       "
-      class="w-full h-full object-contain relative z-2 drop-shadow-[0_10px_20px_rgba(0,0,0,0.3)] scale-[1.2]"
+      class="w-full h-full object-contain relative z-2 drop-shadow-[0_10px_20px_rgba(0,0,0,0.3)] transition-transform duration-300"
       @load="$emit('image-load')"
       @error="$emit('image-error', $event)"
     />

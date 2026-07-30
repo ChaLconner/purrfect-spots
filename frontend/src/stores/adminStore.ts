@@ -41,21 +41,27 @@ export const useAdminStore = defineStore('admin', {
     isLoading: false,
     isTrendsLoading: false,
     isMonthlyLoading: false,
+    error: null as string | null,
     lastFetched: 0,
     lastTrendsFetched: 0,
     lastMonthlyFetched: 0,
     // Performance benchmarking
     statsLoadTime: 0,
     trendsLoadTime: 0,
-    showPerformanceStats: true,
+    showPerformanceStats: localStorage.getItem('admin_show_perf_stats') !== 'false',
     reportChannel: null as RealtimeChannel | null,
     _realtimeDebounceTimer: null as ReturnType<typeof setTimeout> | null,
     _lastRealtimeForcedSyncAt: 0,
+    _requestSequence: 0,
   }),
   actions: {
+    togglePerformanceStats(show?: boolean) {
+      this.showPerformanceStats = show !== undefined ? show : !this.showPerformanceStats;
+      localStorage.setItem('admin_show_perf_stats', String(this.showPerformanceStats));
+    },
+
     async fetchSummary(force: boolean = false) {
       const now = Date.now();
-      // Cache for 30 seconds unless forced
       if (!force && this.lastFetched > 0 && now - this.lastFetched < 30000) {
         return;
       }
@@ -63,6 +69,8 @@ export const useAdminStore = defineStore('admin', {
       this.isLoading = true;
       this.isTrendsLoading = true;
       this.isMonthlyLoading = true;
+      this.error = null;
+      const currentSeq = ++this._requestSequence;
       const start = performance.now();
       try {
         const response = await apiV1.get<{
@@ -72,7 +80,8 @@ export const useAdminStore = defineStore('admin', {
           generated_at: string;
         }>('/admin/summary');
 
-        // Bulk update all dashboard metrics
+        if (currentSeq !== this._requestSequence) return;
+
         this.stats = response.stats;
         this.trends = response.trends;
         this.monthlyData = response.monthly;
@@ -85,11 +94,16 @@ export const useAdminStore = defineStore('admin', {
         this.statsLoadTime = time;
         this.trendsLoadTime = time;
       } catch (error) {
+        if (currentSeq === this._requestSequence) {
+          this.error = error instanceof Error ? error.message : 'Failed to fetch summary';
+        }
         console.error('Failed to fetch admin dashboard summary:', error);
       } finally {
-        this.isLoading = false;
-        this.isTrendsLoading = false;
-        this.isMonthlyLoading = false;
+        if (currentSeq === this._requestSequence) {
+          this.isLoading = false;
+          this.isTrendsLoading = false;
+          this.isMonthlyLoading = false;
+        }
       }
     },
 
@@ -100,6 +114,7 @@ export const useAdminStore = defineStore('admin', {
       }
 
       this.isMonthlyLoading = true;
+      this.error = null;
       try {
         const response = await apiV1.get<{ data: MonthlyStat[]; year: number }>(
           `/admin/monthly${year ? `?year=${year}` : ''}`
@@ -107,6 +122,7 @@ export const useAdminStore = defineStore('admin', {
         this.monthlyData = response.data;
         this.lastMonthlyFetched = now;
       } catch (error) {
+        this.error = error instanceof Error ? error.message : 'Failed to fetch monthly stats';
         console.error('Failed to fetch monthly stats:', error);
       } finally {
         this.isMonthlyLoading = false;
@@ -115,23 +131,23 @@ export const useAdminStore = defineStore('admin', {
 
     async fetchStats(force: boolean = false) {
       const now = Date.now();
-      // Cache for 30 seconds unless forced
       if (!force && this.stats.total_users > 0 && now - this.lastFetched < 30000) {
         return;
       }
 
       this.isLoading = true;
+      this.error = null;
+      const currentSeq = ++this._requestSequence;
       const start = performance.now();
       try {
-        // Redirection: /admin/stats was removed in backend cleanup.
-        // We now use /admin/summary which returns the full dashboard dataset.
         const response = await apiV1.get<{
           stats: AdminStats;
           trends: AdminTrends;
           monthly: MonthlyStat[];
         }>('/admin/summary');
 
-        // Populate everything since we have it
+        if (currentSeq !== this._requestSequence) return;
+
         this.stats = response.stats;
         this.trends = response.trends;
         this.monthlyData = response.monthly;
@@ -142,20 +158,25 @@ export const useAdminStore = defineStore('admin', {
 
         this.statsLoadTime = Math.round(performance.now() - start);
       } catch (error) {
+        if (currentSeq === this._requestSequence) {
+          this.error = error instanceof Error ? error.message : 'Failed to fetch stats';
+        }
         console.error('Failed to fetch admin stats:', error);
       } finally {
-        this.isLoading = false;
+        if (currentSeq === this._requestSequence) {
+          this.isLoading = false;
+        }
       }
     },
 
     async fetchTrends(force: boolean = false) {
       const now = Date.now();
-      // Cache for 5 minutes for trends
       if (!force && this.trends.users.length > 0 && now - this.lastTrendsFetched < 300000) {
         return;
       }
 
       this.isTrendsLoading = true;
+      this.error = null;
       const start = performance.now();
       try {
         const response = await apiV1.get<AdminTrends>('/admin/trends');
@@ -163,6 +184,7 @@ export const useAdminStore = defineStore('admin', {
         this.lastTrendsFetched = now;
         this.trendsLoadTime = Math.round(performance.now() - start);
       } catch (error) {
+        this.error = error instanceof Error ? error.message : 'Failed to fetch trends';
         console.error('Failed to fetch admin trends:', error);
       } finally {
         this.isTrendsLoading = false;
@@ -174,12 +196,7 @@ export const useAdminStore = defineStore('admin', {
 
       this.reportChannel = supabase
         .channel('admin-reports')
-        // FIX: Listen only to INSERT (new reports), not UPDATE/DELETE
-        // to avoid unnecessary refreshes on resolution/dismissal actions.
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reports' }, () => {
-          // FIX: Debounce to avoid backend hammering when multiple reports arrive quickly.
-          // Reflect new pending work immediately in the sidebar badge, then
-          // force a refresh so server truth reconciles counts and related stats.
           this.stats.pending_reports += 1;
           if (this._realtimeDebounceTimer) clearTimeout(this._realtimeDebounceTimer);
           this._realtimeDebounceTimer = setTimeout(() => {
@@ -202,6 +219,9 @@ export const useAdminStore = defineStore('admin', {
       this._lastRealtimeForcedSyncAt = 0;
       if (this.reportChannel) {
         this.reportChannel.unsubscribe();
+        if (typeof (supabase as unknown as { removeChannel?: (ch: unknown) => void }).removeChannel === 'function') {
+          void supabase.removeChannel(this.reportChannel);
+        }
         this.reportChannel = null;
       }
     },
