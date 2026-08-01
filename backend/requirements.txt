@@ -68,7 +68,7 @@ pytest-cov>=7.1.0
 pytest-mock>=3.12.0
 
 # --- Type Stubs ---
-types-bleach>=6.4.0
+types-bleach>=6.4.0.20260728
 types-redis>=4.6.0
 types-requests>=2.33.0
 types-Pillow>=10.2.0
