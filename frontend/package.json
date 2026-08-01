@@ -48,7 +48,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@pinia/testing": "^1.0.3",
+    "@pinia/testing": "^2.0.1",
     "@playwright/test": "^1.61.1",
     "@types/google.maps": "^3.65.2",
     "@types/lodash": "^4.17.24",
