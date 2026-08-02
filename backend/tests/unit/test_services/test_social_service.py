@@ -121,7 +121,7 @@ async def test_get_comments(social_service):
     comment_builder = MagicMock()
     comment_builder.select.return_value = comment_builder
     comment_builder.eq.return_value = comment_builder
-    comment_builder.is_.return_value = comment_builder
+    comment_builder.is_.side_effect = AssertionError("photo_comments has no deleted_at column")
     comment_builder.order.return_value = comment_builder
     comment_builder.limit.return_value = comment_builder
     comment_builder.execute = AsyncMock(
