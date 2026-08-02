@@ -1,7 +1,3 @@
--- Migration 045: make the service-only billing boundary explicit.
--- No client role receives table privileges; these deny policies also keep the
--- tables fail-closed if a future grant or default-privilege change is added.
-
 begin;
 
 drop policy if exists stripe_subscriptions_no_client_access on public.stripe_subscriptions;
