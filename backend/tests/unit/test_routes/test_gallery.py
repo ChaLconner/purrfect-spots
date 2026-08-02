@@ -63,7 +63,7 @@ def test_get_gallery_with_data(client, mock_cat_photo) -> None:
     app.dependency_overrides = {}
 
 
-def test_get_gallery_skips_photo_with_incomplete_location_data(client) -> None:
+def test_get_gallery_skips_photo_with_incomplete_location_data(client, monkeypatch) -> None:
     mock_service = MagicMock()
     mock_service.get_all_photos = AsyncMock(
         return_value={
@@ -80,14 +80,13 @@ def test_get_gallery_skips_photo_with_incomplete_location_data(client) -> None:
             "has_more": False,
         }
     )
-    app.dependency_overrides[get_gallery_service] = lambda: mock_service
+    monkeypatch.setitem(app.dependency_overrides, get_gallery_service, lambda: mock_service)
 
     response = client.get("/api/v1/gallery/")
 
     assert response.status_code == 200
     assert response.json()["images"] == []
     assert response.json()["pagination"]["total"] == 1
-    app.dependency_overrides = {}
 
 
 def test_get_gallery_fields_retains_cat_location_required_fields(client, mock_cat_photo) -> None:
