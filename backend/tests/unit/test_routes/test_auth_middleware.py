@@ -68,6 +68,7 @@ async def test_get_jwks_cached(mock_env, mock_jwks_response):
 
     with (
         patch("app.utils.http_client.get_shared_httpx_client", return_value=mock_client),
+        patch("app.middleware.auth_middleware.config.SUPABASE_URL", "https://testproject.supabase.co"),
         patch("app.middleware.auth_middleware._jwks_cache", mock_jwks_response),
         patch.dict("app.middleware.auth_middleware._jwks_state", {"last_update": time.time()}),
     ):
