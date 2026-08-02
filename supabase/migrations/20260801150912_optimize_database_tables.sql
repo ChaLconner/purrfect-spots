@@ -141,3 +141,5 @@ ANALYZE public.email_verifications;
 ANALYZE public.password_resets;
 
 COMMIT;
+
+

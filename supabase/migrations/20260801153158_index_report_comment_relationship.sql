@@ -3,3 +3,5 @@
 CREATE INDEX idx_reports_comment_photo
 ON public.reports (comment_id, photo_id)
 WHERE comment_id IS NOT NULL;
+
+

@@ -49,10 +49,12 @@ runs:
     - name: Install Python dependencies
       shell: bash
       if: inputs.install-deps == 'true'
+      env:
+        INSTALL_DEV_TOOLS: ${{ inputs.install-dev-tools }}
       run: |
         cd backend
         pip install --upgrade pip --prefer-binary
-        if [ "${{ inputs.install-dev-tools }}" = "true" ]; then
+        if [ "$INSTALL_DEV_TOOLS" = "true" ]; then
           pip install -r requirements-dev.txt --prefer-binary
         else
           pip install -r requirements.txt --prefer-binary
