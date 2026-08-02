@@ -63,6 +63,39 @@ def test_get_gallery_with_data(client, mock_cat_photo) -> None:
     app.dependency_overrides = {}
 
 
+def test_get_gallery_fields_retains_cat_location_required_fields(client, mock_cat_photo) -> None:
+    mock_service = MagicMock()
+    mock_service.get_all_photos = AsyncMock(
+        return_value={"data": [mock_cat_photo], "total": 1, "limit": 20, "offset": 0, "has_more": False}
+    )
+    app.dependency_overrides[get_gallery_service] = lambda: mock_service
+
+    response = client.get("/api/v1/gallery/?fields=id")
+
+    assert response.status_code == 200
+    image = response.json()["images"][0]
+    assert image["id"] == mock_cat_photo["id"]
+    assert image["image_url"] == mock_cat_photo["image_url"]
+    assert image["latitude"] is not None
+    assert image["longitude"] is not None
+    app.dependency_overrides = {}
+
+
+def test_get_gallery_empty_page_preserves_pagination_metadata(client) -> None:
+    mock_service = MagicMock()
+    mock_service.get_all_photos = AsyncMock(
+        return_value={"data": [], "total": 41, "limit": 20, "offset": 40, "has_more": False}
+    )
+    app.dependency_overrides[get_gallery_service] = lambda: mock_service
+
+    response = client.get("/api/v1/gallery/?limit=20&offset=40")
+
+    assert response.status_code == 200
+    pagination = response.json()["pagination"]
+    assert pagination == {"total": 41, "limit": 20, "offset": 40, "has_more": False, "page": 3, "total_pages": 3}
+    app.dependency_overrides = {}
+
+
 def test_get_gallery_error(client) -> None:
     """Test gallery endpoint handles errors gracefully"""
     mock_service = MagicMock()
@@ -117,8 +150,9 @@ def test_get_ip_location(client) -> None:
     mock_response.raise_for_status.return_value = None
 
     with (
-        patch("app.routes.geo._cached_ip_location", {"latitude": None, "longitude": None}),
-        patch.dict("app.routes.geo._ip_location_cache_state", {"expires_at": 0.0, "rate_limit_backoff_until": 0.0}),
+        patch("app.routes.geo._ip_location_cache", {}),
+        patch.dict("app.routes.geo._ip_location_cache_state", {"rate_limit_backoff_until": 0.0}, clear=True),
+        patch("app.routes.geo.get_client_info", return_value=("8.8.8.8", "test-agent")),
         patch("app.routes.geo.get_shared_httpx_client") as mock_get_client,
     ):
         mock_client = MagicMock()
@@ -129,12 +163,14 @@ def test_get_ip_location(client) -> None:
 
     assert response.status_code == 200
     assert response.json() == {"latitude": 13.7563, "longitude": 100.5018}
+    mock_client.get.assert_awaited_once_with("https://ipapi.co/8.8.8.8/json/")
 
 
 def test_get_ip_location_returns_nulls_on_failure(client) -> None:
     with (
-        patch("app.routes.geo._cached_ip_location", {"latitude": None, "longitude": None}),
-        patch.dict("app.routes.geo._ip_location_cache_state", {"expires_at": 0.0, "rate_limit_backoff_until": 0.0}),
+        patch("app.routes.geo._ip_location_cache", {}),
+        patch.dict("app.routes.geo._ip_location_cache_state", {"rate_limit_backoff_until": 0.0}, clear=True),
+        patch("app.routes.geo.get_client_info", return_value=("8.8.8.8", "test-agent")),
         patch("app.routes.geo.get_shared_httpx_client") as mock_get_client,
     ):
         mock_client = MagicMock()
@@ -153,8 +189,9 @@ def test_get_ip_location_skips_lookup_during_rate_limit_cooldown(client) -> None
     status_error = httpx.HTTPStatusError("Too Many Requests", request=request, response=response)
 
     with (
-        patch("app.routes.geo._cached_ip_location", {"latitude": None, "longitude": None}),
-        patch.dict("app.routes.geo._ip_location_cache_state", {"expires_at": 0.0, "rate_limit_backoff_until": 0.0}),
+        patch("app.routes.geo._ip_location_cache", {}),
+        patch.dict("app.routes.geo._ip_location_cache_state", {"rate_limit_backoff_until": 0.0}, clear=True),
+        patch("app.routes.geo.get_client_info", return_value=("8.8.8.8", "test-agent")),
         patch("app.routes.geo.get_shared_httpx_client") as mock_get_client,
     ):
         mock_client = MagicMock()

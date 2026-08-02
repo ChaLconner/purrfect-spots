@@ -93,6 +93,14 @@ class TestAuthServiceExtended:
         user_id = auth_service.verify_access_token(token)
         assert user_id == "00000000-0000-4000-a000-000000000123"
 
+    def test_create_access_token_includes_tier_claim(self, auth_service) -> None:
+        import jwt
+
+        token = auth_service.create_access_token("00000000-0000-4000-a000-000000000123", tier="pro")
+        payload = jwt.decode(token, options={"verify_signature": False})
+
+        assert payload["tier"] == "pro"
+
     @pytest.mark.asyncio
     async def test_create_and_verify_refresh_token(self, auth_service):
         # Mock is_token_revoked

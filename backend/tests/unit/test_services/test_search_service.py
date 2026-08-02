@@ -36,6 +36,7 @@ def mock_supabase():
     client.text_search.return_value = client
     client.filter.return_value = client
     client.eq.return_value = client
+    client.not_ = client
 
     # Mock RPC
     client.rpc.return_value = client

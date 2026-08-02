@@ -87,7 +87,8 @@ class SearchService:
 
                 sql_str = (
                     f"{self.SQL_PHOTO_SELECT} "
-                    "WHERE deleted_at IS NULL AND status = :approved_status "
+                    "WHERE deleted_at IS NULL AND latitude IS NOT NULL AND longitude IS NOT NULL "
+                    "AND status = :approved_status "
                     "AND search_vector @@ websearch_to_tsquery('english', :query) "
                     f"{tag_clause}"
                     "ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
@@ -102,6 +103,8 @@ class SearchService:
                 self.supabase.table("cat_photos")
                 .select(self.PHOTO_COLUMNS)
                 .is_("deleted_at", "null")
+                .not_.is_("latitude", "null")
+                .not_.is_("longitude", "null")
                 .eq("status", self.APPROVED_STATUS)
                 .text_search("search_vector", query, options={"type": "websearch"})
                 .order("uploaded_at", desc=True)  # type: ignore
@@ -124,7 +127,12 @@ class SearchService:
         if self.db:
             try:
                 params: dict[str, Any] = {"approved_status": self.APPROVED_STATUS}
-                where_clauses = ["deleted_at IS NULL", "status = :approved_status"]
+                where_clauses = [
+                    "deleted_at IS NULL",
+                    "latitude IS NOT NULL",
+                    "longitude IS NOT NULL",
+                    "status = :approved_status",
+                ]
 
                 if query:
                     params["query"] = f"%{escape_like_pattern(query)}%"
@@ -149,6 +157,8 @@ class SearchService:
                 self.supabase.table("cat_photos")
                 .select(self.PHOTO_COLUMNS)
                 .is_("deleted_at", "null")
+                .not_.is_("latitude", "null")
+                .not_.is_("longitude", "null")
                 .eq("status", self.APPROVED_STATUS)
             )
 

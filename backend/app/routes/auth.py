@@ -501,22 +501,6 @@ def _validate_google_redirect_uri(redirect_uri: str) -> bool:
         if redirect_uri == expected:
             return True
 
-    # Fallback for production domains not in CORS (e.g. valid subdomains)
-    if redirect_uri.endswith("/auth/callback"):
-        uri_parts = redirect_uri.split("/")
-        if len(uri_parts) >= 3:
-            origin = "/".join(uri_parts[:3])
-            allowed_production_domains = [
-                "http://localhost:5173",
-                "https://localhost:5173",
-                "https://purrfect-spots.vercel.app",
-                "https://purrfectspots.xyz",
-                "https://www.purrfectspots.xyz",
-            ]
-            if origin in allowed_production_domains:
-                logger.debug(f"Auth Exchange Debug: Matched production domain={origin}")
-                return True
-
     return False
 
 

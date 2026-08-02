@@ -37,9 +37,10 @@ def create_login_response(
     user_id = str(_get(user, "id"))
     role = _get(user, "role", "user")
     permissions = _get(user, "permissions", [])
+    tier = "pro" if _get(user, "is_pro", False) else "free"
 
     # Generate tokens
-    access_token = auth_service.create_access_token(user_id, role=role, permissions=permissions)
+    access_token = auth_service.create_access_token(user_id, role=role, permissions=permissions, tier=tier)
     refresh_token = auth_service.create_refresh_token(user_id, ip, ua)
 
     if include_refresh_cookie:

@@ -12,7 +12,7 @@ class ReportService:
         self.supabase = supabase
         self.db = db
         # Consistent column selection for reports
-        self.REPORT_COLUMNS = "id, photo_id, comment_id, reporter_id, reason, details, status, created_at"
+        self.REPORT_COLUMNS = "id, photo_id, comment_id, reporter_id, reason, details, status, created_at, updated_at"
 
     async def create_report(
         self,
@@ -43,7 +43,7 @@ class ReportService:
                     query_str = (
                         "INSERT INTO reports (photo_id, comment_id, reporter_id, reason, details, status) "
                         "VALUES (:photo_id, :comment_id, :reporter_id, :reason, :details, :status) "
-                        "RETURNING id, photo_id, comment_id, reporter_id, reason, details, status, created_at"
+                        "RETURNING id, photo_id, comment_id, reporter_id, reason, details, status, created_at, updated_at"
                     )
                     query = text(query_str)
                     result = await self.db.execute(query, data)
@@ -73,7 +73,7 @@ class ReportService:
             if self.db:
                 try:
                     query = text(
-                        "SELECT id, photo_id, comment_id, reporter_id, reason, details, status, created_at "
+                        "SELECT id, photo_id, comment_id, reporter_id, reason, details, status, created_at, updated_at "
                         "FROM reports WHERE reporter_id = :u_id ORDER BY created_at DESC"
                     )
                     result = await self.db.execute(query, {"u_id": user_id})

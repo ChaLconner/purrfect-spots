@@ -103,6 +103,7 @@ class GallerySearchMixin(GalleryBaseMixin):
                             "SELECT id, image_url, latitude, longitude, description, location_name, uploaded_at, "
                             "tags, likes_count, comments_count, user_id "
                             "FROM cat_photos WHERE user_id = :user_id AND deleted_at IS NULL "
+                            "AND latitude IS NOT NULL AND longitude IS NOT NULL "
                             "ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
                         )
                     else:
@@ -110,6 +111,7 @@ class GallerySearchMixin(GalleryBaseMixin):
                             "SELECT id, image_url, latitude, longitude, description, location_name, uploaded_at, "
                             "tags, likes_count, comments_count, user_id "
                             "FROM cat_photos WHERE user_id = :user_id AND deleted_at IS NULL "
+                            "AND latitude IS NOT NULL AND longitude IS NOT NULL "
                             "AND status = :approved_status "
                             "ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
                         )

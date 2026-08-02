@@ -1,9 +1,18 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vitest/config';
 import vue from '@vitejs/plugin-vue';
+import { loadEnv } from 'vite';
 import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig(async ({ mode }) => {
+  const secretLikeViteVariable = /^VITE_.*(?:SECRET|PRIVATE|PASSWORD|TOKEN)$/i;
+  const exposedSecretKeys = Object.keys(loadEnv(mode, process.cwd(), '')).filter((key) =>
+    secretLikeViteVariable.test(key),
+  );
+  if (exposedSecretKeys.length > 0) {
+    throw new Error(`Refusing frontend build with secret-like Vite variables: ${exposedSecretKeys.join(', ')}`);
+  }
+
   const isTest = mode === 'test' || process.env.VITEST === 'true';
   const plugins = [vue()];
 

@@ -32,7 +32,7 @@ permissions:
 
 env:
   NODE_VERSION: "24"
-  VERCEL_CLI_VERSION: "47.0.5"
+  VERCEL_CLI_VERSION: "47.2.2"
 
 defaults:
   run:

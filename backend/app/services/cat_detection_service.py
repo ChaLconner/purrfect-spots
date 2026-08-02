@@ -17,19 +17,6 @@ def clear_detection_cache() -> None:
     _detection_cache.clear()
 
 
-def _compute_perceptual_hash(image_bytes: bytes) -> str | None:
-    """Compute 64-bit average perceptual hash (aHash) for image similarity deduplication"""
-    try:
-        with Image.open(io.BytesIO(image_bytes)) as img:
-            img = img.convert("L").resize((8, 8), Image.Resampling.BILINEAR)
-            pixels = list(img.getdata())
-            avg = sum(pixels) / 64.0
-            bits = "".join("1" if p > avg else "0" for p in pixels)
-            return f"phash_{int(bits, 2):016x}"
-    except Exception:
-        return None
-
-
 class CatDetectionService:
     """Service for cat detection and spot analysis using Google Cloud Vision API"""
 
@@ -76,7 +63,9 @@ class CatDetectionService:
             Dict containing detection results
         """
         try:
-            # Check cache by image hash & perceptual hash first to avoid duplicate Vision API cost
+            # Only cryptographic content hashes may reuse an authorization result.
+            # Perceptual hashes are intentionally not used: different images can
+            # collide, and upload admission trusts a positive detection result.
             content_bytes: bytes | None = None
             if isinstance(file, (bytes, bytearray)):
                 content_bytes = bytes(file)
@@ -92,14 +81,9 @@ class CatDetectionService:
                 if isinstance(content_bytes, (bytes, bytearray)) and len(content_bytes) > 0
                 else None
             )
-            phash = _compute_perceptual_hash(content_bytes) if content_bytes else None
-
             if image_hash and image_hash in _detection_cache:
                 logger.info("Cat detection cache hit for SHA256 hash")
                 return _detection_cache[image_hash]
-            if phash and phash in _detection_cache:
-                logger.info("Cat detection cache hit for perceptual hash")
-                return _detection_cache[phash]
 
             # Use Google Vision API to detect cats
             vision_result = await self.vision_service.detect_cats(file)
@@ -145,11 +129,8 @@ class CatDetectionService:
                 "fallback_active": fallback_active,
             }
 
-            if result.get("service_available"):
-                if image_hash:
-                    _detection_cache[image_hash] = result
-                if phash:
-                    _detection_cache[phash] = result
+            if result.get("service_available") and image_hash:
+                _detection_cache[image_hash] = result
 
             return result
 

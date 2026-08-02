@@ -8,6 +8,7 @@ Centralized token management providing:
 """
 
 import hashlib
+import math
 import os
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, cast
@@ -67,6 +68,18 @@ class TokenService:
         logger.debug("Memory deny-list fallback updated")
         self._cleanup_memory_blacklist()
 
+    def _get_blacklist_ttl(self, ttl_seconds: int | None, expires_at: datetime | None) -> int:
+        """Keep fast-cache revocation entries no longer than token lifetime."""
+        requested_ttl = self.default_ttl if ttl_seconds is None else ttl_seconds
+        requested_ttl = max(1, int(requested_ttl))
+        if expires_at is None:
+            return requested_ttl
+
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
+        remaining_ttl = math.ceil((expires_at - datetime.now(UTC)).total_seconds())
+        return max(1, min(requested_ttl, remaining_ttl))
+
     async def blacklist_token(
         self,
         token: str | None,
@@ -81,7 +94,7 @@ class TokenService:
         """
         # 1. Calculate derivatives
         token_hash = self._hash_token(token) if token else (jti or "unknown")
-        ttl = ttl_seconds or self.default_ttl
+        ttl = self._get_blacklist_ttl(ttl_seconds, expires_at)
 
         # 2. Write to Fast Cache (Redis/Memory)
         if self.redis:

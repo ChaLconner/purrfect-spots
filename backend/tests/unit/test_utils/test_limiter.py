@@ -290,6 +290,18 @@ class TestTieredRateLimiting:
 
             assert get_user_tier(mock_request) == "free"
 
+    def test_get_user_tier_reads_top_level_custom_claim(self, mock_request) -> None:
+        with patch("app.config.config.JWT_SECRET", "secret_key_at_least_32_chars_long_for_security"):
+            test_token = jwt.encode(
+                {"sub": "user-123", "tier": "pro"},
+                "secret_key_at_least_32_chars_long_for_security",
+                algorithm="HS256",
+            )
+            mock_request.headers = {"Authorization": f"Bearer {test_token}"}
+            from app.limiter import get_user_tier
+
+            assert get_user_tier(mock_request) == "pro"
+
     def test_dynamic_limit_resolvers(self, mock_request) -> None:
         """Test dynamic limit resolver functions"""
         from app.config import config

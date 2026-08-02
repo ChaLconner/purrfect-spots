@@ -196,6 +196,7 @@ async def test_dispatch_checkout_completed_payment(subscription_service):
     """Test that payment mode dispatches to treats fulfillment."""
     session = {
         "mode": "payment",
+        "payment_status": "paid",
         "metadata": {"user_id": "00000000-0000-4000-a000-000000000123", "type": "treat_purchase", "package": "small"},
         "id": "sess_pay_1",
     }
@@ -206,6 +207,20 @@ async def test_dispatch_checkout_completed_payment(subscription_service):
     await subscription_service._dispatch_checkout_completed(session)
 
     subscription_service.treats_service.fulfill_treat_purchase.assert_called_once_with(session)
+
+
+async def test_dispatch_checkout_completed_payment_requires_paid_status(subscription_service):
+    session = {
+        "mode": "payment",
+        "payment_status": "unpaid",
+        "metadata": {"type": "treat_purchase", "package": "small"},
+        "id": "sess_unpaid",
+    }
+    subscription_service.treats_service.fulfill_treat_purchase = AsyncMock()
+
+    await subscription_service._dispatch_checkout_completed(session)
+
+    subscription_service.treats_service.fulfill_treat_purchase.assert_not_awaited()
 
 
 @patch("app.services.subscription_service.stripe.billing_portal.Session.create")

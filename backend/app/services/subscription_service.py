@@ -616,6 +616,14 @@ class SubscriptionService:
 
     async def _handle_payment_session_completed(self, session: dict[str, Any]) -> None:
         """Handle one-time payments (e.g., Treats) by delegating to specialized service."""
+        if session.get("payment_status") != "paid":
+            logger.warning(
+                "Ignoring one-time checkout without paid status: session=%s status=%s",
+                session.get("id"),
+                session.get("payment_status"),
+            )
+            return
+
         purchase_type = session.get("metadata", {}).get("type")
 
         if purchase_type == "treat_purchase":

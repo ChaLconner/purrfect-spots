@@ -31,7 +31,8 @@ class QuotaService:
         since = now - datetime.timedelta(hours=48)
 
         try:
-            timestamps = []
+            timestamps: list[datetime.datetime] = []
+            source_succeeded = False
             if self.db:
                 try:
                     query = text(
@@ -44,10 +45,11 @@ class QuotaService:
                     result = await self.db.execute(query, {"u_id": user_id, "since": since})
                     rows = result.fetchall()
                     timestamps = [row[0] for row in rows]
+                    source_succeeded = True
                 except Exception as e:
                     logger.warning(f"SQL quota fetch failed, falling back to Supabase client: {e}")
 
-            if not timestamps and self.supabase:
+            if not source_succeeded and self.supabase:
                 try:
                     res = (
                         await self.supabase.table("cat_photos")
@@ -64,11 +66,15 @@ class QuotaService:
                         )
                         for item in res.data
                     ]
+                    source_succeeded = True
                 except Exception as e:
                     logger.error(f"Supabase quota fallback failed: {e}")
 
+            if not source_succeeded:
+                # A failed read must never look like an empty quota window.
+                return 9999, None
+
             if not timestamps:
-                # If everything failed, or no photos found, return 0
                 return 0, None
 
             # Algorithm to find the active window:
@@ -103,17 +109,19 @@ class QuotaService:
         today = datetime.date.today().isoformat()
         try:
             sys_total = 0
+            source_succeeded = False
             if self.db:
                 try:
                     query = text("SELECT total_uploads FROM system_daily_stats WHERE date = :today LIMIT 1")
                     result = await self.db.execute(query, {"today": today})
                     row = result.fetchone()
                     sys_total = row[0] if row else 0
+                    source_succeeded = True
                 except Exception as e:
                     logger.warning(f"SQL global quota check failed, falling back to Supabase client: {e}")
-                    sys_total = -1  # Trigger fallback below
+                    source_succeeded = False
 
-            if not self.db or sys_total == -1:
+            if not source_succeeded and self.supabase:
                 sys_usage = (
                     await self.supabase.table("system_daily_stats")
                     .select("total_uploads")
@@ -124,12 +132,18 @@ class QuotaService:
                 sys_total = (
                     cast(dict[str, Any], sys_usage.data).get("total_uploads", 0) if sys_usage and sys_usage.data else 0
                 )
+                source_succeeded = True
+
+            if not source_succeeded:
+                logger.error("Global quota check failed: no data source available")
+                return False
 
             if sys_total >= self.GLOBAL_SYSTEM_LIMIT:
                 logger.critical(f"System Global Quota Reached: {sys_total}/{self.GLOBAL_SYSTEM_LIMIT}")
                 return False
         except Exception as e:
             logger.error(f"Global quota check failed: {e}")
+            return False
 
         # 2. Check User Rolling Quota
         usage_count, _ = await self.get_quota_usage(user_id)

@@ -33,10 +33,12 @@ export function useGeolocation(): UseGeolocationReturn {
       }
 
       const data = await response.json();
-      if (data.latitude && data.longitude) {
+      const latitude = Number(data.latitude);
+      const longitude = Number(data.longitude);
+      if (data.latitude != null && data.longitude != null && Number.isFinite(latitude) && Number.isFinite(longitude)) {
         return {
-          lat: Number.parseFloat(data.latitude),
-          lng: Number.parseFloat(data.longitude),
+          lat: latitude,
+          lng: longitude,
         };
       }
     } catch (e) {

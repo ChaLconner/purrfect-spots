@@ -335,42 +335,47 @@ class Config:
         Returns:
             List of allowed origin URLs
         """
-        cors_origins_str = os.getenv("CORS_ORIGINS", "")
+
+        def normalize_origin(raw_origin: str) -> str | None:
+            origin = raw_origin.strip().rstrip("/")
+            if not origin or origin == "*":
+                return None
+            parsed = urlsplit(origin)
+            if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+                return None
+            if parsed.path or parsed.query or parsed.fragment or parsed.username or parsed.password:
+                return None
+            return f"{parsed.scheme}://{parsed.netloc}"
+
+        cors_origins_str = os.getenv("CORS_ORIGINS", "").strip()
+        environment = os.getenv("ENVIRONMENT", "development").lower()
 
         if cors_origins_str:
-            allowed = [origin.strip() for origin in cors_origins_str.split(",") if origin.strip()]
+            raw_origins = cors_origins_str.split(",")
+        elif environment == "production":
+            # Production must opt in to exact frontend origins. Never add
+            # localhost or unrelated production domains implicitly.
+            raw_origins = [value for value in os.getenv("FRONTEND_URL", "").split(",") if value.strip()]
+            vercel_url = os.getenv("VERCEL_URL", "").strip()
+            if vercel_url:
+                raw_origins.append(vercel_url if "://" in vercel_url else f"https://{vercel_url}")
+            if not raw_origins:
+                logger.error("No CORS origin configured for production")
         else:
-            # Default development origins
-            allowed = [
+            raw_origins = [
                 "http://localhost:3000",
                 "http://localhost:5173",
                 "http://127.0.0.1:3000",
                 "http://127.0.0.1:5173",
-                "https://purrfect-spots.vercel.app",  # Production Frontend
-                "https://purrfectspots.xyz",
-                "https://www.purrfectspots.xyz",
             ]
 
-        # Add Vercel URL if present
-        vercel_url = os.getenv("VERCEL_URL")
-        if vercel_url:
-            allowed.append(f"https://{vercel_url}")
+        allowed: list[str] = []
+        for raw_origin in raw_origins:
+            origin = normalize_origin(raw_origin)
+            if origin and origin not in allowed:
+                allowed.append(origin)
 
-        # Add frontend URL(s) if present — supports both single URLs and comma-separated lists
-        frontend_url = os.getenv("FRONTEND_URL")
-        if frontend_url:
-            for url in frontend_url.split(","):
-                url = url.strip()
-                if url and url not in allowed:
-                    allowed.append(url)
-
-        # Force add production frontend URL (Hardcoded safety net)
-        prod_urls = ["https://purrfect-spots.vercel.app", "https://purrfectspots.xyz", "https://www.purrfectspots.xyz"]
-        for url in prod_urls:
-            if url not in allowed:
-                allowed.append(url)
-
-        return list(set(allowed))
+        return allowed
 
     @staticmethod
     def get_trusted_proxy_hosts() -> list[str]:

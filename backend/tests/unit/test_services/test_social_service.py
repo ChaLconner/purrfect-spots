@@ -16,6 +16,9 @@ def social_service():
 async def test_toggle_like_insert(social_service):
     """Test liking a photo (insert new like)"""
     mock_sb = MagicMock()
+    mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.is_.return_value.limit.return_value.execute = AsyncMock(
+        return_value=MagicMock(data=[{"id": "photo1"}])
+    )
     mock_sb.rpc.return_value.execute = AsyncMock(return_value=MagicMock(data=[{"liked": True, "likes_count": 5}]))
 
     with patch("app.utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
@@ -36,6 +39,9 @@ async def test_toggle_like_insert(social_service):
 async def test_toggle_like_photo_not_found(social_service):
     """Test liking a non-existent photo raises NotFoundError"""
     mock_sb = MagicMock()
+    mock_sb.table.return_value.select.return_value.eq.return_value.eq.return_value.is_.return_value.limit.return_value.execute = AsyncMock(
+        return_value=MagicMock(data=[])
+    )
     mock_sb.rpc.return_value.execute = AsyncMock(side_effect=Exception("P0002: Photo not found"))
 
     with patch("app.utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
@@ -89,9 +95,13 @@ async def test_add_comment(social_service):
 async def test_add_comment_photo_not_found(social_service):
     """Test adding comment to non-existent photo raises NotFoundError"""
     mock_sb = MagicMock()
-    mock_sb.table.return_value.select.return_value.eq.return_value.is_.return_value.limit.return_value.execute = (
-        AsyncMock(return_value=MagicMock(data=[]))
-    )
+    builder = MagicMock()
+    builder.select.return_value = builder
+    builder.eq.return_value = builder
+    builder.is_.return_value = builder
+    builder.limit.return_value = builder
+    builder.execute = AsyncMock(return_value=MagicMock(data=[]))
+    mock_sb.table.return_value = builder
     social_service.supabase = mock_sb
 
     with pytest.raises(NotFoundError):
@@ -102,26 +112,60 @@ async def test_add_comment_photo_not_found(social_service):
 async def test_get_comments(social_service):
     """Test getting comments for a photo"""
     mock_sb = MagicMock()
-    mock_sb.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute = (
-        AsyncMock(
-            return_value=MagicMock(
-                data=[
-                    {
-                        "id": "c1",
-                        "content": "cute",
-                        "user_id": "user1",
-                        "users": {"name": "Alice", "picture": "alice.jpg"},
-                    }
-                ]
-            )
+    photo_builder = MagicMock()
+    photo_builder.select.return_value = photo_builder
+    photo_builder.eq.return_value = photo_builder
+    photo_builder.is_.return_value = photo_builder
+    photo_builder.limit.return_value = photo_builder
+    photo_builder.execute = AsyncMock(return_value=MagicMock(data=[{"id": "photo1"}]))
+    comment_builder = MagicMock()
+    comment_builder.select.return_value = comment_builder
+    comment_builder.eq.return_value = comment_builder
+    comment_builder.is_.return_value = comment_builder
+    comment_builder.order.return_value = comment_builder
+    comment_builder.limit.return_value = comment_builder
+    comment_builder.execute = AsyncMock(
+        return_value=MagicMock(
+            data=[
+                {
+                    "id": "c1",
+                    "content": "cute",
+                    "user_id": "user1",
+                    "users": {"name": "Alice", "picture": "alice.jpg"},
+                }
+            ]
         )
     )
+    mock_sb.table.side_effect = [photo_builder, comment_builder]
     social_service.supabase = mock_sb
 
     res = await social_service.get_comments("photo1")
 
     assert len(res) == 1
     assert res[0]["user_name"] == "Alice"
+
+
+@pytest.mark.asyncio
+async def test_sql_comment_write_requires_approved_non_deleted_photo():
+    mock_db = MagicMock()
+    photo_result = MagicMock()
+    photo_result.fetchone.return_value = ("owner1",)
+    comment_result = MagicMock()
+    comment_result.fetchone.return_value = MagicMock(
+        _mapping={"id": "c1", "photo_id": "photo1", "user_id": "user1", "content": "meow"}
+    )
+    user_result = MagicMock()
+    user_result.fetchone.return_value = None
+    mock_db.execute = AsyncMock(side_effect=[photo_result, comment_result, user_result])
+    mock_db.commit = AsyncMock()
+    mock_db.rollback = AsyncMock()
+
+    service = SocialService(MagicMock(), db=mock_db)
+    await service._add_comment_sql("user1", "photo1", "meow")
+
+    query = str(mock_db.execute.call_args_list[0].args[0])
+    assert "status = 'approved'" in query
+    assert "deleted_at IS NULL" in query
 
 
 @pytest.mark.asyncio

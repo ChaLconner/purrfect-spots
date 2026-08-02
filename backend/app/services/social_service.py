@@ -27,6 +27,14 @@ class SocialService:
             likes_count = 0
             if self.db:
                 try:
+                    visibility_query = text(
+                        "SELECT 1 FROM cat_photos "
+                        "WHERE id = :p_photo_id AND deleted_at IS NULL AND status = 'approved' LIMIT 1"
+                    )
+                    visibility_result = await self.db.execute(visibility_query, {"p_photo_id": photo_id})
+                    if not visibility_result.fetchone():
+                        raise NotFoundError(message=PHOTO_NOT_FOUND, resource_type="photo", resource_id=photo_id)
+
                     # Use SQLAlchemy to call the RPC function
                     query = text(
                         "SELECT liked, likes_count FROM toggle_photo_like(CAST(:p_user_id AS UUID), CAST(:p_photo_id AS UUID))"
@@ -43,6 +51,9 @@ class SocialService:
                     liked = row[0]
                     likes_count = row[1]
                     return {"liked": liked, "likes_count": likes_count}
+                except NotFoundError:
+                    await self.db.rollback()
+                    raise
                 except Exception as e:
                     await self.db.rollback()
                     logger.warning(f"SQL toggle_like failed, falling back to Supabase client: {e}")
@@ -51,6 +62,18 @@ class SocialService:
 
             # Use admin client to bypass RLS/JWT issues with RPC
             admin_client = await get_async_supabase_admin_client()
+
+            photo_res = (
+                await admin_client.table("cat_photos")
+                .select("id")
+                .eq("id", photo_id)
+                .eq("status", "approved")
+                .is_("deleted_at", "null")
+                .limit(1)
+                .execute()
+            )
+            if not photo_res.data:
+                raise NotFoundError(message=PHOTO_NOT_FOUND, resource_type="photo", resource_id=photo_id)
 
             res = await admin_client.rpc("toggle_photo_like", {"p_user_id": user_id, "p_photo_id": photo_id}).execute()
 
@@ -118,7 +141,9 @@ class SocialService:
 
         try:
             # 1. Validate photo exists
-            photo_query = text("SELECT user_id FROM cat_photos WHERE id = :p_id AND deleted_at IS NULL LIMIT 1")
+            photo_query = text(
+                "SELECT user_id FROM cat_photos WHERE id = :p_id AND deleted_at IS NULL AND status = 'approved' LIMIT 1"
+            )
             photo_res = await self.db.execute(photo_query, {"p_id": photo_id})
             photo_row = photo_res.fetchone()
 
@@ -162,6 +187,7 @@ class SocialService:
             await self.supabase.table("cat_photos")
             .select("id, user_id")
             .eq("id", photo_id)
+            .eq("status", "approved")
             .is_("deleted_at", "null")
             .limit(1)
             .execute()
@@ -241,8 +267,12 @@ class SocialService:
                 query = text(
                     "SELECT c.*, u.name as user_name, u.picture as user_picture, u.is_pro as user_is_pro "
                     "FROM photo_comments c "
+                    "JOIN cat_photos p ON p.id = c.photo_id "
                     "LEFT JOIN users u ON c.user_id = u.id "
                     "WHERE c.photo_id = CAST(:p_id AS UUID) "
+                    "AND c.deleted_at IS NULL "
+                    "AND p.deleted_at IS NULL "
+                    "AND p.status = 'approved' "
                     "ORDER BY c.created_at ASC "
                     "LIMIT :limit"
                 )
@@ -257,10 +287,23 @@ class SocialService:
                 logger.error(f"SQLAlchemy get_comments failed: {e}")
                 # Fallback to Supabase
 
+        photo_res = (
+            await self.supabase.table("cat_photos")
+            .select("id")
+            .eq("id", photo_id)
+            .eq("status", "approved")
+            .is_("deleted_at", "null")
+            .limit(1)
+            .execute()
+        )
+        if not photo_res.data:
+            return []
+
         res = (
             await self.supabase.table("photo_comments")
             .select("*, users(name, picture, is_pro)")
             .eq("photo_id", photo_id)
+            .is_("deleted_at", "null")
             .order("created_at", desc=False)
             .limit(limit)
             .execute()

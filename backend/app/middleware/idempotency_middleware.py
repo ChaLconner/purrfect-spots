@@ -37,6 +37,25 @@ def _build_idempotency_key(header_key: str, method: str, path: str, body_hash: s
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
+def _get_principal_fingerprint(request: Request) -> str | None:
+    """Return a non-secret credential fingerprint for idempotency scoping.
+
+    This middleware runs before FastAPI dependencies authenticate the request.
+    Hashing the presented credential keeps the cache isolated between sessions
+    without trusting unverified JWT claims or logging bearer tokens.
+    """
+    authorization = request.headers.get("Authorization", "").strip()
+    if authorization:
+        return hashlib.sha256(f"bearer:{authorization}".encode()).hexdigest()
+
+    refresh_token = request.cookies.get("refresh_token")
+    if refresh_token:
+        return hashlib.sha256(f"refresh:{refresh_token}".encode()).hexdigest()
+
+    # Never share state-changing responses between anonymous callers.
+    return None
+
+
 async def _get_cached_response(key: str) -> dict[str, Any] | None:
     """Try to get a cached idempotency response from Redis or memory."""
     # Try Redis first
@@ -84,8 +103,9 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
     Only applies to POST requests that include an Idempotency-Key header.
     Caches the full response (status + body) for 24 hours.
 
-    Security: The cached response is keyed by (idempotency_key + method + path + body_hash)
-    to prevent an attacker from reusing a key across different endpoints or payloads.
+    Security: The cached response is keyed by a credential fingerprint plus
+    (idempotency_key + method + path + body_hash) so one account cannot replay
+    another account's response.
     """
 
     IDEMPOTENT_METHODS = {"POST"}
@@ -97,6 +117,10 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
 
         idempotency_key = request.headers.get("Idempotency-Key")
         if not idempotency_key:
+            return await call_next(request)
+
+        principal_fingerprint = _get_principal_fingerprint(request)
+        if principal_fingerprint is None:
             return await call_next(request)
 
         # Multipart uploads are streamed and must not be copied into memory by
@@ -111,7 +135,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
 
         # Build composite key
         composite_key = _build_idempotency_key(
-            header_key=idempotency_key,
+            header_key=f"{principal_fingerprint}:{idempotency_key}",
             method=request.method,
             path=request.url.path,
             body_hash=body_hash,

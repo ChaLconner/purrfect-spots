@@ -61,6 +61,22 @@ class TestTokenService:
         mock_redis.setex.assert_called_once_with(f"blacklist:{token_hash}", 3600, "test-logout")
 
     @pytest.mark.asyncio
+    async def test_blacklist_token_ttl_never_outlives_token(self, token_service, mock_redis):
+        """Redis revocation must expire no later than the JWT it protects."""
+        expires_at = datetime.now(UTC) + timedelta(seconds=30)
+
+        result = await token_service.blacklist_token(
+            token="short-lived-token",
+            reason="logout",
+            ttl_seconds=3600,
+            expires_at=expires_at,
+        )
+
+        assert result is True
+        ttl = mock_redis.setex.call_args.args[1]
+        assert 1 <= ttl <= 30
+
+    @pytest.mark.asyncio
     async def test_blacklist_token_memory_fallback(self, mock_supabase_admin):
         """Test blacklisting with memory fallback when Redis is None"""
         with patch(

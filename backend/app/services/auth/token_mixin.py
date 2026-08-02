@@ -47,15 +47,18 @@ class AuthTokenMixin(AuthBaseMixin):
         user_data: dict[str, Any] | None = None,
         role: str = "user",
         permissions: list[str] | None = None,
+        tier: str = "free",
     ) -> str:
         """Create JWT access token."""
         expire = utc_now() + timedelta(hours=self.jwt_expiration_hours)
         jti = str(uuid.uuid4())
+        normalized_tier = "pro" if tier.lower() == "pro" else "free"
         to_encode: dict[str, Any] = {
             "user_id": user_id,
             "sub": user_id,
             "role": role,
             "permissions": permissions or [],
+            "tier": normalized_tier,
             "jti": jti,
             "exp": int(expire.timestamp()),
             "iat": int(utc_now().timestamp()),
@@ -69,7 +72,10 @@ class AuthTokenMixin(AuthBaseMixin):
                         "avatar_url": user_data.get("picture", ""),
                         "provider_id": user_data.get("google_id"),
                     },
-                    "app_metadata": {"provider": "google" if user_data.get("google_id") else "email"},
+                    "app_metadata": {
+                        "provider": "google" if user_data.get("google_id") else "email",
+                        "tier": normalized_tier,
+                    },
                 }
             )
         return jwt.encode(to_encode, self.jwt_secret, algorithm=self.jwt_algorithm)

@@ -130,8 +130,10 @@ def get_user_tier(request: Request) -> str:
     """
     payload = _decode_request_jwt(request)
     if payload:
-        app_metadata = payload.get("app_metadata", {})
-        return str(app_metadata.get("tier", "free")).lower()
+        app_metadata = payload.get("app_metadata")
+        app_metadata = app_metadata if isinstance(app_metadata, dict) else {}
+        tier = payload.get("tier") or app_metadata.get("tier", "free")
+        return "pro" if str(tier).lower() == "pro" else "free"
     return "free"
 
 

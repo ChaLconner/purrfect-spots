@@ -38,7 +38,9 @@ class GalleryBaseMixin:
 
     def _apply_visibility_filter(self, query: Any, include_unapproved: bool = False) -> Any:
         """Apply visibility filters to a Supabase query builder."""
-        filtered_query = query.is_("deleted_at", "null")
+        # CatLocation requires a complete coordinate pair. Legacy rows with
+        # no location remain stored, but must not enter map/gallery responses.
+        filtered_query = query.is_("deleted_at", "null").not_.is_("latitude", "null").not_.is_("longitude", "null")
         if not include_unapproved:
             filtered_query = filtered_query.eq("status", self.APPROVED_STATUS)
         return filtered_query

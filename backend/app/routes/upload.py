@@ -4,6 +4,7 @@ Enhanced with security features: rate limiting, input sanitization, security log
 """
 
 import json
+import sys
 import uuid
 from datetime import datetime
 from typing import Annotated, Any
@@ -23,6 +24,7 @@ from app.schemas.user import User
 from app.services.cat_detection_service import CatDetectionService
 from app.services.gallery_service import GalleryService
 from app.services.quota_service import QuotaService
+from app.services.redis_service import RedisLockError, redis_service
 from app.services.storage_service import StorageService
 from app.utils import cache as cache_utils
 from app.utils.cache import invalidate_after_upload
@@ -210,6 +212,8 @@ async def upload_cat_photo(
         HTTPException: 500 - If image processing or upload fails.
     """
     user_id = str(current_user.id)
+    quota_lock: Any = None
+    quota_lock_acquired = False
 
     try:
         # Log upload attempt
@@ -229,6 +233,16 @@ async def upload_cat_photo(
         if parsed_tags:
             cleaned_description = format_tags_for_description(parsed_tags, cleaned_description)
         blurred_val = str(location_blurred).lower() in ["true", "1", "yes"]
+
+        # Serialize quota admission through persistence so concurrent uploads cannot
+        # all observe the same pre-upload photo count.
+        quota_lock = redis_service.lock(f"quota:upload:{user_id}", ttl=300, wait_timeout=15)
+        try:
+            await quota_lock.__aenter__()
+            quota_lock_acquired = True
+        except RedisLockError as lock_error:
+            logger.error("Upload quota lock unavailable for %s: %s", user_id, lock_error)
+            raise HTTPException(status_code=503, detail="Upload quota service unavailable") from lock_error
 
         # Quota preflight. Usage analytics is recorded only after persistence succeeds.
         allowed = await quota_service.check_quota(user_id, current_user.is_pro)
@@ -375,6 +389,12 @@ async def upload_cat_photo(
             severity="ERROR",
         )
         raise HTTPException(status_code=500, detail="Upload failed due to an internal error")
+    finally:
+        if quota_lock_acquired and quota_lock is not None:
+            try:
+                await quota_lock.__aexit__(*sys.exc_info())
+            except Exception:
+                logger.warning("Failed to release upload quota lock for %s", user_id, exc_info=True)
 
 
 # Test endpoint removed for security

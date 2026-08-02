@@ -24,6 +24,7 @@ class AuthOAuthMixin(AuthBaseMixin):
         user_data: dict[str, Any] | None = None,
         role: str = "user",
         permissions: list[str] | None = None,
+        tier: str = "free",
     ) -> str:
         raise NotImplementedError
 
@@ -115,7 +116,13 @@ class AuthOAuthMixin(AuthBaseMixin):
             if user.banned_at:
                 raise PermissionError("Account suspended")
 
-            jwt_token = self.create_access_token(user.id, user_data, role=user.role, permissions=user.permissions)
+            jwt_token = self.create_access_token(
+                user.id,
+                user_data,
+                role=user.role,
+                permissions=user.permissions,
+                tier="pro" if user.is_pro else "free",
+            )
             return LoginResponse(
                 access_token=jwt_token,
                 token_type="bearer",

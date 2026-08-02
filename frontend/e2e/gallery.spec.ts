@@ -10,7 +10,7 @@
  * - Modal interactions
  * - Navigation
  */
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test.describe('Gallery Page', () => {
   test.beforeEach(async ({ page }) => {

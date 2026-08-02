@@ -108,6 +108,25 @@ class TestCatDetectionServiceExtended:
         assert "Cat verification service unavailable" in result["reasoning"]
 
     @pytest.mark.asyncio
+    async def test_different_images_are_never_reused_by_perceptual_hash(self, service, mock_vision_service):
+        first_buffer = io.BytesIO()
+        Image.new("RGB", (8, 8), color="black").save(first_buffer, format="PNG")
+        second_buffer = io.BytesIO()
+        Image.new("RGB", (8, 8), color="white").save(second_buffer, format="PNG")
+
+        mock_vision_service.detect_cats.side_effect = [
+            {"has_cats": True, "cat_count": 1, "confidence": 95},
+            {"has_cats": False, "cat_count": 0, "confidence": 0},
+        ]
+
+        first_result = await service.detect_cats(first_buffer.getvalue())
+        second_result = await service.detect_cats(second_buffer.getvalue())
+
+        assert first_result["has_cats"] is True
+        assert second_result["has_cats"] is False
+        assert mock_vision_service.detect_cats.await_count == 2
+
+    @pytest.mark.asyncio
     async def test_analyze_spot_suitability(self, service, mock_vision_service, mock_upload_file):
         mock_result = {"suitability_score": 80}
         mock_vision_service.analyze_cat_spot_suitability.return_value = mock_result

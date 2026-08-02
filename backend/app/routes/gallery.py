@@ -142,8 +142,9 @@ async def get_gallery(
     if fields:
         requested = {f.strip() for f in fields.split(",") if f.strip()}
         selected_fields = requested & GALLERY_ALLOWED_FIELDS
-        # Always include id
-        selected_fields.add("id")
+        # CatLocation is the response contract. Keep its required identity,
+        # image, and coordinate fields even when callers request a subset.
+        selected_fields.update({"id", "image_url", "latitude", "longitude"})
 
     try:
         actual_offset = _calculate_offset(offset, page, limit)
@@ -159,15 +160,18 @@ async def get_gallery(
         )
 
         if not result["data"]:
+            total = int(result.get("total") or 0)
+            current_page = (actual_offset // limit) + 1 if limit > 0 else 1
+            total_pages = (total + limit - 1) // limit if total > 0 else 0
             return PaginatedGalleryResponse(
                 images=[],
                 pagination=PaginationMeta(
-                    total=0,
+                    total=total,
                     limit=limit,
                     offset=actual_offset,
-                    has_more=False,
-                    page=1,
-                    total_pages=0,
+                    has_more=bool(result.get("has_more", False)),
+                    page=current_page,
+                    total_pages=total_pages,
                 ),
             )
 
