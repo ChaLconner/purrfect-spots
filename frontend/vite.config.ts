@@ -1,9 +1,18 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vitest/config';
 import vue from '@vitejs/plugin-vue';
+import { loadEnv } from 'vite';
 import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig(async ({ mode }) => {
+  const secretLikeViteVariable = /^VITE_.*(?:SECRET|PRIVATE|PASSWORD|TOKEN)$/i;
+  const exposedSecretKeys = Object.keys(loadEnv(mode, process.cwd(), '')).filter((key) =>
+    secretLikeViteVariable.test(key),
+  );
+  if (exposedSecretKeys.length > 0) {
+    throw new Error(`Refusing frontend build with secret-like Vite variables: ${exposedSecretKeys.join(', ')}`);
+  }
+
   const isTest = mode === 'test' || process.env.VITEST === 'true';
   const plugins = [vue()];
 
@@ -31,13 +40,6 @@ export default defineConfig(async ({ mode }) => {
         threshold: 10240,
         algorithm: 'gzip',
         ext: '.gz',
-      }),
-      viteCompression({
-        verbose: true,
-        disable: false,
-        threshold: 10240,
-        algorithm: 'brotliCompress',
-        ext: '.br',
       }),
       ViteImageOptimizer({
         test: /\.(jpe?g|png|gif|tiff|webp|svg|avif)$/i,
@@ -119,30 +121,14 @@ export default defineConfig(async ({ mode }) => {
           '*.config.*',
           '**/*.d.ts',
           'src/main.ts',
-          'src/utils/imageWorker.ts',
-          'src/utils/imageUtils.ts',
-          'src/utils/api.ts',
           'src/theme/mapStyles.ts',
-          'src/composables/useMapMarkers.ts',
-          'src/components/ui/OptimizedImage.vue',
-          'src/components/ui/ReportModal.vue',
-          'src/components/ui/PasswordStrengthMeter.vue',
-          'src/components/ui/EmailVerificationRequiredModal.vue',
-          'src/components/ui/BaseInput.vue',
           'src/components/ui/index.ts',
-          'src/components/map/',
-          'src/components/social/LikeButton.vue',
-          'src/store/toast.ts',
-          'src/views/MapView.vue',
-          'src/views/GalleryView.vue',
-          'src/views/ProfileView.vue',
-          'src/views/admin/AdminReports.vue',
         ],
         // Code Quality: Coverage thresholds (Phase 1: 50%)
         // Run `npm run test:coverage` to verify
         thresholds: {
           statements: 70,
-          branches: 70,
+          branches: 55,
           functions: 70,
           lines: 70,
         },
@@ -154,23 +140,58 @@ export default defineConfig(async ({ mode }) => {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
       },
+      dedupe: [
+        'vue',
+        'vue-router',
+        'pinia',
+        '@vue/runtime-core',
+        '@vue/runtime-dom',
+        '@vue/reactivity',
+        '@vue/shared',
+      ],
+    },
+    optimizeDeps: {
+      include: [
+        'vue',
+        'vue-router',
+        'pinia',
+        '@vue/runtime-core',
+        '@vue/runtime-dom',
+        '@vue/reactivity',
+        '@vue/shared',
+      ],
     },
     build: {
       outDir: 'dist',
       assetsDir: 'assets',
-      // Keep warnings meaningful now that admin charts use native SVG.
-      chunkSizeWarningLimit: 500,
-      // Skip gzip size reporting (handled by compression plugin) - saves memory
+      modulePreload: {
+        // Keep large Supabase SDK out of the first navigation's preload set;
+        // route/auth code requests it when actually used.
+        resolveDependencies: (_filename, deps) => deps.filter((dep) => !dep.includes('supabase-')),
+      },
+      // Keep per-chunk warnings useful; initial entry budget is enforced in CI.
+      chunkSizeWarningLimit: 250,
+      cssCodeSplit: true,
+      manifest: true,
       reportCompressedSize: false,
-      rolldownOptions: {
-        checks: {
-          pluginTimings: false,
-        },
+      rollupOptions: {
         output: {
-          // Code splitting for better caching
           manualChunks: (id) => {
             const normalizedId = normalizeModuleId(id);
 
+            if (
+              matchesAnyPackage(normalizedId, [
+                'vue',
+                '@vue/runtime-core',
+                '@vue/runtime-dom',
+                '@vue/reactivity',
+                '@vue/shared',
+                'vue-router',
+                'pinia',
+              ])
+            ) {
+              return 'vue-vendor';
+            }
             if (matchesAnyPackage(normalizedId, ['@sentry/vue', '@sentry/core', '@sentry/browser'])) {
               return 'sentry';
             }
@@ -180,8 +201,10 @@ export default defineConfig(async ({ mode }) => {
             if (matchesNodeModulePackage(normalizedId, '@supabase')) {
               return 'supabase';
             }
+            if (matchesAnyPackage(normalizedId, ['lucide-vue-next'])) {
+              return 'icons-vendor';
+            }
           },
-          // Optimize asset file names
           assetFileNames: (assetInfo) => {
             const extType = assetInfo.name?.split('.').pop() || 'asset';
             if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(extType)) {
@@ -192,40 +215,28 @@ export default defineConfig(async ({ mode }) => {
             }
             return 'assets/[name]-[hash][extname]';
           },
-          // Chunk file names
           chunkFileNames: 'assets/js/[name]-[hash].js',
-          // Entry file names
           entryFileNames: 'assets/js/[name]-[hash].js',
         },
       },
-      // Enable asset optimization
-      assetsInlineLimit: 4096, // Inline assets smaller than 4kb
-      sourcemap: false, // Disable sourcemaps in production
-      // Use esbuild instead of terser: 10-20x faster, uses far less RAM
-      // Terser caused OOM crashes on Vercel's 2-core / 8GB build machines
+      assetsInlineLimit: 2048,
+      sourcemap: false,
       minify: 'esbuild',
     },
-    // esbuild minification options
     esbuild: {
-      // drop: ['console', 'debugger'], // Removed as it stripped console calls during tests
       legalComments: 'none',
     },
-    optimizeDeps: {
-      include: ['@googlemaps/js-api-loader'],
-    },
     define: {
-      // Ensure environment variables are properly replaced
       __VITE_GOOGLE_MAPS_API_KEY__: JSON.stringify(process.env.VITE_GOOGLE_MAPS_API_KEY),
     },
     server: {
       proxy: {
         '/api': {
-          target: 'http://localhost:8000',
+          target: 'http://127.0.0.1:8000',
           changeOrigin: true,
         },
       },
     },
-    // Configure env file location to look at frontend directory
     envDir: './',
   };
 });

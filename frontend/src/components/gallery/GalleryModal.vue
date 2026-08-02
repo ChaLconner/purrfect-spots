@@ -17,7 +17,7 @@
         <!-- Ghibli-themed Blurred Backdrop -->
         <div class="absolute inset-0 z-[-1] overflow-hidden">
           <GhibliBackground />
-          <div class="absolute inset-0 bg-[#0a0a0c]/60 backdrop-blur-[32px]"></div>
+          <div class="absolute inset-0 bg-stone-900/60 backdrop-blur-2xl"></div>
         </div>
         <div
           ref="modalContainer"
@@ -26,7 +26,7 @@
           @keydown="handleKeydown"
         >
           <div
-            class="flex flex-col bg-white w-full h-full overflow-hidden relative shadow-[0_30px_60px_-12px_rgba(0,0,0,0.5)] rounded-none sm:rounded-3xl sm:h-auto sm:min-h-[670px] sm:max-h-[96vh] sm:w-[840px] sm:max-w-[97vw] min-[900px]:grid min-[900px]:grid-cols-[1fr_360px] min-[1200px]:grid-cols-[1fr_400px] min-[900px]:rounded-[2rem] min-[900px]:min-h-[820px] min-[900px]:max-h-[98vh] min-[900px]:w-full min-[900px]:max-w-full"
+            class="flex flex-col bg-white w-full h-full overflow-hidden relative shadow-2xl rounded-none sm:rounded-3xl sm:h-auto sm:min-h-[550px] sm:max-h-[90vh] sm:w-[840px] sm:max-w-[95vw] lg:grid lg:grid-cols-[1fr_420px] xl:grid-cols-[1fr_440px] lg:rounded-3xl lg:h-[640px] lg:max-h-[88vh] lg:w-[1020px] lg:max-w-[90vw] font-body"
             @click.stop
           >
             <!-- Left Side: Image Stage -->
@@ -34,8 +34,8 @@
               :image="image"
               :is-loaded="isLoaded"
               :has-error="hasError"
-              :has-previous="hasPrevious"
-              :has-next="hasNext"
+              :has-previous="hasPrevious ?? false"
+              :has-next="hasNext ?? false"
               @close="$emit('close')"
               @navigate="handleNavigation"
               @image-load="onImageLoad"
@@ -48,19 +48,7 @@
               aria-label="Close"
               @click.stop="$emit('close')"
             >
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
+              <CloseIcon />
             </button>
 
             <!-- Right Side: Content -->
@@ -85,6 +73,7 @@ import { useModalFocus } from '@/composables/useModalFocus';
 import GalleryModalImageStage from '@/components/gallery/GalleryModalImageStage.vue';
 import GalleryModalContent from '@/components/gallery/GalleryModalContent.vue';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
+import CloseIcon from '@/components/icons/CloseIcon.vue';
 
 const props = defineProps<{
   image: CatLocation | null;
@@ -154,20 +143,24 @@ function handleKeydown(e: KeyboardEvent): void {
 function preloadAdjacentImages(): void {
   if (!props.images || props.currentIndex === undefined) return;
 
+  const connection = (navigator as Navigator & {
+    connection?: { saveData?: boolean; effectiveType?: string };
+  }).connection;
+  if (connection?.saveData || connection?.effectiveType === '2g') return;
+
   const preloadImage = (url: string): void => {
     const img = new Image();
     img.src = url;
   };
 
-  // Preload next 2 images
-  for (let i = 1; i <= 2; i++) {
+  // Preload only immediate neighbors; full prefetch floods mobile connections.
+  for (let i = 1; i <= 1; i++) {
     if (props.currentIndex + i < props.images.length) {
       preloadImage(props.images[props.currentIndex + i].image_url);
     }
   }
 
-  // Preload previous 2 images
-  for (let i = 1; i <= 2; i++) {
+  for (let i = 1; i <= 1; i++) {
     if (props.currentIndex - i >= 0) {
       preloadImage(props.images[props.currentIndex - i].image_url);
     }

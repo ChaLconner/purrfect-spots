@@ -4,7 +4,7 @@ Tests for security alert system.
 
 import pytest
 
-from utils.security_alerts import (
+from app.utils.security_alerts import (
     BRUTE_FORCE_THRESHOLD,
     BULK_OPERATION_THRESHOLD,
     FAILED_PERMISSION_THRESHOLD,

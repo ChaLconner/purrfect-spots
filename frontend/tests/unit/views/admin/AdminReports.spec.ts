@@ -4,7 +4,7 @@ import AdminReports from '@/views/admin/AdminReports.vue';
 import { apiV1 } from '@/utils/api';
 import { nextTick } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore } from '@/stores/authStore';
 
 vi.mock('@/utils/api', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
@@ -80,7 +80,10 @@ describe('AdminReports.vue', () => {
      await new Promise(r => setTimeout(r, 50));
      await nextTick();
   
-     expect(apiV1.get).toHaveBeenCalledWith(expect.stringContaining('/admin/reports'));
+     expect(apiV1.get).toHaveBeenCalledWith(
+       expect.stringContaining('/admin/reports'),
+       expect.anything()
+     );
      expect(wrapper.text()).toContain('user@example.com');
      expect(wrapper.text()).toContain('spam');
    });

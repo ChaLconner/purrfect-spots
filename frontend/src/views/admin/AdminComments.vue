@@ -1,5 +1,5 @@
 <template>
-  <div class="admin-comments-page">
+  <div class="flex flex-col gap-4">
     <AdminPageHeader
       v-model="searchQuery"
       :title="t('admin.comments.title')"
@@ -8,9 +8,9 @@
       :search-placeholder="t('admin.comments.search')"
     >
       <template #actions>
-        <div class="admin-comments-toggle">
+        <div class="flex p-1.5 border border-sand-200/95 rounded-2xl bg-sand-100/50">
           <button
-            class="admin-comments-toggle-button"
+            class="px-5 py-2 rounded-lg text-xs font-medium uppercase tracking-[0.08em] transition-all"
             :class="
               !showReportedOnly
                 ? 'bg-white text-terracotta-600 shadow-sm'
@@ -21,7 +21,7 @@
             {{ t('admin.comments.all') }}
           </button>
           <button
-            class="admin-comments-toggle-button admin-comments-toggle-button-icon"
+            class="inline-flex items-center gap-2 px-5 py-2 rounded-lg text-xs font-medium uppercase tracking-[0.08em] transition-all"
             :class="
               showReportedOnly
                 ? 'bg-white text-terracotta-600 shadow-sm'
@@ -52,20 +52,20 @@
     <!-- Bulk Actions -->
     <div
       v-if="selectedCommentIds.length > 0"
-      class="admin-comments-bulk-bar"
+      class="flex items-center justify-between p-4 border border-terracotta-100 rounded-xl bg-terracotta-50 animate-fadeIn"
     >
-      <span class="admin-comments-bulk-count">
+      <span class="text-sm font-bold text-terracotta-900">
         {{ t('admin.comments.selected_count', { count: selectedCommentIds.length }) }}
       </span>
-      <div class="admin-comments-bulk-actions">
+      <div class="flex items-center gap-3">
         <button
-          class="admin-comments-bulk-button admin-comments-bulk-button-danger"
+          class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all bg-red-50 text-red-600 border-red-200 hover:bg-red-500 hover:text-white"
           @click="bulkAction('delete')"
         >
           {{ t('admin.comments.bulk_delete') }}
         </button>
         <button
-          class="admin-comments-bulk-button admin-comments-bulk-button-success"
+          class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all bg-green-50 text-green-600 border-green-200 hover:bg-green-500 hover:text-white"
           @click="bulkAction('dismiss')"
         >
           {{ t('admin.comments.bulk_dismiss') }}
@@ -74,9 +74,9 @@
     </div>
 
     <!-- Comments List -->
-    <div class="admin-comments-shell">
+    <div class="overflow-hidden border border-sand-200 rounded-xl bg-white shadow-sm">
       <!-- Loading State -->
-      <div v-if="loading" class="admin-comments-loading">
+      <div v-if="loading" class="flex flex-col items-center justify-center p-12 text-brown-400">
         <div
           class="w-12 h-12 border-4 border-sand-100 border-t-terracotta-500 rounded-full animate-spin mb-6"
         ></div>
@@ -84,8 +84,8 @@
       </div>
 
       <!-- Empty State -->
-      <div v-else-if="comments.length === 0" class="admin-comments-empty-state">
-        <div class="admin-comments-empty-icon">
+      <div v-else-if="comments.length === 0" class="flex flex-col items-center justify-center p-12 text-center">
+        <div class="flex items-center justify-center w-24 h-24 mb-6 rounded-full bg-sand-50">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             class="h-12 w-12 text-sand-300"
@@ -101,14 +101,14 @@
             />
           </svg>
         </div>
-        <h3 class="admin-comments-empty-title">
+        <h3 class="mb-2 text-xl font-bold text-brown-800">
           {{ t('admin.comments.no_results') }}
         </h3>
-        <p class="admin-comments-empty-copy">{{ t('admin.comments.no_results_desc') }}</p>
+        <p class="max-w-sm font-medium text-brown-500">{{ t('admin.comments.no_results_desc') }}</p>
       </div>
 
       <!-- Scrollable Table -->
-      <div v-else class="admin-comments-scroller-shell">
+      <div v-else class="h-[700px]">
         <RecycleScroller
           v-slot="{ item: comment }"
           class="scroller h-full"
@@ -117,7 +117,7 @@
           key-field="id"
         >
           <div
-            class="admin-comment-row group/item"
+            class="relative flex flex-col sm:flex-row gap-6 p-4 px-6 border-b border-sand-200/95 transition-colors hover:bg-sand-50"
             :class="selectedCommentIds.includes(comment.id) ? 'bg-terracotta-50/30' : ''"
           >
             <!-- Checkbox -->
@@ -136,12 +136,12 @@
                 <div class="flex flex-wrap items-center gap-2 mb-2">
                   <div class="flex flex-col flex-1 min-w-[200px]">
                     <div class="flex items-center gap-2">
-                      <span class="admin-comment-email">
+                      <span class="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium text-brown-900">
                         {{ comment.user_email || t('admin.comments.unknown_user') }}
                       </span>
                       <span
                         v-if="comment.is_user_banned"
-                        class="admin-comment-banned-badge"
+                        class="px-2 py-0.5 border border-red-200 rounded-full bg-red-50 text-red-500 text-xs font-semibold"
                       >
                         {{ t('admin.comments.banned_status') }}
                       </span>
@@ -150,21 +150,21 @@
 
                   <div
                     v-if="comment.report_count > 0"
-                    class="admin-comment-report-pill"
+                    class="inline-flex items-center gap-2 px-3 py-1.5 border border-red-200 rounded-full bg-red-50 text-red-600 text-xs font-semibold whitespace-nowrap cursor-pointer transition-all hover:bg-red-500 hover:text-white"
                     @click="viewReports(comment)"
                   >
                     {{ t('admin.comments.reported') }} ({{ comment.report_count }})
                   </div>
                 </div>
-                <p class="admin-comment-content">
+                <p class="text-sm leading-relaxed font-medium text-brown-700 break-words">
                   {{ comment.content }}
                 </p>
               </div>
 
-              <div class="admin-comment-actions">
+              <div class="flex items-center justify-end gap-2 mt-4 pt-2 border-t border-sand-200/95">
                 <button
                   v-if="!comment.is_user_banned"
-                  class="admin-comment-link-action"
+                  class="inline-flex items-center gap-2 rounded-lg text-sm font-medium text-brown-600 transition-colors hover:text-red-600"
                   @click="handleBanUser(comment)"
                 >
                   {{ t('admin.comments.ban_user') }}
@@ -172,14 +172,14 @@
 
                 <button
                   v-if="comment.report_count > 0"
-                  class="admin-comment-solid-action admin-comment-solid-action-success"
+                  class="inline-flex items-center gap-2 px-3 py-1.5 border rounded-lg text-sm font-medium transition-all bg-green-50 text-green-600 border-green-200 hover:bg-green-500 hover:text-white"
                   @click="dismissReports(comment)"
                 >
                   {{ t('admin.comments.dismiss') }}
                 </button>
 
                 <button
-                  class="admin-comment-solid-action admin-comment-solid-action-danger"
+                  class="inline-flex items-center gap-2 px-3 py-1.5 border rounded-lg text-sm font-medium transition-all bg-red-50 text-red-600 border-red-200 hover:bg-red-500 hover:text-white"
                   @click="confirmDelete(comment)"
                 >
                   {{ t('common.delete') }}
@@ -187,7 +187,7 @@
               </div>
             </div>
 
-            <span class="admin-comment-timestamp">
+            <span class="absolute top-4 right-6 text-xs font-medium text-brown-500 opacity-80">
               {{ formatTimestampWithLocale(comment.created_at) }}
             </span>
           </div>
@@ -253,7 +253,7 @@ import { useI18n } from 'vue-i18n';
 import { RecycleScroller } from 'vue-virtual-scroller';
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
 import { apiV1 } from '@/utils/api';
-import { useToast } from '@/components/toast/use-toast';
+import { useToast } from '@/composables/useToast';
 import { BaseConfirmModal } from '@/components/ui';
 import AdminPagination from '@/components/ui/AdminPagination.vue';
 import ActionModal from '@/components/ui/ActionModal.vue';
@@ -404,283 +404,3 @@ const viewReports = (comment: AdminComment): void => {
   });
 };
 </script>
-
-<style scoped>
-.admin-comments-page {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.admin-comments-toggle {
-  display: flex;
-  padding: 0.375rem;
-  border: 1px solid rgba(245, 245, 244, 0.95);
-  border-radius: 1rem;
-  background: rgba(245, 245, 244, 0.5);
-}
-
-.admin-comments-toggle-button {
-  padding: 0.5rem 1.25rem;
-  border-radius: 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  transition: all 0.2s ease;
-}
-
-.admin-comments-toggle-button-icon {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.admin-comments-bulk-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem;
-  border: 1px solid var(--color-terracotta-100, #f7ebe6);
-  border-radius: 0.75rem;
-  background: var(--color-terracotta-50, #fbf5f2);
-  animation: fadeIn 0.2s ease;
-}
-
-.admin-comments-bulk-count {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--color-terracotta-900, #602f1a);
-}
-
-.admin-comments-bulk-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.admin-comments-bulk-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0.75rem;
-  border-radius: 0.5rem;
-  border: 1px solid;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.admin-comments-bulk-button-danger {
-  background: #fef2f2;
-  color: #dc2626;
-  border-color: #fecaca;
-}
-
-.admin-comments-bulk-button-danger:hover {
-  background: #ef4444;
-  color: white;
-}
-
-.admin-comments-bulk-button-success {
-  background: #f0fdf4;
-  color: #16a34a;
-  border-color: #bbf7d0;
-}
-
-.admin-comments-bulk-button-success:hover {
-  background: #22c55e;
-  color: white;
-}
-
-.admin-comments-shell {
-  overflow: hidden;
-  border: 1px solid var(--color-sand-200);
-  border-radius: 0.75rem;
-  background: white;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-}
-
-.admin-comments-loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 3rem;
-  color: var(--color-brown-400, #a8a29e);
-}
-
-.admin-comments-empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 3rem;
-  text-align: center;
-}
-
-.admin-comments-empty-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 6rem;
-  height: 6rem;
-  margin-bottom: 1.5rem;
-  border-radius: 9999px;
-  background: var(--color-sand-50);
-}
-
-.admin-comments-empty-title {
-  margin-bottom: 0.5rem;
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--color-brown-800, #292524);
-}
-
-.admin-comments-empty-copy {
-  max-width: 24rem;
-  font-weight: 500;
-  color: var(--color-brown-500, #78716c);
-}
-
-.admin-comments-scroller-shell {
-  height: 700px;
-}
-
-.admin-comment-row {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid rgba(245, 245, 244, 0.95);
-  transition: background-color 0.2s ease;
-}
-
-.admin-comment-row:hover {
-  background: var(--color-sand-50);
-}
-
-.admin-comment-email {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--color-brown-900, #2d2420);
-}
-
-.admin-comment-banned-badge {
-  padding: 0.125rem 0.5rem;
-  border: 1px solid #fecaca;
-  border-radius: 9999px;
-  background: #fef2f2;
-  color: #ef4444;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.admin-comment-timestamp {
-  position: absolute;
-  top: 1rem;
-  right: 1.5rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--color-brown-500, #78716c);
-  opacity: 0.8;
-}
-
-.admin-comment-report-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0.75rem;
-  border: 1px solid #fecaca;
-  border-radius: 9999px;
-  background: #fef2f2;
-  color: #dc2626;
-  font-size: 0.75rem;
-  font-weight: 600;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.admin-comment-report-pill:hover {
-  background: #ef4444;
-  color: white;
-}
-
-.admin-comment-content {
-  font-size: 0.875rem;
-  line-height: 1.6;
-  font-weight: 500;
-  color: var(--color-brown-700, #44403c);
-  word-break: break-word;
-}
-
-.admin-comment-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  margin-top: 1rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid rgba(245, 245, 244, 0.95);
-}
-
-.admin-comment-link-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  border-radius: 0.5rem;
-  color: var(--color-brown-600, #57534e);
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: color 0.2s ease;
-}
-
-.admin-comment-link-action:hover {
-  color: #dc2626;
-}
-
-.admin-comment-solid-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0.75rem;
-  border: 1px solid;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.admin-comment-solid-action-success {
-  background: #f0fdf4;
-  color: #16a34a;
-  border-color: #bbf7d0;
-}
-
-.admin-comment-solid-action-success:hover {
-  background: #22c55e;
-  color: white;
-}
-
-.admin-comment-solid-action-danger {
-  background: #fef2f2;
-  color: #dc2626;
-  border-color: #fecaca;
-}
-
-.admin-comment-solid-action-danger:hover {
-  background: #ef4444;
-  color: white;
-}
-
-@media (min-width: 640px) {
-  .admin-comment-row {
-    flex-direction: row;
-  }
-}
-</style>

@@ -1,12 +1,10 @@
 <template>
   <div class="min-h-screen pb-12">
     <!-- Header Section: Simplified and aligned with other Admin views -->
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-brown-900 font-display">
-        {{ t('admin.settings.title') }}
-      </h1>
-      <p class="mt-1 text-brown-500">{{ t('admin.settings.subtitle') }}</p>
-    </div>
+    <AdminPageHeader
+      :title="t('admin.settings.title')"
+      :subtitle="t('admin.settings.subtitle')"
+    />
 
     <!-- Stats & Actions Bar -->
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
@@ -67,7 +65,14 @@
     </div>
 
     <!-- Content Sections -->
-    <TransitionGroup name="fade-list" tag="div" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <TransitionGroup
+      tag="div"
+      class="grid grid-cols-1 lg:grid-cols-2 gap-6"
+      enter-active-class="transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]"
+      leave-active-class="transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]"
+      enter-from-class="opacity-0 translate-y-8"
+      leave-to-class="opacity-0 translate-y-8"
+    >
       <!-- Pending Approvals Tab -->
       <template v-if="activeTab === 'pending'">
         <div
@@ -81,7 +86,8 @@
           <p class="text-brown-500 mt-2 text-sm italic">
             {{ t('admin.settings.approval.all_processed') }}
           </p>
-        </div>        <div
+        </div>
+        <div
           v-for="req in pendingRequests"
           :key="req.id"
           class="bg-white rounded-2xl shadow-sm border border-sand-100 overflow-hidden hover:shadow-md transition-all border-l-4 border-l-orange-400 group"
@@ -194,7 +200,7 @@
                   </button>
                 </div>
                 <p class="text-xs text-brown-500 line-clamp-2 leading-relaxed opacity-80">
-                  {{ config.description || t('admin.settings.no_description') }}
+                  {{ t(`admin.settings.descriptions.${config.key}`, config.description || t('admin.settings.no_description')) }}
                 </p>
               </div>
               <div class="flex flex-col items-end gap-2 ml-4 flex-shrink-0">
@@ -256,10 +262,10 @@
 
                 <template v-else-if="config.type === 'json'">
                   <textarea
-                    v-model="editValues[config.key]"
+                    :value="getEditValue(config.key)"
                     rows="4"
                     class="w-full px-4 py-2.5 bg-brown-900 text-sand-50 border-none rounded-lg focus:ring-2 focus:ring-terracotta-500/30 transition-all font-mono text-xs outline-none"
-                    @input="markDirty(config.key)"
+                    @input="updateEditValue(config.key, $event)"
                   ></textarea>
                 </template>
 
@@ -338,7 +344,7 @@
     <Teleport to="body">
       <div
         v-if="historyKey"
-        class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black bg-opacity-50"
+        class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50"
       >
         <div
           class="bg-white w-full max-w-2xl rounded-xl shadow-xl overflow-hidden border border-sand-100"
@@ -463,8 +469,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
+import { onBeforeRouteLeave } from 'vue-router';
 import { apiV1 } from '@/utils/api';
-import { useToast } from '@/components/toast/use-toast';
+import { useToast } from '@/composables/useToast';
 import { useI18n } from 'vue-i18n';
 import { BaseConfirmModal } from '@/components/ui';
 import { formatTimestamp } from '@/utils/date';
@@ -497,20 +505,38 @@ interface ConfigHistory {
   created_at: string;
 }
 
+type EditableValue = string | number | boolean | null;
+
 const { toast } = useToast();
 const { t, locale } = useI18n();
 
 const navCategories = ['all', 'general', 'security', 'infrastructure', 'pdpa', 'ui', 'pending'];
 const activeTab = ref('all');
+
+onBeforeRouteLeave((_to, _from, next) => {
+  if (dirtyKeys.value.size > 0) {
+    // eslint-disable-next-line no-alert
+    const answer = window.confirm(t('admin.settings.unsaved_warning', 'You have unsaved settings. Are you sure you want to leave?'));
+    if (!answer) return next(false);
+  }
+  next();
+});
+
 const loading = ref(true);
 const saving = ref<string | null>(null);
 
 const settings = ref<SystemConfig[]>([]);
-const editValues = ref<Record<string, unknown>>({});
+const editValues = ref<Record<string, EditableValue>>({});
 const dirtyKeys = ref<Set<string>>(new Set());
 
 const pendingRequests = ref<PendingRequest[]>([]);
 const pendingCount = computed(() => pendingRequests.value.length);
+
+const getEditValue = (key: string): string => String(editValues.value[key] ?? '');
+const updateEditValue = (key: string, event: Event): void => {
+  editValues.value[key] = (event.target as HTMLTextAreaElement).value;
+  markDirty(key);
+};
 
 const historyKey = ref<string | null>(null);
 const history = ref<ConfigHistory[]>([]);
@@ -542,12 +568,14 @@ const fetchSettings = async (forceRefresh: boolean = false): Promise<void> => {
     settings.value = settingsData || [];
     pendingRequests.value = pendingData || [];
 
-    const values: Record<string, unknown> = {};
+    const values: Record<string, EditableValue> = {};
     (settingsData || []).forEach((s) => {
       if (s.type === 'json' && s.value && typeof s.value === 'object') {
         values[s.key] = JSON.stringify(s.value, null, 2);
       } else {
-        values[s.key] = s.value;
+        values[s.key] = typeof s.value === 'string' || typeof s.value === 'number' || typeof s.value === 'boolean' || s.value === null
+          ? s.value
+          : JSON.stringify(s.value);
       }
     });
     editValues.value = values;
@@ -569,7 +597,9 @@ const resetSetting = (key: string): void => {
     if (config.type === 'json' && config.value && typeof config.value === 'object') {
       editValues.value[key] = JSON.stringify(config.value, null, 2);
     } else {
-      editValues.value[key] = config.value;
+      editValues.value[key] = typeof config.value === 'string' || typeof config.value === 'number' || typeof config.value === 'boolean' || config.value === null
+        ? config.value
+        : JSON.stringify(config.value);
     }
     dirtyKeys.value.delete(key);
   }
@@ -685,20 +715,3 @@ onMounted(() => {
   fetchSettings();
 });
 </script>
-
-<style scoped>
-.font-display {
-  font-family: 'Outfit', sans-serif;
-}
-
-.fade-list-enter-active,
-.fade-list-leave-active {
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.fade-list-enter-from,
-.fade-list-leave-to {
-  opacity: 0;
-  transform: translateY(30px);
-}
-</style>

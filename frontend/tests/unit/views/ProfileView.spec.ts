@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { shallowMount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import ProfileView from '@/views/ProfileView.vue';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore } from '@/stores/authStore';
 import { ProfileService } from '@/services/profileService';
 import { nextTick } from 'vue';
 
@@ -54,7 +54,7 @@ vi.mock('@/composables/useSeo', (): Record<string, unknown> => ({
   }),
 }));
 
-vi.mock('@/store/subscriptionStore', () => ({
+vi.mock('@/stores/subscriptionStore', () => ({
   useSubscriptionStore: () => ({
     isPro: false,
     subscriptionEndDate: null,

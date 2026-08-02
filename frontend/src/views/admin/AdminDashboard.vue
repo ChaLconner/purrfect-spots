@@ -1,26 +1,26 @@
 <template>
   <div>
-    <h1 class="text-2xl font-bold text-brown-900 font-display transition-all duration-300">
-      {{ t('admin.dashboard.title') }}
-    </h1>
-    <p class="mt-0.5 text-sm text-brown-600">{{ t('admin.dashboard.subtitle') }}</p>
+    <AdminPageHeader
+      :title="t('admin.dashboard.title')"
+      :subtitle="t('admin.dashboard.subtitle')"
+    />
 
     <!-- Stats Cards -->
     <div
       v-if="!adminStore.isLoading && adminStore.stats.total_users > 0"
-      class="admin-dashboard-stats"
+      class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4"
     >
       <div
         v-for="(card, i) in statCards"
         :key="i"
-        class="admin-stat-card group"
+        class="group p-4 bg-white border border-sand-200/90 rounded-xl shadow-sm transition-all hover:border-terracotta-200/90 hover:shadow-[0_6px_16px_rgba(0,0,0,0.06)]"
       >
         <h3
-          class="admin-stat-label"
+          class="text-sm font-medium text-brown-500 uppercase tracking-[0.08em] transition-colors group-hover:text-brown-700"
         >
           {{ card.label }}
         </h3>
-        <p class="admin-stat-value transition-colors" :class="card.colorClass">
+        <p class="mt-2 text-3xl font-bold transition-colors" :class="card.colorClass">
           {{ card.value }}
         </p>
       </div>
@@ -29,12 +29,12 @@
     <!-- Loading State for Stats -->
     <div
       v-else-if="adminStore.isLoading"
-      class="admin-dashboard-stats"
+      class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4"
     >
       <div
         v-for="n in 4"
         :key="n"
-        class="admin-stat-card"
+        class="p-4 bg-white border border-sand-200/90 rounded-xl shadow-sm"
       >
         <SkeletonLoader width="50%" height="0.875rem" />
         <div class="mt-2">
@@ -45,9 +45,9 @@
 
     <div ref="chartsMountRef">
       <AdminDashboardCharts v-if="shouldRenderCharts" />
-      <div v-else class="admin-dashboard-chart-shell" aria-hidden="true">
-        <div class="admin-dashboard-chart-shell-card"></div>
-        <div class="admin-dashboard-chart-shell-card"></div>
+      <div v-else-if="!adminStore.error" class="mt-4 grid gap-4" aria-hidden="true">
+        <div class="min-h-[20rem] rounded-2xl bg-gradient-to-r from-sand-100/80 via-white/95 to-sand-100/80 bg-[length:200%_100%] animate-[shimmer_2s_linear_infinite]"></div>
+        <div class="min-h-[20rem] rounded-2xl bg-gradient-to-r from-sand-100/80 via-white/95 to-sand-100/80 bg-[length:200%_100%] animate-[shimmer_2s_linear_infinite]"></div>
       </div>
     </div>
   </div>
@@ -56,7 +56,8 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, computed, defineAsyncComponent, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useAdminStore } from '@/store/adminStore';
+import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
+import { useAdminStore } from '@/stores/adminStore';
 import SkeletonLoader from '@/components/ui/SkeletonLoader.vue';
 const AdminDashboardCharts = defineAsyncComponent(() => import('@/components/admin/AdminDashboardCharts.vue'));
 
@@ -118,75 +119,3 @@ const statCards = computed(() => [
   },
 ]);
 </script>
-
-<style scoped>
-.font-display {
-  font-family: 'Outfit', sans-serif;
-}
-
-.admin-dashboard-stats {
-  display: grid;
-  grid-template-columns: repeat(1, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin-top: 1rem;
-}
-
-.admin-stat-card {
-  padding: 1rem;
-  background: white;
-  border: 1px solid rgba(231, 229, 228, 0.9);
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  transition: all 0.2s ease;
-}
-
-.admin-stat-card:hover {
-  border-color: rgba(238, 207, 185, 0.9);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
-}
-
-.admin-stat-label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--color-brown-500, #8c7e7a);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  transition: color 0.2s ease;
-}
-
-.group:hover .admin-stat-label {
-  color: var(--color-brown-700, #44403c);
-}
-
-.admin-stat-value {
-  margin-top: 0.5rem;
-  font-size: 1.875rem;
-  font-weight: 700;
-}
-
-.admin-dashboard-chart-shell {
-  margin-top: 1rem;
-  display: grid;
-  gap: 1rem;
-}
-
-.admin-dashboard-chart-shell-card {
-  min-height: 20rem;
-  border-radius: 1rem;
-  background: linear-gradient(90deg, rgba(245, 245, 244, 0.8) 0%, rgba(255, 255, 255, 0.96) 50%, rgba(245, 245, 244, 0.8) 100%);
-  background-size: 200% 100%;
-  animation: shimmer 2s linear infinite;
-}
-
-@media (min-width: 640px) {
-  .admin-dashboard-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1024px) {
-  .admin-dashboard-stats {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-</style>

@@ -1,4 +1,4 @@
-import { ref, onMounted, onUnmounted, type Ref } from 'vue';
+import { ref, onMounted, onUnmounted, getCurrentInstance, type Ref } from 'vue';
 
 interface UseImageLoaderOptions {
   src: string;
@@ -25,6 +25,7 @@ export function useImageLoader(options: UseImageLoaderOptions): UseImageLoaderRe
   const isIntersecting = ref(!lazy);
   const imageRef = ref<HTMLElement | null>(null);
   let observer: IntersectionObserver | null = null;
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
   const handleLoad = (): void => {
     isLoaded.value = true;
@@ -36,6 +37,7 @@ export function useImageLoader(options: UseImageLoaderOptions): UseImageLoaderRe
   };
 
   const retry = (): void => {
+    if (retryTimer) clearTimeout(retryTimer);
     hasError.value = false;
     isLoaded.value = false;
     // Force re-render if needed, but usually src change or just retry logic in component handles it.
@@ -43,45 +45,52 @@ export function useImageLoader(options: UseImageLoaderOptions): UseImageLoaderRe
     // but usually user clicks retry.
     if (lazy) {
       isIntersecting.value = false;
-      setTimeout(() => {
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
         isIntersecting.value = true;
       }, 100);
     }
   };
 
-  onMounted(() => {
-    if (!lazy || !imageRef.value) {
-      isIntersecting.value = true;
-      return;
-    }
+  if (getCurrentInstance()) {
+    onMounted(() => {
+      if (!lazy) return;
 
-    if ('IntersectionObserver' in globalThis) {
-      observer = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-              isIntersecting.value = true;
-              if (observer) observer.disconnect();
-            }
-          });
-        },
-        {
-          rootMargin: viewportMargin,
-          threshold: threshold,
-        }
-      );
-      observer.observe(imageRef.value);
-    } else {
-      // Fallback for browsers without IntersectionObserver
-      isIntersecting.value = true;
-    }
-  });
+      if (!imageRef.value) {
+        // If ref is not passed, start loading immediately
+        isIntersecting.value = true;
+        return;
+      }
 
-  onUnmounted(() => {
-    if (observer) {
-      observer.disconnect();
-    }
-  });
+      if ('IntersectionObserver' in globalThis) {
+        observer = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                isIntersecting.value = true;
+                if (observer) observer.disconnect();
+              }
+            });
+          },
+          {
+            rootMargin: viewportMargin,
+            threshold: threshold,
+          }
+        );
+        observer.observe(imageRef.value);
+      } else {
+        // Fallback for browsers without IntersectionObserver
+        isIntersecting.value = true;
+      }
+    });
+
+    onUnmounted(() => {
+      if (observer) {
+        observer.disconnect();
+      }
+      if (retryTimer) clearTimeout(retryTimer);
+    });
+  }
 
   return {
     isLoaded,

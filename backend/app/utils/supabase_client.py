@@ -1,0 +1,237 @@
+import os
+from typing import Any, cast
+
+from supabase import AClient, Client, acreate_client, create_client
+from supabase.lib.client_options import ClientOptions
+
+from app.config import config, normalize_single_line_env
+from app.logger import logger
+
+
+class _FallbackAsyncMemoryStorage:
+    """Small async in-memory session store for serverless runtimes."""
+
+    def __init__(self) -> None:
+        self.storage: dict[str, str] = {}
+
+    async def get_item(self, key: str) -> str | None:
+        return self.storage.get(key)
+
+    async def set_item(self, key: str, value: str) -> None:
+        self.storage[key] = value
+
+    async def remove_item(self, key: str) -> None:
+        self.storage.pop(key, None)
+
+
+def create_async_memory_storage() -> Any:
+    """Create async auth session storage compatible with old and new Supabase stacks."""
+    try:
+        # Older Supabase Python stacks exposed async auth storage through gotrue.
+        from gotrue._async.storage import AsyncMemoryStorage as GoTrueAsyncMemoryStorage
+
+        return GoTrueAsyncMemoryStorage()
+    except ImportError:
+        try:
+            # Current auth-py releases expose the storage class from supabase_auth.
+            from supabase_auth._async.storage import AsyncMemoryStorage as SupabaseAuthAsyncMemoryStorage
+
+            return SupabaseAuthAsyncMemoryStorage()
+        except ImportError:
+            return _FallbackAsyncMemoryStorage()
+
+
+def _resolve_supabase_service_key() -> str:
+    """Resolve the service-role key from live environment first, then config cache."""
+    env_value = normalize_single_line_env(os.getenv("SUPABASE_SERVICE_ROLE_KEY", ""))
+    if env_value:
+        return env_value
+    return normalize_single_line_env(config.SUPABASE_SERVICE_KEY)
+
+
+def has_supabase_service_role_key() -> bool:
+    """Return True when a service-role key is currently available."""
+    return bool(_resolve_supabase_service_key())
+
+
+is_production = config.ENVIRONMENT.lower() == "production"
+
+
+def _resolve_supabase_url() -> str:
+    """Resolve the current Supabase URL with safe non-production fallbacks."""
+    supabase_url = normalize_single_line_env(config.SUPABASE_URL)
+
+    if not supabase_url:
+        if is_production:
+            raise ValueError("SUPABASE_URL must be set in environment variables")
+        # Default to localhost for development/testing if not specified.
+        supabase_url = "http://127.0.0.1:54321"
+
+    # Ensure no localhost in URL to prevent [Errno 99] IPv6 resolution issues.
+    if "localhost" in supabase_url:
+        supabase_url = supabase_url.replace("localhost", "127.0.0.1")
+
+    return supabase_url
+
+
+def _resolve_supabase_anon_key() -> str:
+    """Resolve the current anon key with safe non-production fallbacks."""
+    supabase_key = normalize_single_line_env(config.SUPABASE_KEY)
+
+    if not supabase_key:
+        if is_production:
+            raise ValueError("SUPABASE_KEY must be set in environment variables")
+        # Use a dummy key for development/testing if not specified.
+        supabase_key = "dummy-anon-key"
+
+    return supabase_key
+
+
+# Shared client options for timeouts and connection pooling
+# Using a shared http_client prevents [Errno 99] port exhaustion
+import inspect
+
+import supabase.lib.client_options as _client_options_mod
+
+
+def _create_options(is_async: bool) -> Any:
+    kwargs: dict[str, Any] = {
+        "postgrest_client_timeout": 30.0,
+        "storage_client_timeout": 30.0,
+    }
+    if is_async:
+        OptionsClass = getattr(_client_options_mod, "AsyncClientOptions", ClientOptions)
+    else:
+        OptionsClass = getattr(_client_options_mod, "SyncClientOptions", ClientOptions)
+
+    sig = inspect.signature(OptionsClass)
+    if is_async and "storage" in sig.parameters:
+        kwargs["storage"] = cast(Any, create_async_memory_storage())
+
+    return OptionsClass(**kwargs)
+
+
+client_options = _create_options(is_async=False)
+async_client_options = _create_options(is_async=True)
+
+# Synchronous clients (for legacy support and small tasks).
+# These stay lazy so module imports do not fail in CI/test environments that use
+# placeholder keys but never exercise sync Supabase code paths.
+supabase: Client | None = None
+supabase_admin: Client | None = None
+_sync_supabase_state: dict[str, str | None] = {"key": None}
+_sync_supabase_admin_state: dict[str, str | None] = {"key": None}
+
+
+def _build_sync_client(key: str) -> Client:
+    """Construct a sync client using the current resolved Supabase URL."""
+    return create_client(_resolve_supabase_url(), key, options=client_options)
+
+
+def get_supabase_client() -> Client:
+    """Get synchronous Supabase client instance"""
+    global supabase  # noqa: PLW0603
+    current_key = _resolve_supabase_anon_key()
+    if supabase is None or _sync_supabase_state["key"] != current_key:
+        supabase = _build_sync_client(current_key)
+        _sync_supabase_state["key"] = current_key
+    return supabase
+
+
+def get_supabase_admin_client() -> Client:
+    """Get synchronous Supabase admin client instance (bypasses RLS)"""
+    global supabase_admin  # noqa: PLW0603
+    service_key = _resolve_supabase_service_key()
+
+    if not service_key:
+        logger.warning("SUPABASE_SERVICE_ROLE_KEY not found - admin operations will use regular client")
+        return get_supabase_client()
+
+    if supabase_admin is None or _sync_supabase_admin_state["key"] != service_key:
+        supabase_admin = _build_sync_client(service_key)
+        _sync_supabase_admin_state["key"] = service_key
+        logger.info("Supabase Admin Access: Enabled")
+
+    return supabase_admin
+
+
+# --- Async Clients ---
+
+import asyncio
+
+_async_supabase: AClient | None = None
+_async_supabase_admin: AClient | None = None
+_async_supabase_admin_state: dict[str, AClient | str | None] = {"client": None, "key": None}
+
+# Locks to prevent race conditions during cold starts
+_supabase_client_lock = asyncio.Lock()
+_supabase_admin_lock = asyncio.Lock()
+
+
+async def get_async_supabase_client() -> AClient:
+    """Get high-performance async Supabase client (Thread/Async safe Singleton)"""
+    global _async_supabase  # noqa: PLW0603
+
+    # Fast path - return if already initialized
+    if _async_supabase is not None:
+        return _async_supabase
+
+    # Slow path - lock and initialize
+    async with _supabase_client_lock:
+        # Double-check locking pattern
+        if _async_supabase is None:
+            _async_supabase = await acreate_client(
+                _resolve_supabase_url(),
+                _resolve_supabase_anon_key(),
+                options=async_client_options,
+            )
+    return _async_supabase
+
+
+def reset_async_supabase_admin_client() -> None:
+    """Drop the cached async admin client so the next request recreates it."""
+    global _async_supabase_admin  # noqa: PLW0603
+    _async_supabase_admin = None
+    _async_supabase_admin_state["client"] = None
+    _async_supabase_admin_state["key"] = None
+
+
+async def get_async_supabase_admin_client(force_refresh: bool = False) -> AClient:
+    """Get high-performance async Supabase admin client (Thread/Async safe Singleton)"""
+    global _async_supabase_admin  # noqa: PLW0603
+    service_key = _resolve_supabase_service_key()
+
+    if force_refresh:
+        reset_async_supabase_admin_client()
+
+    cached_service_key = cast(str | None, _async_supabase_admin_state["key"])
+
+    # Fast path
+    if _async_supabase_admin is not None and cached_service_key == service_key and not force_refresh:
+        return _async_supabase_admin
+
+    # Slow path with lock
+    async with _supabase_admin_lock:
+        # Double-check inside lock
+        cached_service_key = cast(str | None, _async_supabase_admin_state["key"])
+        if _async_supabase_admin is None or cached_service_key != service_key:
+            if not service_key:
+                logger.error("SUPABASE_SERVICE_ROLE_KEY is missing! Admin client cannot bypass RLS.")
+                if config.is_production():
+                    raise ValueError("SUPABASE_SERVICE_ROLE_KEY is required for admin operations")
+                service_key = normalize_single_line_env(config.SUPABASE_KEY)  # Dev fallback
+
+            _async_supabase_admin = await acreate_client(
+                _resolve_supabase_url(), service_key, options=async_client_options
+            )
+            _async_supabase_admin_state["client"] = _async_supabase_admin
+            _async_supabase_admin_state["key"] = service_key
+
+    return _async_supabase_admin
+
+
+async def get_admin_client_or_fallback(supabase_admin: AClient | None = None) -> AClient:
+    """Return provided admin client or fallback to async global admin client."""
+    if supabase_admin is not None:
+        return supabase_admin
+    return await get_async_supabase_admin_client()

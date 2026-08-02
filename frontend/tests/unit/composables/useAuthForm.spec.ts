@@ -1,23 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useAuthForm } from '@/composables/useAuthForm';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore } from '@/stores/authStore';
 import { AuthService } from '@/services/authService';
-import { showSuccess, showError } from '@/store/toast';
+import { showSuccess, showError } from '@/stores/toast';
 import { useRouter } from 'vue-router';
 import { setActivePinia, createPinia } from 'pinia';
 import { defineComponent } from 'vue';
 import { mount } from '@vue/test-utils';
 import { redirectToTrustedExternalUrl } from '@/utils/security';
 import { getEnvVar } from '@/utils/env';
+import type * as EnvModule from '@/utils/env';
 
 // Mock dependencies
 vi.mock('@/services/authService');
-vi.mock('@/store/toast');
+vi.mock('@/stores/toast');
 vi.mock('vue-router', () => ({
   useRouter: vi.fn(),
 }));
 vi.mock('@/utils/env', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/utils/env')>();
+  const actual = await importOriginal<typeof EnvModule>();
   return {
     ...actual,
     getEnvVar: vi.fn((_key) => 'mock-env-value'),

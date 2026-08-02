@@ -37,13 +37,13 @@ class TestProcessUploadedImage:
         mock_file = create_mock_upload_file(sample_image_bytes, "cat.jpg", "image/jpeg")
 
         with (
-            patch("utils.file_processing.validate_image_file"),
-            patch("utils.file_processing.is_valid_image", return_value=True),
-            patch("utils.file_processing.validate_image_magic_bytes", return_value=(True, "image/jpeg", None)),
-            patch("utils.file_processing.validate_content_type_matches", return_value=(True, "image/jpeg")),
-            patch("utils.file_processing.get_safe_file_extension", return_value=".jpg"),
+            patch("app.utils.file_processing.validate_image_file"),
+            patch("app.utils.file_processing.is_valid_image", return_value=True),
+            patch("app.utils.file_processing.validate_image_magic_bytes", return_value=(True, "image/jpeg", None)),
+            patch("app.utils.file_processing.validate_content_type_matches", return_value=(True, "image/jpeg")),
+            patch("app.utils.file_processing.get_safe_file_extension", return_value=".jpg"),
         ):
-            from utils.file_processing import process_uploaded_image
+            from app.utils.file_processing import process_uploaded_image
 
             (
                 contents,
@@ -61,18 +61,20 @@ class TestProcessUploadedImage:
         mock_file = create_mock_upload_file(sample_image_bytes, "cat.jpg", "image/jpeg")
 
         with (
-            patch("utils.file_processing.validate_image_file"),
-            patch("utils.file_processing.is_valid_image", return_value=True),
-            patch("utils.file_processing.validate_image_magic_bytes", return_value=(True, "image/jpeg", None)),
-            patch("utils.file_processing.validate_content_type_matches", return_value=(True, "image/jpeg")),
-            patch("utils.file_processing.optimize_image", return_value=(b"optimized", "image/webp")) as mock_optimize,
-            patch("utils.file_processing.get_safe_file_extension", return_value=".webp"),
+            patch("app.utils.file_processing.validate_image_file"),
+            patch("app.utils.file_processing.is_valid_image", return_value=True),
+            patch("app.utils.file_processing.validate_image_magic_bytes", return_value=(True, "image/jpeg", None)),
+            patch("app.utils.file_processing.validate_content_type_matches", return_value=(True, "image/jpeg")),
+            patch(
+                "app.utils.file_processing.optimize_image", return_value=(b"optimized", "image/webp")
+            ) as mock_optimize,
+            patch("app.utils.file_processing.get_safe_file_extension", return_value=".webp"),
         ):
-            from utils.file_processing import process_uploaded_image
+            from app.utils.file_processing import process_uploaded_image
 
             contents, content_type, extension = await process_uploaded_image(mock_file, optimize=True)
 
-            mock_optimize.assert_called_once_with(sample_image_bytes, "image/jpeg", max_dimension=1920)
+            mock_optimize.assert_called_once_with(sample_image_bytes, "image/jpeg", 1920)
             assert contents == b"optimized"
             assert content_type == "image/webp"
             assert extension == "webp"
@@ -82,10 +84,10 @@ class TestProcessUploadedImage:
         """Test rejection of invalid file types"""
         mock_file = create_mock_upload_file(b"not an image", "test.txt", "text/plain")
 
-        with patch("utils.file_processing.validate_image_file") as mock_validate:
+        with patch("app.utils.file_processing.validate_image_file") as mock_validate:
             mock_validate.side_effect = ValueError("Invalid file type")
 
-            from utils.file_processing import process_uploaded_image
+            from app.utils.file_processing import process_uploaded_image
 
             with pytest.raises(HTTPException) as excinfo:
                 await process_uploaded_image(mock_file)
@@ -98,10 +100,10 @@ class TestProcessUploadedImage:
         large_content = b"x" * (11 * 1024 * 1024)  # 11 MB
         mock_file = create_mock_upload_file(large_content, "large.jpg", "image/jpeg")
 
-        with patch("utils.file_processing.validate_image_file") as mock_validate:
+        with patch("app.utils.file_processing.validate_image_file") as mock_validate:
             mock_validate.side_effect = ValueError("File too large")
 
-            from utils.file_processing import process_uploaded_image
+            from app.utils.file_processing import process_uploaded_image
 
             with pytest.raises(HTTPException) as excinfo:
                 await process_uploaded_image(mock_file)
@@ -114,10 +116,10 @@ class TestProcessUploadedImage:
         mock_file = create_mock_upload_file(b"corrupted data", "test.jpg", "image/jpeg")
 
         with (
-            patch("utils.file_processing.validate_image_file"),
-            patch("utils.file_processing.is_valid_image", return_value=False),
+            patch("app.utils.file_processing.validate_image_file"),
+            patch("app.utils.file_processing.is_valid_image", return_value=False),
         ):
-            from utils.file_processing import process_uploaded_image
+            from app.utils.file_processing import process_uploaded_image
 
             with pytest.raises(HTTPException) as excinfo:
                 await process_uploaded_image(mock_file)
@@ -131,13 +133,13 @@ class TestProcessUploadedImage:
         mock_file = create_mock_upload_file(sample_image_bytes, "cat.jpg", "image/jpeg")
 
         with (
-            patch("utils.file_processing.validate_image_file"),
-            patch("utils.file_processing.is_valid_image", return_value=True),
-            patch("utils.file_processing.validate_image_magic_bytes", return_value=(True, "image/jpeg", None)),
-            patch("utils.file_processing.validate_content_type_matches", return_value=(True, "image/jpeg")),
-            patch("utils.file_processing.get_safe_file_extension", return_value=".jpg"),
+            patch("app.utils.file_processing.validate_image_file"),
+            patch("app.utils.file_processing.is_valid_image", return_value=True),
+            patch("app.utils.file_processing.validate_image_magic_bytes", return_value=(True, "image/jpeg", None)),
+            patch("app.utils.file_processing.validate_content_type_matches", return_value=(True, "image/jpeg")),
+            patch("app.utils.file_processing.get_safe_file_extension", return_value=".jpg"),
         ):
-            from utils.file_processing import process_uploaded_image
+            from app.utils.file_processing import process_uploaded_image
 
             await process_uploaded_image(mock_file, optimize=False)
 
@@ -147,11 +149,11 @@ class TestProcessUploadedImage:
         mock_file = create_mock_upload_file(sample_image_bytes, "cat.jpg", "image/jpeg")
 
         with (
-            patch("utils.file_processing.validate_image_file"),
-            patch("utils.file_processing.validate_image_magic_bytes", return_value=(True, "image/png", None)),
-            patch("utils.file_processing.validate_content_type_matches", return_value=(False, "image/png")),
+            patch("app.utils.file_processing.validate_image_file"),
+            patch("app.utils.file_processing.validate_image_magic_bytes", return_value=(True, "image/png", None)),
+            patch("app.utils.file_processing.validate_content_type_matches", return_value=(False, "image/png")),
         ):
-            from utils.file_processing import process_uploaded_image
+            from app.utils.file_processing import process_uploaded_image
 
             with pytest.raises(HTTPException) as excinfo:
                 await process_uploaded_image(mock_file, optimize=False)
@@ -171,8 +173,8 @@ class TestReadFileForDetection:
         mock_file.read = AsyncMock(return_value=sample_image_bytes)
         mock_file.seek = AsyncMock()
 
-        with patch("utils.file_processing.validate_image_file"):
-            from utils.file_processing import read_file_for_detection
+        with patch("app.utils.file_processing.validate_image_file"):
+            from app.utils.file_processing import read_file_for_detection
 
             contents = await read_file_for_detection(mock_file)
 
@@ -186,10 +188,10 @@ class TestReadFileForDetection:
         mock_file.content_type = "text/plain"
         mock_file.read = AsyncMock(return_value=b"text content")
 
-        with patch("utils.file_processing.validate_image_file") as mock_validate:
+        with patch("app.utils.file_processing.validate_image_file") as mock_validate:
             mock_validate.side_effect = ValueError("Invalid file type")
 
-            from utils.file_processing import read_file_for_detection
+            from app.utils.file_processing import read_file_for_detection
 
             with pytest.raises(HTTPException) as excinfo:
                 await read_file_for_detection(mock_file)
@@ -202,7 +204,7 @@ class TestValidateCoordinates:
 
     def test_valid_coordinates(self) -> None:
         """Test with valid latitude and longitude"""
-        from utils.file_processing import validate_coordinates
+        from app.utils.file_processing import validate_coordinates
 
         lat, lng = validate_coordinates("13.7563", "100.5018")
 
@@ -211,7 +213,7 @@ class TestValidateCoordinates:
 
     def test_valid_negative_coordinates(self) -> None:
         """Test with valid negative coordinates"""
-        from utils.file_processing import validate_coordinates
+        from app.utils.file_processing import validate_coordinates
 
         lat, lng = validate_coordinates("-33.8688", "151.2093")
 
@@ -220,7 +222,7 @@ class TestValidateCoordinates:
 
     def test_boundary_coordinates(self) -> None:
         """Test with boundary values"""
-        from utils.file_processing import validate_coordinates
+        from app.utils.file_processing import validate_coordinates
 
         # Test maximum values
         lat, lng = validate_coordinates("90", "180")
@@ -234,7 +236,7 @@ class TestValidateCoordinates:
 
     def test_invalid_latitude_too_high(self) -> None:
         """Test rejection of latitude > 90"""
-        from utils.file_processing import validate_coordinates
+        from app.utils.file_processing import validate_coordinates
 
         with pytest.raises(HTTPException) as excinfo:
             validate_coordinates("91", "100")
@@ -244,7 +246,7 @@ class TestValidateCoordinates:
 
     def test_invalid_latitude_too_low(self) -> None:
         """Test rejection of latitude < -90"""
-        from utils.file_processing import validate_coordinates
+        from app.utils.file_processing import validate_coordinates
 
         with pytest.raises(HTTPException) as excinfo:
             validate_coordinates("-91", "100")
@@ -253,7 +255,7 @@ class TestValidateCoordinates:
 
     def test_invalid_longitude_too_high(self) -> None:
         """Test rejection of longitude > 180"""
-        from utils.file_processing import validate_coordinates
+        from app.utils.file_processing import validate_coordinates
 
         with pytest.raises(HTTPException) as excinfo:
             validate_coordinates("45", "181")
@@ -263,7 +265,7 @@ class TestValidateCoordinates:
 
     def test_invalid_longitude_too_low(self) -> None:
         """Test rejection of longitude < -180"""
-        from utils.file_processing import validate_coordinates
+        from app.utils.file_processing import validate_coordinates
 
         with pytest.raises(HTTPException) as excinfo:
             validate_coordinates("45", "-181")
@@ -272,7 +274,7 @@ class TestValidateCoordinates:
 
     def test_non_numeric_coordinates(self) -> None:
         """Test rejection of non-numeric coordinates"""
-        from utils.file_processing import validate_coordinates
+        from app.utils.file_processing import validate_coordinates
 
         with pytest.raises(HTTPException) as excinfo:
             validate_coordinates("abc", "100")
@@ -286,7 +288,7 @@ class TestValidateLocationData:
 
     def test_valid_location_data(self) -> None:
         """Test with valid location name and description"""
-        from utils.file_processing import validate_location_data
+        from app.utils.file_processing import validate_location_data
 
         name, desc = validate_location_data("Cat Park", "A nice park with cats")
 
@@ -295,7 +297,7 @@ class TestValidateLocationData:
 
     def test_strips_whitespace(self) -> None:
         """Test that whitespace is stripped"""
-        from utils.file_processing import validate_location_data
+        from app.utils.file_processing import validate_location_data
 
         name, desc = validate_location_data("  Cat Park  ", "  Description  ")
 
@@ -304,7 +306,7 @@ class TestValidateLocationData:
 
     def test_empty_description_allowed(self) -> None:
         """Test that empty description is allowed"""
-        from utils.file_processing import validate_location_data
+        from app.utils.file_processing import validate_location_data
 
         name, desc = validate_location_data("Cat Park", "")
 
@@ -313,7 +315,7 @@ class TestValidateLocationData:
 
     def test_none_description_allowed(self) -> None:
         """Test that None description is allowed"""
-        from utils.file_processing import validate_location_data
+        from app.utils.file_processing import validate_location_data
 
         name, desc = validate_location_data("Cat Park", None)
 
@@ -322,7 +324,7 @@ class TestValidateLocationData:
 
     def test_empty_location_name_rejected(self) -> None:
         """Test rejection of empty location name"""
-        from utils.file_processing import validate_location_data
+        from app.utils.file_processing import validate_location_data
 
         with pytest.raises(HTTPException) as excinfo:
             validate_location_data("", "Description")
@@ -332,7 +334,7 @@ class TestValidateLocationData:
 
     def test_whitespace_only_name_rejected(self) -> None:
         """Test rejection of whitespace-only location name"""
-        from utils.file_processing import validate_location_data
+        from app.utils.file_processing import validate_location_data
 
         with pytest.raises(HTTPException) as excinfo:
             validate_location_data("   ", "Description")
@@ -341,7 +343,7 @@ class TestValidateLocationData:
 
     def test_short_location_name_rejected(self) -> None:
         """Test rejection of location name shorter than 3 characters"""
-        from utils.file_processing import validate_location_data
+        from app.utils.file_processing import validate_location_data
 
         with pytest.raises(HTTPException) as excinfo:
             validate_location_data("AB", "Description")
@@ -351,7 +353,7 @@ class TestValidateLocationData:
 
     def test_long_location_name_truncated(self) -> None:
         """Test truncation of location name longer than 100 characters"""
-        from utils.file_processing import validate_location_data
+        from app.utils.file_processing import validate_location_data
 
         long_name = "A" * 101
 
@@ -362,7 +364,7 @@ class TestValidateLocationData:
 
     def test_long_description_truncated(self) -> None:
         """Test truncation of description longer than 1000 characters"""
-        from utils.file_processing import validate_location_data
+        from app.utils.file_processing import validate_location_data
 
         long_desc = "A" * 1001
 
@@ -373,7 +375,7 @@ class TestValidateLocationData:
 
     def test_boundary_location_name_length(self) -> None:
         """Test boundary cases for location name length"""
-        from utils.file_processing import validate_location_data
+        from app.utils.file_processing import validate_location_data
 
         # Exactly 3 characters - should pass
         name, _ = validate_location_data("ABC", "")

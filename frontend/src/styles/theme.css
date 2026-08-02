@@ -28,9 +28,34 @@
   --color-brown-light: #a65d37;
   --color-brown-dark: #5d321d;
 
+  /* Explicit utility scale used by admin and content views. */
+  --color-brown-50: #faf6ec;
+  --color-brown-100: #f5e6db;
+  --color-brown-200: #e8d2c4;
+  --color-brown-300: #d4a88a;
+  --color-brown-400: #a8a29e;
+  --color-brown-500: #8c7e7a;
+  --color-brown-600: #57534e;
+  --color-brown-700: #44403c;
+  --color-brown-800: #292524;
+  --color-brown-900: #2d2420;
+  --color-brown-950: #1c1917;
+
   --color-sage: #7a9b76;
   --color-sage-light: #95b390;
   --color-sage-dark: #5b7858;
+
+  --color-sage-50: #f3f7f2;
+  --color-sage-100: #e8f0e6;
+  --color-sage-200: #d9e6d6;
+  --color-sage-300: #c2d7bd;
+  --color-sage-400: #a8c4a3;
+  --color-sage-500: #7a9b76;
+  --color-sage-600: #6a8a66;
+  --color-sage-700: #5b7858;
+  --color-sage-800: #4b6348;
+  --color-sage-900: #3b4f39;
+  --color-sage-950: #2b3929;
 
   --color-terracotta: #d67a4f;
   --color-terracotta-light: #e59976;
@@ -53,6 +78,9 @@
   --color-cream-bg: #fffcf9;
   --color-brown-text: #2d2420;
   --color-brown-meta: #8c7e7a;
+  --color-text-primary: #422110;
+  --color-text-secondary: #8b4d2d;
+  --color-text-muted: #a68b75;
   --color-location-badge: #d97757;
   --color-date-bullet: #d6ccc2;
   --color-sage-pill: #7a9e7e;
@@ -72,14 +100,31 @@
   --color-glass-sage: rgba(122, 155, 118, 0.8);
   --color-glass-terracotta: rgba(214, 122, 79, 0.8);
 
+  /* Mint Palette */
+  --color-mint: #7fb7a4;
+  --color-mint-dark: #5a4632;
+  --color-mint-light: #eaf6f3;
+  --color-mint-hover: #6da491;
+
+  /* Wood Brown Palette */
+  --color-wood-brown: #8b5a2b;
+  --color-wood-dark: #5c4033;
+
   /* Fonts */
   --font-heading: 'Quicksand', sans-serif;
   --font-body: 'Montserrat', sans-serif;
   --font-accent: 'Zen Maru Gothic', sans-serif;
   --font-zen-maru: 'Zen Maru Gothic', sans-serif;
-  --font-nunito: 'Nunito', sans-serif;
+  --font-nunito: 'Montserrat', sans-serif;
 
-  /* Shadow & Spacing (Custom tokens if needed by tailwind) */
+  /* Z-Index Hierarchy Tokens */
+  --z-navbar: 50;
+  --z-dropdown: 60;
+  --z-map-controls: 70;
+  --z-modal: 1000;
+  --z-toast: 2000;
+
+  /* Shadow & Spacing */
   --shadow-premium: 0 12px 24px rgba(66, 33, 16, 0.12);
   --radius-premium: 20px;
 
@@ -130,6 +175,8 @@
   --animate-float: float 6s ease-in-out infinite;
   --animate-float-gentle: float-gentle 4s ease-in-out infinite;
   --animate-ghibli-pop: ghibli-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  --animate-fade-in: fade-in 0.5s ease-out forwards;
+  --animate-shimmer: shimmer 1.5s linear infinite;
 
   @keyframes float {
     0%,
@@ -309,6 +356,62 @@
       transform: translateY(0);
     }
   }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(1rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fade-in-down {
+    from {
+      opacity: 0;
+      transform: translateY(-1rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes galleryFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(0.5rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pulseDot {
+    0%,
+    100% {
+      opacity: 0.35;
+      transform: scale(0.85);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.1);
+    }
+  }
   @keyframes big-bounce {
     from {
       transform: translateY(0) scaleY(1.1);
@@ -359,21 +462,6 @@
     }
   }
 
-  @keyframes shake {
-    0%,
-    100% {
-      transform: translateX(0);
-    }
-    20%,
-    60% {
-      transform: translateX(-5px);
-    }
-    40%,
-    80% {
-      transform: translateX(5px);
-    }
-  }
-
   @keyframes blob {
     0% {
       transform: translate(0, 0) scale(1);
@@ -390,55 +478,168 @@
   }
 }
 
-@layer utilities {
-  .preserve-3d {
-    transform-style: preserve-3d;
-  }
-  .translate-z-negative-1 {
-    transform: translateZ(-1em);
-  }
-  .translate-z-0 {
-    transform: translateZ(0);
-  }
+@utility preserve-3d {
+  transform-style: preserve-3d;
+}
 
-  .hide-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-  .hide-scrollbar::-webkit-scrollbar {
+@utility ghibli-texture-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+}
+
+@utility translate-z-negative-1 {
+  transform: translateZ(-1em);
+}
+
+@utility translate-z-0 {
+  transform: translateZ(0);
+}
+
+@utility translate-3d-button {
+  transform: translate3d(0, 0.25rem, -1em);
+  will-change: transform;
+}
+
+@utility translate-3d-button-small {
+  transform: translate3d(0, 0.2rem, -1em);
+  will-change: transform;
+}
+
+@utility translate-3d-button-em {
+  transform: translate3d(0, 0.2em, -1em);
+  will-change: transform;
+}
+
+@utility hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
     display: none;
     width: 0;
     height: 0;
   }
+}
 
-  .custom-scrollbar::-webkit-scrollbar {
+@utility custom-scrollbar {
+  &::-webkit-scrollbar {
     width: 6px;
   }
-  .custom-scrollbar::-webkit-scrollbar-track {
+
+  &::-webkit-scrollbar-track {
     background: transparent;
   }
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #d1d5db;
-    border-radius: 3px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #9ca3af;
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--color-sand-300);
+    border-radius: 9999px;
   }
 
-  .bg-glass {
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(10px);
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--color-sand-400);
+  }
+}
+
+@utility ghibli-soft-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-sand-300) transparent;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
   }
 
-  .animate-fadeIn {
-    animation: fadeIn 0.5s ease-out forwards;
+  &::-webkit-scrollbar-track {
+    background: transparent;
   }
 
-  .animate-shake {
-    animation: shake 0.5s ease-in-out;
+  &::-webkit-scrollbar-thumb {
+    background: var(--color-sand-200);
+    border-radius: 9999px;
   }
 
-  .animate-bounce-slow {
-    animation: bounce-slow 3s infinite;
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--color-sand-300);
   }
+}
+
+@utility bg-glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+}
+
+@utility prose-brown {
+  line-height: 1.75;
+
+  & p {
+    margin-block: 1rem;
+  }
+
+  & h3 {
+    margin-top: 2rem;
+    margin-bottom: 0.75rem;
+    color: var(--color-brown-900);
+    font-family: var(--font-heading);
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-bold);
+    line-height: var(--leading-tight);
+  }
+
+  & ul {
+    margin-block: 1rem;
+    list-style-type: disc;
+    padding-inline-start: 1.5rem;
+  }
+
+  & li {
+    padding-inline-start: 0.25rem;
+  }
+
+  & strong {
+    color: var(--color-brown-900);
+    font-weight: var(--font-weight-bold);
+  }
+
+  & a {
+    color: var(--color-terracotta-600);
+    text-decoration-line: underline;
+    text-underline-offset: 2px;
+  }
+
+  & a:hover {
+    color: var(--color-terracotta-700);
+  }
+}
+
+@utility texture-noise {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='1'/%3E%3C/svg%3E");
+}
+
+@utility animate-fadeIn {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+@utility animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+@utility animate-bounce-slow {
+  animation: bounce-slow 3s infinite;
+}
+
+@utility animate-fade-in {
+  animation: fade-in 0.5s ease-out forwards;
+}
+
+@utility animate-fade-in-up {
+  animation: fade-in-up 0.5s ease-out forwards;
+}
+
+@utility animate-fade-in-down {
+  animation: fade-in-down 0.5s ease-out forwards;
 }

@@ -51,7 +51,7 @@ const handleAction = (): void => {
         <svg
           v-if="currentIcon === 'peek'"
           viewBox="0 0 200 200"
-          class="w-32 h-32 md:w-40 md:h-40 text-stone-300 transform group-hover:scale-110 group-hover:translate-y--2 transition-transform duration-700"
+          class="w-32 h-32 md:w-40 md:h-40 text-stone-300 transform group-hover:scale-110 group-hover:-translate-y-2 transition-transform duration-700"
         >
           <path
             d="M40 160 Q100 170 160 160 L160 100 Q160 60 100 60 Q40 60 40 100 Z"
@@ -147,8 +147,7 @@ const handleAction = (): void => {
           class="absolute w-2 h-2 bg-yellow-400/30 rounded-full animate-ping top-10 right-10"
         ></div>
         <div
-          class="absolute w-1.5 h-1.5 bg-terracotta/20 rounded-full animate-bounce bottom-12 left-14"
-          style="animation-delay: 1s"
+          class="absolute w-1.5 h-1.5 bg-terracotta/20 rounded-full animate-[bounce_1s_cubic-bezier(0.8,0,1,1)_1s_infinite] bottom-12 left-14"
         ></div>
       </div>
     </div>
@@ -182,19 +181,3 @@ const handleAction = (): void => {
     </div>
   </div>
 </template>
-
-<style scoped>
-@keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-.animate-fade-in {
-  animation: fade-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-</style>

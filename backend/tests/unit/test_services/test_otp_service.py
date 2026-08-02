@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from services.otp_service import OTPService
+from app.services.otp_service import OTPService
 
 
 class TestOTPService:
@@ -211,7 +211,7 @@ class TestOTPService:
 
         with (
             patch.dict(os.environ, {"REDIS_URL": "redis://localhost"}),
-            patch("services.otp_service.OTPService._is_email_locked_out", side_effect=Exception("Redis error")),
+            patch("app.services.otp_service.OTPService._is_email_locked_out", side_effect=Exception("Redis error")),
         ):
             # We can't easily mock inner imports with patch here unless we patch sys.modules or use patch.mock_open
             # But we can patch the method _is_email_locked_out to simulate Redis fail?

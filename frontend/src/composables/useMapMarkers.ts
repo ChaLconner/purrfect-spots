@@ -1,5 +1,5 @@
 /// <reference types="google.maps" />
-import { shallowRef, watch, type Ref, onUnmounted, type ShallowRef } from 'vue';
+import { shallowRef, watch, type Ref, onUnmounted, getCurrentInstance, type ShallowRef } from 'vue';
 import type { CatLocation } from '../types/api';
 import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markerclusterer';
 
@@ -7,6 +7,8 @@ import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markercluste
 type GoogleMap = google.maps.Map;
 
 type GoogleMarker = google.maps.Marker | google.maps.marker.AdvancedMarkerElement;
+const markerIconCache = new Map<string, string>();
+const MARKER_ICON_CACHE_MAX_SIZE = 200;
 
 export function useMapMarkers(map: Ref<GoogleMap | null>): {
   markers: ShallowRef<Map<string, GoogleMarker>>;
@@ -18,6 +20,19 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
   // Use shallowRef for markers array to avoid deep reactivity overhead with Google Maps objects
   const markers = shallowRef<Map<string, GoogleMarker>>(new Map());
   const userMarker = shallowRef<GoogleMarker | null>(null);
+
+  const removeUserMarker = (): void => {
+    if (!userMarker.value) return;
+    if (userMarker.value instanceof google.maps.Marker) {
+      userMarker.value.setMap(null);
+    } else if (
+      google.maps.marker?.AdvancedMarkerElement &&
+      userMarker.value instanceof google.maps.marker.AdvancedMarkerElement
+    ) {
+      userMarker.value.map = null;
+    }
+    userMarker.value = null;
+  };
   const clusterer = shallowRef<MarkerClusterer | null>(null);
 
   // Keep track of event listeners to clean them up
@@ -77,7 +92,10 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
       const pos = marker.getPosition();
       if (!pos) return null;
       return { lat: pos.lat(), lng: pos.lng() };
-    } else if (google.maps.marker?.AdvancedMarkerElement && marker instanceof google.maps.marker.AdvancedMarkerElement) {
+    } else if (
+      google.maps.marker?.AdvancedMarkerElement &&
+      marker instanceof google.maps.marker.AdvancedMarkerElement
+    ) {
       // AdvancedMarkerElement
       const pos = marker.position;
       if (!pos) return null;
@@ -107,6 +125,91 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
       },
     });
 
+    if (location.image_url) {
+      const cachedIcon = markerIconCache.get(location.image_url);
+      if (cachedIcon) {
+        marker.setIcon({
+          url: cachedIcon,
+          scaledSize: new google.maps.Size(52, 68),
+          anchor: new google.maps.Point(26, 64),
+        });
+      } else {
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+        img.decoding = 'async';
+        img.width = 52;
+        img.height = 52;
+        img.src = location.image_url;
+        img.onload = (): void => {
+          const canvas = document.createElement('canvas');
+          const size = 52;
+          canvas.width = size;
+          canvas.height = size + 16;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+
+          const cx = size / 2;
+          const cy = size / 2;
+          const r = size / 2 - 2;
+
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+          ctx.shadowBlur = 4;
+          ctx.shadowOffsetY = 2;
+
+          ctx.fillStyle = '#d97757'; // location-badge color
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, Math.PI * 0.2, Math.PI * 0.8, true);
+          ctx.lineTo(cx, canvas.height - 4);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.shadowColor = 'transparent';
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(cx, cy, r - 3, 0, Math.PI * 2);
+          ctx.clip();
+
+          const d = (r - 3) * 2;
+          const imgAspect = img.width / img.height;
+          let drawWidth = d;
+          let drawHeight = d;
+
+          if (imgAspect > 1) {
+            drawWidth = d * imgAspect;
+          } else {
+            drawHeight = d / imgAspect;
+          }
+
+          const drawX = cx - drawWidth / 2;
+          const drawY = cy - drawHeight / 2;
+
+          ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+          ctx.restore();
+
+          const iconUrl = canvas.toDataURL();
+          if (markerIconCache.size >= MARKER_ICON_CACHE_MAX_SIZE) {
+            const oldest = markerIconCache.keys().next().value;
+            if (oldest) markerIconCache.delete(oldest);
+          }
+          markerIconCache.set(location.image_url, iconUrl);
+          marker.setIcon({
+            url: iconUrl,
+            scaledSize: new google.maps.Size(size, size + 16),
+            anchor: new google.maps.Point(size / 2, size + 12),
+          });
+        };
+
+        img.onerror = (): void => {
+          marker.setIcon({
+            url: location.image_url,
+            scaledSize: new google.maps.Size(40, 40),
+            anchor: new google.maps.Point(20, 20),
+          });
+        };
+      }
+    }
+
     if (onMarkerClick) {
       const listener = marker.addListener('click', () => onMarkerClick(location));
       markerListeners.set(location.id, listener);
@@ -122,10 +225,16 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
         Math.abs(currentPos.lat - location.latitude) > 0.0001 ||
         Math.abs(currentPos.lng - location.longitude) > 0.0001
       ) {
-        if (google.maps.marker?.AdvancedMarkerElement && marker instanceof google.maps.marker.AdvancedMarkerElement) {
+        if (
+          google.maps.marker?.AdvancedMarkerElement &&
+          marker instanceof google.maps.marker.AdvancedMarkerElement
+        ) {
           marker.position = { lat: location.latitude, lng: location.longitude };
         } else {
-          marker.setPosition({ lat: location.latitude, lng: location.longitude });
+          (marker as google.maps.Marker).setPosition({
+            lat: location.latitude,
+            lng: location.longitude,
+          });
         }
       }
     }
@@ -195,14 +304,7 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
     if (!map.value) return;
 
     if (!position) {
-      if (userMarker.value) {
-        if (userMarker.value instanceof google.maps.Marker) {
-          userMarker.value.setMap(null);
-        } else if (google.maps.marker?.AdvancedMarkerElement && userMarker.value instanceof google.maps.marker.AdvancedMarkerElement) {
-          userMarker.value.map = null;
-        }
-        userMarker.value = null;
-      }
+      removeUserMarker();
       return;
     }
 
@@ -210,7 +312,10 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
       // Update existing marker
       if (userMarker.value instanceof google.maps.Marker) {
         userMarker.value.setPosition(position);
-      } else if (google.maps.marker?.AdvancedMarkerElement && userMarker.value instanceof google.maps.marker.AdvancedMarkerElement) {
+      } else if (
+        google.maps.marker?.AdvancedMarkerElement &&
+        userMarker.value instanceof google.maps.marker.AdvancedMarkerElement
+      ) {
         // AdvancedMarkerElement
         userMarker.value.position = position;
       }
@@ -233,7 +338,7 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
 
       const infoWindow = new google.maps.InfoWindow({
         content:
-          '<div style="padding: 8px; font-family: sans-serif;"><strong>You are here</strong></div>',
+          '<div class="p-2 font-sans"><strong>You are here</strong></div>',
       });
 
       if (userMarker.value) {
@@ -261,23 +366,18 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
     markerListeners.forEach((listener) => google.maps.event.removeListener(listener));
     markerListeners.clear();
 
-    if (userMarker.value) {
-      if (userMarker.value instanceof google.maps.Marker) {
-        userMarker.value.setMap(null);
-      } else if (google.maps.marker?.AdvancedMarkerElement && userMarker.value instanceof google.maps.marker.AdvancedMarkerElement) {
-        userMarker.value.map = null;
-      }
-      userMarker.value = null;
-    }
+    removeUserMarker();
   };
 
-  onUnmounted(() => {
-    clearMarkers();
-    if (clusterer.value) {
-      clusterer.value.clearMarkers();
-      clusterer.value = null;
-    }
-  });
+  if (getCurrentInstance()) {
+    onUnmounted(() => {
+      clearMarkers();
+      if (clusterer.value) {
+        clusterer.value.clearMarkers();
+        clusterer.value = null;
+      }
+    });
+  }
 
   return {
     markers,

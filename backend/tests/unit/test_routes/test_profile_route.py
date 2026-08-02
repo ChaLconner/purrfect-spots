@@ -6,9 +6,9 @@ from uuid import uuid4
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from main import app
-from middleware.auth_middleware import get_current_user_from_credentials
-from routes.profile import get_admin_gallery_service, get_auth_service, get_storage_service
+from app.main import app
+from app.middleware.auth_middleware import get_current_user_from_credentials
+from app.routes.profile import get_admin_gallery_service, get_auth_service, get_storage_service
 
 
 @pytest.fixture
@@ -150,7 +150,7 @@ class TestProfileRoute:
         app.dependency_overrides[get_storage_service] = lambda: mock_storage_service
 
         mock_process = AsyncMock(return_value=(sample_image_bytes, "image/jpeg", "jpg"))
-        with patch("routes.profile.process_uploaded_image", new=mock_process):
+        with patch("app.routes.profile.process_uploaded_image", new=mock_process):
             files = {"file": ("avatar.jpg", sample_image_bytes, "image/jpeg")}
             response = await client.post("/api/v1/profile/picture", files=files)
 
@@ -211,7 +211,7 @@ class TestProfileRoute:
     @pytest.mark.asyncio
     async def test_get_public_user_uploads(self, client, mock_user, mock_gallery_service, mock_cat_photo):
         """Test getting public user uploads"""
-        from routes.profile import resolve_user_by_identifier
+        from app.routes.profile import resolve_user_by_identifier
 
         mock_gallery_service.get_user_photos = AsyncMock(return_value=[mock_cat_photo])
 
@@ -230,7 +230,7 @@ class TestProfileRoute:
     @pytest.mark.asyncio
     async def test_get_public_profile_bundle(self, client, mock_user, mock_gallery_service, mock_cat_photo):
         """Test getting public profile and uploads in one request."""
-        from routes.profile import resolve_user_by_identifier
+        from app.routes.profile import resolve_user_by_identifier
 
         mock_gallery_service.get_user_photos = AsyncMock(return_value=[mock_cat_photo])
 
@@ -262,8 +262,10 @@ class TestProfileRoute:
         app.dependency_overrides[get_admin_gallery_service] = lambda: mock_gallery_service
 
         with (
-            patch("routes.profile.invalidate_gallery_cache", new_callable=AsyncMock),
-            patch("routes.profile.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_admin),
+            patch("app.routes.profile.invalidate_gallery_cache", new_callable=AsyncMock),
+            patch(
+                "app.routes.profile.get_async_supabase_admin_client", new_callable=AsyncMock, return_value=mock_admin
+            ),
         ):
             payload: dict[str, str] = {"location_name": "New Loc", "description": "New Desc"}
             response = await client.put("/api/v1/profile/uploads/00000000-0000-0000-0000-000000000001", json=payload)

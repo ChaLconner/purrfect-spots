@@ -4,7 +4,7 @@ Tests for session concurrency management.
 
 import pytest
 
-from utils.session_concurrency import (
+from app.utils.session_concurrency import (
     MAX_CONCURRENT_SESSIONS,
     SESSION_TIMEOUT_SECONDS,
     detect_concurrent_different_ips,

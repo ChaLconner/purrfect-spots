@@ -18,10 +18,10 @@ import type {
 import { isBrowserExtensionError, handleBrowserExtensionError } from './browserExtensionHandler';
 import { getEnvVar } from './env';
 import { getCsrfToken } from './csrf';
+import type { PaginationParams } from '../types/api';
 
-import { ApiError, ApiErrorTypes } from './apiErrors';
-export { ApiError, ApiErrorTypes };
-export type { ApiErrorType } from './apiErrors';
+import { ApiError, ApiErrorTypes, formatApiErrorMessage } from './apiErrors';
+export { ApiError, ApiErrorTypes, formatApiErrorMessage };
 
 // ========== State & Callbacks (Break Circular Dependencies) ==========
 // In-memory access token (not exposed to window/global)
@@ -39,33 +39,13 @@ export const setAuthCallbacks = (refreshFn: () => Promise<boolean>, logoutFn: ()
 };
 
 // ========== API Configuration ==========
-export const API_VERSION = 'v1';
-export const API_PREFIX = `/api/${API_VERSION}`;
+const API_VERSION = 'v1';
+const API_PREFIX = `/api/${API_VERSION}`;
 
 // Endpoints that should never trigger the 401 refresh interceptor
 const AUTH_ENDPOINTS = ['/auth/refresh-token', '/auth/login', '/auth/register', '/auth/logout'];
 
 // ========== Pagination Types ==========
-export interface PaginationParams {
-  limit?: number;
-  offset?: number;
-  page?: number;
-}
-
-export interface PaginationMeta {
-  total: number;
-  limit: number;
-  offset: number;
-  has_more: boolean;
-  page: number;
-  total_pages: number;
-}
-
-export interface PaginatedResponse<T> {
-  images: T[];
-  pagination: PaginationMeta;
-}
-
 // ========== Helpers ==========
 const SAME_ORIGIN_API_BASE_URL = '';
 
@@ -196,6 +176,7 @@ const createApiInstance = (): AxiosInstance => {
       const method = config.method?.toUpperCase();
       const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
       if (method && !safeMethods.includes(method)) {
+        config.headers['X-Requested-With'] = 'XMLHttpRequest';
         const csrfToken = getCsrfToken();
         if (csrfToken) {
           config.headers['X-CSRF-Token'] = csrfToken;
@@ -211,7 +192,7 @@ const createApiInstance = (): AxiosInstance => {
   instance.interceptors.response.use(
     (response): AxiosResponse => {
       const contentType = response.headers['content-type'];
-      if (contentType && !contentType.includes('application/json')) {
+      if (typeof contentType === 'string' && !contentType.includes('application/json')) {
         // Warn removed
         if (typeof response.data === 'string') {
           try {
@@ -268,17 +249,22 @@ const createApiInstance = (): AxiosInstance => {
           const validationMessage = (data as { detail?: string })?.detail || 'Invalid data';
           throw new ApiError(ApiErrorTypes.VALIDATION_ERROR, validationMessage, status, error);
         },
+        429: () => {
+          const retryAfter = error.response?.headers?.['retry-after'];
+          const seconds = retryAfter ? parseInt(String(retryAfter), 10) : 60;
+          const msg = `Rate limit exceeded. Please wait ${seconds} seconds before retrying.`;
+          throw new ApiError(ApiErrorTypes.SERVER_ERROR, msg, status, error);
+        },
       };
 
       if (status === 401) {
         // Don't try to refresh if the failing request IS the refresh-token call (or other auth endpoints)
-        const requestUrl = error.config?.url || '';
-        const isAuthEndpoint = AUTH_ENDPOINTS.some(
-          (ep) =>
-            requestUrl.toLowerCase().endsWith(ep.toLowerCase()) ||
-            requestUrl.toLowerCase().includes(`${ep.toLowerCase()}/`) ||
-            requestUrl.toLowerCase().includes(`${ep.toLowerCase()}?`)
-        );
+        const rawUrl = error.config?.url || '';
+        const cleanUrl = rawUrl.split('?')[0].toLowerCase();
+        const isAuthEndpoint = AUTH_ENDPOINTS.some((ep) => {
+          const lowerEp = ep.toLowerCase();
+          return cleanUrl === lowerEp || cleanUrl.endsWith(lowerEp) || cleanUrl.endsWith(`/api/v1${lowerEp}`);
+        });
 
         if (!isAuthEndpoint) {
           return handleUnauthorizedError(error, status);
@@ -317,6 +303,9 @@ interface RetryableRequestConfig extends AxiosRequestConfig {
   __is_refreshing?: boolean;
 }
 
+let isRefreshingToken = false;
+let refreshPromise: Promise<boolean> | null = null;
+
 // Handle 401 errors (Token Expiry)
 async function handleUnauthorizedError(error: AxiosError, status: number): Promise<unknown> {
   const originalRequest = error.config as RetryableRequestConfig;
@@ -334,7 +323,14 @@ async function handleUnauthorizedError(error: AxiosError, status: number): Promi
 
   try {
     if (refreshTokenCallback) {
-      const refreshed = await refreshTokenCallback();
+      if (!isRefreshingToken) {
+        isRefreshingToken = true;
+        refreshPromise = refreshTokenCallback().finally(() => {
+          isRefreshingToken = false;
+          refreshPromise = null;
+        });
+      }
+      const refreshed = await refreshPromise;
       if (refreshed) {
         // Retry original request with new token
         if (currentAccessToken && originalRequest.headers) {
@@ -368,12 +364,29 @@ interface RetryConfig {
   retryableStatuses: number[];
 }
 
+export interface UploadFileOptions {
+  signal?: AbortSignal;
+  idempotencyKey?: string;
+  retryConfig?: Partial<RetryConfig>;
+}
+
 const DEFAULT_RETRY_CONFIG: RetryConfig = {
   maxRetries: 2,
   baseDelayMs: 500,
   maxDelayMs: 10000,
   retryableStatuses: [408, 429, 502, 503, 504],
 };
+
+const inFlightGetRequests = new Map<string, Promise<unknown>>();
+
+function getRequestDedupeKey(endpoint: string, options: AxiosRequestConfig): string | null {
+  if ((options.method ?? 'GET').toString().toUpperCase() !== 'GET' || options.signal) return null;
+  try {
+    return JSON.stringify([endpoint, options.params ?? null, currentAccessToken]);
+  } catch {
+    return null;
+  }
+}
 
 function calculateBackoffDelay(attempt: number, config: RetryConfig): number {
   const exponentialDelay = config.baseDelayMs * Math.pow(2, attempt);
@@ -410,7 +423,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export const apiRequest = async <T = unknown>(
+const requestWithRetry = async <T = unknown>(
   endpoint: string,
   options: AxiosRequestConfig = {},
   retryConfig: Partial<RetryConfig> = {}
@@ -463,6 +476,30 @@ export const apiRequest = async <T = unknown>(
   throw lastError;
 };
 
+export const apiRequest = async <T = unknown>(
+  endpoint: string,
+  options: AxiosRequestConfig = {},
+  retryConfig: Partial<RetryConfig> = {}
+): Promise<T> => {
+  const dedupeKey = getRequestDedupeKey(endpoint, options);
+  if (!dedupeKey) {
+    return requestWithRetry<T>(endpoint, options, retryConfig);
+  }
+
+  const existing = inFlightGetRequests.get(dedupeKey);
+  if (existing) return existing as Promise<T>;
+
+  const request = requestWithRetry<T>(endpoint, options, retryConfig);
+  inFlightGetRequests.set(dedupeKey, request);
+  try {
+    return await request;
+  } finally {
+    if (inFlightGetRequests.get(dedupeKey) === request) {
+      inFlightGetRequests.delete(dedupeKey);
+    }
+  }
+};
+
 export const api = {
   get: <T = unknown>(endpoint: string, config?: AxiosRequestConfig): Promise<T> =>
     apiRequest<T>(endpoint, { method: 'GET', ...config }),
@@ -484,7 +521,8 @@ export const uploadFile = async <T = unknown>(
   endpoint: string,
   file: File,
   additionalData?: Record<string, unknown>,
-  onUploadProgress?: (progressEvent: AxiosProgressEvent) => void
+  onUploadProgress?: (progressEvent: AxiosProgressEvent) => void,
+  options: UploadFileOptions = {}
 ): Promise<T> => {
   const formData = new FormData();
   formData.append('file', file);
@@ -500,14 +538,19 @@ export const uploadFile = async <T = unknown>(
     });
   }
 
-  return apiRequest<T>(endpoint, {
-    method: 'POST',
-    data: formData,
-    headers: {
-      'Content-Type': 'multipart/form-data',
+  return apiRequest<T>(
+    endpoint,
+    {
+      method: 'POST',
+      data: formData,
+      onUploadProgress,
+      signal: options.signal,
+      headers: options.idempotencyKey
+        ? { 'Idempotency-Key': options.idempotencyKey }
+        : undefined,
     },
-    onUploadProgress,
-  });
+    options.retryConfig ?? { maxRetries: 0 }
+  );
 };
 
 export const apiV1 = {
@@ -537,11 +580,4 @@ export function buildPaginationQuery(params: PaginationParams): string {
   }
   const query = queryParams.toString();
   return query ? `?${query}` : '';
-}
-
-export async function fetchPaginatedGallery<T>(
-  params: PaginationParams = {}
-): Promise<PaginatedResponse<T>> {
-  const query = buildPaginationQuery(params);
-  return apiV1.get<PaginatedResponse<T>>(`/gallery${query}`);
 }

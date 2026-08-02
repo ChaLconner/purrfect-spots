@@ -128,6 +128,31 @@ describe('useGeolocation', () => {
       wrapper.unmount();
     });
 
+    it('should preserve valid zero coordinates from IP fallback', async () => {
+      mockGeolocation.getCurrentPosition.mockImplementation(
+        (_success: PositionCallback, errorCallback: PositionErrorCallback) => {
+          errorCallback({
+            code: 2,
+            message: 'Position unavailable',
+            PERMISSION_DENIED: 1,
+            POSITION_UNAVAILABLE: 2,
+            TIMEOUT: 3,
+          });
+        },
+      );
+
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ latitude: '0', longitude: '0' }),
+      });
+
+      const wrapper = mount(createTestComponent());
+      const vm = wrapper.vm as ReturnType<typeof useGeolocation>;
+
+      expect(await vm.getCurrentPosition()).toEqual({ lat: 0, lng: 0 });
+      wrapper.unmount();
+    });
+
     it('should set error when both geolocation and IP fallback fail', async () => {
       mockGeolocation.getCurrentPosition.mockImplementation(
         (_success: PositionCallback, errorCallback: PositionErrorCallback) => {

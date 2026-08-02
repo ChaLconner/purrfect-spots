@@ -1,7 +1,7 @@
 import { ref, type Ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { showError } from '@/store/toast';
-
+import { showError } from '@/stores/toast';
+import { useGeolocation } from '@/composables/useGeolocation';
 export interface UseUploadMapOptions {
   onLocationUpdate: (lat: number, lng: number) => void;
   mapElementId?: string;
@@ -67,29 +67,28 @@ export function useUploadMap(options: UseUploadMapOptions): {
     }
   };
 
-  const getCurrentLocation = (): void => {
-    if (!navigator.geolocation) {
-      showError(t('upload.errorGeolocation'), t('common.error'));
-      return;
-    }
 
+  const { getCurrentPosition } = useGeolocation();
+
+  const getCurrentLocation = async (): Promise<void> => {
     gettingLocation.value = true;
-    navigator.geolocation.getCurrentPosition(
-      // NOSONAR typescript:S5604 - Geolocation required for upload location step; user consent via browser prompt
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        updateLocation(latitude, longitude);
+    try {
+      const coords = await getCurrentPosition();
+      if (coords) {
+        updateLocation(coords.lat, coords.lng);
         if (map.value) {
-          map.value.panTo({ lat: latitude, lng: longitude });
+          map.value.panTo({ lat: coords.lat, lng: coords.lng });
           map.value.setZoom(15);
         }
-        gettingLocation.value = false;
-      },
-      (err) => {
-        showError(err.message, 'Location Error');
-        gettingLocation.value = false;
+      } else {
+        showError(t('upload.errorGeolocation'), 'Location Error');
       }
-    );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Location Error';
+      showError(message, 'Location Error');
+    } finally {
+      gettingLocation.value = false;
+    }
   };
 
   return {

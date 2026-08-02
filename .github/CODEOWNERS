@@ -17,7 +17,7 @@
 # Backend (Python/FastAPI)
 # ------------------------------------------------------------------------------
 /backend/                   @ChaLconner
-/api-client/                @ChaLconner
+/packages/api-client/       @ChaLconner
 
 # ------------------------------------------------------------------------------
 # Frontend (React/TypeScript/Vite)
@@ -38,10 +38,10 @@
 # Security-Sensitive Files
 # ------------------------------------------------------------------------------
 # Middleware & Auth Services
-/backend/middleware/        @ChaLconner
-/backend/services/auth_*.py @ChaLconner
-/backend/utils/security.py  @ChaLconner
-/backend/config.py          @ChaLconner
+/backend/app/middleware/        @ChaLconner
+/backend/app/services/auth_*.py @ChaLconner
+/backend/app/utils/security.py  @ChaLconner
+/backend/app/config.py          @ChaLconner
 
 # Environment config
 .env.example                @ChaLconner

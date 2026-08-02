@@ -1,18 +1,19 @@
 <template>
-  <div class="admin-audit-shell">
-    <div class="admin-audit-header">
-      <h2 class="admin-audit-title">{{ t('admin.audit.title') }}</h2>
-      <div class="admin-audit-filters">
+  <div class="flex flex-col gap-4">
+    <AdminPageHeader :title="t('admin.audit.title')">
+      <template #actions>
         <input
           v-model="userIdFilter"
           type="text"
           :placeholder="t('admin.audit.filters.userId')"
-          class="admin-audit-filter-input admin-audit-user-filter"
+          :aria-label="t('admin.audit.filters.userId')"
+          class="w-full sm:w-52 px-4 py-3 border border-sand-300 rounded-xl text-[#6a5a53] bg-white text-sm outline-none focus:border-terracotta-500 focus:ring-2 focus:ring-terracotta-100"
           @change="loadLogs(1)"
         />
         <select
           v-model="actionFilter"
-          class="admin-audit-filter-input admin-audit-action-filter"
+          :aria-label="t('admin.audit.filters.allActions')"
+          class="w-full sm:min-w-[18rem] sm:w-auto px-4 py-3 pr-10 border border-sand-300 rounded-xl text-[#6a5a53] bg-white text-sm outline-none focus:border-terracotta-500 focus:ring-2 focus:ring-terracotta-100"
           @change="loadLogs(1)"
         >
           <option value="">{{ t('admin.audit.filters.allActions') }}</option>
@@ -33,89 +34,90 @@
           :title="t('common.refresh')"
           @refresh="loadLogs(1, true)"
         />
-      </div>
-    </div>
+      </template>
+    </AdminPageHeader>
 
-    <div class="admin-audit-table-scroll">
-      <table class="admin-audit-table">
-        <thead class="admin-audit-table-head">
+    <div class="overflow-hidden border border-sand-200/95 rounded-xl bg-white shadow-sm">
+      <div class="overflow-x-auto">
+        <table class="min-w-full border-separate border-spacing-0">
+        <thead class="bg-[#faf8f5]">
           <tr>
-            <th class="admin-audit-head-cell">
+            <th class="px-6 py-3 text-left text-xs font-medium text-[#6a5a53] uppercase tracking-wider border-b border-sand-200">
               {{ t('admin.audit.table.date') }}
             </th>
-            <th class="admin-audit-head-cell">
+            <th class="px-6 py-3 text-left text-xs font-medium text-[#6a5a53] uppercase tracking-wider border-b border-sand-200">
               {{ t('admin.audit.table.user') }}
             </th>
-            <th class="admin-audit-head-cell">
+            <th class="px-6 py-3 text-left text-xs font-medium text-[#6a5a53] uppercase tracking-wider border-b border-sand-200">
               {{ t('admin.audit.table.action') }}
             </th>
-            <th class="admin-audit-head-cell">
+            <th class="px-6 py-3 text-left text-xs font-medium text-[#6a5a53] uppercase tracking-wider border-b border-sand-200">
               {{ t('admin.audit.table.resource') }}
             </th>
-            <th class="admin-audit-head-cell">
+            <th class="px-6 py-3 text-left text-xs font-medium text-[#6a5a53] uppercase tracking-wider border-b border-sand-200">
               {{ t('admin.audit.table.details') }}
             </th>
           </tr>
         </thead>
-        <tbody class="admin-audit-table-body">
-          <tr v-for="log in logs" :key="log.id" class="admin-audit-row">
-            <td class="admin-audit-cell admin-audit-cell-nowrap admin-audit-cell-muted">
+        <tbody class="bg-white">
+          <tr v-for="log in logs" :key="log.id" class="transition-colors hover:bg-[#faf8f5]">
+            <td class="px-6 py-4 text-sm border-b border-sand-200 whitespace-nowrap text-[#6a5a53]">
               {{ formatTimestamp(log.created_at, locale) }}
             </td>
-            <td class="admin-audit-cell admin-audit-cell-nowrap admin-audit-cell-primary">
+            <td class="px-6 py-4 text-sm border-b border-sand-200 whitespace-nowrap text-[#2f231f]">
               <div v-if="log.users">
-                <div class="admin-audit-user-name">{{ log.users.name || t('common.unknown') }}</div>
-                <div class="admin-audit-user-email">{{ log.users.email }}</div>
+                <div class="font-medium">{{ log.users.name || t('common.unknown') }}</div>
+                <div class="text-xs text-[#6a5a53]">{{ log.users.email }}</div>
               </div>
-              <span v-else class="admin-audit-system-user">{{ t('admin.audit.table.system') }}</span>
+              <span v-else class="text-gray-400">{{ t('admin.audit.table.system') }}</span>
             </td>
-            <td class="admin-audit-cell admin-audit-cell-nowrap">
-              <span class="admin-audit-action-badge">
+            <td class="px-6 py-4 text-sm border-b border-sand-200 whitespace-nowrap">
+              <span class="inline-flex px-2 py-0.5 text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-700">
                 {{ t(`admin.audit.actions.${log.action}`) }}
               </span>
             </td>
-            <td class="admin-audit-cell admin-audit-cell-nowrap admin-audit-cell-muted">
+            <td class="px-6 py-4 text-sm border-b border-sand-200 whitespace-nowrap text-[#6a5a53]">
               {{ log.resource }}
             </td>
-            <td class="admin-audit-cell admin-audit-cell-muted">
-              <button class="admin-audit-view-details" @click="viewDetails(log)">
+            <td class="px-6 py-4 text-sm border-b border-sand-200 text-[#6a5a53]">
+              <button class="font-medium text-indigo-600 transition-colors hover:text-indigo-900" @click="viewDetails(log)">
                 {{ t('common.viewDetails') }}
               </button>
             </td>
           </tr>
           <tr v-if="logs.length === 0 && !isLoading">
-            <td colspan="5" class="admin-audit-empty-cell">
+            <td colspan="5" class="p-12 px-6 text-center text-[#6a5a53]">
               {{ t('admin.audit.table.noLogs') }}
             </td>
           </tr>
           <TableSkeleton v-if="isLoading" :columns="5" :avatar-column="2" />
         </tbody>
-      </table>
-    </div>
+        </table>
+      </div>
 
-    <!-- Pagination -->
-    <!-- Pagination -->
-    <AdminPagination
-      v-model:page="page"
-      :limit="limit"
-      :total-items="totalLogs"
-      :items-length="logs.length"
-      :previous-text="t('common.previous')"
-      :next-text="t('common.next')"
-      :page-text="t('common.page', { n: page })"
-      @update:page="loadLogs"
-    />
+      <!-- Pagination -->
+      <AdminPagination
+        v-model:page="page"
+        :limit="limit"
+        :total-items="totalLogs"
+        :items-length="logs.length"
+        :previous-text="t('common.previous')"
+        :next-text="t('common.next')"
+        :page-text="t('common.page', { n: page })"
+        @update:page="loadLogs"
+      />
+    </div>
 
     <!-- Details Modal -->
     <div
       v-if="selectedLog"
-      class="admin-audit-modal-overlay"
+      class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
       @click="selectedLog = null"
     >
-      <div class="admin-audit-modal" @click.stop>
-        <div class="admin-audit-modal-header">
-          <h3 class="admin-audit-modal-title">{{ t('admin.audit.modal.title') }}</h3>
-          <button class="admin-audit-modal-close" @click="selectedLog = null">
+      <div class="w-full max-w-2xl p-6 bg-white rounded-xl shadow-2xl" @click.stop>
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-bold text-[#2f231f]">{{ t('admin.audit.modal.title') }}</h3>
+          <button class="text-gray-400 transition-colors hover:text-gray-600" @click="selectedLog = null">
             <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 stroke-linecap="round"
@@ -127,38 +129,38 @@
           </button>
         </div>
 
-        <div class="admin-audit-modal-content">
-          <div class="admin-audit-modal-grid">
+        <div class="grid gap-4">
+          <div class="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <span class="admin-audit-modal-label">{{ t('admin.audit.table.action') }}</span>
-              <span class="admin-audit-modal-value">{{ selectedLog.action }}</span>
+              <span class="block text-gray-500">{{ t('admin.audit.table.action') }}</span>
+              <span class="font-medium text-[#2f231f]">{{ selectedLog.action }}</span>
             </div>
             <div>
-              <span class="admin-audit-modal-label">{{ t('admin.audit.table.resource') }}</span>
-              <span class="admin-audit-modal-value">{{ selectedLog.resource }}</span>
+              <span class="block text-gray-500">{{ t('admin.audit.table.resource') }}</span>
+              <span class="font-medium text-[#2f231f]">{{ selectedLog.resource }}</span>
             </div>
             <div>
-              <span class="admin-audit-modal-label">{{ t('admin.audit.table.user') }}</span>
-              <span class="admin-audit-modal-value">
+              <span class="block text-gray-500">{{ t('admin.audit.table.user') }}</span>
+              <span class="font-medium text-[#2f231f]">
                 {{ selectedLog.users?.email || t('admin.audit.table.system') }}
               </span>
             </div>
             <div>
-              <span class="admin-audit-modal-label">{{ t('admin.audit.table.date') }}</span>
-              <span class="admin-audit-modal-value">
+              <span class="block text-gray-500">{{ t('admin.audit.table.date') }}</span>
+              <span class="font-medium text-[#2f231f]">
                 {{ formatTimestamp(selectedLog.created_at, locale) }}
               </span>
             </div>
           </div>
 
           <div>
-            <span class="admin-audit-modal-label admin-audit-modal-label-payload">{{
+            <span class="block mb-1 text-sm text-gray-500">{{
               t('admin.audit.modal.changesPayload')
             }}</span>
-            <div class="admin-audit-json-box">
+            <div class="group relative max-h-96 overflow-auto rounded-lg bg-gray-50 p-4 font-mono text-xs">
               <pre>{{ JSON.stringify(selectedLog.changes, null, 2) }}</pre>
               <button
-                class="admin-audit-copy-json"
+                class="absolute top-2 right-2 p-1 bg-white border border-gray-200 rounded shadow-sm opacity-0 transition-opacity group-hover:opacity-100 hover:bg-gray-50"
                 :title="t('common.copyJson')"
                 @click="copyToClipboard(JSON.stringify(selectedLog.changes, null, 2))"
               >
@@ -188,12 +190,13 @@
 import { ref, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 
-import { apiV1 } from '@/utils/api';
-import { useToast } from '@/components/toast/use-toast';
+import { useToast } from '@/composables/useToast';
 import TableSkeleton from '@/components/ui/TableSkeleton.vue';
 import RefreshButton from '@/components/ui/RefreshButton.vue';
 import AdminPagination from '@/components/ui/AdminPagination.vue';
+import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import { formatTimestamp } from '@/utils/date';
+import { useAdminTable } from '@/composables/useAdminTable';
 
 interface AuditLog {
   id: string;
@@ -210,46 +213,33 @@ interface AuditLog {
 
 const { t, locale } = useI18n();
 
-const logs = ref<AuditLog[]>([]);
-const page = ref(1);
-const limit = 50;
-const isLoading = ref(false);
-const totalLogs = ref(0);
 const userIdFilter = ref('');
 const actionFilter = ref('');
 const selectedLog = ref<AuditLog | null>(null);
 
 const { toast } = useToast();
 
-const loadLogs = async (newPage: number = 1, forceRefresh: boolean = false): Promise<void> => {
-  isLoading.value = true;
-  try {
-    const offset = (newPage - 1) * limit;
-    const params = new URLSearchParams({
-      limit: limit.toString(),
-      offset: offset.toString(),
-    });
+const {
+  items: logs,
+  totalItems: totalLogs,
+  page,
+  limit,
+  isLoading,
+  loadData,
+} = useAdminTable<AuditLog>({
+  endpoint: '/admin/audit-logs',
+  limit: 50,
+  exportHeaders: [],
+  formatExportRow: () => [],
+  exportFileNamePrefix: 'audit_logs',
+});
 
-    if (userIdFilter.value) params.append('user_id', userIdFilter.value);
-    if (actionFilter.value) params.append('action', actionFilter.value);
-    if (forceRefresh) params.append('cache_bust', Date.now().toString());
-
-    const response = await apiV1.get<{ data: AuditLog[]; total: number }>(
-      `/admin/audit-logs?${params.toString()}`
-    );
-    logs.value = response.data;
-    totalLogs.value = response.total;
-    page.value = newPage;
-  } catch (e) {
-    console.error('Failed to load audit logs', e);
-    toast({
-      title: t('common.error'),
-      description: t('admin.audit.failedToLoad'),
-      variant: 'destructive',
-    });
-  } finally {
-    isLoading.value = false;
-  }
+const loadLogs = (newPage: number = 1, forceRefresh: boolean = false): void => {
+  const extraParams: Record<string, string> = {};
+  if (userIdFilter.value) extraParams.user_id = userIdFilter.value;
+  if (actionFilter.value) extraParams.action = actionFilter.value;
+  if (forceRefresh) extraParams.cache_bust = Date.now().toString();
+  loadData(newPage, extraParams);
 };
 
 const viewDetails = (log: AuditLog): void => {
@@ -269,260 +259,3 @@ onMounted(() => {
   loadLogs();
 });
 </script>
-
-<style scoped>
-.admin-audit-shell {
-  background: #fff;
-  border-radius: 1rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  border: 1px solid #f2ece8;
-  overflow: hidden;
-}
-
-.admin-audit-header {
-  padding: 1.5rem;
-  border-bottom: 1px solid #f2ece8;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-}
-
-.admin-audit-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #2f231f;
-}
-
-.admin-audit-filters {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.admin-audit-filter-input {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #d6d3d1;
-  border-radius: 0.5rem;
-  color: #6a5a53;
-  background: #fff;
-  font-size: 0.875rem;
-}
-
-.admin-audit-filter-input:focus {
-  outline: none;
-  border-color: #c15f36;
-  box-shadow: 0 0 0 2px rgba(193, 95, 54, 0.2);
-}
-
-.admin-audit-user-filter {
-  width: 10rem;
-}
-
-.admin-audit-action-filter {
-  padding-right: 2.5rem;
-}
-
-.admin-audit-table-scroll {
-  overflow-x: auto;
-}
-
-.admin-audit-table {
-  min-width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-}
-
-.admin-audit-table-head {
-  background: #faf8f5;
-}
-
-.admin-audit-head-cell {
-  padding: 0.75rem 1.5rem;
-  text-align: left;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: #6a5a53;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid #e7e5e4;
-}
-
-.admin-audit-table-body {
-  background: #fff;
-}
-
-.admin-audit-row {
-  transition: background-color 0.2s ease;
-}
-
-.admin-audit-row:hover {
-  background: #faf8f5;
-}
-
-.admin-audit-cell {
-  padding: 1rem 1.5rem;
-  font-size: 0.875rem;
-  border-bottom: 1px solid #e7e5e4;
-}
-
-.admin-audit-cell-nowrap {
-  white-space: nowrap;
-}
-
-.admin-audit-cell-primary {
-  color: #2f231f;
-}
-
-.admin-audit-cell-muted {
-  color: #6a5a53;
-}
-
-.admin-audit-user-name {
-  font-weight: 500;
-}
-
-.admin-audit-user-email {
-  font-size: 0.75rem;
-  color: #6a5a53;
-}
-
-.admin-audit-system-user {
-  color: #9ca3af;
-}
-
-.admin-audit-action-badge {
-  display: inline-flex;
-  padding: 0.125rem 0.5rem;
-  font-size: 0.75rem;
-  line-height: 1.25rem;
-  font-weight: 600;
-  border-radius: 9999px;
-  background: #dbeafe;
-  color: #1e40af;
-}
-
-.admin-audit-view-details {
-  color: #4f46e5;
-  font-weight: 500;
-  transition: color 0.2s ease;
-}
-
-.admin-audit-view-details:hover {
-  color: #312e81;
-}
-
-.admin-audit-empty-cell {
-  padding: 3rem 1.5rem;
-  text-align: center;
-  color: #6a5a53;
-}
-
-.admin-audit-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  z-index: 50;
-}
-
-.admin-audit-modal {
-  background: #fff;
-  border-radius: 0.75rem;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
-  max-width: 42rem;
-  width: 100%;
-  padding: 1.5rem;
-}
-
-.admin-audit-modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.admin-audit-modal-title {
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: #2f231f;
-}
-
-.admin-audit-modal-close {
-  color: #9ca3af;
-  transition: color 0.2s ease;
-}
-
-.admin-audit-modal-close:hover {
-  color: #4b5563;
-}
-
-.admin-audit-modal-content {
-  display: grid;
-  gap: 1rem;
-}
-
-.admin-audit-modal-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-  font-size: 0.875rem;
-}
-
-.admin-audit-modal-label {
-  display: block;
-  color: #6b7280;
-}
-
-.admin-audit-modal-label-payload {
-  margin-bottom: 0.25rem;
-  font-size: 0.875rem;
-}
-
-.admin-audit-modal-value {
-  font-weight: 500;
-  color: #2f231f;
-}
-
-.admin-audit-json-box {
-  background: #f9fafb;
-  border-radius: 0.5rem;
-  padding: 1rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-  font-size: 0.75rem;
-  overflow: auto;
-  max-height: 24rem;
-  position: relative;
-}
-
-.admin-audit-copy-json {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  padding: 0.25rem;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.25rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
-  opacity: 0;
-  transition: opacity 0.2s ease, background-color 0.2s ease;
-}
-
-.admin-audit-json-box:hover .admin-audit-copy-json {
-  opacity: 1;
-}
-
-.admin-audit-copy-json:hover {
-  background: #f9fafb;
-}
-
-@media (min-width: 640px) {
-  .admin-audit-header {
-    flex-direction: row;
-  }
-}
-</style>

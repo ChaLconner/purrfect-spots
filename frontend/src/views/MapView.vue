@@ -29,7 +29,7 @@
         >
           <div
             v-if="isLoading && !isInitialLoading"
-            class="absolute bottom-6 right-6 flex items-center gap-3 bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-lg z-20 border border-white/50 animate-bounce-subtle"
+            class="absolute bottom-6 right-6 flex items-center gap-3 bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-lg z-20 border border-white/50 animate-pulse"
           >
             <GhibliLoader size="small" :text="$t('map.findingCats')" />
           </div>
@@ -40,11 +40,11 @@
           v-if="error && !isLoading && !isInitialLoading"
           class="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md z-20 p-6 rounded-xl"
         >
-          <ErrorState :message="error" @retry="fetchLocationsInViewport" />
+          <ErrorState :message="error" @retry="initializeMap" />
         </div>
 
         <!-- Google Map -->
-        <div id="map" class="w-full h-full outline-none rounded-[inherit]"></div>
+        <div id="map" ref="mapContainer" class="w-full h-full outline-none rounded-[inherit]"></div>
 
         <!-- Custom Map Controls (Glassmorphism) -->
 
@@ -96,6 +96,8 @@
 
     <!-- Cat Details Modal -->
     <CatDetailModal
+      v-if="selectedCat"
+      :key="selectedCat.id"
       :cat="selectedCat"
       @close="closeModal"
       @tag-click="searchByTag"
@@ -110,7 +112,7 @@ import { useRoute, useRouter } from 'vue-router';
 import type { LocationQueryRaw, LocationQueryValue } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { GalleryService } from '../services/galleryService';
-import { showError } from '../store/toast';
+import { showError } from '../stores/toast';
 import GhibliLoader from '@/components/ui/GhibliLoader.vue';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import CatDetailModal from '@/components/map/CatDetailModal.vue';
@@ -121,8 +123,8 @@ import { loadGoogleMaps, isGoogleMapsLoaded } from '../utils/googleMapsLoader';
 import { getEnvVar } from '../utils/env';
 import { FALLBACK_LOCATION, MAP_CONFIG, EXTERNAL_URLS } from '../utils/constants';
 import { openTrustedExternalUrl } from '../utils/security';
-import { useCatsStore } from '../store';
-import type { CatLocation } from '../store';
+import { useCatsStore } from '../stores';
+import type { CatLocation } from '../stores';
 
 // Composables
 import { useGeolocation } from '../composables/useGeolocation';
@@ -143,12 +145,31 @@ const selectedCat = ref<CatLocation | null>(null);
 
 // Google Maps Refs
 const map = ref<google.maps.Map | null>(null);
+const mapContainer = ref<HTMLDivElement | null>(null);
 
 // Composables Setup
 const { userLocation, getCurrentPosition, startWatchingPosition, stopWatchingPosition } =
   useGeolocation();
 
 const { updateMarkers, updateUserMarker, clearMarkers } = useMapMarkers(map);
+
+let markerUpdateFrame: number | null = null;
+let pendingMarkerLocations: CatLocation[] | null = null;
+const scheduleMarkerUpdate = (locations: CatLocation[]): void => {
+  pendingMarkerLocations = locations;
+  if (markerUpdateFrame !== null) return;
+  const run = (): void => {
+    markerUpdateFrame = null;
+    const nextLocations = pendingMarkerLocations;
+    pendingMarkerLocations = null;
+    if (nextLocations) updateMarkers(nextLocations, selectCat);
+  };
+  if (typeof window !== 'undefined' && 'requestAnimationFrame' in window) {
+    markerUpdateFrame = window.requestAnimationFrame(run);
+  } else {
+    markerUpdateFrame = window.setTimeout(run, 0);
+  }
+};
 
 // SEO Setup
 const { setMetaTags, resetMetaTags } = useSeo();
@@ -177,20 +198,40 @@ const mapBounds = ref<google.maps.LatLngBounds | null>(null);
  * Filter markers to only those visible in the current viewport
  * Used for the "Spotted Nearby" badge to ensure the number matches what the user sees
  */
-const visibleCount = computed(() => {
-  if (!map.value || !mapBounds.value) return displayedLocations.value.length;
-  
+const visibleCount = ref(0);
+let visibleCountFrame: number | null = null;
+
+const updateVisibleCount = (): void => {
+  if (!map.value || !mapBounds.value) {
+    visibleCount.value = displayedLocations.value.length;
+    return;
+  }
   const currentBounds = mapBounds.value;
-  return displayedLocations.value.filter((loc: CatLocation): boolean => {
+  visibleCount.value = displayedLocations.value.filter((loc: CatLocation): boolean => {
     try {
-      // Use Google Maps LatLngBounds.contains API for accurate geometric check
       return currentBounds.contains({ lat: loc.latitude, lng: loc.longitude });
     } catch {
-      // Fallback to inclusion if geometric check fails
       return true;
     }
   }).length;
-});
+};
+
+const scheduleVisibleCountUpdate = (): void => {
+  if (visibleCountFrame !== null) return;
+  const run = (): void => {
+    visibleCountFrame = null;
+    updateVisibleCount();
+  };
+  if (typeof window !== 'undefined' && 'requestAnimationFrame' in window) {
+    visibleCountFrame = window.requestAnimationFrame(run);
+  } else {
+    visibleCountFrame = window.setTimeout(run, 0);
+  }
+};
+
+watch([mapBounds, displayedLocations], () => {
+  scheduleVisibleCountUpdate();
+}, { immediate: true });
 
 // ==========================================
 // Handlers
@@ -199,7 +240,7 @@ const visibleCount = computed(() => {
 const searchByTag = (tag: string): void => {
   const query: LocationQueryRaw = { ...route.query, search: `#${tag}` };
   delete query.image;
-  router.push({ query });
+  router.push({ path: route.path, query, hash: route.hash });
   catsStore.setSearchQuery(`#${tag}`);
 };
 
@@ -207,18 +248,18 @@ const clearSearch = (): void => {
   catsStore.clearSearch();
   const query: LocationQueryRaw = { ...route.query };
   delete query.search;
-  router.push({ query });
+  router.push({ path: route.path, query, hash: route.hash });
 };
 
 const selectCat = (cat: CatLocation): void => {
   const query: LocationQueryRaw = { ...route.query, image: cat.id };
-  router.push({ query });
+  router.push({ path: route.path, query, hash: route.hash });
 };
 
 const closeModal = (): void => {
   const query: LocationQueryRaw = { ...route.query };
   delete query.image;
-  router.push({ query });
+  router.push({ path: route.path, query, hash: route.hash });
 };
 
 // ==========================================
@@ -252,10 +293,10 @@ const initializeMap = async (): Promise<void> => {
   }
 
   try {
-    let mapElement = document.getElementById('map');
+    let mapElement = mapContainer.value || document.getElementById('map');
     if (!mapElement) {
       await nextTick();
-      mapElement = document.getElementById('map');
+      mapElement = mapContainer.value || document.getElementById('map');
     }
 
     if (!mapElement) {
@@ -307,7 +348,7 @@ const initializeMap = async (): Promise<void> => {
         updateUserMarker(userLocation.value);
       }
 
-      updateMarkers(displayedLocations.value, selectCat);
+      scheduleMarkerUpdate(displayedLocations.value);
 
       // Hide initial loading state
       isInitialLoading.value = false;
@@ -355,8 +396,6 @@ const fetchLocationsInViewport = async (): Promise<void> => {
     // Use store action to merge locations (handles duplicates and updates)
     catsStore.appendLocations(locations);
 
-    // sync state from URL if needed
-    syncStateFromUrl();
   } catch (err) {
     console.warn('Failed to fetch marker locations:', err);
     // Keep the map interactive when the marker API is temporarily unavailable.
@@ -384,7 +423,7 @@ const debouncedViewportFetch = (): void => {
 watch(
   displayedLocations,
   (locations): void => {
-    updateMarkers(locations, selectCat);
+    scheduleMarkerUpdate(locations);
   },
   { deep: false, immediate: true }
 );
@@ -449,7 +488,7 @@ watch(userLocation, (pos, oldPos): void => {
 // Watch Map Instance - Fix for race condition where data loads before map
 watch(map, (newMap): void => {
   if (newMap && displayedLocations.value.length > 0) {
-    updateMarkers(displayedLocations.value, selectCat);
+    scheduleMarkerUpdate(displayedLocations.value);
   }
 });
 
@@ -469,11 +508,12 @@ watch(
 watch(
   (): LocationQueryValue | LocationQueryValue[] | undefined => route.query.image,
   (): void => {
-    syncStateFromUrl();
-  }
+    void syncStateFromUrl();
+  },
+  { immediate: true }
 );
 
-const syncStateFromUrl = async (): Promise<void> => {
+async function syncStateFromUrl(): Promise<void> {
   const requestId = ++latestImageRequestId.value;
   const imageId = getQueryString(route.query.image);
 
@@ -508,7 +548,7 @@ const syncStateFromUrl = async (): Promise<void> => {
     if (!found) {
       const q: LocationQueryRaw = { ...route.query };
       delete q.image;
-      router.replace({ query: q });
+      router.replace({ path: route.path, query: q, hash: route.hash });
       return;
     }
   }
@@ -521,19 +561,23 @@ const syncStateFromUrl = async (): Promise<void> => {
       map.value.setZoom(15);
     }
   }
-};
+}
 
 // ==========================================
 // Control Handlers
 // ==========================================
 
 const openDirections = (cat: CatLocation): void => {
-  let url = `${EXTERNAL_URLS.GOOGLE_MAPS_DIRECTIONS}`;
-  if (userLocation.value) url += `&origin=${userLocation.value.lat},${userLocation.value.lng}`;
-  url += `&destination=${cat.latitude},${cat.longitude}`;
-  if (cat.location_name) url += `&destination_place_id=`;
-  url += `&travelmode=walking`;
-  openTrustedExternalUrl(url);
+  const directionsUrl = new URL(EXTERNAL_URLS.GOOGLE_MAPS_DIRECTIONS);
+  if (userLocation.value) {
+    directionsUrl.searchParams.set(
+      'origin',
+      `${userLocation.value.lat},${userLocation.value.lng}`
+    );
+  }
+  directionsUrl.searchParams.set('destination', `${cat.latitude},${cat.longitude}`);
+  directionsUrl.searchParams.set('travelmode', 'walking');
+  openTrustedExternalUrl(directionsUrl.toString());
   closeModal();
 };
 
@@ -581,6 +625,23 @@ onMounted((): void => {
 });
 
 onUnmounted((): void => {
+  if (markerUpdateFrame !== null) {
+    if (typeof window !== 'undefined' && 'cancelAnimationFrame' in window) {
+      window.cancelAnimationFrame(markerUpdateFrame);
+    } else {
+      window.clearTimeout(markerUpdateFrame);
+    }
+    markerUpdateFrame = null;
+  }
+  pendingMarkerLocations = null;
+  if (visibleCountFrame !== null) {
+    if (typeof window !== 'undefined' && 'cancelAnimationFrame' in window) {
+      window.cancelAnimationFrame(visibleCountFrame);
+    } else {
+      window.clearTimeout(visibleCountFrame);
+    }
+    visibleCountFrame = null;
+  }
   stopWatchingPosition();
   if (viewportFetchTimer.value) {
     clearTimeout(viewportFetchTimer.value);

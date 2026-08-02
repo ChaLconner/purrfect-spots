@@ -22,7 +22,7 @@
 
       <!-- OTP Input Section -->
       <div class="mb-6">
-        <div class="flex gap-3 justify-center mb-4 w-full max-sm:gap-1">
+        <div class="flex gap-2 sm:gap-3 justify-center mb-4 w-full max-w-full">
           <input
             v-for="(_, index) in 6"
             :key="index"
@@ -31,10 +31,11 @@
             type="text"
             inputmode="numeric"
             maxlength="1"
-            class="w-[50px] h-[60px] text-center font-mono text-2xl font-bold text-[#5a4632] bg-white/90 border-2 border-[rgba(127,183,164,0.3)] rounded-2xl outline-none transition-all duration-300 shrink-0 focus:border-[#7fb7a4] focus:shadow-[0_0_0_4px_rgba(127,183,164,0.15)] focus:scale-105 max-sm:flex-1 max-sm:w-auto max-sm:min-w-[36px] max-sm:h-[50px] max-sm:text-xl max-sm:p-0"
+            :aria-label="`Digit ${index + 1}`"
+            class="w-10 h-12 sm:w-12 sm:h-14 text-center font-mono text-xl sm:text-2xl font-bold text-brown bg-white/90 border-2 border-sage/30 rounded-xl sm:rounded-2xl outline-none transition-all duration-300 shrink-0 focus:border-sage focus:ring-4 focus:ring-sage/20 focus:scale-105"
             :class="[
-              otpDigits[index] ? 'bg-white border-[#7fb7a4]' : '',
-              hasError ? 'border-[#e74c3c] animate-[shake_0.4s_ease-in-out]' : '',
+              otpDigits[index] ? 'bg-white border-sage' : '',
+              hasError ? 'border-terracotta animate-[shake_0.4s_ease-in-out]' : '',
             ]"
             @input="handleInput(index, $event)"
             @keydown="handleKeydown(index, $event)"
@@ -75,7 +76,7 @@
 
       <!-- Verify Button -->
       <button
-        class="flex items-center justify-center gap-3 w-full py-4 px-8 font-['Nunito'] text-[1.1rem] font-bold text-white bg-gradient-to-br from-[#7fb7a4] to-[#6da491] border-none rounded-2xl cursor-pointer transition-all duration-300 shadow-[0_4px_15px_rgba(127,183,164,0.4)] hover:not:disabled:-translate-y-0.5 hover:not:disabled:shadow-[0_8px_25px_rgba(127,183,164,0.5)] active:not:disabled:translate-y-0 disabled:opacity-70 disabled:cursor-not-allowed"
+         class="flex items-center justify-center gap-3 w-full py-4 px-8 font-['Nunito'] text-[1.1rem] font-bold text-white bg-gradient-to-br from-[#7fb7a4] to-[#6da491] border-none rounded-2xl cursor-pointer transition-all duration-300 shadow-[0_4px_15px_rgba(127,183,164,0.4)] hover:enabled:-translate-y-0.5 hover:enabled:shadow-[0_8px_25px_rgba(127,183,164,0.5)] active:enabled:translate-y-0 disabled:opacity-70 disabled:cursor-not-allowed"
         :disabled="isLoading || otpCode.length !== 6"
         @click="handleVerify"
       >
@@ -93,7 +94,7 @@
         </p>
         <button
           v-if="resendCooldown === 0"
-          class="bg-transparent border-none text-[#7fb7a4] font-['Nunito'] text-base font-semibold cursor-pointer transition-colors duration-200 hover:not:disabled:text-[#6da491] hover:not:disabled:underline disabled:opacity-60 disabled:cursor-not-allowed"
+           class="bg-transparent border-none text-[#7fb7a4] font-['Nunito'] text-base font-semibold cursor-pointer transition-colors duration-200 hover:enabled:text-[#6da491] hover:enabled:underline disabled:opacity-60 disabled:cursor-not-allowed"
           :disabled="isResending"
           @click="handleResend"
         >
@@ -135,8 +136,8 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { useAuthStore } from '../store/authStore';
-import { showSuccess, showError } from '../store/toast';
+import { useAuthStore } from '../stores/authStore';
+import { showSuccess, showError } from '../stores/toast';
 import { AuthService } from '../services/authService';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 import { getSafeRedirect, isValidEmail } from '@/utils/security';

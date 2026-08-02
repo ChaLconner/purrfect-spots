@@ -1,0 +1,42 @@
+from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel
+
+
+class CreateCheckoutRequest(BaseModel):
+    plan: Literal["monthly", "annual"] = "monthly"
+
+
+class CheckoutSessionResponse(BaseModel):
+    checkout_url: str
+    session_id: str
+
+
+class SubscriptionPlanPrice(BaseModel):
+    plan: Literal["monthly", "annual"]
+    unit_amount: int
+    currency: str
+    interval: str
+    interval_count: int = 1
+
+
+class SubscriptionPlansResponse(BaseModel):
+    monthly: SubscriptionPlanPrice
+    annual: SubscriptionPlanPrice | None = None
+
+
+class SubscriptionStatus(BaseModel):
+    is_pro: bool
+    subscription_end_date: datetime | None = None
+    cancel_at_period_end: bool = False
+    stripe_customer_id: str | None = None
+    treat_balance: int = 0
+
+
+class CreatePortalRequest(BaseModel):
+    return_url: str | None = None
+
+
+class PortalResponse(BaseModel):
+    url: str

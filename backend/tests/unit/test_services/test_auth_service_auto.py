@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from schemas.user import User
-from services.auth_service import AuthService
+from app.schemas.user import User
+from app.services.auth_service import AuthService
 
 
 @pytest.fixture
@@ -40,7 +40,7 @@ async def test_find_or_create_google_user(auth_service):
 async def test_is_token_revoked(auth_service):
     mock_ts = MagicMock()
     mock_ts.is_blacklisted = AsyncMock(return_value=True)
-    with patch("services.auth.token_mixin.get_token_service", new_callable=AsyncMock, return_value=mock_ts):
+    with patch("app.services.auth.token_mixin.get_token_service", new_callable=AsyncMock, return_value=mock_ts):
         res = await auth_service.is_token_revoked("jti1")
         assert res is True
 
@@ -52,14 +52,16 @@ async def test_is_token_revoked(auth_service):
 async def test_revoke_token(auth_service):
     mock_ts = MagicMock()
     mock_ts.blacklist_token = AsyncMock(return_value=True)
-    with patch("services.auth.token_mixin.get_token_service", new_callable=AsyncMock, return_value=mock_ts) as mock_get:
+    with patch(
+        "app.services.auth.token_mixin.get_token_service", new_callable=AsyncMock, return_value=mock_ts
+    ) as mock_get:
         res = await auth_service.revoke_token("jti1", "u1", datetime.now(UTC))
         assert res is True
         mock_get.assert_awaited_once_with(auth_service.db)
 
 
 def test_verify_google_token(auth_service) -> None:
-    with patch("services.auth.oauth_mixin.google_auth_service.verify_google_token", return_value={"id": "1"}):
+    with patch("app.services.auth.oauth_mixin.google_auth_service.verify_google_token", return_value={"id": "1"}):
         res = auth_service.verify_google_token("tok")
         assert res["id"] == "1"
 
@@ -89,7 +91,7 @@ async def test_confirm_user_email(auth_service):
 async def test_exchange_google_code(auth_service):
     mock_gas = MagicMock()
     mock_gas.exchange_google_code = AsyncMock(return_value={"user_info": {"google_id": "g1", "email": "a@a.com"}})
-    with patch("services.auth.oauth_mixin.google_auth_service", mock_gas):
+    with patch("app.services.auth.oauth_mixin.google_auth_service", mock_gas):
         res = await auth_service.exchange_google_code("code", "cv", "ru")
         assert res.access_token is not None
         assert not hasattr(res, "refresh_token") or res.refresh_token is None
@@ -112,7 +114,7 @@ async def test_create_password_reset_token(auth_service):
     mock_admin.auth.admin.generate_link = AsyncMock(return_value=mock_res)
     with (
         patch.object(auth_service, "_get_admin_client", new_callable=AsyncMock) as mock_get_admin,
-        patch("services.auth.password_mixin.email_service.send_reset_email", return_value=True),
+        patch("app.services.auth.password_mixin.email_service.send_reset_email", return_value=True),
     ):
         mock_get_admin.return_value = mock_admin
         res = await auth_service.create_password_reset_token("a@a.com")
@@ -129,12 +131,12 @@ async def test_change_password(auth_service):
     with (
         patch.object(auth_service, "_get_admin_client", new_callable=AsyncMock) as mock_get_admin,
         patch(
-            "services.auth.password_mixin.password_service.validate_new_password",
+            "app.services.auth.password_mixin.password_service.validate_new_password",
             new_callable=AsyncMock,
             return_value=(True, None),
         ),
-        patch("services.auth.password_mixin.get_token_service", new_callable=AsyncMock, return_value=mock_ts),
-        patch("services.auth.password_mixin.email_service.send_password_changed_email") as mock_email,
+        patch("app.services.auth.password_mixin.get_token_service", new_callable=AsyncMock, return_value=mock_ts),
+        patch("app.services.auth.password_mixin.email_service.send_password_changed_email") as mock_email,
     ):
         mock_get_admin.return_value = mock_admin
         res = await auth_service.change_password("u1", "old", "new")

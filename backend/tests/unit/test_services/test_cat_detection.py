@@ -15,11 +15,11 @@ class TestCatDetectionService:
     def detection_service(self):
         """Create CatDetectionService instance with mocked vision service"""
         # Patch at the location where GoogleVisionService is imported
-        with patch("services.google_vision.GoogleVisionService") as MockVision:
+        with patch("app.services.google_vision.GoogleVisionService") as MockVision:
             mock_vision = MagicMock()
             MockVision.return_value = mock_vision
 
-            from services.cat_detection_service import CatDetectionService
+            from app.services.cat_detection_service import CatDetectionService
 
             service = CatDetectionService()
             service.vision_service = mock_vision
@@ -102,9 +102,10 @@ class TestCatDetectionService:
         result = await detection_service.detect_cats(mock_upload_file)
 
         assert result["fallback_active"] is True
-        assert result["has_cats"] is True
+        assert result["service_available"] is False
+        assert result["has_cats"] is False
         assert result["confidence"] == 0
-        assert "Fallback mode active" in result["reasoning"]
+        assert "Cat verification service unavailable" in result["reasoning"]
 
     def test_prepare_image(self, detection_service) -> None:
         """Test image preparation"""
@@ -132,7 +133,7 @@ class TestGoogleVisionServiceInit:
             patch.dict("os.environ", {"GOOGLE_VISION_KEY_PATH": "dummy/path.json"}),
             patch("google.cloud.vision.ImageAnnotatorClient"),
         ):
-            from services.google_vision import GoogleVisionService
+            from app.services.google_vision import GoogleVisionService
 
             service = GoogleVisionService()
 
@@ -146,7 +147,7 @@ class TestGoogleVisionServiceInit:
             patch.dict("os.environ", {"GOOGLE_VISION_KEY_PATH": "dummy/path.json"}),
             patch("google.cloud.vision.ImageAnnotatorClient"),
         ):
-            from services.google_vision import GoogleVisionService
+            from app.services.google_vision import GoogleVisionService
 
             service = GoogleVisionService()
 

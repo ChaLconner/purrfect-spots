@@ -15,15 +15,15 @@ The platform is designed with a **Ghibli-inspired aesthetic** and built using **
 
 ---
 
-# 📸 Demo
+# 📸 Demo & Status
 
-| Feature          | Preview       |
-| ---------------- | ------------- |
-| Map Discovery    | *coming soon* |
-| Cat Gallery      | *coming soon* |
-| AI Cat Detection | *coming soon* |
+| Feature          | Tech Stack / Implementation | Status |
+| ---------------- | -------------------------- | ------ |
+| Map Discovery    | Vue 3 + Google Maps API (`@googlemaps/markerclusterer`) | Available |
+| Cat Gallery      | Vue 3 + `vue-virtual-scroller` | Available |
+| AI Cat Detection | FastAPI + Google Vision AI API | Available |
 
-Live Demo
+Live Demo:
 👉 https://purrfect-spots.vercel.app
 👉 https://purrfectspots.xyz
 
@@ -32,32 +32,26 @@ Live Demo
 # ✨ Features
 
 ### 🗺️ Discover Cat Locations
-
 Explore cat sightings shared by the community through an interactive location-based map.
 
 ### 🐱 AI Cat Detection
-
 Images uploaded by users are analyzed using **Google Vision AI** to verify the presence of cats.
 
 ### 🔐 Enterprise-Grade Security
-
-* Rate Limiting (Redis)
-* CSRF Protection
+* Rate Limiting (Redis 7.4)
+* CSRF Protection & Security Headers
 * Strict Input Validation (Pydantic / Zod)
-* GitHub Security Scanning
+* GitHub Security Scanning (TruffleHog, Semgrep)
 * Automated Trivy vulnerability scanning
 * CodeQL static analysis
 
 ### ⚡ Performance & Observability
-
-* Distributed tracing with **Jaeger**
+* Distributed tracing with **Jaeger** / OpenTelemetry
 * Error monitoring with **Sentry**
-* Structured logging
+* Structured logging (`structlog`)
 
 ### 🗄️ Secure Data Layer
-
-* PostgreSQL (Supabase)
-* Row Level Security (RLS)
+* PostgreSQL (Supabase) with Row Level Security (RLS)
 * Object storage via AWS S3
 
 ---
@@ -70,58 +64,38 @@ Frontend (Vue 3 + Vite + TypeScript)
         ▼
    FastAPI Backend
         │
-        ├── PostgreSQL (Supabase)
-        ├── Redis Cache
+        ├── PostgreSQL (Supabase RLS)
+        ├── Redis (Isolated Caching & Rate Limiting)
         ├── AWS S3 Storage
         └── Google Vision AI
-```
-
-Infrastructure:
-
-```
-Docker
-Nginx
-GitHub Actions CI/CD
-Vercel Deployment
 ```
 
 ---
 
 # 🧰 Technology Stack
 
-## Frontend
-
-* Vue 3
-* Vite
-* TypeScript
-* Pinia
-* TailwindCSS
+## Frontend (Vue 3 + TypeScript)
+* **Framework**: Vue 3 (Composition API `<script setup lang="ts">`)
+* **Language**: TypeScript 5.x
+* **Build Tool**: Vite 8
+* **State Management**: Pinia 3
+* **Styling**: Tailwind CSS v4
+* **API Client**: `@purrfect-spots/api-client` (OpenAPI Spec)
+* **Testing**: Vitest (Unit), Playwright (E2E)
 
 ## Backend
+* **Language**: Python 3.14
+* **Framework**: FastAPI (Async)
+* **ORM & Database**: SQLAlchemy (Asyncpg) + Supabase PostgreSQL
+* **Validation**: Pydantic v2
+* **Caching & Limits**: Redis 7.4 (Isolated Caching & Rate Limiting)
 
-* Python 3.14
-* FastAPI (Async)
-* SQLAlchemy
-* Pydantic
-
-## Recommended Local Versions
-
-* Node.js 25.8.0
-* Python 3.14.x
-
-## CI Versions
-
-* GitHub Actions uses Node.js 24.x
-* GitHub Actions uses Python 3.14.x
-
-## Infrastructure
-
-* Supabase (PostgreSQL)
-* Redis
-* AWS S3
-* Docker
-* Nginx
-* GitHub Actions
+## Infrastructure & CI/CD
+* Supabase (PostgreSQL + RLS)
+* Redis 7.4 (Alpine)
+* AWS S3 Object Storage
+* Docker / Docker Compose
+* GitHub Actions CI/CD (Node.js 24.x, Python 3.14.x)
 
 ---
 
@@ -138,22 +112,14 @@ cd purrfect-spots
 
 ## 2️⃣ Setup Environment Variables
 
-```
+```bash
 cp .env.example .env
 ```
 
-Then configure:
-
-* Supabase credentials
-* Google Vision API
-* Sentry DSN
-* Redis URL
-
-See full configuration:
-
-```
-docs/ENV_SETUP.md
-```
+Configure environment credentials in:
+- [Root environment template](.env.example)
+- [Frontend environment template](frontend/.env.example)
+- [Backend environment template](backend/.env.example)
 
 ---
 
@@ -163,13 +129,10 @@ docs/ENV_SETUP.md
 
 ```bash
 cd backend
-
 python -m venv venv
-source venv/bin/activate
-
-pip install -r requirements.txt
-
-uvicorn main:app --reload
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r backend/requirements.txt
+uvicorn app.main:app --reload
 ```
 
 ---
@@ -178,23 +141,25 @@ uvicorn main:app --reload
 
 ```bash
 cd frontend
-
 npm install
 npm run dev
 ```
+
+---
 
 # 📚 Documentation
 
 Full documentation lives inside the **docs directory**.
 
-| Document                                 | Description               |
-| ---------------------------------------- | ------------------------- |
-| [docs/README.md](file:///c:/purrfect-spots/docs/README.md)                           | Documentation Hub         |
-| [docs/DATABASE_SCHEMA.md](file:///c:/purrfect-spots/docs/DATABASE_SCHEMA.md)                  | Database schema           |
-| [docs/ENV_SETUP.md](file:///c:/purrfect-spots/docs/ENV_SETUP.md)                        | Environment configuration |
-| [docs/STRIPE_SETUP.md](file:///c:/purrfect-spots/docs/STRIPE_SETUP.md)                     | Stripe Payment Setup      |
-| [docs/PRODUCTION_GUIDE.md](file:///c:/purrfect-spots/docs/PRODUCTION_GUIDE.md)                 | Production Deployment     |
-| [docs/DESIGN_TOKENS.md](file:///c:/purrfect-spots/docs/DESIGN_TOKENS.md)                    | UI design system          |
+| Document | Description |
+| -------- | ----------- |
+| [docs/README.md](docs/README.md) | Documentation hub |
+| [System architecture](docs/architecture/ARCHITECTURE.md) | System architecture |
+| [Project structure](docs/architecture/PROJECT_STRUCTURE.md) | Folder and dependency rules |
+| [Coding standards](docs/development/CODING_STANDARDS.md) | Coding standards |
+| [Git guidelines](docs/development/GIT_GUIDELINES.md) | Git and pull request rules |
+| [Design tokens](docs/development/DESIGN_TOKENS.md) | UI design system |
+| [OpenAPI baseline](docs/openapi-baseline.json) | Machine-readable API contract |
 
 ---
 
@@ -202,16 +167,29 @@ Full documentation lives inside the **docs directory**.
 
 ```
 backend/
-  middleware/
-  routes/
-  services/
-  utils/
+  app/
+    middleware/
+    routes/
+    schemas/
+    services/
+    utils/
+  api/
+  migrations/
+  scripts/
+  tests/
 
 frontend/
   src/components
+  src/generated
   src/views
   src/stores
   src/composables
+
+packages/
+  api-client/
+
+supabase/
+  migrations/
 
 docs/
 ```
@@ -220,14 +198,11 @@ docs/
 
 # 🔐 Security
 
-Security scanning is fully automated.
-
-Tools used:
-
+Security scanning is fully automated:
 * GitHub CodeQL
 * Trivy container scanning
 * Dependabot
-* Secret scanning
+* Secret scanning (TruffleHog & Semgrep)
 
 All pull requests must pass security checks before merging.
 
@@ -241,8 +216,4 @@ MIT License
 
 # 👨‍💻 Maintainer
 
-Maintained by:
-
-**ChaLconner**
-
-If you like the project, consider giving it a ⭐
+Maintained by **ChaLconner**.

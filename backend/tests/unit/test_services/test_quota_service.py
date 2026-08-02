@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from services.quota_service import QuotaService
+from app.services.quota_service import QuotaService
 
 
 @pytest.fixture
@@ -125,3 +125,15 @@ async def test_check_and_increment_system_limit(mock_supabase):
     allowed = await service.check_and_increment("user1", True)
     assert allowed is False
     mock_supabase.rpc.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_check_quota_fails_closed_when_all_quota_reads_fail():
+    broken_db = MagicMock()
+    broken_db.execute = AsyncMock(side_effect=RuntimeError("database unavailable"))
+    broken_supabase = MagicMock()
+    broken_supabase.table.side_effect = RuntimeError("supabase unavailable")
+
+    service = QuotaService(broken_supabase, db=broken_db)
+
+    assert await service.check_quota("user1", False) is False

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { shallowMount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import AdminLayout from '@/views/admin/AdminLayout.vue';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore } from '@/stores/authStore';
 
 const subscribeToReports = vi.fn();
 const unsubscribeReports = vi.fn();
@@ -10,7 +10,7 @@ const adminStats = {
   pending_reports: 0,
 };
 
-vi.mock('@/store/adminStore', () => ({
+vi.mock('@/stores/adminStore', () => ({
   useAdminStore: () => ({
     stats: adminStats,
     subscribeToReports,

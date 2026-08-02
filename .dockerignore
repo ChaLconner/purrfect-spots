@@ -1,0 +1,62 @@
+# Version control and local tooling
+.git
+.github
+.agent
+.agents
+.codex
+.gemini
+.kilo
+.kilocode
+.husky
+.vscode
+.idea
+.mcp.json
+
+# Secrets and local configuration at any depth
+**/.env
+**/.env.*
+**/keys
+**/google_vision.json
+**/gha-creds-*.json
+
+# Dependencies and virtual environments
+**/node_modules
+**/.node_modules-pre-audit-*
+**/.venv
+**/venv
+**/env
+**/ENV
+**/.trivy-venv
+
+# Caches, build output, tests, and reports
+**/__pycache__
+**/*.py[cod]
+**/.mypy_cache
+**/.pytest_cache
+**/.ruff_cache
+**/.vite
+**/.coverage
+**/.coverage.*
+**/coverage
+**/coverage.xml
+**/htmlcov
+**/dist
+**/dist-local*
+**/e2e
+**/tests
+**/playwright-report
+**/test-results
+**/*.log
+**/*.tmp
+**/*.temp
+
+# Repository content not required by the frontend image
+backend
+docs
+packages
+plugins
+scripts
+build-reports
+openapi-specs
+.tmp
+.vercel

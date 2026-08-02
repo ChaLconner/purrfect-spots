@@ -2,14 +2,14 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from services.search_service import SearchService
+from app.services.search_service import SearchService
 
 
 @pytest.fixture(autouse=True)
 async def clear_test_cache():
     """Clear the cache before each test to prevent cross-test contamination"""
-    from services import search_service
-    from utils.cache import memory_cache
+    from app.services import search_service
+    from app.utils.cache import memory_cache
 
     memory_cache.clear()
     search_service._fulltext_available_cache = None
@@ -36,6 +36,7 @@ def mock_supabase():
     client.text_search.return_value = client
     client.filter.return_value = client
     client.eq.return_value = client
+    client.not_ = client
 
     # Mock RPC
     client.rpc.return_value = client

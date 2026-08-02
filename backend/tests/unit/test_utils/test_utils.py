@@ -16,7 +16,7 @@ class TestFileProcessing:
 
     def test_validate_coordinates_valid(self) -> None:
         """Test coordinate validation with valid values"""
-        from utils.file_processing import validate_coordinates
+        from app.utils.file_processing import validate_coordinates
 
         lat, lng = validate_coordinates("13.7563", "100.5018")
 
@@ -27,7 +27,7 @@ class TestFileProcessing:
         """Test coordinate validation with invalid latitude"""
         from fastapi import HTTPException
 
-        from utils.file_processing import validate_coordinates
+        from app.utils.file_processing import validate_coordinates
 
         with pytest.raises(HTTPException) as excinfo:
             validate_coordinates("91", "100")  # Lat > 90
@@ -37,7 +37,7 @@ class TestFileProcessing:
         """Test coordinate validation with invalid longitude"""
         from fastapi import HTTPException
 
-        from utils.file_processing import validate_coordinates
+        from app.utils.file_processing import validate_coordinates
 
         with pytest.raises(HTTPException) as excinfo:
             validate_coordinates("13", "181")  # Lng > 180
@@ -47,7 +47,7 @@ class TestFileProcessing:
         """Test coordinate validation with non-numeric values"""
         from fastapi import HTTPException
 
-        from utils.file_processing import validate_coordinates
+        from app.utils.file_processing import validate_coordinates
 
         with pytest.raises(HTTPException) as excinfo:
             validate_coordinates("abc", "100")
@@ -55,7 +55,7 @@ class TestFileProcessing:
 
     def test_validate_location_data(self) -> None:
         """Test location data validation and cleaning"""
-        from utils.file_processing import validate_location_data
+        from app.utils.file_processing import validate_location_data
 
         location, description = validate_location_data("  Test Location  ", "  Test description  ")
 
@@ -66,7 +66,7 @@ class TestFileProcessing:
         """Test location validation with empty name"""
         from fastapi import HTTPException
 
-        from utils.file_processing import validate_location_data
+        from app.utils.file_processing import validate_location_data
 
         with pytest.raises(HTTPException) as excinfo:
             validate_location_data("", "description")
@@ -74,7 +74,7 @@ class TestFileProcessing:
 
     def test_validate_location_data_long_name(self) -> None:
         """Test location validation with long name truncates it"""
-        from utils.file_processing import validate_location_data
+        from app.utils.file_processing import validate_location_data
 
         long_name = "A" * 300  # Very long name
 
@@ -92,7 +92,7 @@ class TestImageUtils:
         """Test getting image dimensions from valid image"""
         from PIL import Image
 
-        from utils.image_utils import get_image_dimensions
+        from app.utils.image_utils import get_image_dimensions
 
         # Create a real test image
         img = Image.new("RGB", (1920, 1080), color="red")
@@ -107,7 +107,7 @@ class TestImageUtils:
 
     def test_get_image_dimensions_invalid(self) -> None:
         """Test getting image dimensions from invalid data"""
-        from utils.image_utils import get_image_dimensions
+        from app.utils.image_utils import get_image_dimensions
 
         width, height = get_image_dimensions(b"not an image")
 
@@ -115,12 +115,12 @@ class TestImageUtils:
         assert width == 0
         assert height == 0
 
-    @patch("utils.image_utils.logger")
+    @patch("app.utils.image_utils.logger")
     def test_optimize_image(self, mock_logger) -> None:
         """Test image optimization default behavior (JPEG)"""
         from PIL import Image
 
-        from utils.image_utils import optimize_image
+        from app.utils.image_utils import optimize_image
 
         # Create a test image
         img = Image.new("RGB", (3000, 2000), color="blue")
@@ -140,7 +140,7 @@ class TestImageUtils:
         """Test optimization of RGBA images (transparency to white bg)"""
         from PIL import Image
 
-        from utils.image_utils import optimize_image
+        from app.utils.image_utils import optimize_image
 
         # Create RGBA image
         img = Image.new("RGBA", (100, 100), (255, 0, 0, 128))
@@ -158,7 +158,7 @@ class TestImageUtils:
         """Test resizing logic for tall images"""
         from PIL import Image
 
-        from utils.image_utils import optimize_image
+        from app.utils.image_utils import optimize_image
 
         img = Image.new("RGB", (1000, 3000), color="green")
         buffer = io.BytesIO()
@@ -179,7 +179,7 @@ class TestImageUtils:
         """Test forcing WEBP format"""
         from PIL import Image
 
-        from utils.image_utils import optimize_image
+        from app.utils.image_utils import optimize_image
 
         img = Image.new("RGB", (100, 100), color="yellow")
         buffer = io.BytesIO()
@@ -195,7 +195,7 @@ class TestImageUtils:
         """Test GIF images are passed through untouched"""
         from PIL import Image
 
-        from utils.image_utils import optimize_image
+        from app.utils.image_utils import optimize_image
 
         # Create a simple GIF
         img = Image.new("RGB", (100, 100), color="red")
@@ -211,7 +211,7 @@ class TestImageUtils:
 
     def test_optimize_image_corrupted(self) -> None:
         """Test graceful handling of corrupted images"""
-        from utils.image_utils import optimize_image
+        from app.utils.image_utils import optimize_image
 
         bad_data = b"not an image"
 
@@ -225,7 +225,7 @@ class TestImageUtils:
         """Test image validation"""
         from PIL import Image
 
-        from utils.image_utils import is_valid_image
+        from app.utils.image_utils import is_valid_image
 
         # Valid image
         img = Image.new("RGB", (100, 100), color="green")
@@ -241,18 +241,18 @@ class TestImageUtils:
         """Test oversized decoded images are rejected before processing."""
         from PIL import Image
 
-        from utils.image_utils import is_valid_image
+        from app.utils.image_utils import is_valid_image
 
         mock_image = MagicMock(spec=Image.Image)
         mock_image.size = (10000, 5000)
         mock_image.verify = MagicMock()
 
-        with patch("utils.image_utils.Image.open", return_value=mock_image):
+        with patch("app.utils.image_utils.Image.open", return_value=mock_image):
             assert is_valid_image(b"synthetic image bytes") is False
 
     def test_protect_public_coordinates_is_deterministic(self) -> None:
         """Public coordinate masking should be stable for caching and UX."""
-        from utils.security import protect_public_coordinates
+        from app.utils.security import protect_public_coordinates
 
         first = protect_public_coordinates(13.7563, 100.5018, seed="photo-1")
         second = protect_public_coordinates(13.7563, 100.5018, seed="photo-1")
@@ -266,7 +266,7 @@ class TestFileUtils:
 
     def test_get_safe_file_extension_from_content_type(self) -> None:
         """Test getting file extension from content type"""
-        from utils.file_utils import get_safe_file_extension
+        from app.utils.file_utils import get_safe_file_extension
 
         assert get_safe_file_extension("photo.jpg", "image/jpeg") == ".jpg"
         assert get_safe_file_extension("photo.png", "image/png") == ".png"
@@ -275,7 +275,7 @@ class TestFileUtils:
 
     def test_get_safe_file_extension_fallback(self) -> None:
         """Test file extension fallback to filename"""
-        from utils.file_utils import get_safe_file_extension
+        from app.utils.file_utils import get_safe_file_extension
 
         # Should fallback to filename extension if content type unknown
         ext = get_safe_file_extension("photo.jpeg", "application/octet-stream")
@@ -283,21 +283,21 @@ class TestFileUtils:
 
     def test_validate_image_file_valid(self) -> None:
         """Test image file validation with valid params"""
-        from utils.file_utils import validate_image_file
+        from app.utils.file_utils import validate_image_file
 
         # Should not raise
         validate_image_file("image/jpeg", 1024 * 1024)  # 1MB
 
     def test_validate_image_file_too_large(self) -> None:
         """Test image file validation with file too large"""
-        from utils.file_utils import validate_image_file
+        from app.utils.file_utils import validate_image_file
 
         with pytest.raises(ValueError):
             validate_image_file("image/jpeg", 15 * 1024 * 1024)  # 15MB
 
     def test_validate_image_file_wrong_type(self) -> None:
         """Test image file validation with wrong content type"""
-        from utils.file_utils import validate_image_file
+        from app.utils.file_utils import validate_image_file
 
         with pytest.raises(ValueError):
             validate_image_file("application/pdf", 1024 * 1024)
@@ -310,10 +310,10 @@ class TestRateLimiter:
         """Test user ID extraction from authenticated request"""
         import jwt
 
-        from limiter import get_user_id_from_request
+        from app.limiter import get_user_id_from_request
 
         # Create a valid JWT token for testing
-        with patch("config.config.JWT_SECRET", "secret_key_at_least_32_chars_long_for_security"):
+        with patch("app.config.config.JWT_SECRET", "secret_key_at_least_32_chars_long_for_security"):
             token = jwt.encode(
                 {"sub": "user-123", "iss": "purrfect-spots"},
                 "secret_key_at_least_32_chars_long_for_security",
@@ -330,7 +330,7 @@ class TestRateLimiter:
 
     def test_get_user_id_from_request_unauthenticated(self) -> None:
         """Test user ID extraction from unauthenticated request"""
-        from limiter import get_user_id_from_request
+        from app.limiter import get_user_id_from_request
 
         mock_request = MagicMock()
         mock_request.headers.get.return_value = ""
@@ -347,7 +347,7 @@ class TestAuthUtils:
 
     def test_decode_token_missing(self) -> None:
         """Test decoding missing token"""
-        from utils.auth_utils import decode_token
+        from app.utils.auth_utils import decode_token
 
         with pytest.raises(ValueError, match="Token is missing"):
             decode_token("")
@@ -356,13 +356,13 @@ class TestAuthUtils:
         """Test decoding valid token"""
         import jwt
 
-        from utils.auth_utils import decode_token
+        from app.utils.auth_utils import decode_token
 
         secret = "test_secret_key_at_least_32_chars"  # nosonar - test-only JWT signing key
         payload = {"sub": "user123"}
         token = jwt.encode(payload, secret, algorithm="HS256")
 
-        with patch("config.config.JWT_SECRET", secret):
+        with patch("app.config.config.JWT_SECRET", secret):
             decoded = decode_token(token)
             assert decoded["sub"] == "user123"
 
@@ -372,34 +372,34 @@ class TestAuthUtils:
 
         import jwt
 
-        from utils.auth_utils import decode_token
+        from app.utils.auth_utils import decode_token
 
         secret = "test_secret_key_at_least_32_chars"  # nosonar - test-only JWT signing key
         payload = {"sub": "user123", "exp": int(time.time()) - 3600}
         token = jwt.encode(payload, secret, algorithm="HS256")
 
-        with patch("config.config.JWT_SECRET", secret), pytest.raises(ValueError, match="Token has expired"):
+        with patch("app.config.config.JWT_SECRET", secret), pytest.raises(ValueError, match="Token has expired"):
             decode_token(token)
 
     def test_decode_token_invalid_secret(self) -> None:
         """Test decoding token with invalid secret"""
         import jwt
 
-        from utils.auth_utils import decode_token
+        from app.utils.auth_utils import decode_token
 
         secret = "test_secret_key_at_least_32_chars"  # nosonar - test-only JWT signing key
         payload = {"sub": "user123"}
         token = jwt.encode(payload, secret, algorithm="HS256")
 
         with (
-            patch("config.config.JWT_SECRET", "different_secret_key_at_least_32_chars"),
+            patch("app.config.config.JWT_SECRET", "different_secret_key_at_least_32_chars"),
             pytest.raises(ValueError, match="Invalid token"),
         ):
             decode_token(token)
 
     def test_get_client_info(self) -> None:
         """Test extracting client info from request"""
-        from utils.auth_utils import get_client_info
+        from app.utils.auth_utils import get_client_info
 
         mock_request = MagicMock()
         mock_request.client.host = "1.2.3.4"
@@ -411,14 +411,14 @@ class TestAuthUtils:
 
     def test_get_client_info_forwarded(self) -> None:
         """Test extracting forwarded IP only from a trusted proxy"""
-        from utils.auth_utils import get_client_info
+        from app.utils.auth_utils import get_client_info
 
         mock_request = MagicMock()
         mock_request.headers = {"X-Forwarded-For": "5.6.7.8, 1.2.3.4"}
         mock_request.client.host = "127.0.0.1"
 
-        with patch("config.config.get_trusted_proxy_hosts", return_value=["127.0.0.1"]):
-            from utils.auth_utils import _trusted_proxy_networks
+        with patch("app.config.config.get_trusted_proxy_hosts", return_value=["127.0.0.1"]):
+            from app.utils.auth_utils import _trusted_proxy_networks
 
             _trusted_proxy_networks.cache_clear()
             ip, _ = get_client_info(mock_request)
@@ -428,14 +428,14 @@ class TestAuthUtils:
 
     def test_get_client_info_real_ip(self) -> None:
         """Test extracting real IP only from a trusted proxy"""
-        from utils.auth_utils import get_client_info
+        from app.utils.auth_utils import get_client_info
 
         mock_request = MagicMock()
         mock_request.headers = {"X-Real-IP": "9.10.11.12"}
         mock_request.client.host = "127.0.0.1"
 
-        with patch("config.config.get_trusted_proxy_hosts", return_value=["127.0.0.1"]):
-            from utils.auth_utils import _trusted_proxy_networks
+        with patch("app.config.config.get_trusted_proxy_hosts", return_value=["127.0.0.1"]):
+            from app.utils.auth_utils import _trusted_proxy_networks
 
             _trusted_proxy_networks.cache_clear()
             ip, _ = get_client_info(mock_request)
@@ -445,14 +445,14 @@ class TestAuthUtils:
 
     def test_get_client_info_ignores_untrusted_forwarded_headers(self) -> None:
         """Untrusted clients must not be able to spoof forwarded headers."""
-        from utils.auth_utils import get_client_info
+        from app.utils.auth_utils import get_client_info
 
         mock_request = MagicMock()
         mock_request.headers = {"X-Forwarded-For": "5.6.7.8", "X-Real-IP": "9.10.11.12"}
         mock_request.client.host = "203.0.113.10"
 
-        with patch("config.config.get_trusted_proxy_hosts", return_value=["127.0.0.1"]):
-            from utils.auth_utils import _trusted_proxy_networks
+        with patch("app.config.config.get_trusted_proxy_hosts", return_value=["127.0.0.1"]):
+            from app.utils.auth_utils import _trusted_proxy_networks
 
             _trusted_proxy_networks.cache_clear()
             ip, _ = get_client_info(mock_request)
@@ -462,12 +462,12 @@ class TestAuthUtils:
 
     def test_set_refresh_cookie(self) -> None:
         """Test setting refresh cookie on response"""
-        from utils.auth_utils import set_refresh_cookie
+        from app.utils.auth_utils import set_refresh_cookie
 
         mock_response = MagicMock()
         with (
-            patch("config.config.JWT_REFRESH_EXPIRATION_DAYS", 7),
-            patch("config.config.is_production", return_value=False),
+            patch("app.config.config.JWT_REFRESH_EXPIRATION_DAYS", 7),
+            patch("app.config.config.is_production", return_value=False),
         ):
             set_refresh_cookie(mock_response, "refresh-123")
 

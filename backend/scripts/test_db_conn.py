@@ -2,7 +2,9 @@ import asyncio
 
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from config import config
+from app.config import config
+
+__test__ = False
 
 
 async def test_conn() -> None:

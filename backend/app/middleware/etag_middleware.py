@@ -1,0 +1,160 @@
+"""
+ETag Middleware for conditional HTTP requests.
+
+Provides ETag support for GET requests to reduce bandwidth
+and improve response times via 304 Not Modified responses.
+
+How it works:
+1. Server computes ETag (hash of response body) for GET requests
+2. Server includes ETag header in response
+3. Client sends If-None-Match header on subsequent requests
+4. Server returns 304 Not Modified if ETag matches
+"""
+
+import hashlib
+from collections.abc import AsyncIterator, Awaitable, Callable
+
+from fastapi import Request
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response, StreamingResponse
+
+
+def _compute_etag(content: bytes) -> str:
+    """Compute a strong ETag from response content."""
+    hash_val = hashlib.md5(content, usedforsecurity=False).hexdigest()  # nosec B303
+    return f'"{hash_val}"'
+
+
+def _request_is_authenticated(request: Request) -> bool:
+    """Best-effort check for requests carrying user-specific auth context."""
+    if request.headers.get("Authorization"):
+        return True
+    return bool(request.headers.get("Cookie"))
+
+
+def _is_cacheable_response(response: Response) -> bool:
+    """Only generate validators for explicitly cacheable responses."""
+    cache_control = response.headers.get("Cache-Control", "")
+    if not cache_control:
+        return False
+
+    normalized = cache_control.lower()
+    skip_tokens = ("no-store", "no-cache", "private")
+    if any(token in normalized for token in skip_tokens):
+        return False
+
+    allowed_tokens = ("public", "max-age", "s-maxage", "immutable", "stale-while-revalidate")
+    return any(token in normalized for token in allowed_tokens)
+
+
+class ETagMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware that adds ETag headers to GET responses
+    and returns 304 Not Modified when appropriate.
+
+    Only applies to GET and HEAD requests.
+    Skips responses that already have an ETag header.
+    Skips streaming responses and error responses.
+    """
+
+    SAFE_METHODS = {"GET", "HEAD"}
+    # PERF: Skip ETag for responses larger than 1MB to avoid excessive memory buffering
+    MAX_ETAG_BODY_SIZE = 1_048_576  # 1MB
+
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+        # Only process GET/HEAD requests
+        if request.method not in self.SAFE_METHODS:
+            return await call_next(request)
+
+        # Skip non-API paths
+        if not request.url.path.startswith("/api/"):
+            return await call_next(request)
+
+        response = await call_next(request)
+
+        # Skip if response already has ETag or is an error
+        if response.status_code >= 400:
+            return response
+
+        # Authenticated API reads must not be cached unless a route opts in explicitly.
+        if _request_is_authenticated(request) and "Cache-Control" not in response.headers:
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+
+        if "etag" in response.headers or "ETag" in response.headers:
+            return response
+
+        if not _is_cacheable_response(response):
+            return response
+
+        # Route handlers should set Content-Length. Skip hashing known-large
+        # payloads before consuming their body.
+        content_length = response.headers.get("content-length")
+        if content_length and int(content_length) > self.MAX_ETAG_BODY_SIZE:
+            return response
+
+        # Collect chunks once. Avoid repeated bytes concatenation (O(n²)).
+        chunks: list[bytes] = []
+        body_size = 0
+        has_body = False
+        async for chunk in response.body_iterator:  # type: ignore[attr-defined]
+            chunk_bytes = chunk if isinstance(chunk, bytes) else chunk.encode()
+            chunks.append(chunk_bytes)
+            body_size += len(chunk_bytes)
+            has_body = True
+            if body_size > self.MAX_ETAG_BODY_SIZE:
+
+                async def replay_body() -> AsyncIterator[bytes]:
+                    for replay_chunk in chunks:
+                        yield replay_chunk
+                    async for extra in response.body_iterator:  # type: ignore[attr-defined]
+                        yield extra if isinstance(extra, bytes) else extra.encode()
+
+                return StreamingResponse(
+                    replay_body(),
+                    status_code=response.status_code,
+                    headers=dict(response.headers),
+                    media_type=response.media_type,
+                    background=response.background,
+                )
+
+        response_body = b"".join(chunks)
+        if not has_body or not response_body:
+            return response
+
+        # Compute ETag
+        etag = _compute_etag(response_body)
+
+        # Check If-None-Match header
+        if_none_match = request.headers.get("If-None-Match")
+        if if_none_match:
+            # Support multiple ETags: "etag1", "etag2"
+            client_etags = [t.strip() for t in if_none_match.split(",")]
+            if etag in client_etags or "*" in client_etags:
+                from fastapi.responses import Response as StarletteResponse
+
+                headers = {
+                    "ETag": etag,
+                    "Cache-Control": response.headers.get("Cache-Control", ""),
+                }
+                vary = response.headers.get("Vary")
+                if vary:
+                    headers["Vary"] = vary
+
+                return StarletteResponse(
+                    status_code=304,
+                    headers=headers,
+                )
+
+        # Rebuild response with ETag header
+        from fastapi.responses import Response as StarletteResponse
+
+        headers = dict(response.headers)
+        headers["ETag"] = etag
+
+        return StarletteResponse(
+            content=response_body,
+            status_code=response.status_code,
+            headers=headers,
+            media_type=response.media_type,
+            background=response.background,
+        )

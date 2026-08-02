@@ -5,7 +5,7 @@ import pytest
 from fastapi import HTTPException, UploadFile
 from PIL import Image
 
-from services.cat_detection_service import CatDetectionService
+from app.services.cat_detection_service import CatDetectionService
 
 
 class TestCatDetectionServiceExtended:
@@ -15,7 +15,7 @@ class TestCatDetectionServiceExtended:
     def mock_vision_service(self):
         from unittest.mock import AsyncMock
 
-        with patch("services.google_vision.GoogleVisionService") as mock:
+        with patch("app.services.google_vision.GoogleVisionService") as mock:
             mock.return_value.detect_cats = AsyncMock()
             mock.return_value.analyze_cat_spot_suitability = AsyncMock()
             yield mock.return_value
@@ -23,7 +23,7 @@ class TestCatDetectionServiceExtended:
     @pytest.fixture
     def service(self, mock_vision_service):
         # We need to patch the import inside __init__ or patch where it's used
-        with patch("services.cat_detection_service.CatDetectionService.__init__", return_value=None):
+        with patch("app.services.cat_detection_service.CatDetectionService.__init__", return_value=None):
             service = CatDetectionService()
             service.vision_service = mock_vision_service
             return service
@@ -42,7 +42,7 @@ class TestCatDetectionServiceExtended:
         img_bytes = img_byte_arr.getvalue()
 
         # Instantiate service normally to test the method
-        with patch("services.google_vision.GoogleVisionService"):
+        with patch("app.services.google_vision.GoogleVisionService"):
             service = CatDetectionService()
 
         processed_img = service.prepare_image(img_bytes)
@@ -102,9 +102,29 @@ class TestCatDetectionServiceExtended:
         result = await service.detect_cats(mock_upload_file)
 
         assert result["fallback_active"] is True
-        assert result["has_cats"] is True
+        assert result["service_available"] is False
+        assert result["has_cats"] is False
         assert result["confidence"] == 0
-        assert "Fallback mode active" in result["reasoning"]
+        assert "Cat verification service unavailable" in result["reasoning"]
+
+    @pytest.mark.asyncio
+    async def test_different_images_are_never_reused_by_perceptual_hash(self, service, mock_vision_service):
+        first_buffer = io.BytesIO()
+        Image.new("RGB", (8, 8), color="black").save(first_buffer, format="PNG")
+        second_buffer = io.BytesIO()
+        Image.new("RGB", (8, 8), color="white").save(second_buffer, format="PNG")
+
+        mock_vision_service.detect_cats.side_effect = [
+            {"has_cats": True, "cat_count": 1, "confidence": 95},
+            {"has_cats": False, "cat_count": 0, "confidence": 0},
+        ]
+
+        first_result = await service.detect_cats(first_buffer.getvalue())
+        second_result = await service.detect_cats(second_buffer.getvalue())
+
+        assert first_result["has_cats"] is True
+        assert second_result["has_cats"] is False
+        assert mock_vision_service.detect_cats.await_count == 2
 
     @pytest.mark.asyncio
     async def test_analyze_spot_suitability(self, service, mock_vision_service, mock_upload_file):

@@ -4,9 +4,9 @@ import { createPinia, setActivePinia } from 'pinia';
 import { createRouter, createWebHistory, type Router } from 'vue-router';
 import MapView from '@/views/MapView.vue';
 import { GalleryService } from '@/services/galleryService';
-import { useCatsStore } from '@/store';
+import { useCatsStore } from '@/stores';
 import { nextTick } from 'vue';
-import type { CatLocation } from '@/types/api';
+import type { CatLocation } from '@/generated/api';
 
 // Mock map dependencies
 vi.mock('@/utils/googleMapsLoader', () => ({
@@ -18,8 +18,10 @@ vi.mock('vue-i18n', () => ({
   useI18n: (): { t: (key: string) => string } => ({ t: (key: string): string => key }),
 }));
 
+import type * as EnvModule from '@/utils/env';
+
 vi.mock('@/utils/env', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/utils/env')>();
+  const actual = await importOriginal<typeof EnvModule>();
   return {
     ...actual,
     getEnvVar: vi.fn((key: string) => {

@@ -1,81 +1,101 @@
-# ==========================================
-# Purrfect Spots - Comprehensive Gitignore
-# ==========================================
-
-# --- OS & IDE ---
+# Operating system files
 .DS_Store
 Thumbs.db
 ehthumbs.db
-.vscode/
+Desktop.ini
+
+# Editors and local development tools
 .idea/
-*.swp
-*.swo
-*~
+.vscode/
 .sonarlint/
 .sonar/
 .sonarcloud.properties
-.kilocode/
-.kilo/
+*.swp
+*.swo
+*~
+
+# Local agent and integration state
+.agent/
+.agents/
 .codex/
+.gemini/
+.kilo/
+.kilocode/
+.mcp.json
 plugins/
 
-# --- Environment & Secrets (CRITICAL) ---
-.mcp.json
-**/.env
-**/.env.*
+# Environment files and credentials
+.env
+.env.*
 !.env.example
+!**/.env.example
 backend/keys/
+gha-creds-*.json
 
-# --- Python (Backend) ---
+# Python environments, caches, and packaging artifacts
+.Python
+.venv/
+venv/
+env/
+ENV/
+.trivy-venv/
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-.venv/
-.trivy-venv/
-venv/
-env/
-.Python
-# backend/lib/ # Refined to avoid ignoring frontend source
-lib64/
-parts/
-sdist/
-var/
-develop-eggs/
+*.egg
 *.egg-info/
 .eggs/
-dist/
 build/
+dist/
+sdist/
 wheels/
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
 .coverage
 .coverage.*
-htmlcov/
 coverage.xml
-**/coverage.xml
+htmlcov/
+coverage/
 
-# --- Node/Vue (Frontend) ---
+# Node dependencies and build artifacts
 node_modules/
-frontend/node_modules/
-frontend/dist/
-frontend/dist-local*/
-frontend/coverage/
-frontend/test-results/
-frontend/playwright-report/
+.node_modules-pre-audit-*/
+dist-ssr/
+.vite/
+.output/
 .nyc_output/
+frontend/dist-local*/
 playwright-report/
 test-results/
 
-# --- Logs & Junk Files ---
+# Logs, temporary files, and local backups
+logs/
 *.log
-debug.log
 *.bak
+*.tmp
+*.temp
+.tmp/
+
+# Playwright CLI artifacts
+.playwright-cli/
+
+# Test output
+output/
 npm-debug.log*
 yarn-debug.log*
+yarn-error.log*
 pnpm-debug.log*
-# Project specific junk
+lerna-debug.log*
+
+# Generated reports and project-local diagnostics
+report/
+build-reports/
+openapi-specs/
+*.sarif
+sonar_issues.json
+docs/openapi-current.json
 frontend/build_log*.txt
 frontend/lint_*.txt
 frontend/type_check.log
@@ -88,29 +108,5 @@ coverage_output.txt
 full_log.txt
 log.txt
 
-# --- Build Output & Other ---
-dist/
-backend/dist/
-frontend/dist/
-build-reports/
+# Deployment tool state
 .vercel/
-*.sarif
-*.tmp
-*.temp
-openapi-specs/
-
-# --- Local Review Archives ---
-docs/archive/
-
-.gemini/
-gha-creds-*.json
-docs/openapi-current.json
-
-# --- Internal Tools & Scripts ---
-.agent/
-.agents/
-backend/scripts/resolve_dependencies.py
-sonar_issues.json
-summarize_issues.py
-summarize_reliability.py
-repro_cleanup.py

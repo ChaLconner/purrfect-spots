@@ -7,7 +7,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import AuthForm from '../components/AuthForm.vue';
+import AuthForm from '@/components/auth/AuthForm.vue';
 import { useSeo } from '../composables/useSeo';
 
 interface Props {

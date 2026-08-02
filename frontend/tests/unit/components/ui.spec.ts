@@ -25,7 +25,7 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));
 
-vi.mock('@/components/toast/use-toast', () => ({
+vi.mock('@/composables/useToast', () => ({
   useToast: () => ({
     toast: vi.fn(),
   }),
@@ -79,8 +79,8 @@ describe('SkeletonLoader Component', () => {
     const element = wrapper.find('div');
 
     expect(element.exists()).toBe(true);
-    expect(element.attributes('style')).toContain('width: 100%');
-    expect(element.attributes('style')).toContain('height: 100%');
+    expect(element.attributes('style')).toContain('--skeleton-width: 100%');
+    expect(element.attributes('style')).toContain('--skeleton-height: 100%');
   });
 
   it('should apply custom dimensions', () => {
@@ -92,8 +92,8 @@ describe('SkeletonLoader Component', () => {
     });
 
     const element = wrapper.find('div');
-    expect(element.attributes('style')).toContain('width: 200px');
-    expect(element.attributes('style')).toContain('height: 100px');
+    expect(element.attributes('style')).toContain('--skeleton-width: 200px');
+    expect(element.attributes('style')).toContain('--skeleton-height: 100px');
   });
 });
 
@@ -110,8 +110,8 @@ describe('BaseButton Component', () => {
     const wrapper = mount(BaseButton, {
       props: { variant: 'secondary' }
     });
-    // Check for some secondary color class - updated to match current implementation
-    expect(wrapper.find('button').classes()).toContain('bg-[#f6c1b1]');
+    // Check for secondary token class
+    expect(wrapper.find('button').classes()).toContain('bg-terracotta-200');
   });
 
   it('applies size classes', () => {

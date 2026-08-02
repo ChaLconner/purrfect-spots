@@ -97,11 +97,7 @@ export class ProfileService {
     const formData = new FormData();
     formData.append('file', file);
 
-    const result = await apiV1.post<{ picture: string }>('/profile/picture', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const result = await apiV1.post<{ picture: string }>('/profile/picture', formData);
     return result.picture;
   }
 

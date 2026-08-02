@@ -14,7 +14,9 @@ services:
       - path: ./backend/.env
         required: false
     depends_on:
-      redis:
+      redis-cache:
+        condition: service_healthy
+      redis-ratelimit:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health/live"]
@@ -30,12 +32,14 @@ services:
   # ==========================================================================
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
       args:
         - VITE_API_BASE_URL=${VITE_API_BASE_URL:-/api/v1}
         - VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
         - VITE_GOOGLE_MAPS_API_KEY=${VITE_GOOGLE_MAPS_API_KEY}
+        - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+        - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
     container_name: purrfect-frontend
     restart: always
     ports:
@@ -61,15 +65,39 @@ services:
       - purrfect-network
 
   # ==========================================================================
-  # Redis - Caching & Rate Limiting
+  # Redis - Isolated Data Caching
   # ==========================================================================
-  redis:
+  redis-cache:
     image: redis:7-alpine
-    container_name: purrfect-redis
+    container_name: purrfect-redis-cache
     restart: always
     volumes:
-      - redis-data:/data
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+      - redis-cache-data:/data
+    # Cache data is disposable; avoid AOF fsync/write amplification on every cache mutation.
+    command: ["redis-server", "--appendonly", "no", "--save", "", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - purrfect-network
+
+  # ==========================================================================
+  # Redis - Isolated Rate Limiting
+  # ==========================================================================
+  redis-ratelimit:
+    image: redis:7-alpine
+    container_name: purrfect-redis-ratelimit
+    restart: always
+    volumes:
+      - redis-ratelimit-data:/data
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy volatile-lru
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -88,5 +116,7 @@ networks:
     driver: bridge
 
 volumes:
-  redis-data:
+  redis-cache-data:
+    driver: local
+  redis-ratelimit-data:
     driver: local

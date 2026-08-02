@@ -2,10 +2,10 @@
 # Purrfect Spots Backend - Production Dockerfile
 # ==============================================================================
 # Multi-stage build for optimized image size and security
-# Base image: Python 3.12 slim
+# Base image: Python 3.14.6 slim
 
 # Stage 1: Builder
-FROM python:3.12 AS builder
+FROM python:3.14.6 AS builder
 
 WORKDIR /build
 
@@ -25,11 +25,11 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # Stage 2: Production
-FROM python:3.12-slim AS production
+FROM python:3.14.6-slim AS production
 
 LABEL maintainer="Purrfect Spots Team <support@purrfectspots.com>"
 LABEL description="Purrfect Spots API - Cat location sharing platform"
-LABEL version="3.0.0"
+LABEL version="3.1.0"
 
 WORKDIR /app
 
@@ -80,4 +80,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 # Run the application
 # nosec B104 - 0.0.0.0 is required for container network binding
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT} --workers ${WORKERS}"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --workers ${WORKERS}"]

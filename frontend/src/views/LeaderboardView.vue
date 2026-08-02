@@ -14,11 +14,15 @@
       <!-- Time Period Filter -->
       <div class="flex justify-center mb-8">
         <div
+          role="tablist"
+          aria-label="Leaderboard period filter"
           class="bg-white/80 backdrop-blur-sm rounded-full p-1 shadow-sm border border-stone-200 inline-flex"
         >
           <button
             v-for="p in periods"
             :key="p.value"
+            role="tab"
+            :aria-selected="period === p.value"
             :class="[
               'px-6 py-2 rounded-full text-sm font-medium transition-all duration-200',
               period === p.value
@@ -58,6 +62,34 @@
           />
         </div>
       </div>
+
+      <!-- Sticky Current User Rank Bar (if user logged in & present in top entries) -->
+      <div
+        v-if="currentUserEntry"
+        class="sticky bottom-6 mt-6 bg-amber-500/95 backdrop-blur-md text-white rounded-2xl shadow-2xl p-4 border border-amber-300 flex items-center justify-between transition-all duration-300 transform hover:scale-[1.01]"
+      >
+        <div class="flex items-center gap-4">
+          <span class="text-xl font-bold font-heading bg-white/20 px-3 py-1 rounded-lg">
+            #{{ currentUserEntry.rank }}
+          </span>
+          <div>
+            <div class="text-xs font-bold uppercase tracking-wider text-amber-100">
+              {{ $t('common.you') || 'You' }}
+            </div>
+            <div class="font-bold text-lg font-heading">
+              {{ currentUserEntry.user.name }}
+            </div>
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-2xl font-black font-heading leading-none">
+            {{ currentUserEntry.user.total_treats_received }}
+          </div>
+          <div class="text-[10px] uppercase font-bold text-amber-100 mt-0.5">
+            {{ $t('leaderboardPage.stats.treatsReceived') }}
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Profile Drawer -->
@@ -72,7 +104,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore } from '../stores/authStore';
 import { TreatsService } from '../services/treatsService';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 import GhibliLoader from '@/components/ui/GhibliLoader.vue';
@@ -81,7 +113,7 @@ import LeaderboardItem, {
   type LeaderboardUser,
 } from '@/components/leaderboard/LeaderboardItem.vue';
 import ProfileDrawer from '@/components/profile/ProfileDrawer.vue';
-import { showError } from '@/store/toast';
+import { showError } from '@/stores/toast';
 
 const { setMetaTags } = useSeo();
 const { t } = useI18n();
@@ -106,17 +138,59 @@ const periods = computed(() => [
   { label: t('leaderboardPage.periods.allTime'), value: 'all_time' },
 ]);
 
+// Current User Position
+const currentUserIndex = computed(() => {
+  if (!authStore.user?.id) return -1;
+  return users.value.findIndex((u) => u.id === authStore.user?.id);
+});
+
+const currentUserEntry = computed(() => {
+  if (currentUserIndex.value >= 0) {
+    return {
+      user: users.value[currentUserIndex.value],
+      rank: currentUserIndex.value + 1,
+    };
+  }
+  return null;
+});
+
+let currentLeaderboardRequestId = 0;
+
+const normalizeLeaderboardUsers = (data: unknown): LeaderboardUser[] => {
+  if (!Array.isArray(data)) return [];
+  return data.map((item: Record<string, unknown>, index: number) => {
+    const rawId = item.id || item.user_id;
+    const rawName = item.name || item.username;
+    const rawPicture = item.picture || item.avatar_url;
+    const treatsReceived = item.total_treats_received ?? item.treats_received ?? item.count ?? 0;
+
+    return {
+      id: String(rawId || `user-${index}`),
+      name: String(rawName || 'Anonymous Spotter'),
+      username: item.username ? String(item.username) : undefined,
+      picture: rawPicture ? String(rawPicture) : undefined,
+      total_treats_received: Number(treatsReceived),
+    };
+  });
+};
+
 const fetchLeaderboard = async (): Promise<void> => {
+  const reqId = ++currentLeaderboardRequestId;
   loading.value = true;
   try {
     const data = await TreatsService.getLeaderboard(period.value);
-    // Ensure data matches LeaderboardUser interface if not guaranteed by service
-    users.value = data as LeaderboardUser[];
+    if (reqId === currentLeaderboardRequestId) {
+      users.value = normalizeLeaderboardUsers(data);
+    }
   } catch (e: unknown) {
-    console.error('Failed to load leaderboard:', e);
-    showError(t('leaderboardPage.errorLoad'));
+    if (reqId === currentLeaderboardRequestId) {
+      console.error('Failed to load leaderboard:', e);
+      showError(t('leaderboardPage.errorLoad'));
+    }
   } finally {
-    loading.value = false;
+    if (reqId === currentLeaderboardRequestId) {
+      loading.value = false;
+    }
   }
 };
 

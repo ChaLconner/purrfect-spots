@@ -37,12 +37,12 @@ ignore = [
 
 [lint.per-file-ignores]
 "tests/conftest.py" = ["E402"]
-"main.py" = ["E402"]
+"app/main.py" = ["E402"]
 "tests/**/*.py" = ["S101", "S105", "S106", "ANN"]  # Allow assert, test credentials, and missing type annotations in tests
 "scripts/**/*.py" = ["S101", "S311"]
 
 [lint.isort]
-known-first-party = ["routes", "services", "utils", "middleware"]
+known-first-party = ["app"]
 combine-as-imports = true
 force-wrap-aliases = true
 

@@ -16,8 +16,15 @@ export interface Notification {
 }
 
 export const NotificationService = {
-  async getNotifications(limit: number = 20, offset: number = 0): Promise<Notification[]> {
-    return apiV1.get('/notifications', { params: { limit, offset } });
+  async getNotifications(limit: number = 20, offset: number = 0, before?: string): Promise<Notification[]> {
+    return apiV1.get('/notifications', {
+      params: { limit, offset, ...(before ? { before } : {}) },
+    });
+  },
+
+  async getUnreadCount(): Promise<number> {
+    const res = await apiV1.get<{ unread_count: number }>('/notifications/unread-count');
+    return res.unread_count;
   },
 
   async markAsRead(id: string): Promise<void> {

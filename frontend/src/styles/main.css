@@ -9,18 +9,16 @@
     width: 100%;
     min-height: 100%;
     overflow-x: hidden;
-    background-color: #eaf6f3;
+    background-color: var(--color-background, #faf6ec);
     -webkit-tap-highlight-color: transparent;
-    color: #5a4632;
-    font-family: 'Inter', sans-serif;
-    --text-muted: #4b5563; /* gray-600 */
+    color: var(--color-brown-text, #2d2420);
+    font-family: var(--font-body, 'Montserrat', sans-serif);
   }
 
   /* Global Cursor Pointers */
   button,
   [role='button'],
   select,
-  label,
   input[type='submit'],
   input[type='button'],
   input[type='reset'],
@@ -39,16 +37,6 @@
     cursor: not-allowed;
   }
 
-  /* Define missing texture overlay */
-  .ghibli-texture-overlay {
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 100;
-    opacity: 0.03;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-    mix-blend-mode: multiply;
-  }
   /* Custom scrollbar for textareas */
   textarea::-webkit-scrollbar {
     width: 8px;
@@ -63,12 +51,14 @@
 }
 
 @layer utilities {
-  .backdrop-blur-glass {
-    @apply backdrop-blur-[12px];
-  }
-
-  /* Accessibility Utilities */
-  .text-muted {
-    color: var(--text-muted);
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }

@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from services.password_service import password_service
+from app.services.password_service import password_service
 
 
 class TestPasswordService:

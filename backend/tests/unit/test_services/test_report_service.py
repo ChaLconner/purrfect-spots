@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from services.report_service import ReportService
+from app.services.report_service import ReportService
 
 
 class TestReportService:
@@ -66,3 +66,32 @@ class TestReportService:
         service = ReportService(mock_supabase)
         reports = await service.get_user_reports("user-123")
         assert reports == []
+
+
+@pytest.mark.asyncio
+async def test_sql_report_queries_return_updated_at():
+    mock_db = MagicMock()
+    mock_result = MagicMock()
+    mock_result.fetchone.return_value = MagicMock(
+        _mapping={
+            "id": "report-123",
+            "photo_id": "photo-123",
+            "comment_id": None,
+            "reporter_id": "user-123",
+            "reason": "spam",
+            "details": None,
+            "status": "pending",
+            "created_at": "2026-08-02T00:00:00Z",
+            "updated_at": "2026-08-02T00:00:00Z",
+        }
+    )
+    mock_db.execute = AsyncMock(return_value=mock_result)
+    mock_db.commit = AsyncMock()
+    mock_db.rollback = AsyncMock()
+
+    service = ReportService(MagicMock(), db=mock_db)
+    result = await service.create_report(photo_id="photo-123", reporter_id="user-123", reason="spam")
+
+    assert result["updated_at"] == "2026-08-02T00:00:00Z"
+    query = str(mock_db.execute.call_args.args[0])
+    assert "RETURNING id, photo_id, comment_id, reporter_id, reason, details, status, created_at, updated_at" in query

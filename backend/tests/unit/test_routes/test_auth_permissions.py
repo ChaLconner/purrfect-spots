@@ -7,8 +7,8 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
 
-from middleware.auth_middleware import require_permission
-from schemas.user import User
+from app.middleware.auth_middleware import require_permission
+from app.schemas.user import User
 
 
 @pytest.mark.asyncio

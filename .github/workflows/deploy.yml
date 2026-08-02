@@ -32,7 +32,7 @@ permissions:
 
 env:
   NODE_VERSION: "24"
-  VERCEL_CLI_VERSION: "47.0.5"
+  VERCEL_CLI_VERSION: "47.2.2"
 
 defaults:
   run:
@@ -219,19 +219,19 @@ jobs:
       - name: Cache API client node_modules
         uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.0
         with:
-          path: api-client/node_modules
-          key: ${{ runner.os }}-api-client-${{ hashFiles('api-client/package.json') }}
+          path: packages/api-client/node_modules
+          key: ${{ runner.os }}-api-client-${{ hashFiles('packages/api-client/package.json') }}
 
       - name: Validate API client generation
         run: |
           set -euo pipefail
 
-          if [ ! -f "api-client/package.json" ]; then
-            echo "::notice::api-client/package.json not found; skipping OpenAPI validation."
+          if [ ! -f "packages/api-client/package.json" ]; then
+            echo "::notice::packages/api-client/package.json not found; skipping OpenAPI validation."
             exit 0
           fi
 
-          cd api-client
+          cd packages/api-client
           [ -d node_modules ] || npm install --prefer-offline --no-audit
           npx @openapitools/openapi-generator-cli validate \
             -i "$GITHUB_WORKSPACE/docs/openapi-baseline.json"
@@ -639,6 +639,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          GOOGLE_VISION_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_VISION_SERVICE_ACCOUNT }}
           FRONTEND_URL: ${{ vars.PROD_FRONTEND_URL || 'https://purrfect-spots.vercel.app' }}
         run: |
           set -euo pipefail
@@ -652,6 +653,7 @@ jobs:
             SUPABASE_SERVICE_ROLE_KEY
             JWT_SECRET
             JWT_REFRESH_SECRET
+            GOOGLE_VISION_SERVICE_ACCOUNT
             FRONTEND_URL
           )
 
@@ -687,6 +689,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          GOOGLE_VISION_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_VISION_SERVICE_ACCOUNT }}
           FRONTEND_URL: ${{ vars.PROD_FRONTEND_URL || 'https://purrfect-spots.vercel.app' }}
         run: |
           set -euo pipefail
@@ -702,6 +705,7 @@ jobs:
           DEPLOY_ARGS+=(-e "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY")
           DEPLOY_ARGS+=(-e "JWT_SECRET=$JWT_SECRET")
           DEPLOY_ARGS+=(-e "JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET")
+          DEPLOY_ARGS+=(-e "GOOGLE_VISION_SERVICE_ACCOUNT=$GOOGLE_VISION_SERVICE_ACCOUNT")
           DEPLOY_ARGS+=(-e "FRONTEND_URL=$FRONTEND_URL")
           DEPLOY_ARGS+=(-e "CORS_ORIGINS=$FRONTEND_URL")
 
@@ -764,6 +768,13 @@ jobs:
 
           if [ "$BACKEND_OK" != "true" ]; then
             echo "::error::Production backend health check failed after ${MAX_ATTEMPTS} attempts."
+            FAILED=1
+          fi
+
+          DEPENDENCY_STATUS=$(curl --fail --show-error --silent --max-time 30 "${PROD_API_URL}/health/dependencies" || true)
+          VISION_STATUS=$(echo "$DEPENDENCY_STATUS" | jq -r '.dependencies.google_vision.status // "unknown"')
+          if [ "$VISION_STATUS" != "configured" ]; then
+            echo "::error::Google Vision production dependency is ${VISION_STATUS}."
             FAILED=1
           fi
 

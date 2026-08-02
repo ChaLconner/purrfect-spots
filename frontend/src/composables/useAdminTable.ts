@@ -1,6 +1,7 @@
-import { ref, computed } from 'vue';
+import { ref, computed, hasInjectionContext, type ComputedRef, type Ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { apiV1 } from '@/utils/api';
-import { useToast } from '@/components/toast/use-toast';
+import { useToast } from '@/composables/useToast';
 
 interface UseAdminTableOptions<T> {
   endpoint: string;
@@ -13,20 +14,21 @@ interface UseAdminTableOptions<T> {
   exportFileNamePrefix: string;
   defaultSortBy?: string;
   defaultSortOrder?: 'asc' | 'desc';
+  syncWithRouter?: boolean;
 }
 
 export function useAdminTable<T extends { id: string }>(
   options: UseAdminTableOptions<T>
 ): {
-  items: ReturnType<typeof ref<T[]>>;
-  totalItems: ReturnType<typeof ref<number>>;
-  page: ReturnType<typeof ref<number>>;
+  items: Ref<T[]>;
+  totalItems: Ref<number>;
+  page: Ref<number>;
   limit: number;
-  isLoading: ReturnType<typeof ref<boolean>>;
-  selectedIds: ReturnType<typeof ref<string[]>>;
-  isAllSelected: ReturnType<typeof computed<boolean>>;
-  sortBy: ReturnType<typeof ref<string>>;
-  sortOrder: ReturnType<typeof ref<'asc' | 'desc'>>;
+  isLoading: Ref<boolean>;
+  selectedIds: Ref<string[]>;
+  isAllSelected: ComputedRef<boolean>;
+  sortBy: Ref<string>;
+  sortOrder: Ref<'asc' | 'desc'>;
   toggleSelection: (id: string) => void;
   toggleSelectAll: () => void;
   loadData: (
@@ -36,19 +38,24 @@ export function useAdminTable<T extends { id: string }>(
   exportData: (extraParams?: Record<string, string | null | undefined>) => Promise<void>;
 } {
   const { toast } = useToast();
+  const route = (options.syncWithRouter !== false && hasInjectionContext()) ? useRoute() : null;
+  const router = (options.syncWithRouter !== false && hasInjectionContext()) ? useRouter() : null;
 
-  const items = ref<T[]>([]);
+  const items = ref<T[]>([]) as unknown as Ref<T[]>;
   const totalItems = ref(0);
   const page = ref(1);
   const limit = options.limit || 20;
   const isLoading = ref(false);
   const selectedIds = ref<string[]>([]);
 
-  const sortBy = ref(options.defaultSortBy || 'created_at');
-  const sortOrder = ref<'asc' | 'desc'>(options.defaultSortOrder || 'desc');
+  const initialSortBy = (route?.query?.sortBy as string) || options.defaultSortBy || 'created_at';
+  const initialSortOrder = (route?.query?.sortOrder as 'asc' | 'desc') || options.defaultSortOrder || 'desc';
+
+  const sortBy = ref(initialSortBy);
+  const sortOrder = ref<'asc' | 'desc'>(initialSortOrder);
 
   const isAllSelected = computed(() => {
-    return items.value.length > 0 && selectedIds.value.length === items.value.length;
+    return items.value.length > 0 && items.value.every((item) => selectedIds.value.includes(item.id));
   });
 
   const toggleSelection = (id: string): void => {
@@ -61,18 +68,40 @@ export function useAdminTable<T extends { id: string }>(
 
   const toggleSelectAll = (): void => {
     if (isAllSelected.value) {
-      selectedIds.value = [];
+      const pageIds = items.value.map((i) => i.id);
+      selectedIds.value = selectedIds.value.filter((id) => !pageIds.includes(id));
     } else {
-      selectedIds.value = items.value.map((item) => item.id);
+      const pageIds = items.value.map((i) => i.id);
+      const newIds = new Set([...selectedIds.value, ...pageIds]);
+      selectedIds.value = Array.from(newIds);
     }
   };
+
+  let activeAbortController: AbortController | null = null;
 
   const loadData = async (
     newPage: number = 1,
     extraParams: Record<string, string | null | undefined> = {}
   ): Promise<void> => {
+    if (activeAbortController) {
+      activeAbortController.abort();
+    }
+    activeAbortController = new AbortController();
+    const currentSignal = activeAbortController.signal;
+
     isLoading.value = true;
     try {
+      if (router && route) {
+        void router.replace({
+          query: {
+            ...route.query,
+            page: newPage > 1 ? newPage.toString() : undefined,
+            sortBy: sortBy.value !== (options.defaultSortBy || 'created_at') ? sortBy.value : undefined,
+            sortOrder: sortOrder.value !== (options.defaultSortOrder || 'desc') ? sortOrder.value : undefined,
+          },
+        });
+      }
+
       const offset = (newPage - 1) * limit;
       const params = new URLSearchParams({
         limit: limit.toString(),
@@ -86,20 +115,25 @@ export function useAdminTable<T extends { id: string }>(
       });
 
       const response = await apiV1.get<{ data?: T[]; items?: T[]; total?: number }>(
-        `${options.endpoint}?${params.toString()}`
+        `${options.endpoint}?${params.toString()}`,
+        { signal: currentSignal }
       );
       items.value = response.data || response.items || [];
       totalItems.value = response.total || items.value.length;
-      selectedIds.value = [];
       page.value = newPage;
-    } catch (e) {
+    } catch (e: unknown) {
+      if ((e as { name?: string })?.name === 'CanceledError' || (e as { name?: string })?.name === 'AbortError') {
+        return;
+      }
       console.error({
         message: 'Failed to load admin table data',
         endpoint: options.endpoint,
         error: e,
       });
     } finally {
-      isLoading.value = false;
+      if (activeAbortController?.signal === currentSignal) {
+        isLoading.value = false;
+      }
     }
   };
 
@@ -107,15 +141,28 @@ export function useAdminTable<T extends { id: string }>(
     extraParams: Record<string, string | null | undefined> = {}
   ): Promise<void> => {
     isLoading.value = true;
+    const exportController = new AbortController();
+    const signal = exportController.signal;
+
     try {
       const MAX_BATCH_SIZE = options.exportBatchSize ?? 100;
       const MAX_CONCURRENT_BATCHES = options.exportConcurrentBatches ?? 3;
       const EXPORT_MAX_ROWS = options.exportMaxRows ?? 2000;
-      let allData: T[] = [];
       let total = 0;
       let offset = 0;
 
-      // Initial fetch to get total and first batch
+      const escapeCSV = (val: unknown): string => {
+        if (val === null || val === undefined) return '';
+        const s = String(val);
+        if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+          return `"${s.replace(/"/g, '""')}"`;
+        }
+        return s;
+      };
+
+      const csvChunks: string[] = [options.exportHeaders.join(',') + '\n'];
+
+      // Initial fetch
       const params = new URLSearchParams({
         limit: MAX_BATCH_SIZE.toString(),
         offset: offset.toString(),
@@ -128,16 +175,27 @@ export function useAdminTable<T extends { id: string }>(
       });
 
       const firstResponse = await apiV1.get<{ data?: T[]; items?: T[]; total?: number }>(
-        `${options.endpoint}?${params.toString()}`
+        `${options.endpoint}?${params.toString()}`,
+        { signal }
       );
 
       const firstBatch = firstResponse.data || firstResponse.items || [];
-      allData = [...firstBatch];
+      if (firstBatch.length === 0) {
+        toast({ description: 'No data to export', variant: 'default' });
+        return;
+      }
+
       total = firstResponse.total || firstBatch.length;
       const cappedTotal = Math.min(total, EXPORT_MAX_ROWS);
 
+      const formattedFirstBatch = firstBatch.slice(0, EXPORT_MAX_ROWS).map((item) =>
+        options.formatExportRow(item).map(escapeCSV).join(',')
+      );
+      if (formattedFirstBatch.length > 0) {
+        csvChunks.push(formattedFirstBatch.join('\n') + '\n');
+      }
+
       if (total > EXPORT_MAX_ROWS) {
-        allData = allData.slice(0, EXPORT_MAX_ROWS);
         toast({
           title: 'Large export limited',
           description: `Exported first ${EXPORT_MAX_ROWS.toLocaleString()} rows to keep admin responsive.`,
@@ -145,7 +203,6 @@ export function useAdminTable<T extends { id: string }>(
         });
       }
 
-      // Fetch subsequent batches in small parallel groups to reduce total export time
       const remainingOffsets: number[] = [];
       for (offset = MAX_BATCH_SIZE; offset < cappedTotal; offset += MAX_BATCH_SIZE) {
         remainingOffsets.push(offset);
@@ -167,43 +224,24 @@ export function useAdminTable<T extends { id: string }>(
             });
 
             return apiV1.get<{ data?: T[]; items?: T[]; total?: number }>(
-              `${options.endpoint}?${nextParams.toString()}`
+              `${options.endpoint}?${nextParams.toString()}`,
+              { signal }
             );
           })
         );
 
         responses.forEach((response) => {
-          const nextBatch = response.data || response.items || [];
-          allData.push(...nextBatch);
+          const batch = response.data || response.items || [];
+          const rows = batch.map((item) => options.formatExportRow(item).map(escapeCSV).join(','));
+          if (rows.length > 0) {
+            csvChunks.push(rows.join('\n') + '\n');
+          }
         });
       }
 
-      if (allData.length > cappedTotal) {
-        allData = allData.slice(0, cappedTotal);
-      }
-
-      if (allData.length === 0) {
-        toast({ description: 'No data to export', variant: 'default' });
-        return;
-      }
-
-      // Helper to escape CSV values
-      const escapeCSV = (val: unknown): string => {
-        if (val === null || val === undefined) return '';
-        const s = String(val);
-        if (s.includes(',') || s.includes('"') || s.includes('\n')) {
-          return `"${s.replace(/"/g, '""')}"`;
-        }
-        return s;
-      };
-
-      const csvContent = [
-        options.exportHeaders.join(','),
-        ...allData.map((item) => options.formatExportRow(item).map(escapeCSV).join(',')),
-      ].join('\n');
-
       // Use BOM for UTF-8 visibility in Excel
-      const blob = new Blob([new Uint8Array([0xef, 0xbb, 0xbf]), csvContent], {
+      const fullCsvContent = csvChunks.join('');
+      const blob = new Blob([new Uint8Array([0xef, 0xbb, 0xbf]), fullCsvContent], {
         type: 'text/csv;charset=utf-8;',
       });
       const url = URL.createObjectURL(blob);
@@ -220,7 +258,10 @@ export function useAdminTable<T extends { id: string }>(
       URL.revokeObjectURL(url);
 
       toast({ description: 'Data exported successfully', variant: 'success' });
-    } catch (e) {
+    } catch (e: unknown) {
+      if ((e as { name?: string })?.name === 'CanceledError' || (e as { name?: string })?.name === 'AbortError') {
+        return;
+      }
       console.error({
         message: 'Failed to export admin table data',
         endpoint: options.endpoint,

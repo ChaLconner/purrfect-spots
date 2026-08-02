@@ -1,6 +1,6 @@
-import { ref, onUnmounted, type Ref } from 'vue';
+import { ref, onUnmounted, getCurrentInstance, type Ref } from 'vue';
 
-export interface Coordinates {
+interface Coordinates {
   lat: number;
   lng: number;
 }
@@ -33,10 +33,12 @@ export function useGeolocation(): UseGeolocationReturn {
       }
 
       const data = await response.json();
-      if (data.latitude && data.longitude) {
+      const latitude = Number(data.latitude);
+      const longitude = Number(data.longitude);
+      if (data.latitude != null && data.longitude != null && Number.isFinite(latitude) && Number.isFinite(longitude)) {
         return {
-          lat: Number.parseFloat(data.latitude),
-          lng: Number.parseFloat(data.longitude),
+          lat: latitude,
+          lng: longitude,
         };
       }
     } catch (e) {
@@ -156,9 +158,11 @@ export function useGeolocation(): UseGeolocationReturn {
   };
 
   // Auto-cleanup on unmount if used inside a component setup
-  onUnmounted(() => {
-    stopWatchingPosition();
-  });
+  if (getCurrentInstance()) {
+    onUnmounted(() => {
+      stopWatchingPosition();
+    });
+  }
 
   return {
     userLocation,

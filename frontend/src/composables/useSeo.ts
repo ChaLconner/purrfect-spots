@@ -17,7 +17,7 @@ const SITE_NAME = 'Purrfect Spots';
 const DEFAULT_TITLE = `Home | ${SITE_NAME}`;
 const DEFAULT_DESCRIPTION =
   'Discover and share adorable cat photos from around the world. Find cat-friendly spots near you.';
-const DEFAULT_IMAGE = '/og-image.png';
+const DEFAULT_IMAGE = '/logo.webp';
 
 export interface UseSeoReturn {
   setMetaTags: (options: MetaTagOptions) => void;
@@ -30,7 +30,7 @@ export interface UseSeoReturn {
 /**
  * Set document title and meta tags
  */
-export function setMetaTags(options: MetaTagOptions): void {
+function setMetaTags(options: MetaTagOptions): void {
   const {
     title = DEFAULT_TITLE,
     description = DEFAULT_DESCRIPTION,
@@ -85,7 +85,7 @@ export function setMetaTags(options: MetaTagOptions): void {
 /**
  * Reset meta tags to defaults
  */
-export function resetMetaTags(): void {
+function resetMetaTags(): void {
   setMetaTags({
     title: DEFAULT_TITLE,
     description: DEFAULT_DESCRIPTION,

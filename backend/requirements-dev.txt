@@ -1,0 +1,12 @@
+# Development and CI dependencies. Runtime dependencies remain in requirements.txt.
+-r requirements.txt
+
+ruff>=0.16.0
+mypy>=2.3.0
+pytest>=9.1.1
+pytest-asyncio>=1.4.0
+pytest-cov>=7.1.0
+
+types-bleach>=6.4.0.20260728
+types-redis>=4.6.0.20241004
+types-Pillow>=10.2.0.20240822

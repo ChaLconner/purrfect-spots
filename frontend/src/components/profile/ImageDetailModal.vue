@@ -4,7 +4,7 @@ import type { User } from '@/types/auth';
 import { ref } from 'vue';
 import { BaseCard } from '@/components/ui';
 import ReportModal from '@/components/ui/ReportModal.vue';
-import { useToast } from '@/components/toast/use-toast';
+import { useToast } from '@/composables/useToast';
 import { useI18n } from 'vue-i18n';
 import { getAvatarFallback, handleAvatarError } from '@/utils/avatar';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
@@ -110,6 +110,7 @@ const handleReportClick = (): void => {
             <div class="flex items-center gap-3 md:gap-4 mb-4 md:mb-6 lg:mb-8 pt-0 md:pt-2">
               <img
                 :src="user?.picture || getAvatarFallback(user?.name)"
+                referrerpolicy="no-referrer"
                 class="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full object-cover border-2 border-stone-100 shadow-sm bg-stone-100"
                 :alt="user?.name || t('profile.unknownUser')"
                 @error="handleAvatarError($event, user?.name)"
@@ -184,7 +185,7 @@ const handleReportClick = (): void => {
                 <!-- Use currentUser to check auth status -->
                 <button
                   v-if="!isOwnProfile"
-                  class="treat-btn-mini group flex flex-col items-center"
+                  class="group flex flex-col items-center"
                   :disabled="isSendingTreat"
                   @click="handleGiveTreat"
                 >

@@ -13,7 +13,7 @@ inputs:
   install-dev-tools:
     description: "Whether to install development tools (ruff, mypy, pytest)"
     required: false
-    default: "false"
+    default: "true"
   enable-cache:
     description: "Whether to enable pip cache"
     required: false
@@ -24,17 +24,18 @@ runs:
   steps:
     - name: Set up Python
       if: inputs.enable-cache == 'true'
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
       with:
         python-version: ${{ inputs.python-version }}
         cache: "pip"
         cache-dependency-path: |
           backend/requirements.txt
+          backend/requirements-dev.txt
           backend/pyproject.toml
 
     - name: Set up Python
       if: inputs.enable-cache != 'true'
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
       with:
         python-version: ${{ inputs.python-version }}
 
@@ -51,11 +52,8 @@ runs:
       run: |
         cd backend
         pip install --upgrade pip --prefer-binary
-        pip install -r requirements.txt --prefer-binary
-
-    - name: Install Development Tools
-      shell: bash
-      if: inputs.install-dev-tools == 'true'
-      run: |
-        pip install ruff mypy pytest pytest-cov pytest-xdist pytest-asyncio --prefer-binary
-        pip install types-requests types-redis types-Pillow types-bleach --prefer-binary
+        if [ "${{ inputs.install-dev-tools }}" = "true" ]; then
+          pip install -r requirements-dev.txt --prefer-binary
+        else
+          pip install -r requirements.txt --prefer-binary
+        fi

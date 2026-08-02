@@ -1,19 +1,28 @@
 {
   "name": "purrfect-spots",
-  "version": "1.0.0",
+  "version": "3.1.0",
   "private": true,
   "description": "**Connect. Share. Discover.**\r The ultimate platform for cat lovers to find and share the perfect spots for their furry friends.",
   "main": "index.js",
   "workspaces": [
-    "frontend"
+    "frontend",
+    "packages/*"
   ],
   "scripts": {
     "test": "npm test -w frontend",
+    "test:frontend": "npm test -w frontend",
+    "test:backend": "cd backend && pytest",
+    "test:all": "npm run test:frontend && npm run test:backend",
+    "lint:frontend": "npm run lint:check -w frontend",
+    "lint:backend": "cd backend && ruff check .",
+    "lint:all": "npm run lint:frontend && npm run lint:backend",
     "prepare": "node -e \"if (!process.env.VERCEL) try { require('child_process').execSync('husky', {stdio: 'inherit'}) } catch (e) {}\"",
     "install:frontend": "npm install -w frontend",
     "build:frontend": "npm run build -w frontend",
     "build": "npm run build:frontend",
-    "dev": "npm run dev -w frontend"
+    "dev:backend": "cd backend && python -m uvicorn app.main:app --reload --port 8000",
+    "dev:frontend": "npm run dev -w frontend",
+    "dev": "concurrently -p \"[{name}]\" -n \"backend,frontend\" -c \"yellow,blue\" \"npm run dev:backend\" \"npm run dev:frontend\""
   },
   "repository": {
     "type": "git",
@@ -31,10 +40,11 @@
   },
   "homepage": "https://github.com/ChaLconner/purrfect-spots#readme",
   "devDependencies": {
+    "concurrently": "^9.1.2",
     "husky": "^9.1.7",
-    "lint-staged": "^15.5.2",
-    "postcss": "8.5.10",
-    "vite": "8.0.10"
+    "lint-staged": "^17.0.8",
+    "vite": "8.1.5",
+    "vue": "3.5.40"
   },
   "lint-staged": {
     "backend/**/*.py": [
@@ -42,32 +52,29 @@
       "ruff format"
     ],
     "frontend/src/**/*.{ts,vue}": [
-      "npm exec --prefix frontend -- eslint --fix"
+      "npm exec --prefix frontend -- eslint --config frontend/eslint.config.mjs --fix"
     ],
     "frontend/src/**/*.css": [
-      "npm exec --prefix frontend -- prettier --write"
+      "npm exec --prefix frontend -- prettier --config frontend/prettier.config.mjs --write"
     ]
   },
   "overrides": {
-    "vue": "3.5.32",
+    "vue": "3.5.40",
     "vite": "$vite",
-    "js-beautify": {
-      "editorconfig": "^3.0.1",
-      "glob": {
-        "minimatch": "10.2.4"
-      }
-    },
     "follow-redirects": "1.16.0",
-    "minimatch": ">=10.2.1",
+    "brace-expansion": "5.0.8",
+    "js-yaml": "4.3.0",
     "serialize-javascript": "7.0.5",
     "openapi-typescript": {
       "typescript": ">=5.0.0"
-    }
+    },
+    "form-data": "4.0.6"
   },
   "optionalDependencies": {
-    "@tailwindcss/oxide-darwin-arm64": "4.2.4",
-    "@tailwindcss/oxide-darwin-x64": "4.2.4",
-    "@tailwindcss/oxide-linux-arm64-gnu": "4.2.4",
-    "@tailwindcss/oxide-linux-x64-gnu": "4.2.4"
+    "@tailwindcss/oxide-darwin-arm64": "4.3.2",
+    "@tailwindcss/oxide-darwin-x64": "4.3.2",
+    "@tailwindcss/oxide-linux-arm64-gnu": "4.3.2",
+    "@tailwindcss/oxide-linux-x64-gnu": "4.3.2",
+    "@tailwindcss/oxide-win32-x64-msvc": "4.3.2"
   }
 }

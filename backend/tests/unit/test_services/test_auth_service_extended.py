@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from services.auth_service import AuthService
+from app.services.auth_service import AuthService
 
 
 class TestAuthServiceExtended:
@@ -45,7 +45,7 @@ class TestAuthServiceExtended:
     @pytest.fixture
     def auth_service(self, mock_supabase, mock_user_service_instance):
         with (
-            patch("services.auth_service.UserService", return_value=mock_user_service_instance),
+            patch("app.services.auth_service.UserService", return_value=mock_user_service_instance),
             patch.dict(
                 "os.environ",
                 {
@@ -93,6 +93,14 @@ class TestAuthServiceExtended:
         user_id = auth_service.verify_access_token(token)
         assert user_id == "00000000-0000-4000-a000-000000000123"
 
+    def test_create_access_token_includes_tier_claim(self, auth_service) -> None:
+        import jwt
+
+        token = auth_service.create_access_token("00000000-0000-4000-a000-000000000123", tier="pro")
+        payload = jwt.decode(token, options={"verify_signature": False})
+
+        assert payload["tier"] == "pro"
+
     @pytest.mark.asyncio
     async def test_create_and_verify_refresh_token(self, auth_service):
         # Mock is_token_revoked
@@ -125,7 +133,7 @@ class TestAuthServiceExtended:
         mock_token_service.is_blacklisted.side_effect = lambda jti: jti == "jti_123"
         mock_token_service.blacklist_token.return_value = True
 
-        with patch("services.auth.token_mixin.get_token_service", new_callable=AsyncMock) as mock_get_service:
+        with patch("app.services.auth.token_mixin.get_token_service", new_callable=AsyncMock) as mock_get_service:
             mock_get_service.return_value = mock_token_service
 
             # Test is_token_revoked
@@ -146,7 +154,7 @@ class TestAuthServiceExtended:
     async def test_exchange_google_code_success(self, auth_service, mock_supabase, mock_user_service_instance):
         # Mocks
         with patch(
-            "services.google_auth_service.google_auth_service.exchange_google_code", new_callable=AsyncMock
+            "app.services.google_auth_service.google_auth_service.exchange_google_code", new_callable=AsyncMock
         ) as mock_exchange:
             mock_exchange.return_value = {
                 "user_info": {"google_id": "goog_sub", "email": "t@gmail.com", "name": "Tester", "picture": "pic"}
@@ -179,7 +187,7 @@ class TestAuthServiceExtended:
     @pytest.mark.asyncio
     async def test_exchange_google_code_http_error(self, auth_service):
         with patch(
-            "services.google_auth_service.google_auth_service.exchange_google_code", new_callable=AsyncMock
+            "app.services.google_auth_service.google_auth_service.exchange_google_code", new_callable=AsyncMock
         ) as mock_exchange:
             mock_exchange.side_effect = ValueError("Code exchange failed")
 

@@ -39,6 +39,17 @@ describe('NotificationService', () => {
     });
   });
 
+  describe('getUnreadCount', () => {
+    it('calls GET /notifications/unread-count', async () => {
+      mockRequest.mockResolvedValue({ unread_count: 3 });
+
+      const result = await NotificationService.getUnreadCount();
+
+      expect(mockRequest).toHaveBeenCalledWith('get', '/notifications/unread-count');
+      expect(result).toBe(3);
+    });
+  });
+
   describe('markAsRead', () => {
     it('calls PUT /notifications/:id/read', async () => {
       mockRequest.mockResolvedValue(undefined);

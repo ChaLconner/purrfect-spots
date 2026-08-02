@@ -1,7 +1,7 @@
 import { reactive, ref, computed, type Ref, type ComputedRef } from 'vue';
 import { useRouter } from 'vue-router';
-import { useAuthStore } from '@/store/authStore';
-import { showSuccess, showError } from '@/store/toast';
+import { useAuthStore } from '@/stores/authStore';
+import { showSuccess, showError } from '@/stores/toast';
 import { isDev, getEnvVar } from '@/utils/env';
 import { getSafeRedirect, redirectToTrustedExternalUrl } from '@/utils/security';
 

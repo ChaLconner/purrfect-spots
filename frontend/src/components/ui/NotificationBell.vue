@@ -1,20 +1,18 @@
 <template>
   <div ref="wrapperRef" class="relative">
     <button
-      class="group relative w-10 h-10 flex items-center justify-center rounded-full bg-[var(--color-btn-accent-e)] border-2 border-[var(--color-btn-accent-a)] text-[var(--color-btn-accent-a)] shrink-0 transition-all duration-[150ms] ease-out hover:bg-[var(--color-btn-accent-d)] hover:translate-y-[0.1rem] active:translate-y-[0.25rem]"
+      class="group relative w-10 h-10 flex items-center justify-center rounded-full bg-[var(--color-btn-accent-e)] border-2 border-[var(--color-btn-accent-a)] text-[var(--color-btn-accent-a)] shrink-0 transition-all duration-[150ms] ease-out hover:bg-[var(--color-btn-accent-d)] hover:translate-y-[0.1rem] active:translate-y-[0.25rem] preserve-3d will-change-transform"
       :class="{
         'bg-[var(--color-btn-accent-a)] text-white border-[var(--color-btn-accent-a)]': isOpen,
       }"
-      style="transform-style: preserve-3d; will-change: transform"
-      aria-label="Notifications"
+      :aria-label="$t('accessibility.notifications')"
       @click="toggleDropdown"
     >
       <span
-        class="absolute inset-0 bg-[var(--color-btn-accent-c)] rounded-[inherit] shadow-[0_0_0_2px_var(--color-btn-accent-b),_0_0.2rem_0_0_var(--color-btn-accent-a)] transition-all duration-[150ms] ease-out -z-10 group-hover:translate-y-[0.15rem] group-active:translate-y-0 group-active:translate-z-[-1em] group-active:shadow-[0_0_0_2px_var(--color-btn-accent-b),_0_0.1em_0_0_var(--color-btn-accent-b)]"
+        class="absolute inset-0 bg-[var(--color-btn-accent-c)] rounded-[inherit] shadow-[0_0_0_2px_var(--color-btn-accent-b),_0_0.2rem_0_0_var(--color-btn-accent-a)] transition-all duration-[150ms] ease-out -z-10 group-hover:translate-y-[0.15rem] group-active:translate-y-0 group-active:translate-z-[-1em] group-active:shadow-[0_0_0_2px_var(--color-btn-accent-b),_0_0.1em_0_0_var(--color-btn-accent-b)] translate-3d-button-small"
         :class="{
           'bg-[#8b4520] shadow-[0_0_0_2px_#a65d37,0_0.2rem_0_0_#5d321d]': isOpen,
         }"
-        style="transform: translate3d(0, 0.2rem, -1em); will-change: transform"
       ></span>
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -51,13 +49,13 @@
       >
         <div class="flex justify-between items-center px-4 py-3 bg-brown/3 border-b border-brown/8">
           <h3 class="font-heading font-extrabold text-brown text-sm tracking-wide">
-            Notifications
+            {{ $t('notifications.title') }}
           </h3>
           <button
             class="text-terracotta bg-transparent border-none cursor-pointer transition-all duration-200 hover:text-brown-light hover:text-shadow-[0_0_8px_rgba(214,122,79,0.2)] text-[11px] font-bold uppercase tracking-wider"
             @click="store.markAllRead"
           >
-            Mark all read
+            {{ $t('notifications.markAllAsRead') }}
           </button>
         </div>
 
@@ -97,22 +95,26 @@
               </svg>
             </div>
             <p class="text-sm font-body font-medium text-brown-light italic">
-              No notifications yet... quiet as a napping kitten.
+              {{ $t('notifications.empty') }}
             </p>
           </div>
           <div
             v-for="notification in store.notifications"
             :key="notification.id"
-            class="p-4 transition-all duration-300 cursor-pointer relative border-b border-brown/5 hover:bg-brown/3"
+            role="button"
+            tabindex="0"
+            class="p-4 transition-all duration-300 cursor-pointer relative border-b border-brown/5 hover:bg-brown/3 focus:outline-none focus:bg-brown/5"
             :class="{ 'bg-terracotta/4': !notification.is_read }"
             @click="handleRead(notification)"
+            @keydown.enter="handleRead(notification)"
           >
             <div class="flex gap-4">
               <div class="relative">
                 <img
                   :src="notification.actor_picture || getAvatarFallback(null)"
+                  referrerpolicy="no-referrer"
                   class="w-10 h-10 rounded-full flex-shrink-0 object-cover border-2 border-white shadow-sm bg-stone-100"
-                  alt="Actor"
+                  :alt="$t('social.actor')"
                   @error="handleAvatarError($event, null)"
                 />
                 <div
@@ -154,7 +156,7 @@
             v-else-if="store.notifications.length > 0"
             class="py-4 text-center text-[10px] font-medium text-brown-light/60 uppercase tracking-widest"
           >
-            End of notifications
+            {{ $t('notifications.noNotifications') }}
           </div>
         </div>
       </div>
@@ -164,11 +166,10 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, computed, nextTick } from 'vue';
-import { useNotificationStore } from '@/store/notificationStore';
+import { useNotificationStore } from '@/stores/notificationStore';
 import { useRouter } from 'vue-router';
 import type { Notification } from '@/services/notificationService';
 import { getAvatarFallback, handleAvatarError } from '@/utils/avatar';
-import { formatDate as sharedFormatDate } from '@/utils/date';
 
 const store = useNotificationStore();
 const router = useRouter();
@@ -186,24 +187,30 @@ function handleRead(notification: Notification): void {
   if (!notification.is_read) {
     store.markRead(notification.id);
   }
-  // Navigate if resource exists
   if (notification.resource_type === 'photo' && notification.resource_id) {
-    // Navigating to profile or gallery
     router.push({ path: '/profile', query: { image: notification.resource_id } });
+    isOpen.value = false;
+  } else if (notification.resource_type === 'comment' && notification.resource_id) {
+    router.push({ path: '/profile', query: { image: notification.resource_id } });
+    isOpen.value = false;
+  } else if (notification.resource_type === 'user' && notification.resource_id) {
+    router.push({ path: `/profile/${notification.resource_id}` });
+    isOpen.value = false;
+  } else if (notification.resource_type === 'treat') {
+    router.push({ path: '/profile' });
     isOpen.value = false;
   }
 }
 
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
+
+import { formatRelativeTime } from '@/utils/date';
+
 // Calculate time diff
 function formatDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  const now = new Date();
-  const diff = (now.getTime() - d.getTime()) / 1000; // seconds
-
-  if (diff < 60) return 'Just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return sharedFormatDate(dateStr);
+  return formatRelativeTime(dateStr, t);
 }
 
 // Close on click outside
@@ -246,7 +253,6 @@ watch(isOpen, async (newVal) => {
       // Background refresh quietly
       void store.fetchNotifications(true);
     }
-    store.subscribeToNotifications();
     // Wait for DOM to render to find the trigger element
     await nextTick();
     if (store.hasMore) {
@@ -254,7 +260,6 @@ watch(isOpen, async (newVal) => {
     }
   } else {
     if (observer) observer.disconnect();
-    store.unsubscribe();
   }
 });
 
@@ -271,7 +276,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (observer) observer.disconnect();
-  store.unsubscribe();
   document.removeEventListener('mousedown', handleClickOutside);
 });
 </script>

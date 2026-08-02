@@ -1,50 +1,39 @@
-# Logs
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Dependencies and build output
+node_modules/
+dist/
+dist-ssr/
+dist-local*/
+.vite/
+.output/
+
+# Test and coverage output
+coverage/
+playwright-report/
+test-results/
+.nyc_output/
+
+# Logs and temporary files
 logs/
 *.log
-lint-output.txt
+*.tmp
+*.temp
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Dependency directories
-node_modules/
-
-# Build output
-dist/
-dist-ssr/
-build/
-.vite/
-.output/
-
-# Local env files
-.env
-.env.*
-!.env.example
-NEW_LOCAL_ENV
-
-# Editor directories and files
-.vscode/
-!.vscode/extensions.json
+# Editor and operating system files
 .idea/
+.vscode/
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# OS generated files
 Thumbs.db
 ehthumbs.db
 Desktop.ini
-
-# Mac
-*.DS_Store
-
-# Optional: test coverage
-coverage/
-
-# Output files
-coverage_output.txt
+*.swp
+*.swo

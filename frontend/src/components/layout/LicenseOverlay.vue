@@ -5,7 +5,7 @@
     >
       <span>&copy; 2026 Purrfect Spots</span>
       <span class="opacity-30">|</span>
-      <span>All rights reserved</span>
+      <span>{{ $t('footer.allRightsReserved') }}</span>
     </div>
   </footer>
 </template>
@@ -13,5 +13,3 @@
 <script setup lang="ts">
 // No logic needed for static footer
 </script>
-
-<style scoped></style>

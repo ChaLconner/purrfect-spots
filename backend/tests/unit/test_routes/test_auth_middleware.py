@@ -3,19 +3,21 @@
 
 import os
 import time
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
 
-from middleware.auth_middleware import (
+from app.middleware.auth_middleware import (
+    _apply_subscription_expiry_guard,
     _get_user_from_payload,
     _verify_and_decode_token,
     decode_supabase_token,
     get_current_user,
     get_jwks,
 )
-from schemas.user import User
+from app.schemas.user import User
 
 # --- Fixtures ---
 
@@ -44,11 +46,11 @@ async def test_get_jwks_success(mock_env, mock_jwks_response):
 
     # Reset cache globals
     with (
-        patch("utils.http_client.get_shared_httpx_client", return_value=mock_client),
-        patch("middleware.auth_middleware.config.SUPABASE_URL", "https://testproject.supabase.co"),
-        patch("middleware.auth_middleware.config.SUPABASE_KEY", ""),
-        patch("middleware.auth_middleware._jwks_cache", None),
-        patch.dict("middleware.auth_middleware._jwks_state", {"last_update": 0.0}),
+        patch("app.utils.http_client.get_shared_httpx_client", return_value=mock_client),
+        patch("app.middleware.auth_middleware.config.SUPABASE_URL", "https://testproject.supabase.co"),
+        patch("app.middleware.auth_middleware.config.SUPABASE_KEY", ""),
+        patch("app.middleware.auth_middleware._jwks_cache", None),
+        patch.dict("app.middleware.auth_middleware._jwks_state", {"last_update": 0.0}),
     ):
         jwks = await get_jwks()
         assert jwks == mock_jwks_response
@@ -65,9 +67,9 @@ async def test_get_jwks_cached(mock_env, mock_jwks_response):
     mock_client.get = AsyncMock()
 
     with (
-        patch("utils.http_client.get_shared_httpx_client", return_value=mock_client),
-        patch("middleware.auth_middleware._jwks_cache", mock_jwks_response),
-        patch.dict("middleware.auth_middleware._jwks_state", {"last_update": time.time()}),
+        patch("app.utils.http_client.get_shared_httpx_client", return_value=mock_client),
+        patch("app.middleware.auth_middleware._jwks_cache", mock_jwks_response),
+        patch.dict("app.middleware.auth_middleware._jwks_state", {"last_update": time.time()}),
     ):
         jwks = await get_jwks()
         assert jwks == mock_jwks_response
@@ -84,11 +86,11 @@ async def test_get_jwks_sanitizes_apikey_header(mock_jwks_response):
     mock_client.get = AsyncMock(return_value=mock_response)
 
     with (
-        patch("utils.http_client.get_shared_httpx_client", return_value=mock_client),
-        patch("middleware.auth_middleware.config.SUPABASE_URL", "https://testproject.supabase.co\n"),
-        patch("middleware.auth_middleware.config.SUPABASE_KEY", ' "test-anon-key\r\n" '),
-        patch("middleware.auth_middleware._jwks_cache", None),
-        patch.dict("middleware.auth_middleware._jwks_state", {"last_update": 0.0}),
+        patch("app.utils.http_client.get_shared_httpx_client", return_value=mock_client),
+        patch("app.middleware.auth_middleware.config.SUPABASE_URL", "https://testproject.supabase.co\n"),
+        patch("app.middleware.auth_middleware.config.SUPABASE_KEY", ' "test-anon-key\r\n" '),
+        patch("app.middleware.auth_middleware._jwks_cache", None),
+        patch.dict("app.middleware.auth_middleware._jwks_state", {"last_update": 0.0}),
     ):
         jwks = await get_jwks()
 
@@ -114,11 +116,11 @@ async def test_get_jwks_falls_back_to_legacy_endpoint(mock_jwks_response):
     mock_client.get = AsyncMock(side_effect=[not_found, ok])
 
     with (
-        patch("utils.http_client.get_shared_httpx_client", return_value=mock_client),
-        patch("middleware.auth_middleware.config.SUPABASE_URL", "https://testproject.supabase.co"),
-        patch("middleware.auth_middleware.config.SUPABASE_KEY", ""),
-        patch("middleware.auth_middleware._jwks_cache", None),
-        patch.dict("middleware.auth_middleware._jwks_state", {"last_update": 0.0}),
+        patch("app.utils.http_client.get_shared_httpx_client", return_value=mock_client),
+        patch("app.middleware.auth_middleware.config.SUPABASE_URL", "https://testproject.supabase.co"),
+        patch("app.middleware.auth_middleware.config.SUPABASE_KEY", ""),
+        patch("app.middleware.auth_middleware._jwks_cache", None),
+        patch.dict("app.middleware.auth_middleware._jwks_state", {"last_update": 0.0}),
     ):
         jwks = await get_jwks()
 
@@ -131,9 +133,9 @@ async def test_get_jwks_falls_back_to_legacy_endpoint(mock_jwks_response):
 @pytest.mark.asyncio
 async def test_get_jwks_no_url():
     with (
-        patch("middleware.auth_middleware.config.SUPABASE_URL", ""),
-        patch("middleware.auth_middleware._jwks_cache", None),
-        patch.dict("middleware.auth_middleware._jwks_state", {"last_update": 0.0}),
+        patch("app.middleware.auth_middleware.config.SUPABASE_URL", ""),
+        patch("app.middleware.auth_middleware._jwks_cache", None),
+        patch.dict("app.middleware.auth_middleware._jwks_state", {"last_update": 0.0}),
     ):
         jwks = await get_jwks()
         assert jwks is None
@@ -144,7 +146,7 @@ async def test_get_jwks_no_url():
 
 @pytest.mark.asyncio
 async def test_decode_supabase_token_success(mock_env, mock_jwks_response):
-    with patch("middleware.auth_middleware.get_jwks", new_callable=AsyncMock) as mock_get_jwks:
+    with patch("app.middleware.auth_middleware.get_jwks", new_callable=AsyncMock) as mock_get_jwks:
         mock_get_jwks.return_value = mock_jwks_response
 
         with (
@@ -161,7 +163,7 @@ async def test_decode_supabase_token_success(mock_env, mock_jwks_response):
 
 @pytest.mark.asyncio
 async def test_decode_supabase_token_no_jwks(mock_env):
-    with patch("middleware.auth_middleware.get_jwks", new_callable=AsyncMock) as mock_get_jwks:
+    with patch("app.middleware.auth_middleware.get_jwks", new_callable=AsyncMock) as mock_get_jwks:
         mock_get_jwks.return_value = None
 
         with pytest.raises(HTTPException) as exc:
@@ -172,7 +174,7 @@ async def test_decode_supabase_token_no_jwks(mock_env):
 
 @pytest.mark.asyncio
 async def test_decode_supabase_token_missing_kid(mock_env, mock_jwks_response):
-    with patch("middleware.auth_middleware.get_jwks", new_callable=AsyncMock) as mock_get_jwks:
+    with patch("app.middleware.auth_middleware.get_jwks", new_callable=AsyncMock) as mock_get_jwks:
         mock_get_jwks.return_value = mock_jwks_response
         with patch("jwt.get_unverified_header", return_value={}):
             with pytest.raises(HTTPException) as exc:
@@ -199,12 +201,21 @@ async def test_get_user_from_payload_supabase_no_db(mock_env):
     }
 
     with (
-        patch("services.redis_service.redis_service.get", return_value=None),
-        patch("utils.supabase_client.get_async_supabase_admin_client", side_effect=Exception("DB error")),
+        patch("app.services.redis_service.redis_service.get", return_value=None),
+        patch("app.utils.supabase_client.get_async_supabase_admin_client", side_effect=Exception("DB error")),
     ):
         with pytest.raises(HTTPException) as exc:
             await _get_user_from_payload(payload, "supabase")
         assert exc.value.status_code == 503
+
+
+def test_subscription_expiry_guard_fails_closed_for_missing_end_date():
+    user = User(id="user-123", email="test@example.com", is_pro=True, subscription_end_date=None)
+
+    guarded = _apply_subscription_expiry_guard(user)
+
+    assert guarded.is_pro is False
+    assert guarded.cancel_at_period_end is False
 
 
 @pytest.mark.asyncio
@@ -218,12 +229,23 @@ async def test_get_user_from_payload_custom(mock_env):
     }
 
     with (
-        patch("services.redis_service.redis_service.get", return_value=None),
-        patch("utils.supabase_client.get_async_supabase_admin_client", side_effect=Exception("DB error")),
+        patch("app.services.redis_service.redis_service.get", return_value=None),
+        patch("app.utils.supabase_client.get_async_supabase_admin_client", side_effect=Exception("DB error")),
     ):
         with pytest.raises(HTTPException) as exc:
             await _get_user_from_payload(payload, "custom")
         assert exc.value.status_code == 503
+
+
+async def _execute_get_user_from_payload(payload: dict, mock_sb: MagicMock, source: str = "supabase") -> Any:
+    """Helper to run _get_user_from_payload with standard mocked Redis and Admin client."""
+    with (
+        patch("app.services.redis_service.redis_service.get", return_value=None),
+        patch("app.services.redis_service.redis_service.set", new_callable=AsyncMock),
+        patch("app.utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin,
+    ):
+        mock_get_admin.return_value = mock_sb
+        return await _get_user_from_payload(payload, source)
 
 
 @pytest.mark.asyncio
@@ -247,11 +269,9 @@ async def test_get_user_from_payload_db_success(mock_env):
         )
     )
 
-    with patch("utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
-        mock_get_admin.return_value = mock_sb
-        user = await _get_user_from_payload(payload, "supabase")
-        assert user.email == "db@example.com"
-        assert user.bio == "Hello"
+    user = await _execute_get_user_from_payload(payload, mock_sb)
+    assert user.email == "db@example.com"
+    assert user.bio == "Hello"
 
 
 @pytest.mark.asyncio
@@ -272,13 +292,7 @@ async def test_get_user_from_payload_ignores_legacy_role_column_without_role_rel
         )
     )
 
-    with (
-        patch("services.redis_service.redis_service.get", return_value=None),
-        patch("services.redis_service.redis_service.set", new_callable=AsyncMock),
-        patch("utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin,
-    ):
-        mock_get_admin.return_value = mock_sb
-        user = await _get_user_from_payload(payload, "supabase")
+    user = await _execute_get_user_from_payload(payload, mock_sb)
 
     assert user.role == "user"
     assert user.permissions == []
@@ -310,13 +324,7 @@ async def test_get_user_from_payload_parses_role_arrays(mock_env):
         )
     )
 
-    with (
-        patch("services.redis_service.redis_service.get", return_value=None),
-        patch("services.redis_service.redis_service.set", new_callable=AsyncMock),
-        patch("utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin,
-    ):
-        mock_get_admin.return_value = mock_sb
-        user = await _get_user_from_payload(payload, "supabase")
+    user = await _execute_get_user_from_payload(payload, mock_sb)
 
     assert user.role == "admin"
     assert "access:admin" in user.permissions
@@ -353,13 +361,7 @@ async def test_get_user_from_payload_falls_back_to_role_id_queries_when_embedded
         )
     )
 
-    with (
-        patch("services.redis_service.redis_service.get", return_value=None),
-        patch("services.redis_service.redis_service.set", new_callable=AsyncMock),
-        patch("utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin,
-    ):
-        mock_get_admin.return_value = mock_sb
-        user = await _get_user_from_payload(payload, "supabase")
+    user = await _execute_get_user_from_payload(payload, mock_sb)
 
     assert user.role == "admin"
     assert "access:admin" in user.permissions
@@ -385,9 +387,9 @@ async def test_get_user_from_payload_blocks_banned_user(mock_env):
     )
 
     with (
-        patch("services.redis_service.redis_service.get", return_value=None),
+        patch("app.services.redis_service.redis_service.get", return_value=None),
         patch(
-            "utils.supabase_client.get_async_supabase_admin_client",
+            "app.utils.supabase_client.get_async_supabase_admin_client",
             new_callable=AsyncMock,
         ) as mock_get_admin,
     ):
@@ -404,7 +406,7 @@ async def test_get_user_from_payload_blocks_banned_user(mock_env):
 
 @pytest.mark.asyncio
 async def test_verify_and_decode_token_supabase_ok(mock_env):
-    with patch("middleware.auth_middleware.decode_supabase_token", new_callable=AsyncMock) as mock_supa:
+    with patch("app.middleware.auth_middleware.decode_supabase_token", new_callable=AsyncMock) as mock_supa:
         mock_supa.return_value = {"sub": "123"}
         payload, source = await _verify_and_decode_token("token")
         assert payload == {"sub": "123"}
@@ -414,8 +416,8 @@ async def test_verify_and_decode_token_supabase_ok(mock_env):
 @pytest.mark.asyncio
 async def test_verify_and_decode_token_fallback_custom(mock_env):
     with (
-        patch("middleware.auth_middleware.decode_supabase_token", side_effect=ValueError),
-        patch("middleware.auth_middleware.decode_token") as mock_cust,
+        patch("app.middleware.auth_middleware.decode_supabase_token", side_effect=ValueError),
+        patch("app.middleware.auth_middleware.decode_token") as mock_cust,
     ):
         mock_cust.return_value = {"sub": "456"}
         payload, source = await _verify_and_decode_token("token")
@@ -426,8 +428,8 @@ async def test_verify_and_decode_token_fallback_custom(mock_env):
 @pytest.mark.asyncio
 async def test_verify_and_decode_token_all_fail(mock_env):
     with (
-        patch("middleware.auth_middleware.decode_supabase_token", side_effect=ValueError),
-        patch("middleware.auth_middleware.decode_token", side_effect=Exception),
+        patch("app.middleware.auth_middleware.decode_supabase_token", side_effect=ValueError),
+        patch("app.middleware.auth_middleware.decode_token", side_effect=Exception),
     ):
         with pytest.raises(HTTPException) as exc:
             await _verify_and_decode_token("token")
@@ -437,8 +439,8 @@ async def test_verify_and_decode_token_all_fail(mock_env):
 @pytest.mark.asyncio
 async def test_verify_and_decode_token_fails_closed_when_invalidation_check_errors(mock_env):
     with (
-        patch("middleware.auth_middleware.decode_supabase_token", new_callable=AsyncMock) as mock_supa,
-        patch("middleware.auth_middleware.get_token_service", new_callable=AsyncMock) as mock_token_service,
+        patch("app.middleware.auth_middleware.decode_supabase_token", new_callable=AsyncMock) as mock_supa,
+        patch("app.middleware.auth_middleware.get_token_service", new_callable=AsyncMock) as mock_token_service,
     ):
         mock_supa.return_value = {"sub": "123", "iat": 1700000000}
         mock_token_service.return_value.is_user_invalidated = AsyncMock(side_effect=RuntimeError("redis down"))
@@ -458,8 +460,8 @@ async def test_get_current_user_from_request_success(mock_env):
     mock_request.headers.get.return_value = "Bearer valid_token"
 
     with (
-        patch("middleware.auth_middleware._verify_and_decode_token", new_callable=AsyncMock) as mock_verify,
-        patch("middleware.auth_middleware._get_user_from_payload") as mock_get_user,
+        patch("app.middleware.auth_middleware._verify_and_decode_token", new_callable=AsyncMock) as mock_verify,
+        patch("app.middleware.auth_middleware._get_user_from_payload") as mock_get_user,
     ):
         mock_verify.return_value = ({"sub": "123"}, "supabase")
         mock_get_user.return_value = User(id="123", email="t@t.com", name="T", picture="p", bio="b", created_at=None)

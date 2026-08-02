@@ -9,8 +9,7 @@
         class="w-16 h-16 sm:w-20 sm:h-20 bg-sage/20 rounded-full flex items-center justify-center text-sage-dark relative z-10"
       >
         <svg
-          class="w-10 h-10 sm:w-12 sm:h-12 transform scale-0 animate-check-mark"
-          style="animation-delay: 0.2s"
+          class="w-10 h-10 sm:w-12 sm:h-12 transform scale-0 animate-[check-mark_0.6s_cubic-bezier(0.175,0.885,0.32,1.275)_0.2s_forwards]"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"

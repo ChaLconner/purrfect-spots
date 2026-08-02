@@ -10,7 +10,7 @@ os.environ["SMTP_USER"] = "resend"
 os.environ["SMTP_PASSWORD"] = os.getenv("SMTP_PASSWORD", "test-only-not-a-real-key")  # nosonar
 os.environ["SMTP_SENDER"] = "Purrfect Spots <onboarding@resend.dev>"
 
-from services.email_service import EmailService
+from app.services.email_service import EmailService
 
 
 class TestEmailServiceSMTP(unittest.TestCase):

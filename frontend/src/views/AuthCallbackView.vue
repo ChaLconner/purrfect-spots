@@ -1,0 +1,202 @@
+<template>
+  <div class="min-h-screen flex items-center justify-center relative overflow-hidden bg-cream">
+    <GhibliBackground />
+    <div class="relative z-10 p-8 text-center bg-white/80 backdrop-blur-md rounded-3xl shadow-xl max-w-md w-full border-2 border-sage/20">
+      <GhibliLoader :text="t('auth.callback.authenticating') || 'Logging you in...'" />
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted, onErrorCaptured, onUnmounted } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
+import { useI18n } from 'vue-i18n';
+import GhibliBackground from '@/components/ui/GhibliBackground.vue';
+import GhibliLoader from '@/components/ui/GhibliLoader.vue';
+import { AuthService } from '../services/authService';
+import { useAuthStore } from '../stores/authStore';
+import { showError, showSuccess } from '../stores/toast';
+import { getSafeRedirect } from '../utils/security';
+import type { LoginResponse } from '../types/auth';
+import { apiV1 } from '@/utils/api';
+
+const { t } = useI18n();
+
+const router = useRouter();
+const route = useRoute();
+
+const isLoading = ref(true);
+const error = ref('');
+const success = ref(false);
+
+// Error handling for browser extension conflicts
+onErrorCaptured((err) => {
+  // Ignore extension-related errors
+  if (err.message && err.message.includes('message channel closed')) {
+    return false; // Prevent the error from propagating
+  }
+  return true; // Let other errors propagate normally
+});
+
+// Handle unhandled promise rejections (often from extensions)
+const handleUnhandledRejection = (event: PromiseRejectionEvent): void => {
+  if (
+    event.reason &&
+    event.reason.message &&
+    event.reason.message.includes('message channel closed')
+  ) {
+    event.preventDefault();
+  }
+};
+
+onMounted(() => {
+  globalThis.addEventListener('unhandledrejection', handleUnhandledRejection);
+});
+
+onUnmounted(() => {
+  globalThis.removeEventListener('unhandledrejection', handleUnhandledRejection);
+});
+
+const handleMagicLink = async (params: URLSearchParams): Promise<boolean> => {
+  const accessToken = params.get('access_token');
+  const refreshToken = params.get('refresh_token');
+  const type = params.get('type');
+
+  if (!accessToken || !refreshToken) {
+    throw new Error(t('auth.callback.noAuthData'));
+  }
+
+  const response = await apiV1.post<LoginResponse>('/auth/session-exchange', {
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
+
+  await useAuthStore().setAuth(response);
+  success.value = true;
+  showSuccess(
+    type === 'recovery'
+      ? t('auth.callback.passwordResetVerified')
+      : t('auth.callback.emailVerified')
+  );
+
+  if (type === 'recovery') {
+    router.push('/reset-password');
+  } else {
+    const redirectPath = getSafeRedirect(sessionStorage.getItem('redirectAfterAuth'));
+    sessionStorage.removeItem('redirectAfterAuth');
+    setTimeout(() => router.push(redirectPath), 1000);
+  }
+  return true;
+};
+
+const handleGoogleCode = async (code: string, codeVerifier: string): Promise<boolean> => {
+  const data = await AuthService.googleCodeExchange(code, codeVerifier);
+  await useAuthStore().setAuth(data);
+
+  try {
+    await AuthService.syncUser();
+  } catch {
+    // Ignore sync errors
+  }
+
+  globalThis.sessionStorage.removeItem('google_code_verifier');
+  success.value = true;
+
+  setTimeout(() => {
+    const redirectPath = getSafeRedirect(sessionStorage.getItem('redirectAfterAuth'));
+    sessionStorage.removeItem('redirectAfterAuth');
+    router.push(redirectPath);
+  }, 1000);
+  return true;
+};
+
+const handleAuthError = (err: unknown): void => {
+  const errorMsg =
+    err instanceof Error
+      ? err.message
+      : typeof err === 'object' && err !== null && 'message' in err
+        ? String((err as Record<string, unknown>).message)
+        : String(err);
+
+  if (errorMsg.includes('invalid_grant')) {
+    error.value = t('auth.callback.authExpired');
+  } else if (errorMsg.includes('redirect_uri')) {
+    error.value = t('auth.callback.invalidOauth');
+  } else if (errorMsg === 'Failed to fetch') {
+    error.value = t('auth.callback.connectionError');
+  } else if (err instanceof Error && err.message) {
+    const msg = err.message;
+    error.value = msg.includes('status code') ? t('auth.callback.serviceUnavailable') : msg;
+  } else {
+    error.value = t('auth.callback.generalError');
+  }
+};
+
+const processAuthCallback = async (): Promise<boolean> => {
+  const code = route.query.code as string;
+  const codeVerifier = globalThis.sessionStorage.getItem('google_code_verifier');
+  const hash = globalThis.location.hash;
+  const hashParams = hash ? new URLSearchParams(hash.substring(1)) : null;
+  const hasMagicLinkTokens = Boolean(
+    hashParams?.get('access_token') && hashParams.get('refresh_token')
+  );
+
+  if (hasMagicLinkTokens && hashParams) {
+    if (await handleMagicLink(hashParams)) return true;
+  }
+
+  if (code) {
+    if (!codeVerifier) throw new Error(t('auth.callback.authDataNotFound'));
+    if (await handleGoogleCode(code, codeVerifier)) return true;
+  } else if (!hash) {
+    throw new Error(t('auth.callback.noAuthData'));
+  }
+
+  if (hashParams && !hasMagicLinkTokens) {
+    const errorMsg = hashParams.get('error_description');
+    if (errorMsg) throw new Error(decodeURIComponent(errorMsg.replaceAll(/\+/g, ' ')));
+  }
+  return false;
+};
+
+const handleAuthCallback = async (): Promise<void> => {
+  let retryCount = 0;
+  const maxRetries = 3;
+
+  while (retryCount < maxRetries) {
+    try {
+      if (await processAuthCallback()) return;
+      break;
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message?.includes('message channel closed')) {
+        retryCount++;
+        if (retryCount < maxRetries) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          continue;
+        }
+      }
+      handleAuthError(err);
+      break;
+    }
+  }
+
+  if (retryCount >= maxRetries) {
+    error.value = t('auth.callback.extensionError');
+    showError(error.value, t('auth.callback.loginErrorTitle'));
+  } else if (error.value) {
+    showError(error.value, t('auth.callback.loginFailedTitle'));
+  }
+
+  if (error.value) {
+    setTimeout(() => router.push('/login'), 3000);
+  }
+};
+
+onMounted(async () => {
+  try {
+    await handleAuthCallback();
+  } finally {
+    isLoading.value = false;
+  }
+});
+</script>

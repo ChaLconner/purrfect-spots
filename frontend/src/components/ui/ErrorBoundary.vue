@@ -8,7 +8,7 @@
 import { ref, onErrorCaptured, provide } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { useToast } from '@/components/toast/use-toast';
+import { useToast } from '@/composables/useToast';
 
 interface Props {
   fallbackMessage?: string;
@@ -133,11 +133,11 @@ provide('errorBoundary', {
   <!-- Error State -->
   <div
     v-if="hasError"
-    class="error-boundary min-h-[400px] flex items-center justify-center p-8"
+    class="flex min-h-[400px] items-center justify-center p-8"
     role="alert"
     aria-live="assertive"
   >
-    <div class="error-content max-w-md w-full text-center">
+    <div class="w-full max-w-md text-center">
       <!-- Error Icon -->
       <div class="animate-shake mb-6">
         <div class="w-20 h-20 mx-auto bg-red-100 rounded-full flex items-center justify-center">

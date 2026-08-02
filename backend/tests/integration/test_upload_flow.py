@@ -52,7 +52,7 @@ class TestUploadFlowIntegration:
     @pytest.fixture
     def authenticated_client(self, client, mock_auth_user):
         """Client with mocked authentication"""
-        with patch("middleware.auth_middleware.get_current_user") as mock_auth:
+        with patch("app.middleware.auth_middleware.get_current_user") as mock_auth:
             mock_auth.return_value = mock_auth_user
             yield client
 
@@ -74,7 +74,7 @@ class TestUploadFlowIntegration:
         """Test: Upload rejects non-image files"""
         fake_file = io.BytesIO(b"not an image")
 
-        with patch("routes.upload.get_current_user", return_value=mock_auth_user):
+        with patch("app.routes.upload.get_current_user", return_value=mock_auth_user):
             response = authenticated_client.post(
                 "/api/v1/upload/cat",
                 files={"file": ("document.txt", fake_file, "text/plain")},
@@ -89,7 +89,7 @@ class TestUploadFlowIntegration:
 
     def test_upload_validates_location(self, authenticated_client, valid_cat_image, mock_auth_user) -> None:
         """Test: Upload validates latitude/longitude ranges"""
-        with patch("routes.upload.get_current_user", return_value=mock_auth_user):
+        with patch("app.routes.upload.get_current_user", return_value=mock_auth_user):
             # Invalid latitude (>90)
             response = authenticated_client.post(
                 "/api/v1/upload/cat",
@@ -139,28 +139,37 @@ class TestUploadFlowIntegration:
         mock_client.table.return_value.insert.return_value.execute = AsyncMock(return_value=mock_supabase_params)
 
         # Override dependencies
-        from dependencies import get_async_supabase_client
-        from main import app
-        from routes.upload import get_cat_detection_service, get_current_user, get_quota_service, get_storage_service
+        from app.dependencies import get_async_supabase_client
+        from app.main import app
+        from app.routes.upload import (
+            get_cat_detection_service,
+            get_current_user,
+            get_quota_service,
+            get_storage_service,
+        )
 
         # Mock quota service
         mock_quota_service = MagicMock()
         mock_quota_service.check_and_increment = AsyncMock(return_value=True)
+        mock_quota_service.check_quota = AsyncMock(return_value=True)
+        mock_quota_service.increment_usage = AsyncMock(return_value=True)
 
         app.dependency_overrides[get_async_supabase_client] = lambda: mock_client
         app.dependency_overrides[get_cat_detection_service] = lambda: mock_detection_service
         app.dependency_overrides[get_storage_service] = lambda: mock_storage_service
         app.dependency_overrides[get_quota_service] = lambda: mock_quota_service
         app.dependency_overrides[get_current_user] = lambda: MagicMock(
-            id=self.TEST_USER_ID, user_id=self.TEST_USER_ID, email=self.TEST_EMAIL
+            id=self.TEST_USER_ID, user_id=self.TEST_USER_ID, email=self.TEST_EMAIL, is_pro=False
         )
 
         with (
-            patch("utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin,
-            patch("routes.upload.process_uploaded_image", new_callable=AsyncMock) as mock_process_image,
-            patch("routes.upload.invalidate_gallery_cache"),
-            patch("routes.upload.invalidate_tags_cache"),
-            patch("routes.upload.log_security_event"),
+            patch(
+                "app.utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock
+            ) as mock_get_admin,
+            patch("app.routes.upload.process_uploaded_image", new_callable=AsyncMock) as mock_process_image,
+            patch("app.routes.upload.invalidate_gallery_cache"),
+            patch("app.routes.upload.invalidate_tags_cache"),
+            patch("app.routes.upload.log_security_event"),
         ):
             mock_admin_client = MagicMock()
             mock_admin_client.table.return_value.insert.return_value.execute = AsyncMock(
@@ -219,8 +228,8 @@ class TestGalleryFlowIntegration:
         )
 
         # Override dependency
-        from main import app
-        from routes.gallery import get_gallery_service
+        from app.main import app
+        from app.routes.gallery import get_gallery_service
 
         app.dependency_overrides[get_gallery_service] = lambda: mock_service
 
@@ -278,8 +287,8 @@ class TestAuthFlowIntegration:
         mock_service.create_access_token = MagicMock(return_value="access-token")
         mock_service.create_refresh_token = MagicMock(return_value="refresh-token")
 
-        from main import app
-        from routes.auth import get_auth_service
+        from app.main import app
+        from app.routes.auth import get_auth_service
 
         app.dependency_overrides[get_auth_service] = lambda: mock_service
 
@@ -313,8 +322,8 @@ class TestAuthFlowIntegration:
         mock_service.create_access_token = MagicMock(return_value="access-token")
         mock_service.create_refresh_token = MagicMock(return_value="refresh-token")
 
-        from main import app
-        from routes.auth import get_auth_service
+        from app.main import app
+        from app.routes.auth import get_auth_service
 
         app.dependency_overrides[get_auth_service] = lambda: mock_service
 
@@ -335,6 +344,6 @@ class TestAuthFlowIntegration:
 @pytest.fixture
 def client():
     """Create test client"""
-    from main import app
+    from app.main import app
 
     return TestClient(app)

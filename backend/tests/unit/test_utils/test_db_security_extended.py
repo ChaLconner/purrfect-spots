@@ -1,6 +1,6 @@
 import pytest
 
-from utils import db_security
+from app.utils import db_security
 
 
 class TestDBSecurityExtended:

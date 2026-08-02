@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from services.gallery_service import GalleryService
-from utils.cache import memory_cache
+from app.services.gallery_service import GalleryService
+from app.utils.cache import memory_cache
 
 
 @pytest.fixture
@@ -186,17 +186,17 @@ async def test_get_user_photos(gallery_service):
 async def test_delete_photo(gallery_service, mock_supabase):
     mock_storage = MagicMock()
     mock_storage.delete_file = AsyncMock()
-    if importlib.util.find_spec("services.gallery_service") and hasattr(
-        __import__("services.gallery_service", fromlist=["invalidate_gallery_cache"]),
+    if importlib.util.find_spec("app.services.gallery_service") and hasattr(
+        __import__("app.services.gallery_service", fromlist=["invalidate_gallery_cache"]),
         "invalidate_gallery_cache",
     ):
-        target = "services.gallery_service.invalidate_gallery_cache"
+        target = "app.services.gallery_service.invalidate_gallery_cache"
     else:
-        target = "utils.cache.invalidate_gallery_cache"
+        target = "app.utils.cache.invalidate_gallery_cache"
 
     with (
         patch(target, new=AsyncMock()),
-        patch("utils.supabase_client.get_async_supabase_admin_client", return_value=mock_supabase),
+        patch("app.utils.supabase_client.get_async_supabase_admin_client", return_value=mock_supabase),
     ):
         await gallery_service.process_photo_deletion("1", "url", "u1", mock_storage)
     assert mock_storage.delete_file.call_count == 1

@@ -1,4 +1,4 @@
-import { onMounted, onUnmounted, watch, type Ref, isRef } from 'vue';
+import { onMounted, onUnmounted, getCurrentInstance, watch, type Ref, isRef } from 'vue';
 
 type SchemaData = Record<string, unknown>;
 
@@ -14,20 +14,25 @@ export function useStructuredData(data: SchemaData | Ref<SchemaData>): void {
     scriptElement.textContent = JSON.stringify(schemaData);
   };
 
-  onMounted(() => {
+  if (getCurrentInstance()) {
+    onMounted(() => {
+      const initialData = isRef(data) ? data.value : data;
+      updateSchema(initialData);
+
+      if (isRef(data)) {
+        watch(data, (newData) => {
+          updateSchema(newData);
+        });
+      }
+    });
+
+    onUnmounted(() => {
+      if (scriptElement && document.head.contains(scriptElement)) {
+        document.head.removeChild(scriptElement);
+      }
+    });
+  } else {
     const initialData = isRef(data) ? data.value : data;
     updateSchema(initialData);
-
-    if (isRef(data)) {
-      watch(data, (newData) => {
-        updateSchema(newData);
-      });
-    }
-  });
-
-  onUnmounted(() => {
-    if (scriptElement && document.head.contains(scriptElement)) {
-      document.head.removeChild(scriptElement);
-    }
-  });
+  }
 }

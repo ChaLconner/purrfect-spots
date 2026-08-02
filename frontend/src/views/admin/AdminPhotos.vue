@@ -1,5 +1,5 @@
 <template>
-  <div class="admin-photos-page">
+  <div class="grid gap-4 font-body">
     <AdminPageHeader
       v-model="searchQuery"
       :title="t('admin.photos.title')"
@@ -8,35 +8,35 @@
       :search-placeholder="t('admin.photos.search_placeholder')"
     />
 
-    <div class="admin-photos-card">
-      <div class="admin-table-scroll">
-        <table class="admin-photos-table">
-          <thead class="admin-photos-table-head">
+    <div class="overflow-hidden border border-sand-200 rounded-xl bg-white shadow-sm">
+      <div class="overflow-x-auto">
+        <table class="min-w-full border-separate border-spacing-0">
+          <thead class="bg-sand-50/85">
             <tr>
-              <th scope="col" class="admin-photos-head-cell">
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-[0.08em] border-b border-sand-200">
                 {{ t('admin.photos.table.media') }}
               </th>
-              <th scope="col" class="admin-photos-head-cell">
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-[0.08em] border-b border-sand-200">
                 {{ t('admin.photos.table.owner') }}
               </th>
-              <th scope="col" class="admin-photos-head-cell">
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-[0.08em] border-b border-sand-200">
                 {{ t('admin.photos.table.location_profile') }}
               </th>
-              <th scope="col" class="admin-photos-head-cell">
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-[0.08em] border-b border-sand-200">
                 {{ t('admin.photos.table.timeline') }}
               </th>
-              <th scope="col" class="admin-photos-head-cell admin-photos-head-cell-right">
+              <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-brown-500 uppercase tracking-[0.08em] border-b border-sand-200">
                 {{ t('admin.photos.table.actions') }}
               </th>
             </tr>
           </thead>
-          <tbody class="admin-photos-table-body">
+          <tbody class="bg-white">
             <template v-if="!isLoading">
-              <tr v-for="photo in photos" :key="photo.id" class="admin-photos-row">
-                <td class="admin-photos-cell admin-photos-cell-media">
-                  <div class="admin-photo-thumb-wrap" @click="previewImage = photo">
+              <tr v-for="photo in photos" :key="photo.id" class="transition-colors hover:bg-sand-50/55">
+                <td class="p-3 px-6 border-b border-[#f2ece8] align-middle whitespace-nowrap">
+                  <div class="w-16 h-16 cursor-pointer" @click="previewImage = photo">
                     <OptimizedImage
-                      class="admin-photo-thumb"
+                      class="w-16 h-16 rounded-xl border border-sand-200 shadow-sm transition-transform hover:scale-105"
                       :src="photo.image_url"
                       :alt="photo.location_name"
                       :width="64"
@@ -44,37 +44,37 @@
                     />
                   </div>
                 </td>
-                <td class="admin-photos-cell">
-                  <div class="admin-photo-owner">
-                    <span class="admin-photo-owner-name">{{ photo.users?.name || t('social.anonymous') }}</span>
-                    <span class="admin-photo-owner-email">{{ photo.users?.email || 'N/A' }}</span>
+                <td class="p-3 px-6 border-b border-[#f2ece8] align-middle">
+                  <div class="flex flex-col">
+                    <span class="text-sm font-medium text-brown-900">{{ photo.users?.name || t('social.anonymous') }}</span>
+                    <span class="text-sm text-brown-500">{{ photo.users?.email || 'N/A' }}</span>
                   </div>
                 </td>
-                <td class="admin-photos-cell">
-                  <div v-if="editingPhotoId === photo.id" class="admin-photo-edit-form">
-                    <input v-model="editForm.location_name" type="text" class="admin-photo-edit-input" />
-                    <div class="admin-photo-edit-actions">
-                      <button class="admin-photo-save-button" @click="saveEdit(photo)">{{ t('admin.photos.edit.save') }}</button>
-                      <button class="admin-photo-cancel-button" @click="editingPhotoId = null">{{ t('admin.photos.edit.cancel') }}</button>
+                <td class="p-3 px-6 border-b border-[#f2ece8] align-middle">
+                  <div v-if="editingPhotoId === photo.id" class="grid gap-2 max-w-xs">
+                    <input v-model="editForm.location_name" type="text" class="w-full text-sm p-2 border border-sand-300 rounded-lg" />
+                    <div class="flex gap-2">
+                      <button class="text-xs px-3 py-1.5 rounded-lg font-semibold bg-[#c15f36] text-white" @click="saveEdit(photo)">{{ t('admin.photos.edit.save') }}</button>
+                      <button class="text-xs px-3 py-1.5 rounded-lg font-semibold bg-sand-200 text-sand-700" @click="editingPhotoId = null">{{ t('admin.photos.edit.cancel') }}</button>
                     </div>
                   </div>
-                  <div v-else class="admin-photo-location-block">
-                    <span class="admin-photo-location-name">{{ photo.location_name }}</span>
-                    <span class="admin-photo-location-description">{{ photo.description }}</span>
-                    <button v-if="canWrite" class="admin-photo-edit-trigger" @click="startEdit(photo)">{{ t('common.edit') }}</button>
+                  <div v-else class="flex flex-col">
+                    <span class="text-sm font-medium text-brown-900">{{ photo.location_name }}</span>
+                    <span class="text-sm text-brown-500 line-clamp-1">{{ photo.description }}</span>
+                    <button v-if="canWrite" class="mt-1 text-sm font-medium text-terracotta-600 text-left" @click="startEdit(photo)">{{ t('common.edit') }}</button>
                   </div>
                 </td>
-                <td class="admin-photos-cell admin-photos-cell-date">
+                <td class="p-3 px-6 border-b border-[#f2ece8] align-middle whitespace-nowrap text-sm text-brown-500">
                   {{ formatTimestamp(photo.uploaded_at, locale) }}
                 </td>
-                <td class="admin-photos-cell admin-photos-cell-actions">
-                  <div class="admin-photo-actions">
-                    <a :href="`/gallery/${photo.id}`" target="_blank" class="admin-photo-link">
+                <td class="p-3 px-6 border-b border-[#f2ece8] align-middle whitespace-nowrap text-right">
+                  <div class="flex justify-end gap-2">
+                    <a :href="`/gallery/${photo.id}`" target="_blank" class="p-2 text-[#b49b91] transition-colors hover:text-[#c15f36]">
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                       </svg>
                     </a>
-                    <button v-if="canDelete" class="admin-photo-delete-button" @click="confirmDelete(photo)">
+                    <button v-if="canDelete" class="text-sm font-medium text-red-600 px-2 py-1" @click="confirmDelete(photo)">
                       {{ t('common.delete') }}
                     </button>
                   </div>
@@ -82,7 +82,7 @@
               </tr>
             </template>
             <tr v-if="photos.length === 0 && !isLoading">
-              <td colspan="5" class="admin-photos-empty">
+              <td colspan="5" class="p-16 px-6 text-center text-[#b49b91]">
                 {{ t('admin.photos.no_photos') }}
               </td>
             </tr>
@@ -112,8 +112,8 @@
         @confirm="executeDelete"
       />
       
-      <div v-if="previewImage" class="admin-photo-preview-overlay" @click="previewImage = null">
-        <img :src="previewImage.image_url" class="admin-photo-preview-image" />
+      <div v-if="previewImage" class="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50" @click="previewImage = null">
+        <img :src="previewImage.image_url" class="max-w-full max-h-full rounded-lg shadow-2xl" />
       </div>
     </Teleport>
   </div>
@@ -123,8 +123,8 @@
 import { ref, onMounted, watch, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { apiV1 } from '@/utils/api';
-import { useAuthStore } from '@/store/authStore';
-import { useToast } from '@/components/toast/use-toast';
+import { useAuthStore } from '@/stores/authStore';
+import { useToast } from '@/composables/useToast';
 import { PERMISSIONS } from '@/constants/permissions';
 import { useAdminTable } from '@/composables/useAdminTable';
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
@@ -181,9 +181,9 @@ const startEdit = (photo: AdminPhoto): void => {
 };
 const saveEdit = async (photo: AdminPhoto): Promise<void> => {
   try {
-    const updated = await apiV1.patch(`/admin/photos/${photo.id}`, editForm.value);
-    photo.location_name = updated.location_name;
-    photo.description = updated.description;
+    const updated = await apiV1.patch<Partial<AdminPhoto>>(`/admin/photos/${photo.id}`, editForm.value);
+    photo.location_name = updated.location_name ?? photo.location_name;
+    photo.description = updated.description ?? photo.description;
     editingPhotoId.value = null;
     toast({ description: t('admin.photos.edit.success'), variant: 'success' });
   } catch {
@@ -195,6 +195,32 @@ const saveEdit = async (photo: AdminPhoto): Promise<void> => {
 const deleteConfirmOpen = ref(false);
 const photoToDelete = ref<AdminPhoto | null>(null);
 const previewImage = ref<AdminPhoto | null>(null);
+
+function handleLightboxKeydown(e: KeyboardEvent): void {
+  if (!previewImage.value) return;
+  if (e.key === 'Escape') {
+    previewImage.value = null;
+  } else if (e.key === 'ArrowLeft') {
+    const idx = photos.value.findIndex((p) => p.id === previewImage.value?.id);
+    if (idx > 0) {
+      previewImage.value = photos.value[idx - 1];
+    }
+  } else if (e.key === 'ArrowRight') {
+    const idx = photos.value.findIndex((p) => p.id === previewImage.value?.id);
+    if (idx >= 0 && idx < photos.value.length - 1) {
+      previewImage.value = photos.value[idx + 1];
+    }
+  }
+}
+
+watch(previewImage, (val) => {
+  if (val) {
+    window.addEventListener('keydown', handleLightboxKeydown);
+  } else {
+    window.removeEventListener('keydown', handleLightboxKeydown);
+  }
+});
+
 const confirmDelete = (photo: AdminPhoto): void => {
   photoToDelete.value = photo;
   deleteConfirmOpen.value = true;
@@ -211,230 +237,3 @@ const executeDelete = async (): Promise<void> => {
   }
 };
 </script>
-
-<style scoped>
-.admin-photos-page {
-  display: grid;
-  gap: 1rem;
-}
-
-.admin-photos-card {
-  background: #fff;
-  border-radius: 0.75rem;
-  border: 1px solid #e7e5e4;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  overflow: hidden;
-}
-
-.admin-table-scroll {
-  overflow-x: auto;
-}
-
-.admin-photos-table {
-  min-width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-}
-
-.admin-photos-table-head {
-  background: rgba(250, 248, 245, 0.85);
-}
-
-.admin-photos-head-cell {
-  padding: 0.75rem 1.5rem;
-  text-align: left;
-  font-size: 10px;
-  font-weight: 900;
-  color: #b49b91;
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  border-bottom: 1px solid #e7e5e4;
-}
-
-.admin-photos-head-cell-right {
-  text-align: right;
-}
-
-.admin-photos-table-body {
-  background: #fff;
-}
-
-.admin-photos-row {
-  transition: background-color 0.2s ease;
-}
-
-.admin-photos-row:hover {
-  background: rgba(250, 248, 245, 0.55);
-}
-
-.admin-photos-cell {
-  padding: 0.75rem 1.5rem;
-  border-bottom: 1px solid #f2ece8;
-  vertical-align: middle;
-}
-
-.admin-photos-cell-media,
-.admin-photos-cell-date,
-.admin-photos-cell-actions {
-  white-space: nowrap;
-}
-
-.admin-photos-cell-date {
-  font-size: 0.75rem;
-  color: #b49b91;
-}
-
-.admin-photos-cell-actions {
-  text-align: right;
-}
-
-.admin-photo-thumb-wrap {
-  width: 4rem;
-  height: 4rem;
-  cursor: pointer;
-}
-
-.admin-photo-thumb {
-  width: 4rem;
-  height: 4rem;
-  border-radius: 0.75rem;
-  border: 1px solid #e7e5e4;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
-  transition: transform 0.2s ease;
-}
-
-.admin-photo-thumb-wrap:hover .admin-photo-thumb {
-  transform: scale(1.05);
-}
-
-.admin-photo-owner {
-  display: flex;
-  flex-direction: column;
-}
-
-.admin-photo-owner-name {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: #2f231f;
-}
-
-.admin-photo-owner-email {
-  font-size: 10px;
-  color: #b49b91;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.admin-photo-edit-form {
-  display: grid;
-  gap: 0.5rem;
-  max-width: 20rem;
-}
-
-.admin-photo-edit-input {
-  width: 100%;
-  font-size: 0.875rem;
-  padding: 0.5rem;
-  border: 1px solid #d6d3d1;
-  border-radius: 0.5rem;
-}
-
-.admin-photo-edit-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.admin-photo-save-button,
-.admin-photo-cancel-button {
-  font-size: 0.75rem;
-  padding: 0.375rem 0.75rem;
-  border-radius: 0.5rem;
-  font-weight: 600;
-}
-
-.admin-photo-save-button {
-  background: #c15f36;
-  color: #fff;
-}
-
-.admin-photo-cancel-button {
-  background: #e7e5e4;
-  color: #44403c;
-}
-
-.admin-photo-location-block {
-  display: flex;
-  flex-direction: column;
-}
-
-.admin-photo-location-name {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: #2f231f;
-}
-
-.admin-photo-location-description {
-  font-size: 0.75rem;
-  color: #6a5a53;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.admin-photo-edit-trigger {
-  margin-top: 0.25rem;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: #d07849;
-}
-
-.admin-photo-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
-
-.admin-photo-link {
-  padding: 0.5rem;
-  color: #b49b91;
-  transition: color 0.2s ease;
-}
-
-.admin-photo-link:hover {
-  color: #c15f36;
-}
-
-.admin-photo-delete-button {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #dc2626;
-  padding: 0.25rem 0.5rem;
-}
-
-.admin-photos-empty {
-  padding: 4rem 1.5rem;
-  text-align: center;
-  color: #b49b91;
-}
-
-.admin-photo-preview-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  z-index: 50;
-}
-
-.admin-photo-preview-image {
-  max-width: 100%;
-  max-height: 100%;
-  border-radius: 0.5rem;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4);
-}
-</style>

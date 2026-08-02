@@ -1,6 +1,6 @@
 <template>
   <button
-    class="flex items-center gap-2 transition-all duration-300 group hover:scale-105 active:scale-95 cursor-pointer border-none bg-transparent outline-none select-none [&]:[-webkit-tap-highlight-color:transparent]"
+    class="flex items-center gap-2 transition-all duration-300 group active:scale-95 cursor-pointer border-none bg-transparent outline-none select-none [&]:[-webkit-tap-highlight-color:transparent]"
     :class="[liked ? 'text-terracotta' : 'text-brown-light']"
     :aria-label="liked ? 'Unlike' : 'Like'"
     @click="handleClick"
@@ -34,10 +34,12 @@
 
 <script setup lang="ts">
 import { ref, watch, onUnmounted } from 'vue';
+import { useDebounceFn } from '@/composables/useDebounce';
 import { SocialService } from '@/services/socialService';
-import { useToastStore } from '@/store';
-import { useAuthStore } from '@/store/authStore';
+import { useToastStore } from '@/stores';
+import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase';
+import { isDev } from '@/utils/env';
 
 const props = defineProps<{
   photoId: string;
@@ -191,23 +193,16 @@ function handleClick(): void {
   }, 300);
 
   // --- Debounced API call ---
-  if (debounceTimer) {
-    clearTimeout(debounceTimer);
-  }
-
-  debounceTimer = setTimeout(() => {
+  const debouncedSendToggleLike = useDebounceFn(() => {
     // If user toggled back to the same state as server → no API call needed
     if (liked.value === serverLiked) {
-      // Correct the count if it drifted (e.g. if we did +1 -1 but started offset)
       count.value = serverCount;
-      debounceTimer = null;
       return;
     }
-
-    // Clear timer reference before sending
-    debounceTimer = null;
     sendToggleLike();
   }, 300);
+
+  debouncedSendToggleLike();
 }
 
 /**
@@ -265,7 +260,9 @@ async function sendToggleLike(): Promise<void> {
         toastStore.showError('Something went wrong. Please try liking again.', 'Hairball Error');
       }
     }
-    console.error('Toggle like error:', e);
+    if (isDev()) {
+      console.error('Toggle like error:', e);
+    }
   } finally {
     activeRequests = Math.max(0, activeRequests - 1);
     if (activeRequests === 0) {

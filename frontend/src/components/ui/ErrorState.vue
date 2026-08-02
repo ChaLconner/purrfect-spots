@@ -5,8 +5,7 @@
     <!-- Animated Glow Background -->
     <div class="relative mb-8 group">
       <div
-        class="absolute inset-0 bg-red-400/20 blur-[60px] rounded-full transform scale-150 animate-pulse"
-        style="animation-duration: 3s"
+        class="absolute inset-0 bg-red-400/20 blur-[60px] rounded-full transform scale-150 animate-[pulse_3s_cubic-bezier(0.4,0,0.6,1)_infinite]"
       ></div>
       <h3
         class="relative text-3xl md:text-5xl font-bold text-white drop-shadow-sm font-serif tracking-wide leading-tight"

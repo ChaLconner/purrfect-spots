@@ -43,8 +43,10 @@ vi.mock('vue-i18n', () => ({
   }),
 }));
 
+import type * as PiniaModule from 'pinia';
+
 vi.mock('pinia', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('pinia')>();
+  const actual = await importOriginal<typeof PiniaModule>();
   return {
     ...actual,
     storeToRefs: (store: { sortedPackages: unknown }) => ({
@@ -53,11 +55,11 @@ vi.mock('pinia', async (importOriginal) => {
   };
 });
 
-vi.mock('@/store/subscriptionStore', () => ({
+vi.mock('@/stores/subscriptionStore', () => ({
   useSubscriptionStore: () => mockSubscriptionStore,
 }));
 
-vi.mock('@/store/toastStore', () => ({
+vi.mock('@/stores/toastStore', () => ({
   useToastStore: () => ({
     addToast: mockAddToast,
   }),
@@ -66,6 +68,7 @@ vi.mock('@/store/toastStore', () => ({
 vi.mock('@/services/subscriptionService', () => ({
   SubscriptionService: {
     createCheckout: vi.fn(),
+    getPlans: vi.fn().mockRejectedValue(new Error('plans unavailable')),
     cancel: vi.fn(),
     createPortalSession: vi.fn(),
   },
@@ -128,10 +131,10 @@ describe('SubscriptionView.vue', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it('normalizes the success route, polls status updates, and avoids an extra final status fetch', async () => {
+  it('normalizes the success route, polls until Pro entitlement, and avoids default-state false positives', async () => {
     mockRoute.path = '/subscription/success';
     mockFetchStatus.mockImplementationOnce(async () => {
-      mockSubscriptionStore.treatBalance = 1;
+      mockSubscriptionStore.isPro = true;
     });
 
     shallowMount(SubscriptionView);
@@ -147,7 +150,7 @@ describe('SubscriptionView.vue', () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(mockFetchStatus).toHaveBeenCalledTimes(1);
+    expect(mockFetchStatus).toHaveBeenCalledTimes(2);
     expect(mockFetchPackages).toHaveBeenCalledTimes(1);
   });
 

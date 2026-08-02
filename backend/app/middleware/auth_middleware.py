@@ -1,0 +1,445 @@
+"""
+Authentication middleware for protecting routes with Supabase Auth
+"""
+
+import asyncio
+import time
+from datetime import UTC, datetime
+from typing import Any, cast
+
+import jwt
+from fastapi import Depends, HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jwt.algorithms import RSAAlgorithm
+from supabase import AClient
+
+from app.config import config, normalize_single_line_env
+from app.constants.admin_permissions import has_admin_access, normalize_permission_code, normalize_permissions
+from app.logger import logger
+from app.schemas.user import User
+from app.services.token_service import get_token_service
+from app.services.user_service import UserService
+from app.utils.auth_utils import decode_token
+from app.utils.security_alerts import (
+    track_failed_permission_check,
+    track_suspicious_user_agent,
+)
+from app.utils.supabase_client import (
+    get_async_supabase_client,
+)
+
+security = HTTPBearer(auto_error=False)
+USER_AUTH_CACHE_TTL = 300
+USER_AUTH_CACHE_VERSION = "v3"
+
+# JWKS Cache
+_jwks_cache: dict[str, Any] | None = None
+_jwks_state: dict[str, float] = {"last_update": 0.0}
+_jwks_lock = asyncio.Lock()
+JWKS_CACHE_TTL = 3600  # 1 hour
+
+
+def get_user_auth_cache_key(user_id: str) -> str:
+    """Build the Redis cache key used for authenticated user snapshots."""
+    return f"user_auth_cache:{USER_AUTH_CACHE_VERSION}:{user_id}"
+
+
+async def invalidate_user_auth_cache(user_id: str) -> None:
+    """Invalidate the cached auth snapshot for a user."""
+    from app.services.redis_service import redis_service
+
+    await redis_service.delete(get_user_auth_cache_key(user_id))
+    await redis_service.delete(f"user_auth_cache:{user_id}")
+
+
+async def invalidate_banned_user_auth_state(user_ids: str | list[str], reason: str = "account_banned") -> None:
+    """Invalidate auth cache and blacklist tokens for banned user(s)."""
+    ids = [user_ids] if isinstance(user_ids, str) else list(dict.fromkeys(user_ids))
+    token_service = await get_token_service()
+    for uid in ids:
+        await invalidate_user_auth_cache(uid)
+        await token_service.blacklist_all_user_tokens(uid, reason=reason)
+
+
+def _assert_user_not_banned(user: User) -> User:
+    """Reject requests for users whose account has been suspended."""
+    if user.banned_at:
+        raise HTTPException(status_code=403, detail="Account suspended")
+    return user
+
+
+def _apply_subscription_expiry_guard(user: User) -> User:
+    """Prevent stale auth snapshots from granting expired or indefinite Pro access."""
+    if not user.is_pro:
+        return user
+
+    end_date = user.subscription_end_date
+    if end_date is None:
+        user.is_pro = False
+        user.cancel_at_period_end = False
+        return user
+
+    if end_date.tzinfo is None:
+        end_date = end_date.replace(tzinfo=UTC)
+    if end_date <= datetime.now(UTC):
+        user.is_pro = False
+        user.cancel_at_period_end = False
+    return user
+
+
+async def get_jwks() -> dict | None:
+    """Lazily fetch and cache JWKS with thread safety"""
+    global _jwks_cache  # noqa: PLW0603
+    supabase_url = normalize_single_line_env(config.SUPABASE_URL)
+    if not supabase_url:
+        return None
+
+    base_url = supabase_url.rstrip("/")
+    jwks_urls = (
+        f"{base_url}/auth/v1/.well-known/jwks.json",
+        f"{base_url}/auth/v1/keys",
+    )
+
+    current_time = time.time()
+    if _jwks_cache and (current_time - _jwks_state["last_update"] < JWKS_CACHE_TTL):
+        return _jwks_cache
+
+    async with _jwks_lock:
+        if _jwks_cache and (current_time - _jwks_state["last_update"] < JWKS_CACHE_TTL):
+            return _jwks_cache
+
+        from app.utils.http_client import get_shared_httpx_client
+
+        try:
+            client = get_shared_httpx_client()
+            apikey = normalize_single_line_env(config.SUPABASE_KEY)
+            headers = {"apikey": apikey} if apikey else {}
+            last_response = None
+            for jwks_url in jwks_urls:
+                response = await client.get(jwks_url, headers=headers, timeout=5)
+                last_response = response
+                if response.status_code == 200:
+                    _jwks_cache = response.json()
+                    _jwks_state["last_update"] = current_time
+                    return cast(dict[str, Any], _jwks_cache)
+            if last_response is not None:
+                logger.warning(
+                    "JWKS fetch failed for %s with status %d: %s",
+                    jwks_urls[-1],
+                    last_response.status_code,
+                    last_response.text[:100],
+                )
+        except Exception as e:
+            logger.warning("Failed to refresh JWKS cache: %s", e)
+
+        return _jwks_cache
+
+
+async def decode_supabase_token(token: str) -> dict:
+    """Decode Supabase JWT token using JWKS"""
+    try:
+        jwks = await get_jwks()
+        if not jwks:
+            raise ValueError("JWKS not available")
+
+        unverified_header = jwt.get_unverified_header(token)
+        kid = unverified_header.get("kid")
+        if not kid:
+            raise ValueError("Token missing 'kid' in header")
+
+        key = next((k for k in jwks["keys"] if k["kid"] == kid), None)
+        if not key:
+            raise ValueError(f"Key with kid '{kid}' not found in JWKS")
+
+        public_key = RSAAlgorithm.from_jwk(key)
+        return jwt.decode(token, cast(Any, public_key), algorithms=["RS256"], audience="authenticated")
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Invalid Supabase token: {e!s}")
+
+
+# decode_custom_token removed - replaced by utils.auth_utils.decode_token in _attempt_token_decoding
+
+
+async def _is_token_revoked(jti: str) -> bool:
+    """Check if token JTI is in blacklist using TokenService"""
+    if not jti:
+        return False
+
+    try:
+        token_service = await get_token_service()
+        return await token_service.is_blacklisted(jti=jti)
+    except Exception:
+        # SECURITY: Fail closed for token revocation check
+        # If we can't verify the token isn't revoked, we must reject it
+        # This is a security-critical operation - better to block legitimate requests
+        # than to allow revoked tokens to be used
+        logger.error("Revocation status check failed. Denying request for security.")
+        return True
+
+
+async def _get_user_from_payload(payload: dict, source: str) -> User:
+    """Helper to convert JWT payload to User object"""
+    user_id = payload.get("sub") or payload.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+
+    # Try Redis Cache first (stale-while-revalidate pattern)
+    import time
+
+    from app.services.redis_service import redis_service
+
+    cache_key = get_user_auth_cache_key(user_id)
+    cached_data = await redis_service.get(cache_key)
+
+    # Logical TTL for stale-while-revalidate (60 seconds)
+    # The actual Redis TTL is 300s to ensure we have stale data available
+    SWR_TTL = 60
+    current_time = time.time()
+
+    needs_refresh = True
+    if cached_data:
+        cached_at = cached_data.get("_cached_at", 0)
+        needs_refresh = (current_time - cached_at) > SWR_TTL
+
+        cached_user = User(**{k: v for k, v in cached_data.items() if k != "_cached_at"})
+        cached_user.permissions = normalize_permissions(cached_user.permissions)
+        _apply_subscription_expiry_guard(cached_user)
+
+        if not needs_refresh:
+            return _assert_user_not_banned(cached_user)
+
+        # If we need refresh but have stale data, we return stale data immediately
+        # and refresh in background to avoid blocking the request
+        asyncio.create_task(_refresh_user_auth_cache(user_id, cache_key, current_time))
+        return _assert_user_not_banned(cached_user)
+
+    # Cache miss - block and fetch
+    return await _refresh_user_auth_cache(user_id, cache_key, current_time)
+
+
+async def _refresh_user_auth_cache(user_id: str, cache_key: str, current_time: float) -> User:
+    """Fetch user from database and update cache."""
+    from app.services.redis_service import redis_service
+    from app.utils.supabase_client import get_async_supabase_admin_client
+
+    try:
+        supabase_admin = await get_async_supabase_admin_client()
+        user_service = UserService(supabase_client=supabase_admin, supabase_admin=supabase_admin)
+        user_obj = await user_service.get_user_by_id(user_id)
+        if not user_obj:
+            from app.database import AsyncSessionLocal
+
+            if AsyncSessionLocal is not None:
+                async with AsyncSessionLocal() as db:
+                    user_service = UserService(supabase_client=supabase_admin, supabase_admin=supabase_admin, db=db)
+                    user_obj = await user_service.get_user_by_id(user_id)
+
+        if user_obj:
+            user_obj.permissions = normalize_permissions(user_obj.permissions)
+            _apply_subscription_expiry_guard(user_obj)
+            cache_data = user_obj.model_dump()
+            cache_data["_cached_at"] = current_time
+            await redis_service.set(cache_key, cache_data, expire=USER_AUTH_CACHE_TTL)
+            return _assert_user_not_banned(user_obj)
+
+        logger.warning(f"User {user_id} not found or permission denied in auth query")
+        raise HTTPException(status_code=401, detail="User not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        # SECURITY: Remove permissive fallback during DB lookup failure.
+        # If the database is unreachable, we cannot verify the user's current
+        # ban status, roles, or permissions safely. Relying on JWT payload
+        # data alone is risky if permissions were revoked after token issuance.
+        from app.logger import sanitize_log_value
+
+        logger.error(
+            "Critical: Database lookup failed for user %s in auth middleware: %s", sanitize_log_value(user_id), e
+        )
+        # Fail with 503 (Service Unavailable) to indicate temporary DB issue
+        raise HTTPException(
+            status_code=503, detail="Authentication service temporarily unavailable. Please try again later."
+        )
+
+
+def require_permission(permission_code: str) -> Any:
+    """Dependency factory to check for specific permission"""
+    required_permission = normalize_permission_code(permission_code) or permission_code
+
+    async def permission_checker(request: Request, user: User = Depends(get_current_user)) -> User:
+        user_permissions = set(normalize_permissions(user.permissions))
+
+        # 1. Direct permission check
+        if required_permission in user_permissions:
+            return user
+
+        # 2. General admin permission or role check
+        if has_admin_access(user.role, user_permissions):
+            return user
+
+        # SECURITY: Track failed permission checks for alerting
+        ip_address = request.client.host if request.client else "unknown"
+        user_agent = request.headers.get("user-agent", "unknown")
+        track_failed_permission_check(
+            user_id=user.id,
+            required_permission=required_permission,
+            ip_address=ip_address,
+            endpoint=str(request.url.path),
+        )
+
+        # Track suspicious user agents
+        track_suspicious_user_agent(user_agent, ip_address)
+
+        raise HTTPException(status_code=403, detail=f"Insufficient permissions. Required: {required_permission}")
+
+    return permission_checker
+
+
+async def _verify_via_supabase_api(token: str, supabase: AClient) -> dict | None:
+    """Attempt direct verification via Supabase Auth API"""
+    try:
+        logger.debug("Attempting direct Supabase Auth verification...")
+        user_res = await supabase.auth.get_user(token)
+        if user_res and user_res.user:
+            supabase_user = user_res.user
+            logger.info("Authentication verified via direct Supabase Auth API")
+            return {
+                "sub": supabase_user.id,
+                "user_id": supabase_user.id,
+                "email": supabase_user.email,
+                "user_metadata": supabase_user.user_metadata,
+                "app_metadata": supabase_user.app_metadata,
+                "iat": int(datetime.now(UTC).timestamp()),
+            }
+    except Exception as api_err:
+        logger.debug("Direct Supabase verification failed: %s", api_err)
+    return None
+
+
+async def _attempt_token_decoding(token: str, supabase: AClient | None) -> tuple[dict, str]:
+    """Try multiple strategies to key decode the token"""
+    if not token:
+        logger.warning("Authentication failed: No token provided in credentials")
+        raise HTTPException(status_code=401, detail="Authentication failed: No token provided")
+
+    # 1. Try Supabase JWT (Standard)
+    try:
+        payload = await decode_supabase_token(token)
+        logger.debug("Token decoded successfully using Supabase JWKS")
+        return payload, "supabase"
+    except (HTTPException, ValueError):
+        logger.debug("Supabase token decoding attempted but failed")
+
+    # 2. Try Standard JWT Decoding (Supabase Key or Custom Secret)
+    try:
+        # decode_token handles both config.SUPABASE_KEY and config.JWT_SECRET
+        payload = decode_token(token)
+        logger.debug("Token decoded successfully using verify_token utility")
+
+        # Determine source - if it has app_metadata it's likely Supabase
+        source = "supabase" if "app_metadata" in payload else "custom"
+        return payload, source
+    except ValueError:
+        logger.debug("Standard token verification failed")
+    except Exception:
+        logger.debug("Unexpected error during standard token verification")
+
+    # 3. Try Direct API (Final Fallback)
+    if supabase:
+        api_payload = await _verify_via_supabase_api(token, supabase)
+        if api_payload:
+            logger.info("Token verified via direct Supabase Auth API")
+            return api_payload, "supabase"
+
+    logger.warning("All authentication verification methods failed for the provided token")
+    raise HTTPException(status_code=401, detail="Authentication failed: Invalid or expired token")
+
+
+async def _validate_token_security(payload: dict) -> None:
+    """Run security checks on decoded token payload"""
+    # 1. Check JTI Revocation (Blocklist)
+    jti = payload.get("jti")
+    if jti and await _is_token_revoked(jti):
+        raise HTTPException(status_code=401, detail="Token revoked")
+
+    # 2. Check Global User Invalidation
+    user_id = payload.get("sub") or payload.get("user_id")
+    iat = payload.get("iat")
+
+    if user_id and iat:
+        try:
+            token_service = await get_token_service()
+            issued_at = datetime.fromtimestamp(iat, UTC)
+            if await token_service.is_user_invalidated(user_id, issued_at):
+                raise HTTPException(status_code=401, detail="Session invalidated (Password changed)")
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.error("User invalidation check failed. Denying request for security: %s", exc)
+            raise HTTPException(
+                status_code=503,
+                detail="Authentication service temporarily unavailable. Please try again later.",
+            )
+
+
+async def _verify_and_decode_token(token: str, supabase: AClient | None = None) -> tuple[dict, str]:
+    """Helper to verify and decode token, trying Supabase first then custom"""
+    try:
+        payload, source = await _attempt_token_decoding(token, supabase)
+
+        if payload:
+            await _validate_token_security(payload)
+
+        return payload, source
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error("Unexpected authentication verification error")
+        raise HTTPException(status_code=401, detail="Authentication failed")
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    supabase: AClient = Depends(get_async_supabase_client),
+) -> User:
+    """Get current authenticated user using Supabase Auth or JWT token."""
+    if not credentials:
+        logger.warning("Missing Authorization header in request")
+        raise HTTPException(status_code=401, detail="Authentication failed: No token provided")
+
+    token = credentials.credentials
+    if not token:
+        logger.warning("Bearer token is empty in Authorization header")
+        raise HTTPException(status_code=401, detail="Authentication failed: Empty token")
+
+    payload, source = await _verify_and_decode_token(token, supabase)
+    return await _get_user_from_payload(payload, source)
+
+
+# Alias for backward compatibility and to support widespread use in routes
+get_current_user_from_credentials = get_current_user
+
+
+async def get_current_user_optional(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    supabase: AClient = Depends(get_async_supabase_client),
+) -> User | None:
+    """Get current user if authenticated, otherwise return None."""
+    if not credentials:
+        return None
+    try:
+        return await get_current_user(credentials, supabase)
+    except HTTPException:
+        return None
+
+
+async def get_current_user_from_header(request: Request) -> dict:
+    """Get decoded token payload from request headers (legacy/low-level)."""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+
+    token = auth_header.split(" ")[1]
+    supabase = await get_async_supabase_client()
+    payload, _ = await _verify_and_decode_token(token, supabase)
+    return payload

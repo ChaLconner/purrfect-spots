@@ -27,9 +27,10 @@
       <img
         :src="user.picture || getAvatarFallback(user.name)"
         loading="lazy"
-        class="w-12 h-12 md:w-16 md:h-16 rounded-full object-cover border-2 md:border-4 border-white shadow-md transition-transform duration-300 group-hover:scale-105"
+        referrerpolicy="no-referrer"
+        class="w-12 h-12 md:w-16 md:h-16 rounded-full object-cover border-2 md:border-4 border-white shadow-md"
         :class="{
-          'ring-2 md:ring-4 ring-yellow-400/30 animate-bounce-slow': rank === 1,
+          'ring-2 md:ring-4 ring-yellow-400/30': rank === 1,
           'ring-2 md:ring-4 ring-stone-300/30': rank === 2,
           'ring-2 md:ring-4 ring-orange-300/30': rank === 3,
         }"
@@ -68,8 +69,8 @@
       <p
         class="text-[10px] md:text-xs text-stone-400 font-bold uppercase tracking-wider mt-0.5 md:mt-0"
       >
-        <span class="hidden sm:inline">Treats Received</span>
-        <span class="sm:hidden">Treats</span>
+        <span class="hidden sm:inline">{{ $t('leaderboardPage.stats.treatsReceived') }}</span>
+        <span class="sm:hidden">{{ $t('subscription.treats.unit') }}</span>
       </p>
     </div>
   </div>

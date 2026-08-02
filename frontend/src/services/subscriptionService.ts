@@ -1,8 +1,25 @@
 import { apiV1 } from '../utils/api';
 
+export interface SubscriptionPlanPrice {
+  plan: 'monthly' | 'annual';
+  unit_amount: number;
+  currency: string;
+  interval: string;
+  interval_count: number;
+}
+
+export interface SubscriptionPlans {
+  monthly: SubscriptionPlanPrice;
+  annual: SubscriptionPlanPrice | null;
+}
+
 export const SubscriptionService = {
   async createCheckout(plan: 'monthly' | 'annual' = 'monthly'): Promise<{ checkout_url: string; session_id: string }> {
     return apiV1.post('/subscription/checkout', { plan });
+  },
+
+  async getPlans(): Promise<SubscriptionPlans> {
+    return apiV1.get('/subscription/plans');
   },
 
   async getStatus(): Promise<{

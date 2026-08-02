@@ -9,49 +9,50 @@ license = { text = "MIT" }
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "fastapi>=0.115.0",
-    "uvicorn>=0.30.0",
-    "pydantic[email]>=2.0.0",
-    "pydantic-settings>=2.0.0",
+    "fastapi>=0.140.13",
+    "starlette>=1.3.1",
+    "uvicorn>=0.52.0",
+    "orjson>=3.11.9",
+    "pydantic[email]>=2.13.4",
+    "pydantic-settings>=2.14.2",
     "python-dotenv>=1.2.2",
-    "supabase>=2.5.0",
-    "httpx>=0.27.0",
-    "python-jose[cryptography]>=3.3.0",
+    "supabase>=2.31.0",
+    "httpx>=0.28.1",
+    "websockets>=15.0.1,<16.0.0",
+    "PyJWT>=2.13.0",
     "passlib[bcrypt]>=1.7.4",
-    "python-multipart>=0.0.26",
-    "sentry-sdk[fastapi]>=2.0.0",
-    "slowapi>=0.1.9",
-    "redis>=5.0.0",
-    "google-cloud-vision>=3.7.0",
-    "opentelemetry-api>=1.24.0",
-    "opentelemetry-sdk>=1.24.0",
-    "opentelemetry-instrumentation-fastapi>=0.45b0",
-    "structlog==25.5.0",
-    "python-json-logger>=3.0.0,<5.0.0",
-    "sqlalchemy==2.0.41",
-    "greenlet==3.2.4",
-    "asyncpg==0.30.0",
-    "email-validator>=2.1.0",
-    "bleach>=6.1.0",
+    "argon2-cffi>=25.1.0",
+    "cryptography>=49.0.0",
+    "python-multipart>=0.0.32",
+    "sentry-sdk[fastapi]>=2.66.1",
+    "slowapi>=0.1.10",
+    "redis>=8.0.1",
+    "google-cloud-vision>=3.15.0",
+    "boto3>=1.43.58",
+    "opentelemetry-api>=1.44.0",
+    "opentelemetry-sdk>=1.44.0",
+    "opentelemetry-instrumentation-fastapi>=0.65b0",
+    "opentelemetry-exporter-otlp>=1.44.0",
+    "structlog>=26.1.0",
+    "python-json-logger>=4.1.0,<5.0.0",
+    "sqlalchemy>=2.0.51",
+    "greenlet>=3.5.4",
+    "asyncpg>=0.31.0",
+    "email-validator>=2.3.0",
+    "bleach>=6.4.0",
     "filetype>=1.2.0",
-    "Pillow>=12.2.0",
-    "stripe>=11.0.0",
-    "psycopg2-binary>=2.9.9",
+    "Pillow>=12.3.0",
+    "stripe>=15.3.1",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=9.0.3",
-    "pytest-asyncio>=1.3.0",
-    "pytest-cov>=4.1.0",
-    "pytest-mock>=3.12.0",
-    "anyio>=4.3.0",
-    "ruff>=0.4.0",
-    "mypy>=1.9.0",
-    "black>=24.3.0",
-    "isort>=5.13.0",
-    "Faker>=24.0.0",
-    "pyfakefs>=5.3.0",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.16.0",
+    "mypy>=2.3.0",
+    "Faker>=40.36.0",
 ]
 
 [tool.ruff]
@@ -63,7 +64,7 @@ select = ["E", "F", "B", "I", "N", "UP", "PL", "RUF"]
 ignore = ["B008", "PLR0913", "PLR2004"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["config", "database", "dependencies", "logger", "limiter", "routes", "schemas", "services", "utils"]
+known-first-party = ["app"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -92,15 +93,9 @@ module = [
     "google.cloud.*",
     "redis.*",
     "pythonjsonlogger.*",
-    "jose.*",
-    "passlib.*",
     "boto3.*",
     "botocore.*",
     "filetype.*",
-    "jmespath.*",
-    "pythoncom",
-    "win32api",
-    "win32com.*",
     "structlog"
 ]
 ignore_missing_imports = true
@@ -149,7 +144,7 @@ filterwarnings = [
 ]
 
 [tool.coverage.run]
-source = ["."]
+source = ["app"]
 omit = ["tests/*", "venv/*", ".venv/*"]
 
 [tool.coverage.report]

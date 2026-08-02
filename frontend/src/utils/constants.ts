@@ -6,7 +6,7 @@
  */
 
 // ========== Map Constants ==========
-export const DEFAULT_COORDINATES = {
+const DEFAULT_COORDINATES = {
   CHIANG_MAI: { lat: 18.7883, lng: 98.9853 },
   BANGKOK: { lat: 13.7563, lng: 100.5018 },
   PHUKET: { lat: 7.8804, lng: 98.3923 },
@@ -39,13 +39,6 @@ export const IMAGE_CONFIG = {
 } as const;
 
 // ========== Pagination Constants ==========
-export const PAGINATION_CONFIG = {
-  DEFAULT_PAGE_SIZE: 20,
-  GALLERY_PAGE_SIZE: 20,
-  MAX_PAGE_SIZE: 100,
-  LOAD_MORE_THRESHOLD_PX: 200,
-} as const;
-
 // ========== Gallery Constants ==========
 export const GALLERY_CONFIG = {
   IMAGES_PER_PAGE: 20,
@@ -68,49 +61,6 @@ export const ANIMATION_CONFIG = {
 } as const;
 
 // ========== API Constants ==========
-export const API_CONFIG = {
-  TIMEOUT_MS: 30000,
-  MAX_RETRIES: 2,
-  RETRY_BASE_DELAY_MS: 500,
-  RETRY_MAX_DELAY_MS: 10000,
-} as const;
-
-// ========== Auth Constants ==========
-export const AUTH_CONFIG = {
-  TOKEN_STORAGE_KEY: 'auth_token',
-  USER_STORAGE_KEY: 'user_data',
-  LEGACY_TOKEN_KEY: 'access_token',
-  LEGACY_USER_KEY: 'user',
-  SESSION_CHECK_INTERVAL_MS: 5 * 60 * 1000, // 5 minutes
-} as const;
-
-// ========== Form Validation Constants ==========
-export const VALIDATION_CONFIG = {
-  MIN_PASSWORD_LENGTH: 8,
-  MAX_PASSWORD_LENGTH: 128,
-  MAX_NAME_LENGTH: 100,
-  MAX_LOCATION_NAME_LENGTH: 200,
-  MAX_DESCRIPTION_LENGTH: 1000,
-  MAX_TAGS: 20,
-  MAX_TAG_LENGTH: 50,
-} as const;
-
-// ========== Cat Detection Constants ==========
-export const CAT_DETECTION_CONFIG = {
-  HIGH_CONFIDENCE_THRESHOLD: 75,
-  LOW_CONFIDENCE_THRESHOLD: 50,
-  MIN_ACCEPTABLE_CONFIDENCE: 25,
-} as const;
-
-// ========== Feature Flags ==========
-export const FEATURE_FLAGS = {
-  ENABLE_OAUTH_LOGIN: true,
-  ENABLE_PASSWORD_RESET: true,
-  ENABLE_PROFILE_PICTURES: true,
-  ENABLE_TAGS: true,
-  ENABLE_SEARCH: true,
-} as const;
-
 // ========== External URLs ==========
 export const EXTERNAL_URLS = {
   GOOGLE_MAPS_DIRECTIONS: 'https://www.google.com/maps/dir/?api=1',

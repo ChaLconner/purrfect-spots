@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 def get_current_schema() -> dict:
     """Get current OpenAPI schema from FastAPI app."""
-    from main import app
+    from app.main import app
 
     return app.openapi()
 

@@ -107,8 +107,8 @@ const rows = computed(() => {
             class="w-full"
           >
             <div
-              class="grid gap-3 sm:gap-4 md:gap-6 p-2 sm:p-3 md:p-4 w-full"
-              :style="{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }"
+              class="grid grid-cols-[var(--gallery-columns)] gap-3 sm:gap-4 md:gap-6 p-2 sm:p-3 md:p-4 w-full"
+              :style="{ '--gallery-columns': `repeat(${cols}, minmax(0, 1fr))` }"
             >
               <button
                 v-for="upload in item.items"

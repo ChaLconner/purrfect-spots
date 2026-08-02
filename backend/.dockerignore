@@ -1,27 +1,44 @@
-__pycache__
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-.venv/
+# Secrets and local configuration
 .env
 .env.*
-!.env.example
+keys
+google_vision.json
+
+# Version control and local tooling
 .git
 .gitignore
-.mypy_cache
-.pytest_cache
-.ruff_cache
+.vscode
+.idea
+
+# Python environments, caches, and packaging artifacts
+.Python
+.venv
+venv
+env
+ENV
+**/__pycache__
+**/*.py[cod]
+**/.mypy_cache
+**/.pytest_cache
+**/.ruff_cache
+**/*.egg-info
+build
+dist
+
+# Tests, coverage, logs, and temporary output
+tests
 .coverage
+.coverage.*
 coverage.xml
-coverage_html/
-htmlcov/
-dist/
-build/
-*.egg-info/
-tests/
+coverage_html
+htmlcov
+**/*.log
+**/*.tmp
+**/*.temp
+.tmp
+
+# Deployment state and development-only files
+.vercel
+requirements-dev.txt
+routes
+scratch

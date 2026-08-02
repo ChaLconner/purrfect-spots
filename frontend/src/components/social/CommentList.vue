@@ -17,11 +17,11 @@
           d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
         />
       </svg>
-      Comments ({{ comments.length }})
+      {{ $t('social.comments.title') }} ({{ comments.length }})
     </h3>
 
     <!-- Comment List -->
-    <div class="space-y-4 mb-6">
+    <div class="space-y-4 mb-4">
       <div
         v-if="loading"
         class="text-brown-light text-center py-6 flex flex-col items-center gap-2"
@@ -29,19 +29,20 @@
         <div
           class="w-6 h-6 border-2 border-brown/20 border-t-brown rounded-full animate-spin"
         ></div>
-        <span class="text-sm font-medium">Loading comments...</span>
+        <span class="text-sm font-medium">{{ $t('social.comments.loading') }}</span>
       </div>
       <div
         v-else-if="comments.length === 0"
-        class="text-brown-light/70 text-center py-8 italic text-sm"
+        class="text-brown-light/70 text-center py-6 px-4 italic text-xs sm:text-sm bg-white/40 rounded-xl border border-dashed border-brown-light/20"
       >
-        Be the first to leave a friendly paw-print!
+        {{ $t('social.comments.noComments') }}
       </div>
 
       <div v-for="comment in displayedComments" :key="comment.id" class="flex gap-4 group">
         <img
           :src="getAvatarUrl(comment)"
-          alt="User avatar"
+          :alt="$t('social.userAvatar')"
+          referrerpolicy="no-referrer"
           class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm flex-shrink-0"
           @error="handleAvatarError(comment.id)"
         />
@@ -68,21 +69,21 @@
                 v-model="editContent"
                 is-textarea
                 :rows="2"
-                class="bg-white border-sage/30"
+                class="bg-white border-sage/30 !mb-0"
               />
               <div class="flex justify-end gap-2 mt-2">
                 <button
                   class="text-[11px] font-bold text-gray-400 hover:text-gray-600 px-2 py-1"
                   @click="cancelEdit"
                 >
-                  Cancel
+                  {{ $t('common.cancel') }}
                 </button>
                 <button
                   class="text-[11px] font-bold text-sage hover:text-sage-dark px-3 py-1 bg-sage/10 rounded-lg transition-colors"
                   :disabled="isUpdating"
                   @click="saveEdit(comment.id)"
                 >
-                  Save
+                  {{ $t('common.save') }}
                 </button>
               </div>
             </div>
@@ -93,11 +94,11 @@
             <!-- Action Icons at Bottom Right -->
             <div
               v-if="currentUserId === comment.user_id && editingId !== comment.id"
-              class="absolute bottom-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/60 backdrop-blur-sm rounded-lg p-0.5"
+              class="absolute bottom-2 right-2 flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity bg-white/60 backdrop-blur-sm rounded-lg p-0.5"
             >
               <button
                 class="text-sage hover:text-sage-dark transition-colors p-1"
-                title="Edit comment"
+                :title="$t('accessibility.editComment')"
                 @click="startEdit(comment)"
               >
                 <svg
@@ -117,7 +118,7 @@
               </button>
               <button
                 class="text-terracotta hover:text-terracotta-dark transition-colors p-1"
-                title="Remove comment"
+                :title="$t('accessibility.removeComment')"
                 @click.stop="confirmDeleteComment(comment.id)"
               >
                 <svg
@@ -143,10 +144,10 @@
       <!-- View All Toggle -->
       <div v-if="comments.length > 3" class="flex justify-center mt-2">
         <button
-          class="text-xs font-bold text-brown-light hover:text-brown transition-colors py-2 px-4 bg-white/40 rounded-full border border-brown-light/10"
+          class="text-xs font-bold text-brown-light hover:text-brown transition-colors py-1.5 px-3 bg-white/40 rounded-full border border-brown-light/10"
           @click="showAll = !showAll"
         >
-          {{ showAll ? 'Show less' : `View all ${comments.length} comments` }}
+          {{ showAll ? $t('social.showLess') : $t('social.showAll', { count: comments.length }) }}
         </button>
       </div>
     </div>
@@ -165,29 +166,28 @@
     />
 
     <!-- Add Comment Form -->
-    <div v-if="isAuthenticated" class="mt-6 border-t border-cream-dark/50 pt-6">
-      <div class="flex gap-3 items-start">
-        <div class="flex-1 relative">
-          <BaseInput
-            v-model="newComment"
-            is-textarea
-            placeholder="Write a comment..."
-            :rows="3"
-            :disabled="isSubmitting"
-            @keydown.ctrl.enter="postComment"
-          />
+    <div v-if="isAuthenticated" class="mt-4 border-t border-cream-dark/40 pt-4">
+      <div class="flex flex-col gap-2.5">
+        <BaseInput
+          v-model="newComment"
+          is-textarea
+          :placeholder="$t('social.comments.placeholder')"
+          :rows="2"
+          :disabled="isSubmitting"
+          class="!mb-0"
+          @keydown.ctrl.enter="postComment"
+        />
+        <div class="flex justify-end">
+          <BaseButton
+            variant="ghibli-primary"
+            class="px-6 py-2 text-xs sm:text-sm font-bold rounded-xl shadow-sm hover:shadow transition-all"
+            :disabled="!newComment.trim() || isSubmitting"
+            :loading="isSubmitting"
+            @click="postComment"
+          >
+            {{ isSubmitting ? $t('social.comments.posting') : $t('social.comments.post') }}
+          </BaseButton>
         </div>
-      </div>
-      <div class="flex justify-end mt-3">
-        <BaseButton
-          variant="ghibli-primary"
-          class="px-8"
-          :disabled="!newComment.trim() || isSubmitting"
-          :loading="isSubmitting"
-          @click="postComment"
-        >
-          {{ isSubmitting ? 'Posting...' : 'Post Comment' }}
-        </BaseButton>
       </div>
     </div>
     <div
@@ -195,7 +195,7 @@
       class="text-center py-6 bg-cream-dark/10 rounded-2xl border border-dashed border-brown-light/20"
     >
       <a href="/login" class="text-sm text-sage font-bold hover:text-sage-dark transition-colors">
-        Sign in to post a comment
+        {{ $t('social.comments.signInToComment') }}
       </a>
     </div>
   </div>
@@ -204,8 +204,8 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
 import { SocialService, type Comment } from '@/services/socialService';
-import { useToastStore } from '@/store';
-import { useAuthStore } from '@/store/authStore';
+import { useToastStore } from '@/stores';
+import { useAuthStore } from '@/stores/authStore';
 import { BaseButton, BaseCard, BaseInput, BaseConfirmModal } from '@/components/ui';
 import { EXTERNAL_URLS } from '@/utils/constants';
 import { formatTimestamp } from '@/utils/date';

@@ -1,12 +1,11 @@
 <template>
-  <div class="admin-reports-shell">
-    <div
-      class="admin-reports-toolbar"
+  <div class="space-y-6 font-body">
+    <AdminPageHeader
+      :title="t('admin.reports.title')"
     >
-      <div class="admin-reports-toolbar-main">
-        <h2 class="admin-reports-title">{{ t('admin.reports.title') }}</h2>
+      <template #actions>
         <button
-          class="admin-reports-export-button"
+          class="px-4 py-2 bg-white border border-sand-300 text-brown-600 rounded-lg hover:bg-sand-50 transition-colors text-sm font-medium flex items-center gap-2 shadow-sm"
           @click="exportReports"
         >
           <svg
@@ -25,11 +24,15 @@
           </svg>
           {{ t('admin.reports.exportCsv') }}
         </button>
-      </div>
-      <div class="admin-reports-filters">
-        <select
+      </template>
+    </AdminPageHeader>
+
+    <div class="overflow-hidden border border-sand-200/95 rounded-xl bg-white shadow-sm">
+      <div class="p-4 border-b border-sand-200 bg-sand-50/50 flex flex-wrap gap-4 items-center justify-between">
+        <div class="flex flex-wrap gap-2 items-center">
+          <select
           v-model="statusFilter"
-          class="admin-reports-filter-select"
+          class="px-3 py-2 border border-sand-300 rounded-lg bg-white text-brown-700 text-sm"
           @change="loadReports(1)"
         >
           <option value="">{{ t('admin.reports.filters.allStatuses') }}</option>
@@ -39,7 +42,7 @@
         </select>
         <select
           v-model="reasonFilter"
-          class="admin-reports-filter-select"
+          class="px-3 py-2 border border-sand-300 rounded-lg bg-white text-brown-700 text-sm"
           @change="loadReports(1)"
         >
           <option value="">{{ t('admin.reports.filters.allReasons') }}</option>
@@ -47,47 +50,47 @@
             {{ reason.label }}
           </option>
         </select>
-        <div class="admin-reports-date-range">
+        <div class="flex items-center gap-2">
           <input
             v-model="startDate"
             type="date"
-            class="admin-reports-date-input"
+            class="px-3 py-2 border border-sand-300 rounded-lg bg-white text-brown-700 text-sm"
             @change="loadReports(1)"
           />
           <span class="text-brown-400">-</span>
           <input
             v-model="endDate"
             type="date"
-            class="admin-reports-date-input"
+            class="px-3 py-2 border border-sand-300 rounded-lg bg-white text-brown-700 text-sm"
             @change="loadReports(1)"
           />
         </div>
         <div
           v-if="selectedReportIds.length > 0 && canManageReports"
-          class="admin-reports-bulk-bar"
+          class="flex items-center gap-2 px-3 py-1.5 border border-terracotta-100 rounded-lg bg-terracotta-50"
         >
-          <span class="admin-reports-bulk-count">
+          <span class="text-xs font-medium text-terracotta-700">
             {{ t('admin.reports.selectedCount', { count: selectedReportIds.length }) }}
           </span>
           <button
-            class="admin-reports-bulk-button"
+            class="px-2 py-1 border border-terracotta-200 rounded bg-white text-terracotta-700 text-xs font-medium hover:bg-terracotta-100"
             @click="openBulkActionModal('resolve')"
           >
             {{ t('admin.reports.actions.resolve') }}
           </button>
           <button
-            class="admin-reports-bulk-button"
+            class="px-2 py-1 border border-terracotta-200 rounded bg-white text-terracotta-700 text-xs font-medium hover:bg-terracotta-100"
             @click="openBulkActionModal('dismiss')"
           >
             {{ t('admin.reports.actions.dismiss') }}
           </button>
         </div>
-        <RefreshButton
-          :title="t('common.refresh')"
-          @refresh="loadReports(1, true)"
-        />
+          <RefreshButton
+            :title="t('common.refresh')"
+            @refresh="loadReports(1, true)"
+          />
+        </div>
       </div>
-    </div>
 
     <div class="overflow-x-auto">
       <table class="min-w-full divide-y divide-sand-200">
@@ -103,37 +106,37 @@
             </th>
             <th
               scope="col"
-              class="px-6 py-2 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.15em]"
+              class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-[0.08em]"
             >
               {{ t('admin.reports.table.timestamp') }}
             </th>
             <th
               scope="col"
-              class="px-6 py-2 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.15em]"
+              class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-[0.08em]"
             >
               {{ t('admin.reports.table.category') }}
             </th>
             <th
               scope="col"
-              class="px-6 py-2 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.15em]"
+              class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-[0.08em]"
             >
               {{ t('admin.reports.table.subject') }}
             </th>
             <th
               scope="col"
-              class="px-6 py-2 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.15em]"
+              class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-[0.08em]"
             >
               {{ t('admin.reports.table.author') }}
             </th>
             <th
               scope="col"
-              class="px-6 py-2 text-left text-[10px] font-black text-brown-400 uppercase tracking-[0.15em]"
+              class="px-6 py-3 text-left text-xs font-medium text-brown-500 uppercase tracking-[0.08em]"
             >
               {{ t('admin.reports.table.status') }}
             </th>
             <th
               scope="col"
-              class="px-6 py-2 text-right text-[10px] font-black text-brown-400 uppercase tracking-[0.15em]"
+              class="px-6 py-3 text-right text-xs font-medium text-brown-500 uppercase tracking-[0.08em]"
             >
               {{ t('admin.reports.table.controls') }}
             </th>
@@ -211,7 +214,7 @@
             </td>
             <td class="px-6 py-3 whitespace-nowrap">
               <span
-                class="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider leading-none shadow-sm border"
+                class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold leading-5 shadow-sm border"
                 :class="{
                   'bg-yellow-50 text-yellow-700 border-yellow-100': report.status === 'pending',
                   'bg-green-50 text-green-700 border-green-100': report.status === 'resolved',
@@ -248,7 +251,7 @@
                   {{ t('admin.reports.actions.delete') }}
                 </button>
               </div>
-              <span v-else class="text-brown-400 text-xs">
+              <span v-else class="text-brown-400 text-sm">
                 {{ t('admin.reports.actions.noActions') }}
               </span>
             </td>
@@ -278,7 +281,7 @@
     <!-- Image Preview Modal -->
     <div
       v-if="previewImageUrl"
-      class="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center p-4 z-50 transition-opacity"
+      class="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50 transition-opacity"
       @click="previewImageUrl = null"
     >
       <div class="relative">
@@ -359,6 +362,7 @@
         ></textarea>
       </div>
     </ActionModal>
+    </div>
   </div>
 </template>
 
@@ -368,13 +372,14 @@ import { useI18n } from 'vue-i18n';
 import { PERMISSIONS } from '@/constants/permissions';
 import { apiV1 } from '@/utils/api';
 import { RESOLUTION_REASONS, REPORT_REASONS } from '@/constants/moderation';
-import { useToast } from '@/components/toast/use-toast';
-import { useAuthStore } from '@/store/authStore';
+import { useToast } from '@/composables/useToast';
+import { useAuthStore } from '@/stores/authStore';
 import { useAdminTable } from '@/composables/useAdminTable';
 import TableSkeleton from '@/components/ui/TableSkeleton.vue';
 import RefreshButton from '@/components/ui/RefreshButton.vue';
 import AdminPagination from '@/components/ui/AdminPagination.vue';
 import ActionModal from '@/components/ui/ActionModal.vue';
+import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import { OptimizedImage } from '@/components/ui';
 import { formatTimestamp } from '@/utils/date';
 
@@ -497,6 +502,8 @@ const closeActionModal = (): void => {
   resolutionNote.value = '';
 };
 
+const processingReportIds = ref(new Set<string>());
+
 const confirmAction = async (): Promise<void> => {
   if (!selectedReport.value || !hasValidSelectedReason.value) return;
 
@@ -504,11 +511,25 @@ const confirmAction = async (): Promise<void> => {
     ? `${t('admin.reports.resolutionReasons.' + selectedReason.value)}: ${resolutionNote.value}`
     : t('admin.reports.resolutionReasons.' + selectedReason.value);
 
+  const targetIds = isBulkAction.value ? [...selectedReportIds.value] : [selectedReport.value.id];
+  const targetNewStatus: 'resolved' | 'dismissed' =
+    actionType.value === 'dismiss' ? 'dismissed' : 'resolved';
+
+  // Backup previous statuses for optimistic rollback
+  const backupStatuses = new Map<string, Report['status']>();
+  reports.value.forEach((r) => {
+    if (targetIds.includes(r.id)) {
+      backupStatuses.set(r.id, r.status);
+      r.status = targetNewStatus; // Optimistic update
+      processingReportIds.value.add(r.id);
+    }
+  });
+
   try {
     if (isBulkAction.value) {
       await apiV1.post('/admin/reports/bulk', {
         report_ids: selectedReportIds.value,
-        status: actionType.value === 'dismiss' ? 'dismissed' : 'resolved',
+        status: targetNewStatus,
         resolution_notes: finalNote,
         delete_content: actionType.value === 'delete',
       });
@@ -518,6 +539,7 @@ const confirmAction = async (): Promise<void> => {
         }),
         variant: 'default',
       });
+      selectedReportIds.value = [];
     } else {
       if (actionType.value === 'delete') {
         await apiV1.put(`/admin/reports/${selectedReport.value.id}`, {
@@ -527,7 +549,7 @@ const confirmAction = async (): Promise<void> => {
         });
       } else {
         await apiV1.put(`/admin/reports/${selectedReport.value.id}`, {
-          status: actionType.value === 'dismiss' ? 'dismissed' : 'resolved',
+          status: targetNewStatus,
           resolution_notes: finalNote,
         });
       }
@@ -538,14 +560,23 @@ const confirmAction = async (): Promise<void> => {
     }
 
     closeActionModal();
-    loadReports(page.value);
+    await loadReports(page.value);
   } catch (e) {
     console.error('Failed to perform action', e);
+    // Rollback optimistic update
+    reports.value.forEach((r) => {
+      const prevStatus = backupStatuses.get(r.id);
+      if (prevStatus !== undefined) {
+        r.status = prevStatus;
+      }
+    });
     toast({
       title: t('common.error'),
       description: t('admin.reports.actions.failed'),
       variant: 'destructive',
     });
+  } finally {
+    targetIds.forEach((id) => processingReportIds.value.delete(id));
   }
 };
 
@@ -557,110 +588,3 @@ onMounted(() => {
   loadReports();
 });
 </script>
-
-<style scoped>
-.admin-reports-shell {
-  overflow: hidden;
-  border: 1px solid rgba(245, 245, 244, 0.95);
-  border-radius: 0.75rem;
-  background: white;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-}
-
-.admin-reports-toolbar {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem;
-  border-bottom: 1px solid rgba(245, 245, 244, 0.95);
-}
-
-.admin-reports-toolbar-main {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.admin-reports-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--color-brown-900, #2d2420);
-}
-
-.admin-reports-export-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0.75rem;
-  border: 1px solid var(--color-sand-200);
-  border-radius: 0.5rem;
-  background: var(--color-sand-50);
-  color: var(--color-brown-600, #57534e);
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: background-color 0.2s ease;
-}
-
-.admin-reports-export-button:hover {
-  background: var(--color-sand-100);
-}
-
-.admin-reports-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.admin-reports-filter-select,
-.admin-reports-date-input {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--color-sand-300);
-  border-radius: 0.5rem;
-  background: white;
-  color: var(--color-brown-700, #44403c);
-}
-
-.admin-reports-date-range {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.admin-reports-bulk-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0.75rem;
-  border: 1px solid var(--color-terracotta-100, #f7ebe6);
-  border-radius: 0.5rem;
-  background: var(--color-terracotta-50, #fbf5f2);
-}
-
-.admin-reports-bulk-count {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--color-terracotta-700, #a04f2c);
-}
-
-.admin-reports-bulk-button {
-  padding: 0.25rem 0.5rem;
-  border: 1px solid var(--color-terracotta-200, #eecfb9);
-  border-radius: 0.25rem;
-  background: white;
-  color: var(--color-terracotta-700, #a04f2c);
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.admin-reports-bulk-button:hover {
-  background: var(--color-terracotta-100, #f7ebe6);
-}
-
-@media (min-width: 640px) {
-  .admin-reports-toolbar {
-    flex-direction: row;
-  }
-}
-</style>

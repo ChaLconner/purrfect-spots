@@ -41,12 +41,12 @@
           <!-- Progress bar -->
           <div class="h-3 w-full bg-stone-100 rounded-full overflow-hidden relative z-10 shadow-inner">
             <div 
-              class="h-full rounded-full transition-all duration-700 ease-out relative"
+              class="relative h-full w-[var(--quota-progress)] rounded-full transition-all duration-500 ease-out"
               :class="[
                 quotaStatus.remaining === 0 ? 'bg-red-500' : 
                 quotaStatus.is_pro ? 'bg-gradient-to-r from-yellow-400 to-amber-500' : 'bg-gradient-to-r from-sage to-terracotta'
               ]"
-              :style="{ width: `${Math.min((quotaStatus.used / (quotaStatus.limit || 1)) * 100, 100)}%` }"
+              :style="{ '--quota-progress': `${Math.min((quotaStatus.used / Math.max(quotaStatus.limit, 1)) * 100, 100)}%` }"
             >
               <!-- Shimmer effect -->
               <div class="absolute inset-0 bg-white/20 w-full h-full -skew-x-12 translate-x-[-100%] animate-[shimmer_2s_infinite]"></div>
@@ -93,8 +93,8 @@
         <!-- Progress Bar -->
         <div v-if="currentStep < 4" class="h-2 bg-stone-100 w-full">
           <div
-            class="h-full bg-gradient-to-r from-sage to-terracotta transition-all duration-500 ease-out"
-            :style="{ width: `${(currentStep / 3) * 100}%` }"
+            class="h-full bg-gradient-to-r from-sage to-terracotta transition-all duration-500 ease-out w-[var(--step-progress)]"
+            :style="{ '--step-progress': `${(currentStep / 3) * 100}%` }"
           ></div>
         </div>
 
@@ -117,11 +117,12 @@
                   :is-quota-full="!canUpload"
                   @file-selected="handleFileSelected"
                   @check-auth="handleCheckAuth"
+                  @clear-file="handleClearFile"
                 />
 
                 <div
                   v-if="uploadData.catDetectionResult?.has_cats && !isDetectingCats"
-                  class="mt-8 flex justify-end fade-enter-active"
+                  class="mt-8 flex justify-end"
                 >
                   <button
                     class="px-6 py-2 bg-terracotta text-white font-bold rounded-xl shadow-md hover:bg-terracotta-dark transition-all transform hover:-translate-y-0.5"
@@ -180,9 +181,13 @@
                 <UploadLocationSection
                   :is-authenticated="isAuthenticated"
                   :getting-location="gettingLocation"
-                  :has-selected-location="!!uploadData.latitude"
+                  :has-selected-location="
+                    uploadData.latitude !== null && uploadData.longitude !== null
+                  "
+                  :location-blurred="uploadData.locationBlurred"
                   @get-location="getCurrentLocation"
                   @check-auth="handleCheckAuth"
+                  @update:location-blurred="uploadData.locationBlurred = $event"
                 />
 
                 <div class="mt-8 flex justify-between">
@@ -197,21 +202,44 @@
                     :disabled="!isStep3Valid || isSubmitting"
                     @click="submitUpload"
                   >
-                    <span v-if="isSubmitting">{{ t('common.uploading') }}...</span>
+                    <span v-if="isSubmitting">
+                      {{
+                        uploadPhase === 'processing'
+                          ? t('upload.processing')
+                          : t('common.uploading')
+                      }}
+                    </span>
                     <span v-else>{{ t('common.upload') }}</span>
                   </button>
                 </div>
 
                 <!-- Upload Progress Bar -->
-                <div v-if="isSubmitting && uploadProgress > 0" class="mt-4">
+                <div
+                  v-if="isSubmitting && uploadProgress > 0"
+                  class="mt-4"
+                  role="status"
+                  aria-live="polite"
+                >
                   <div class="flex items-center justify-between text-sm text-brown-light mb-1">
-                    <span>{{ t('upload.uploadingProgress') }}</span>
-                    <span class="font-bold text-terracotta">{{ uploadProgress }}%</span>
+                    <span>
+                      {{
+                        uploadPhase === 'processing'
+                          ? t('upload.processing')
+                          : t('upload.uploadingProgress')
+                      }}
+                    </span>
+                    <span v-if="uploadPhase === 'uploading'" class="font-bold text-terracotta">
+                      {{ uploadProgress }}%
+                    </span>
                   </div>
                   <div class="h-2.5 bg-stone-100 rounded-full overflow-hidden">
                     <div
-                      class="h-full bg-gradient-to-r from-sage to-terracotta rounded-full transition-all duration-300 ease-out"
-                      :style="{ width: `${uploadProgress}%` }"
+                      class="h-full bg-gradient-to-r from-sage to-terracotta rounded-full transition-all duration-300 ease-out w-[var(--upload-progress)]"
+                      :style="{ '--upload-progress': `${uploadProgress}%` }"
+                      role="progressbar"
+                      :aria-valuenow="uploadProgress"
+                      aria-valuemin="0"
+                      aria-valuemax="100"
                     ></div>
                   </div>
                 </div>
@@ -247,15 +275,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
+import { onBeforeRouteLeave, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { useAuthStore } from '@/store/authStore';
-import { showError, showSuccess } from '@/store/toast';
+import { useAuthStore } from '@/stores/authStore';
+import { showError, showSuccess } from '@/stores/toast';
 import { useUploadCat } from '@/composables/useUploadCat';
 import { useUploadMap } from '@/composables/useUploadMap';
 import { formatTimestamp } from '@/utils/date';
 import { ApiError, ApiErrorTypes } from '@/utils/api';
+import type { CatDetectionResult, UploadResponse } from '@/types/upload';
+
+import { useQuotaCache, type UploadQuotaStatus } from '@/composables/useQuotaCache';
 
 // Components
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
@@ -270,6 +301,7 @@ import UploadSuccess from '@/components/upload/UploadSuccess.vue';
 const router = useRouter();
 const authStore = useAuthStore();
 const { t, locale } = useI18n();
+const { readQuotaCache, writeQuotaCache } = useQuotaCache();
 const isAuthenticated = computed(() => authStore.isAuthenticated);
 const canRequestQuota = computed(() => authStore.isInitialized && authStore.isAuthenticated);
 
@@ -279,53 +311,10 @@ const isDetectingCats = ref(false);
 const isSubmitting = ref(false);
 const showLoginModal = ref(false);
 
-const uploadResult = ref<unknown>(null);
-
-type UploadQuotaStatus = {
-  used: number;
-  limit: number;
-  remaining: number;
-  is_pro: boolean;
-  resets_at: string | null;
-  reset_type: string | null;
-};
-
-const QUOTA_CACHE_KEY = 'upload_quota_cache_v1';
-const QUOTA_CACHE_TTL_MS = 60 * 1000;
-
-const readQuotaCache = (): UploadQuotaStatus | null => {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = sessionStorage.getItem(QUOTA_CACHE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as {
-      userId?: string;
-      timestamp?: number;
-      data?: UploadQuotaStatus;
-    };
-
-    const currentUserId = authStore.user?.id;
-    if (!currentUserId || parsed.userId !== currentUserId) return null;
-    if (!parsed.timestamp || Date.now() - parsed.timestamp > QUOTA_CACHE_TTL_MS) return null;
-    return parsed.data ?? null;
-  } catch {
-    return null;
-  }
-};
-
-const writeQuotaCache = (data: UploadQuotaStatus): void => {
-  if (typeof window === 'undefined') return;
-  const currentUserId = authStore.user?.id;
-  if (!currentUserId) return;
-  sessionStorage.setItem(
-    QUOTA_CACHE_KEY,
-    JSON.stringify({
-      userId: currentUserId,
-      timestamp: Date.now(),
-      data,
-    })
-  );
-};
+const uploadResult = ref<UploadResponse | null>(null);
+let detectionController: AbortController | null = null;
+let stepAdvanceTimeout: ReturnType<typeof setTimeout> | null = null;
+let detectionSequence = 0;
 
 const quotaStatus = ref<UploadQuotaStatus | null>(readQuotaCache());
 let quotaFetchPromise: Promise<void> | null = null;
@@ -395,12 +384,13 @@ const canUpload = computed(() => {
 const uploadData = ref({
   file: null as File | null,
   previewUrl: null as string | null,
-  catDetectionResult: null as unknown,
+  catDetectionResult: null as CatDetectionResult | null,
   locationName: '',
   description: '',
   tags: [] as string[],
   latitude: null as number | null,
   longitude: null as number | null,
+  locationBlurred: false,
 });
 
 const formatResetTime = (isoString: string): string => {
@@ -410,7 +400,8 @@ const formatResetTime = (isoString: string): string => {
 
 // Computed Validation
 const isStep2Valid = computed(() => {
-  return uploadData.value.locationName.trim().length > 0;
+  const nameLength = uploadData.value.locationName.trim().length;
+  return nameLength >= 3 && nameLength <= 100 && uploadData.value.description.length <= 1000;
 });
 
 const isStep3Valid = computed(() => {
@@ -425,10 +416,37 @@ const handleCheckAuth = (): void => {
 };
 
 const handleLoginParams = (): void => {
-  router.push({ path: '/login', query: { redirect: '/upload' } });
+  showLoginModal.value = false;
+  void router.push({ path: '/login', query: { redirect: '/upload' } });
+};
+
+const cancelPendingDetection = (): void => {
+  detectionSequence += 1;
+  detectionController?.abort();
+  detectionController = null;
+  if (stepAdvanceTimeout) {
+    clearTimeout(stepAdvanceTimeout);
+    stepAdvanceTimeout = null;
+  }
+};
+
+const handleClearFile = (): void => {
+  cancelPendingDetection();
+  if (uploadData.value.previewUrl) {
+    URL.revokeObjectURL(uploadData.value.previewUrl);
+  }
+  uploadData.value.previewUrl = null;
+  uploadData.value.file = null;
+  uploadData.value.catDetectionResult = null;
 };
 
 const handleFileSelected = async ({ file, url }: { file: File; url: string }): Promise<void> => {
+  cancelPendingDetection();
+  if (uploadData.value.previewUrl && uploadData.value.previewUrl !== url) {
+    URL.revokeObjectURL(uploadData.value.previewUrl);
+  }
+  const operationId = detectionSequence;
+  detectionController = new AbortController();
   uploadData.value.file = file;
   uploadData.value.previewUrl = url;
 
@@ -438,12 +456,14 @@ const handleFileSelected = async ({ file, url }: { file: File; url: string }): P
     const { catDetectionService } = await import('@/services/catDetectionService');
 
     // Simulate or call real service
-    const result = await catDetectionService.detectCats(file);
+    const result = await catDetectionService.detectCats(file, detectionController.signal);
+    if (operationId !== detectionSequence) return;
     uploadData.value.catDetectionResult = result;
 
     if (result.has_cats) {
-      setTimeout(() => {
-        currentStep.value = 2;
+      stepAdvanceTimeout = setTimeout(() => {
+        if (operationId === detectionSequence) currentStep.value = 2;
+        stepAdvanceTimeout = null;
       }, 1000);
     } else {
       showError(t('upload.noCatsDetected'), 'Detection Failed');
@@ -453,6 +473,8 @@ const handleFileSelected = async ({ file, url }: { file: File; url: string }): P
       uploadData.value.catDetectionResult = null;
     }
   } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') return;
+    if (operationId !== detectionSequence) return;
     console.error(error);
     showError(t('upload.errorVerifyCat'), t('common.error'));
     if (uploadData.value.previewUrl) URL.revokeObjectURL(uploadData.value.previewUrl);
@@ -460,12 +482,16 @@ const handleFileSelected = async ({ file, url }: { file: File; url: string }): P
     uploadData.value.file = null;
     uploadData.value.catDetectionResult = null;
   } finally {
-    isDetectingCats.value = false;
+    if (operationId === detectionSequence) {
+      isDetectingCats.value = false;
+      detectionController = null;
+    }
   }
 };
 
 // Use Composables
-const { uploadCatPhoto, isUploading, uploadProgress, getUploadQuota, error } = useUploadCat();
+const { uploadCatPhoto, isUploading, uploadProgress, uploadPhase, getUploadQuota, error } =
+  useUploadCat();
 
 const { gettingLocation, initMap, getCurrentLocation } = useUploadMap({
   onLocationUpdate: (lat, lng) => {
@@ -487,13 +513,15 @@ watch(isUploading, (val) => {
 });
 
 const submitUpload = async (): Promise<void> => {
+  if (isSubmitting.value) return; // Prevent double submission
   if (!uploadData.value.file) return;
 
-  if (!uploadData.value.latitude || !uploadData.value.longitude) {
+  if (uploadData.value.latitude === null || uploadData.value.longitude === null) {
     showError(t('upload.locationRequired'), 'Validation Error');
     return;
   }
 
+  isSubmitting.value = true;
   try {
     const locationData = {
       lat: uploadData.value.latitude.toString(),
@@ -501,12 +529,13 @@ const submitUpload = async (): Promise<void> => {
       location_name: uploadData.value.locationName,
       description: uploadData.value.description,
       tags: uploadData.value.tags,
+      location_blurred: uploadData.value.locationBlurred,
     };
 
     const result = await uploadCatPhoto(
       uploadData.value.file,
       locationData,
-      uploadData.value.catDetectionResult
+      uploadData.value.catDetectionResult ?? undefined
     );
 
     if (result) {
@@ -515,16 +544,23 @@ const submitUpload = async (): Promise<void> => {
       showSuccess(t('upload.successMessage'));
       void refreshQuota(true); // Refresh quota after success
     } else {
-      // Use the specific error message from the composable if available
+      // Check for auth failure in error text
+      if (error.value && error.value.includes('session expired')) {
+        showLoginModal.value = true;
+      }
       showError(error.value || t('upload.uploadFailed'), t('common.error'));
     }
   } catch (err) {
     showError(t('upload.unexpectedError'), t('common.error'));
     console.error(err);
+  } finally {
+    isSubmitting.value = false;
   }
 };
 
 const resetForm = (): void => {
+  cancelPendingDetection();
+  if (uploadData.value.previewUrl) URL.revokeObjectURL(uploadData.value.previewUrl);
   uploadData.value = {
     file: null,
     previewUrl: null,
@@ -534,7 +570,36 @@ const resetForm = (): void => {
     tags: [],
     latitude: null,
     longitude: null,
+    locationBlurred: false,
   };
   currentStep.value = 1;
 };
+
+const hasUnsavedUpload = computed(
+  () =>
+    currentStep.value < 4 &&
+    (uploadData.value.file !== null ||
+      uploadData.value.locationName.trim().length > 0 ||
+      uploadData.value.description.trim().length > 0 ||
+      uploadData.value.tags.length > 0)
+);
+
+const confirmDiscard = (): boolean =>
+  // eslint-disable-next-line no-alert
+  !hasUnsavedUpload.value || window.confirm(t('upload.confirmDiscard'));
+
+onBeforeRouteLeave(() => confirmDiscard());
+
+const handleBeforeUnload = (event: BeforeUnloadEvent): void => {
+  if (!hasUnsavedUpload.value) return;
+  event.preventDefault();
+  event.returnValue = '';
+};
+
+onMounted(() => window.addEventListener('beforeunload', handleBeforeUnload));
+onUnmounted(() => {
+  cancelPendingDetection();
+  if (uploadData.value.previewUrl) URL.revokeObjectURL(uploadData.value.previewUrl);
+  window.removeEventListener('beforeunload', handleBeforeUnload);
+});
 </script>

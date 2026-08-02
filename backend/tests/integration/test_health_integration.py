@@ -81,7 +81,7 @@ class TestHealthCheckDependencyFailures:
 
     def test_readiness_unhealthy_when_database_down(self, client) -> None:
         """Test: Readiness returns 503 when database is down"""
-        with patch("routes.health.check_database") as mock_db:
+        with patch("app.routes.health.check_database") as mock_db:
             mock_db.return_value = {
                 "status": "unhealthy",
                 "error": "Connection refused",
@@ -95,8 +95,8 @@ class TestHealthCheckDependencyFailures:
     def test_readiness_healthy_when_redis_down(self, client) -> None:
         """Test: Readiness is still ready when Redis is down (non-critical)"""
         with (
-            patch("routes.health.check_database") as mock_db,
-            patch("routes.health.check_redis") as mock_redis,
+            patch("app.routes.health.check_database") as mock_db,
+            patch("app.routes.health.check_redis") as mock_redis,
         ):
             mock_db.return_value = {"status": "healthy", "latency_ms": 50}
             mock_redis.return_value = {
@@ -133,6 +133,6 @@ class TestHealthCheckAuthentication:
 @pytest.fixture
 def client():
     """Create test client"""
-    from main import app
+    from app.main import app
 
     return TestClient(app)

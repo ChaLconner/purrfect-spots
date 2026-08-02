@@ -27,7 +27,7 @@ vi.mock('vue-i18n', (): Record<string, unknown> => ({
   useI18n: (): { t: (key: string) => string } => ({ t: (key: string): string => key }),
 }));
 
-vi.mock('@/components/toast/use-toast', (): Record<string, unknown> => ({
+vi.mock('@/composables/useToast', (): Record<string, unknown> => ({
   useToast: (): Record<string, unknown> => ({
     toast: vi.fn(),
   }),

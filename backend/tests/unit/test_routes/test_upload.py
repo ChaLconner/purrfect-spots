@@ -6,9 +6,31 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi import HTTPException
 from httpx import ASGITransport, AsyncClient
 
-from main import app
+from app.main import app
+
+
+@pytest.mark.asyncio
+async def test_server_side_detection_reports_service_unavailable() -> None:
+    from app.routes.upload import _perform_server_side_detection
+
+    detection_service = MagicMock()
+    detection_service.detect_cats = AsyncMock(
+        return_value={
+            "has_cats": False,
+            "service_available": False,
+            "fallback_active": True,
+            "reasoning": "Cat verification service unavailable. Please try again later.",
+        }
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await _perform_server_side_detection(b"image", detection_service, "test-user", None)
+
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.detail == "Cat verification service unavailable. Please try again later."
 
 
 @pytest.fixture
@@ -44,6 +66,31 @@ def mock_cat_detection_service() -> MagicMock:
     return service
 
 
+def _create_mock_upload_admin(user_id: str) -> MagicMock:
+    """Helper to build mock admin client for upload routes."""
+    mock_admin = MagicMock()
+    chain_mock = MagicMock()
+    chain_mock.insert.return_value = chain_mock
+    chain_mock.select.return_value = chain_mock
+    chain_mock.execute = AsyncMock(
+        return_value=MagicMock(
+            data=[
+                {
+                    "id": "new-photo-123",
+                    "user_id": user_id,
+                    "location_name": "Test Cat Spot",
+                    "latitude": 13.7563,
+                    "longitude": 100.5018,
+                    "image_url": "https://s3.example.com/cat.jpg",
+                    "uploaded_at": datetime.now().isoformat(),
+                }
+            ]
+        )
+    )
+    mock_admin.table.return_value = chain_mock
+    return mock_admin
+
+
 class TestUploadRoute:
     """Test upload endpoint functionality"""
 
@@ -66,7 +113,7 @@ class TestUploadRoute:
     @pytest.fixture
     def mock_limiter(self):
         """Mock the rate limiter"""
-        with patch("routes.upload.upload_limiter") as mock:
+        with patch("app.routes.upload.upload_limiter") as mock:
             mock.limit = MagicMock(side_effect=lambda limit_value: lambda func: func)
             yield mock
 
@@ -81,14 +128,16 @@ class TestUploadRoute:
         mock_limiter: MagicMock,
     ) -> None:
         """Test upload with mocked authentication and services"""
-        from dependencies import get_async_supabase_client
-        from main import app
-        from middleware.auth_middleware import get_current_user
-        from routes.upload import get_cat_detection_service, get_quota_service, get_storage_service
+        from app.dependencies import get_async_supabase_client
+        from app.main import app
+        from app.middleware.auth_middleware import get_current_user
+        from app.routes.upload import get_cat_detection_service, get_quota_service, get_storage_service
 
         # Mock quota service
         mock_quota_service = MagicMock()
         mock_quota_service.check_and_increment = AsyncMock(return_value=True)
+        mock_quota_service.check_quota = AsyncMock(return_value=True)
+        mock_quota_service.increment_usage = AsyncMock(return_value=True)
 
         # Override dependencies
         app.dependency_overrides[get_current_user] = lambda: mock_user
@@ -97,32 +146,14 @@ class TestUploadRoute:
         app.dependency_overrides[get_async_supabase_client] = lambda: mock_supabase
         app.dependency_overrides[get_quota_service] = lambda: mock_quota_service
 
-        # Mock supabase admin insert
-        mock_admin = MagicMock()
-        chain_mock = MagicMock()
-        chain_mock.insert.return_value = chain_mock
-        chain_mock.select.return_value = chain_mock
-        chain_mock.execute = AsyncMock(
-            return_value=MagicMock(
-                data=[
-                    {
-                        "id": "new-photo-123",
-                        "user_id": mock_user.id,
-                        "location_name": "Test Cat Spot",
-                        "latitude": 13.7563,
-                        "longitude": 100.5018,
-                        "image_url": "https://s3.example.com/cat.jpg",
-                        "uploaded_at": datetime.now().isoformat(),
-                    }
-                ]
-            )
-        )
-        mock_admin.table.return_value = chain_mock
+        mock_admin = _create_mock_upload_admin(mock_user.id)
 
-        with patch("utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
+        with patch(
+            "app.utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock
+        ) as mock_get_admin:
             mock_get_admin.return_value = mock_admin
 
-            with patch("routes.upload.process_uploaded_image", new_callable=AsyncMock) as mock_process:
+            with patch("app.routes.upload.process_uploaded_image", new_callable=AsyncMock) as mock_process:
                 mock_process.return_value = (sample_image_bytes, "image/jpeg", "jpg")
 
                 files = {"file": ("cat.jpg", io.BytesIO(sample_image_bytes), "image/jpeg")}
@@ -150,7 +181,7 @@ class TestParsingFunctions:
 
     def test_parse_tags_valid_json(self) -> None:
         """Test parsing valid JSON tags"""
-        from routes.upload import parse_tags
+        from app.routes.upload import parse_tags
 
         tags_json = json.dumps(["orange", "cute", "sleeping"])
         result = parse_tags(tags_json)
@@ -159,7 +190,7 @@ class TestParsingFunctions:
 
     def test_parse_tags_with_hashtags(self) -> None:
         """Test that hashtags are stripped from tags"""
-        from routes.upload import parse_tags
+        from app.routes.upload import parse_tags
 
         tags_json = json.dumps(["#orange", "#cute"])
         result = parse_tags(tags_json)
@@ -168,7 +199,7 @@ class TestParsingFunctions:
 
     def test_parse_tags_empty_string(self) -> None:
         """Test parsing empty string"""
-        from routes.upload import parse_tags
+        from app.routes.upload import parse_tags
 
         result = parse_tags("")
 
@@ -176,7 +207,7 @@ class TestParsingFunctions:
 
     def test_parse_tags_none(self) -> None:
         """Test parsing None"""
-        from routes.upload import parse_tags
+        from app.routes.upload import parse_tags
 
         result = parse_tags(None)
 
@@ -184,7 +215,7 @@ class TestParsingFunctions:
 
     def test_parse_tags_invalid_json(self) -> None:
         """Test parsing invalid JSON"""
-        from routes.upload import parse_tags
+        from app.routes.upload import parse_tags
 
         result = parse_tags("not valid json")
 
@@ -192,7 +223,7 @@ class TestParsingFunctions:
 
     def test_parse_tags_normalizes_case(self) -> None:
         """Test that tags are lowercase"""
-        from routes.upload import parse_tags
+        from app.routes.upload import parse_tags
 
         tags_json = json.dumps(["ORANGE", "CuTe", "Sleeping"])
         result = parse_tags(tags_json)
@@ -201,7 +232,7 @@ class TestParsingFunctions:
 
     def test_parse_tags_max_limit(self) -> None:
         """Test that max 20 tags are returned"""
-        from routes.upload import parse_tags
+        from app.routes.upload import parse_tags
 
         many_tags = [f"tag{i}" for i in range(30)]
         tags_json = json.dumps(many_tags)
@@ -211,7 +242,7 @@ class TestParsingFunctions:
 
     def test_parse_tags_trims_whitespace(self) -> None:
         """Test that whitespace is trimmed from tags"""
-        from routes.upload import parse_tags
+        from app.routes.upload import parse_tags
 
         tags_json = json.dumps(["  orange  ", "  cute  "])
         result = parse_tags(tags_json)
@@ -220,7 +251,7 @@ class TestParsingFunctions:
 
     def test_parse_tags_filters_empty(self) -> None:
         """Test that empty tags are filtered"""
-        from routes.upload import parse_tags
+        from app.routes.upload import parse_tags
 
         tags_json = json.dumps(["orange", "", "  ", "cute"])
         result = parse_tags(tags_json)
@@ -229,7 +260,7 @@ class TestParsingFunctions:
 
     def test_format_tags_for_description_with_tags(self) -> None:
         """Test formatting tags into description"""
-        from routes.upload import format_tags_for_description
+        from app.routes.upload import format_tags_for_description
 
         result = format_tags_for_description(["orange", "cute"], "A nice cat")
 
@@ -239,7 +270,7 @@ class TestParsingFunctions:
 
     def test_format_tags_for_description_empty_tags(self) -> None:
         """Test formatting with no tags"""
-        from routes.upload import format_tags_for_description
+        from app.routes.upload import format_tags_for_description
 
         result = format_tags_for_description([], "A nice cat")
 
@@ -247,7 +278,7 @@ class TestParsingFunctions:
 
     def test_format_tags_for_description_empty_description(self) -> None:
         """Test formatting with no description"""
-        from routes.upload import format_tags_for_description
+        from app.routes.upload import format_tags_for_description
 
         result = format_tags_for_description(["orange"], "")
 
@@ -260,7 +291,7 @@ class TestUploadValidation:
     @pytest.fixture
     def mock_limiter(self):
         """Mock the rate limiter"""
-        with patch("routes.upload.upload_limiter") as mock:
+        with patch("app.routes.upload.upload_limiter") as mock:
             mock.limit = MagicMock(side_effect=lambda limit_value: lambda func: func)
             yield mock
 
@@ -274,10 +305,10 @@ class TestUploadValidation:
         mock_limiter: MagicMock,
     ) -> None:
         """Test that upload rejects images without cats"""
-        from dependencies import get_async_supabase_client
-        from main import app
-        from middleware.auth_middleware import get_current_user
-        from routes.upload import get_cat_detection_service, get_quota_service, get_storage_service
+        from app.dependencies import get_async_supabase_client
+        from app.main import app
+        from app.middleware.auth_middleware import get_current_user
+        from app.routes.upload import get_cat_detection_service, get_quota_service, get_storage_service
 
         # Create cat detection that returns no cats
         mock_detection = MagicMock()
@@ -297,6 +328,8 @@ class TestUploadValidation:
         # Mock quota service
         mock_quota_service = MagicMock()
         mock_quota_service.check_and_increment = AsyncMock(return_value=True)
+        mock_quota_service.check_quota = AsyncMock(return_value=True)
+        mock_quota_service.increment_usage = AsyncMock(return_value=True)
 
         # Override dependencies
         app.dependency_overrides[get_current_user] = lambda: mock_user
@@ -305,7 +338,7 @@ class TestUploadValidation:
         app.dependency_overrides[get_async_supabase_client] = lambda: mock_supabase
         app.dependency_overrides[get_quota_service] = lambda: mock_quota_service
 
-        with patch("routes.upload.process_uploaded_image", new_callable=AsyncMock) as mock_process:
+        with patch("app.routes.upload.process_uploaded_image", new_callable=AsyncMock) as mock_process:
             mock_process.return_value = (sample_image_bytes, "image/jpeg", "jpg")
 
             files = {"file": ("dog.jpg", io.BytesIO(sample_image_bytes), "image/jpeg")}
@@ -331,23 +364,29 @@ class TestUploadValidation:
         mock_user: Any,
         mock_supabase: MagicMock,
         mock_limiter: MagicMock,
+        mock_cat_detection_service: MagicMock,
+        mock_storage_service: MagicMock,
     ) -> None:
         """Test that invalid coordinates are rejected"""
-        from dependencies import get_async_supabase_client
-        from main import app
-        from middleware.auth_middleware import get_current_user
-        from routes.upload import get_quota_service
+        from app.dependencies import get_async_supabase_client
+        from app.main import app
+        from app.middleware.auth_middleware import get_current_user
+        from app.routes.upload import get_cat_detection_service, get_quota_service, get_storage_service
 
         # Mock quota service
         mock_quota_service = MagicMock()
         mock_quota_service.check_and_increment = AsyncMock(return_value=True)
+        mock_quota_service.check_quota = AsyncMock(return_value=True)
+        mock_quota_service.increment_usage = AsyncMock(return_value=True)
 
         # Override dependencies
         app.dependency_overrides[get_current_user] = lambda: mock_user
         app.dependency_overrides[get_async_supabase_client] = lambda: mock_supabase
         app.dependency_overrides[get_quota_service] = lambda: mock_quota_service
+        app.dependency_overrides[get_cat_detection_service] = lambda: mock_cat_detection_service
+        app.dependency_overrides[get_storage_service] = lambda: mock_storage_service
 
-        with patch("routes.upload.process_uploaded_image", new_callable=AsyncMock) as mock_process:
+        with patch("app.routes.upload.process_uploaded_image", new_callable=AsyncMock) as mock_process:
             mock_process.return_value = (sample_image_bytes, "image/jpeg", "jpg")
 
             files = {"file": ("cat.jpg", io.BytesIO(sample_image_bytes), "image/jpeg")}
@@ -358,7 +397,7 @@ class TestUploadValidation:
                 "cat_detection_data": json.dumps({"has_cats": True, "cat_count": 1}),
             }
 
-            with patch("routes.upload.validate_coordinates") as mock_validate:
+            with patch("app.routes.upload.validate_coordinates") as mock_validate:
                 from fastapi import HTTPException
 
                 mock_validate.side_effect = HTTPException(status_code=400, detail="Invalid coordinate format")
@@ -377,7 +416,7 @@ class TestUploadWithPredetectedCats:
     @pytest.fixture
     def mock_limiter(self):
         """Mock the rate limiter"""
-        with patch("routes.upload.upload_limiter") as mock:
+        with patch("app.routes.upload.upload_limiter") as mock:
             mock.limit = MagicMock(side_effect=lambda limit_value: lambda func: func)
             yield mock
 
@@ -395,10 +434,10 @@ class TestUploadWithPredetectedCats:
         Test that upload IGNORES client-provided cat detection data and uses server result.
         Security Fix Verification.
         """
-        from dependencies import get_async_supabase_client
-        from main import app
-        from middleware.auth_middleware import get_current_user
-        from routes.upload import get_cat_detection_service, get_quota_service, get_storage_service
+        from app.dependencies import get_async_supabase_client
+        from app.main import app
+        from app.middleware.auth_middleware import get_current_user
+        from app.routes.upload import get_cat_detection_service, get_quota_service, get_storage_service
 
         mock_storage = MagicMock()
         mock_storage.upload_file = AsyncMock(return_value="https://s3.example.com/cat.jpg")
@@ -406,6 +445,8 @@ class TestUploadWithPredetectedCats:
         # Mock quota service
         mock_quota_service = MagicMock()
         mock_quota_service.check_and_increment = AsyncMock(return_value=True)
+        mock_quota_service.check_quota = AsyncMock(return_value=True)
+        mock_quota_service.increment_usage = AsyncMock(return_value=True)
 
         # Mock DETECTION service to return a specific "Server Truth"
         mock_cat_detection_service = MagicMock()
@@ -427,31 +468,14 @@ class TestUploadWithPredetectedCats:
         app.dependency_overrides[get_cat_detection_service] = lambda: mock_cat_detection_service
         app.dependency_overrides[get_quota_service] = lambda: mock_quota_service
 
-        mock_admin = MagicMock()
-        chain_mock = MagicMock()
-        chain_mock.insert.return_value = chain_mock
-        chain_mock.select.return_value = chain_mock
-        chain_mock.execute = AsyncMock(
-            return_value=MagicMock(
-                data=[
-                    {
-                        "id": "new-photo-123",
-                        "user_id": mock_user.id,
-                        "location_name": "Test Cat Spot",
-                        "latitude": 13.7563,
-                        "longitude": 100.5018,
-                        "image_url": "https://s3.example.com/cat.jpg",
-                        "uploaded_at": datetime.now().isoformat(),
-                    }
-                ]
-            )
-        )
-        mock_admin.table.return_value = chain_mock
+        mock_admin = _create_mock_upload_admin(mock_user.id)
 
-        with patch("utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
+        with patch(
+            "app.utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock
+        ) as mock_get_admin:
             mock_get_admin.return_value = mock_admin
 
-            with patch("routes.upload.process_uploaded_image", new_callable=AsyncMock) as mock_process:
+            with patch("app.routes.upload.process_uploaded_image", new_callable=AsyncMock) as mock_process:
                 mock_process.return_value = (sample_image_bytes, "image/jpeg", "jpg")
 
                 # Client sends "Fake" data: 2 cats, 0.98 confidence

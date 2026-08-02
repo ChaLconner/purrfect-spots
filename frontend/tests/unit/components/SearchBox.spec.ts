@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mount } from '@vue/test-utils';
 import SearchBox from '@/components/navbar/SearchBox.vue';
 import { createPinia, setActivePinia } from 'pinia';
-import { useCatsStore } from '@/store/catsStore';
+import { useCatsStore } from '@/stores/catsStore';
 import { useRouter, useRoute } from 'vue-router';
 import { reactive, nextTick } from 'vue';
 
@@ -100,7 +100,13 @@ describe('SearchBox.vue', () => {
 
   it('should clear search', async () => {
     mockRoute.query.search = 'initial';
-    const wrapper = mount(SearchBox);
+    const wrapper = mount(SearchBox, {
+      global: {
+        mocks: {
+          $t: (key: string) => (key === 'accessibility.clearSearch' ? 'Clear search' : key),
+        },
+      },
+    });
     const input = wrapper.find('input');
     
     expect(input.element.value).toBe('initial');

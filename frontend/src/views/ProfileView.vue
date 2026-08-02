@@ -59,8 +59,8 @@
     <!-- Edit Photo Modal -->
     <EditPhotoModal
       :is-open="showEditPhotoModal"
-      :initial-location-name="photoToEdit?.location_name"
-      :initial-description="photoToEdit?.description"
+      :initial-location-name="photoToEdit?.location_name ?? undefined"
+      :initial-description="photoToEdit?.description ?? undefined"
       :is-saving="isSavingPhoto"
       @close="showEditPhotoModal = false"
       @save="savePhotoChanges"
@@ -80,11 +80,11 @@
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { useAuthStore } from '../store/authStore';
-import { showError, showSuccess } from '../store/toast';
+import { useAuthStore } from '../stores/authStore';
+import { showError, showSuccess } from '../stores/toast';
 import { ProfileService, type ProfileUpdateData } from '../services/profileService';
 import { AuthService } from '../services/authService';
-import { useSubscriptionStore } from '@/store/subscriptionStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { isDev } from '../utils/env';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 import { useSeo } from '@/composables/useSeo';

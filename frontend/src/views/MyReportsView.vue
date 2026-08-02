@@ -68,7 +68,7 @@
 import { ref, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ReportService, type Report } from '@/services/reportService';
-import { showError } from '@/store/toast';
+import { showError } from '@/stores/toast';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 import GhibliLoader from '@/components/ui/GhibliLoader.vue';
 import { useSeo } from '@/composables/useSeo';

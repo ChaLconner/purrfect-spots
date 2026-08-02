@@ -2,14 +2,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from services.gallery_service import GalleryService
+from app.services.gallery_service import GalleryService
 
 
 @pytest.fixture(autouse=True)
 async def clear_test_cache():
     """Clear the cache before each test to prevent cross-test contamination"""
-    from services import search_service
-    from utils.cache import memory_cache
+    from app.services import search_service
+    from app.utils.cache import memory_cache
 
     memory_cache.clear()
     search_service._fulltext_available_cache = None
@@ -26,8 +26,8 @@ class TestGalleryServiceExtended:
         # It calls mock_supabase_admin.table()...
 
         with (
-            patch("dependencies.get_async_supabase_admin_client", return_value=mock_supabase_admin),
-            patch("services.search_service.SearchService._check_fulltext_support", return_value=True),
+            patch("app.dependencies.get_async_supabase_admin_client", return_value=mock_supabase_admin),
+            patch("app.services.search_service.SearchService._check_fulltext_support", return_value=True),
         ):
             service = GalleryService(mock_supabase)
             service._admin_client_lazy = mock_supabase_admin
@@ -37,7 +37,7 @@ class TestGalleryServiceExtended:
         # Setup mock for successful execution
         mock_supabase.execute.return_value = MagicMock(data=[{"search_vector": ""}])
 
-        with patch("dependencies.get_async_supabase_admin_client", return_value=MagicMock()) as mock_admin_getter:
+        with patch("app.dependencies.get_async_supabase_admin_client", return_value=MagicMock()) as mock_admin_getter:
             # Need to ensure the admin client returned also supports chainable execute
             admin_client = mock_admin_getter.return_value
             # Configure chain
@@ -52,7 +52,7 @@ class TestGalleryServiceExtended:
         # Setup mock for failure
         mock_supabase.execute.side_effect = Exception("Column missing")
 
-        with patch("dependencies.get_async_supabase_admin_client", return_value=MagicMock()) as mock_admin_getter:
+        with patch("app.dependencies.get_async_supabase_admin_client", return_value=MagicMock()) as mock_admin_getter:
             admin_client = mock_admin_getter.return_value
             admin_client.table.return_value.select.return_value.limit.return_value.execute = AsyncMock(
                 side_effect=Exception("Column missing")
@@ -98,7 +98,7 @@ class TestGalleryServiceExtended:
 
     async def test_fulltext_all_fail_fallback_ilike(self, gallery_service, mock_supabase):
         # Patch SearchService._fulltext_search to simulate fulltext failure
-        from services.search_service import SearchService
+        from app.services.search_service import SearchService
 
         with patch.object(SearchService, "_fulltext_search", side_effect=Exception("FT fail")):
             # ILIKE should succeed (on main mock)
@@ -110,7 +110,7 @@ class TestGalleryServiceExtended:
 
     async def test_get_nearby_photos_bbox(self, gallery_service, mock_supabase):
         # Feature flag disabled - must use AsyncMock for awaited check
-        with patch("services.feature_flags.FeatureFlagService.is_enabled", return_value=False):
+        with patch("app.services.feature_flags.FeatureFlagService.is_enabled", return_value=False):
             # bbox search uses standard select
             mock_supabase.execute.return_value = MagicMock(data=[{"id": "loc1"}])
 
@@ -120,7 +120,7 @@ class TestGalleryServiceExtended:
             assert results[0]["id"] == "loc1"
 
     async def test_get_nearby_photos_postgis(self, gallery_service, mock_supabase):
-        with patch("services.feature_flags.FeatureFlagService.is_enabled", return_value=True):
+        with patch("app.services.feature_flags.FeatureFlagService.is_enabled", return_value=True):
             # Explicitly set return value for this specific test
             rpc_mock = MagicMock()
             rpc_mock.execute = AsyncMock(return_value=MagicMock(data=[{"id": "loc2", "status": "approved"}]))
@@ -132,7 +132,7 @@ class TestGalleryServiceExtended:
             assert results[0]["id"] == "loc2"
 
     async def test_get_nearby_photos_postgis_fail(self, gallery_service, mock_supabase):
-        with patch("services.feature_flags.FeatureFlagService.is_enabled", return_value=True):
+        with patch("app.services.feature_flags.FeatureFlagService.is_enabled", return_value=True):
             # Use isolated RPC mock
             rpc_mock = MagicMock()
             rpc_mock.execute = AsyncMock(side_effect=Exception("PostGIS error"))

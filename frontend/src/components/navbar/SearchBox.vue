@@ -2,7 +2,7 @@
 import { ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import type { LocationQueryValue } from 'vue-router';
-import { useCatsStore } from '../../store';
+import { useCatsStore } from '../../stores';
 import { useDebounce } from '@/composables/useDebounce';
 import Search from '../icons/search.vue';
 
@@ -68,27 +68,24 @@ const clearSearch = (): void => {
 
 <template>
   <div
-    class="group/search relative flex items-center gap-1.5 sm:gap-2 bg-btn-shade-e border-2 border-btn-shade-a rounded-full py-[0.35rem] pr-[0.35rem] pl-3 sm:pl-5 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] w-full max-w-[400px] shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.25em_0_0_var(--color-btn-shade-a)] focus-within:bg-white focus-within:shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.35em_0_0_var(--color-btn-shade-a)] focus-within:-translate-y-0.5"
-    style="transform-style: preserve-3d"
+    class="group/search relative flex items-center gap-1.5 sm:gap-2 bg-btn-shade-e border-2 border-btn-shade-a rounded-full py-[0.35rem] pr-[0.35rem] pl-3 sm:pl-5 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] w-full max-w-[400px] shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.25em_0_0_var(--color-btn-shade-a)] focus-within:bg-white focus-within:shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.35em_0_0_var(--color-btn-shade-a)] focus-within:-translate-y-0.5 preserve-3d"
   >
     <input
       v-model="searchQuery"
       type="text"
-      placeholder="Find a spot..."
+      :placeholder="$t('galleryPage.searchPlaceholder')"
       class="border-none bg-transparent outline-none font-accent text-[0.8rem] sm:text-[0.9rem] font-medium text-btn-shade-a flex-1 py-1 min-w-0 placeholder-btn-shade-b placeholder:italic placeholder:opacity-100"
       autocomplete="off"
       @keyup.enter="handleSearch"
     />
     <button
       v-if="searchQuery"
-      class="group relative w-8 h-8 rounded-full border-2 cursor-pointer flex items-center justify-center transition-all duration-[175ms] ease-[cubic-bezier(0,0,1,1)] shrink-0 active:translate-y-[0.2em] hover:translate-y-[0.1em] bg-[#ffcccc] border-[#dc4a4a] text-[#dc4a4a] hover:bg-[#ffbbbb]"
-      style="transform-style: preserve-3d"
-      aria-label="Clear search"
+      class="group relative w-8 h-8 rounded-full border-2 cursor-pointer flex items-center justify-center transition-all duration-[175ms] ease-[cubic-bezier(0,0,1,1)] shrink-0 active:translate-y-[0.2em] hover:translate-y-[0.1em] bg-[#ffcccc] border-[#dc4a4a] text-[#dc4a4a] hover:bg-[#ffbbbb] preserve-3d"
+      :aria-label="$t('accessibility.clearSearch')"
       @click="clearSearch"
     >
       <span
-        class="absolute inset-0 rounded-[inherit] transition-all duration-[175ms] ease-[cubic-bezier(0,0,1,1)] group-hover:translate-y-[0.2em] group-active:translate-y-0 group-active:translate-z-[-1em] bg-[#ffaaaa] shadow-[0_0_0_2px_#f5a5a5,_0_0.2em_0_0_#dc4a4a] group-active:shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.05em_0_0_var(--color-btn-shade-b)]"
-        style="transform: translate3d(0, 0.2em, -1em)"
+        class="absolute inset-0 rounded-[inherit] transition-all duration-[175ms] ease-[cubic-bezier(0,0,1,1)] group-hover:translate-y-[0.2em] group-active:translate-y-0 group-active:translate-z-[-1em] bg-[#ffaaaa] shadow-[0_0_0_2px_#f5a5a5,_0_0.2em_0_0_#dc4a4a] group-active:shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.05em_0_0_var(--color-btn-shade-b)] translate-3d-button-em"
       ></span>
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -108,14 +105,12 @@ const clearSearch = (): void => {
     </button>
     <button
       v-else
-      class="group relative w-8 h-8 rounded-full border-2 cursor-pointer flex items-center justify-center transition-all duration-[175ms] ease-[cubic-bezier(0,0,1,1)] shrink-0 active:translate-y-[0.2em] hover:translate-y-[0.1em] bg-btn-shade-d border-btn-shade-a hover:bg-[var(--color-btn-shade-c)]"
-      style="transform-style: preserve-3d"
-      aria-label="Search"
+      class="group relative w-8 h-8 rounded-full border-2 cursor-pointer flex items-center justify-center transition-all duration-[175ms] ease-[cubic-bezier(0,0,1,1)] shrink-0 active:translate-y-[0.2em] hover:translate-y-[0.1em] bg-btn-shade-d border-btn-shade-a hover:bg-[var(--color-btn-shade-c)] preserve-3d"
+      :aria-label="$t('accessibility.search')"
       @click="handleSearch"
     >
       <span
-        class="absolute inset-0 rounded-[inherit] transition-all duration-[175ms] ease-[cubic-bezier(0,0,1,1)] group-hover:translate-y-[0.2em] group-active:translate-y-0 group-active:translate-z-[-1em] bg-btn-shade-c shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.2em_0_0_var(--color-btn-shade-a)] group-active:shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.05em_0_0_var(--color-btn-shade-b)]"
-        style="transform: translate3d(0, 0.2em, -1em)"
+        class="absolute inset-0 rounded-[inherit] transition-all duration-[175ms] ease-[cubic-bezier(0,0,1,1)] group-hover:translate-y-[0.2em] group-active:translate-y-0 group-active:translate-z-[-1em] bg-btn-shade-c shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.2em_0_0_var(--color-btn-shade-a)] group-active:shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.05em_0_0_var(--color-btn-shade-b)] translate-3d-button-em"
       ></span>
       <Search class="w-4 h-4 text-btn-shade-a relative z-10" />
     </button>

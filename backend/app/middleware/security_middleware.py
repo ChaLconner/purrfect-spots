@@ -1,0 +1,118 @@
+"""
+Security middleware for Purrfect Spots API
+
+Provides:
+- HTTPS redirect for production
+- Strict Transport Security (HSTS)
+- Content Security Policy (CSP)
+- XSS protection headers
+- Clickjacking protection
+"""
+
+import os
+from collections.abc import Awaitable, Callable
+
+from fastapi import Request
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import RedirectResponse, Response
+from starlette.types import ASGIApp
+
+from app.utils.auth_utils import _is_trusted_proxy_client
+
+
+def _is_production_env() -> bool:
+    return os.getenv("ENVIRONMENT", "development").lower() == "production"
+
+
+PROD_CSP_POLICY = (
+    "default-src 'none'; "
+    "frame-ancestors 'none'; "
+    "connect-src 'self' https://purrfectspots.xyz https://www.purrfectspots.xyz https://purrfect-spots.vercel.app; "
+    "img-src 'self' data: https: blob:;"
+)
+
+DEV_CSP_POLICY = (
+    "default-src 'self'; "
+    "img-src 'self' data: https: blob:; "
+    "script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://accounts.google.com; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+    "font-src 'self' https://fonts.gstatic.com; "
+    "connect-src 'self' https://maps.googleapis.com https://accounts.google.com https://*.sentry.io; "
+    "frame-src 'self' https://accounts.google.com; "
+    "frame-ancestors 'none';"
+)
+
+PERMISSIONS_POLICY = (
+    "accelerometer=(), camera=(), geolocation=(self), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+)
+
+
+class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware to redirect HTTP to HTTPS in production.
+    Checks X-Forwarded-Proto header set by reverse proxies (Vercel, nginx, etc.)
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        super().__init__(app)
+        self.is_production = _is_production_env()
+
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+        # Only enforce in production
+        if self.is_production:
+            is_http = request.url.scheme == "http"
+            if _is_trusted_proxy_client(request):
+                # Check proxy-provided scheme only when the request came from a trusted proxy.
+                forwarded_proto = request.headers.get("X-Forwarded-Proto", "")
+                cf_visitor = request.headers.get("CF-Visitor", "")
+                is_http = is_http or forwarded_proto == "http" or '"scheme":"http"' in cf_visitor
+
+            if is_http:
+                url = request.url.replace(scheme="https")
+                return RedirectResponse(url, status_code=301)
+
+        return await call_next(request)
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware to add security headers to all responses.
+
+    Headers added:
+    - Content-Security-Policy: Prevents XSS and data injection
+    - Strict-Transport-Security: Forces HTTPS for 1 year
+    - X-Content-Type-Options: Prevents MIME type sniffing
+    - X-Frame-Options: Prevents clickjacking
+    - X-XSS-Protection: Legacy XSS protection
+    - Referrer-Policy: Controls referrer information
+    - Permissions-Policy: Restricts browser features
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        super().__init__(app)
+        self.is_production = _is_production_env()
+
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+        response = await call_next(request)
+
+        # Content Security Policy (CSP)
+        csp_policy = PROD_CSP_POLICY if self.is_production else DEV_CSP_POLICY
+        response.headers["Content-Security-Policy"] = csp_policy
+
+        # SECURITY: Add CSP reporting endpoint for monitoring CSP violations
+        if self.is_production:
+            response.headers["Content-Security-Policy-Report-Only"] = (
+                csp_policy + " report-uri https://sentry.io/api/security/csp-report"
+            )
+
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Permissions-Policy"] = PERMISSIONS_POLICY
+
+        # HSTS - Only in production (1 year max-age)
+        if self.is_production:
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+
+        return response

@@ -1,5 +1,9 @@
--- Create a function to get leaderboard data based on time period
-CREATE OR REPLACE FUNCTION get_leaderboard(p_period TEXT)
+-- Create a function to get leaderboard data based on time period with pagination support
+CREATE OR REPLACE FUNCTION get_leaderboard(
+    p_period TEXT,
+    p_limit INT DEFAULT 50,
+    p_offset INT DEFAULT 0
+)
 RETURNS TABLE (
     id UUID,
     name TEXT,
@@ -18,7 +22,7 @@ BEGIN
             COALESCE(u.total_treats_received, 0)::BIGINT as total_treats_received
         FROM users u
         ORDER BY total_treats_received DESC
-        LIMIT 10;
+        LIMIT p_limit OFFSET p_offset;
         
     ELSE
         RETURN QUERY
@@ -38,7 +42,7 @@ BEGIN
         )
         GROUP BY u.id, u.name, u.username, u.picture
         ORDER BY total_treats_received DESC
-        LIMIT 10;
+        LIMIT p_limit OFFSET p_offset;
     END IF;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

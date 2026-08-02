@@ -1,8 +1,8 @@
 import { createI18n } from 'vue-i18n';
-import en from './locales/en.json';
 
 const SUPPORTED_LOCALES = ['en', 'th'] as const;
 type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
+type LocaleMessages = Record<string, unknown>;
 const DEFAULT_LOCALE: SupportedLocale = 'en';
 
 function isSupportedLocale(locale: string | null): locale is SupportedLocale {
@@ -18,21 +18,23 @@ function getSavedLocale(): SupportedLocale {
   return isSupportedLocale(savedLocale) ? savedLocale : DEFAULT_LOCALE;
 }
 
-const localeLoaders: Partial<Record<SupportedLocale, () => Promise<{ default: typeof en }>>> = {
+const localeLoaders: Record<SupportedLocale, () => Promise<{ default: LocaleMessages }>> = {
+  en: () => import('./locales/en.json'),
   th: () => import('./locales/th.json'),
 };
-const loadedLocales = new Set<SupportedLocale>(['en']);
+const loadedLocales = new Set<SupportedLocale>();
 
 const i18n = createI18n({
   legacy: false, // Use Composition API mode
   locale: DEFAULT_LOCALE, // set locale after lazy-loading if needed
   fallbackLocale: DEFAULT_LOCALE, // set fallback locale
   messages: {
-    en,
+    en: {},
+    th: {},
   },
 });
 
-export async function ensureLocaleMessages(locale: SupportedLocale): Promise<void> {
+async function ensureLocaleMessages(locale: SupportedLocale): Promise<void> {
   if (loadedLocales.has(locale)) {
     return;
   }

@@ -3,12 +3,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from config import config
-from middleware.csrf_middleware import CSRFMiddleware
-from services.otp_service import OTPService
-from services.subscription_service import SubscriptionService
-from services.treats_service import TreatsService
-from services.user_service import UserService
+from app.config import config
+from app.middleware.csrf_middleware import CSRFMiddleware
+from app.services.otp_service import OTPService
+from app.services.subscription_service import SubscriptionService
+from app.services.treats_service import TreatsService
+from app.services.user_service import UserService
 
 
 @pytest.fixture
@@ -57,29 +57,34 @@ async def test_subscription_get_status_fallback(mock_supabase):
 
 
 @pytest.mark.asyncio
-@patch("services.subscription_service.stripe.Subscription.retrieve")
+@patch("app.services.subscription_service.stripe.Subscription.retrieve")
 async def test_handle_invoice_paid_success(mock_retrieve, mock_supabase):
     service = SubscriptionService(mock_supabase)
 
     invoice = {"customer": "cus_123", "subscription": "sub_123"}
 
     mock_sub = MagicMock()
+    mock_sub.id = "sub_123"
+    mock_sub.customer = "cus_123"
     mock_sub.status = "active"
     mock_sub.current_period_end = 1700000000
     mock_sub.cancel_at_period_end = False
     mock_sub.items = {"data": [{"price": {"id": config.STRIPE_PRO_PRICE_ID}}]}
     mock_retrieve.return_value = mock_sub
 
-    await service._handle_invoice_paid(invoice)
-
-    # Verify update to DB happened
-    mock_supabase.table.return_value.update.assert_called()
+    with (
+        patch.object(service, "_subscription_is_active", return_value=True),
+        patch.object(service, "_subscription_matches_pro_plan", return_value=True),
+        patch.object(service, "_update_user_data", AsyncMock(return_value={"id": "user_123"})) as mock_update,
+    ):
+        await service._handle_invoice_paid(invoice)
+        mock_update.assert_called()
 
 
 @pytest.mark.asyncio
 @pytest.mark.asyncio
-@patch("services.subscription_service.stripe.Subscription.list")
-@patch("services.subscription_service.stripe.Subscription.modify")
+@patch("app.services.subscription_service.stripe.Subscription.list")
+@patch("app.services.subscription_service.stripe.Subscription.modify")
 async def test_cancel_subscription_success(mock_modify, mock_list, mock_supabase):
     service = SubscriptionService(mock_supabase)
 
@@ -92,6 +97,7 @@ async def test_cancel_subscription_success(mock_modify, mock_list, mock_supabase
     # Mock active subscriptions
     mock_sub = MagicMock()
     mock_sub.id = "sub_123"
+    mock_sub.status = "active"
     mock_list.return_value = MagicMock(data=[mock_sub])
 
     await service.cancel_subscription("user_123")

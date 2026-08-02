@@ -4,7 +4,7 @@ from unittest.mock import patch
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
-from middleware.csrf_middleware import CSRFMiddleware
+from app.middleware.csrf_middleware import CSRFMiddleware
 
 
 def test_csrf_middleware_safe_methods() -> None:
@@ -31,6 +31,24 @@ def test_csrf_middleware_exempt_path() -> None:
 
         client = TestClient(app)
         response = client.post("/exempt")  # No CSRF token provided
+        assert response.status_code == 200
+
+
+def test_csrf_middleware_exempts_stripe_webhook_in_production() -> None:
+    with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
+        app = FastAPI()
+        app.add_middleware(CSRFMiddleware)
+
+        @app.post("/api/v1/subscription/webhook")
+        def webhook_route():
+            return {"status": "ok"}
+
+        client = TestClient(app)
+        response = client.post(
+            "/api/v1/subscription/webhook",
+            headers={"Stripe-Signature": "t=1,v1=test"},
+        )
+
         assert response.status_code == 200
 
 

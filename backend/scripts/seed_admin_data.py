@@ -1,13 +1,14 @@
 import asyncio
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 # Add parent directory to path to import services/config
 sys.path.append(str(Path(__file__).parent.parent))
 
-from config import config
-from constants.admin_permissions import SYSTEM_ROLE_PERMISSION_CODES, canonical_permission_records
-from utils.supabase_client import get_supabase_admin_client
+from app.config import config
+from app.constants.admin_permissions import SYSTEM_ROLE_PERMISSION_CODES, canonical_permission_records
+from app.utils.supabase_client import get_supabase_admin_client
 
 # Initialize Supabase Client (Service Role for seeding)
 # Check if service role key exists, otherwise warn
@@ -35,29 +36,33 @@ async def seed_data() -> None:
 
     # 1. Seed Permissions
     print("Seeding Permissions...")
-    permission_map = {}  # code -> id
+    permission_map: dict[str, str] = {}  # code -> id
 
     for perm in INITIAL_PERMISSIONS:
         try:
+            perm_record = cast(dict[str, Any], perm)
             # Upsert permission
-            res = supabase.table("permissions").upsert(perm, on_conflict="code").execute()
+            res = supabase.table("permissions").upsert(cast(Any, perm_record), on_conflict="code").execute()
             if res.data:
-                permission_map[perm["code"]] = res.data[0]["id"]
+                rows = cast(list[dict[str, Any]], res.data)
+                permission_map[cast(str, perm_record["code"])] = cast(str, rows[0]["id"])
         except Exception as e:
-            print(f"Error seeding permission {perm['code']}: {e}")
+            print(f"Error seeding permission {perm_record['code']}: {e}")
 
     # 2. Seed Roles
     print("Seeding Roles...")
-    role_map = {}  # name -> id
+    role_map: dict[str, str] = {}  # name -> id
 
     for role in INITIAL_ROLES:
         try:
+            role_record = cast(dict[str, Any], role)
             # Upsert role
-            res = supabase.table("roles").upsert(role, on_conflict="name").execute()
+            res = supabase.table("roles").upsert(cast(Any, role_record), on_conflict="name").execute()
             if res.data:
-                role_map[role["name"]] = res.data[0]["id"]
+                rows = cast(list[dict[str, Any]], res.data)
+                role_map[cast(str, role_record["name"])] = cast(str, rows[0]["id"])
         except Exception as e:
-            print(f"Error seeding role {role['name']}: {e}")
+            print(f"Error seeding role {role_record['name']}: {e}")
 
     # 3. Assign Permissions to Roles
     print("Assigning Permissions to Roles...")

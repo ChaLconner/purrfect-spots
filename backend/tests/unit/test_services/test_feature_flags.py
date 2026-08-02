@@ -5,7 +5,7 @@ Tests for Feature Flag Service
 import os
 from unittest.mock import patch
 
-from services.feature_flags import FeatureFlagService
+from app.services.feature_flags import FeatureFlagService
 
 
 class TestFeatureFlagService:

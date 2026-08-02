@@ -1,6 +1,6 @@
 import logging
 
-import structlog
+from app.compat import structlog
 
 
 def test_structlog_shim_accepts_keyword_context(caplog):

@@ -1,10 +1,14 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent } from 'vue';
-import { useAuthStore } from '../../store/authStore';
+import { computed, defineAsyncComponent, onMounted } from 'vue';
+import { useAuthStore } from '../../stores/authStore';
 import NavLink from './NavLink.vue';
 import ProfileIcon from '../icons/profile.vue';
 
 const authStore = useAuthStore();
+onMounted(() => {
+  // Hydrate session after navbar chunk arrives; keep initial route graph lean.
+  void authStore.initializeAuth();
+});
 
 // Show authenticated UI immediately from cache while background refresh runs.
 // If auth status is still hydrating and no cached user exists, keep showing normal guest UI.

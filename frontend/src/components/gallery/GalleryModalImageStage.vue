@@ -94,14 +94,14 @@ onUnmounted(() => {
     <!-- Blurred Background for gaps -->
     <div
       v-if="image"
-      class="absolute -inset-5 bg-cover bg-center blur-[40px] brightness-90 saturate-[1.2] opacity-80 z-[-1] scale-110"
-      :style="{ backgroundImage: `url(${image.image_url})` }"
+      class="absolute -inset-5 bg-cover bg-center bg-[image:var(--image-background)] blur-[40px] brightness-90 saturate-[1.2] opacity-80 z-[-1] scale-110"
+      :style="{ '--image-background': `url(${image.image_url})` }"
     ></div>
 
     <!-- Error State -->
     <div
       v-if="hasError"
-      class="error-state flex flex-col items-center justify-center p-8 text-center text-white/60"
+      class="flex flex-col items-center justify-center p-8 text-center text-white/60"
     >
       <img class="w-48 h-auto opacity-40 mb-4 grayscale" />
       <p class="font-heading text-xl">{{ $t('galleryPage.modal.imageNotFound') }}</p>
@@ -117,7 +117,7 @@ onUnmounted(() => {
           ? $t('galleryPage.modal.aCatAt', { location: image.location_name })
           : $t('galleryPage.modal.aCat')
       "
-      class="w-full h-full object-contain relative z-2 drop-shadow-[0_10px_20px_rgba(0,0,0,0.3)] scale-[1.2]"
+      class="w-full h-full object-contain relative z-2 drop-shadow-[0_10px_20px_rgba(0,0,0,0.3)] transition-transform duration-300"
       @load="$emit('image-load')"
       @error="$emit('image-error', $event)"
     />

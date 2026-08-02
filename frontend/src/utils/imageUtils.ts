@@ -2,7 +2,8 @@
  * Image utilities for optimization and CDN handling
  */
 
-import { isProd, getEnvVar } from './env';
+import { getEnvVar } from './env';
+import { calculateScaledDimensions } from './imageDimensions';
 
 // Image optimization settings
 export interface ImageOptimizationOptions {
@@ -24,11 +25,14 @@ const DEFAULT_OPTIONS: ImageOptimizationOptions = {
 
 let imageWorker: Worker | null = null;
 let msgId = 0;
+const WORKER_TIMEOUT_MS = 15_000;
 
 function getWorker(): Worker | null {
   if (typeof window !== 'undefined' && window.Worker) {
     if (!imageWorker) {
-      imageWorker = new Worker('/image-worker.js', { type: 'module' });
+      imageWorker = new Worker(new URL('../workers/image-worker.ts', import.meta.url), {
+        type: 'module',
+      });
     }
     return imageWorker;
   }
@@ -36,7 +40,7 @@ function getWorker(): Worker | null {
 }
 
 // CDN configuration
-export interface CDNConfig {
+interface CDNConfig {
   enabled: boolean;
   baseUrl?: string;
   defaultParams?: Record<string, string>;
@@ -45,7 +49,7 @@ export interface CDNConfig {
 // Default CDN configuration
 const envCdnUrl = getEnvVar('VITE_CDN_BASE_URL');
 const DEFAULT_CDN_CONFIG: CDNConfig = {
-  enabled: isProd() && !!envCdnUrl, // Only enable if in prod AND url is set
+  enabled: !!envCdnUrl, // Enable if URL is set (allows dev/testing via .env)
   baseUrl: envCdnUrl || '',
   defaultParams: {
     auto: 'format,compress',
@@ -120,10 +124,26 @@ export const optimizeImage = async (
     // Check if OffscreenCanvas is supported and we have a worker instance
     if (worker && typeof OffscreenCanvas !== 'undefined') {
       const currentId = msgId++;
+      let settled = false;
+
+      const cleanup = (): void => {
+        worker.removeEventListener('message', onMessage);
+        worker.removeEventListener('error', onError);
+        clearTimeout(timeoutId);
+      };
+
+      const fallback = (): void => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        optimizeImageMainThread(file, mergedOptions).then(resolve).catch(reject);
+      };
 
       const onMessage = (e: MessageEvent): void => {
         if (e.data.id === currentId) {
-          worker.removeEventListener('message', onMessage);
+          if (settled) return;
+          settled = true;
+          cleanup();
 
           if (e.data.success) {
             const optimizedFile = new File(
@@ -136,13 +156,15 @@ export const optimizeImage = async (
             );
             resolve(optimizedFile);
           } else {
-            // Fallback to main thread if worker fails
             optimizeImageMainThread(file, mergedOptions).then(resolve).catch(reject);
           }
         }
       };
 
+      const onError = (): void => fallback();
+      const timeoutId = window.setTimeout(fallback, WORKER_TIMEOUT_MS);
       worker.addEventListener('message', onMessage);
+      worker.addEventListener('error', onError);
       worker.postMessage({ file, options: mergedOptions, id: currentId });
     } else {
       // Fallback for browsers that don't support workers or OffscreenCanvas
@@ -164,56 +186,52 @@ const optimizeImageMainThread = async (
     const img = new Image();
 
     img.onload = (): void => {
-      // Calculate new dimensions
-      let { width, height } = img;
-      const { maxWidth, maxHeight } = options;
+      try {
+        const { width, height } = calculateScaledDimensions(img.width, img.height, options.maxWidth, options.maxHeight, 4096);
 
-      if (maxWidth && width > maxWidth) {
-        height = (height * maxWidth) / width;
-        width = maxWidth;
-      }
+        canvas.width = width;
+        canvas.height = height;
 
-      if (maxHeight && height > maxHeight) {
-        width = (width * maxHeight) / height;
-        height = maxHeight;
-      }
+        // Drawing onto canvas strips EXIF metadata (GPS, device serial) for privacy
+        if (!ctx) {
+          throw new Error('Failed to get 2d canvas context');
+        }
+        ctx.drawImage(img, 0, 0, width, height);
 
-      width = Math.round(width);
-      height = Math.round(height);
-
-      // Set canvas dimensions
-      canvas.width = width;
-      canvas.height = height;
-
-      // Draw and compress image
-      ctx?.drawImage(img, 0, 0, width, height);
-
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            reject(new Error('Failed to optimize image'));
-            return;
-          }
-
-          // Create new file with optimized data
-          const optimizedFile = new File(
-            [blob],
-            file.name.replace(/\.[^/.]+$/, '') + `.${options.format}`,
-            {
-              type: `image/${options.format}`,
-              lastModified: Date.now(),
+        canvas.toBlob(
+          (blob) => {
+            URL.revokeObjectURL(objectUrl);
+            if (!blob) {
+              reject(new Error('Failed to optimize image'));
+              return;
             }
-          );
 
-          resolve(optimizedFile);
-        },
-        `image/${options.format}`,
-        (options.quality || 85) / 100
-      );
+            const optimizedFile = new File(
+              [blob],
+              file.name.replace(/\.[^/.]+$/, '') + `.${options.format}`,
+              {
+                type: `image/${options.format}`,
+                lastModified: Date.now(),
+              }
+            );
+
+            resolve(optimizedFile);
+          },
+          `image/${options.format}`,
+          (options.quality || 85) / 100
+        );
+      } catch (err) {
+        URL.revokeObjectURL(objectUrl);
+        reject(err instanceof Error ? err : new Error('Canvas render error'));
+      }
     };
 
-    img.onerror = (): void => reject(new Error('Failed to load image'));
-    img.src = URL.createObjectURL(file);
+    img.onerror = (): void => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Failed to load image file'));
+    };
+    const objectUrl = URL.createObjectURL(file);
+    img.src = objectUrl;
   });
 };
 
@@ -244,37 +262,6 @@ export const generateResponsiveSources = (
 /**
  * Create a responsive image element with proper srcset and sizes
  */
-export const createResponsiveImage = (
-  container: HTMLElement,
-  imageUrl: string,
-  alt: string,
-  options: ImageOptimizationOptions = {},
-  sizes: string = '100vw'
-): HTMLImageElement => {
-  const img = document.createElement('img');
-  img.alt = alt;
-
-  // Generate responsive sources
-  const sources = generateResponsiveSources(imageUrl, options);
-
-  // Create srcset string
-  const srcset = sources.map((source) => source.srcSet).join(', ');
-  img.srcset = srcset;
-  img.sizes = sizes;
-
-  // Set fallback src
-  img.src = isCDNAvailable() ? getCDNUrl(imageUrl, options) : imageUrl;
-
-  // Add loading optimization
-  img.loading = 'lazy';
-  img.decoding = 'async';
-
-  // Append to container
-  container.appendChild(img);
-
-  return img;
-};
-
 /**
  * Preload critical images
  */
@@ -307,46 +294,44 @@ export const preloadImage = (url: string, options?: ImageOptimizationOptions): P
 /**
  * Get image dimensions without loading the full image
  */
-export const getImageDimensions = (file: File): Promise<{ width: number; height: number }> => {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-
-    img.onload = (): void => {
-      resolve({ width: img.width, height: img.height });
-      URL.revokeObjectURL(img.src);
-    };
-
-    img.onerror = (): void => {
-      reject(new Error('Failed to load image'));
-      URL.revokeObjectURL(img.src);
-    };
-
-    img.src = URL.createObjectURL(file);
-  });
-};
-
 /**
- * Validate image file
+ * Validate image file with edge case protections
  */
 export const validateImageFile = (
   file: File,
   maxSizeMB: number = 10,
   allowedTypes: string[] = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 ): { valid: boolean; error?: string } => {
-  // Check file type
-  if (!allowedTypes.includes(file.type)) {
+  if (!file) {
     return {
       valid: false,
-      error: `Invalid file type. Allowed types: ${allowedTypes.join(', ')}`,
+      error: 'Invalid file.',
     };
   }
 
-  // Check file size
+  // Edge case: HEIC/HEIF or RAW formats from iPhone/camera
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  if (['heic', 'heif', 'raw', 'cr2', 'nef', 'dng'].includes(ext || '')) {
+    return {
+      valid: false,
+      error: 'HEIC or RAW photo format is not supported directly. Please convert to JPG or PNG before uploading.',
+    };
+  }
+
+  // Check file type
+  if (file.type && !allowedTypes.includes(file.type)) {
+    return {
+      valid: false,
+      error: `Invalid file type. Allowed formats: JPG, PNG, WEBP, GIF`,
+    };
+  }
+
+  // Check file size limit
   const maxSizeBytes = maxSizeMB * 1024 * 1024;
   if (file.size > maxSizeBytes) {
     return {
       valid: false,
-      error: `File too large. Maximum size: ${maxSizeMB}MB`,
+      error: `File too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Maximum allowed size is ${maxSizeMB}MB`,
     };
   }
 
@@ -356,35 +341,3 @@ export const validateImageFile = (
 /**
  * Generate a thumbnail for an image
  */
-export const generateThumbnail = async (
-  file: File,
-  maxSize: number = 200,
-  quality: number = 80
-): Promise<File> => {
-  return optimizeImage(file, {
-    maxWidth: maxSize,
-    maxHeight: maxSize,
-    quality,
-    format: 'jpeg',
-  });
-};
-
-/**
- * Convert image to base64
- */
-export const imageToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = (): void => {
-      if (typeof reader.result === 'string') {
-        resolve(reader.result);
-      } else {
-        reject(new Error('Failed to convert image to base64'));
-      }
-    };
-
-    reader.onerror = (): void => reject(new Error('Failed to read file'));
-    reader.readAsDataURL(file);
-  });
-};

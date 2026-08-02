@@ -12,7 +12,7 @@ vi.mock('@/utils/api', () => ({
 }));
 
 // Mock useToast
-vi.mock('@/components/toast/use-toast', () => ({
+vi.mock('@/composables/useToast', () => ({
   useToast: () => ({
     toast: toastMock,
   }),
@@ -127,7 +127,10 @@ describe('useAdminTable', () => {
       const table = useAdminTable(options);
       await table.loadData(1, { search: 'test', filter: null, undefined_param: undefined });
 
-      expect(apiV1.get).toHaveBeenCalledWith(expect.stringContaining('search=test'));
+      expect(apiV1.get).toHaveBeenCalledWith(
+        expect.stringContaining('search=test'),
+        expect.anything()
+      );
       expect(apiV1.get).not.toHaveBeenCalledWith(expect.stringContaining('filter='));
     });
   });
