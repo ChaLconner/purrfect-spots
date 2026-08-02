@@ -66,6 +66,31 @@ def mock_cat_detection_service() -> MagicMock:
     return service
 
 
+def _create_mock_upload_admin(user_id: str) -> MagicMock:
+    """Helper to build mock admin client for upload routes."""
+    mock_admin = MagicMock()
+    chain_mock = MagicMock()
+    chain_mock.insert.return_value = chain_mock
+    chain_mock.select.return_value = chain_mock
+    chain_mock.execute = AsyncMock(
+        return_value=MagicMock(
+            data=[
+                {
+                    "id": "new-photo-123",
+                    "user_id": user_id,
+                    "location_name": "Test Cat Spot",
+                    "latitude": 13.7563,
+                    "longitude": 100.5018,
+                    "image_url": "https://s3.example.com/cat.jpg",
+                    "uploaded_at": datetime.now().isoformat(),
+                }
+            ]
+        )
+    )
+    mock_admin.table.return_value = chain_mock
+    return mock_admin
+
+
 class TestUploadRoute:
     """Test upload endpoint functionality"""
 
@@ -121,27 +146,7 @@ class TestUploadRoute:
         app.dependency_overrides[get_async_supabase_client] = lambda: mock_supabase
         app.dependency_overrides[get_quota_service] = lambda: mock_quota_service
 
-        # Mock supabase admin insert
-        mock_admin = MagicMock()
-        chain_mock = MagicMock()
-        chain_mock.insert.return_value = chain_mock
-        chain_mock.select.return_value = chain_mock
-        chain_mock.execute = AsyncMock(
-            return_value=MagicMock(
-                data=[
-                    {
-                        "id": "new-photo-123",
-                        "user_id": mock_user.id,
-                        "location_name": "Test Cat Spot",
-                        "latitude": 13.7563,
-                        "longitude": 100.5018,
-                        "image_url": "https://s3.example.com/cat.jpg",
-                        "uploaded_at": datetime.now().isoformat(),
-                    }
-                ]
-            )
-        )
-        mock_admin.table.return_value = chain_mock
+        mock_admin = _create_mock_upload_admin(mock_user.id)
 
         with patch(
             "app.utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock
@@ -463,26 +468,7 @@ class TestUploadWithPredetectedCats:
         app.dependency_overrides[get_cat_detection_service] = lambda: mock_cat_detection_service
         app.dependency_overrides[get_quota_service] = lambda: mock_quota_service
 
-        mock_admin = MagicMock()
-        chain_mock = MagicMock()
-        chain_mock.insert.return_value = chain_mock
-        chain_mock.select.return_value = chain_mock
-        chain_mock.execute = AsyncMock(
-            return_value=MagicMock(
-                data=[
-                    {
-                        "id": "new-photo-123",
-                        "user_id": mock_user.id,
-                        "location_name": "Test Cat Spot",
-                        "latitude": 13.7563,
-                        "longitude": 100.5018,
-                        "image_url": "https://s3.example.com/cat.jpg",
-                        "uploaded_at": datetime.now().isoformat(),
-                    }
-                ]
-            )
-        )
-        mock_admin.table.return_value = chain_mock
+        mock_admin = _create_mock_upload_admin(mock_user.id)
 
         with patch(
             "app.utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock

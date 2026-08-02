@@ -90,6 +90,7 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # Generated reports and project-local diagnostics
+report/
 build-reports/
 openapi-specs/
 *.sarif
@@ -109,6 +110,3 @@ log.txt
 
 # Deployment tool state
 .vercel/
-
-# Standalone API client generator uses a local, non-canonical lockfile.
-packages/api-client/package-lock.json

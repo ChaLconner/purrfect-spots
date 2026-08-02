@@ -13,6 +13,7 @@ Features:
 """
 
 import re
+from uuid import UUID
 
 from app.logger import logger
 
@@ -253,6 +254,14 @@ def sanitize_uuid(value: str) -> str | None:
     return None
 
 
+def validate_or_raise_uuid(value: str, label: str = "ID") -> None:
+    """Validate UUID format or raise 400 HTTPException."""
+    if not validate_uuid(value):
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=400, detail=f"Invalid {label} format: expected UUID")
+
+
 # ==============================================================================
 # Numeric Validation
 # ==============================================================================
@@ -310,3 +319,10 @@ def validate_pagination(page: str | None, limit: str | None, max_limit: int = 10
             pass
 
     return validated_page, validated_limit
+
+
+def stringify_uuid(value: str | UUID | None) -> str | None:
+    """Normalize UUID objects from DB clients into API-safe string IDs."""
+    if isinstance(value, UUID):
+        return str(value)
+    return value

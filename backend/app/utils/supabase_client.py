@@ -228,3 +228,10 @@ async def get_async_supabase_admin_client(force_refresh: bool = False) -> AClien
             _async_supabase_admin_state["key"] = service_key
 
     return _async_supabase_admin
+
+
+async def get_admin_client_or_fallback(supabase_admin: AClient | None = None) -> AClient:
+    """Return provided admin client or fallback to async global admin client."""
+    if supabase_admin is not None:
+        return supabase_admin
+    return await get_async_supabase_admin_client()

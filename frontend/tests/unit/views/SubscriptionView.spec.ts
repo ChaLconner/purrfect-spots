@@ -68,6 +68,7 @@ vi.mock('@/stores/toastStore', () => ({
 vi.mock('@/services/subscriptionService', () => ({
   SubscriptionService: {
     createCheckout: vi.fn(),
+    getPlans: vi.fn().mockRejectedValue(new Error('plans unavailable')),
     cancel: vi.fn(),
     createPortalSession: vi.fn(),
   },
@@ -130,10 +131,10 @@ describe('SubscriptionView.vue', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it('normalizes the success route, polls status updates, and avoids an extra final status fetch', async () => {
+  it('normalizes the success route, polls until Pro entitlement, and avoids default-state false positives', async () => {
     mockRoute.path = '/subscription/success';
     mockFetchStatus.mockImplementationOnce(async () => {
-      mockSubscriptionStore.treatBalance = 1;
+      mockSubscriptionStore.isPro = true;
     });
 
     shallowMount(SubscriptionView);
@@ -149,7 +150,7 @@ describe('SubscriptionView.vue', () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(mockFetchStatus).toHaveBeenCalledTimes(1);
+    expect(mockFetchStatus).toHaveBeenCalledTimes(2);
     expect(mockFetchPackages).toHaveBeenCalledTimes(1);
   });
 

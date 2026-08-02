@@ -1,20 +1,18 @@
 <template>
   <div ref="wrapperRef" class="relative">
     <button
-      class="group relative w-10 h-10 flex items-center justify-center rounded-full bg-[var(--color-btn-accent-e)] border-2 border-[var(--color-btn-accent-a)] text-[var(--color-btn-accent-a)] shrink-0 transition-all duration-[150ms] ease-out hover:bg-[var(--color-btn-accent-d)] hover:translate-y-[0.1rem] active:translate-y-[0.25rem]"
+      class="group relative w-10 h-10 flex items-center justify-center rounded-full bg-[var(--color-btn-accent-e)] border-2 border-[var(--color-btn-accent-a)] text-[var(--color-btn-accent-a)] shrink-0 transition-all duration-[150ms] ease-out hover:bg-[var(--color-btn-accent-d)] hover:translate-y-[0.1rem] active:translate-y-[0.25rem] preserve-3d will-change-transform"
       :class="{
         'bg-[var(--color-btn-accent-a)] text-white border-[var(--color-btn-accent-a)]': isOpen,
       }"
-      style="transform-style: preserve-3d; will-change: transform"
       :aria-label="$t('accessibility.notifications')"
       @click="toggleDropdown"
     >
       <span
-        class="absolute inset-0 bg-[var(--color-btn-accent-c)] rounded-[inherit] shadow-[0_0_0_2px_var(--color-btn-accent-b),_0_0.2rem_0_0_var(--color-btn-accent-a)] transition-all duration-[150ms] ease-out -z-10 group-hover:translate-y-[0.15rem] group-active:translate-y-0 group-active:translate-z-[-1em] group-active:shadow-[0_0_0_2px_var(--color-btn-accent-b),_0_0.1em_0_0_var(--color-btn-accent-b)]"
+        class="absolute inset-0 bg-[var(--color-btn-accent-c)] rounded-[inherit] shadow-[0_0_0_2px_var(--color-btn-accent-b),_0_0.2rem_0_0_var(--color-btn-accent-a)] transition-all duration-[150ms] ease-out -z-10 group-hover:translate-y-[0.15rem] group-active:translate-y-0 group-active:translate-z-[-1em] group-active:shadow-[0_0_0_2px_var(--color-btn-accent-b),_0_0.1em_0_0_var(--color-btn-accent-b)] translate-3d-button-small"
         :class="{
           'bg-[#8b4520] shadow-[0_0_0_2px_#a65d37,0_0.2rem_0_0_#5d321d]': isOpen,
         }"
-        style="transform: translate3d(0, 0.2rem, -1em); will-change: transform"
       ></span>
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -172,7 +170,6 @@ import { useNotificationStore } from '@/stores/notificationStore';
 import { useRouter } from 'vue-router';
 import type { Notification } from '@/services/notificationService';
 import { getAvatarFallback, handleAvatarError } from '@/utils/avatar';
-import { formatDate as sharedFormatDate } from '@/utils/date';
 
 const store = useNotificationStore();
 const router = useRouter();
@@ -209,16 +206,11 @@ import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
 
+import { formatRelativeTime } from '@/utils/date';
+
 // Calculate time diff
 function formatDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  const now = new Date();
-  const diff = (now.getTime() - d.getTime()) / 1000; // seconds
-
-  if (diff < 60) return t('time.justNow');
-  if (diff < 3600) return t('time.ago', { time: `${Math.floor(diff / 60)}m ` });
-  if (diff < 86400) return t('time.ago', { time: `${Math.floor(diff / 3600)}h ` });
-  return sharedFormatDate(dateStr);
+  return formatRelativeTime(dateStr, t);
 }
 
 // Close on click outside

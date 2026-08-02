@@ -155,7 +155,15 @@ export default defineConfig(async ({ mode }) => {
     build: {
       outDir: 'dist',
       assetsDir: 'assets',
-      chunkSizeWarningLimit: 500,
+      modulePreload: {
+        // Keep large Supabase SDK out of the first navigation's preload set;
+        // route/auth code requests it when actually used.
+        resolveDependencies: (_filename, deps) => deps.filter((dep) => !dep.includes('supabase-')),
+      },
+      // Keep per-chunk warnings useful; initial entry budget is enforced in CI.
+      chunkSizeWarningLimit: 250,
+      cssCodeSplit: true,
+      manifest: true,
       reportCompressedSize: false,
       rollupOptions: {
         output: {
@@ -202,7 +210,7 @@ export default defineConfig(async ({ mode }) => {
           entryFileNames: 'assets/js/[name]-[hash].js',
         },
       },
-      assetsInlineLimit: 4096,
+      assetsInlineLimit: 2048,
       sourcemap: false,
       minify: 'esbuild',
     },

@@ -10,12 +10,8 @@ import { createPinia } from 'pinia';
 export const pinia = createPinia();
 
 // Export all stores
-export { useAdminStore } from './adminStore';
-export { useAuthStore } from './authStore';
-export { useCatsStore, extractTags, getCleanDescription, hasTag } from './catsStore';
-export { useNotificationStore } from './notificationStore';
-export { useSubscriptionStore } from './subscriptionStore';
-export { useToastStore, toastState, addToast, removeToast, showError, showSuccess } from './toastStore';
+export { useCatsStore } from './catsStore';
+export { useToastStore } from './toastStore';
 
 // Export types
-export type { CatLocation, PaginationMeta, TagInfo } from './catsStore';
+export type { CatLocation } from './catsStore';

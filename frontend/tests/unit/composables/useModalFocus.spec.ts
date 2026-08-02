@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useModalFocus } from '@/composables/useModalFocus';
-import { ref, defineComponent, h } from 'vue';
+import { ref, defineComponent, h, nextTick } from 'vue';
 import { mount } from '@vue/test-utils';
 
 describe('useModalFocus', () => {
@@ -96,6 +96,33 @@ describe('useModalFocus', () => {
 
     wrapper.unmount();
     expect(document.body.style.overflow).toBe('');
+  });
+
+  it('activates focus and scroll locking when modal container appears later', async () => {
+    const modalRef = ref<HTMLElement | null>(null);
+    const onClose = vi.fn();
+    const TestComponent = defineComponent({
+      setup() {
+        useModalFocus(modalRef, { onClose });
+        return () => h('div');
+      },
+    });
+
+    const wrapper = mount(TestComponent);
+    expect(document.body.style.overflow).toBe('');
+
+    modalRef.value = container;
+    await nextTick();
+    await nextTick();
+
+    expect(document.activeElement).toBe(container);
+    expect(document.body.style.overflow).toBe('hidden');
+
+    modalRef.value = null;
+    await nextTick();
+
+    expect(document.body.style.overflow).toBe('');
+    wrapper.unmount();
   });
 
   it('does not lock scroll if lockScroll is false', () => {

@@ -2,12 +2,9 @@
 Gallery response schemas with cursor-based pagination, sorting, and field selection.
 """
 
-import base64
-import json
 from enum import StrEnum
-from typing import Any, cast
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from app.schemas.location import CatLocation
 
@@ -38,25 +35,11 @@ class PaginationMeta(BaseModel):
     total_pages: int
 
 
-class CursorPaginationMeta(BaseModel):
-    """Cursor-based pagination metadata."""
-
-    next_cursor: str | None = None
-    has_more: bool
-
-
 class PaginatedGalleryResponse(BaseModel):
     """Unified response for offset-based gallery."""
 
     images: list[CatLocation]
     pagination: PaginationMeta
-
-
-class CursorPaginatedGalleryResponse(BaseModel):
-    """Unified response for cursor-based gallery."""
-
-    images: list[CatLocation]
-    pagination: CursorPaginationMeta
 
 
 class GalleryResponse(BaseModel):
@@ -94,30 +77,6 @@ class UploadQuotaResponse(BaseModel):
     resets_at: str | None = None
 
 
-class UploadPhotoResponse(BaseModel):
-    """Response after successful photo upload."""
-
-    success: bool = True
-    message: str
-    photo: dict[str, Any]
-    cat_detection: dict[str, Any] | None = None
-    uploaded_by: str | None = None
-
-
-class BulkDeleteRequest(BaseModel):
-    """Request body for bulk delete."""
-
-    photo_ids: list[str] = Field(..., min_length=1, max_length=50)
-
-
-class BulkDeleteResponse(BaseModel):
-    """Response for bulk delete."""
-
-    message: str
-    deleted_count: int
-    failed_ids: list[str] = []
-
-
 # ---- Allowed fields for ?fields= parameter ----
 
 GALLERY_ALLOWED_FIELDS: set[str] = {
@@ -134,25 +93,3 @@ GALLERY_ALLOWED_FIELDS: set[str] = {
     "user_id",
     "liked",
 }
-
-
-# ---- Cursor helpers ----
-
-
-def encode_cursor(data: dict[str, Any]) -> str:
-    """Encode a dictionary to a base64 cursor string."""
-    json_str = json.dumps(data)
-    return base64.urlsafe_b64encode(json_str.encode()).decode().rstrip("=")
-
-
-def decode_cursor(cursor: str) -> dict[str, Any]:
-    """Decode a base64 cursor string to a dictionary."""
-    if not cursor:
-        return {}
-    try:
-        # Add padding back if needed
-        padding = "=" * (4 - len(cursor) % 4)
-        json_str = base64.urlsafe_b64decode(cursor + padding).decode()
-        return cast(dict[str, Any], json.loads(json_str))
-    except Exception:
-        return {}

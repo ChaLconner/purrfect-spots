@@ -24,7 +24,8 @@ from app.services.cat_detection_service import CatDetectionService
 from app.services.gallery_service import GalleryService
 from app.services.quota_service import QuotaService
 from app.services.storage_service import StorageService
-from app.utils.cache import invalidate_gallery_cache, invalidate_tags_cache, invalidate_user_cache
+from app.utils import cache as cache_utils
+from app.utils.cache import invalidate_after_upload
 from app.utils.exceptions import ExternalServiceError
 from app.utils.file_processing import process_uploaded_image, validate_coordinates, validate_location_data
 from app.utils.security import (
@@ -34,6 +35,11 @@ from app.utils.security import (
 from app.utils.upload_verification import verify_upload_verification_token
 
 router = APIRouter(prefix="/upload", tags=["Upload"])
+
+# Compatibility exports for integrations that patch the legacy invalidation
+# tasks. Uploads now use one coalesced invalidation task below.
+invalidate_gallery_cache = cache_utils.invalidate_gallery_cache
+invalidate_tags_cache = cache_utils.invalidate_tags_cache
 
 
 # Alias for backward compatibility with tests
@@ -323,9 +329,7 @@ async def upload_cat_photo(
         await quota_service.increment_usage(user_id)
 
         # Invalidate gallery, tags and user photos cache after new upload in background
-        background_tasks.add_task(invalidate_gallery_cache)
-        background_tasks.add_task(invalidate_tags_cache)
-        background_tasks.add_task(invalidate_user_cache, user_id)
+        background_tasks.add_task(invalidate_after_upload, user_id)
 
         log_security_event(
             "cat_photo_upload_success",

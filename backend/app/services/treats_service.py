@@ -1,9 +1,9 @@
 import os
 import time
-import uuid
 from typing import Any, cast
 
 import stripe
+from fastapi import HTTPException
 from starlette.concurrency import run_in_threadpool
 from supabase import AClient
 
@@ -16,7 +16,7 @@ from app.utils.cache import cached_leaderboard, invalidate_leaderboard_cache
 # Pin the same API version as subscription_service to ensure consistent
 # webhook payload shapes across all Stripe SDK calls in this service.
 stripe.api_key = config.STRIPE_SECRET_KEY or os.getenv("STRIPE_SECRET_KEY")
-stripe.api_version = "2025-02-24.acacia"
+stripe.api_version = config.STRIPE_API_VERSION
 
 # ── In-memory package cache ──────────────────────────────────────────
 _packages_cache: dict[str, dict[str, Any]] | None = None
@@ -27,13 +27,14 @@ _PACKAGES_CACHE_TTL = 300  # 5 minutes
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.repositories import UserRepository
+
 
 class TreatsService:
     def __init__(self, supabase_client: AClient, db: AsyncSession | None = None) -> None:
         self.supabase = supabase_client
         self.db = db
-        # Consistent column selection for treats
-        self.TREAT_COLUMNS = "id, sender_id, receiver_id, amount, message, created_at"
+        self.user_repo = UserRepository(supabase_client, db=db)
         self.TRANSACTION_COLUMNS = "id, from_user_id, to_user_id, photo_id, amount, transaction_type, created_at"
         self.notification_service = NotificationService(supabase_client)
 
@@ -63,6 +64,7 @@ class TreatsService:
                 "success": True,
                 "message": f"Gave {amount} treats",
                 "new_balance": result.get("new_balance"),
+                "amount_given": amount,
             }
 
         except ValueError:
@@ -81,7 +83,10 @@ class TreatsService:
             raise ValueError("Database session is required for SQL RPC")
         db_session = self.db
         query = text(
-            "SELECT success, error, to_user_id, new_balance FROM give_treat_atomic(CAST(:p_from_user_id AS UUID), CAST(:p_photo_id AS UUID), CAST(:p_amount AS INTEGER))"
+            "SELECT rpc.success, rpc.error, rpc.to_user_id, rpc.new_balance "
+            "FROM json_to_record(public.give_treat_atomic("
+            "CAST(:p_from_user_id AS UUID), CAST(:p_photo_id AS UUID), CAST(:p_amount AS INTEGER)"
+            ")) AS rpc(success BOOLEAN, error TEXT, to_user_id UUID, new_balance INTEGER)"
         )
         result = await db_session.execute(
             query,
@@ -117,11 +122,14 @@ class TreatsService:
             },
         ).execute()
 
-        data = cast(list[dict[str, Any]], res.data)
-        if not data:
+        raw_data = res.data
+        if isinstance(raw_data, dict):
+            result = cast(dict[str, Any], raw_data)
+        elif isinstance(raw_data, list) and raw_data and isinstance(raw_data[0], dict):
+            result = cast(dict[str, Any], raw_data[0])
+        else:
             raise ValueError("Unknown error (no response from RPC)")
 
-        result = data[0]
         if not result.get("success"):
             raise ValueError(result.get("error", "Unknown error"))
 
@@ -206,41 +214,44 @@ class TreatsService:
             }
 
             # Associate with existing Stripe customer for unified history
-            if stripe_customer_id:
-                session_params["customer"] = stripe_customer_id
-            else:
-                # Try to find existing customer
-                db_customer_id = None
-                if self.db:
-                    query = text("SELECT stripe_customer_id FROM users WHERE id = :u_id LIMIT 1")
-                    result = await self.db.execute(query, {"u_id": user_id})
-                    row = result.fetchone()
-                    if row:
-                        db_customer_id = row[0]
-                else:
-                    user_res = (
-                        await self.supabase.table("users")
-                        .select("stripe_customer_id")
-                        .eq("id", user_id)
-                        .maybe_single()
-                        .execute()
+            cust_id = stripe_customer_id
+            if not cust_id:
+                user_data = await self.user_repo.get_user({"id": user_id}, fields="stripe_customer_id")
+                cust_id = user_data.get("stripe_customer_id") if user_data else None
+
+            if cust_id:
+                session_params["customer"] = cust_id
+
+            # Idempotency key: 60-second bucket deduplicates double-clicks
+            # while still allowing a fresh session after the window expires.
+            time_bucket = int(time.time()) // 60
+            idempotency_key = f"checkout-treat-{user_id}-{package}-{time_bucket}"
+            try:
+                checkout_session = await run_in_threadpool(
+                    lambda: stripe.checkout.Session.create(**session_params, idempotency_key=idempotency_key)
+                )
+            except stripe.error.InvalidRequestError as e:
+                if "No such customer" in str(e) or getattr(e, "code", None) == "resource_missing":
+                    logger.warning(
+                        "Stripe customer %s invalid for user %s. Removing invalid customer ID and retrying.",
+                        cust_id,
+                        user_id,
                     )
-                    user_data = cast(dict[str, Any] | None, user_res.data) if user_res else None
-                    db_customer_id = user_data.get("stripe_customer_id") if user_data else None
-
-                if db_customer_id:
-                    session_params["customer"] = db_customer_id
-
-            # Idempotency key prevents duplicate sessions if the user
-            # double-clicks or the network retries the request.
-            idempotency_key = f"checkout-treat-{user_id}-{package}-{uuid.uuid4().hex[:8]}"
-            checkout_session = await run_in_threadpool(
-                lambda: stripe.checkout.Session.create(**session_params, idempotency_key=idempotency_key)
-            )
+                    await self.user_repo.update_user(user_id, {"stripe_customer_id": None})
+                    session_params.pop("customer", None)
+                    new_idempotency_key = f"checkout-treat-{user_id}-{package}-{time_bucket}-retry"
+                    checkout_session = await run_in_threadpool(
+                        lambda: stripe.checkout.Session.create(**session_params, idempotency_key=new_idempotency_key)
+                    )
+                else:
+                    raise
             return {
                 "checkout_url": checkout_session.url or "",
                 "session_id": checkout_session.id,
             }
+        except stripe.error.StripeError as e:
+            logger.error("Stripe purchase session creation failed: %s", e, exc_info=True)
+            raise HTTPException(status_code=400, detail=f"Stripe error: {e.user_message or str(e)}") from e
         except Exception as e:
             logger.error("Stripe purchase session creation failed: %s", e, exc_info=True)
             raise
@@ -442,12 +453,12 @@ class TreatsService:
 
         if not user_id or not package_id:
             logger.error("Fulfillment failed: missing metadata. user_id=%r, package=%r", user_id, package_id)
-            return
+            raise ValueError("Treat purchase webhook is missing required metadata")
 
         package = await self.get_package_by_id(package_id)
         if not package or package.get("amount", 0) <= 0:
             logger.error("Fulfillment failed: package %r not found or invalid", package_id)
-            return
+            raise ValueError("Treat package not found or invalid")
 
         amount = package["amount"]
         description = f"Purchased {package['name']} pack"
@@ -461,6 +472,7 @@ class TreatsService:
             if self.db:
                 await self.db.rollback()
             logger.error("Failed to add treats in fulfillment: %s", e, exc_info=True)
+            raise
 
     async def _fulfill_purchase_sql(self, user_id: str, amount: int, description: str, session_id: str) -> None:
         """Fulfill treat purchase using SQLAlchemy."""
@@ -469,7 +481,10 @@ class TreatsService:
             return
         db_session = self.db
         query = text(
-            "SELECT error, duplicate, new_balance FROM purchase_treats_atomic(:p_user_id, :p_amount, :p_description, :p_stripe_session_id)"
+            "SELECT rpc.error, rpc.duplicate, rpc.new_balance "
+            "FROM json_to_record(public.purchase_treats_atomic("
+            ":p_user_id, :p_amount, :p_description, :p_stripe_session_id"
+            ")) AS rpc(error TEXT, duplicate BOOLEAN, new_balance INTEGER)"
         )
         result = await db_session.execute(
             query,
@@ -482,15 +497,14 @@ class TreatsService:
         )
         row = result.fetchone()
         if not row:
-            logger.error("Failed to process purchase: No response from RPC")
-            return
+            raise RuntimeError("Failed to process purchase: no response from RPC")
 
         await db_session.commit()
 
         error, duplicate, new_balance = row
         if error:
-            logger.error("Failed to process purchase: %s", error)
-        elif duplicate:
+            raise RuntimeError(f"Failed to process purchase: {error}")
+        if duplicate:
             logger.info("Duplicate webhook processed for session %s", session_id)
         else:
             logger.info("Added %d treats to user %r. New balance: %s", amount, user_id, new_balance)
@@ -509,8 +523,8 @@ class TreatsService:
 
         data = cast(dict[str, Any], res.data or {})
         if data.get("error"):
-            logger.error("Failed to process purchase: %s", data.get("error"))
-        elif data.get("duplicate"):
+            raise RuntimeError(f"Failed to process purchase: {data.get('error')}")
+        if data.get("duplicate"):
             logger.info("Duplicate webhook processed for session %s", session_id)
         else:
             logger.info("Added %d treats to user %r. New balance: %s", amount, user_id, data.get("new_balance"))

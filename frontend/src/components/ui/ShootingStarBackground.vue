@@ -3,7 +3,7 @@
     <div
       v-for="n in starCount"
       :key="n"
-      class="absolute w-[150px] h-[3px] bg-[linear-gradient(90deg,rgba(255,255,255,0),#ffffff)] drop-shadow-[0_0_6px_rgba(255,255,255,0.8)] rotate-45 opacity-0 animate-[shoot_ease-out_infinite]"
+      class="absolute top-[var(--star-top)] left-[var(--star-left)] h-[3px] w-[150px] rotate-45 bg-[linear-gradient(90deg,rgba(255,255,255,0),#ffffff)] opacity-0 drop-shadow-[0_0_6px_rgba(255,255,255,0.8)] animate-[shoot_ease-out_infinite] [animation-delay:var(--star-delay)] [animation-duration:var(--star-duration)]"
       :style="getStarStyle(n)"
     ></div>
   </div>
@@ -21,10 +21,10 @@ const getStarStyle = (_n: number): Record<string, string> => {
   const duration = 1.5 + Math.random() * 2; // NOSONAR typescript:S2245
 
   return {
-    top: `${top}%`,
-    left: `${left}%`,
-    animationDelay: `${delay}s`,
-    animationDuration: `${duration}s`,
+    '--star-top': `${top}%`,
+    '--star-left': `${left}%`,
+    '--star-delay': `${delay}s`,
+    '--star-duration': `${duration}s`,
   };
 };
 </script>

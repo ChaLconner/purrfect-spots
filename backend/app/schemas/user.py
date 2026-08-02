@@ -5,32 +5,22 @@ User model for authentication
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
 
 from app.constants.admin_permissions import normalize_permissions
+from app.schemas.profile import BaseProfile
 
 
-class User(BaseModel):
-    id: str
+class UserBase(BaseProfile):
     username: str | None = None
     google_id: str | None = None
     email: str
-    name: str | None = None
-    picture: str | None = None
-    bio: str | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
-    is_pro: bool = False
-    stripe_customer_id: str | None = None
-    subscription_end_date: datetime | None = None
-    cancel_at_period_end: bool = False
     treat_balance: int = 0
     role: str = "user"
-    role_id: str | None = None
     permissions: list[str] = Field(default_factory=list)
     banned_at: datetime | None = None
 
-    @field_validator("id", "role_id", mode="before")
+    @field_validator("id", mode="before")
     @classmethod
     def stringify_uuid_fields(cls, value: object) -> str | None:
         if value is None:
@@ -47,28 +37,24 @@ class User(BaseModel):
         return []
 
 
-class UserCreate(BaseModel):
-    username: str | None = None
-    google_id: str | None = None
-    email: str
-    name: str
-    picture: str | None = None
-    bio: str | None = None
+class User(UserBase):
+    updated_at: datetime | None = None
+    stripe_customer_id: str | None = None
+    subscription_end_date: datetime | None = None
+    cancel_at_period_end: bool = False
+    role_id: str | None = None
+
+    @field_validator("role_id", mode="before")
+    @classmethod
+    def stringify_role_id(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, UUID):
+            return str(value)
+        return value if isinstance(value, str) else str(value)
 
 
-class UserCreateWithPassword(BaseModel):
-    username: str | None = None
-    email: str
-    name: str
-    password: str
-
-
-class UserLogin(BaseModel):
-    email: str
-    password: str
-
-
-class UserResponse(BaseModel):
+class UserResponse(UserBase):
     """
     Public-facing user representation.
 
@@ -78,31 +64,3 @@ class UserResponse(BaseModel):
     access (no JWT decode on the client side).  Server-side
     authorization still relies exclusively on JWT claims.
     """
-
-    id: str
-    username: str | None = None
-    google_id: str | None = None
-    email: str
-    name: str | None = None
-    picture: str | None = None
-    bio: str | None = None
-    created_at: datetime | None = None
-    is_pro: bool = False
-    treat_balance: int = 0
-    role: str = "user"
-    permissions: list[str] = Field(default_factory=list)
-    banned_at: datetime | None = None
-
-    @field_validator("id", mode="before")
-    @classmethod
-    def stringify_uuid_fields(cls, value: object) -> str:
-        if isinstance(value, UUID):
-            return str(value)
-        return value if isinstance(value, str) else str(value)
-
-    @field_validator("permissions", mode="before")
-    @classmethod
-    def normalize_permissions_field(cls, value: object) -> list[str]:
-        if isinstance(value, list):
-            return normalize_permissions(value)
-        return []

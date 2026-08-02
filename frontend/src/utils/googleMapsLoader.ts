@@ -160,22 +160,4 @@ export const isGoogleMapsLoaded = (): boolean => {
  * Get the Google Maps object
  * @returns The global Google Maps object or null if not loaded
  */
-export const getGoogleMaps = (): typeof google.maps | null => {
-  return globalThis.google?.maps || null;
-};
-
-/**
- * Add a callback to be executed when Google Maps is loaded
- * @param callback Function to execute when Google Maps is loaded
- */
-export const onGoogleMapsLoaded = (callback: () => void): void => {
-  if (isGoogleMapsLoaded()) {
-    // If already loaded, execute immediately
-    callback();
-  } else {
-    // Otherwise, add to pending callbacks
-    pendingCallbacks.push(callback);
-  }
-};
-
 // Note: The Window interface with google property is defined in frontend/src/types/global.d.ts

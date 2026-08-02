@@ -5,6 +5,7 @@ import { TreatsService } from '../services/treatsService';
 import { useAuthStore } from './authStore';
 import type { TreatPackage } from '@/types/subscription';
 import { setAccessToken } from '@/utils/api';
+import { isDev } from '@/utils/env';
 
 export const useSubscriptionStore = defineStore('subscription', () => {
   const isPro = ref(false);
@@ -15,10 +16,12 @@ export const useSubscriptionStore = defineStore('subscription', () => {
 
   // ── Fetch cooldown ──────────────────────────────────────────────
   const lastFetched = ref(0);
+  const lastFetchedUserId = ref<string | null>(null);
   const FETCH_COOLDOWN = 60_000; // 1 minute
 
   // ── Loading states ──────────────────────────────────────────────
   const isLoadingStatus = ref(false);
+  const statusError = ref<string | null>(null);
   const isLoadingBalance = ref(false);
 
   // ── Packages cache ──────────────────────────────────────────────
@@ -52,7 +55,8 @@ export const useSubscriptionStore = defineStore('subscription', () => {
     if (!(await ensureAccessToken())) return;
 
     const now = Date.now();
-    if (!force && now - lastFetched.value < FETCH_COOLDOWN && isPro.value !== undefined) {
+    const userId = authStore.user?.id ?? null;
+    if (!force && lastFetchedUserId.value === userId && now - lastFetched.value < FETCH_COOLDOWN) {
       return;
     }
 
@@ -61,6 +65,7 @@ export const useSubscriptionStore = defineStore('subscription', () => {
 
     try {
       const status = await SubscriptionService.getStatus();
+      statusError.value = null;
       isPro.value = status.is_pro;
       subscriptionEndDate.value = status.subscription_end_date;
       cancelAtPeriodEnd.value = status.cancel_at_period_end || false;
@@ -71,6 +76,7 @@ export const useSubscriptionStore = defineStore('subscription', () => {
       }
 
       lastFetched.value = now;
+      lastFetchedUserId.value = userId;
 
       // Sync with auth store
       if (authStore.user) {
@@ -81,7 +87,11 @@ export const useSubscriptionStore = defineStore('subscription', () => {
         }
       }
     } catch (e) {
-      console.error('Failed to fetch subscription status:', e);
+      statusError.value = 'subscription_status_unavailable';
+      if (isDev()) {
+        console.error('Failed to fetch subscription status:', e);
+      }
+      throw e;
     } finally {
       isLoadingStatus.value = false;
     }
@@ -103,7 +113,9 @@ export const useSubscriptionStore = defineStore('subscription', () => {
         authStore.user.treat_balance = balance;
       }
     } catch (e) {
-      console.error('Failed to fetch treat balance:', e);
+      if (isDev()) {
+        console.error('Failed to fetch treat balance:', e);
+      }
     } finally {
       isLoadingBalance.value = false;
     }
@@ -120,7 +132,9 @@ export const useSubscriptionStore = defineStore('subscription', () => {
       packagesLoaded.value = true;
       return pkgs;
     } catch (e) {
-      console.error('Failed to fetch packages:', e);
+      if (isDev()) {
+        console.error('Failed to fetch packages:', e);
+      }
       return treatPackages.value;
     }
   }
@@ -172,6 +186,7 @@ export const useSubscriptionStore = defineStore('subscription', () => {
     cancelAtPeriodEnd,
     treatBalance,
     isLoadingStatus,
+    statusError,
     isLoadingBalance,
     treatPackages,
     packagesLoaded,

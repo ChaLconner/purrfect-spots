@@ -46,63 +46,72 @@ class OTPService:
         """Constant-time comparison to prevent timing attacks"""
         return secrets.compare_digest(val1, val2)
 
+    async def _run_redis_otp_op(self, action: str, email: str, val: Any = None) -> tuple[bool, Any]:
+        """Helper to run Redis operations for OTP lockout."""
+        import os
+
+        redis_url = os.getenv("REDIS_URL")
+        if not redis_url:
+            return False, None
+        try:
+            import redis.asyncio as aioredis
+
+            async with aioredis.from_url(redis_url, encoding="utf-8", decode_responses=False) as redis_client:
+                lockout_key = f"otp_lockout:{email}"
+                if action == "exists":
+                    return True, bool(await redis_client.exists(lockout_key))
+                if action == "setex":
+                    await redis_client.setex(lockout_key, self.LOCKOUT_DURATION_MINUTES * 60, val)
+                    return True, None
+                if action == "delete":
+                    await redis_client.delete(lockout_key)
+                    return True, None
+        except Exception as e:
+            logger.debug(f"Redis {action} failed for {email}, falling back to DB: {e}")
+        return False, None
+
     async def _is_email_locked_out(self, email: str) -> bool:
         """
         Check if email is currently locked out due to too many failed attempts.
         Uses Redis if available, otherwise falls back to database.
         """
         try:
-            # Try Redis first for performance
-            import os
-
-            redis_url = os.getenv("REDIS_URL")
-            if redis_url:
-                try:
-                    import redis.asyncio as aioredis
-
-                    async with aioredis.from_url(redis_url, encoding="utf-8", decode_responses=False) as redis_client:
-                        lockout_key = f"otp_lockout:{email}"
-                        exists = await redis_client.exists(lockout_key)
-                        return bool(exists)
-                except Exception as e:
-                    logger.debug(f"Redis lockout check failed, falling back to DB: {e}")
-                    # pass
+            handled, res = await self._run_redis_otp_op("exists", email)
+            if handled:
+                return bool(res)
 
             # Fallback to database check
-            if self.db:
-                query = text(
-                    "SELECT locked_until FROM email_verifications "
-                    "WHERE email = :email AND verified_at IS NULL "
-                    "ORDER BY created_at DESC LIMIT 1"
-                )
-                result = await self.db.execute(query, {"email": email})
-                row = result.fetchone()
-                if row and row[0]:
-                    locked_until = datetime.fromisoformat(row[0].replace("Z", TIMEZONE_UTC_OFFSET))
-                    return utc_now() < locked_until
-            else:
-                supa_res = (
-                    await self.supabase.table("email_verifications")
-                    .select("locked_until")
-                    .eq("email", email)
-                    .is_("verified_at", "null")
-                    .order("created_at", desc=True)
-                    .limit(1)
-                    .execute()
-                )
-
-                if supa_res.data:
-                    first_row = cast(dict[str, Any], supa_res.data[0])
-                    if first_row.get("locked_until"):
-                        locked_until = datetime.fromisoformat(
-                            cast(str, first_row["locked_until"]).replace("Z", TIMEZONE_UTC_OFFSET)
-                        )
-                        return utc_now() < locked_until
+            rec = await self._fetch_pending_verification(email, "locked_until")
+            if rec and rec.get("locked_until"):
+                locked_until = datetime.fromisoformat(cast(str, rec["locked_until"]).replace("Z", TIMEZONE_UTC_OFFSET))
+                return utc_now() < locked_until
 
             return False
         except Exception:
             # On error, allow attempt (fail open for lockout check)
             return False
+
+    async def _fetch_pending_verification(self, email: str, columns: str) -> dict[str, Any] | None:
+        """Fetch latest unverified email verification record by email."""
+        if self.db:
+            query = text(
+                f"SELECT {columns} FROM email_verifications "  # noqa: S608
+                "WHERE email = :email AND verified_at IS NULL "
+                "ORDER BY created_at DESC LIMIT 1"
+            )
+            result = await self.db.execute(query, {"email": email})
+            row = result.fetchone()
+            return dict(row._mapping) if row else None
+        supa_res = (
+            await self.supabase.table("email_verifications")
+            .select(columns)
+            .eq("email", email)
+            .is_("verified_at", "null")
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        return cast(dict[str, Any], supa_res.data[0]) if supa_res.data else None
 
     async def _lockout_email(self, email: str) -> None:
         """
@@ -111,58 +120,36 @@ class OTPService:
         """
         try:
             locked_until = utc_now() + timedelta(minutes=self.LOCKOUT_DURATION_MINUTES)
-
-            # Try Redis first for performance
-            import os
-
-            redis_url = os.getenv("REDIS_URL")
-            if redis_url:
-                try:
-                    import redis.asyncio as aioredis
-
-                    async with aioredis.from_url(redis_url, encoding="utf-8", decode_responses=False) as redis_client:
-                        lockout_key = f"otp_lockout:{email}"
-                        await redis_client.setex(
-                            lockout_key, self.LOCKOUT_DURATION_MINUTES * 60, locked_until.isoformat()
-                        )
-                    logger.info("Email locked out in Redis: %s until %s", email, locked_until.isoformat())
-                    return
-                except Exception as e:
-                    logger.debug(f"Redis lockout record failed, falling back to DB: {e}")
-                    # pass
+            handled, _ = await self._run_redis_otp_op("setex", email, locked_until.isoformat())
+            if handled:
+                logger.info("Email locked out in Redis: %s until %s", email, locked_until.isoformat())
+                return
 
             # Fallback to database
-            if self.db:
-                query = text(
-                    "UPDATE email_verifications SET locked_until = :locked_until "
-                    "WHERE id = (SELECT id FROM email_verifications "
-                    "WHERE email = :email AND verified_at IS NULL "
-                    "ORDER BY created_at DESC LIMIT 1)"
-                )
-                await self.db.execute(query, {"locked_until": locked_until.isoformat(), "email": email})
-                await self.db.commit()
-            else:
-                result = (
-                    await self.supabase.table("email_verifications")
-                    .select("id")
-                    .eq("email", email)
-                    .is_("verified_at", "null")
-                    .order("created_at", desc=True)
-                    .limit(1)
-                    .execute()
-                )
-
-                if result.data:
-                    first_row = cast(dict[str, Any], result.data[0])
-                    await (
-                        self.supabase.table("email_verifications")
-                        .update({"locked_until": locked_until.isoformat()})
-                        .eq("id", first_row["id"])
-                        .execute()
-                    )
+            await self._update_email_lockout_db(email, locked_until)
             logger.info("Email locked out in database: %s until %s", email, locked_until.isoformat())
         except Exception as e:
             logger.error("Failed to lock out email: %s", e)
+
+    async def _update_email_lockout_db(self, email: str, locked_until: datetime | None) -> None:
+        """Helper method to update locked_until in database or Supabase."""
+        locked_iso = locked_until.isoformat() if locked_until else None
+        rec = await self._fetch_pending_verification(email, "id")
+        if rec and rec.get("id"):
+            record_id = rec["id"]
+            if self.db:
+                await self.db.execute(
+                    text("UPDATE email_verifications SET locked_until = :locked_until WHERE id = :id"),
+                    {"locked_until": locked_iso, "id": record_id},
+                )
+                await self.db.commit()
+            else:
+                await (
+                    self.supabase.table("email_verifications")
+                    .update({"locked_until": locked_iso})
+                    .eq("id", record_id)
+                    .execute()
+                )
 
     async def _clear_email_lockout(self, email: str) -> None:
         """
@@ -170,48 +157,12 @@ class OTPService:
         Uses Redis if available, otherwise falls back to database.
         """
         try:
-            # Try Redis first for performance
-            import os
-
-            redis_url = os.getenv("REDIS_URL")
-            if redis_url:
-                try:
-                    import redis.asyncio as aioredis
-
-                    async with aioredis.from_url(redis_url, encoding="utf-8", decode_responses=False) as redis_client:
-                        lockout_key = f"otp_lockout:{email}"
-                        await redis_client.delete(lockout_key)
-                    return
-                except Exception as e:
-                    logger.debug(f"Redis lockout deletion failed, falling back to DB: {e}")
-                    # pass
+            handled, _ = await self._run_redis_otp_op("delete", email)
+            if handled:
+                return
 
             # Fallback to database
-            if self.db:
-                query = text(
-                    "UPDATE email_verifications SET locked_until = NULL WHERE email = :email AND verified_at IS NULL"
-                )
-                await self.db.execute(query, {"email": email})
-                await self.db.commit()
-            else:
-                result = (
-                    await self.supabase.table("email_verifications")
-                    .select("id")
-                    .eq("email", email)
-                    .is_("verified_at", "null")
-                    .order("created_at", desc=True)
-                    .limit(1)
-                    .execute()
-                )
-
-                if result.data:
-                    first_row = cast(dict[str, Any], result.data[0])
-                    await (
-                        self.supabase.table("email_verifications")
-                        .update({"locked_until": None})
-                        .eq("id", first_row["id"])
-                        .execute()
-                    )
+            await self._update_email_lockout_db(email, None)
         except Exception as e:
             logger.error("Failed to clear email lockout: %s", e)
 
@@ -273,30 +224,7 @@ class OTPService:
                 }
 
             # Get latest OTP record for this email
-            record = None
-            if self.db:
-                query = text(
-                    "SELECT id, otp_hash, attempts, max_attempts, expires_at "
-                    "FROM email_verifications "
-                    "WHERE email = :email AND verified_at IS NULL "
-                    "ORDER BY created_at DESC LIMIT 1"
-                )
-                result = await self.db.execute(query, {"email": email_lower})
-                row = result.fetchone()
-                if row:
-                    record = dict(row._mapping)
-            else:
-                supa_res = (
-                    await self.supabase.table("email_verifications")
-                    .select(self.OTP_COLUMNS)
-                    .eq("email", email_lower)
-                    .is_("verified_at", "null")
-                    .order("created_at", desc=True)
-                    .limit(1)
-                    .execute()
-                )
-                if supa_res.data:
-                    record = cast(dict[str, Any], supa_res.data[0])
+            record = await self._fetch_pending_verification(email_lower, self.OTP_COLUMNS)
 
             if not record:
                 logger.warning("No pending OTP found")

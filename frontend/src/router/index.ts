@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, type RouteLocationRaw } from 'vue-router';
 import { PERMISSIONS } from '@/constants/permissions';
 import { getDefaultAdminPath, hasAdminPermission } from '@/utils/adminAccess';
+import type { useAuthStore as UseAuthStore } from '@/stores/authStore';
 
 // Lazy-loaded route components (extracted for Vite code-splitting and to avoid duplication)
 const MapView = (): Promise<unknown> => import('@/views/MapView.vue');
@@ -210,7 +211,7 @@ const router = createRouter({
   routes,
 });
 
-const getAuthStore = async (): Promise<unknown> => {
+const getAuthStore = async (): Promise<ReturnType<typeof UseAuthStore>> => {
   const { useAuthStore } = await import('@/stores/authStore');
   return useAuthStore();
 };

@@ -192,7 +192,8 @@ class GalleryReadMixin(GalleryBaseMixin):
         if not photos or not user_id:
             return photos
         try:
-            liked_ids = await self._get_user_liked_photo_ids(user_id)
+            photo_ids = tuple(sorted(str(photo.get("id")) for photo in photos if photo.get("id")))
+            liked_ids = await self._get_user_liked_photo_ids(user_id, photo_ids)
             for photo in photos:
                 photo["liked"] = photo["id"] in liked_ids
             return photos
@@ -201,14 +202,17 @@ class GalleryReadMixin(GalleryBaseMixin):
             return list(photos)
 
     @cached_user_likes
-    async def _get_user_liked_photo_ids(self, user_id: str) -> set[str]:
+    async def _get_user_liked_photo_ids(self, user_id: str, photo_ids: tuple[str, ...] = ()) -> set[str]:
         try:
             admin_client = await self.get_supabase_admin()
             if not admin_client:
                 logger.warning("No admin client available; skipping user likes fetch")
                 return set()
 
-            res = await admin_client.table("photo_likes").select("photo_id").eq("user_id", user_id).execute()
+            query = admin_client.table("photo_likes").select("photo_id").eq("user_id", user_id)
+            if photo_ids:
+                query = query.in_("photo_id", list(photo_ids))
+            res = await query.execute()
             data_list = cast(list[dict[str, Any]], res.data or [])
             return {cast(str, item["photo_id"]) for item in data_list}
         except Exception as e:

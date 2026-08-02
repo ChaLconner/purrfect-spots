@@ -14,11 +14,6 @@ class ReportCreate(ReportBase):
     pass
 
 
-class ReportUpdate(BaseModel):
-    status: str = Field(..., description="New status (pending, resolved, dismissed)")
-    resolution_notes: str | None = None
-
-
 class ReportResponse(ReportBase):
     id: UUID
     reporter_id: UUID | None = None

@@ -1,6 +1,6 @@
 <template>
   <div
-    class="min-h-screen flex items-center justify-center p-4 sm:p-8 relative overflow-hidden bg-[#eaf6f3]"
+    class="flex-1 flex items-center justify-center p-4 sm:p-8 relative overflow-hidden"
   >
     <!-- Animated Background Clouds -->
     <GhibliBackground v-if="shouldRenderDeferredVisuals" />

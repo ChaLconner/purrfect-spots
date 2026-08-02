@@ -1,6 +1,6 @@
 import { ref, onUnmounted, getCurrentInstance, type Ref } from 'vue';
 
-export interface Coordinates {
+interface Coordinates {
   lat: number;
   lng: number;
 }

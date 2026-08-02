@@ -69,16 +69,6 @@ def get_required_env(key: str, production_only: bool = False) -> str:
         return ""
 
     if is_production:
-        # Fallback for keys that are purely administrative and can be lived without
-        if key in ["SUPABASE_SERVICE_ROLE_KEY", "STRIPE_SECRET_KEY"]:
-            warnings.warn(
-                f"Production environment variable '{key}' is missing. "
-                "Administrative features will be downgraded or disabled.",
-                UserWarning,
-                stacklevel=2,
-            )
-            return ""
-
         raise ConfigurationError(
             f"Required environment variable '{key}' is not set. "
             f"Please check your .env file or environment configuration."
@@ -148,6 +138,22 @@ class Config:
         and not os.getenv("VERCEL")
         and ENVIRONMENT != "production"
     )
+    # Stripe webhooks are at-least-once and can be delayed. Reconciliation is
+    # enabled by default for long-running production workers, disabled in local
+    # development/tests unless explicitly enabled, and never started on Vercel.
+    _reconciliation_default = "true" if ENVIRONMENT.lower() == "production" else "false"
+    ENABLE_SUBSCRIPTION_RECONCILIATION = (
+        os.getenv("ENABLE_SUBSCRIPTION_RECONCILIATION", _reconciliation_default).lower() in ("true", "1", "yes")
+        and not os.getenv("VERCEL")
+        and ENVIRONMENT.lower() not in {"test", "testing"}
+    )
+    try:
+        SUBSCRIPTION_RECONCILIATION_INTERVAL_SECONDS = max(
+            60, int(os.getenv("SUBSCRIPTION_RECONCILIATION_INTERVAL_SECONDS", "900"))
+        )
+    except ValueError:
+        logger.warning("Invalid SUBSCRIPTION_RECONCILIATION_INTERVAL_SECONDS; using 900 seconds")
+        SUBSCRIPTION_RECONCILIATION_INTERVAL_SECONDS = 900
 
     # Supabase - Use consistent naming with fallbacks for backward compatibility
     SUPABASE_URL = normalize_single_line_env(get_env_with_fallback("SUPABASE_URL"))
@@ -241,8 +247,6 @@ class Config:
     # ==========================================
     UPLOAD_MAX_SIZE_MB = int(os.getenv("UPLOAD_MAX_SIZE_MB", "10"))
     UPLOAD_MAX_DIMENSION = int(os.getenv("UPLOAD_MAX_DIMENSION", "1920"))
-    UPLOAD_ALLOWED_EXTENSIONS = os.getenv("UPLOAD_ALLOWED_EXTENSIONS", "jpg,jpeg,png,gif,webp").split(",")
-    UPLOAD_RATE_LIMIT = os.getenv("UPLOAD_RATE_LIMIT", "5/minute")
     RATE_LIMIT_UPLOAD_FREE = os.getenv("RATE_LIMIT_UPLOAD_FREE", "5/minute")
     RATE_LIMIT_UPLOAD_PRO = os.getenv("RATE_LIMIT_UPLOAD_PRO", "20/minute")
 
@@ -255,8 +259,6 @@ class Config:
     # ==========================================
     # Gallery/Pagination Configuration
     # ==========================================
-    GALLERY_PAGE_SIZE = int(os.getenv("GALLERY_PAGE_SIZE", "20"))
-    GALLERY_MAX_PAGE_SIZE = int(os.getenv("GALLERY_MAX_PAGE_SIZE", "100"))
 
     # ==========================================
     # Rate Limiting Configuration
@@ -274,27 +276,6 @@ class Config:
     # ==========================================
     # Security Configuration
     # ==========================================
-    PASSWORD_MIN_LENGTH = int(os.getenv("PASSWORD_MIN_LENGTH", "8"))
-    SESSION_COOKIE_SECURE = (
-        os.getenv("SESSION_COOKIE_SECURE", "").lower() in ("true", "1", "yes") or ENVIRONMENT == "production"
-    )
-    SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "lax")
-
-    # ==========================================
-    # Session Timeout Configuration
-    # ==========================================
-    # SECURITY: Define clear session timeout and idle timeout
-    # Session timeout: Maximum time a session can be active (absolute)
-    # Idle timeout: Maximum time of inactivity before session expires
-    SESSION_TIMEOUT_MINUTES = int(os.getenv("SESSION_TIMEOUT_MINUTES", "1440"))  # 24 hours default
-    SESSION_IDLE_TIMEOUT_MINUTES = int(os.getenv("SESSION_IDLE_TIMEOUT_MINUTES", "30"))  # 30 minutes default
-    # Note: JWT_ACCESS_EXPIRATION_HOURS (1 hour) is the actual token expiration
-    # SESSION_TIMEOUT_MINUTES and SESSION_IDLE_TIMEOUT_MINUTES are used for:
-    # 1. Server-side session tracking (if implemented)
-    # 2. Concurrent session management
-    # 3. Security event logging
-    # 4. User experience (auto-logout on idle)
-
     # ==========================================
     # Payment / Subscription Configuration
     # ==========================================
@@ -303,9 +284,6 @@ class Config:
     STRIPE_PRO_PRICE_ID = os.getenv("STRIPE_PRO_PRICE_ID")
     STRIPE_PRO_ANNUAL_PRICE_ID = os.getenv("STRIPE_PRO_ANNUAL_PRICE_ID")
 
-    # Pinned Stripe API version — keep in sync with services/subscription_service.py
-    # and services/treats_service.py.  Update only after reviewing the Stripe
-    # changelog for breaking changes.
     STRIPE_API_VERSION = "2025-02-24.acacia"
 
     # Operational controls
@@ -452,25 +430,9 @@ class Config:
         return f"{base_origin}{safe_path}"
 
     @staticmethod
-    def get_redirect_uris() -> list[str]:
-        """
-        Get list of allowed OAuth redirect URIs.
-
-        Returns:
-            List of redirect URIs for OAuth callbacks
-        """
-        allowed_origins = Config.get_allowed_origins()
-        return [f"{origin.rstrip('/')}/auth/callback" for origin in allowed_origins]
-
-    @staticmethod
     def is_production() -> bool:
         """Check if running in production mode."""
         return Config.ENVIRONMENT.lower() == "production"
-
-    @staticmethod
-    def is_development() -> bool:
-        """Check if running in development mode."""
-        return Config.ENVIRONMENT.lower() == "development"
 
 
 # Create singleton instance

@@ -191,7 +191,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import type { CatLocation } from '@/generated/api';
+import type { CatLocation } from '@/types/api';
 import { extractTags, getCleanDescription } from '@/stores/catsStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';

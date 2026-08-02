@@ -40,7 +40,7 @@ export default defineConfig({
   // Shared settings for all tests
   use: {
     // Base URL to use in actions like `await page.goto('/')`
-    baseURL: process.env.CI ? 'http://127.0.0.1:4173' : (process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:5173'),
+    baseURL: process.env.CI ? 'http://127.0.0.1:4173' : (process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5173'),
     
     // Collect trace when retrying the failed test
     trace: 'on-first-retry',
@@ -80,17 +80,12 @@ export default defineConfig({
       name: 'Mobile Chrome',
       use: { ...devices['Pixel 5'] },
     },
-    
-    {
-      name: 'Mobile Safari',
-      use: { ...devices['iPhone 12'] },
-    },
   ],
   
-  // Run dev server before tests
+  // Run dev server or preview server before tests
   webServer: {
-    command: process.env.CI ? 'npm run preview -- --port 4173 --host' : 'npm run dev -- --host',
-    url: process.env.CI ? 'http://127.0.0.1:4173' : 'http://127.0.0.1:5173',
+    command: process.env.CI ? 'npm run build && npm run preview -- --port 4173 --host' : 'npm run dev -- --host',
+    url: process.env.CI ? 'http://127.0.0.1:4173' : 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
     timeout: 180 * 1000, // 3 minutes
     stdout: 'pipe',

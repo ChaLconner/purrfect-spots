@@ -34,6 +34,24 @@ def test_csrf_middleware_exempt_path() -> None:
         assert response.status_code == 200
 
 
+def test_csrf_middleware_exempts_stripe_webhook_in_production() -> None:
+    with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
+        app = FastAPI()
+        app.add_middleware(CSRFMiddleware)
+
+        @app.post("/api/v1/subscription/webhook")
+        def webhook_route():
+            return {"status": "ok"}
+
+        client = TestClient(app)
+        response = client.post(
+            "/api/v1/subscription/webhook",
+            headers={"Stripe-Signature": "t=1,v1=test"},
+        )
+
+        assert response.status_code == 200
+
+
 def test_csrf_middleware_prod_blocks_cross_site_cookie_auth_requests() -> None:
     with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
         app = FastAPI()

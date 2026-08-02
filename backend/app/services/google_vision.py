@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException, UploadFile
+from starlette.concurrency import run_in_threadpool
 
 from app.config import config
 from app.logger import logger
@@ -203,6 +204,24 @@ class GoogleVisionService:
         confidence = self._calculate_confidence(cat_labels, cat_objects)
         return self._create_detection_result(has_cats, cat_labels, cat_objects, labels, confidence)
 
+    def _filter_cat_labels(self, labels: Any) -> list[dict]:
+        cat_labels = []
+        for label in labels:
+            desc = getattr(label, "description", "").lower()
+            score = getattr(label, "score", 0.0)
+            if any(kw in desc for kw in self.CAT_LABEL_KEYWORDS) and score >= self.CAT_LABEL_SCORE_THRESHOLD:
+                cat_labels.append({"description": getattr(label, "description", ""), "score": score})
+        return cat_labels
+
+    def _filter_cat_objects(self, objects: Any) -> list[dict]:
+        cat_objects = []
+        for obj in objects:
+            name = getattr(obj, "name", "").lower()
+            score = getattr(obj, "score", 0.0)
+            if any(kw in name for kw in self.CAT_OBJECT_KEYWORDS) and score >= self.CAT_OBJECT_SCORE_THRESHOLD:
+                cat_objects.append({"name": getattr(obj, "name", ""), "score": score})
+        return cat_objects
+
     def _check_non_cat_animals(self, objects: Any) -> str | None:
         """Check for presence of other animals that might cause false positives"""
         for obj in objects:
@@ -210,10 +229,11 @@ class GoogleVisionService:
                 return f"Dominant non-cat animal detected: {obj.name} ({obj.score:.2f})"
         return None
 
-    def _create_non_cat_result(self, labels: Any, reason: str) -> dict:
-        """Create result when a non-cat animal is detected"""
+    def _create_negative_result(self, labels: Any, reason: str, log_message: str | None = None) -> dict:
+        """Create result when no cats or non-cat animals are detected."""
         labels_list = [label.description for label in labels]
-        logger.info(f"Non-cat detection: {reason}")
+        if log_message:
+            logger.info(log_message)
         return {
             "has_cats": False,
             "cat_count": 0,
@@ -224,45 +244,17 @@ class GoogleVisionService:
             "reasoning": reason,
         }
 
-    def _filter_cat_labels(self, labels: Any) -> list[dict]:
-        """Filter and process cat-related labels"""
-        cat_labels = []
-        for label in labels:
-            if label.description.lower() in self.CAT_LABEL_KEYWORDS and label.score >= self.CAT_LABEL_SCORE_THRESHOLD:
-                cat_labels.append({"description": label.description, "score": label.score})
-        return cat_labels
-
-    def _filter_cat_objects(self, objects: Any) -> list[dict]:
-        """Filter and process cat objects"""
-        cat_objects = []
-        for obj in objects:
-            if obj.name.lower() in self.CAT_OBJECT_KEYWORDS and obj.score >= self.CAT_OBJECT_SCORE_THRESHOLD:
-                # Normalized vertices
-                bounding_box = []
-                if obj.bounding_poly and obj.bounding_poly.normalized_vertices:
-                    bounding_box = [{"x": v.x, "y": v.y} for v in obj.bounding_poly.normalized_vertices]
-                cat_objects.append(
-                    {
-                        "name": obj.name,
-                        "score": obj.score,
-                        "bounding_box": bounding_box,
-                    }
-                )
-        return cat_objects
+    def _create_non_cat_result(self, labels: Any, reason: str) -> dict:
+        """Create result when a non-cat animal is detected"""
+        return self._create_negative_result(labels, reason, log_message=f"Non-cat detection: {reason}")
 
     def _create_no_cats_detected_result(self, labels: Any) -> dict:
         """Create result when no cats are detected"""
-        labels_list = [label.description for label in labels]
-        logger.info("No cats detected in image (safe filter)")
-        return {
-            "has_cats": False,
-            "cat_count": 0,
-            "confidence": 0,
-            "suitable_for_cat_spot": False,
-            "cats_detected": [],
-            "labels": labels_list,
-            "reasoning": "No cat-related labels or objects passed confidence thresholds",
-        }
+        return self._create_negative_result(
+            labels,
+            "No cat-related labels or objects passed confidence thresholds",
+            log_message="No cats detected in image (safe filter)",
+        )
 
     def _calculate_confidence(self, cat_labels: list[dict], cat_objects: list[dict]) -> float:
         """Calculate overall confidence score"""
@@ -310,13 +302,11 @@ class GoogleVisionService:
 
         # Use local client reference for thread safety and type narrowing
         client = self.client
-        loop = asyncio.get_running_loop()
 
         try:
-            # Execute both calls in parallel using the default thread pool executor
-            # This ensures the main event loop is not blocked
-            label_task = loop.run_in_executor(None, lambda: client.label_detection(image=image))
-            object_task = loop.run_in_executor(None, lambda: client.object_localization(image=image))
+            # Execute both calls in parallel using thread pool to avoid blocking ASGI loop
+            label_task = run_in_threadpool(client.label_detection, image=image)
+            object_task = run_in_threadpool(client.object_localization, image=image)
 
             # Wait for both with a timeout
             results = await asyncio.wait_for(asyncio.gather(label_task, object_task), timeout=VISION_API_TIMEOUT)
@@ -330,14 +320,9 @@ class GoogleVisionService:
             logger.warning(f"Vision API call failed: {api_error}")
             return None, None
 
-    def _fallback_cat_detection(self, error: str | None = None) -> dict:
-        """Fallback cat detection when Google Vision is not available.
-
-        SECURITY: Returns has_cats=False to prevent bypass when Vision API is unavailable.
-        """
-        logger.warning(f"Fallback cat detection triggered - rejecting image (error: {error})")
-
-        return {
+    def _rejected_fallback_dict(self, reasoning: str, extra: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Helper to construct rejected fallback responses."""
+        res = {
             "has_cats": False,
             "cat_count": 0,
             "confidence": 0.0,
@@ -346,61 +331,26 @@ class GoogleVisionService:
             "cat_objects": [],
             "image_quality": "Unknown",
             "suitable_for_cat_spot": False,
-            "reasoning": "Cat verification service unavailable. Please try again later."
-            + (f" - Error: {error}" if error else ""),
+            "reasoning": reasoning,
             "fallback_mode": True,
         }
+        if extra:
+            res.update(extra)
+        return res
 
-    def _get_fallback_content(self, image_input: Any, content: bytes | None) -> bytes:
-        if content is not None:
-            return content
-        if isinstance(image_input, bytes):
-            return image_input
-        from typing import cast
-
-        res = image_input.file.read()
-        image_input.file.seek(0)
-        return cast(bytes, res)
-
-    def _check_filename_for_cats(self, image_input: Any) -> bool:
-        if isinstance(image_input, bytes):
-            return False
-        filename = getattr(image_input, "filename", "").lower()
-        cat_keywords = list(set(self.CAT_LABEL_KEYWORDS + ["kitty"]))
-        return any(k in filename for k in cat_keywords)
-
-    def _create_fallback_result(
-        self, has_cats: bool, confidence: float, width: int, height: int, format_name: str, error: str | None
-    ) -> dict:
-        return {
-            "has_cats": has_cats,
-            "cat_count": 1 if has_cats else 0,
-            "confidence": confidence if has_cats else 0.0,
-            "labels": ["cat", "animal"] if has_cats else [],
-            "cat_labels": [{"description": "cat", "score": confidence}] if has_cats else [],
-            "cat_objects": [{"name": "cat", "score": confidence, "bounding_box": None}] if has_cats else [],
-            "image_quality": "Good" if width > 500 and height > 500 else "Medium",
-            "reasoning": f"Fallback detection (Vision API unavailable) - Assumed cat present. Image size: {width}x{height}, Format: {format_name}"
-            + (f" - Original error: {error}" if error else ""),
-            "fallback_mode": True,
-        }
+    def _fallback_cat_detection(self, error: str | None = None) -> dict:
+        """Fallback cat detection when Google Vision is not available."""
+        logger.warning(f"Fallback cat detection triggered - rejecting image (error: {error})")
+        reasoning = "Cat verification service unavailable. Please try again later." + (
+            f" - Error: {error}" if error else ""
+        )
+        return self._rejected_fallback_dict(reasoning)
 
     def _emergency_fallback(self, error: Any) -> dict:
         """Emergency fallback - SECURITY: Reject image when all detection methods fail."""
         logger.error(f"Emergency fallback triggered - rejecting image: {error!s}")
-        return {
-            "has_cats": False,
-            "cat_count": 0,
-            "confidence": 0.0,
-            "labels": [],
-            "cat_labels": [],
-            "cat_objects": [],
-            "image_quality": "Unknown",
-            "suitable_for_cat_spot": False,
-            "reasoning": f"Cat verification failed ({error!s}). Please try again later.",
-            "fallback_mode": True,
-            "emergency_fallback": True,
-        }
+        reasoning = f"Cat verification failed ({error!s}). Please try again later."
+        return self._rejected_fallback_dict(reasoning, {"emergency_fallback": True})
 
     async def analyze_cat_spot_suitability(self, image_input: UploadFile | bytes) -> dict:
         """Analyze if location is suitable for cats using Vision API labels (Async)"""

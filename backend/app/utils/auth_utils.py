@@ -44,6 +44,16 @@ def _is_trusted_proxy_client(request: Any) -> bool:
     return any(client_ip in network for network in _trusted_proxy_networks())
 
 
+def extract_bearer_token(authorization: str | None) -> str | None:
+    """Extract Bearer token string from an Authorization header value."""
+    if not authorization:
+        return None
+    parts = authorization.split()
+    if len(parts) == 2 and parts[0].lower() == "bearer":
+        return parts[1]
+    return None
+
+
 def decode_token(token: str) -> dict[str, Any]:
     """
     Decode and verify a JWT token.

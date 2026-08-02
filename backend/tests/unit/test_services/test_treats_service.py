@@ -32,7 +32,6 @@ async def test_give_treat_success_with_to_user_id(treats_service):
             data=[{"success": True, "new_balance": 90, "to_user_id": "22222222-2222-4222-a222-222222222222"}]
         )
     )
-
     with patch("app.utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
         mock_get_admin.return_value = admin_mock
 
@@ -56,6 +55,61 @@ async def test_give_treat_success_with_to_user_id(treats_service):
                 "p_amount": 10,
             },
         )
+
+
+@pytest.mark.asyncio
+async def test_give_treat_supabase_accepts_scalar_json_object(treats_service):
+    """PostgREST may return a scalar JSON RPC result as an object, not a row list."""
+    admin_mock = MagicMock()
+    admin_mock.rpc.return_value.execute = AsyncMock(
+        return_value=MagicMock(
+            data={"success": True, "new_balance": 90, "to_user_id": "22222222-2222-4222-a222-222222222222"}
+        )
+    )
+
+    with patch("app.utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
+        mock_get_admin.return_value = admin_mock
+        result = await treats_service._give_treat_supabase(
+            "11111111-1111-4111-a111-111111111111",
+            "00000000-0000-4000-b000-000000000123",
+            10,
+        )
+
+    assert result["success"] is True
+    assert result["new_balance"] == 90
+
+
+@pytest.mark.asyncio
+async def test_treat_sql_rpcs_decode_json_results():
+    """Direct SQL paths must decode the JSON returned by both atomic RPCs."""
+    db = MagicMock()
+    db.execute = AsyncMock(
+        side_effect=[
+            MagicMock(fetchone=MagicMock(return_value=(True, None, "22222222-2222-4222-a222-222222222222", 90))),
+            MagicMock(fetchone=MagicMock(return_value=(None, False, 120))),
+        ]
+    )
+    db.commit = AsyncMock()
+    service = TreatsService(MagicMock(), db=db)
+
+    result = await service._give_treat_sql(
+        "11111111-1111-4111-a111-111111111111",
+        "00000000-0000-4000-b000-000000000123",
+        10,
+    )
+    await service._fulfill_purchase_sql(
+        "11111111-1111-4111-a111-111111111111",
+        30,
+        "Purchased test pack",
+        "cs_test_123",
+    )
+
+    assert result == {
+        "to_user_id": "22222222-2222-4222-a222-222222222222",
+        "new_balance": 90,
+    }
+    assert all("json_to_record" in str(call.args[0]) for call in db.execute.await_args_list)
+    assert db.commit.await_count == 2
 
 
 @pytest.mark.asyncio
@@ -103,7 +157,6 @@ async def test_give_treat_failure(treats_service):
     admin_mock.rpc.return_value.execute = AsyncMock(
         return_value=MagicMock(data=[{"success": False, "error": "Insufficient treats"}])
     )
-
     with patch("app.utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
         mock_get_admin.return_value = admin_mock
 
@@ -183,3 +236,32 @@ async def test_fulfill_treat_purchase_idempotent(treats_service):
 
     # Should not raise
     await treats_service.fulfill_treat_purchase(session)
+
+
+@pytest.mark.asyncio
+@patch("app.services.treats_service.stripe.checkout.Session.create")
+async def test_purchase_treats_checkout_invalid_customer_fallback(mock_session_create, treats_service):
+    """Test that treat checkout retries without customer ID if Stripe customer is invalid."""
+    import stripe
+
+    invalid_err = stripe.error.InvalidRequestError("No such customer: 'cus_invalid'", param="customer")
+    mock_session_create.side_effect = [
+        invalid_err,
+        MagicMock(url="http://test.url/treats", id="sess_treats_1"),
+    ]
+    treats_service.user_repo.update_user = AsyncMock(return_value=True)
+
+    res = await treats_service.purchase_treats_checkout(
+        user_id="00000000-0000-4000-a000-000000000123",
+        package="small",
+        price_id="price_small",
+        success_url="http://success",
+        cancel_url="http://cancel",
+        stripe_customer_id="cus_invalid",
+    )
+
+    assert res["checkout_url"] == "http://test.url/treats"
+    assert res["session_id"] == "sess_treats_1"
+    treats_service.user_repo.update_user.assert_called_once_with(
+        "00000000-0000-4000-a000-000000000123", {"stripe_customer_id": None}
+    )

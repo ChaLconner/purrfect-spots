@@ -30,7 +30,7 @@ export interface UseSeoReturn {
 /**
  * Set document title and meta tags
  */
-export function setMetaTags(options: MetaTagOptions): void {
+function setMetaTags(options: MetaTagOptions): void {
   const {
     title = DEFAULT_TITLE,
     description = DEFAULT_DESCRIPTION,
@@ -85,7 +85,7 @@ export function setMetaTags(options: MetaTagOptions): void {
 /**
  * Reset meta tags to defaults
  */
-export function resetMetaTags(): void {
+function resetMetaTags(): void {
   setMetaTags({
     title: DEFAULT_TITLE,
     description: DEFAULT_DESCRIPTION,

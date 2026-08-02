@@ -193,34 +193,35 @@ def log_performance(operation_name: str | None = None) -> Callable[[F], F]:
             record.funcName = func.__name__
             return record
 
+        def _log_op_result(name: str, start_time: float, exc: Exception | None = None) -> None:
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            if exc is None:
+                logger.handle(get_log_record(logging.INFO, f"✓ {name} completed", duration_ms))
+            else:
+                logger.handle(get_log_record(logging.ERROR, f"✗ {name} failed: {exc!s}", duration_ms))
+
         @wraps(func)
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             name = operation_name or f"{func.__module__}.{func.__name__}"
             start_time = time.perf_counter()
-
             try:
                 result = await func(*args, **kwargs)
-                duration_ms = (time.perf_counter() - start_time) * 1000
-                logger.handle(get_log_record(logging.INFO, f"✓ {name} completed", duration_ms))
+                _log_op_result(name, start_time)
                 return result
             except Exception as e:
-                duration_ms = (time.perf_counter() - start_time) * 1000
-                logger.handle(get_log_record(logging.ERROR, f"✗ {name} failed: {e!s}", duration_ms))
+                _log_op_result(name, start_time, e)
                 raise
 
         @wraps(func)
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             name = operation_name or f"{func.__module__}.{func.__name__}"
             start_time = time.perf_counter()
-
             try:
                 result = func(*args, **kwargs)
-                duration_ms = (time.perf_counter() - start_time) * 1000
-                logger.handle(get_log_record(logging.INFO, f"✓ {name} completed", duration_ms))
+                _log_op_result(name, start_time)
                 return result
             except Exception as e:
-                duration_ms = (time.perf_counter() - start_time) * 1000
-                logger.handle(get_log_record(logging.ERROR, f"✗ {name} failed: {e!s}", duration_ms))
+                _log_op_result(name, start_time, e)
                 raise
 
         # Return appropriate wrapper based on function type

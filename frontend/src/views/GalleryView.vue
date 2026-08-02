@@ -1,14 +1,14 @@
 <template>
-  <div class="gallery-page min-h-screen relative overflow-x-hidden bg-[#fffbf6]">
+  <div class="min-h-screen relative overflow-x-hidden bg-[#fffbf6]">
     <GhibliBackground />
 
-    <div class="gallery-container max-w-7xl mx-auto py-2 px-1 sm:px-2 lg:px-4 overflow-x-hidden">
+    <div class="max-w-7xl mx-auto py-2 px-1 sm:px-2 lg:px-4 overflow-x-hidden">
       <!-- Ghibli Style Header with Search -->
       <GalleryHeader />
 
-      <div class="gallery-mint-container p-0 min-h-[600px] w-full relative z-[5]">
+      <div class="p-0 min-h-[600px] w-full relative z-[5]">
         <!-- Loading state -->
-        <output v-if="loading && visibleImages.length === 0" class="loading-container" aria-live="polite">
+        <output v-if="loading && visibleImages.length === 0" aria-live="polite">
           <GhibliLoader :text="$t('galleryPage.loading')" />
         </output>
 
@@ -59,7 +59,7 @@ import { GalleryService } from '@/services/galleryService';
 import { isDev } from '@/utils/env';
 import GalleryHeader from '@/components/gallery/GalleryHeader.vue';
 import GalleryGrid from '@/components/gallery/GalleryGrid.vue';
-import type { CatLocation } from '@/generated/api';
+import type { CatLocation } from '@/types/api';
 import { useGalleryState } from '@/composables/useGalleryState';
 import { useCatsStore } from '@/stores';
 import { useAuthStore } from '@/stores/authStore';
@@ -269,7 +269,7 @@ async function syncStateFromUrl(): Promise<void> {
   }
 
   // Find the image in current loaded list
-  const index = visibleImages.value.findIndex((img) => img.id.toString() === imageId);
+  const index = visibleImages.value.findIndex((img: CatLocation) => img.id.toString() === imageId);
 
   if (index !== -1) {
     selectedImage.value = visibleImages.value[index];
@@ -313,7 +313,7 @@ watch(
 
 // Data fetching and pagination logic is delegated to useGalleryState
 
-function openModal(image: CatLocation, index: number): void {
+function openModal(image: CatLocation): void {
   // Update URL using Path Parameter
   router.push({
     name: 'Gallery',

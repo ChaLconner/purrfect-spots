@@ -18,19 +18,7 @@ class GalleryBaseMixin:
     db: AsyncSession | None
     _admin_client_lazy: AClient | None
 
-    # Standard column selections to avoid select(*)
     PHOTO_COLUMNS = "id, image_url, latitude, longitude, description, location_name, uploaded_at, tags, likes_count, comments_count, user_id"
-    PHOTO_SELECT_SQL = (
-        "SELECT id, image_url, latitude, longitude, description, location_name, "
-        "uploaded_at, tags, likes_count, comments_count, user_id FROM cat_photos"
-    )
-    MAP_LOCATION_SELECT_SQL = (
-        "SELECT id, latitude, longitude, location_name, image_url, user_id, uploaded_at FROM cat_photos"
-    )
-    PHOTO_RETURNING_COLUMNS = (
-        "id, image_url, latitude, longitude, description, location_name, "
-        "uploaded_at, tags, likes_count, comments_count, user_id"
-    )
     USER_COLUMNS = "id, name, username, picture, total_treats_received, role_id"
     APPROVED_STATUS = "approved"
 
@@ -47,19 +35,6 @@ class GalleryBaseMixin:
             self._admin_client_lazy = client
 
         return self._admin_client_lazy
-
-    def _sql_visibility_clause(self, include_unapproved: bool = False) -> str:
-        """Return the SQL visibility clause for public or owner/admin reads."""
-        clause = "deleted_at IS NULL"
-        if not include_unapproved:
-            clause += " AND status = :approved_status"
-        return clause
-
-    def _sql_visibility_params(self, include_unapproved: bool = False) -> dict[str, Any]:
-        """Return bind parameters required by the SQL visibility clause."""
-        if include_unapproved:
-            return {}
-        return {"approved_status": self.APPROVED_STATUS}
 
     def _apply_visibility_filter(self, query: Any, include_unapproved: bool = False) -> Any:
         """Apply visibility filters to a Supabase query builder."""

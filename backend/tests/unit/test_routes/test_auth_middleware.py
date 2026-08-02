@@ -3,12 +3,14 @@
 
 import os
 import time
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
 
 from app.middleware.auth_middleware import (
+    _apply_subscription_expiry_guard,
     _get_user_from_payload,
     _verify_and_decode_token,
     decode_supabase_token,
@@ -207,6 +209,15 @@ async def test_get_user_from_payload_supabase_no_db(mock_env):
         assert exc.value.status_code == 503
 
 
+def test_subscription_expiry_guard_fails_closed_for_missing_end_date():
+    user = User(id="user-123", email="test@example.com", is_pro=True, subscription_end_date=None)
+
+    guarded = _apply_subscription_expiry_guard(user)
+
+    assert guarded.is_pro is False
+    assert guarded.cancel_at_period_end is False
+
+
 @pytest.mark.asyncio
 async def test_get_user_from_payload_custom(mock_env):
     payload = {
@@ -224,6 +235,17 @@ async def test_get_user_from_payload_custom(mock_env):
         with pytest.raises(HTTPException) as exc:
             await _get_user_from_payload(payload, "custom")
         assert exc.value.status_code == 503
+
+
+async def _execute_get_user_from_payload(payload: dict, mock_sb: MagicMock, source: str = "supabase") -> Any:
+    """Helper to run _get_user_from_payload with standard mocked Redis and Admin client."""
+    with (
+        patch("app.services.redis_service.redis_service.get", return_value=None),
+        patch("app.services.redis_service.redis_service.set", new_callable=AsyncMock),
+        patch("app.utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin,
+    ):
+        mock_get_admin.return_value = mock_sb
+        return await _get_user_from_payload(payload, source)
 
 
 @pytest.mark.asyncio
@@ -247,11 +269,9 @@ async def test_get_user_from_payload_db_success(mock_env):
         )
     )
 
-    with patch("app.utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
-        mock_get_admin.return_value = mock_sb
-        user = await _get_user_from_payload(payload, "supabase")
-        assert user.email == "db@example.com"
-        assert user.bio == "Hello"
+    user = await _execute_get_user_from_payload(payload, mock_sb)
+    assert user.email == "db@example.com"
+    assert user.bio == "Hello"
 
 
 @pytest.mark.asyncio
@@ -272,13 +292,7 @@ async def test_get_user_from_payload_ignores_legacy_role_column_without_role_rel
         )
     )
 
-    with (
-        patch("app.services.redis_service.redis_service.get", return_value=None),
-        patch("app.services.redis_service.redis_service.set", new_callable=AsyncMock),
-        patch("app.utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin,
-    ):
-        mock_get_admin.return_value = mock_sb
-        user = await _get_user_from_payload(payload, "supabase")
+    user = await _execute_get_user_from_payload(payload, mock_sb)
 
     assert user.role == "user"
     assert user.permissions == []
@@ -310,13 +324,7 @@ async def test_get_user_from_payload_parses_role_arrays(mock_env):
         )
     )
 
-    with (
-        patch("app.services.redis_service.redis_service.get", return_value=None),
-        patch("app.services.redis_service.redis_service.set", new_callable=AsyncMock),
-        patch("app.utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin,
-    ):
-        mock_get_admin.return_value = mock_sb
-        user = await _get_user_from_payload(payload, "supabase")
+    user = await _execute_get_user_from_payload(payload, mock_sb)
 
     assert user.role == "admin"
     assert "access:admin" in user.permissions
@@ -353,13 +361,7 @@ async def test_get_user_from_payload_falls_back_to_role_id_queries_when_embedded
         )
     )
 
-    with (
-        patch("app.services.redis_service.redis_service.get", return_value=None),
-        patch("app.services.redis_service.redis_service.set", new_callable=AsyncMock),
-        patch("app.utils.supabase_client.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin,
-    ):
-        mock_get_admin.return_value = mock_sb
-        user = await _get_user_from_payload(payload, "supabase")
+    user = await _execute_get_user_from_payload(payload, mock_sb)
 
     assert user.role == "admin"
     assert "access:admin" in user.permissions

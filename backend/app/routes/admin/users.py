@@ -11,11 +11,16 @@ from app.dependencies import (
 )
 from app.limiter import limiter
 from app.logger import logger, sanitize_log_value
-from app.middleware.auth_middleware import invalidate_user_auth_cache, require_permission
+from app.middleware.auth_middleware import (
+    invalidate_user_auth_cache,
+    require_permission,
+)
+from app.routes.admin.helpers import CommonPagination
 from app.schemas.admin_schemas import BulkUserAction, RoleUpdateAdmin, UserBan, UserUpdateAdmin
 from app.schemas.user import User
 from app.services.email_service import EmailService
 from app.services.redis_service import redis_service
+from app.services.subscription_service import cancel_customer_subscriptions
 from app.services.token_service import get_token_service
 from app.utils.audit_logger import log_admin_action
 from app.utils.security_alerts import track_bulk_operation
@@ -23,7 +28,6 @@ from app.utils.security_alerts import track_bulk_operation
 router = APIRouter()
 
 UserIdPath = Annotated[UUID, Path(title="The ID of the user", description="Must be a valid UUID")]
-RoleIdPath = Annotated[UUID, Path(title="The ID of the role", description="Must be a valid UUID")]
 
 
 async def _invalidate_user_list_cache() -> None:
@@ -49,11 +53,8 @@ async def _invalidate_banned_user_auth_state(user_ids: list[str], reason: str) -
 @limiter.limit("60/minute")
 async def list_users(
     request: Request,
-    limit: Annotated[int, Query(ge=1, le=1000)] = 20,
-    offset: Annotated[int, Query(ge=0)] = 0,
+    pagination: Annotated[CommonPagination, Depends()],
     search: Annotated[str | None, Query()] = None,
-    sort_by: Annotated[str, Query(alias="sort")] = "created_at",
-    order: Annotated[str, Query()] = "desc",
     current_admin: Annotated[User | None, Depends(require_permission("users:read"))] = None,
 ) -> dict[str, Any]:
     """
@@ -61,7 +62,11 @@ async def list_users(
     """
     # Skip cache for search queries — results must be accurate and fresh.
     # Cache paginated list views for 60s to reduce DB load on the common case.
-    cache_key = f"admin_users:{offset}:{limit}:{sort_by}:{order}" if not search else None
+    cache_key = (
+        f"admin_users:{pagination.offset}:{pagination.limit}:{pagination.sort_by}:{pagination.order}"
+        if not search
+        else None
+    )
     if cache_key:
         cached = await redis_service.get(cache_key)
         if cached:
@@ -74,17 +79,18 @@ async def list_users(
                 "id, email, name, picture, treat_balance, is_pro, created_at, banned_at, roles(name)",
                 count=CountMethod.exact,
             )
-            .range(offset, offset + limit - 1)
+            .range(pagination.offset, pagination.offset + pagination.limit - 1)
         )
 
         allowed_sort_fields = ["created_at", "email", "name", "treat_balance", "role"]
-        db_sort_field = sort_by
-        if sort_by not in allowed_sort_fields:
+        db_sort_field = pagination.sort_by
+        if pagination.sort_by not in allowed_sort_fields:
             db_sort_field = "created_at"
-        elif sort_by == "role":
+        elif pagination.sort_by == "role":
             db_sort_field = "roles(name)"  # Correct syntax for join sorting in some psql versions
 
-        query = query.order(db_sort_field, desc=(order.lower() == "desc"))
+        if pagination.sort_by != "role":
+            query = query.order(db_sort_field, desc=(pagination.order == "desc"))
 
         if search:
             clean_search = "".join(c for c in search if c.isalnum() or c in (" ", "_", "-", "@", ".")).strip()
@@ -254,7 +260,12 @@ async def delete_user(
     try:
         admin_client = await get_async_supabase_admin_client()
 
-        check = await admin_client.table("users").select("email, roles(name)").eq("id", user_id_str).execute()
+        check = (
+            await admin_client.table("users")
+            .select("email, stripe_customer_id, roles(name)")
+            .eq("id", user_id_str)
+            .execute()
+        )
         if not check.data:
             raise HTTPException(status_code=404, detail="User not found")
 
@@ -266,6 +277,10 @@ async def delete_user(
 
         if role_name == "admin" or role_name == "super_admin":
             raise HTTPException(status_code=400, detail="Cannot delete an admin user")
+
+        customer_id = user_data.get("stripe_customer_id")
+        if isinstance(customer_id, str) and customer_id:
+            await cancel_customer_subscriptions(customer_id)
 
         if user_data.get("email"):
             background_tasks.add_task(

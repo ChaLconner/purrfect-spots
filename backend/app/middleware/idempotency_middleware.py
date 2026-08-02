@@ -10,6 +10,7 @@ Usage:
     Duplicate requests with the same key return the cached response.
 """
 
+import asyncio
 import hashlib
 import json
 from collections.abc import Awaitable, Callable
@@ -23,6 +24,7 @@ from app.logger import logger
 
 # In-memory fallback store (used when Redis is unavailable)
 _memory_store: dict[str, dict[str, Any]] = {}
+_inflight_locks: dict[str, asyncio.Lock] = {}
 
 # Redis key prefix
 REDIS_PREFIX = "idempotency:"
@@ -97,6 +99,12 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
         if not idempotency_key:
             return await call_next(request)
 
+        # Multipart uploads are streamed and must not be copied into memory by
+        # middleware. Upload routes own their idempotency token handling.
+        content_type = request.headers.get("content-type", "").lower()
+        if not content_type.startswith("application/json"):
+            return await call_next(request)
+
         # Read and hash the request body
         body = await request.body()
         body_hash = hashlib.sha256(body).hexdigest()[:16]
@@ -109,53 +117,57 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
             body_hash=body_hash,
         )
 
-        # Check for cached response
-        cached = await _get_cached_response(composite_key)
-        if cached is not None:
-            logger.info(
-                "Idempotent replay: key=%s path=%s",
-                idempotency_key[:16] + "...",
-                request.url.path,
-            )
-            return JSONResponse(
-                status_code=cached.get("status_code", 200),
-                content=cached.get("body", {}),
-                headers={
-                    **cached.get("headers", {}),
-                    "X-Idempotent-Replayed": "true",
-                },
-            )
+        lock = _inflight_locks.setdefault(composite_key, asyncio.Lock())
+        try:
+            async with lock:
+                # Re-check after waiting so concurrent requests share one result.
+                cached = await _get_cached_response(composite_key)
+                if cached is not None:
+                    logger.info(
+                        "Idempotent replay: key=%s path=%s",
+                        idempotency_key[:16] + "...",
+                        request.url.path,
+                    )
+                    return JSONResponse(
+                        status_code=cached.get("status_code", 200),
+                        content=cached.get("body", {}),
+                        headers={
+                            **cached.get("headers", {}),
+                            "X-Idempotent-Replayed": "true",
+                        },
+                    )
 
-        # Process the request normally
-        response = await call_next(request)
+                response = await call_next(request)
 
-        # Cache the response (only for successful or client-error responses)
-        if 200 <= response.status_code < 500:
-            # Read response body
-            response_body = b""
-            async for chunk in response.body_iterator:  # type: ignore[attr-defined]
-                response_body += chunk if isinstance(chunk, bytes) else chunk.encode()
+                # Cache only bounded JSON responses. Never copy an unbounded body.
+                if 200 <= response.status_code < 500:
+                    content_length = int(response.headers.get("content-length", "0") or 0)
+                    if 0 < content_length <= 1_048_576:
+                        response_chunks: list[bytes] = []
+                        async for chunk in response.body_iterator:  # type: ignore[attr-defined]
+                            response_chunks.append(chunk if isinstance(chunk, bytes) else chunk.encode())
+                        response_body = b"".join(response_chunks)
 
-            try:
-                body_json = json.loads(response_body.decode())
-            except (json.JSONDecodeError, UnicodeDecodeError):
-                body_json = None
+                        try:
+                            body_json = json.loads(response_body.decode())
+                        except (json.JSONDecodeError, UnicodeDecodeError):
+                            body_json = None
 
-            if body_json is not None:
-                response_data = {
-                    "status_code": response.status_code,
-                    "body": body_json,
-                    "headers": {
-                        "Content-Type": "application/json",
-                    },
-                }
-                await _set_cached_response(composite_key, response_data)
+                        if body_json is not None:
+                            response_data = {
+                                "status_code": response.status_code,
+                                "body": body_json,
+                                "headers": {"Content-Type": "application/json"},
+                            }
+                            await _set_cached_response(composite_key, response_data)
+                            return JSONResponse(
+                                status_code=response.status_code,
+                                content=body_json,
+                                headers=dict(response.headers),
+                            )
 
-                # Rebuild response since we consumed the body
-                return JSONResponse(
-                    status_code=response.status_code,
-                    content=body_json,
-                    headers=dict(response.headers),
-                )
-
-        return response
+                return response
+        finally:
+            waiters = getattr(lock, "_waiters", None)
+            if not lock.locked() and not waiters:
+                _inflight_locks.pop(composite_key, None)

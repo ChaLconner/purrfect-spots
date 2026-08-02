@@ -41,12 +41,12 @@
           <!-- Progress bar -->
           <div class="h-3 w-full bg-stone-100 rounded-full overflow-hidden relative z-10 shadow-inner">
             <div 
-              class="h-full rounded-full transition-all duration-700 ease-out relative"
+              class="relative h-full w-[var(--quota-progress)] rounded-full transition-all duration-500 ease-out"
               :class="[
                 quotaStatus.remaining === 0 ? 'bg-red-500' : 
                 quotaStatus.is_pro ? 'bg-gradient-to-r from-yellow-400 to-amber-500' : 'bg-gradient-to-r from-sage to-terracotta'
               ]"
-              :style="{ width: `${Math.min((quotaStatus.used / Math.max(quotaStatus.limit, 1)) * 100, 100)}%` }"
+              :style="{ '--quota-progress': `${Math.min((quotaStatus.used / Math.max(quotaStatus.limit, 1)) * 100, 100)}%` }"
             >
               <!-- Shimmer effect -->
               <div class="absolute inset-0 bg-white/20 w-full h-full -skew-x-12 translate-x-[-100%] animate-[shimmer_2s_infinite]"></div>
@@ -93,8 +93,8 @@
         <!-- Progress Bar -->
         <div v-if="currentStep < 4" class="h-2 bg-stone-100 w-full">
           <div
-            class="h-full bg-gradient-to-r from-sage to-terracotta transition-all duration-500 ease-out"
-            :style="{ width: `${(currentStep / 3) * 100}%` }"
+            class="h-full bg-gradient-to-r from-sage to-terracotta transition-all duration-500 ease-out w-[var(--step-progress)]"
+            :style="{ '--step-progress': `${(currentStep / 3) * 100}%` }"
           ></div>
         </div>
 
@@ -122,7 +122,7 @@
 
                 <div
                   v-if="uploadData.catDetectionResult?.has_cats && !isDetectingCats"
-                  class="mt-8 flex justify-end fade-enter-active"
+                  class="mt-8 flex justify-end"
                 >
                   <button
                     class="px-6 py-2 bg-terracotta text-white font-bold rounded-xl shadow-md hover:bg-terracotta-dark transition-all transform hover:-translate-y-0.5"
@@ -234,8 +234,8 @@
                   </div>
                   <div class="h-2.5 bg-stone-100 rounded-full overflow-hidden">
                     <div
-                      class="h-full bg-gradient-to-r from-sage to-terracotta rounded-full transition-all duration-300 ease-out"
-                      :style="{ width: `${uploadProgress}%` }"
+                      class="h-full bg-gradient-to-r from-sage to-terracotta rounded-full transition-all duration-300 ease-out w-[var(--upload-progress)]"
+                      :style="{ '--upload-progress': `${uploadProgress}%` }"
                       role="progressbar"
                       :aria-valuenow="uploadProgress"
                       aria-valuemin="0"
@@ -286,6 +286,8 @@ import { formatTimestamp } from '@/utils/date';
 import { ApiError, ApiErrorTypes } from '@/utils/api';
 import type { CatDetectionResult, UploadResponse } from '@/types/upload';
 
+import { useQuotaCache, type UploadQuotaStatus } from '@/composables/useQuotaCache';
+
 // Components
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 import ErrorBoundary from '@/components/ui/ErrorBoundary.vue';
@@ -299,6 +301,7 @@ import UploadSuccess from '@/components/upload/UploadSuccess.vue';
 const router = useRouter();
 const authStore = useAuthStore();
 const { t, locale } = useI18n();
+const { readQuotaCache, writeQuotaCache } = useQuotaCache();
 const isAuthenticated = computed(() => authStore.isAuthenticated);
 const canRequestQuota = computed(() => authStore.isInitialized && authStore.isAuthenticated);
 
@@ -312,52 +315,6 @@ const uploadResult = ref<UploadResponse | null>(null);
 let detectionController: AbortController | null = null;
 let stepAdvanceTimeout: ReturnType<typeof setTimeout> | null = null;
 let detectionSequence = 0;
-
-type UploadQuotaStatus = {
-  used: number;
-  limit: number;
-  remaining: number;
-  is_pro: boolean;
-  resets_at: string | null;
-  reset_type: string | null;
-};
-
-const QUOTA_CACHE_KEY = 'upload_quota_cache_v1';
-const QUOTA_CACHE_TTL_MS = 60 * 1000;
-
-const readQuotaCache = (): UploadQuotaStatus | null => {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = sessionStorage.getItem(QUOTA_CACHE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as {
-      userId?: string;
-      timestamp?: number;
-      data?: UploadQuotaStatus;
-    };
-
-    const currentUserId = authStore.user?.id;
-    if (!currentUserId || parsed.userId !== currentUserId) return null;
-    if (!parsed.timestamp || Date.now() - parsed.timestamp > QUOTA_CACHE_TTL_MS) return null;
-    return parsed.data ?? null;
-  } catch {
-    return null;
-  }
-};
-
-const writeQuotaCache = (data: UploadQuotaStatus): void => {
-  if (typeof window === 'undefined') return;
-  const currentUserId = authStore.user?.id;
-  if (!currentUserId) return;
-  sessionStorage.setItem(
-    QUOTA_CACHE_KEY,
-    JSON.stringify({
-      userId: currentUserId,
-      timestamp: Date.now(),
-      data,
-    })
-  );
-};
 
 const quotaStatus = ref<UploadQuotaStatus | null>(readQuotaCache());
 let quotaFetchPromise: Promise<void> | null = null;
@@ -578,7 +535,7 @@ const submitUpload = async (): Promise<void> => {
     const result = await uploadCatPhoto(
       uploadData.value.file,
       locationData,
-      uploadData.value.catDetectionResult
+      uploadData.value.catDetectionResult ?? undefined
     );
 
     if (result) {

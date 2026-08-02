@@ -26,12 +26,15 @@
 
       <!-- Standard Text Column -->
       <div v-else class="space-y-1">
-        <div class="h-4 bg-sand-200 rounded" :style="{ width: getRandomWidth() }"></div>
+        <div
+          class="h-4 bg-sand-200 rounded w-[var(--skeleton-width)]"
+          :style="{ '--skeleton-width': getRandomWidth() }"
+        ></div>
         <!-- Occasional second line -->
         <div
           v-if="r % 2 === 0"
-          class="h-3 bg-sand-100 rounded"
-          :style="{ width: getRandomWidth(40, 60) }"
+          class="h-3 bg-sand-100 rounded w-[var(--skeleton-width)]"
+          :style="{ '--skeleton-width': getRandomWidth(40, 60) }"
         ></div>
       </div>
     </td>

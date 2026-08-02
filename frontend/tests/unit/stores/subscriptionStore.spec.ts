@@ -82,6 +82,26 @@ describe('subscriptionStore', () => {
       expect(mockGetStatus).toHaveBeenCalledTimes(1);
     });
 
+    it('refreshes when the authenticated user changes', async () => {
+      mockGetStatus.mockResolvedValueOnce({ is_pro: true }).mockResolvedValueOnce({ is_pro: false });
+
+      const auth = {
+        isAuthenticated: true,
+        token: 'test-token',
+        user: { id: 'user-123', is_pro: false, treat_balance: 0 },
+        initializeAuth: vi.fn().mockResolvedValue(undefined),
+      };
+      vi.mocked(useAuthStore).mockReturnValueOnce(auth as ReturnType<typeof useAuthStore>);
+      const store = useSubscriptionStore();
+      await store.fetchStatus();
+
+      auth.user!.id = 'user-456';
+      await store.fetchStatus();
+
+      expect(mockGetStatus).toHaveBeenCalledTimes(2);
+      expect(store.isPro).toBe(false);
+    });
+
     it('force fetch bypasses cooldown', async () => {
       mockGetStatus.mockResolvedValue({ is_pro: true });
 
@@ -96,7 +116,8 @@ describe('subscriptionStore', () => {
       mockGetStatus.mockRejectedValue(new Error('Network error'));
 
       const store = useSubscriptionStore();
-      await expect(store.fetchStatus()).resolves.not.toThrow();
+      await expect(store.fetchStatus()).rejects.toThrow('Network error');
+      expect(store.statusError).toBe('subscription_status_unavailable');
     });
 
     it('waits for auth initialization before requesting status', async () => {

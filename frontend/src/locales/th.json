@@ -220,6 +220,7 @@
       "codePlaceholder": "••••••"
     },
     "callback": {
+      "authenticating": "กำลังยืนยันตัวตน...",
       "passwordResetVerified": "ยืนยันการรีเซ็ตรหัสผ่านแล้ว",
       "emailVerified": "ยืนยันอีเมลสำเร็จแล้ว!",
       "authExpired": "การยืนยันตัวตนหมดอายุ โปรดลองเข้าสู่ระบบอีกครั้ง",
@@ -436,11 +437,11 @@
     "proPlan": {
       "title": "Purrfect Plus",
       "subtitle": "เครื่องมือระดับมืออาชีพสำหรับคนรักแมว",
-      "period": "ต่อเดือน ($4.99)",
-      "periodAnnual": "ต่อปี ($49.99)",
+      "period": "ต่อเดือน",
+      "periodAnnual": "ต่อปี",
       "billedMonthly": "รายเดือน",
       "billedAnnually": "รายปี",
-      "savePercent": "ประหยัด 16%",
+      "savePercent": "ประหยัด {percent}%",
       "badge": "ยอดนิยม",
       "active": "แพ็กเกจปัจจุบัน",
       "cancelsOn": "ยกเลิกเมื่อ",
@@ -476,7 +477,10 @@
       "checkoutFailed": "ไม่สามารถเริ่มการชำระเงินได้",
       "portalFailed": "ไม่สามารถเข้าถึงพอร์ทัลการสมัครสมาชิก",
       "purchaseFailed": "ไม่สามารถเริ่มการสั่งซื้อได้",
-      "confirmingPayment": "กำลังยืนยันการชำระเงิน…"
+      "statusFailed": "ไม่สามารถตรวจสอบสถานะการสมัครสมาชิกได้ชั่วคราว กรุณาลองใหม่",
+      "pricingFailed": "ไม่สามารถโหลดราคาสมัครสมาชิกได้ชั่วคราว กรุณาลองใหม่",
+      "confirmingPayment": "กำลังยืนยันการชำระเงิน…",
+      "cancelledSuccess": "ยกเลิกการสมัครสมาชิกเรียบร้อยแล้ว"
     },
     "cancelModal": {
       "title": "ยกเลิกการสมัครสมาชิก",
@@ -651,6 +655,9 @@
         "DISMISS_REPORT": "ยกเลิกรายงาน",
         "DELETE_PHOTO_VIA_REPORT": "ลบรูปภาพ (รายงาน)",
         "DELETE_PHOTO_VIA_BULK_REPORT": "ลบรูปภาพ (กลุ่ม)",
+        "CREATE_SYSTEM_CONFIG": "สร้างการตั้งค่าระบบ",
+        "UPDATE_SYSTEM_CONFIG": "อัปเดตการตั้งค่าระบบ",
+        "DELETE_SYSTEM_CONFIG": "ลบการตั้งค่าระบบ",
         "CREATE_SYSTEM_CONFIGS": "สร้างการตั้งค่าระบบ",
         "UPDATE_SYSTEM_CONFIGS": "อัปเดตการตั้งค่าระบบ",
         "DELETE_SYSTEM_CONFIGS": "ลบการตั้งค่าระบบ"

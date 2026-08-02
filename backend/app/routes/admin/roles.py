@@ -9,6 +9,7 @@ from app.constants.admin_permissions import ALL_PERMISSION_CODES, normalize_perm
 from app.dependencies import get_async_supabase_admin_client
 from app.logger import logger
 from app.middleware.auth_middleware import invalidate_user_auth_cache, require_permission
+from app.routes.admin.helpers import create_admin_audit_log
 from app.schemas.user import User
 from app.services.redis_service import redis_service
 
@@ -146,19 +147,13 @@ async def update_role_permissions(
             await admin_client.table("role_permissions").insert(inserts).execute()
 
         # Log Audit
-        await (
-            admin_client.table("audit_logs")
-            .insert(
-                {
-                    "user_id": current_admin.id,
-                    "action": "UPDATE_ROLE_PERMISSIONS",
-                    "resource": "roles",
-                    "changes": {"role_id": role_id, "new_permissions": data.permission_ids},
-                    "ip_address": request.client.host if request.client else "unknown",
-                    "user_agent": request.headers.get("user-agent", "unknown"),
-                }
-            )
-            .execute()
+        await create_admin_audit_log(
+            admin_client,
+            current_admin.id,
+            "UPDATE_ROLE_PERMISSIONS",
+            "roles",
+            {"role_id": role_id, "new_permissions": data.permission_ids},
+            request=request,
         )
 
         # Invalidate role/permission caches so next request gets fresh data

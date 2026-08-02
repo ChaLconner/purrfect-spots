@@ -62,18 +62,19 @@ async def purchase_treats_checkout(
         raise HTTPException(status_code=400, detail="Invalid package or price not configured in database")
 
     try:
-        frontend_url = config.FRONTEND_URL
         result = await treats_service.purchase_treats_checkout(
             user_id=current_user.id,
             package=req.package,
             price_id=price_id,
-            success_url=f"{frontend_url}/profile?purchase=success",
-            cancel_url=f"{frontend_url}/subscription?purchase=cancel",
-            stripe_customer_id=current_user.stripe_customer_id,
+            success_url=config.resolve_frontend_url(default_path="/profile?purchase=success"),
+            cancel_url=config.resolve_frontend_url(default_path="/subscription?purchase=cancel"),
+            stripe_customer_id=getattr(current_user, "stripe_customer_id", None),
         )
         return CheckoutUrlResponse(**result)
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error("Purchase checkout failed: %s", e)
+        logger.error("Purchase checkout failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to initiate purchase")
 
 

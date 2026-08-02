@@ -24,13 +24,11 @@ const NavAuthSection = defineAsyncComponent({
 <template>
   <nav class="sticky top-0 z-50 m-3 sm:mx-6 md:mx-8 xl:mx-12 xl:my-5" :aria-label="$t('accessibility.mainNavigation')">
     <div
-      class="relative flex justify-between items-center px-4 sm:px-6 md:px-8 xl:px-10 py-2 bg-btn-bg rounded-[2rem] border-2 border-btn-shade-a gap-1.5 sm:gap-4 xl:gap-8 min-w-0"
-      style="transform-style: preserve-3d"
+      class="relative flex justify-between items-center px-4 sm:px-6 md:px-8 xl:px-10 py-2 bg-btn-bg rounded-[2rem] border-2 border-btn-shade-a gap-1.5 sm:gap-4 xl:gap-8 min-w-0 preserve-3d"
     >
       <!-- 3D Base -->
       <div
-        class="absolute inset-0 bg-btn-shade-c rounded-[inherit] -z-10 shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.25rem_0_0_var(--color-btn-shade-a)]"
-        style="transform: translate3d(0, 0.25rem, -1em)"
+        class="absolute inset-0 bg-btn-shade-c rounded-[inherit] -z-10 shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.25rem_0_0_var(--color-btn-shade-a)] translate-3d-button"
       ></div>
 
       <!-- Left Section: Logo + Brand + Cat Counter -->

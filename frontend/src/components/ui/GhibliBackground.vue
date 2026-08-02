@@ -1,7 +1,6 @@
 <template>
   <div
-    class="absolute inset-0 z-0 pointer-events-none overflow-hidden box-border translate-z-0"
-    style="background: linear-gradient(180deg, #eaf6f3 0%, #ffffff 100%)"
+    class="absolute inset-0 z-0 pointer-events-none overflow-hidden box-border translate-z-0 bg-gradient-to-b from-[#eaf6f3] to-white"
   >
     <!-- Decorative Background Elements -->
     <div v-if="animated" class="absolute inset-0 w-full h-full z-0">

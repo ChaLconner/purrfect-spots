@@ -2,6 +2,7 @@
 Service for image processing, optimization, and CDN management.
 """
 
+from functools import lru_cache
 from typing import Any
 from urllib.parse import quote
 
@@ -10,7 +11,16 @@ from app.config import config
 
 class ImageService:
     @staticmethod
+    @lru_cache(maxsize=2048)
+    def _optimize_image_url_cached(url: str | None, width: int = 300) -> str | None:
+        return ImageService._optimize_image_url_uncached(url, width)
+
+    @staticmethod
     def optimize_image_url(url: str | None, width: int = 300) -> str | None:
+        return ImageService._optimize_image_url_cached(url, width)
+
+    @staticmethod
+    def _optimize_image_url_uncached(url: str | None, width: int = 300) -> str | None:
         """
         Optimize image URL:
         1. Rewrite to CDN if configured
@@ -52,7 +62,10 @@ class ImageService:
         """Process a list of photos with optimizations"""
         if not photos:
             return []
+        processed: list[dict[str, Any]] = []
         for photo in photos:
-            if "image_url" in photo:
-                photo["image_url"] = cls.optimize_image_url(photo["image_url"], width)
-        return photos
+            if "image_url" not in photo:
+                processed.append(dict(photo))
+                continue
+            processed.append({**photo, "image_url": cls.optimize_image_url(photo["image_url"], width)})
+        return processed

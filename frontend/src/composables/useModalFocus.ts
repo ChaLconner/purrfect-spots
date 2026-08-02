@@ -1,4 +1,13 @@
-import { ref, onMounted, onUnmounted, getCurrentInstance, nextTick, type Ref } from 'vue';
+import {
+  ref,
+  onMounted,
+  onUnmounted,
+  getCurrentInstance,
+  nextTick,
+  watch,
+  type Ref,
+} from 'vue';
+import { useFocusTrap } from './useAccessibility';
 
 export function useModalFocus(
   modalContainer: Ref<HTMLElement | null>,
@@ -8,13 +17,43 @@ export function useModalFocus(
   }
 ): { handleKeydown: (e: KeyboardEvent) => void; trapFocus: (e: KeyboardEvent) => void } {
   const previousFocus = ref<HTMLElement | null>(null);
+  const focusTrap = useFocusTrap(modalContainer);
+  let isActive = false;
+
+  const activate = (container: HTMLElement): void => {
+    if (!isActive) {
+      previousFocus.value = document.activeElement as HTMLElement;
+      if (options.lockScroll !== false) {
+        document.body.style.overflow = 'hidden';
+      }
+      isActive = true;
+    }
+
+    nextTick(() => {
+      if (modalContainer.value === container) {
+        container.focus();
+      }
+    });
+  };
+
+  const deactivate = (): void => {
+    if (!isActive) return;
+
+    if (options.lockScroll !== false) {
+      document.body.style.overflow = '';
+    }
+    isActive = false;
+
+    if (previousFocus.value && previousFocus.value !== document.body) {
+      previousFocus.value.focus();
+    }
+    previousFocus.value = null;
+  };
 
   const trapFocus = (e: KeyboardEvent): void => {
     if (!modalContainer.value) return;
 
-    const focusableElements = modalContainer.value.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    );
+    const focusableElements = focusTrap.getFocusableElements();
 
     if (focusableElements.length === 0) return;
 
@@ -49,23 +88,27 @@ export function useModalFocus(
 
   if (getCurrentInstance()) {
     onMounted(() => {
-      previousFocus.value = document.activeElement as HTMLElement;
-      if (options.lockScroll !== false) {
-        document.body.style.overflow = 'hidden';
+      if (modalContainer.value) {
+        activate(modalContainer.value);
       }
-
-      nextTick(() => {
-        modalContainer.value?.focus();
-      });
     });
 
+    // Modal content can be conditionally rendered after this composable mounts.
+    // Activate focus and scroll locking when its container actually appears.
+    watch(
+      modalContainer,
+      (container, previousContainer) => {
+        if (container) {
+          activate(container);
+        } else if (previousContainer) {
+          deactivate();
+        }
+      },
+      { flush: 'post' }
+    );
+
     onUnmounted(() => {
-      if (options.lockScroll !== false) {
-        document.body.style.overflow = '';
-      }
-      if (previousFocus.value) {
-        previousFocus.value.focus();
-      }
+      deactivate();
     });
   }
 

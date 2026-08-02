@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
+import BaseButtonContent from './BaseButtonContent.vue';
 
 // Define props
 const props = defineProps<{
@@ -77,23 +78,11 @@ const isExternalLink = computed(() => !!props.href);
 <template>
   <!-- Router Link -->
   <RouterLink v-if="isRouterLink" :to="to!" :class="classes">
-    <svg
-      v-if="loading"
-      class="animate-spin h-5 w-5 text-current shrink-0"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-    >
-      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-      <path
-        class="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
-    <slot name="icon-left"></slot>
-    <slot></slot>
-    <slot name="icon-right"></slot>
+    <BaseButtonContent :loading="loading">
+      <template #icon-left><slot name="icon-left"></slot></template>
+      <slot></slot>
+      <template #icon-right><slot name="icon-right"></slot></template>
+    </BaseButtonContent>
   </RouterLink>
 
   <!-- External Link -->
@@ -104,43 +93,19 @@ const isExternalLink = computed(() => !!props.href);
     rel="noopener noreferrer"
     :class="classes"
   >
-    <svg
-      v-if="loading"
-      class="animate-spin h-5 w-5 text-current shrink-0"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-    >
-      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-      <path
-        class="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
-    <slot name="icon-left"></slot>
-    <slot></slot>
-    <slot name="icon-right"></slot>
+    <BaseButtonContent :loading="loading">
+      <template #icon-left><slot name="icon-left"></slot></template>
+      <slot></slot>
+      <template #icon-right><slot name="icon-right"></slot></template>
+    </BaseButtonContent>
   </a>
 
   <!-- Button -->
   <button v-else :type="type || 'button'" :class="classes" :disabled="disabled || loading">
-    <svg
-      v-if="loading"
-      class="animate-spin h-5 w-5 text-current shrink-0"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-    >
-      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-      <path
-        class="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
-    <slot name="icon-left"></slot>
-    <slot></slot>
-    <slot name="icon-right"></slot>
+    <BaseButtonContent :loading="loading">
+      <template #icon-left><slot name="icon-left"></slot></template>
+      <slot></slot>
+      <template #icon-right><slot name="icon-right"></slot></template>
+    </BaseButtonContent>
   </button>
 </template>

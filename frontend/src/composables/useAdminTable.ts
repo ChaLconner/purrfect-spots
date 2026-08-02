@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue';
+import { ref, computed, hasInjectionContext, type ComputedRef, type Ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { apiV1 } from '@/utils/api';
 import { useToast } from '@/composables/useToast';
@@ -20,15 +20,15 @@ interface UseAdminTableOptions<T> {
 export function useAdminTable<T extends { id: string }>(
   options: UseAdminTableOptions<T>
 ): {
-  items: ReturnType<typeof ref<T[]>>;
-  totalItems: ReturnType<typeof ref<number>>;
-  page: ReturnType<typeof ref<number>>;
+  items: Ref<T[]>;
+  totalItems: Ref<number>;
+  page: Ref<number>;
   limit: number;
-  isLoading: ReturnType<typeof ref<boolean>>;
-  selectedIds: ReturnType<typeof ref<string[]>>;
-  isAllSelected: ReturnType<typeof computed<boolean>>;
-  sortBy: ReturnType<typeof ref<string>>;
-  sortOrder: ReturnType<typeof ref<'asc' | 'desc'>>;
+  isLoading: Ref<boolean>;
+  selectedIds: Ref<string[]>;
+  isAllSelected: ComputedRef<boolean>;
+  sortBy: Ref<string>;
+  sortOrder: Ref<'asc' | 'desc'>;
   toggleSelection: (id: string) => void;
   toggleSelectAll: () => void;
   loadData: (
@@ -38,10 +38,10 @@ export function useAdminTable<T extends { id: string }>(
   exportData: (extraParams?: Record<string, string | null | undefined>) => Promise<void>;
 } {
   const { toast } = useToast();
-  const route = options.syncWithRouter !== false ? useRoute() : null;
-  const router = options.syncWithRouter !== false ? useRouter() : null;
+  const route = (options.syncWithRouter !== false && hasInjectionContext()) ? useRoute() : null;
+  const router = (options.syncWithRouter !== false && hasInjectionContext()) ? useRouter() : null;
 
-  const items = ref<T[]>([]);
+  const items = ref<T[]>([]) as unknown as Ref<T[]>;
   const totalItems = ref(0);
   const page = ref(1);
   const limit = options.limit || 20;

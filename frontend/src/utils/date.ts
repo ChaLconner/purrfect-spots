@@ -65,3 +65,30 @@ export const formatTimestamp = (
     return 'N/A';
   }
 };
+
+/**
+ * Formats a date string into a relative time (just now, 5m ago, 2h ago, or DD/MM/YYYY).
+ */
+export const formatRelativeTime = (
+  dateStr: string | null | undefined,
+  t?: (key: string, args?: Record<string, unknown>) => string
+): string => {
+  if (!dateStr) return 'N/A';
+  try {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diff = (now.getTime() - d.getTime()) / 1000;
+    if (diff < 60) return t ? t('time.justNow') : 'just now';
+    if (diff < 3600) {
+      const minutes = `${Math.floor(diff / 60)}m `;
+      return t ? t('time.ago', { time: minutes }) : `${minutes}ago`;
+    }
+    if (diff < 86400) {
+      const hours = `${Math.floor(diff / 3600)}h `;
+      return t ? t('time.ago', { time: hours }) : `${hours}ago`;
+    }
+    return formatDate(dateStr);
+  } catch {
+    return 'N/A';
+  }
+};

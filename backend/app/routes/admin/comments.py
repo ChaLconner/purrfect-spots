@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from app.dependencies import get_async_supabase_admin_client, get_notification_service
 from app.logger import logger
 from app.middleware.auth_middleware import invalidate_user_auth_cache, require_permission
+from app.routes.admin.helpers import create_admin_audit_log
 from app.schemas.user import User
 from app.services.notification_service import NotificationService
 from app.services.token_service import get_token_service
@@ -345,19 +346,13 @@ async def bulk_delete_comments(
         await admin_client.table("photo_comments").delete().in_("id", action_data.comment_ids).execute()
 
         # Log Audit
-        await (
-            admin_client.table("audit_logs")
-            .insert(
-                {
-                    "user_id": current_admin.id,
-                    "action": "BULK_DELETE_COMMENTS",
-                    "resource": "photo_comments",
-                    "changes": {"comment_ids": action_data.comment_ids},
-                    "ip_address": request.client.host if request.client else "unknown",
-                    "user_agent": request.headers.get("user-agent", "unknown"),
-                }
-            )
-            .execute()
+        await create_admin_audit_log(
+            admin_client,
+            current_admin.id,
+            "BULK_DELETE_COMMENTS",
+            "photo_comments",
+            {"comment_ids": action_data.comment_ids},
+            request=request,
         )
 
         for author_id in author_ids:
@@ -403,19 +398,13 @@ async def bulk_resolve_comments(
         )
 
         # Log Audit
-        await (
-            admin_client.table("audit_logs")
-            .insert(
-                {
-                    "user_id": current_admin.id,
-                    "action": "BULK_RESOLVE_COMMENT_REPORTS",
-                    "resource": "photo_comments",
-                    "changes": {"comment_ids": action_data.comment_ids},
-                    "ip_address": request.client.host if request.client else "unknown",
-                    "user_agent": request.headers.get("user-agent", "unknown"),
-                }
-            )
-            .execute()
+        await create_admin_audit_log(
+            admin_client,
+            current_admin.id,
+            "BULK_RESOLVE_COMMENT_REPORTS",
+            "photo_comments",
+            {"comment_ids": action_data.comment_ids},
+            request=request,
         )
 
         return {"message": f"Successfully dismissed reports for {len(action_data.comment_ids)} comments"}

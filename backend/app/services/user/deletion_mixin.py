@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import text
 
 from app.compat import structlog
+from app.services.subscription_service import cancel_customer_subscriptions
 from app.services.user.base_mixin import UserBaseMixin
 from app.utils.exceptions import ConflictError, PurrfectSpotsException
 
@@ -30,12 +31,7 @@ class UserDeletionMixin(UserBaseMixin):
                     ),
                     {"u_id": user_id},
                 )
-                await self.db.execute(
-                    text(
-                        "INSERT INTO audit_logs (action, user_id, resource) VALUES ('ACCOUNT_DELETION_CANCELLED', :u_id, 'users')"
-                    ),
-                    {"u_id": user_id},
-                )
+                await self._log_audit_event("ACCOUNT_DELETION_CANCELLED", user_id)
                 await self.db.commit()
             else:
                 admin = await self._get_admin_client()
@@ -57,17 +53,7 @@ class UserDeletionMixin(UserBaseMixin):
                     .eq("status", "pending")
                     .execute()
                 )
-                await (
-                    admin.table("audit_logs")
-                    .insert(
-                        {
-                            "action": "ACCOUNT_DELETION_CANCELLED",
-                            "user_id": user_id,
-                            "resource": "users",
-                        }
-                    )
-                    .execute()
-                )
+                await self._log_audit_event("ACCOUNT_DELETION_CANCELLED", user_id)
 
             logger.info("account_deletion_cancelled", extra={"user_id": user_id})
             return {"status": "success", "message": "Account deletion request cancelled successfully."}
@@ -86,6 +72,9 @@ class UserDeletionMixin(UserBaseMixin):
             user_record = await self.get_user_by_id(user_id)
             if not user_record:
                 raise PurrfectSpotsException("User not found")
+            customer_id = getattr(user_record, "stripe_customer_id", None)
+            if isinstance(customer_id, str) and customer_id:
+                await cancel_customer_subscriptions(customer_id)
         except Exception as e:
             if isinstance(e, (ConflictError, PurrfectSpotsException)):
                 raise e
@@ -105,12 +94,7 @@ class UserDeletionMixin(UserBaseMixin):
                     ),
                     {"u_id": user_id, "sched": scheduled_date.isoformat(), "ip": client_ip},
                 )
-                await self.db.execute(
-                    text(
-                        "INSERT INTO audit_logs (action, user_id, resource) VALUES ('ACCOUNT_SOFT_DELETED', :u_id, 'users')"
-                    ),
-                    {"u_id": user_id},
-                )
+                await self._log_audit_event("ACCOUNT_SOFT_DELETED", user_id)
                 await self.db.commit()
             else:
                 admin = await self._get_admin_client()
@@ -134,17 +118,7 @@ class UserDeletionMixin(UserBaseMixin):
                     .execute()
                 )
 
-                await (
-                    admin.table("audit_logs")
-                    .insert(
-                        {
-                            "action": "ACCOUNT_SOFT_DELETED",
-                            "user_id": user_id,
-                            "resource": "users",
-                        }
-                    )
-                    .execute()
-                )
+                await self._log_audit_event("ACCOUNT_SOFT_DELETED", user_id)
 
             logger.info(
                 "account_deletion_requested",
@@ -192,6 +166,17 @@ class UserDeletionMixin(UserBaseMixin):
             for req in data:
                 user_id = req["user_id"]
                 try:
+                    user_row = (
+                        await admin.table("users")
+                        .select("stripe_customer_id")
+                        .eq("id", user_id)
+                        .maybe_single()
+                        .execute()
+                    )
+                    user_data = user_row.data if user_row else None
+                    customer_id = user_data.get("stripe_customer_id") if isinstance(user_data, dict) else None
+                    if isinstance(customer_id, str) and customer_id:
+                        await cancel_customer_subscriptions(customer_id)
                     await admin.auth.admin.delete_user(user_id)
 
                     if self.db:
@@ -199,12 +184,7 @@ class UserDeletionMixin(UserBaseMixin):
                             text("UPDATE account_deletion_requests SET status = 'completed' WHERE id = :id"),
                             {"id": req["id"]},
                         )
-                        await self.db.execute(
-                            text(
-                                "INSERT INTO audit_logs (action, user_id, resource) VALUES ('ACCOUNT_HARD_DELETED', :u_id, 'users')"
-                            ),
-                            {"u_id": user_id},
-                        )
+                        await self._log_audit_event("ACCOUNT_HARD_DELETED", user_id)
                         await self.db.commit()
                     else:
                         await (
@@ -213,17 +193,7 @@ class UserDeletionMixin(UserBaseMixin):
                             .eq("id", req["id"])
                             .execute()
                         )
-                        await (
-                            admin.table("audit_logs")
-                            .insert(
-                                {
-                                    "action": "ACCOUNT_HARD_DELETED",
-                                    "user_id": user_id,
-                                    "resource": "users",
-                                }
-                            )
-                            .execute()
-                        )
+                        await self._log_audit_event("ACCOUNT_HARD_DELETED", user_id)
 
                     logger.info("account_hard_deleted", extra={"user_id": user_id})
                 except Exception as e:

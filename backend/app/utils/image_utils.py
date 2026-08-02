@@ -17,7 +17,6 @@ from app.utils.security import MAX_IMAGE_PIXELS
 MAX_IMAGE_DIMENSION = 1920  # Max width or height in pixels
 JPEG_QUALITY = 85  # Quality for JPEG compression (1-100)
 WEBP_QUALITY = 80  # Quality for WebP compression (1-100)
-MAX_FILE_SIZE_MB = 5  # Target max file size after optimization
 
 
 def _enforce_image_pixel_limit(img: Image.Image) -> None:

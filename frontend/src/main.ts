@@ -5,9 +5,8 @@ import router from './router';
 import { pinia } from './stores';
 import { isDev } from './utils/env';
 import {
-  handleUnhandledRejection,
-  handleError,
   handleVueError,
+  reloadWithCacheBust,
 } from './utils/browserExtensionHandler';
 import i18n, { initializeI18n } from './i18n';
 
@@ -46,7 +45,6 @@ async function initSentry(app: VueApp): Promise<void> {
 
       // Filter out common non-actionable errors
       beforeSend(event) {
-        const serializedEvent = JSON.stringify(event);
         // Ignore browser extension errors
         if (
           event.message?.includes('Extension context invalidated') ||
@@ -56,12 +54,16 @@ async function initSentry(app: VueApp): Promise<void> {
         ) {
           return null;
         }
-        if (
-          serializedEvent.includes('webdriver') ||
-          serializedEvent.includes('playwright') ||
-          serializedEvent.includes('vitest') ||
-          serializedEvent.includes('jsdom')
-        ) {
+        const searchableText = [
+          event.message,
+          event.request?.url,
+          ...(event.exception?.values ?? []).map((value) => value.value),
+          ...Object.values(event.tags ?? {}),
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (['webdriver', 'playwright', 'vitest', 'jsdom'].some((term) => searchableText.includes(term))) {
           return null;
         }
         return event;
@@ -84,31 +86,12 @@ const app = createApp(App);
 // Install Pinia BEFORE using any stores
 app.use(pinia);
 
-// Handle browser extension conflicts globally
-globalThis.addEventListener('unhandledrejection', handleUnhandledRejection);
-globalThis.addEventListener('error', handleError);
-
-const recoverFromStaleChunk = (): void => {
-  const reloadKey = 'purrfect-spots:stale-chunk-reload';
-  const now = Date.now();
-  const lastReload = Number(sessionStorage.getItem(reloadKey) || '0');
-
-  if (now - lastReload < 30_000) {
-    return;
-  }
-
-  sessionStorage.setItem(reloadKey, String(now));
-  const url = new URL(window.location.href);
-  url.searchParams.set('__reload', String(now));
-  window.location.replace(url.toString());
-};
-
 // Handle Vite dynamic import (preload) errors.
 // A stale HTML shell can point at old hashed chunks after deploy; cache-bust once
 // so Ctrl+Shift+R gets a fresh module graph instead of looping on old assets.
 globalThis.addEventListener('vite:preloadError', (event) => {
   event.preventDefault();
-  recoverFromStaleChunk();
+  reloadWithCacheBust();
 });
 
 // Global error handler for browser extension conflicts
@@ -146,8 +129,6 @@ app.use(router);
 app.use(i18n);
 
 // Mount immediately - router will handle initial navigation internally
-app.mount('#app');
-
 const schedulePostPaintTask = (task: () => void): void => {
   if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
     window.requestIdleCallback(() => task(), { timeout: 1500 });
@@ -157,52 +138,25 @@ const schedulePostPaintTask = (task: () => void): void => {
   setTimeout(task, 0);
 };
 
-const loadDeferredStylesheet = (href: string): void => {
-  if (typeof document === 'undefined') {
-    return;
+// Load selected locale before mount, preventing translated views from flashing keys.
+async function mountWhenLocaleReady(): Promise<void> {
+  try {
+    await initializeI18n();
+  } catch {
+    // Mount with fallback locale if locale chunk cannot be fetched.
   }
+  app.mount('#app');
+}
 
-  const existingStylesheet = document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
-  if (existingStylesheet) {
-    return;
-  }
+void mountWhenLocaleReady();
 
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = href;
-  // Silently handle font CDN failures (e.g. Google Fonts 404s) so they
-  // don't surface as unhandled resource errors in the console.
-  link.onerror = (): void => {
-    if (isDev()) {
-      console.warn(`[Fonts] Failed to load stylesheet: ${href}`);
-    }
-  };
-  document.head.appendChild(link);
-};
 
 // Continue non-critical boot work after first paint.
 schedulePostPaintTask(() => {
-  void initializeI18n();
   void initSentry(app);
   import('./utils/webVitals')
     .then(({ initWebVitals }) => initWebVitals())
     .catch(() => {
       // Web Vitals tracking is optional, don't break the app
     });
-});
-
-// Kick off auth initialization immediately so the background session check
-// starts as soon as possible, reducing skeleton visibility time.
-queueMicrotask(() => {
-  import('./stores/authStore')
-    .then(({ useAuthStore }) => useAuthStore().initializeAuth())
-    .catch((e) => {
-      console.warn('[Auth] Failed to initialize auth:', e);
-    });
-});
-
-schedulePostPaintTask(() => {
-  loadDeferredStylesheet(
-    'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&family=Quicksand:wght@400;500;600;700&family=Zen+Maru+Gothic:wght@400;500;700&display=swap'
-  );
 });

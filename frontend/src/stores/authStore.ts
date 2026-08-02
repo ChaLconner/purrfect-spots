@@ -43,6 +43,7 @@ function normalizeUserData(userData: User | null): User | null {
 function sanitizeUserForCache(userData: User | null): Partial<User> | null {
   if (!userData) return null;
   const normalizedUser = normalizeUserData(userData);
+  if (!normalizedUser) return null;
   // Omit sensitive/volatile fields that should only be trusted from the verified token/API
   const { stripe_customer_id: _stripe, treat_balance: _balance, ...safeData } = normalizedUser;
   return safeData;
@@ -94,8 +95,10 @@ export const useAuthStore = defineStore('auth', () => {
 
   const user = ref<User | null>(cachedUser);
   const token = ref<string | null>(null); // Memory only, no localStorage!
-  const isAuthenticated = ref(!!cachedUser);
-  const isInitialized = ref(!!cachedUser);
+  // Cached profile is display-only until HttpOnly refresh restores a verified token.
+  // Exposing it as authenticated would let protected views send requests without Authorization.
+  const isAuthenticated = ref(false);
+  const isInitialized = ref(false);
   const isHydratingSession = ref(false);
 
   const isLoading = ref(false);
@@ -230,6 +233,9 @@ export const useAuthStore = defineStore('auth', () => {
    * Set authentication data after successful login
    */
   async function setAuth(data: LoginResponse): Promise<void> {
+    if (!data.access_token) {
+      throw new Error('Authentication response missing access token');
+    }
     user.value = normalizeUserData(data.user);
     token.value = data.access_token;
     isAuthenticated.value = true;

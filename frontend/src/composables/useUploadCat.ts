@@ -1,7 +1,8 @@
 import { ref, type Ref } from 'vue';
 import { validateImageFile } from '../utils/imageUtils';
-import { api, ApiError, ApiErrorTypes, uploadFile } from '../utils/api';
+import { api, ApiError, ApiErrorTypes, formatApiErrorMessage, uploadFile } from '../utils/api';
 import type { UploadResponse } from '../types/upload';
+import type { UploadQuotaStatus } from './useQuotaCache';
 
 type UploadPhase = 'idle' | 'uploading' | 'processing';
 
@@ -22,14 +23,7 @@ export function useUploadCat(): {
     },
     catDetectionData?: Record<string, unknown>
   ) => Promise<UploadResponse | null>;
-  getUploadQuota: () => Promise<{
-    used: number;
-    limit: number;
-    remaining: number;
-    is_pro: boolean;
-    resets_at: string | null;
-    reset_type: string | null;
-  } | null>;
+  getUploadQuota: () => Promise<UploadQuotaStatus | null>;
   resetState: () => void;
 } {
   const isUploading = ref(false);
@@ -38,14 +32,7 @@ export function useUploadCat(): {
   const uploadPhase = ref<UploadPhase>('idle');
 
   // Get current quota status
-  const getUploadQuota = async (): Promise<{
-    used: number;
-    limit: number;
-    remaining: number;
-    is_pro: boolean;
-    resets_at: string | null;
-    reset_type: string | null;
-  } | null> => {
+  const getUploadQuota = async (): Promise<UploadQuotaStatus | null> => {
     try {
       const response = await api.get<{
         used: number;
@@ -122,31 +109,7 @@ export function useUploadCat(): {
     } catch (err) {
       // Error logged to state, console log suppressed
 
-      // Handle API errors specifically
-      if (err instanceof ApiError) {
-        let errorMessage: string;
-
-        switch (err.type) {
-          case ApiErrorTypes.NETWORK_ERROR:
-            errorMessage = 'Cannot connect to server. Please check your internet connection';
-            break;
-          case ApiErrorTypes.AUTHENTICATION_ERROR:
-            errorMessage = 'Login session expired. Please log in again';
-            break;
-          case ApiErrorTypes.VALIDATION_ERROR:
-            errorMessage = err.message;
-            break;
-          case ApiErrorTypes.SERVER_ERROR:
-            errorMessage = 'Server error. Please try again later';
-            break;
-          default:
-            errorMessage = err.message || 'An unknown error occurred';
-        }
-
-        error.value = errorMessage;
-      } else {
-        error.value = (err as Error).message || 'An error occurred during image upload';
-      }
+      error.value = formatApiErrorMessage(err, 'An error occurred during image upload');
 
       return null;
     } finally {

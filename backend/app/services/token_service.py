@@ -104,7 +104,11 @@ class TokenService:
                         db_session = self.db
                         query = text(
                             "INSERT INTO token_blacklist (token_jti, user_id, expires_at, revoked_at) "
-                            "VALUES (:jti, :user_id, :expires_at, :revoked_at)"
+                            "VALUES (:jti, :user_id, :expires_at, :revoked_at) "
+                            "ON CONFLICT (token_jti) DO UPDATE SET "
+                            "user_id = EXCLUDED.user_id, "
+                            "expires_at = EXCLUDED.expires_at, "
+                            "revoked_at = EXCLUDED.revoked_at"
                         )
                         await db_session.execute(
                             query,
@@ -139,7 +143,7 @@ class TokenService:
 
                 try:
                     admin_client = await self._get_admin_client()
-                    await admin_client.table("token_blacklist").insert(payload).execute()
+                    await admin_client.table("token_blacklist").upsert(payload, on_conflict="token_jti").execute()
                     persistence_succeeded = True
                 except Exception as exc:
                     if not self._is_rls_error(exc):
@@ -147,7 +151,7 @@ class TokenService:
 
                     logger.warning("token_blacklist insert hit RLS; refreshing Supabase admin client and retrying once")
                     admin_client = await self._get_admin_client(force_refresh=True)
-                    await admin_client.table("token_blacklist").insert(payload).execute()
+                    await admin_client.table("token_blacklist").upsert(payload, on_conflict="token_jti").execute()
                     persistence_succeeded = True
             except Exception as e:
                 if self._is_rls_error(e):

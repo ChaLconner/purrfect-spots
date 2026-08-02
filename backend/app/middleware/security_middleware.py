@@ -20,6 +20,33 @@ from starlette.types import ASGIApp
 from app.utils.auth_utils import _is_trusted_proxy_client
 
 
+def _is_production_env() -> bool:
+    return os.getenv("ENVIRONMENT", "development").lower() == "production"
+
+
+PROD_CSP_POLICY = (
+    "default-src 'none'; "
+    "frame-ancestors 'none'; "
+    "connect-src 'self' https://purrfectspots.xyz https://www.purrfectspots.xyz https://purrfect-spots.vercel.app; "
+    "img-src 'self' data: https: blob:;"
+)
+
+DEV_CSP_POLICY = (
+    "default-src 'self'; "
+    "img-src 'self' data: https: blob:; "
+    "script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://accounts.google.com; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+    "font-src 'self' https://fonts.gstatic.com; "
+    "connect-src 'self' https://maps.googleapis.com https://accounts.google.com https://*.sentry.io; "
+    "frame-src 'self' https://accounts.google.com; "
+    "frame-ancestors 'none';"
+)
+
+PERMISSIONS_POLICY = (
+    "accelerometer=(), camera=(), geolocation=(self), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+)
+
+
 class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
     """
     Middleware to redirect HTTP to HTTPS in production.
@@ -28,7 +55,7 @@ class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
 
     def __init__(self, app: ASGIApp) -> None:
         super().__init__(app)
-        self.is_production = os.getenv("ENVIRONMENT", "development").lower() == "production"
+        self.is_production = _is_production_env()
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         # Only enforce in production
@@ -63,60 +90,26 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
     def __init__(self, app: ASGIApp) -> None:
         super().__init__(app)
-        self.is_production = os.getenv("ENVIRONMENT", "development").lower() == "production"
+        self.is_production = _is_production_env()
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         response = await call_next(request)
 
         # Content Security Policy (CSP)
-        # Allow self, data URIs (for base64 images), and specific Google domains for Maps/Fonts
-        if self.is_production:
-            # Production CSP (API Only)
-            # Allow self and connect-src for frontend domains to prevent CORS/CSP blocking
-            csp_policy = (
-                "default-src 'none'; "
-                "frame-ancestors 'none'; "
-                "connect-src 'self' https://purrfectspots.xyz https://www.purrfectspots.xyz https://purrfect-spots.vercel.app; "
-                "img-src 'self' data: https: blob:;"
-            )
-        else:
-            # Dev CSP (allowing docs etc)
-            csp_policy = (
-                "default-src 'self'; "
-                "img-src 'self' data: https: blob:; "
-                "script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://accounts.google.com; "
-                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-                "font-src 'self' https://fonts.gstatic.com; "
-                "connect-src 'self' https://maps.googleapis.com https://accounts.google.com https://*.sentry.io; "
-                "frame-src 'self' https://accounts.google.com; "
-                "frame-ancestors 'none';"
-            )
-
+        csp_policy = PROD_CSP_POLICY if self.is_production else DEV_CSP_POLICY
         response.headers["Content-Security-Policy"] = csp_policy
 
         # SECURITY: Add CSP reporting endpoint for monitoring CSP violations
-        # This helps detect and respond to XSS attacks in real-time
         if self.is_production:
-            # Report CSP violations to Sentry (or your monitoring service)
-            # Using report-uri directive
-            csp_report_policy = csp_policy + " report-uri https://sentry.io/api/security/csp-report"
-            response.headers["Content-Security-Policy-Report-Only"] = csp_report_policy
+            response.headers["Content-Security-Policy-Report-Only"] = (
+                csp_policy + " report-uri https://sentry.io/api/security/csp-report"
+            )
+
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["X-XSS-Protection"] = "1; mode=block"
-
-        # Permissions Policy (formerly Feature-Policy)
-        response.headers["Permissions-Policy"] = (
-            "accelerometer=(), "
-            "camera=(), "
-            "geolocation=(self), "
-            "gyroscope=(), "
-            "magnetometer=(), "
-            "microphone=(), "
-            "payment=(), "
-            "usb=()"
-        )
+        response.headers["Permissions-Policy"] = PERMISSIONS_POLICY
 
         # HSTS - Only in production (1 year max-age)
         if self.is_production:

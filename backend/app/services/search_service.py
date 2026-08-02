@@ -16,6 +16,7 @@ class SearchService:
         self.db = db
         # Explicit column selection to avoid over-fetching
         self.PHOTO_COLUMNS = "id, image_url, latitude, longitude, description, location_name, uploaded_at, tags, likes_count, comments_count, user_id"
+        self.SQL_PHOTO_SELECT = f"SELECT {self.PHOTO_COLUMNS} FROM cat_photos"  # noqa: S608
         self.APPROVED_STATUS = "approved"
 
     @property
@@ -66,6 +67,11 @@ class SearchService:
             logger.error("Search failed: %s", e)
             raise
 
+    @staticmethod
+    def _clean_tags(tags: list[str]) -> list[str]:
+        """Normalize tag strings."""
+        return [tag.strip().lower().replace("#", "") for tag in tags]
+
     async def _fulltext_search(
         self, query: str, tags: list[str] | None = None, limit: int = 100, offset: int = 0
     ) -> list[dict[str, Any]]:
@@ -74,34 +80,19 @@ class SearchService:
         if self.db:
             try:
                 params: dict[str, Any] = {"query": query, "approved_status": self.APPROVED_STATUS}
-
+                tag_clause = ""
                 if tags:
-                    clean_tags = [tag.strip().lower().replace("#", "") for tag in tags]
-                    params["tags"] = clean_tags
-                    sql_query = text(
-                        "SELECT id, image_url, latitude, longitude, description, location_name, uploaded_at, tags, "
-                        "likes_count, comments_count, user_id "
-                        "FROM cat_photos "
-                        "WHERE deleted_at IS NULL AND status = :approved_status "
-                        "AND search_vector @@ websearch_to_tsquery('english', :query) "
-                        "AND tags @> :tags "
-                        "ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
-                    )
-                else:
-                    sql_query = text(
-                        "SELECT id, image_url, latitude, longitude, description, location_name, uploaded_at, tags, "
-                        "likes_count, comments_count, user_id "
-                        "FROM cat_photos "
-                        "WHERE deleted_at IS NULL AND status = :approved_status "
-                        "AND search_vector @@ websearch_to_tsquery('english', :query) "
-                        "ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
-                    )
+                    params["tags"] = self._clean_tags(tags)
+                    tag_clause = "AND tags @> :tags "
 
-                params["limit"] = limit
-                params["offset"] = offset
-
-                result = await self.db.execute(sql_query, params)
-                return [dict(row._mapping) for row in result.fetchall()]
+                sql_str = (
+                    f"{self.SQL_PHOTO_SELECT} "
+                    "WHERE deleted_at IS NULL AND status = :approved_status "
+                    "AND search_vector @@ websearch_to_tsquery('english', :query) "
+                    f"{tag_clause}"
+                    "ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
+                )
+                return await self._execute_sql_query_dict_list(text(sql_str), params, limit, offset)
             except Exception as e:
                 logger.warning("SQL full-text search failed, falling back to Supabase client: %s", e)
 
@@ -117,8 +108,7 @@ class SearchService:
                 .range(offset, offset + limit - 1)
             )
             if tags:
-                clean_tags = [tag.strip().lower().replace("#", "") for tag in tags]
-                db_query = db_query.contains("tags", clean_tags)
+                db_query = db_query.contains("tags", self._clean_tags(tags))
 
             resp = await db_query.execute()
             return cast(list[dict[str, Any]], resp.data or [])
@@ -134,56 +124,22 @@ class SearchService:
         if self.db:
             try:
                 params: dict[str, Any] = {"approved_status": self.APPROVED_STATUS}
-                sql_query: Any
+                where_clauses = ["deleted_at IS NULL", "status = :approved_status"]
 
                 if query:
-                    safe_query = f"%{escape_like_pattern(query)}%"
-                    params["query"] = safe_query
+                    params["query"] = f"%{escape_like_pattern(query)}%"
+                    where_clauses.append("(location_name ILIKE :query OR description ILIKE :query)")
 
                 if tags:
-                    clean_tags = [tag.strip().lower().replace("#", "") for tag in tags]
-                    params["tags"] = clean_tags
-                if query and tags:
-                    sql_query = text(
-                        "SELECT id, image_url, latitude, longitude, description, location_name, uploaded_at, tags, "
-                        "likes_count, comments_count, user_id "
-                        "FROM cat_photos "
-                        "WHERE deleted_at IS NULL AND status = :approved_status "
-                        "AND (location_name ILIKE :query OR description ILIKE :query) "
-                        "AND tags @> :tags "
-                        "ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
-                    )
-                elif query:
-                    sql_query = text(
-                        "SELECT id, image_url, latitude, longitude, description, location_name, uploaded_at, tags, "
-                        "likes_count, comments_count, user_id "
-                        "FROM cat_photos "
-                        "WHERE deleted_at IS NULL AND status = :approved_status "
-                        "AND (location_name ILIKE :query OR description ILIKE :query) "
-                        "ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
-                    )
-                elif tags:
-                    sql_query = text(
-                        "SELECT id, image_url, latitude, longitude, description, location_name, uploaded_at, tags, "
-                        "likes_count, comments_count, user_id "
-                        "FROM cat_photos "
-                        "WHERE deleted_at IS NULL AND status = :approved_status "
-                        "AND tags @> :tags "
-                        "ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
-                    )
-                else:
-                    sql_query = text(
-                        "SELECT id, image_url, latitude, longitude, description, location_name, uploaded_at, tags, "
-                        "likes_count, comments_count, user_id "
-                        "FROM cat_photos "
-                        "WHERE deleted_at IS NULL AND status = :approved_status "
-                        "ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
-                    )
-                params["limit"] = limit
-                params["offset"] = offset
+                    params["tags"] = self._clean_tags(tags)
+                    where_clauses.append("tags @> :tags")
 
-                result = await self.db.execute(sql_query, params)
-                return [dict(row._mapping) for row in result.fetchall()]
+                sql_str = (
+                    f"{self.SQL_PHOTO_SELECT} WHERE "
+                    + " AND ".join(where_clauses)
+                    + " ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
+                )
+                return await self._execute_sql_query_dict_list(text(sql_str), params, limit, offset)
             except Exception as e:
                 logger.warning("SQL ILIKE search failed, falling back to Supabase client: %s", e)
 
@@ -202,8 +158,7 @@ class SearchService:
                 db_query = db_query.or_(f"location_name.ilike.%{safe_query}%,description.ilike.%{safe_query}%")
 
             if tags:
-                clean_tags = [tag.strip().lower().replace("#", "") for tag in tags]
-                db_query = db_query.contains("tags", clean_tags)
+                db_query = db_query.contains("tags", self._clean_tags(tags))
 
             resp = await db_query.order("uploaded_at", desc=True).range(offset, offset + limit - 1).execute()
             return cast(list[dict[str, Any]], resp.data or [])
@@ -213,10 +168,22 @@ class SearchService:
 
     def _filter_by_tags(self, photos: list[dict[str, Any]], tags: list[str]) -> list[dict[str, Any]]:
         """Client-side tag filtering fallback."""
-        clean_tags = {tag.strip().lower().replace("#", "") for tag in tags}
+        clean_tags = set(self._clean_tags(tags))
         filtered = []
         for photo in photos:
             photo_tags = {t.lower() for t in (photo.get("tags") or [])}
             if clean_tags.issubset(photo_tags):
                 filtered.append(photo)
         return filtered
+
+    async def _execute_sql_query_dict_list(
+        self, sql_query: Any, params: dict[str, Any], limit: int, offset: int
+    ) -> list[dict[str, Any]]:
+        """Helper to set limit/offset and fetch mapping dicts from SQL query."""
+        db = self.db
+        if db is None:
+            raise RuntimeError("SQL search requires a database session")
+        params["limit"] = min(max(limit, 1), 100)
+        params["offset"] = max(offset, 0)
+        result = await db.execute(sql_query, params)
+        return [dict(row._mapping) for row in result.fetchall()]

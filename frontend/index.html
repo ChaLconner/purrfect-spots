@@ -47,29 +47,16 @@
 
     <title>Home | Purrfect Spots</title>
 
-    <!-- Skip link styles -->
-    <style>
-      .skip-link {
-        position: absolute;
-        top: -40px;
-        left: 0;
-        background: #5b7858;
-        color: white;
-        padding: 8px 16px;
-        z-index: 9999;
-        transition: top 0.3s;
-        border-radius: 0 0 8px 0;
-        text-decoration: none;
-        font-weight: 500;
-      }
-      .skip-link:focus {
-        top: 0;
-      }
-    </style>
   </head>
   <body>
     <!-- Skip to main content link for accessibility -->
-    <a href="#main-content" class="skip-link" id="skip-to-main">Skip to main content</a>
+    <a
+      href="#main-content"
+      id="skip-to-main"
+      class="absolute -top-10 left-0 z-[9999] rounded-br-lg bg-sage-dark px-4 py-2 font-medium text-white no-underline transition-[top] duration-300 focus:top-0"
+    >
+      Skip to main content
+    </a>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

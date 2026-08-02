@@ -16,7 +16,7 @@ const BottomNav = defineAsyncComponent(() => import('./components/layout/BottomN
 
 const { isOnline } = useNetwork();
 const route = useRoute();
-const SKY_BACKGROUND_ROUTES = new Set(['Home', 'Upload', 'Gallery', 'Leaderboard']);
+const SKY_BACKGROUND_ROUTES = new Set(['Home', 'Upload', 'Gallery', 'Leaderboard', 'Login', 'Register', 'ForgotPassword', 'ResetPassword', 'VerifyEmail', 'AuthCallback', 'Profile', 'MyReports', 'Subscription', 'PrivacyPolicy', 'TermsOfService', 'NotFound']);
 
 const showNav = computed(() => {
   return !route.path.startsWith('/admin');
@@ -124,7 +124,7 @@ onErrorCaptured((err, instance, info) => {
     class="flex flex-col min-h-screen relative"
     :class="{ 'bg-mint-light': usesSkyBackground }"
   >
-    <div class="ghibli-texture-overlay"></div>
+    <div v-if="!route.path.startsWith('/admin')" class="ghibli-texture-overlay"></div>
     <NavBar v-if="showNav" />
 
     <!-- Offline Indicator -->
@@ -147,7 +147,7 @@ onErrorCaptured((err, instance, info) => {
       <ErrorBoundary>
         <router-view />
       </ErrorBoundary>
-      <LicenseOverlay />
+      <LicenseOverlay v-if="!route.path.startsWith('/admin')" />
     </main>
 
     <BottomNav v-if="showNav" />

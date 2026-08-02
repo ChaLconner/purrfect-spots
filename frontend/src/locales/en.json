@@ -288,6 +288,7 @@
       "codePlaceholder": "••••••"
     },
     "callback": {
+      "authenticating": "Authenticating...",
       "passwordResetVerified": "Password Reset Verified",
       "emailVerified": "Email Verified Successfully!",
       "authExpired": "Authentication expired. Please try logging in again.",
@@ -503,11 +504,11 @@
     "proPlan": {
       "title": "Purrfect Plus",
       "subtitle": "Professional tools for cat enthusiasts.",
-      "period": "per month ($4.99)",
-      "periodAnnual": "per year ($49.99)",
+      "period": "per month",
+      "periodAnnual": "per year",
       "billedMonthly": "Billed Monthly",
       "billedAnnually": "Billed Annually",
-      "savePercent": "Save 16%",
+      "savePercent": "Save {percent}%",
       "badge": "Most Popular",
       "active": "ACTIVE PLAN",
       "cancelsOn": "Cancels on",
@@ -543,7 +544,10 @@
       "checkoutFailed": "Failed to start checkout",
       "portalFailed": "Failed to access subscription portal",
       "purchaseFailed": "Failed to initiate purchase",
-      "confirmingPayment": "Confirming your payment…"
+      "statusFailed": "Subscription status is temporarily unavailable. Please try again.",
+      "pricingFailed": "Subscription prices are temporarily unavailable. Please try again.",
+      "confirmingPayment": "Confirming your payment…",
+      "cancelledSuccess": "Subscription successfully cancelled."
     },
     "cancelModal": {
       "title": "Cancel Subscription",
@@ -718,6 +722,9 @@
         "DISMISS_REPORT": "Dismiss Report",
         "DELETE_PHOTO_VIA_REPORT": "Delete Photo (Report)",
         "DELETE_PHOTO_VIA_BULK_REPORT": "Delete Photo (Bulk)",
+        "CREATE_SYSTEM_CONFIG": "Create System Config",
+        "UPDATE_SYSTEM_CONFIG": "Update System Config",
+        "DELETE_SYSTEM_CONFIG": "Delete System Config",
         "CREATE_SYSTEM_CONFIGS": "Create System Config",
         "UPDATE_SYSTEM_CONFIGS": "Update System Config",
         "DELETE_SYSTEM_CONFIGS": "Delete System Config"

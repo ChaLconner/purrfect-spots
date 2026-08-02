@@ -19,7 +19,7 @@ const props = withDefaults(
   }
 );
 
-const isTestEnv = typeof process !== 'undefined' && process.env?.NODE_ENV === 'test';
+const isTestEnv = import.meta.env.MODE === 'test';
 const shouldDisableTeleport = computed(() => props.teleportDisabled || isTestEnv);
 
 const emit = defineEmits<{

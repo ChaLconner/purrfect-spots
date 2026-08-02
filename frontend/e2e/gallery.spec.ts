@@ -120,10 +120,10 @@ test.describe('Gallery Page', () => {
     test('should display photos from API', async ({ page }) => {
       // The virtualized gallery exposes each mocked item as an accessible button.
       await expect(
-        page.getByRole('button', { name: 'View Lumpini Park' })
+        page.getByRole('button', { name: 'View cat spot at Lumpini Park' })
       ).toBeVisible();
       await expect(
-        page.getByRole('button', { name: 'View Benjakitti Park' })
+        page.getByRole('button', { name: 'View cat spot at Benjakitti Park' })
       ).toBeVisible();
     });
   });
@@ -135,14 +135,16 @@ test.describe('Gallery Page', () => {
       await expect(grid.first()).toBeVisible();
 
       // Verify images are loaded
-      await expect(page.getByRole('button', { name: 'View Lumpini Park' })).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: 'View cat spot at Lumpini Park' })
+      ).toBeVisible();
     });
   });
 
   test.describe('Photo Modal', () => {
     test('should open modal when clicking photo', async ({ page }) => {
       // Click the first photo
-      const firstPhoto = page.getByRole('button', { name: 'View Lumpini Park' });
+      const firstPhoto = page.getByRole('button', { name: 'View cat spot at Lumpini Park' });
       await expect(firstPhoto).toBeVisible();
       await firstPhoto.click();
 
@@ -156,7 +158,7 @@ test.describe('Gallery Page', () => {
 
     test('should close modal with escape key', async ({ page }) => {
       // Open modal
-      const firstPhoto = page.getByRole('button', { name: 'View Lumpini Park' });
+      const firstPhoto = page.getByRole('button', { name: 'View cat spot at Lumpini Park' });
       await firstPhoto.click();
 
       // Wait for modal
@@ -172,10 +174,7 @@ test.describe('Gallery Page', () => {
   });
 
   test.describe('Navigation', () => {
-    test('should have navigation to map', async ({ page, isMobile }) => {
-      if (isMobile) {
-        await page.getByLabel('Toggle navigation menu').click();
-      }
+    test('should have navigation to map', async ({ page }) => {
       const mapLink = page.getByRole('link', { name: /map/i });
       await expect(mapLink.first()).toBeVisible();
     });
@@ -189,7 +188,9 @@ test.describe('Gallery Page', () => {
       await expect(page.locator('main')).toBeVisible();
 
       // Images should still be visible
-      await expect(page.getByRole('button', { name: 'View Lumpini Park' })).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: 'View cat spot at Lumpini Park' })
+      ).toBeVisible();
     });
   });
 });

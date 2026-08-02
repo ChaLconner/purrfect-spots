@@ -22,7 +22,7 @@ const BROWSER_EXTENSION_ERROR_PATTERNS = [
 // Error names that indicate browser extension conflicts
 const BROWSER_EXTENSION_ERROR_NAMES = new Set(['ChunkLoadError']);
 
-const reloadWithCacheBust = (): void => {
+export const reloadWithCacheBust = (): void => {
   const reloadKey = 'purrfect-spots:stale-chunk-reload';
   const now = Date.now();
   const lastReload = Number(sessionStorage.getItem(reloadKey) || '0');

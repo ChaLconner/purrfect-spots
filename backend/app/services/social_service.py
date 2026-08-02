@@ -140,14 +140,7 @@ class SocialService:
             comment = dict(comment_row._mapping)
 
             # 3. Enrichment
-            user_query = text("SELECT name, picture, is_pro FROM users WHERE id = :u_id LIMIT 1")
-            user_res = await self.db.execute(user_query, {"u_id": user_id})
-            user_row = user_res.fetchone()
-
-            if user_row:
-                comment["user_name"] = user_row[0]
-                comment["user_picture"] = user_row[1]
-                comment["user_is_pro"] = user_row[2]
+            await self._enrich_comment_user(comment, user_id)
 
             await self.db.commit()
             return photo_owner_id, comment
@@ -194,17 +187,31 @@ class SocialService:
         comment = cast(dict[str, Any], supa_res.data[0])
 
         # Enrichment
-        user_info_res = (
-            await self.supabase.table("users").select("name, picture, is_pro").eq("id", user_id).limit(1).execute()
-        )
-
-        if user_info_res.data:
-            user_info = cast(dict[str, Any], user_info_res.data[0])
-            comment["user_name"] = user_info.get("name")
-            comment["user_picture"] = user_info.get("picture")
-            comment["user_is_pro"] = user_info.get("is_pro")
+        await self._enrich_comment_user(comment, user_id)
 
         return photo_owner_id, comment
+
+    async def _enrich_comment_user(self, comment: dict[str, Any], user_id: str) -> None:
+        """Helper to enrich comment dict with user details."""
+        if self.db:
+            user_query = text("SELECT name, picture, is_pro FROM users WHERE id = :u_id LIMIT 1")
+            user_res = await self.db.execute(user_query, {"u_id": user_id})
+            user_row = user_res.fetchone()
+
+            if user_row:
+                comment["user_name"] = user_row[0]
+                comment["user_picture"] = user_row[1]
+                comment["user_is_pro"] = user_row[2]
+        else:
+            user_info_res = (
+                await self.supabase.table("users").select("name, picture, is_pro").eq("id", user_id).limit(1).execute()
+            )
+
+            if user_info_res.data:
+                user_info = cast(dict[str, Any], user_info_res.data[0])
+                comment["user_name"] = user_info.get("name")
+                comment["user_picture"] = user_info.get("picture")
+                comment["user_is_pro"] = user_info.get("is_pro")
 
     async def _send_comment_notification(
         self, user_id: str, photo_id: str, photo_owner_id: str | None, content: str, comment: dict[str, Any]
@@ -315,14 +322,7 @@ class SocialService:
                 item = dict(row._mapping)
 
                 # Enrichment
-                user_query = text("SELECT name, picture, is_pro FROM users WHERE id = :u_id LIMIT 1")
-                user_res = await self.db.execute(user_query, {"u_id": user_id})
-                user_row = user_res.fetchone()
-
-                if user_row:
-                    item["user_name"] = user_row[0]
-                    item["user_picture"] = user_row[1]
-                    item["user_is_pro"] = user_row[2]
+                await self._enrich_comment_user(item, user_id)
 
                 await self.db.commit()
                 return item
@@ -348,16 +348,7 @@ class SocialService:
 
         comment_data = cast(dict[str, Any], res.data[0])
 
-        # Enrichment (fetch user info separately or via another select if needed,
-        # but let's do a separate fetch to be safe and avoid chain errors)
-        user_info_res = (
-            await self.supabase.table("users").select("name, picture, is_pro").eq("id", user_id).limit(1).execute()
-        )
-
-        if user_info_res.data:
-            user_info = cast(dict[str, Any], user_info_res.data[0])
-            comment_data["user_name"] = user_info.get("name")
-            comment_data["user_picture"] = user_info.get("picture")
-            comment_data["user_is_pro"] = user_info.get("is_pro")
+        # Enrichment
+        await self._enrich_comment_user(comment_data, user_id)
 
         return cast(dict[str, Any] | None, comment_data)

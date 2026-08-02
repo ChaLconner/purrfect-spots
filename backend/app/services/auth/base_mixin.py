@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from supabase import AClient
 
 from app.compat import structlog
-from app.utils.supabase_client import get_async_supabase_admin_client
+from app.utils.supabase_client import get_admin_client_or_fallback
 
 logger = structlog.get_logger(__name__)
 
@@ -29,9 +29,7 @@ class AuthBaseMixin:
     jwt_algorithm: str
 
     async def _get_admin_client(self) -> AClient:
-        if self.supabase_admin:
-            return self.supabase_admin
-        return await get_async_supabase_admin_client()
+        return await get_admin_client_or_fallback(self.supabase_admin)
 
     def _generate_fingerprint(self, ip: str, user_agent: str) -> str:
         """Generate SHA256 fingerprint from full IP address and User-Agent."""

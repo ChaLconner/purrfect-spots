@@ -72,82 +72,77 @@ def _build_monthly_series(
 
 
 async def _fetch_trends_fallback(admin_client: Any, days_back: int = 30) -> dict[str, Any]:
-    """Compute admin trends using exact SQL count queries without transferring raw rows."""
+    """Compute trends with three bounded range queries, not one query per day."""
     end_date = datetime.now().date()
     start_date = end_date - timedelta(days=days_back)
 
-    async def count_day(table: str, field: str, target_date: date) -> dict[str, Any]:
-        d_start = datetime.combine(target_date, datetime.min.time())
-        d_end = d_start + timedelta(days=1)
-        res = (
-            await admin_client.table(table)
-            .select("id", count=CountMethod.exact)
-            .gte(field, d_start.isoformat())
-            .lt(field, d_end.isoformat())
-            .limit(1)
-            .execute()
+    async def fetch_rows(table: str, field: str, filters: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+        query = (
+            admin_client.table(table)
+            .select(field)
+            .gte(field, datetime.combine(start_date, datetime.min.time()).isoformat())
+            .lt(field, (datetime.combine(end_date, datetime.min.time()) + timedelta(days=1)).isoformat())
         )
-        return {"date": target_date.isoformat(), "count": res.count or 0}
+        for key, value in (filters or {}).items():
+            query = query.eq(key, value)
+        result = await query.execute()
+        rows = result.data
+        if isinstance(rows, list):
+            return cast(list[dict[str, Any]], rows)
+        # Some legacy clients expose only a bounded count. Keep degraded
+        # fallback useful without issuing one query per day/month.
+        count = getattr(result, "count", None)
+        if isinstance(count, int) and count > 0:
+            return [{field: start_date.isoformat()} for _ in range(count)]
+        return []
 
-    dates = [start_date + timedelta(days=i) for i in range((end_date - start_date).days + 1)]
-
-    user_tasks = [count_day("users", "created_at", d) for d in dates]
-    photo_tasks = [count_day("cat_photos", "uploaded_at", d) for d in dates]
-    report_tasks = [count_day("reports", "created_at", d) for d in dates]
-
-    all_res = await asyncio.gather(*user_tasks, *photo_tasks, *report_tasks)
-
-    n = len(dates)
+    users, photos, reports = await asyncio.gather(
+        fetch_rows("users", "created_at"),
+        fetch_rows("cat_photos", "uploaded_at"),
+        fetch_rows("reports", "created_at"),
+    )
     return {
-        "users": list(all_res[:n]),
-        "photos": list(all_res[n : 2 * n]),
-        "reports": list(all_res[2 * n :]),
+        "users": _build_daily_series(users, "created_at", start_date, end_date),
+        "photos": _build_daily_series(photos, "uploaded_at", start_date, end_date),
+        "reports": _build_daily_series(reports, "created_at", start_date, end_date),
     }
 
 
 async def _fetch_monthly_report_fallback(admin_client: Any, report_year: int) -> list[dict[str, Any]]:
-    """Compute monthly dashboard data with bounded DB work when RPCs are stale or missing."""
+    """Compute monthly dashboard data with three bounded year queries."""
+    year_start = datetime(report_year, 1, 1)
+    year_end = datetime(report_year + 1, 1, 1)
 
-    async def count_rows(
-        table: str,
-        field_name: str,
-        month: int,
-        *,
-        filters: dict[str, Any] | None = None,
-    ) -> int:
-        month_start = datetime(report_year, month, 1)
-        month_end = datetime(report_year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 1)
+    async def fetch_rows(table: str, field: str, filters: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         query = (
-            admin_client.table(table)
-            .select("id", count=CountMethod.exact)
-            .gte(field_name, month_start.isoformat())
-            .lt(field_name, month_end.isoformat())
-            .limit(1)
+            admin_client.table(table).select(field).gte(field, year_start.isoformat()).lt(field, year_end.isoformat())
         )
-        if filters:
-            for key, value in filters.items():
-                query = query.eq(key, value)
+        for key, value in (filters or {}).items():
+            query = query.eq(key, value)
         result = await query.execute()
-        return result.count or 0
+        rows = result.data
+        if isinstance(rows, list):
+            return cast(list[dict[str, Any]], rows)
+        count = getattr(result, "count", None)
+        if isinstance(count, int) and count > 0:
+            return [{field: year_start.isoformat()} for _ in range(count)]
+        return []
 
-    monthly_tasks = []
-    for month in range(1, 13):
-        monthly_tasks.extend(
-            [
-                count_rows("users", "created_at", month),
-                count_rows("cat_photos", "uploaded_at", month),
-                count_rows("reports", "updated_at", month, filters={"status": "resolved"}),
-            ]
-        )
-
-    monthly_counts = await asyncio.gather(*monthly_tasks)
+    users, photos, reports = await asyncio.gather(
+        fetch_rows("users", "created_at"),
+        fetch_rows("cat_photos", "uploaded_at"),
+        fetch_rows("reports", "updated_at", {"status": "resolved"}),
+    )
+    user_counts = _build_monthly_series(users, "created_at", report_year)
+    photo_counts = _build_monthly_series(photos, "uploaded_at", report_year)
+    report_counts = _build_monthly_series(reports, "updated_at", report_year)
 
     return [
         {
             "month_timestamp": datetime(report_year, month, 1).isoformat(),
-            "new_users": monthly_counts[(month - 1) * 3],
-            "new_photos": monthly_counts[(month - 1) * 3 + 1],
-            "resolved_reports": monthly_counts[(month - 1) * 3 + 2],
+            "new_users": user_counts[month - 1],
+            "new_photos": photo_counts[month - 1],
+            "resolved_reports": report_counts[month - 1],
             "points_earned": 0,
             "points_earned_degraded": not MONTHLY_FALLBACK_POINTS_SUPPORTED,
         }
@@ -279,6 +274,29 @@ async def get_dashboard_summary(
             }
 
 
+async def _get_trends_data_with_fallback(admin_client: Any, days_back: int = 30) -> dict[str, Any]:
+    try:
+        result = await admin_client.rpc("get_admin_trends", {"days_back": days_back}).execute()
+        trends_data = cast(dict[str, Any], result.data or {})
+        if trends_data:
+            return trends_data
+    except Exception as e:
+        logger.warning("Admin trends RPC failed; using Python fallback: %s", e, exc_info=True)
+    return await _fetch_trends_fallback(admin_client, days_back=days_back)
+
+
+async def _get_monthly_data_with_fallback(admin_client: Any, year: int) -> list[dict[str, Any]]:
+    try:
+        params = {"report_year": year}
+        result = await admin_client.rpc("get_monthly_report", params).execute()
+        monthly_data = result.data or []
+        if monthly_data:
+            return cast(list[dict[str, Any]], monthly_data)
+    except Exception as e:
+        logger.warning("Monthly stats RPC failed; using Python fallback: %s", e, exc_info=True)
+    return await _fetch_monthly_report_fallback(admin_client, year)
+
+
 @router.get("/trends")
 @limiter.limit("5/minute")
 async def get_system_trends(
@@ -295,23 +313,12 @@ async def get_system_trends(
 
     try:
         admin_client = await get_async_supabase_admin_client()
-        result = await admin_client.rpc("get_admin_trends", {"days_back": 30}).execute()
-
-        trends_data = cast(dict[str, Any], result.data or {})
-        if not trends_data:
-            trends_data = await _fetch_trends_fallback(admin_client, days_back=30)
+        trends_data = await _get_trends_data_with_fallback(admin_client, days_back=30)
         await redis_service.set(cache_key, trends_data, expire=600)
         return trends_data
-    except Exception as e:
-        logger.warning("Admin trends RPC failed; using Python fallback: %s", e, exc_info=True)
-        try:
-            admin_client = await get_async_supabase_admin_client()
-            trends_data = await _fetch_trends_fallback(admin_client, days_back=30)
-            await redis_service.set(cache_key, trends_data, expire=600)
-            return trends_data
-        except Exception as fallback_error:
-            logger.error("Failed to get trends: %s", fallback_error, exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to fetch activity trends")
+    except Exception as fallback_error:
+        logger.error("Failed to get trends: %s", fallback_error, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to fetch activity trends")
 
 
 @router.get("/monthly")
@@ -324,32 +331,18 @@ async def get_monthly_stats(
     """
     Get monthly system performance report.
     """
-    cache_key = f"admin_monthly_{year or datetime.now().year}"
+    target_year = year or datetime.now().year
+    cache_key = f"admin_monthly_{target_year}"
     cached = await redis_service.get(cache_key)
     if cached:
         return cast(dict[str, Any], cached)
 
     try:
         admin_client = await get_async_supabase_admin_client()
-        params = {"report_year": year} if year else {}
-        result = await admin_client.rpc("get_monthly_report", params).execute()
-
-        monthly_data = result.data or []
-        if not monthly_data:
-            monthly_data = await _fetch_monthly_report_fallback(admin_client, year or datetime.now().year)
-        data = {"data": monthly_data, "year": year or datetime.now().year}
-        await redis_service.set(cache_key, data, expire=1800)  # Cache longer
+        monthly_list = await _get_monthly_data_with_fallback(admin_client, target_year)
+        data = {"data": monthly_list, "year": target_year}
+        await redis_service.set(cache_key, data, expire=1800)
         return data
-    except Exception as e:
-        logger.warning("Monthly stats RPC failed; using Python fallback: %s", e, exc_info=True)
-        try:
-            admin_client = await get_async_supabase_admin_client()
-            data = {
-                "data": await _fetch_monthly_report_fallback(admin_client, year or datetime.now().year),
-                "year": year or datetime.now().year,
-            }
-            await redis_service.set(cache_key, data, expire=1800)
-            return data
-        except Exception as fallback_error:
-            logger.error("Failed to fetch monthly stats: %s", fallback_error, exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to fetch monthly report")
+    except Exception as fallback_error:
+        logger.error("Failed to fetch monthly stats: %s", fallback_error, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to fetch monthly report")

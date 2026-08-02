@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
 import SkeletonLoader from '@/components/ui/SkeletonLoader.vue';
-import type { CatLocation } from '@/generated/api';
+import type { CatLocation } from '@/types/api';
 
 const props = defineProps<{
   image: CatLocation | null;
@@ -94,14 +94,14 @@ onUnmounted(() => {
     <!-- Blurred Background for gaps -->
     <div
       v-if="image"
-      class="absolute -inset-5 bg-cover bg-center blur-[40px] brightness-90 saturate-[1.2] opacity-80 z-[-1] scale-110"
-      :style="{ backgroundImage: `url(${image.image_url})` }"
+      class="absolute -inset-5 bg-cover bg-center bg-[image:var(--image-background)] blur-[40px] brightness-90 saturate-[1.2] opacity-80 z-[-1] scale-110"
+      :style="{ '--image-background': `url(${image.image_url})` }"
     ></div>
 
     <!-- Error State -->
     <div
       v-if="hasError"
-      class="error-state flex flex-col items-center justify-center p-8 text-center text-white/60"
+      class="flex flex-col items-center justify-center p-8 text-center text-white/60"
     >
       <img class="w-48 h-auto opacity-40 mb-4 grayscale" />
       <p class="font-heading text-xl">{{ $t('galleryPage.modal.imageNotFound') }}</p>

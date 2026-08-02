@@ -9,27 +9,34 @@ from app.routes.admin.settings import email_service
 from app.schemas.user import User
 
 
+@pytest.fixture
+def shared_admin_user():
+    return User(
+        id="00000000-0000-4000-a000-000000000111",
+        email="admin@example.com",
+        name="Admin User",
+        role="admin",
+        permissions=["*"],
+    )
+
+
+@pytest.fixture
+def admin_user(shared_admin_user):
+    return shared_admin_user
+
+
+@pytest.fixture
+def override_admin(admin_user):
+    app.dependency_overrides[get_current_user] = lambda: admin_user
+    yield
+    app.dependency_overrides.pop(get_current_user, None)
+
+
 class TestAdminSettingsRoutes:
     @pytest.fixture(autouse=True)
     def make_supabase_chainable(self, mock_supabase_admin):
         mock_supabase_admin.in_.return_value = mock_supabase_admin
         return mock_supabase_admin
-
-    @pytest.fixture
-    def admin_user(self):
-        return User(
-            id="00000000-0000-4000-a000-000000000111",
-            email="admin@example.com",
-            name="Admin User",
-            role="admin",
-            permissions=["system:settings"],
-        )
-
-    @pytest.fixture
-    def override_admin(self, admin_user):
-        app.dependency_overrides[get_current_user] = lambda: admin_user
-        yield
-        app.dependency_overrides.pop(get_current_user, None)
 
     def test_get_all_settings_success(self, client, override_admin, mock_supabase_admin) -> None:
         mock_supabase_admin.execute.return_value = MagicMock(
@@ -385,22 +392,6 @@ class TestAdminCommentBulkDelete:
 
 
 class TestAdminCommentModerationBan:
-    @pytest.fixture
-    def admin_user(self):
-        return User(
-            id="00000000-0000-4000-a000-000000000111",
-            email="admin@example.com",
-            name="Admin User",
-            role="admin",
-            permissions=["comments:manage"],
-        )
-
-    @pytest.fixture
-    def override_admin(self, admin_user):
-        app.dependency_overrides[get_current_user] = lambda: admin_user
-        yield
-        app.dependency_overrides.pop(get_current_user, None)
-
     def test_ban_user_by_comment_rejects_admin_targets(self, client, override_admin, mock_supabase_admin) -> None:
         notification_service = MagicMock()
         mock_supabase_admin.execute.side_effect = [

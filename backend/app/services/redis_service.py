@@ -1,4 +1,10 @@
+import asyncio
 import json
+import os
+import secrets
+import time
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any
 
@@ -6,6 +12,18 @@ import redis.asyncio as aioredis
 
 from app.config import Config
 from app.logger import logger
+
+
+class RedisLockError(RuntimeError):
+    """Base error for distributed lock failures."""
+
+
+class RedisLockUnavailable(RedisLockError):
+    """Raised when a production lock cannot reach Redis."""
+
+
+class RedisLockTimeout(RedisLockError):
+    """Raised when a lock cannot be acquired before its deadline."""
 
 
 class JSONSerializer(json.JSONEncoder):
@@ -28,6 +46,8 @@ class JSONSerializer(json.JSONEncoder):
 
 
 class RedisService:
+    _local_locks: dict[str, asyncio.Lock] = {}
+
     def __init__(self) -> None:
         self.url = Config.REDIS_URL
         self.client: aioredis.Redis | None = None
@@ -105,6 +125,81 @@ class RedisService:
         except Exception as e:
             logger.error("Redis delete_pattern error for %s: %s", pattern, e)
             return 0
+
+    @staticmethod
+    def _use_local_lock() -> bool:
+        """Keep unit tests deterministic without touching configured Redis."""
+        return Config.ENVIRONMENT.lower() in {"test", "testing"} or bool(os.getenv("PYTEST_CURRENT_TEST"))
+
+    @asynccontextmanager
+    async def lock(self, key: str, *, ttl: int = 60, wait_timeout: float = 15.0) -> AsyncIterator[None]:
+        """Acquire a cross-instance lock with token-safe release.
+
+        Production fails closed when Redis is unavailable. Development and tests
+        use an in-process lock so local execution remains usable without Redis.
+        """
+        if not key:
+            raise ValueError("Redis lock key cannot be empty")
+        ttl = max(1, int(ttl))
+        wait_timeout = max(0.0, float(wait_timeout))
+
+        if self._use_local_lock():
+            local_lock = self._local_locks.setdefault(key, asyncio.Lock())
+            try:
+                await asyncio.wait_for(local_lock.acquire(), timeout=wait_timeout)
+            except TimeoutError as exc:
+                raise RedisLockTimeout(f"Timed out acquiring local lock {key}") from exc
+            try:
+                yield
+            finally:
+                if local_lock.locked():
+                    local_lock.release()
+            return
+
+        if not self.client:
+            if Config.is_production():
+                raise RedisLockUnavailable("Redis is required for distributed subscription locking")
+            # Development without Redis still gets a safe single-process guard.
+            local_lock = self._local_locks.setdefault(key, asyncio.Lock())
+            try:
+                await asyncio.wait_for(local_lock.acquire(), timeout=wait_timeout)
+            except TimeoutError as exc:
+                raise RedisLockTimeout(f"Timed out acquiring local lock {key}") from exc
+            try:
+                yield
+            finally:
+                if local_lock.locked():
+                    local_lock.release()
+            return
+
+        token = secrets.token_urlsafe(24)
+        deadline = time.monotonic() + wait_timeout
+        acquired = False
+        try:
+            while time.monotonic() <= deadline:
+                try:
+                    acquired = bool(await self.client.set(key, token, nx=True, ex=ttl))
+                except Exception as exc:
+                    raise RedisLockUnavailable("Redis lock operation failed") from exc
+                if acquired:
+                    break
+                await asyncio.sleep(0.05)
+
+            if not acquired:
+                raise RedisLockTimeout(f"Timed out acquiring Redis lock {key}")
+
+            yield
+        finally:
+            if acquired:
+                # Delete only our own lease. A plain DEL could remove a lock
+                # acquired by another request after this lease expired.
+                release_script = (
+                    "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end"
+                )
+                try:
+                    await self.client.eval(release_script, 1, key, token)
+                except Exception:
+                    logger.warning("Failed to release Redis lock %s", key, exc_info=True)
 
 
 redis_service = RedisService()

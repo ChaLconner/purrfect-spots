@@ -24,6 +24,7 @@ class TestTokenService:
         # Mock chainable methods
         chain_mock = MagicMock()
         chain_mock.insert.return_value = chain_mock
+        chain_mock.upsert.return_value = chain_mock
         chain_mock.update.return_value = chain_mock
         chain_mock.select.return_value = chain_mock
         chain_mock.eq.return_value = chain_mock
@@ -134,7 +135,13 @@ class TestTokenService:
 
         # Verify mocked table calls
         mock_supabase_admin.table.assert_called_with("token_blacklist")
-        mock_supabase_admin.table.return_value.insert.assert_called_once()
+        upsert = mock_supabase_admin.table.return_value.upsert
+        upsert.assert_called_once()
+        payload = upsert.call_args.args[0]
+        assert payload["token_jti"] == jti
+        assert payload["user_id"] == user_id
+        assert payload["expires_at"] == expires_at.isoformat()
+        assert upsert.call_args.kwargs == {"on_conflict": "token_jti"}
 
     @pytest.mark.asyncio
     async def test_blacklist_token_skips_supabase_persistence_without_service_role(self, mock_supabase_admin):
@@ -162,13 +169,13 @@ class TestTokenService:
         """If a stale anon client slips in, the service should refresh and retry once."""
         stale_client = MagicMock()
         stale_chain = MagicMock()
-        stale_chain.insert.return_value = stale_chain
+        stale_chain.upsert.return_value = stale_chain
         stale_chain.execute = AsyncMock(side_effect=Exception("42501 row-level security policy"))
         stale_client.table.return_value = stale_chain
 
         fresh_client = MagicMock()
         fresh_chain = MagicMock()
-        fresh_chain.insert.return_value = fresh_chain
+        fresh_chain.upsert.return_value = fresh_chain
         fresh_chain.execute = AsyncMock(return_value=MagicMock(data=[], count=1))
         fresh_client.table.return_value = fresh_chain
 

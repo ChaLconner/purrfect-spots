@@ -12,11 +12,11 @@ How it works:
 """
 
 import hashlib
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
+from starlette.responses import Response, StreamingResponse
 
 
 def _compute_etag(content: bytes) -> str:
@@ -86,28 +86,38 @@ class ETagMiddleware(BaseHTTPMiddleware):
         if not _is_cacheable_response(response):
             return response
 
-        # Read response body — use streaming hash to avoid double buffering
-        response_body = b""
+        # Route handlers should set Content-Length. Skip hashing known-large
+        # payloads before consuming their body.
+        content_length = response.headers.get("content-length")
+        if content_length and int(content_length) > self.MAX_ETAG_BODY_SIZE:
+            return response
+
+        # Collect chunks once. Avoid repeated bytes concatenation (O(n²)).
+        chunks: list[bytes] = []
+        body_size = 0
         has_body = False
         async for chunk in response.body_iterator:  # type: ignore[attr-defined]
-            response_body += chunk if isinstance(chunk, bytes) else chunk.encode()
+            chunk_bytes = chunk if isinstance(chunk, bytes) else chunk.encode()
+            chunks.append(chunk_bytes)
+            body_size += len(chunk_bytes)
             has_body = True
-            # PERF: Skip ETag for large responses to avoid memory pressure
-            if len(response_body) > self.MAX_ETAG_BODY_SIZE:
-                from fastapi.responses import Response as StarletteResponse
+            if body_size > self.MAX_ETAG_BODY_SIZE:
 
-                # Drain remaining chunks and return without ETag
-                remaining = response_body
-                async for extra in response.body_iterator:  # type: ignore[attr-defined]
-                    remaining += extra if isinstance(extra, bytes) else extra.encode()
-                return StarletteResponse(
-                    content=remaining,
+                async def replay_body() -> AsyncIterator[bytes]:
+                    for replay_chunk in chunks:
+                        yield replay_chunk
+                    async for extra in response.body_iterator:  # type: ignore[attr-defined]
+                        yield extra if isinstance(extra, bytes) else extra.encode()
+
+                return StreamingResponse(
+                    replay_body(),
                     status_code=response.status_code,
                     headers=dict(response.headers),
                     media_type=response.media_type,
                     background=response.background,
                 )
 
+        response_body = b"".join(chunks)
         if not has_body or not response_body:
             return response
 

@@ -12,31 +12,24 @@ from app.dependencies import (
 from app.limiter import limiter
 from app.logger import logger
 from app.middleware.auth_middleware import require_permission
+from app.routes.admin.helpers import CommonPagination, create_admin_audit_log, fetch_photo_by_id
 from app.schemas.admin_schemas import PhotoUpdateAdmin
 from app.schemas.user import User
 from app.services.email_service import EmailService
 from app.services.gallery_service import GalleryService
 from app.services.notification_service import NotificationService
 from app.services.storage_service import storage_service
+from app.utils.db_security import validate_or_raise_uuid as _validate_uuid
 
 router = APIRouter()
-
-from app.utils.db_security import validate_uuid
-
-
-def _validate_uuid(value: str, label: str = "ID") -> None:
-    if not validate_uuid(value):
-        raise HTTPException(status_code=400, detail=f"Invalid {label} format: expected UUID")
 
 
 @router.get("/photos", response_model=dict[str, Any])
 @limiter.limit("60/minute")
 async def list_photos(
     request: Request,
-    limit: int = 20,
-    offset: int = 0,
+    pagination: Annotated[CommonPagination, Depends()],
     search: str | None = None,
-    reported: bool = False,
     current_admin: Annotated[User | None, Depends(require_permission("content:read"))] = None,
 ) -> dict[str, Any]:
     """
@@ -54,17 +47,17 @@ async def list_photos(
                 "id, image_url, description, location_name, latitude, longitude, uploaded_at, user_id, users!cat_photos_user_id_fkey(email, name)",
                 count=CountMethod.exact,
             )
-            .range(offset, offset + limit - 1)
+            .range(pagination.offset, pagination.offset + pagination.limit - 1)
             .order("uploaded_at", desc=True)
         )
 
         if search:
             query = query.or_(f"description.ilike.%{search}%,location_name.ilike.%{search}%")
 
-        # Future: Filter by reported status
-
         result = await query.execute()
-        return {"data": result.data, "total": result.count}
+        total = result.count if result.count is not None else len(result.data)
+
+        return {"data": result.data, "total": total, "offset": pagination.offset, "limit": pagination.limit}
     except Exception as e:
         error_details = getattr(e, "details", "No details")
         error_hint = getattr(e, "hint", "No hint")
@@ -97,18 +90,9 @@ async def delete_photo_admin(
         admin_client = await get_async_supabase_admin_client()
 
         # 1. Get photo details
-        photo_check = (
-            await admin_client.table("cat_photos")
-            .select("id, image_url, user_id")
-            .eq("id", photo_id)
-            .single()
-            .execute()
-        )
-
-        if not photo_check.data:
+        photo_data = await fetch_photo_by_id(admin_client, str(photo_id))
+        if not photo_data:
             raise HTTPException(status_code=404, detail="Photo not found")
-
-        photo_data = cast(dict[str, Any], photo_check.data)
 
         # 2. Schedule background deletion
         background_tasks.add_task(
@@ -146,19 +130,13 @@ async def delete_photo_admin(
                     )
 
         # 3. Log Audit Log
-        await (
-            admin_client.table("audit_logs")
-            .insert(
-                {
-                    "user_id": current_admin.id,
-                    "action": "DELETE_PHOTO",
-                    "resource": "photos",
-                    "changes": {"photo_id": photo_id, "owner_id": photo_data.get("user_id")},
-                    "ip_address": request.client.host if request.client else "unknown",
-                    "user_agent": request.headers.get("user-agent", "unknown"),
-                }
-            )
-            .execute()
+        await create_admin_audit_log(
+            admin_client,
+            current_admin.id,
+            "DELETE_PHOTO",
+            "photos",
+            {"photo_id": photo_id, "owner_id": photo_data.get("user_id")},
+            request=request,
         )
 
         return {"message": f"Photo {photo_id} deletion scheduled"}

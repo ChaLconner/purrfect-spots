@@ -7,8 +7,10 @@ from pydantic import BaseModel, Field
 from app.dependencies import get_async_supabase_admin_client
 from app.logger import logger
 from app.middleware.auth_middleware import require_permission
+from app.routes.admin.helpers import CommonPagination
 from app.schemas.user import User
 from app.services.redis_service import redis_service
+from app.utils.audit_logger import log_admin_action
 
 router = APIRouter()
 
@@ -25,8 +27,7 @@ class GrantTreatRequest(BaseModel):
 @router.get("/transactions")
 async def list_treat_transactions(
     request: Request,
-    limit: Annotated[int, Query(ge=1, le=1000)] = 20,
-    offset: Annotated[int, Query(ge=0)] = 0,
+    pagination: Annotated[CommonPagination, Depends()],
     transaction_type: Annotated[str | None, Query()] = None,
     search: Annotated[str | None, Query()] = None,
     current_admin: User = Depends(require_permission("treats:manage")),
@@ -42,7 +43,7 @@ async def list_treat_transactions(
                 count=CountMethod.exact,
             )
             .order("created_at", desc=True)
-            .range(offset, offset + limit - 1)
+            .range(pagination.offset, pagination.offset + pagination.limit - 1)
         )
 
         if transaction_type:
@@ -53,7 +54,7 @@ async def list_treat_transactions(
         data = result.data or []
         total = result.count if result.count is not None else len(data)
 
-        return {"data": data, "total": total, "offset": offset, "limit": limit}
+        return {"data": data, "total": total, "offset": pagination.offset, "limit": pagination.limit}
     except Exception as e:
         logger.error("Failed to list treat transactions: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch transactions")
@@ -171,24 +172,20 @@ async def grant_treats_manually(
         if not user_check.data:
             raise HTTPException(status_code=404, detail="User not found")
 
-        # Try atomic RPC first (requires migration 026)
-        granted = False
+        # Use atomic RPC (requires migration 026)
         try:
             await admin_client.rpc(
                 "admin_grant_treats",
                 {"p_user_id": data.user_id, "p_amount": data.amount},
             ).execute()
-            granted = True
-        except Exception:
-            logger.warning("admin_grant_treats RPC not available, using fallback")
+        except Exception as rpc_err:
+            logger.error("admin_grant_treats RPC failed: %s", rpc_err)
+            raise HTTPException(
+                status_code=503,
+                detail="Atomic grant RPC unavailable. Please apply migration 026 and retry.",
+            )
 
-        # Fallback: atomic-ish UPDATE (treat_balance = treat_balance + amount)
-        if not granted:
-            assert isinstance(user_check.data, dict)
-            new_balance = int(user_check.data.get("treat_balance") or 0) + data.amount
-            await admin_client.table("users").update({"treat_balance": new_balance}).eq("id", data.user_id).execute()
-
-        # Record transaction with rollback protection if transaction insert fails
+        # Record transaction
         try:
             await (
                 admin_client.table("treats_transactions")
@@ -203,30 +200,17 @@ async def grant_treats_manually(
                 .execute()
             )
         except Exception as tx_err:
-            if not granted:
-                # Rollback balance update
-                assert isinstance(user_check.data, dict)
-                orig_balance = int(user_check.data.get("treat_balance") or 0)
-                await (
-                    admin_client.table("users").update({"treat_balance": orig_balance}).eq("id", data.user_id).execute()
-                )
-            logger.error("Transaction record failed, rolled back balance: %s", tx_err)
+            logger.error("Transaction record failed after grant: %s", tx_err)
             raise HTTPException(status_code=500, detail="Failed to record treat transaction")
 
         # Log Audit
-        await (
-            admin_client.table("audit_logs")
-            .insert(
-                {
-                    "user_id": current_admin.id,
-                    "action": "GRANT_TREATS",
-                    "resource": "users",
-                    "changes": {"target_user_id": data.user_id, "amount": data.amount, "reason": data.reason},
-                    "ip_address": request.client.host if request.client else "unknown",
-                    "user_agent": request.headers.get("user-agent", "unknown"),
-                }
-            )
-            .execute()
+        await log_admin_action(
+            admin_client=admin_client,
+            admin_id=current_admin.id,
+            action="GRANT_TREATS",
+            target_type="users",
+            target_id=data.user_id,
+            details={"target_user_id": data.user_id, "amount": data.amount, "reason": data.reason},
         )
         await redis_service.delete(TREAT_STATS_CACHE_KEY)
 

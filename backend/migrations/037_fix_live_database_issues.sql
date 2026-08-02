@@ -87,69 +87,69 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 4. User status validation guard on give_treat_atomic RPC
 CREATE OR REPLACE FUNCTION give_treat_atomic(
     p_from_user_id UUID,
-    p_to_user_id UUID,
     p_photo_id UUID,
     p_amount INTEGER DEFAULT 1
 )
-RETURNS BOOLEAN AS $$
+RETURNS JSON AS $$
 DECLARE
+    v_to_user_id UUID;
     v_sender_balance INTEGER;
     v_sender_banned TIMESTAMPTZ;
     v_sender_deleted TIMESTAMPTZ;
     v_receiver_banned TIMESTAMPTZ;
     v_receiver_deleted TIMESTAMPTZ;
 BEGIN
-    IF p_from_user_id = p_to_user_id THEN
-        RAISE EXCEPTION 'Cannot give treats to yourself';
-    END IF;
-
     IF p_amount <= 0 THEN
-        RAISE EXCEPTION 'Amount must be greater than zero';
+        RETURN json_build_object('success', false, 'error', 'Amount must be greater than zero');
     END IF;
 
-    -- Check sender status and balance
-    SELECT treat_balance, banned_at, deleted_at 
+    SELECT user_id INTO v_to_user_id FROM public.cat_photos WHERE id = p_photo_id;
+    IF v_to_user_id IS NULL THEN
+        RETURN json_build_object('success', false, 'error', 'Photo not found');
+    END IF;
+
+    IF p_from_user_id = v_to_user_id THEN
+        RETURN json_build_object('success', false, 'error', 'Cannot give treats to yourself');
+    END IF;
+
+    SELECT treat_balance, banned_at, deleted_at
     INTO v_sender_balance, v_sender_banned, v_sender_deleted
-    FROM public.users 
+    FROM public.users
     WHERE id = p_from_user_id FOR UPDATE;
 
     IF v_sender_balance IS NULL THEN
-        RAISE EXCEPTION 'Sender user not found';
+        RETURN json_build_object('success', false, 'error', 'Sender user not found');
     END IF;
 
     IF v_sender_banned IS NOT NULL OR v_sender_deleted IS NOT NULL THEN
-        RAISE EXCEPTION 'Sender account is inactive or banned';
+        RETURN json_build_object('success', false, 'error', 'Sender account is inactive or banned');
     END IF;
 
     IF v_sender_balance < p_amount THEN
-        RAISE EXCEPTION 'Insufficient treats balance';
+        RETURN json_build_object('success', false, 'error', 'Insufficient treats balance');
     END IF;
 
-    -- Check receiver status
-    SELECT banned_at, deleted_at 
+    SELECT banned_at, deleted_at
     INTO v_receiver_banned, v_receiver_deleted
-    FROM public.users 
-    WHERE id = p_to_user_id FOR UPDATE;
+    FROM public.users
+    WHERE id = v_to_user_id FOR UPDATE;
 
     IF v_receiver_banned IS NOT NULL OR v_receiver_deleted IS NOT NULL THEN
-        RAISE EXCEPTION 'Receiver account is inactive or banned';
+        RETURN json_build_object('success', false, 'error', 'Receiver account is inactive or banned');
     END IF;
 
-    -- Deduct sender balance & update stats
     UPDATE public.users
     SET treat_balance = treat_balance - p_amount,
-        total_treats_given = total_treats_given + p_amount,
+        total_treats_given = COALESCE(total_treats_given, 0) + p_amount,
         updated_at = NOW()
     WHERE id = p_from_user_id;
 
-    -- Add receiver balance & update stats
     UPDATE public.users
     SET treat_balance = treat_balance + p_amount,
-        total_treats_received = total_treats_received + p_amount,
+        total_treats_received = COALESCE(total_treats_received, 0) + p_amount,
         updated_at = NOW()
-    WHERE id = p_to_user_id;
+    WHERE id = v_to_user_id;
 
-    -- Record transaction
     INSERT INTO public.treats_transactions (
         from_user_id,
         to_user_id,
@@ -159,13 +159,17 @@ BEGIN
         description
     ) VALUES (
         p_from_user_id,
-        p_to_user_id,
+        v_to_user_id,
         p_photo_id,
         p_amount,
         'give',
         'Gave treats to photo'
     );
 
-    RETURN TRUE;
+    RETURN json_build_object(
+        'success', true,
+        'new_balance', v_sender_balance - p_amount,
+        'to_user_id', v_to_user_id
+    );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

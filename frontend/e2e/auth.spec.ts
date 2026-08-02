@@ -48,12 +48,12 @@ test.describe('Authentication Flow', () => {
       // Check form elements exist
       await expect(page.getByLabel(/email/i)).toBeVisible();
       await expect(page.locator('#password')).toBeVisible();
-      await expect(page.getByRole('button', { name: /login|sign in/i })).toBeVisible();
+      await expect(page.locator('form').getByRole('button', { name: /login|sign in/i })).toBeVisible();
     });
     
     test('should show validation errors for empty form', async ({ page }) => {
       // Submit empty form
-      await page.getByRole('button', { name: /login|sign in/i }).click();
+      await page.locator('form').getByRole('button', { name: /login|sign in/i }).click();
       
       // Should show validation message
       // Note: Browser native validation might intercept this, so we check if button is still there
@@ -75,7 +75,7 @@ test.describe('Authentication Flow', () => {
       // Fill invalid credentials
       await page.getByLabel(/email/i).fill('invalid@example.com');
       await page.locator('#password').fill('wrongpassword');
-      await page.getByRole('button', { name: /login|sign in/i }).click();
+      await page.locator('form').getByRole('button', { name: /login|sign in/i }).click();
       
       // Should show error message
       await expect(page.getByText('Authentication Failed', { exact: true })).toBeVisible({
@@ -108,7 +108,7 @@ test.describe('Authentication Flow', () => {
 
         await page.getByLabel(/email/i).fill('test@example.com');
         await page.locator('#password').fill('CorrectPassword123');
-        await page.getByRole('button', { name: /login|sign in/i }).click();
+        await page.locator('form').getByRole('button', { name: /login|sign in/i }).click();
 
         // Should redirect to home or dashboard
         await expect(page).toHaveURL('/upload');

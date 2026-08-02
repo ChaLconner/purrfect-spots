@@ -5,6 +5,7 @@ import { useAuthStore } from './authStore';
 import { supabase } from '@/lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { ProfileService } from '@/services/profileService';
+import { isDev } from '@/utils/env';
 
 export const useNotificationStore = defineStore('notifications', () => {
   const notifications = ref<Notification[]>([]);
@@ -19,6 +20,8 @@ export const useNotificationStore = defineStore('notifications', () => {
   const authStore = useAuthStore();
   let subscription: RealtimeChannel | null = null;
   const actorCache = new Map<string, { name?: string; picture?: string }>();
+  const MAX_ACTOR_CACHE = 200;
+  const MAX_NOTIFICATIONS = 100;
 
   // Pagination states
   const isLoadingMore = ref(false);
@@ -43,7 +46,9 @@ export const useNotificationStore = defineStore('notifications', () => {
         serverUnreadCount.value = count;
       }
     } catch (e) {
-      console.error('Failed to fetch unread notification count', e);
+      if (isDev()) {
+        console.error('Failed to fetch unread notification count', e);
+      }
     }
   }
 
@@ -64,7 +69,9 @@ export const useNotificationStore = defineStore('notifications', () => {
         hasMore.value = true;
       }
     } catch (e) {
-      console.error('Failed to fetch notifications', e);
+      if (isDev()) {
+        console.error('Failed to fetch notifications', e);
+      }
     } finally {
       isLoadingMore.value = false;
     }
@@ -75,7 +82,8 @@ export const useNotificationStore = defineStore('notifications', () => {
     isLoadingMore.value = true;
     try {
       const currentOffset = notifications.value.length;
-      const data = await NotificationService.getNotifications(limit, currentOffset);
+      const cursor = notifications.value.at(-1)?.created_at;
+      const data = await NotificationService.getNotifications(limit, currentOffset, cursor);
       if (data.length > 0) {
         // Filter out duplicates just in case new notifications arrived in between
         const newIds = new Set(data.map((n) => n.id));
@@ -86,7 +94,9 @@ export const useNotificationStore = defineStore('notifications', () => {
         hasMore.value = false;
       }
     } catch (e) {
-      console.error('Failed to fetch more notifications', e);
+      if (isDev()) {
+        console.error('Failed to fetch more notifications', e);
+      }
     } finally {
       isLoadingMore.value = false;
     }
@@ -107,7 +117,9 @@ export const useNotificationStore = defineStore('notifications', () => {
         serverUnreadCount.value--;
       }
     } catch (e) {
-      console.error(e);
+      if (isDev()) {
+        console.error(e);
+      }
     }
   }
 
@@ -119,7 +131,9 @@ export const useNotificationStore = defineStore('notifications', () => {
       });
       serverUnreadCount.value = 0;
     } catch (e) {
-      console.error(e);
+      if (isDev()) {
+        console.error(e);
+      }
     }
   }
 
@@ -157,15 +171,21 @@ export const useNotificationStore = defineStore('notifications', () => {
                   name: user.name,
                   picture: user.picture,
                 });
+                if (actorCache.size > MAX_ACTOR_CACHE) {
+                  const oldestActorId = actorCache.keys().next().value;
+                  if (oldestActorId) actorCache.delete(oldestActorId);
+                }
                 newNotification.actor_name = user.name;
                 newNotification.actor_picture = user.picture;
               }
             } catch (e) {
-              console.error('Failed to fetch actor details for notification', e);
+              if (isDev()) {
+                console.error('Failed to fetch actor details for notification', e);
+              }
             }
           }
 
-          notifications.value.unshift(newNotification);
+          notifications.value = [newNotification, ...notifications.value].slice(0, MAX_NOTIFICATIONS);
         }
       )
       .subscribe();

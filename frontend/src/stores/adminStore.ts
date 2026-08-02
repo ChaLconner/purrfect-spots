@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { apiV1 } from '@/utils/api';
 import { supabase } from '@/lib/supabase';
-import type { RealtimeChannel } from '@supabase/supabase-js';
+import { isDev } from '@/utils/env';
 
 interface AdminStats {
   total_users: number;
@@ -49,7 +49,7 @@ export const useAdminStore = defineStore('admin', {
     statsLoadTime: 0,
     trendsLoadTime: 0,
     showPerformanceStats: localStorage.getItem('admin_show_perf_stats') !== 'false',
-    reportChannel: null as RealtimeChannel | null,
+    reportChannel: null as ReturnType<typeof supabase.channel> | null,
     _realtimeDebounceTimer: null as ReturnType<typeof setTimeout> | null,
     _lastRealtimeForcedSyncAt: 0,
     _requestSequence: 0,
@@ -97,7 +97,9 @@ export const useAdminStore = defineStore('admin', {
         if (currentSeq === this._requestSequence) {
           this.error = error instanceof Error ? error.message : 'Failed to fetch summary';
         }
-        console.error('Failed to fetch admin dashboard summary:', error);
+        if (isDev()) {
+          console.error('Failed to fetch admin dashboard summary:', error);
+        }
       } finally {
         if (currentSeq === this._requestSequence) {
           this.isLoading = false;
@@ -123,7 +125,9 @@ export const useAdminStore = defineStore('admin', {
         this.lastMonthlyFetched = now;
       } catch (error) {
         this.error = error instanceof Error ? error.message : 'Failed to fetch monthly stats';
-        console.error('Failed to fetch monthly stats:', error);
+        if (isDev()) {
+          console.error('Failed to fetch monthly stats:', error);
+        }
       } finally {
         this.isMonthlyLoading = false;
       }
@@ -161,7 +165,9 @@ export const useAdminStore = defineStore('admin', {
         if (currentSeq === this._requestSequence) {
           this.error = error instanceof Error ? error.message : 'Failed to fetch stats';
         }
-        console.error('Failed to fetch admin stats:', error);
+        if (isDev()) {
+          console.error('Failed to fetch admin stats:', error);
+        }
       } finally {
         if (currentSeq === this._requestSequence) {
           this.isLoading = false;
@@ -185,7 +191,9 @@ export const useAdminStore = defineStore('admin', {
         this.trendsLoadTime = Math.round(performance.now() - start);
       } catch (error) {
         this.error = error instanceof Error ? error.message : 'Failed to fetch trends';
-        console.error('Failed to fetch admin trends:', error);
+        if (isDev()) {
+          console.error('Failed to fetch admin trends:', error);
+        }
       } finally {
         this.isTrendsLoading = false;
       }
@@ -220,7 +228,7 @@ export const useAdminStore = defineStore('admin', {
       if (this.reportChannel) {
         this.reportChannel.unsubscribe();
         if (typeof (supabase as unknown as { removeChannel?: (ch: unknown) => void }).removeChannel === 'function') {
-          void supabase.removeChannel(this.reportChannel);
+          void (supabase as unknown as { removeChannel: (channel: unknown) => Promise<unknown> }).removeChannel(this.reportChannel);
         }
         this.reportChannel = null;
       }

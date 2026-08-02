@@ -1,12 +1,12 @@
 from typing import Any
 
-from sqlalchemy import column, table, text
+from sqlalchemy import column, select, table, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from supabase import AClient
 
 from app.compat import structlog
 from app.schemas.user import User
-from app.utils.supabase_client import get_async_supabase_admin_client
+from app.utils.supabase_client import get_admin_client_or_fallback
 
 logger = structlog.get_logger(__name__)
 
@@ -17,7 +17,7 @@ class UserBaseMixin:
     _cached_user_role_id: str | None = None
     SERVICE_SUPABASE_AUTH = "Supabase Auth"
     # Centralized user column selection to avoid over-fetching
-    USER_COLUMNS = "id, email, name, username, picture, bio, google_id, treat_balance, total_treats_received, is_pro, role_id, created_at, updated_at, banned_at"
+    USER_COLUMNS = "id, email, name, username, picture, bio, google_id, treat_balance, total_treats_received, is_pro, stripe_customer_id, subscription_end_date, cancel_at_period_end, role_id, created_at, updated_at, banned_at"
 
     def _prefixed_user_columns(self, prefix: str) -> str:
         """Helper to prefix user columns for JOIN queries."""
@@ -36,9 +36,7 @@ class UserBaseMixin:
         raise NotImplementedError
 
     async def _get_admin_client(self) -> AClient:
-        if self.supabase_admin:
-            return self.supabase_admin
-        return await get_async_supabase_admin_client()
+        return await get_admin_client_or_fallback(self.supabase_admin)
 
     async def _get_user_role_id(self) -> str | None:
         """Get the ID of the 'user' role from the roles table (Async)"""
@@ -80,6 +78,9 @@ class UserBaseMixin:
             column("treat_balance"),
             column("total_treats_received"),
             column("is_pro"),
+            column("stripe_customer_id"),
+            column("subscription_end_date"),
+            column("cancel_at_period_end"),
             column("role_id"),
             column("created_at"),
             column("updated_at"),
@@ -132,6 +133,27 @@ class UserBaseMixin:
             user_fields["role"] = role_dict["name"]
 
         return User(**user_fields, permissions=permissions)
+
+    async def _log_audit_event(self, action: str, user_id: str, resource: str = "users") -> None:
+        """Helper to log audit events to PostgreSQL or Supabase."""
+        if self.db:
+            await self.db.execute(
+                text("INSERT INTO audit_logs (action, user_id, resource) VALUES (:action, :u_id, :resource)"),
+                {"action": action, "u_id": user_id, "resource": resource},
+            )
+        else:
+            admin = await self._get_admin_client()
+            await (
+                admin.table("audit_logs").insert({"action": action, "user_id": user_id, "resource": resource}).execute()
+            )
+
+    def _build_user_with_role_query(self) -> Any:
+        """Helper to build base SQLAlchemy query joining users with roles."""
+        users = self._users_table()
+        roles = self._roles_table()
+        return select(*users.c, roles.c.name.label("role_name")).select_from(
+            users.outerjoin(roles, users.c.role_id == roles.c.id)
+        )
 
     async def get_user_by_id(self, user_id: str) -> User | None:
         """Abstract method to be implemented in subclasses or other mixins."""

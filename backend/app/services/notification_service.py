@@ -108,40 +108,72 @@ class NotificationService:
                 logger.error("Failed to create notification for user %s: %s", user_id, e)
             return {}
 
-    async def get_notifications(self, user_id: str, limit: int = 20, offset: int = 0) -> list[dict[str, Any]]:
-        """Get user notifications with actor details."""
+    async def get_notifications(
+        self, user_id: str, limit: int = 20, offset: int = 0, before: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Get user notifications with actor details.
+
+        ``before`` enables keyset pagination for long notification histories;
+        offset remains supported for older clients.
+        """
         thirty_days_ago = datetime.now(UTC) - timedelta(days=30)
+        parsed_before: datetime | None = None
+        if before:
+            try:
+                parsed_before = datetime.fromisoformat(before.replace("Z", "+00:00"))
+            except ValueError:
+                parsed_before = None
 
         try:
             notifications = []
             if self.db:
                 try:
-                    query = text(
-                        "SELECT n.*, u.name as actor_name, u.picture as actor_picture "
-                        "FROM notifications n "
-                        "LEFT JOIN users u ON n.actor_id = u.id "
-                        "WHERE n.user_id = :u_id AND n.created_at >= :since "
-                        "ORDER BY n.created_at DESC LIMIT :lim OFFSET :off"
-                    )
-                    db_res = await self.db.execute(
-                        query, {"u_id": user_id, "since": thirty_days_ago, "lim": limit, "off": offset}
-                    )
+                    if parsed_before:
+                        query = text(
+                            "SELECT n.*, u.name as actor_name, u.picture as actor_picture "
+                            "FROM notifications n "
+                            "LEFT JOIN users u ON n.actor_id = u.id "
+                            "WHERE n.user_id = :u_id AND n.created_at >= :since "
+                            "AND n.created_at < :before "
+                            "ORDER BY n.created_at DESC, n.id DESC LIMIT :lim OFFSET :off"
+                        )
+                    else:
+                        query = text(
+                            "SELECT n.*, u.name as actor_name, u.picture as actor_picture "
+                            "FROM notifications n "
+                            "LEFT JOIN users u ON n.actor_id = u.id "
+                            "WHERE n.user_id = :u_id AND n.created_at >= :since "
+                            "ORDER BY n.created_at DESC, n.id DESC LIMIT :lim OFFSET :off"
+                        )
+                    params: dict[str, Any] = {
+                        "u_id": user_id,
+                        "since": thirty_days_ago,
+                        "lim": min(max(limit, 1), 50),
+                        "off": 0 if parsed_before else max(offset, 0),
+                    }
+                    if parsed_before:
+                        params["before"] = parsed_before
+                    db_res = await self.db.execute(query, params)
                     for row in db_res.fetchall():
                         notifications.append(dict(row._mapping))
                     return notifications
                 except Exception as e:
                     logger.warning(f"SQL notification fetch failed, falling back to Supabase client: {e}")
 
-            supa_res = await (
+            supabase_query = (
                 self.supabase.table("notifications")
                 .select("*, actor:users!actor_id(name, picture)")
                 .eq("user_id", user_id)
                 .gte("created_at", thirty_days_ago.isoformat())
                 .order("created_at", desc=True)
-                .limit(limit)
-                .offset(offset)
-                .execute()
             )
+            if parsed_before:
+                supabase_query = supabase_query.lt("created_at", parsed_before.isoformat()).limit(
+                    min(max(limit, 1), 50)
+                )
+            else:
+                supabase_query = supabase_query.limit(min(max(limit, 1), 50)).offset(max(offset, 0))
+            supa_res = await supabase_query.execute()
 
             for item_json in supa_res.data:
                 item = cast(dict[str, Any], item_json)

@@ -7,7 +7,7 @@ import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { showSuccess, showError } from '@/stores/toast';
 import { useCatsStore } from '@/stores';
 import { extractTags, getCleanDescription } from '@/stores/catsStore';
-import type { CatLocation } from '@/generated/api';
+import type { CatLocation } from '@/types/api';
 import { openTrustedExternalUrl } from '@/utils/security';
 import { formatDate } from '@/utils/date';
 import LikeButton from '@/components/social/LikeButton.vue';

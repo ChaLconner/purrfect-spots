@@ -79,3 +79,21 @@ class TestTreatsRoute:
         assert data["recent_transactions"][0]["photo_id"] == str(transaction["photo_id"])
         assert data["recent_transactions"][0]["from_user_id"] == str(transaction["from_user_id"])
         assert data["recent_transactions"][0]["to_user_id"] == str(transaction["to_user_id"])
+
+    @pytest.mark.asyncio
+    async def test_purchase_treats_checkout_success(self, client, mock_user, mock_treats_service):
+        """Checkout should return 200 with checkout_url."""
+        mock_treats_service.get_package_by_id = AsyncMock(return_value={"price_id": "price_123"})
+        mock_treats_service.purchase_treats_checkout = AsyncMock(
+            return_value={"checkout_url": "https://checkout.stripe.com/treats", "session_id": "sess_treats_123"}
+        )
+
+        app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
+        app.dependency_overrides[get_treats_service] = lambda: mock_treats_service
+
+        response = await client.post("/api/v1/treats/purchase/checkout", json={"package": "small_pack"})
+
+        app.dependency_overrides = {}
+
+        assert response.status_code == 200
+        assert response.json()["checkout_url"] == "https://checkout.stripe.com/treats"

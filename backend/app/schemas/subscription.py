@@ -1,15 +1,29 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
 
 class CreateCheckoutRequest(BaseModel):
-    plan: str = "monthly"
+    plan: Literal["monthly", "annual"] = "monthly"
 
 
 class CheckoutSessionResponse(BaseModel):
     checkout_url: str
     session_id: str
+
+
+class SubscriptionPlanPrice(BaseModel):
+    plan: Literal["monthly", "annual"]
+    unit_amount: int
+    currency: str
+    interval: str
+    interval_count: int = 1
+
+
+class SubscriptionPlansResponse(BaseModel):
+    monthly: SubscriptionPlanPrice
+    annual: SubscriptionPlanPrice | None = None
 
 
 class SubscriptionStatus(BaseModel):

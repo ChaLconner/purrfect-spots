@@ -1,16 +1,16 @@
 <template>
   <div>
-    <div ref="trendsSectionRef" class="admin-chart-card">
-      <div class="admin-chart-header">
+    <div ref="trendsSectionRef" class="mt-4 bg-white p-5 rounded-2xl shadow-sm border border-sand-200 transition-all">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
         <div>
-          <h3 class="admin-chart-title font-display">
+          <h3 class="m-0 text-xl font-bold text-brown-900 font-heading">
             {{ t('admin.dashboard.trends.title') }}
           </h3>
-          <p class="admin-chart-subtitle">{{ t('admin.dashboard.trends.subtitle') }}</p>
+          <p class="m-0 text-sm text-brown-500">{{ t('admin.dashboard.trends.subtitle') }}</p>
         </div>
-        <div class="admin-chart-actions">
+        <div class="flex flex-col items-end gap-3">
           <button
-            class="admin-chart-refresh"
+            class="flex items-center gap-2 px-5 py-2.5 text-[10px] font-bold text-terracotta-600 bg-white border-2 border-terracotta-100 rounded-xl shadow-sm uppercase tracking-widest"
             :disabled="adminStore.isTrendsLoading"
             @click="adminStore.fetchTrends(true)"
           >
@@ -41,19 +41,19 @@
             }}
           </button>
 
-          <div class="admin-chart-legend">
+          <div class="flex flex-wrap items-center justify-end gap-x-5 gap-y-2 pr-2 mt-1">
             <div
               v-for="series in chartSeries"
               :key="series.name"
-              class="admin-chart-legend-item"
+              class="flex items-center gap-2 cursor-pointer"
               :class="{ 'opacity-40 grayscale-[0.5]': isHidden(series.name) }"
               @click="toggleSeries(series.name)"
             >
               <div
-                class="w-3.5 h-1.5 rounded-full"
-                :style="{ backgroundColor: getSeriesColor(series.name) }"
+                class="w-3.5 h-1.5 rounded-full bg-[var(--series-color)]"
+                :style="{ '--series-color': getSeriesColor(series.name) }"
               ></div>
-              <span class="admin-chart-legend-label font-display">
+              <span class="text-[11px] font-bold text-brown-600 uppercase tracking-widest font-heading">
                 {{ series.name }}
               </span>
             </div>
@@ -63,9 +63,9 @@
 
       <div
         v-if="adminStore.isTrendsLoading && !hasTrendsData"
-        class="admin-chart-loading-state"
+        class="min-h-80 flex items-center justify-center rounded-2xl border border-dashed border-sand-300 bg-sand-50"
       >
-        <div class="admin-chart-loading-content">
+        <div class="flex flex-col items-center gap-4 text-brown-400">
           <div
             class="w-8 h-8 border-4 border-terracotta-100 border-t-terracotta-600 rounded-full animate-spin"
           ></div>
@@ -75,21 +75,21 @@
 
       <div
         v-show="hasTrendsData"
-        class="admin-chart-host"
+        class="min-h-[350px] overflow-hidden transition-all duration-700"
         :class="{ 'opacity-60 grayscale-[0.4] pointer-events-none blur-[1px]': adminStore.isTrendsLoading }"
       >
         <svg
           v-if="shouldRenderTrendsChart"
           id="admin-trends-chart"
-          class="admin-native-chart"
+          class="w-full min-h-[350px] text-brown-500"
           viewBox="0 0 640 320"
           role="img"
           :aria-label="t('admin.dashboard.trends.title')"
         >
-          <g class="admin-chart-grid">
-            <line v-for="line in 5" :key="line" x1="40" x2="620" :y1="gridY(line)" :y2="gridY(line)" />
+          <g>
+            <line v-for="line in 5" :key="line" x1="40" x2="620" :y1="gridY(line)" :y2="gridY(line)" class="[stroke:#f1e9e4] [stroke-dasharray:4]" />
           </g>
-          <g class="admin-chart-axis-labels">
+          <g class="[fill:var(--color-brown-400)] [font-size:11px] [font-weight:600]">
             <text
               v-for="label in trendAxisLabels"
               :key="label.key"
@@ -103,14 +103,14 @@
           <polyline
             v-for="series in visibleTrendSeries"
             :key="series.name"
-            class="admin-chart-line"
+            class="fill-none [stroke-width:3] [stroke-linecap:round] [stroke-linejoin:round]"
             :points="series.points"
             :stroke="series.color"
           />
           <circle
             v-for="point in visibleTrendPoints"
             :key="point.key"
-            class="admin-chart-point"
+            class="[r:4] [stroke:white] [stroke-width:2]"
             :cx="point.x"
             :cy="point.y"
             :fill="point.color"
@@ -118,65 +118,65 @@
             <title>{{ point.label }}</title>
           </circle>
         </svg>
-        <div v-else class="admin-chart-library-skeleton" aria-hidden="true"></div>
+        <div v-else class="min-h-[300px] rounded-2xl bg-gradient-to-r from-sand-100/80 via-white/95 to-sand-100/80 bg-[length:200%_100%] animate-[shimmer_2s_linear_infinite]" aria-hidden="true"></div>
       </div>
 
       <div
         v-if="!hasTrendsData && !adminStore.isTrendsLoading"
-        class="admin-chart-empty-state"
+        class="min-h-80 flex items-center justify-center rounded-2xl border border-dashed border-sand-300 text-brown-400 italic bg-sand-100/35"
       >
         {{ t('admin.dashboard.trends.noData') }}
       </div>
 
       <div
         v-if="hasTrendsData && adminStore.isTrendsLoading"
-        class="admin-chart-status"
+        class="py-4 text-center text-[10px] text-brown-400 font-bold uppercase tracking-[0.2em] animate-pulse"
       >
         {{ t('admin.dashboard.trends.refreshing') }}
       </div>
     </div>
 
-    <div ref="monthlySectionRef" class="admin-chart-card">
-      <div class="admin-chart-header">
+    <div ref="monthlySectionRef" class="mt-4 bg-white p-5 rounded-2xl shadow-sm border border-sand-200 transition-all">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
         <div>
-          <h3 class="admin-chart-title font-display">
+          <h3 class="m-0 text-xl font-bold text-brown-900 font-heading">
             {{ t('admin.dashboard.monthly.title') }}
           </h3>
-          <p class="admin-chart-subtitle">{{ t('admin.dashboard.monthly.subtitle') }}</p>
+          <p class="m-0 text-sm text-brown-500">{{ t('admin.dashboard.monthly.subtitle') }}</p>
         </div>
       </div>
 
       <div
         v-if="adminStore.isMonthlyLoading && adminStore.monthlyData.length === 0"
-        class="admin-monthly-grid"
+        class="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-8"
       >
-        <div class="admin-monthly-chart-skeleton"></div>
-        <div class="admin-monthly-table-skeleton"></div>
+        <div class="min-h-[300px] rounded-2xl bg-sand-50 animate-pulse"></div>
+        <div class="min-h-[300px] rounded-2xl bg-sand-50 animate-pulse"></div>
       </div>
 
       <div
         v-show="adminStore.monthlyData.length > 0"
         key="monthly-stats-container"
-        class="admin-monthly-grid admin-monthly-grid-live"
+        class="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-8"
         :class="{ 'opacity-60 pointer-events-none grayscale-[0.2]': adminStore.isMonthlyLoading }"
       >
-        <div class="admin-monthly-chart-panel">
+        <div class="min-h-[300px]">
           <svg
             v-if="shouldRenderMonthlyChart"
             id="admin-monthly-chart"
-            class="admin-native-chart admin-native-chart-short"
+            class="w-full min-h-[300px] text-brown-500"
             viewBox="0 0 640 300"
             role="img"
             :aria-label="t('admin.dashboard.monthly.title')"
           >
-            <g class="admin-chart-grid">
-              <line v-for="line in 5" :key="line" x1="40" x2="620" :y1="monthlyGridY(line)" :y2="monthlyGridY(line)" />
+            <g>
+              <line v-for="line in 5" :key="line" x1="40" x2="620" :y1="monthlyGridY(line)" :y2="monthlyGridY(line)" class="[stroke:#f1e9e4] [stroke-dasharray:4]" />
             </g>
             <g v-for="group in monthlyBarGroups" :key="group.key">
               <rect
                 v-for="bar in group.bars"
                 :key="bar.key"
-                class="admin-chart-bar"
+                class="[filter:drop-shadow(0_4px_8px_rgba(45,36,32,0.08))]"
                 :x="bar.x"
                 :y="bar.y"
                 :width="bar.width"
@@ -186,31 +186,31 @@
               >
                 <title>{{ bar.label }}</title>
               </rect>
-              <text class="admin-chart-axis-label" :x="group.labelX" y="282" text-anchor="middle">
+              <text class="[fill:var(--color-brown-400)] [font-size:11px] [font-weight:600]" :x="group.labelX" y="282" text-anchor="middle">
                 {{ group.label }}
               </text>
             </g>
           </svg>
-          <div v-else class="admin-chart-library-skeleton" aria-hidden="true"></div>
+          <div v-else class="min-h-[300px] rounded-2xl bg-gradient-to-r from-sand-100/80 via-white/95 to-sand-100/80 bg-[length:200%_100%] animate-[shimmer_2s_linear_infinite]" aria-hidden="true"></div>
         </div>
 
-        <div class="admin-monthly-table-panel">
-          <table class="admin-monthly-table">
+        <div class="overflow-hidden p-4 rounded-2xl border border-sand-200/80 bg-sand-50/60">
+          <table class="w-full min-w-full text-xs font-medium text-brown-700 border-collapse">
             <thead>
-              <tr class="admin-monthly-table-head">
+              <tr class="text-brown-400 text-[10px] uppercase tracking-wider">
                 <th class="text-left pb-3">{{ t('admin.dashboard.monthly.table.month') }}</th>
                 <th class="text-right pb-3">{{ t('admin.dashboard.monthly.table.users') }}</th>
                 <th class="text-right pb-3">{{ t('admin.dashboard.monthly.table.photos') }}</th>
                 <th class="text-right pb-3">{{ t('admin.dashboard.monthly.table.resolved') }}</th>
               </tr>
             </thead>
-            <tbody class="admin-monthly-table-body">
+            <tbody>
               <tr
                 v-for="row in activeMonthlyRows"
                 :key="row.month_timestamp"
-                class="admin-monthly-table-row"
+                class="transition-colors hover:bg-white/50 border-t border-sand-200/50"
               >
-                <td class="admin-monthly-table-month">
+                <td class="py-2 font-bold text-brown-900 capitalize">
                   {{ formatDate(row.month_timestamp, { month: 'long' }, locale) }}
                 </td>
                 <td class="py-2 text-right">{{ row.new_users }}</td>
@@ -221,7 +221,7 @@
           </table>
           <div
             v-if="activeMonthlyRows.length === 0"
-            class="admin-monthly-empty-state"
+            class="py-12 text-center text-brown-400 italic"
           >
             {{ t('admin.dashboard.monthly.noActivity') }}
           </div>
@@ -230,14 +230,14 @@
 
       <div
         v-if="!adminStore.isMonthlyLoading && adminStore.monthlyData.length === 0"
-        class="admin-chart-empty-state admin-chart-empty-state-short"
+        class="min-h-64 flex items-center justify-center rounded-2xl border border-dashed border-sand-300 text-brown-400 italic bg-sand-100/35"
       >
         {{ t('admin.dashboard.monthly.error') }}
       </div>
 
       <div
         v-if="adminStore.monthlyData.length > 0 && adminStore.isMonthlyLoading"
-        class="admin-chart-status"
+        class="py-4 text-center text-[10px] text-brown-400 font-bold uppercase tracking-[0.2em] animate-pulse"
       >
         {{ t('admin.dashboard.performance.updating') || 'Updating performance metrics...' }}
       </div>
@@ -245,34 +245,34 @@
 
     <div
       v-if="adminStore.showPerformanceStats"
-      class="admin-performance-panel"
+      class="fixed right-4 bottom-4 z-50 px-5 py-3 border border-white/20 rounded-2xl bg-stone-900/95 text-stone-200 backdrop-blur-xl shadow-2xl font-mono text-[11px] animate-fadeIn"
     >
-      <div class="admin-performance-grid">
-        <div class="admin-performance-cell">
-          <span class="admin-performance-label">{{
+      <div class="flex items-center gap-4">
+        <div class="flex flex-col">
+          <span class="text-[9px] font-bold text-stone-200 uppercase tracking-tight">{{
             t('admin.dashboard.performance.statsLoad')
           }}</span>
-          <span class="admin-performance-value"
+          <span class="text-sm font-bold text-stone-200"
             >{{ adminStore.statsLoadTime
             }}<span class="text-[10px] ml-0.5 opacity-60">ms</span></span
           >
         </div>
-        <div class="admin-performance-divider"></div>
-        <div class="admin-performance-cell">
-          <span class="admin-performance-label">{{
+        <div class="w-px h-8 bg-white/20"></div>
+        <div class="flex flex-col">
+          <span class="text-[9px] font-bold text-stone-200 uppercase tracking-tight">{{
             t('admin.dashboard.performance.trendsLoad')
           }}</span>
-          <span class="admin-performance-value"
+          <span class="text-sm font-bold text-stone-200"
             >{{ adminStore.trendsLoadTime
             }}<span class="text-[10px] ml-0.5 opacity-60">ms</span></span
           >
         </div>
-        <div class="admin-performance-divider"></div>
-        <div class="admin-performance-cell admin-performance-cell-status">
-          <span class="admin-performance-label">{{
+        <div class="w-px h-8 bg-white/20"></div>
+        <div class="flex flex-col items-center">
+          <span class="text-[9px] font-bold text-stone-200 uppercase tracking-tight">{{
             t('admin.dashboard.performance.status')
           }}</span>
-          <span class="admin-performance-status">{{ t('admin.dashboard.performance.optimized') }}</span>
+          <span class="px-2 py-0.5 border border-green-400/20 rounded-md bg-green-400/10 text-green-400 font-bold">{{ t('admin.dashboard.performance.optimized') }}</span>
         </div>
       </div>
     </div>
@@ -496,327 +496,3 @@ onUnmounted(() => {
   monthlyObserver = null;
 });
 </script>
-
-<style scoped>
-.font-display {
-  font-family: 'Outfit', sans-serif;
-}
-
-.admin-chart-card {
-  margin-top: 1rem;
-  background: white;
-  padding: 1.25rem;
-  border-radius: 1rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  border: 1px solid var(--color-sand-200);
-  transition: all 0.2s ease;
-}
-
-.admin-chart-header {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.admin-chart-title {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--color-brown-900, #2d2420);
-}
-
-.admin-chart-subtitle {
-  margin: 0;
-  font-size: 0.875rem;
-  color: var(--color-brown-500, #8c7e7a);
-}
-
-.admin-chart-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.75rem;
-}
-
-.admin-chart-refresh {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1.25rem;
-  font-size: 0.625rem;
-  font-weight: 700;
-  color: var(--color-terracotta-600, #c05f35);
-  background: white;
-  border: 2px solid var(--color-terracotta-100, #f7ebe6);
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.admin-chart-legend {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.5rem 1.25rem;
-  padding-right: 0.5rem;
-  margin-top: 0.25rem;
-}
-
-.admin-chart-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-}
-
-.admin-chart-legend-label {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  color: var(--color-brown-600, #57534e);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.admin-chart-loading-state,
-.admin-chart-empty-state {
-  min-height: 20rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 1rem;
-  border: 1px dashed var(--color-sand-300);
-}
-
-.admin-chart-loading-state {
-  background: var(--color-sand-50);
-}
-
-.admin-chart-loading-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-  color: var(--color-brown-400, #a8a29e);
-}
-
-.admin-chart-empty-state {
-  color: var(--color-brown-400, #a8a29e);
-  font-style: italic;
-  background: rgba(245, 245, 244, 0.35);
-}
-
-.admin-chart-empty-state-short {
-  min-height: 16rem;
-}
-
-.admin-chart-host {
-  min-height: 350px;
-  overflow: hidden;
-  transition: all 0.7s ease;
-}
-
-.admin-native-chart {
-  width: 100%;
-  min-height: 350px;
-  color: var(--color-brown-500, #8c7e7a);
-}
-
-.admin-native-chart-short {
-  min-height: 300px;
-}
-
-.admin-chart-grid line {
-  stroke: #f1e9e4;
-  stroke-dasharray: 4;
-}
-
-.admin-chart-line {
-  fill: none;
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.admin-chart-point {
-  r: 4;
-  stroke: white;
-  stroke-width: 2;
-}
-
-.admin-chart-bar {
-  filter: drop-shadow(0 4px 8px rgba(45, 36, 32, 0.08));
-}
-
-.admin-chart-axis-labels text,
-.admin-chart-axis-label {
-  fill: var(--color-brown-400, #a8a29e);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.admin-chart-library-skeleton {
-  min-height: 300px;
-  border-radius: 1rem;
-  background: linear-gradient(90deg, rgba(245, 245, 244, 0.8) 0%, rgba(255, 255, 255, 0.95) 50%, rgba(245, 245, 244, 0.8) 100%);
-  background-size: 200% 100%;
-  animation: shimmer 2s linear infinite;
-}
-
-.admin-chart-status {
-  padding: 1rem 0;
-  text-align: center;
-  font-size: 0.625rem;
-  color: var(--color-brown-400, #a8a29e);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  animation: pulse 1.5s infinite;
-}
-
-.admin-monthly-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 2rem;
-}
-
-.admin-monthly-chart-skeleton,
-.admin-monthly-table-skeleton {
-  min-height: 300px;
-  border-radius: 1rem;
-  background: var(--color-sand-50);
-  animation: pulse 1.5s infinite;
-}
-
-.admin-monthly-chart-panel {
-  min-height: 300px;
-}
-
-.admin-monthly-table-panel {
-  overflow: hidden;
-  padding: 1rem;
-  border-radius: 1rem;
-  border: 1px solid rgba(231, 229, 228, 0.8);
-  background: rgba(250, 250, 249, 0.6);
-}
-
-.admin-monthly-table {
-  width: 100%;
-  min-width: 100%;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--color-brown-700, #44403c);
-  border-collapse: collapse;
-}
-
-.admin-monthly-table-head {
-  color: var(--color-brown-400, #a8a29e);
-  font-size: 0.625rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.admin-monthly-table-body tr + tr {
-  border-top: 1px solid rgba(231, 229, 228, 0.5);
-}
-
-.admin-monthly-table-row {
-  transition: background-color 0.2s ease;
-}
-
-.admin-monthly-table-row:hover {
-  background: rgba(255, 255, 255, 0.5);
-}
-
-.admin-monthly-table-month {
-  padding: 0.5rem 0;
-  font-weight: 700;
-  color: var(--color-brown-900, #2d2420);
-  text-transform: capitalize;
-}
-
-.admin-monthly-empty-state {
-  padding: 3rem 0;
-  text-align: center;
-  color: var(--color-brown-400, #a8a29e);
-  font-style: italic;
-}
-
-.admin-performance-panel {
-  position: fixed;
-  right: 1rem;
-  bottom: 1rem;
-  z-index: 50;
-  padding: 0.75rem 1.25rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 1rem;
-  background: rgba(28, 25, 23, 0.95);
-  color: #e7e5e4;
-  backdrop-filter: blur(16px);
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.35);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
-  font-size: 0.6875rem;
-  animation: fadeIn 0.3s ease;
-}
-
-.admin-performance-grid {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.admin-performance-cell {
-  display: flex;
-  flex-direction: column;
-}
-
-.admin-performance-cell-status {
-  align-items: center;
-}
-
-.admin-performance-divider {
-  width: 1px;
-  height: 2rem;
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.admin-performance-label {
-  font-size: 0.5625rem;
-  font-weight: 700;
-  color: #e7e5e4;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
-.admin-performance-value {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: #e7e5e4;
-}
-
-.admin-performance-status {
-  padding: 0.125rem 0.5rem;
-  border: 1px solid rgba(74, 222, 128, 0.2);
-  border-radius: 0.375rem;
-  background: rgba(74, 222, 128, 0.1);
-  color: #4ade80;
-  font-weight: 700;
-}
-
-@media (min-width: 640px) {
-  .admin-chart-header {
-    flex-direction: row;
-    align-items: center;
-  }
-}
-
-@media (min-width: 1024px) {
-  .admin-monthly-grid {
-    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-  }
-}
-</style>

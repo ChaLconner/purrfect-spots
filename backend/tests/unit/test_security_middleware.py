@@ -48,16 +48,20 @@ def test_https_redirect_development() -> None:
         assert response.status_code == 200
 
 
+def _create_test_app_with_security_middleware() -> TestClient:
+    app = FastAPI()
+    app.add_middleware(SecurityHeadersMiddleware)
+
+    @app.get("/test")
+    def test_route():
+        return {"status": "ok"}
+
+    return TestClient(app)
+
+
 def test_security_headers_production() -> None:
     with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
-        app = FastAPI()
-        app.add_middleware(SecurityHeadersMiddleware)
-
-        @app.get("/test")
-        def test_route():
-            return {"status": "ok"}
-
-        client = TestClient(app)
+        client = _create_test_app_with_security_middleware()
         response = client.get("/test")
 
         assert response.status_code == 200
@@ -70,14 +74,7 @@ def test_security_headers_production() -> None:
 
 def test_security_headers_development() -> None:
     with patch.dict(os.environ, {"ENVIRONMENT": "development"}):
-        app = FastAPI()
-        app.add_middleware(SecurityHeadersMiddleware)
-
-        @app.get("/test")
-        def test_route():
-            return {"status": "ok"}
-
-        client = TestClient(app)
+        client = _create_test_app_with_security_middleware()
         response = client.get("/test")
 
         assert response.status_code == 200

@@ -13,28 +13,26 @@ logger = structlog.get_logger(__name__)
 class UserReadMixin(UserBaseMixin):
     """Mixin for user-related read operations."""
 
+    def _build_user_from_row(self, row: Any, permissions: list[str]) -> User:
+        """Map DB row from _build_user_with_role_query to User model."""
+        data = dict(row._mapping)
+        user_data = data.copy()
+        user_data["role"] = data.get("role_name")
+        return User(**user_data, permissions=permissions)
+
     async def get_user_by_id(self, user_id: str) -> User | None:
         """Get user by ID from database with Role and Permissions (Async)"""
         try:
             if self.db:
                 try:
                     users = self._users_table()
-                    roles = self._roles_table()
                     user_id_param = bindparam("user_id", type_=PGUUID(as_uuid=False))
-                    user_query = (
-                        select(*users.c, roles.c.name.label("role_name"))
-                        .select_from(users.outerjoin(roles, users.c.role_id == roles.c.id))
-                        .where(users.c.id == user_id_param)
-                        .limit(1)
-                    )
+                    user_query = self._build_user_with_role_query().where(users.c.id == user_id_param).limit(1)
                     db_res = await self.db.execute(user_query, {"user_id": user_id})
                     row = db_res.fetchone()
                     if row:
                         permissions = await self._get_permissions_for_user_id(user_id)
-                        data = dict(row._mapping)
-                        user_data = data.copy()
-                        user_data["role"] = data.get("role_name")
-                        return User(**user_data, permissions=permissions)
+                        return self._build_user_from_row(row, permissions)
                 except Exception as e:
                     logger.warning("SQL get_user_by_id failed, falling back to Supabase: %s", e)
 
@@ -99,22 +97,13 @@ class UserReadMixin(UserBaseMixin):
             if self.db:
                 try:
                     users = self._users_table()
-                    roles = self._roles_table()
                     lowered_username = username.lower()
-                    query = (
-                        select(*users.c, roles.c.name.label("role_name"))
-                        .select_from(users.outerjoin(roles, users.c.role_id == roles.c.id))
-                        .where(users.c.username.ilike(lowered_username))
-                        .limit(1)
-                    )
+                    query = self._build_user_with_role_query().where(users.c.username.ilike(lowered_username)).limit(1)
                     result = await self.db.execute(query)
                     row = result.fetchone()
                     if row:
                         permissions = await self._get_permissions_for_username(username)
-                        data = dict(row._mapping)
-                        user_data = data.copy()
-                        user_data["role"] = data.get("role_name")
-                        return User(**user_data, permissions=permissions)
+                        return self._build_user_from_row(row, permissions)
                 except Exception as e:
                     logger.warning("SQL get_user_by_username failed, falling back to Supabase: %s", e)
 
@@ -130,39 +119,34 @@ class UserReadMixin(UserBaseMixin):
             logger.debug("Failed to retrieve profile by username: %s", e)
             return None
 
-    async def _get_permissions_for_user_id(self, user_id: str) -> list[str]:
-        if not self.db:
-            return []
+    def _build_permissions_query(self, where_clause: Any) -> Any:
+        """Helper to build SQLAlchemy query for user permissions by role."""
         permissions = self._permissions_table()
         role_permissions = self._role_permissions_table()
         users = self._users_table()
-        user_id_param = bindparam("user_id", type_=PGUUID(as_uuid=False))
-        perm_query = (
+        return (
             select(permissions.c.code)
             .select_from(
                 permissions.join(role_permissions, permissions.c.id == role_permissions.c.permission_id).join(
                     users, role_permissions.c.role_id == users.c.role_id
                 )
             )
-            .where(users.c.id == user_id_param)
+            .where(where_clause)
         )
+
+    async def _get_permissions_for_user_id(self, user_id: str) -> list[str]:
+        if not self.db:
+            return []
+        users = self._users_table()
+        user_id_param = bindparam("user_id", type_=PGUUID(as_uuid=False))
+        perm_query = self._build_permissions_query(users.c.id == user_id_param)
         perm_db_res = await self.db.execute(perm_query, {"user_id": user_id})
         return [str(row[0]) for row in perm_db_res]
 
     async def _get_permissions_for_username(self, username: str) -> list[str]:
         if not self.db:
             return []
-        permissions = self._permissions_table()
-        role_permissions = self._role_permissions_table()
         users = self._users_table()
-        perm_query = (
-            select(permissions.c.code)
-            .select_from(
-                permissions.join(role_permissions, permissions.c.id == role_permissions.c.permission_id).join(
-                    users, role_permissions.c.role_id == users.c.role_id
-                )
-            )
-            .where(users.c.username.ilike(username.lower()))
-        )
+        perm_query = self._build_permissions_query(users.c.username.ilike(username.lower()))
         perm_res = await self.db.execute(perm_query)
         return [str(row[0]) for row in perm_res]

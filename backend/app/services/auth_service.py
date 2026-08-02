@@ -75,26 +75,11 @@ class AuthService(AuthTokenMixin, AuthOAuthMixin, AuthPasswordMixin):
     async def confirm_user_email(self, email: str) -> bool:
         """Confirm user email via Admin Client (Async)"""
         try:
+            user = await self.user_service.get_user_by_email(email)
+            if not user or "id" not in user:
+                return False
             admin = await self._get_admin_client()
-            if self.db:
-                from sqlalchemy import text
-
-                query = text("SELECT id FROM users WHERE email = :email")
-                result = await self.db.execute(query, {"email": email})
-                row = result.fetchone()
-                if not row:
-                    return False
-                user_id = row[0]
-            else:
-                from typing import cast
-
-                res = await admin.table("users").select("id").eq("email", email).execute()
-                if not res.data:
-                    return False
-                data = cast(list[dict[str, Any]], res.data)
-                user_id = data[0]["id"]
-
-            await admin.auth.admin.update_user_by_id(user_id, {"email_confirm": True})
+            await admin.auth.admin.update_user_by_id(user["id"], {"email_confirm": True})
             return True
         except Exception as e:
             logger.error("Failed to confirm user email: %s", e)

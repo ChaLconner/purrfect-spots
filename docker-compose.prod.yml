@@ -73,7 +73,8 @@ services:
     restart: always
     volumes:
       - redis-cache-data:/data
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    # Cache data is disposable; avoid AOF fsync/write amplification on every cache mutation.
+    command: ["redis-server", "--appendonly", "no", "--save", "", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
     security_opt:
       - no-new-privileges:true
     read_only: true

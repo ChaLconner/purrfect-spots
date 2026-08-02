@@ -17,6 +17,7 @@ import json
 import os
 import sys
 from datetime import UTC, datetime
+from time import monotonic
 from typing import Any, cast
 
 from fastapi import APIRouter, Request
@@ -31,6 +32,17 @@ ERROR_CONNECTION_FAILED = "Connection failed"
 CACHE_CONTROL_NO_STORE = "no-cache, no-store, must-revalidate"
 
 router = APIRouter(prefix="/health", tags=["Health"])
+_READINESS_CACHE_TTL_SECONDS = 5.0
+_READINESS_CACHE_ENABLED = (
+    os.getenv("HEALTH_READINESS_CACHE_ENABLED", "true" if config.is_production() else "false").lower() == "true"
+)
+_readiness_cache: tuple[float, int, dict[str, Any]] | None = None
+_readiness_cache_lock = asyncio.Lock()
+
+
+def _calc_latency_ms(start_time: datetime) -> float:
+    """Calculate elapsed latency in milliseconds."""
+    return round((datetime.now(UTC) - start_time).total_seconds() * 1000, 2)
 
 
 # ========== Dependency Checks ==========
@@ -52,11 +64,9 @@ async def check_database() -> dict[str, Any]:
         # polled readiness endpoints.
         _ = await supabase.table("cat_photos").select("id").limit(1).execute()
 
-        latency_ms = (datetime.now(UTC) - start_time).total_seconds() * 1000
-
         return {
             "status": "healthy",
-            "latency_ms": round(latency_ms, 2),
+            "latency_ms": _calc_latency_ms(start_time),
             "connection": "active",
         }
     except Exception as e:
@@ -91,11 +101,9 @@ def check_redis() -> dict[str, Any]:
         # Get Redis info for additional diagnostics
         info = client.info("memory")
 
-        latency_ms = (datetime.now(UTC) - start_time).total_seconds() * 1000
-
         return {
             "status": "healthy",
-            "latency_ms": round(latency_ms, 2),
+            "latency_ms": _calc_latency_ms(start_time),
             "used_memory_mb": round(info.get("used_memory", 0) / (1024 * 1024), 2),
         }
     except ImportError:
@@ -142,11 +150,9 @@ def check_s3() -> dict[str, Any]:
 
         s3.head_bucket(**head_kwargs)
 
-        latency_ms = (datetime.now(UTC) - start_time).total_seconds() * 1000
-
         return {
             "status": "healthy",
-            "latency_ms": round(latency_ms, 2),
+            "latency_ms": _calc_latency_ms(start_time),
             "bucket": bucket_name,
             "ownership_verified": bool(account_id),
         }
@@ -250,6 +256,13 @@ def _detailed_health_enabled() -> bool:
     return not config.is_production()
 
 
+def _safe_check_result(result: Any) -> dict[str, Any]:
+    """Safely return result dict or error dict if exception occurred."""
+    if isinstance(result, Exception):
+        return {"status": "error", "error": str(result)}
+    return cast("dict[str, Any]", result)
+
+
 def _summarize_dependency_result(result: dict[str, Any]) -> dict[str, Any]:
     """Return a safe, minimal dependency summary for public health responses."""
     summary = {"status": result.get("status", "unknown")}
@@ -265,6 +278,21 @@ def _summarize_dependency_results(results: dict[str, dict[str, Any]]) -> dict[st
 
 
 # ========== Health Endpoints ==========
+
+
+@router.get("")
+@router.get("/")
+@limiter.limit("100/minute")
+def health_check(request: Request) -> JSONResponse:
+    """Simple health check endpoint."""
+    return JSONResponse(
+        content={
+            "status": "healthy",
+            "message": "PurrFect Spots API is running",
+            "version": APP_VERSION,
+        },
+        headers={"Cache-Control": CACHE_CONTROL_NO_STORE},
+    )
 
 
 @router.get("/live")
@@ -306,50 +334,61 @@ async def readiness_check(request: Request) -> JSONResponse:
         200 OK if ready to serve requests
         503 Service Unavailable if critical dependencies are down
     """
-    # Run all checks in parallel using threads to avoid blocking the event loop
-    checks = await asyncio.gather(
-        check_database(),
-        asyncio.to_thread(check_redis),
-        asyncio.to_thread(check_s3),
-        asyncio.to_thread(check_sentry),
-        return_exceptions=True,
-    )
+    global _readiness_cache
 
-    results: dict[str, dict[str, Any]] = {
-        "database": cast("dict[str, Any]", checks[0])
-        if not isinstance(checks[0], Exception)
-        else {"status": "error", "error": str(checks[0])},
-        "redis": cast("dict[str, Any]", checks[1])
-        if not isinstance(checks[1], Exception)
-        else {"status": "error", "error": str(checks[1])},
-        "s3": cast("dict[str, Any]", checks[2])
-        if not isinstance(checks[2], Exception)
-        else {"status": "error", "error": str(checks[2])},
-        "sentry": cast("dict[str, Any]", checks[3])
-        if not isinstance(checks[3], Exception)
-        else {"status": "error", "error": str(checks[3])},
-    }
+    now = monotonic()
+    if _READINESS_CACHE_ENABLED and _readiness_cache and now - _readiness_cache[0] < _READINESS_CACHE_TTL_SECONDS:
+        _, status_code, content = _readiness_cache
+        return JSONResponse(
+            status_code=status_code,
+            content=content,
+            headers={"Cache-Control": CACHE_CONTROL_NO_STORE},
+        )
 
-    # Critical services that must be healthy
-    critical_services = ["database"]
+    async with _readiness_cache_lock:
+        now = monotonic()
+        if _READINESS_CACHE_ENABLED and _readiness_cache and now - _readiness_cache[0] < _READINESS_CACHE_TTL_SECONDS:
+            _, status_code, content = _readiness_cache
+            return JSONResponse(
+                status_code=status_code,
+                content=content,
+                headers={"Cache-Control": CACHE_CONTROL_NO_STORE},
+            )
 
-    # Check if all critical services are healthy
-    all_critical_healthy = all(
-        isinstance(results.get(service), dict) and results.get(service, {}).get("status") == "healthy"
-        for service in critical_services
-    )
+        # Run all checks in parallel using threads to avoid blocking event loop.
+        checks = await asyncio.gather(
+            check_database(),
+            asyncio.to_thread(check_redis),
+            asyncio.to_thread(check_s3),
+            asyncio.to_thread(check_sentry),
+            return_exceptions=True,
+        )
 
-    # Overall status
-    if all_critical_healthy:
-        overall_status = "ready"
-        status_code = 200
-    else:
-        overall_status = "not_ready"
-        status_code = 503
+        results: dict[str, dict[str, Any]] = {
+            "database": _safe_check_result(checks[0]),
+            "redis": _safe_check_result(checks[1]),
+            "s3": _safe_check_result(checks[2]),
+            "sentry": _safe_check_result(checks[3]),
+        }
 
-    return JSONResponse(
-        status_code=status_code,
-        content=(
+        # Critical services that must be healthy
+        critical_services = ["database"]
+
+        # Check if all critical services are healthy
+        all_critical_healthy = all(
+            isinstance(results.get(service), dict) and results.get(service, {}).get("status") == "healthy"
+            for service in critical_services
+        )
+
+        # Overall status
+        if all_critical_healthy:
+            overall_status = "ready"
+            status_code = 200
+        else:
+            overall_status = "not_ready"
+            status_code = 503
+
+        content = (
             {
                 "status": overall_status,
                 "timestamp": datetime.now(UTC).isoformat(),
@@ -364,7 +403,13 @@ async def readiness_check(request: Request) -> JSONResponse:
                 "version": APP_VERSION,
                 "checks": _summarize_dependency_results(results),
             }
-        ),
+        )
+        if _READINESS_CACHE_ENABLED:
+            _readiness_cache = (monotonic(), status_code, content)
+
+    return JSONResponse(
+        status_code=status_code,
+        content=content,
         headers={"Cache-Control": CACHE_CONTROL_NO_STORE},
     )
 
@@ -392,17 +437,12 @@ async def dependency_check(request: Request) -> JSONResponse:
         return_exceptions=True,
     )
 
-    def safe_result(result: Any) -> Any | dict[str, str]:
-        if isinstance(result, Exception):
-            return {"status": "error", "error": str(result)}
-        return result
-
     results = {
-        "database": safe_result(checks[0]),
-        "redis": safe_result(checks[1]),
-        "s3": safe_result(checks[2]),
-        "google_vision": safe_result(checks[3]),
-        "sentry": safe_result(checks[4]),
+        "database": _safe_check_result(checks[0]),
+        "redis": _safe_check_result(checks[1]),
+        "s3": _safe_check_result(checks[2]),
+        "google_vision": _safe_check_result(checks[3]),
+        "sentry": _safe_check_result(checks[4]),
     }
 
     # Calculate overall health score

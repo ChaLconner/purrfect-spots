@@ -59,8 +59,8 @@
     <!-- Edit Photo Modal -->
     <EditPhotoModal
       :is-open="showEditPhotoModal"
-      :initial-location-name="photoToEdit?.location_name"
-      :initial-description="photoToEdit?.description"
+      :initial-location-name="photoToEdit?.location_name ?? undefined"
+      :initial-description="photoToEdit?.description ?? undefined"
       :is-saving="isSavingPhoto"
       @close="showEditPhotoModal = false"
       @save="savePhotoChanges"
@@ -88,7 +88,7 @@ import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { isDev } from '../utils/env';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 import { useSeo } from '@/composables/useSeo';
-import type { CatLocation } from '@/generated/api';
+import type { CatLocation } from '@/types/api';
 
 import { useProfileData } from '@/composables/useProfileData';
 

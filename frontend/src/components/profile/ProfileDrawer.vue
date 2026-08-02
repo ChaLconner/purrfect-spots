@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue';
+import { watch, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useProfileData } from '@/composables/useProfileData';
 import { GhibliLoader, ErrorState } from '@/components/ui';
 import ProfileHeader from './ProfileHeader.vue';
 import ProfileGallery from './ProfileGallery.vue';
-import type { CatLocation } from '@/generated/api';
+import type { CatLocation } from '@/types/api';
 
 const props = defineProps<{
   isOpen: boolean;
@@ -28,8 +28,6 @@ const {
   uploadsError,
   loadProfileData,
 } = useProfileData();
-
-const drawerRef = ref<HTMLElement | null>(null);
 
 const close = (): void => {
   emit('close');
@@ -209,36 +207,3 @@ const openImage = (_image: CatLocation): void => {
   </div>
 </template>
 
-<style scoped>
-.bg-glass {
-  background: rgba(255, 255, 255, 0.7);
-}
-
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #d6d3d1;
-  border-radius: 10px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #a8a29e;
-}
-
-@keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-.animate-fade-in {
-  animation: fade-in 0.5s ease-out forwards;
-}
-</style>

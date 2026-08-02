@@ -37,6 +37,34 @@ router = APIRouter(prefix="/gallery", tags=["Gallery"])
 PhotoIdPath = Annotated[UUID, Path(title="The ID of the photo", description="Must be a valid UUID")]
 
 
+def _calculate_offset(offset: int, page: int | None, limit: int) -> int:
+    """Calculate actual pagination offset based on offset or 1-based page number."""
+    if page is not None:
+        return (page - 1) * limit
+    return offset
+
+
+async def schedule_photo_deletion(
+    photo_id_str: str,
+    user_id: str,
+    gallery_service: GalleryService,
+    storage_service: StorageService,
+    background_tasks: BackgroundTasks,
+) -> None:
+    """Verify ownership and schedule photo deletion in background."""
+    photo = await gallery_service.verify_photo_ownership(photo_id_str, user_id)
+    if not photo:
+        raise HTTPException(status_code=404, detail="Photo not found or access denied")
+
+    background_tasks.add_task(
+        gallery_service.process_photo_deletion,
+        photo_id=photo_id_str,
+        image_url=photo.get("image_url") or "",
+        user_id=user_id,
+        storage_service=storage_service,
+    )
+
+
 def _filter_fields(data: dict[str, Any], fields: set[str] | None) -> dict[str, Any]:
     """Filter a dict to only include specified fields."""
     if not fields:
@@ -118,9 +146,7 @@ async def get_gallery(
         selected_fields.add("id")
 
     try:
-        actual_offset = offset
-        if page is not None:
-            actual_offset = (page - 1) * limit
+        actual_offset = _calculate_offset(offset, page, limit)
 
         result = await gallery_service.get_all_photos(
             limit=limit,
@@ -270,9 +296,7 @@ async def search_locations(
         if tags:
             tag_list = [t.strip() for t in tags.split(",") if t.strip()]
 
-        actual_offset = offset
-        if page is not None:
-            actual_offset = (page - 1) * limit
+        actual_offset = _calculate_offset(offset, page, limit)
 
         photos = await gallery_service.search_photos(
             query=q,
@@ -372,18 +396,7 @@ async def delete_photo(
     """Delete a photo. Returns 202 Accepted (deletion runs in background)."""
     photo_id_str = str(photo_id)
     try:
-        photo = await gallery_service.verify_photo_ownership(photo_id_str, current_user.id)
-        if not photo:
-            raise HTTPException(status_code=404, detail="Photo not found or access denied")
-
-        background_tasks.add_task(
-            gallery_service.process_photo_deletion,
-            photo_id=photo_id_str,
-            image_url=photo.get("image_url") or "",
-            user_id=current_user.id,
-            storage_service=storage_service,
-        )
-
+        await schedule_photo_deletion(photo_id_str, current_user.id, gallery_service, storage_service, background_tasks)
         return {"message": "Deletion scheduled"}
 
     except HTTPException:

@@ -35,6 +35,7 @@ USER_AUTH_CACHE_VERSION = "v3"
 # JWKS Cache
 _jwks_cache: dict[str, Any] | None = None
 _jwks_state: dict[str, float] = {"last_update": 0.0}
+_jwks_lock = asyncio.Lock()
 JWKS_CACHE_TTL = 3600  # 1 hour
 
 
@@ -51,6 +52,15 @@ async def invalidate_user_auth_cache(user_id: str) -> None:
     await redis_service.delete(f"user_auth_cache:{user_id}")
 
 
+async def invalidate_banned_user_auth_state(user_ids: str | list[str], reason: str = "account_banned") -> None:
+    """Invalidate auth cache and blacklist tokens for banned user(s)."""
+    ids = [user_ids] if isinstance(user_ids, str) else list(dict.fromkeys(user_ids))
+    token_service = await get_token_service()
+    for uid in ids:
+        await invalidate_user_auth_cache(uid)
+        await token_service.blacklist_all_user_tokens(uid, reason=reason)
+
+
 def _assert_user_not_banned(user: User) -> User:
     """Reject requests for users whose account has been suspended."""
     if user.banned_at:
@@ -58,8 +68,27 @@ def _assert_user_not_banned(user: User) -> User:
     return user
 
 
+def _apply_subscription_expiry_guard(user: User) -> User:
+    """Prevent stale auth snapshots from granting expired or indefinite Pro access."""
+    if not user.is_pro:
+        return user
+
+    end_date = user.subscription_end_date
+    if end_date is None:
+        user.is_pro = False
+        user.cancel_at_period_end = False
+        return user
+
+    if end_date.tzinfo is None:
+        end_date = end_date.replace(tzinfo=UTC)
+    if end_date <= datetime.now(UTC):
+        user.is_pro = False
+        user.cancel_at_period_end = False
+    return user
+
+
 async def get_jwks() -> dict | None:
-    """Lazily fetch and cache JWKS"""
+    """Lazily fetch and cache JWKS with thread safety"""
     global _jwks_cache  # noqa: PLW0603
     supabase_url = normalize_single_line_env(config.SUPABASE_URL)
     if not supabase_url:
@@ -75,32 +104,35 @@ async def get_jwks() -> dict | None:
     if _jwks_cache and (current_time - _jwks_state["last_update"] < JWKS_CACHE_TTL):
         return _jwks_cache
 
-    from app.utils.http_client import get_shared_httpx_client
+    async with _jwks_lock:
+        if _jwks_cache and (current_time - _jwks_state["last_update"] < JWKS_CACHE_TTL):
+            return _jwks_cache
 
-    try:
-        client = get_shared_httpx_client()
-        # Some Supabase deployments still expect the anon key on JWKS requests.
-        apikey = normalize_single_line_env(config.SUPABASE_KEY)
-        headers = {"apikey": apikey} if apikey else {}
-        last_response = None
-        for jwks_url in jwks_urls:
-            response = await client.get(jwks_url, headers=headers, timeout=5)
-            last_response = response
-            if response.status_code == 200:
-                _jwks_cache = response.json()
-                _jwks_state["last_update"] = current_time
-                return cast(dict[str, Any], _jwks_cache)
-        if last_response is not None:
-            logger.warning(
-                "JWKS fetch failed for %s with status %d: %s",
-                jwks_urls[-1],
-                last_response.status_code,
-                last_response.text[:100],
-            )
-    except Exception as e:
-        logger.warning("Failed to refresh JWKS cache: %s", e)
+        from app.utils.http_client import get_shared_httpx_client
 
-    return _jwks_cache
+        try:
+            client = get_shared_httpx_client()
+            apikey = normalize_single_line_env(config.SUPABASE_KEY)
+            headers = {"apikey": apikey} if apikey else {}
+            last_response = None
+            for jwks_url in jwks_urls:
+                response = await client.get(jwks_url, headers=headers, timeout=5)
+                last_response = response
+                if response.status_code == 200:
+                    _jwks_cache = response.json()
+                    _jwks_state["last_update"] = current_time
+                    return cast(dict[str, Any], _jwks_cache)
+            if last_response is not None:
+                logger.warning(
+                    "JWKS fetch failed for %s with status %d: %s",
+                    jwks_urls[-1],
+                    last_response.status_code,
+                    last_response.text[:100],
+                )
+        except Exception as e:
+            logger.warning("Failed to refresh JWKS cache: %s", e)
+
+        return _jwks_cache
 
 
 async def decode_supabase_token(token: str) -> dict:
@@ -171,6 +203,7 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
 
         cached_user = User(**{k: v for k, v in cached_data.items() if k != "_cached_at"})
         cached_user.permissions = normalize_permissions(cached_user.permissions)
+        _apply_subscription_expiry_guard(cached_user)
 
         if not needs_refresh:
             return _assert_user_not_banned(cached_user)
@@ -203,6 +236,7 @@ async def _refresh_user_auth_cache(user_id: str, cache_key: str, current_time: f
 
         if user_obj:
             user_obj.permissions = normalize_permissions(user_obj.permissions)
+            _apply_subscription_expiry_guard(user_obj)
             cache_data = user_obj.model_dump()
             cache_data["_cached_at"] = current_time
             await redis_service.set(cache_key, cache_data, expire=USER_AUTH_CACHE_TTL)

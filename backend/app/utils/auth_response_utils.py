@@ -15,6 +15,12 @@ if TYPE_CHECKING:
     from app.services.auth_service import AuthService  # noqa: F401
 
 
+def _get(obj: Any, key: str, default: Any = None) -> Any:
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
+
+
 def create_login_response(
     auth_service: "AuthService",
     user: dict[str, Any] | Any,
@@ -28,15 +34,9 @@ def create_login_response(
     """
     ip, ua = get_client_info(request)
 
-    # normalizing user ID access (attrs vs dict)
-    if isinstance(user, dict):
-        user_id = str(user.get("id"))
-        role = user.get("role", "user")
-        permissions = user.get("permissions", [])
-    else:
-        user_id = str(user.id)
-        role = getattr(user, "role", "user")
-        permissions = getattr(user, "permissions", [])
+    user_id = str(_get(user, "id"))
+    role = _get(user, "role", "user")
+    permissions = _get(user, "permissions", [])
 
     # Generate tokens
     access_token = auth_service.create_access_token(user_id, role=role, permissions=permissions)
@@ -45,32 +45,17 @@ def create_login_response(
     if include_refresh_cookie:
         set_refresh_cookie(response, refresh_token)
 
-    # Standardize User object for response
-    # role_id is NOT included; permissions ARE included for frontend admin UI.
-    if isinstance(user, dict):
-        user_response = UserResponse(
-            id=user["id"],
-            email=user.get("email", ""),
-            name=user.get("name", ""),
-            picture=user.get("picture", ""),
-            bio=user.get("bio"),
-            created_at=user.get("created_at"),
-            google_id=user.get("google_id"),
-            role=role,
-            permissions=permissions,
-        )
-    else:
-        user_response = UserResponse(
-            id=user.id,
-            email=user.email,
-            name=user.name,
-            picture=user.picture,
-            bio=user.bio,
-            created_at=user.created_at,
-            google_id=user.google_id,
-            role=role,
-            permissions=permissions,
-        )
+    user_response = UserResponse(
+        id=_get(user, "id"),
+        email=_get(user, "email", ""),
+        name=_get(user, "name", ""),
+        picture=_get(user, "picture", ""),
+        bio=_get(user, "bio"),
+        created_at=_get(user, "created_at"),
+        google_id=_get(user, "google_id"),
+        role=role,
+        permissions=permissions,
+    )
 
     return LoginResponse(
         access_token=access_token,

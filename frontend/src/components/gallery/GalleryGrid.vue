@@ -1,11 +1,10 @@
 <template>
-  <div class="gallery-content">
+  <div>
     <DynamicScroller :items="chunkedImages" :min-item-size="200" class="scroller" page-mode>
       <template #default="{ item, index, active }">
         <DynamicScrollerItem
           :item="item"
           :active="active"
-          :size-dependencies="[item.images.length, windowWidth]"
           :data-index="index"
         >
           <div
@@ -17,18 +16,17 @@
               v-for="(image, subIndex) in item.images"
               :key="image.id"
               type="button"
-              class="w-full h-full mb-0 p-0 border-none bg-transparent text-left focus:outline-none focus-visible:[&_.image-card]:outline-3 focus-visible:[&_.image-card]:outline-secondary focus-visible:[&_.image-card]:outline-offset-4 animate-[galleryFadeIn_0.6s_cubic-bezier(0.2,0.8,0.2,1)_both]"
+              class="w-full h-full mb-0 p-0 border-none bg-transparent text-left focus:outline-none focus-visible:[&_.image-card]:outline-3 focus-visible:[&_.image-card]:outline-secondary focus-visible:[&_.image-card]:outline-offset-4 animate-[galleryFadeIn_0.6s_cubic-bezier(0.2,0.8,0.2,1)_both] [animation-delay:var(--gallery-delay)]"
               :class="[
-                getBentoClass(item.index + subIndex),
-                { 'item-loaded': loadedImages[image.id] },
+                getBentoClass(Number(item.index) + Number(subIndex)),
               ]"
-              :style="{ 'animation-delay': `${(subIndex % 10) * 0.05}s` }"
+              :style="{ '--gallery-delay': `${(Number(subIndex) % 10) * 0.05}s` }"
               :aria-label="
                 t('galleryPage.aria.viewCat', {
                   location: image.location_name || t('galleryPage.modal.aCat'),
                 })
               "
-              @click="$emit('open-modal', image, item.index + subIndex)"
+              @click="$emit('open-modal', image, Number(item.index) + Number(subIndex))"
             >
               <!-- Glass-framed Image Card -->
               <div
@@ -37,22 +35,25 @@
                 <!-- Placeholder -->
                 <div
                   v-if="!loadedImages[image.id]"
-                  class="image-placeholder absolute inset-0 z-10 bg-[#f0fdf4] rounded after:content-[''] after:absolute after:inset-0 after:bg-gradient-to-r after:from-transparent after:via-white/60 after:to-transparent after:animate-[shimmer_1.5s_infinite] after:-translate-x-full h-full w-full"
+                  class="absolute inset-0 z-10 h-full w-full rounded bg-[#f0fdf4] after:absolute after:inset-0 after:-translate-x-full after:animate-[shimmer_1.5s_infinite] after:bg-gradient-to-r after:from-transparent after:via-white/60 after:to-transparent after:content-['']"
                   aria-hidden="true"
                 >
-                  <div class="placeholder-content flex items-center justify-center w-full h-full">
+                  <div class="flex h-full w-full items-center justify-center">
                     <div
-                      class="soot-dot w-3 h-3 bg-[#5a4a3a]/10 rounded-full animate-[pulseDot_1.5s_ease-in-out_infinite]"
+                      class="h-3 w-3 rounded-full bg-[#5a4a3a]/10 animate-[pulseDot_1.5s_ease-in-out_infinite]"
                     ></div>
                   </div>
                 </div>
 
                 <!-- Actual Image with native lazy loading -->
                 <div
-                  class="image-wrapper relative rounded overflow-hidden w-full h-full block shadow-none transition-shadow duration-300 ease-in-out"
+                  class="relative block h-full w-full overflow-hidden rounded shadow-none transition-shadow duration-300 ease-in-out"
                 >
                   <img
                     loading="lazy"
+                    decoding="async"
+                    width="800"
+                    height="600"
                     :src="image.image_url"
                     :srcset="generateSrcSet(image.image_url)"
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
@@ -61,7 +62,7 @@
                         ? t('galleryPage.modal.aCatAt', { location: image.location_name })
                         : t('galleryPage.modal.aCat')
                     "
-                    class="gallery-image w-full h-full object-cover block rounded scale-100 transition-[transform,opacity] duration-500 ease-in-out opacity-0 group-hover:scale-105 shadow-md"
+                    class="block h-full w-full scale-100 rounded object-cover opacity-0 shadow-md transition-[transform,opacity] duration-500 ease-in-out group-hover:scale-105"
                     :class="{ 'opacity-100': loadedImages[image.id] }"
                     @load="handleImageLoad(image.id)"
                     @error="handleImageError(image.id, $event)"
@@ -78,7 +79,7 @@
     <div
       v-if="hasMore && !loadingMore"
       ref="loadMoreTrigger"
-      class="load-more flex flex-col items-center gap-3 p-8 h-4 w-full"
+      class="flex h-4 w-full flex-col items-center gap-3 p-8"
       aria-hidden="true"
     ></div>
     <span v-if="loadingMore" class="sr-only" role="status" aria-live="polite">
@@ -88,11 +89,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import { ref, shallowRef, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller';
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
 import { IMAGE_CONFIG, GALLERY_CONFIG } from '@/utils/constants';
-import type { CatLocation } from '@/generated/api';
+import type { CatLocation } from '@/types/api';
 import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
@@ -108,7 +109,7 @@ const emit = defineEmits<{
   (e: 'load-more'): void;
 }>();
 
-const loadedImages = ref<Record<string, boolean>>({});
+const loadedImages = shallowRef<Record<string, boolean>>({});
 const loadMoreTrigger = ref<HTMLElement | null>(null);
 const loadMoreObserver = ref<IntersectionObserver | null>(null);
 
@@ -124,6 +125,8 @@ const updateWidth = (): void => {
 
 // Bento & Chunking
 const CHUNK_SIZE = 20;
+const srcSetCache = new Map<string, string>();
+const SRC_SET_CACHE_MAX_SIZE = 500;
 
 const chunkedImages = computed(() => {
   const chunks = [];
@@ -163,9 +166,11 @@ function getBentoClass(index: number): string {
 // Generate responsive sources for ANY image (Supabase or S3 via proxy)
 function generateSrcSet(url: string): string {
   if (!url) return '';
+  const cached = srcSetCache.get(url);
+  if (cached) return cached;
   const widths = [300, 500, 800];
 
-  return widths
+  const srcSet = widths
     .map((width) => {
       // 1. Supabase Storage (Native)
       if (url.includes('supabase.co')) {
@@ -189,11 +194,17 @@ function generateSrcSet(url: string): string {
       return `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&w=${width}&q=80&output=webp ${width}w`;
     })
     .join(', ');
+  if (srcSetCache.size >= SRC_SET_CACHE_MAX_SIZE) {
+    const oldest = srcSetCache.keys().next().value;
+    if (oldest) srcSetCache.delete(oldest);
+  }
+  srcSetCache.set(url, srcSet);
+  return srcSet;
 }
 
 // Image Loading
 function handleImageLoad(id: string): void {
-  loadedImages.value[id] = true;
+  loadedImages.value = { ...loadedImages.value, [id]: true };
 }
 
 function handleImageError(id: string, event: Event): void {
@@ -203,7 +214,7 @@ function handleImageError(id: string, event: Event): void {
   }
   // Clear shimmer on error
 
-  loadedImages.value[id] = true;
+  loadedImages.value = { ...loadedImages.value, [id]: true };
 }
 
 // Infinite Scroll Observer
@@ -254,13 +265,6 @@ onUnmounted(() => {
 watch(
   () => props.images,
   () => {
-    // Sync loaded images state
-    props.images.forEach((image) => {
-      if (!(image.id in loadedImages.value)) {
-        loadedImages.value[image.id] = false;
-      }
-    });
-
     // Re-setup observer on data change
     nextTick(() => setupLoadMoreObserver());
   },

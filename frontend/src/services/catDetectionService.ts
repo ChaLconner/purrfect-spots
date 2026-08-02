@@ -11,7 +11,7 @@ interface CombinedAnalysisResult {
 
 import { uploadFile } from '../utils/api';
 
-export class CatDetectionService {
+class CatDetectionService {
   async detectCats(file: File, signal?: AbortSignal): Promise<CatDetectionResult> {
     return await uploadFile<CatDetectionResult>(
       '/api/v1/detect/cats',

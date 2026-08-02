@@ -90,7 +90,7 @@ export function useThrottleFn<T extends (...args: Parameters<T>) => ReturnType<T
     if (trailing && !timeoutId) {
       timeoutId = setTimeout(() => {
         if (lastArgs) {
-          fn(...lastArgs);
+          fn(...(lastArgs as Parameters<T>));
           lastExec = Date.now();
           lastArgs = null;
         }

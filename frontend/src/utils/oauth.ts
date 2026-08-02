@@ -2,18 +2,9 @@
  * OAuth Helper Utilities for PKCE (Proof Key for Code Exchange)
  */
 
-export function generateCodeVerifier(): string {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return base64URLEncode(array);
-}
+import { generateCodeVerifier, generateCodeChallenge } from './security';
 
-export async function generateCodeChallenge(codeVerifier: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(codeVerifier);
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  return base64URLEncode(new Uint8Array(digest));
-}
+export { generateCodeVerifier, generateCodeChallenge };
 
 export function base64URLEncode(array: Uint8Array): string {
   return btoa(String.fromCodePoint(...array))

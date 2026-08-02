@@ -1,12 +1,19 @@
 <template>
   <div
-    class="subscription-view min-h-screen pt-24 pb-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden"
+    class="min-h-screen pt-24 pb-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden"
   >
     <GhibliBackground />
 
     <div class="max-w-6xl mx-auto relative z-10">
       <!-- Webhook Confirmation Banner (shown while polling after Stripe redirect) -->
-      <Transition name="fade">
+      <Transition
+        enter-active-class="transition-[opacity,transform] duration-300 ease-out"
+        enter-from-class="opacity-0 -translate-y-1.5"
+        enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="transition-[opacity,transform] duration-300 ease-out"
+        leave-from-class="opacity-100 translate-y-0"
+        leave-to-class="opacity-0 -translate-y-1.5"
+      >
         <div
           v-if="isPolling"
           class="mb-8 flex items-center justify-center gap-3 bg-amber-50 border border-amber-200 text-amber-700 rounded-2xl py-3 px-5 text-sm font-medium shadow-sm"
@@ -19,6 +26,21 @@
           {{ $t('subscription.toast.confirmingPayment') }}
         </div>
       </Transition>
+
+      <div
+        v-if="subscriptionStore.statusError"
+        class="mb-8 rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-center text-sm font-medium text-red-700"
+        role="alert"
+      >
+        {{ $t('subscription.toast.statusFailed') }}
+      </div>
+      <div
+        v-if="planPriceError"
+        class="mb-8 rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-center text-sm font-medium text-red-700"
+        role="alert"
+      >
+        {{ $t('subscription.toast.pricingFailed') }}
+      </div>
 
       <!-- Header Section -->
       <div class="text-center mb-16">
@@ -49,19 +71,25 @@
           >
             {{ $t('subscription.proPlan.billedMonthly') }}
           </span>
-          <button 
+          <button
+            type="button"
             class="relative inline-flex h-7 w-14 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2"
-            :class="selectedPlan === 'annual' ? 'bg-terracotta' : 'bg-stone-300'"
-            @click="selectedPlan = selectedPlan === 'monthly' ? 'annual' : 'monthly'"
+            :class="[
+              selectedPlan === 'annual' && annualPlan ? 'bg-terracotta' : 'bg-stone-300',
+              { 'cursor-not-allowed opacity-50': !annualPlan },
+            ]"
+            :disabled="!annualPlan || isPlanPricesLoading"
+            @click="togglePlan"
           >
             <span
               class="inline-block h-5 w-5 transform rounded-full bg-white transition-transform"
               :class="selectedPlan === 'annual' ? 'translate-x-8' : 'translate-x-1'"
             ></span>
           </button>
-          <div 
-            class="flex items-center gap-2 cursor-pointer"
-            @click="selectedPlan = 'annual'"
+          <div
+            class="flex items-center gap-2"
+            :class="annualPlan ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
+            @click="selectAnnualPlan"
           >
             <span 
               class="font-medium transition-colors"
@@ -69,8 +97,11 @@
             >
               {{ $t('subscription.proPlan.billedAnnually') }}
             </span>
-            <span class="bg-green-100 text-green-700 text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full">
-              {{ $t('subscription.proPlan.savePercent') }}
+            <span
+              v-if="annualPlan && annualSavingsPercent !== null"
+              class="bg-green-100 text-green-700 text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full"
+            >
+              {{ $t('subscription.proPlan.savePercent', { percent: annualSavingsPercent }) }}
             </span>
           </div>
         </div>
@@ -80,7 +111,7 @@
           <PlanCard
             :title="$t('subscription.freePlan.title')"
             :subtitle="$t('subscription.freePlan.subtitle')"
-            :price="formatCurrency(0)"
+            :price="formatCurrency(0, selectedCurrency)"
             :period="$t('subscription.freePlan.period')"
             :features="freeFeatures"
           >
@@ -97,8 +128,8 @@
           <PlanCard
             :title="$t('subscription.proPlan.title')"
             :subtitle="$t('subscription.proPlan.subtitle')"
-            :price="selectedPlan === 'annual' ? formatCurrency(1750) : formatCurrency(175)"
-            :period="selectedPlan === 'annual' ? $t('subscription.proPlan.periodAnnual') : $t('subscription.proPlan.period')"
+            :price="formatPlanPrice(selectedPrice)"
+            :period="formatPlanPeriod(selectedPrice)"
             :features="proFeatures"
             is-premium
             :badge="$t('subscription.proPlan.badge')"
@@ -143,7 +174,7 @@
               <button
                 v-else
                 class="w-full bg-terracotta text-white font-bold py-4 rounded-2xl shadow-xl shadow-terracotta/20 hover:bg-terracotta-dark transition-all transform hover:-translate-y-1 block text-center text-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                :disabled="isLoading"
+                :disabled="isLoading || !selectedPrice || planPriceError"
                 @click="handleSubscribe"
               >
                 {{
@@ -278,7 +309,11 @@ import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
-import { SubscriptionService } from '../services/subscriptionService';
+import {
+  SubscriptionService,
+  type SubscriptionPlanPrice,
+  type SubscriptionPlans,
+} from '../services/subscriptionService';
 import { TreatsService } from '../services/treatsService';
 import { useToastStore } from '../stores/toastStore';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
@@ -295,13 +330,33 @@ const toastStore = useToastStore();
 const route = useRoute();
 const router = useRouter();
 const isLoading = ref(false);
-const selectedPlan = ref<'monthly' | 'annual'>('annual');
+const selectedPlan = ref<'monthly' | 'annual'>('monthly');
+const planPrices = ref<SubscriptionPlans | null>(null);
+const isPlanPricesLoading = ref(true);
+const planPriceError = ref(false);
 const purchasingPackage = ref<string | null>(null);
 const isPolling = ref(false);
 const showCancelModal = ref(false);
 const isCanceling = ref(false);
 const { setMetaTags } = useSeo();
 const { sortedPackages } = storeToRefs(subscriptionStore);
+
+const annualPlan = computed(() => planPrices.value?.annual ?? null);
+const selectedPrice = computed<SubscriptionPlanPrice | null>(() => {
+  if (!planPrices.value) return null;
+  return selectedPlan.value === 'annual' ? planPrices.value.annual : planPrices.value.monthly;
+});
+const selectedCurrency = computed(() => selectedPrice.value?.currency || planPrices.value?.monthly.currency || config.app.currency);
+const annualSavingsPercent = computed<number | null>(() => {
+  const monthly = planPrices.value?.monthly;
+  const annual = planPrices.value?.annual;
+  if (!monthly || !annual || monthly.unit_amount <= 0) return null;
+  const monthlyMonths = monthly.interval === 'year' ? 12 * monthly.interval_count : monthly.interval_count;
+  const annualMonths = annual.interval === 'year' ? 12 * annual.interval_count : annual.interval_count;
+  if (monthlyMonths <= 0 || annualMonths <= 0) return null;
+  const annualAtMonthlyRate = monthly.unit_amount * (annualMonths / monthlyMonths);
+  return Math.max(0, Math.round((1 - annual.unit_amount / annualAtMonthlyRate) * 100));
+});
 
 const freeFeatures = computed(() => [
   t('subscription.freePlan.features.0'),
@@ -318,13 +373,52 @@ const proFeatures = computed(() => [
   t('subscription.proPlan.features.4'),
 ]);
 
-function formatCurrency(amount: number): string {
+function formatCurrency(amount: number, currency = config.app.currency): string {
   return new Intl.NumberFormat(locale.value === 'th' ? 'th-TH' : 'en-US', {
     style: 'currency',
-    currency: config.app.currency,
+    currency,
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(amount);
+}
+
+function formatPlanPrice(price: SubscriptionPlanPrice | null): string {
+  if (!price) return isPlanPricesLoading.value ? '…' : '—';
+  const formatter = new Intl.NumberFormat(locale.value === 'th' ? 'th-TH' : 'en-US', {
+    style: 'currency',
+    currency: price.currency,
+    minimumFractionDigits: 0,
+  });
+  const fractionDigits = formatter.resolvedOptions().maximumFractionDigits;
+  return formatter.format(price.unit_amount / 10 ** fractionDigits);
+}
+
+function formatPlanPeriod(price: SubscriptionPlanPrice | null): string {
+  if (!price) return '';
+  if (price.interval === 'year') return t('subscription.proPlan.periodAnnual');
+  return t('subscription.proPlan.period');
+}
+
+function togglePlan(): void {
+  if (!annualPlan.value) return;
+  selectedPlan.value = selectedPlan.value === 'monthly' ? 'annual' : 'monthly';
+}
+
+function selectAnnualPlan(): void {
+  if (annualPlan.value) selectedPlan.value = 'annual';
+}
+
+async function loadPlanPrices(): Promise<void> {
+  isPlanPricesLoading.value = true;
+  planPriceError.value = false;
+  try {
+    planPrices.value = await SubscriptionService.getPlans();
+    if (!planPrices.value.annual && selectedPlan.value === 'annual') selectedPlan.value = 'monthly';
+  } catch {
+    planPriceError.value = true;
+  } finally {
+    isPlanPricesLoading.value = false;
+  }
 }
 
 onMounted(async () => {
@@ -347,10 +441,15 @@ onMounted(async () => {
     // Clean URL first so a hard-refresh doesn’t re-trigger polling
     await router.replace('/subscription');
 
-    // Stripe webhooks can take 1–5 s to reach our server.
-    // Poll fetchStatus until Pro status or treat balance changes, then stop.
+    // Stripe webhooks can take 1–15 s to reach our server. Load a fresh
+    // baseline first, then poll for the entitlement this checkout created.
+    try {
+      await subscriptionStore.fetchStatus(true);
+    } catch {
+      // Polling below retries transient status failures.
+    }
     await pollForStatusChange();
-    await subscriptionStore.fetchPackages();
+    await Promise.all([subscriptionStore.fetchPackages(), loadPlanPrices()]);
     return;
   }
 
@@ -360,22 +459,23 @@ onMounted(async () => {
   }
 
   // Default load: current status + packages
-  await Promise.all([subscriptionStore.fetchStatus(), subscriptionStore.fetchPackages()]);
+  try {
+    await Promise.all([subscriptionStore.fetchStatus(), subscriptionStore.fetchPackages(), loadPlanPrices()]);
+  } catch {
+    // statusError is rendered in the page so a failed request cannot look like Free status.
+  }
 });
 
 /**
  * Poll the backend for subscription status changes after returning from Stripe.
  *
- * Stripe webhooks can take anywhere from 1 s to ~15 s to arrive and be
- * processed.  We snapshot the current Pro status + treat balance before the
- * poll and stop as soon as either one changes, or after MAX_ATTEMPTS tries.
+ * Stop only after the subscription entitlement becomes Pro. Comparing against
+ * initial store defaults can stop too early when the first request hydrates an
+ * existing status or treat balance.
  */
 async function pollForStatusChange(): Promise<void> {
   const MAX_ATTEMPTS = 8;
   const INTERVAL_MS = 2000; // 2 s between polls
-
-  const initialIsPro = subscriptionStore.isPro;
-  const initialBalance = subscriptionStore.treatBalance;
 
   isPolling.value = true;
 
@@ -385,10 +485,7 @@ async function pollForStatusChange(): Promise<void> {
     try {
       await subscriptionStore.fetchStatus(true);
 
-      const statusChanged = subscriptionStore.isPro !== initialIsPro;
-      const balanceChanged = subscriptionStore.treatBalance !== initialBalance;
-
-      if (statusChanged || balanceChanged) {
+      if (subscriptionStore.isPro) {
         // Webhook processed — stop polling
         break;
       }
@@ -447,8 +544,8 @@ async function confirmCancel(): Promise<void> {
     await SubscriptionService.cancel();
     await subscriptionStore.refreshAll();
     toastStore.addToast({
-      title: t('toast.success'),
-      message: 'Subscription successfully canceled.',
+      title: t('subscription.toast.successTitle'),
+      message: t('subscription.toast.cancelledSuccess'),
       type: 'success',
     });
   } catch (e) {
@@ -484,18 +581,3 @@ async function buyTreats(packageType: string): Promise<void> {
   }
 }
 </script>
-
-<style scoped>
-/* Smooth fade for the webhook-confirmation banner */
-.fade-enter-active,
-.fade-leave-active {
-  transition:
-    opacity 0.3s ease,
-    transform 0.3s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-  transform: translateY(-6px);
-}
-</style>

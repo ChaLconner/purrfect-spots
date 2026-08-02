@@ -44,7 +44,7 @@
         </div>
 
         <!-- Google Map -->
-        <div id="map" class="w-full h-full outline-none rounded-[inherit]"></div>
+        <div id="map" ref="mapContainer" class="w-full h-full outline-none rounded-[inherit]"></div>
 
         <!-- Custom Map Controls (Glassmorphism) -->
 
@@ -145,12 +145,31 @@ const selectedCat = ref<CatLocation | null>(null);
 
 // Google Maps Refs
 const map = ref<google.maps.Map | null>(null);
+const mapContainer = ref<HTMLDivElement | null>(null);
 
 // Composables Setup
 const { userLocation, getCurrentPosition, startWatchingPosition, stopWatchingPosition } =
   useGeolocation();
 
 const { updateMarkers, updateUserMarker, clearMarkers } = useMapMarkers(map);
+
+let markerUpdateFrame: number | null = null;
+let pendingMarkerLocations: CatLocation[] | null = null;
+const scheduleMarkerUpdate = (locations: CatLocation[]): void => {
+  pendingMarkerLocations = locations;
+  if (markerUpdateFrame !== null) return;
+  const run = (): void => {
+    markerUpdateFrame = null;
+    const nextLocations = pendingMarkerLocations;
+    pendingMarkerLocations = null;
+    if (nextLocations) updateMarkers(nextLocations, selectCat);
+  };
+  if (typeof window !== 'undefined' && 'requestAnimationFrame' in window) {
+    markerUpdateFrame = window.requestAnimationFrame(run);
+  } else {
+    markerUpdateFrame = window.setTimeout(run, 0);
+  }
+};
 
 // SEO Setup
 const { setMetaTags, resetMetaTags } = useSeo();
@@ -180,6 +199,7 @@ const mapBounds = ref<google.maps.LatLngBounds | null>(null);
  * Used for the "Spotted Nearby" badge to ensure the number matches what the user sees
  */
 const visibleCount = ref(0);
+let visibleCountFrame: number | null = null;
 
 const updateVisibleCount = (): void => {
   if (!map.value || !mapBounds.value) {
@@ -196,8 +216,21 @@ const updateVisibleCount = (): void => {
   }).length;
 };
 
+const scheduleVisibleCountUpdate = (): void => {
+  if (visibleCountFrame !== null) return;
+  const run = (): void => {
+    visibleCountFrame = null;
+    updateVisibleCount();
+  };
+  if (typeof window !== 'undefined' && 'requestAnimationFrame' in window) {
+    visibleCountFrame = window.requestAnimationFrame(run);
+  } else {
+    visibleCountFrame = window.setTimeout(run, 0);
+  }
+};
+
 watch([mapBounds, displayedLocations], () => {
-  updateVisibleCount();
+  scheduleVisibleCountUpdate();
 }, { immediate: true });
 
 // ==========================================
@@ -260,10 +293,10 @@ const initializeMap = async (): Promise<void> => {
   }
 
   try {
-    let mapElement = document.getElementById('map');
+    let mapElement = mapContainer.value || document.getElementById('map');
     if (!mapElement) {
       await nextTick();
-      mapElement = document.getElementById('map');
+      mapElement = mapContainer.value || document.getElementById('map');
     }
 
     if (!mapElement) {
@@ -315,7 +348,7 @@ const initializeMap = async (): Promise<void> => {
         updateUserMarker(userLocation.value);
       }
 
-      updateMarkers(displayedLocations.value, selectCat);
+      scheduleMarkerUpdate(displayedLocations.value);
 
       // Hide initial loading state
       isInitialLoading.value = false;
@@ -390,7 +423,7 @@ const debouncedViewportFetch = (): void => {
 watch(
   displayedLocations,
   (locations): void => {
-    updateMarkers(locations, selectCat);
+    scheduleMarkerUpdate(locations);
   },
   { deep: false, immediate: true }
 );
@@ -453,7 +486,7 @@ watch(userLocation, (pos, oldPos): void => {
 // Watch Map Instance - Fix for race condition where data loads before map
 watch(map, (newMap): void => {
   if (newMap && displayedLocations.value.length > 0) {
-    updateMarkers(displayedLocations.value, selectCat);
+    scheduleMarkerUpdate(displayedLocations.value);
   }
 });
 
@@ -590,6 +623,23 @@ onMounted((): void => {
 });
 
 onUnmounted((): void => {
+  if (markerUpdateFrame !== null) {
+    if (typeof window !== 'undefined' && 'cancelAnimationFrame' in window) {
+      window.cancelAnimationFrame(markerUpdateFrame);
+    } else {
+      window.clearTimeout(markerUpdateFrame);
+    }
+    markerUpdateFrame = null;
+  }
+  pendingMarkerLocations = null;
+  if (visibleCountFrame !== null) {
+    if (typeof window !== 'undefined' && 'cancelAnimationFrame' in window) {
+      window.cancelAnimationFrame(visibleCountFrame);
+    } else {
+      window.clearTimeout(visibleCountFrame);
+    }
+    visibleCountFrame = null;
+  }
   stopWatchingPosition();
   if (viewportFetchTimer.value) {
     clearTimeout(viewportFetchTimer.value);

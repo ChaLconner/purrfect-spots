@@ -1,5 +1,5 @@
 <template>
-  <div class="admin-users-page">
+  <div class="flex flex-col gap-4">
     <AdminPageHeader
       v-model="searchQuery"
       :title="t('admin.users.title_simple')"
@@ -9,7 +9,7 @@
     >
       <template #actions>
         <button
-          class="admin-users-export-button"
+          class="inline-flex items-center gap-2 px-4 py-2 border border-sand-200 rounded-xl bg-white text-brown-600 text-sm font-bold shadow-sm transition-all hover:bg-sand-50"
           @click="exportUsers"
         >
           <svg
@@ -31,14 +31,14 @@
       </template>
     </AdminPageHeader>
 
-    <div class="admin-users-shell">
-      <div class="admin-users-table-wrap">
+    <div class="overflow-hidden border border-sand-200/95 rounded-xl bg-white shadow-sm">
+      <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-sand-200">
           <thead class="bg-sand-50">
             <tr>
               <th
                 scope="col"
-                class="admin-users-sortable-header group"
+                class="group px-6 py-3 text-xs font-medium text-brown-500 text-left uppercase tracking-[0.08em] cursor-pointer select-none transition-colors hover:text-brown-700"
                 @click="handleSort('name')"
               >
                 <div class="flex items-center gap-1">
@@ -51,13 +51,13 @@
               </th>
               <th
                 scope="col"
-                class="admin-users-header-cell"
+                class="px-6 py-3 text-xs font-medium text-brown-500 text-left uppercase tracking-[0.08em]"
               >
                 {{ t('admin.users.table.role') }}
               </th>
               <th
                 scope="col"
-                class="admin-users-sortable-header group"
+                class="group px-6 py-3 text-xs font-medium text-brown-500 text-left uppercase tracking-[0.08em] cursor-pointer select-none transition-colors hover:text-brown-700"
                 @click="handleSort('created_at')"
               >
                 <div class="flex items-center gap-1">
@@ -70,7 +70,7 @@
               </th>
               <th
                 scope="col"
-                class="admin-users-header-cell admin-users-header-cell-right"
+                class="px-6 py-3 text-xs font-medium text-brown-500 text-right uppercase tracking-[0.08em]"
               >
                 {{ t('admin.users.table.actions') }}
               </th>
@@ -678,66 +678,3 @@ onMounted(async () => {
 });
 </script>
 
-<style scoped>
-.admin-users-page {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.admin-users-export-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--color-sand-200);
-  border-radius: 0.75rem;
-  background: white;
-  color: var(--color-brown-600, #57534e);
-  font-size: 0.875rem;
-  font-weight: 700;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
-  transition: all 0.2s ease;
-}
-
-.admin-users-export-button:hover {
-  background: var(--color-sand-50);
-}
-
-.admin-users-shell {
-  overflow: hidden;
-  border: 1px solid rgba(245, 245, 244, 0.95);
-  border-radius: 0.75rem;
-  background: white;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-}
-
-.admin-users-table-wrap {
-  overflow-x: auto;
-}
-
-.admin-users-header-cell,
-.admin-users-sortable-header {
-  padding: 0.75rem 1.5rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--color-brown-500, #78716c);
-  text-align: left;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.admin-users-sortable-header {
-  cursor: pointer;
-  user-select: none;
-  transition: color 0.2s ease;
-}
-
-.admin-users-sortable-header:hover {
-  color: var(--color-brown-700, #44403c);
-}
-
-.admin-users-header-cell-right {
-  text-align: right;
-}
-</style>

@@ -79,8 +79,8 @@ describe('SkeletonLoader Component', () => {
     const element = wrapper.find('div');
 
     expect(element.exists()).toBe(true);
-    expect(element.attributes('style')).toContain('width: 100%');
-    expect(element.attributes('style')).toContain('height: 100%');
+    expect(element.attributes('style')).toContain('--skeleton-width: 100%');
+    expect(element.attributes('style')).toContain('--skeleton-height: 100%');
   });
 
   it('should apply custom dimensions', () => {
@@ -92,8 +92,8 @@ describe('SkeletonLoader Component', () => {
     });
 
     const element = wrapper.find('div');
-    expect(element.attributes('style')).toContain('width: 200px');
-    expect(element.attributes('style')).toContain('height: 100px');
+    expect(element.attributes('style')).toContain('--skeleton-width: 200px');
+    expect(element.attributes('style')).toContain('--skeleton-height: 100px');
   });
 });
 

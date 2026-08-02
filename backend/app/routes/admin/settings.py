@@ -40,6 +40,34 @@ async def _invalidate_settings_cache(config_key: str | None = None) -> None:
         await redis_service.delete(_settings_history_cache_key(config_key))
 
 
+SYSTEM_CONFIG_SELECT_FIELDS = (
+    "key, value, type, description, category, is_public, is_encrypted, requires_approval, updated_at, updated_by"
+)
+
+
+async def _record_config_history(
+    admin_client: Any,
+    config_key: str,
+    old_value: Any,
+    new_value: Any,
+    changed_by: str,
+    reason: str,
+) -> None:
+    await (
+        admin_client.table("config_history")
+        .insert(
+            {
+                "config_key": config_key,
+                "old_value": old_value,
+                "new_value": new_value,
+                "changed_by": changed_by,
+                "change_reason": reason,
+            }
+        )
+        .execute()
+    )
+
+
 @router.get("", response_model=list[ConfigResponse])
 async def get_all_settings(
     current_admin: Annotated[User, Depends(require_permission("system:settings"))],
@@ -58,12 +86,7 @@ async def get_all_settings(
         else:
             admin_client = await get_async_supabase_admin_client()
             query = (
-                admin_client.table("system_configs")
-                .select(
-                    "key, value, type, description, is_public, is_encrypted, updated_at, category, requires_approval, updated_by"
-                )
-                .order("category")
-                .order("key")
+                admin_client.table("system_configs").select(SYSTEM_CONFIG_SELECT_FIELDS).order("category").order("key")
             )
             if category:
                 query = query.eq("category", category)
@@ -196,9 +219,7 @@ async def update_setting(
         result = (
             await cast(Any, admin_client.table("system_configs").update(update_values))
             .eq("key", key)
-            .select(
-                "key, value, type, description, category, is_public, is_encrypted, requires_approval, updated_at, updated_by"
-            )
+            .select(SYSTEM_CONFIG_SELECT_FIELDS)
             .single()
             .execute()
         )
@@ -208,20 +229,14 @@ async def update_setting(
         history_old = "[ENCRYPTED_SECRET]" if is_secret else old_value_for_history
         history_new = "[ENCRYPTED_SECRET]" if is_secret else value_to_store
 
-        await (
-            admin_client.table("config_history")
-            .insert(
-                {
-                    "config_key": key,
-                    "old_value": history_old,
-                    "new_value": history_new,
-                    "changed_by": current_admin.id,
-                    "change_reason": "Direct administrative update",
-                }
-            )
-            .execute()
+        await _record_config_history(
+            admin_client,
+            config_key=key,
+            old_value=history_old,
+            new_value=history_new,
+            changed_by=current_admin.id,
+            reason="Direct administrative update",
         )
-
         await _invalidate_settings_cache(key)
         return cast(dict[str, Any], result.data)
     except HTTPException:
@@ -278,7 +293,44 @@ async def get_pending_changes(
         raise HTTPException(status_code=500, detail="Failed to fetch pending changes")
 
 
-@router.post("/approve/{change_id}", response_model=ConfigResponse)
+async def _fetch_pending_change(admin_client: Any, change_id: str) -> dict[str, Any]:
+    """Fetch pending config change or raise 404."""
+    pending_check = (
+        await admin_client.table("pending_config_changes").select("*").eq("id", change_id).single().execute()
+    )
+    pending_data = cast(dict[str, Any], pending_check.data) if pending_check.data else None
+    if not pending_data or pending_data.get("status") != "pending":
+        raise HTTPException(status_code=404, detail="Pending change not found or already processed")
+    return pending_data
+
+
+async def _notify_change_requester(
+    admin_client: Any, change: dict[str, Any], status: str, admin: User, reason: str | None = None
+) -> None:
+    """Notify requester of config change result."""
+    requester_res = (
+        await admin_client.table("users").select("email").eq("id", change["requester_id"]).single().execute()
+    )
+    req_data = cast(dict[str, Any], requester_res.data) if requester_res.data else None
+    if req_data:
+        if reason:
+            email_service.send_admin_config_result(
+                str(req_data.get("email")),
+                str(change.get("config_key")),
+                status,
+                str(admin.name or admin.email),
+                reason,
+            )
+        else:
+            email_service.send_admin_config_result(
+                str(req_data.get("email")),
+                str(change.get("config_key")),
+                status,
+                str(admin.name or admin.email),
+            )
+
+
+@router.post("/approve/{change_id}", response_model=dict)
 async def approve_change(
     change_id: str,
     current_admin: Annotated[User, Depends(require_permission("system:settings"))],
@@ -289,14 +341,7 @@ async def approve_change(
         admin_client = await get_async_supabase_admin_client()
 
         # 1. Fetch pending change
-        pending_check = (
-            await admin_client.table("pending_config_changes").select("*").eq("id", change_id).single().execute()
-        )
-        pending_data = cast(dict[str, Any], pending_check.data) if pending_check.data else None
-        if not pending_data or pending_data.get("status") != "pending":
-            raise HTTPException(status_code=404, detail="Pending change not found or already processed")
-
-        change = pending_data
+        change = await _fetch_pending_change(admin_client, change_id)
 
         # Prevent self-approval (Maker cannot be Checker)
         if str(change["requester_id"]) == str(current_admin.id):
@@ -317,26 +362,19 @@ async def approve_change(
                 ),
             )
             .eq("key", change["config_key"])
-            .select(
-                "key, value, type, description, category, is_public, is_encrypted, requires_approval, updated_at, updated_by"
-            )
+            .select(SYSTEM_CONFIG_SELECT_FIELDS)
             .single()
             .execute()
         )
 
         # 4. Record History
-        await (
-            admin_client.table("config_history")
-            .insert(
-                {
-                    "config_key": change["config_key"],
-                    "old_value": current_config["value"],
-                    "new_value": change["proposed_value"],
-                    "changed_by": current_admin.id,
-                    "change_reason": f"Approved from Request {change_id}",
-                }
-            )
-            .execute()
+        await _record_config_history(
+            admin_client,
+            config_key=change["config_key"],
+            old_value=current_config["value"],
+            new_value=change["proposed_value"],
+            changed_by=current_admin.id,
+            reason=f"Approved from Request {change_id}",
         )
 
         # 5. Update Pending record
@@ -347,18 +385,8 @@ async def approve_change(
             .execute()
         )
 
-        # 6. Notify Requester (Phase 3)
-        requester_res = (
-            await admin_client.table("users").select("email").eq("id", change["requester_id"]).single().execute()
-        )
-        req_data = cast(dict[str, Any], requester_res.data) if requester_res.data else None
-        if req_data:
-            email_service.send_admin_config_result(
-                str(req_data.get("email")),
-                str(change.get("config_key")),
-                "approved",
-                str(current_admin.name or current_admin.email),
-            )
+        # 6. Notify Requester
+        await _notify_change_requester(admin_client, change, "approved", current_admin)
 
         await _invalidate_settings_cache(change["config_key"])
         return cast(dict[str, Any], update_result.data)
@@ -380,14 +408,7 @@ async def reject_change(
         admin_client = await get_async_supabase_admin_client()
 
         # 1. Fetch pending change first to get requester info
-        pending_check = (
-            await admin_client.table("pending_config_changes").select("*").eq("id", change_id).single().execute()
-        )
-        pending_data = cast(dict[str, Any], pending_check.data) if pending_check.data else None
-        if not pending_data or pending_data.get("status") != "pending":
-            raise HTTPException(status_code=404, detail="Pending change not found or already processed")
-
-        change = pending_data
+        change = await _fetch_pending_change(admin_client, change_id)
 
         # 2. Update status to rejected
         await (
@@ -404,19 +425,10 @@ async def reject_change(
             .execute()
         )
 
-        # 3. Notify Requester (Phase 3)
-        requester_res = (
-            await admin_client.table("users").select("email").eq("id", change["requester_id"]).single().execute()
+        # 3. Notify Requester
+        await _notify_change_requester(
+            admin_client, change, "rejected", current_admin, str(payload.rejection_reason or "")
         )
-        req_data = cast(dict[str, Any], requester_res.data) if requester_res.data else None
-        if req_data:
-            email_service.send_admin_config_result(
-                str(req_data.get("email")),
-                str(change.get("config_key")),
-                "rejected",
-                str(current_admin.name or current_admin.email),
-                str(payload.rejection_reason or ""),
-            )
 
         await _invalidate_settings_cache(change["config_key"])
         return {"status": "rejected", "change_id": change_id}

@@ -1,9 +1,9 @@
 <template>
   <div class="space-y-6">
-    <div class="flex flex-col gap-1">
-      <h1 class="text-3xl font-bold text-brown-900 font-display tracking-tight">{{ t('admin.roles.title') }}</h1>
-      <p class="text-brown-500 font-medium">{{ t('admin.roles.subtitle') }}</p>
-    </div>
+    <AdminPageHeader
+      :title="t('admin.roles.title')"
+      :subtitle="t('admin.roles.subtitle')"
+    />
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
       <!-- Role List -->
@@ -214,7 +214,7 @@
         <!-- Self-lockout Warning -->
         <div
           v-if="showSelfLockoutWarning"
-          class="mx-6 mt-6 p-4 bg-amber-50/50 border border-amber-100 rounded-2xl flex items-start gap-4 animate-in fade-in slide-in-from-top-4 shadow-sm"
+          class="mx-6 mt-6 p-4 bg-amber-50/50 border border-amber-100 rounded-2xl flex items-start gap-4 animate-[fade-in-down_0.5s_ease-out_forwards] shadow-sm"
         >
           <div class="p-2 bg-amber-100 rounded-xl text-amber-600">
             <svg
@@ -430,6 +430,7 @@ import { apiV1 } from '@/utils/api';
 import { useToast } from '@/composables/useToast';
 import { useAuthStore } from '@/stores/authStore';
 import { BaseConfirmModal } from '@/components/ui';
+import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 
 interface AdminRole {
   id: string;
@@ -668,19 +669,3 @@ onMounted(async () => {
   }
 });
 </script>
-
-<style scoped>
-.ghibli-soft-scroll::-webkit-scrollbar {
-  width: 6px;
-}
-.ghibli-soft-scroll::-webkit-scrollbar-track {
-  background: #f8f5f2;
-}
-.ghibli-soft-scroll::-webkit-scrollbar-thumb {
-  background: #e2d7cc;
-  border-radius: 10px;
-}
-.ghibli-soft-scroll::-webkit-scrollbar-thumb:hover {
-  background: #d4c5b5;
-}
-</style>

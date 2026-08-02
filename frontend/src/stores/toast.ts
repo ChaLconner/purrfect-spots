@@ -1,1 +1,2 @@
-export { toastState, addToast, removeToast, showError, showSuccess } from './toastStore';
+// Backward-compatible import path. New code should import from toastStore.
+export { toastState, removeToast, showError, showSuccess } from './toastStore';

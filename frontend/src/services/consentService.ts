@@ -9,14 +9,6 @@ export interface ConsentRecord {
   version: string | null;
 }
 
-export interface ConsentVersion {
-  consent_type: string;
-  label: string;
-  version: string;
-  effective_date: string | null;
-  content_hash: string | null;
-}
-
 export class ConsentService {
   static async getMyConsents(): Promise<ConsentRecord[]> {
     const result = await apiV1.get<{ consents: ConsentRecord[] }>('/consent/my-consents');

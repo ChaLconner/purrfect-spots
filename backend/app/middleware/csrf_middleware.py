@@ -66,6 +66,9 @@ class CSRFMiddleware(BaseHTTPMiddleware):
                 "/api/v1/auth/logout",
                 "/api/v1/auth/forgot-password",
                 "/api/v1/auth/reset-password",
+                # Stripe authenticates this endpoint with the
+                # Stripe-Signature header; it cannot send our CSRF cookie.
+                "/api/v1/subscription/webhook",
                 # Public read-only endpoints (GET requests are already exempt by SAFE_METHODS)
                 "/api/v1/gallery",
                 "/api/v1/locations",

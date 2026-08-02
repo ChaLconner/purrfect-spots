@@ -1,31 +1,30 @@
 <template>
   <div class="space-y-6">
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-      <div>
-        <h1 class="text-3xl font-bold text-brown-900 font-display">
-          {{ t('admin.treats.title') }}
-        </h1>
-        <p class="text-brown-500 mt-1">{{ t('admin.treats.subtitle') }}</p>
-      </div>
-      <button
-        class="px-4 py-2 bg-terracotta-600 text-white rounded-lg font-medium hover:bg-terracotta-700 transition-colors shadow-sm flex items-center gap-2"
-        @click="openGrantModal"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          class="h-5 w-5"
-          viewBox="0 0 20 20"
-          fill="currentColor"
+    <AdminPageHeader
+      :title="t('admin.treats.title')"
+      :subtitle="t('admin.treats.subtitle')"
+    >
+      <template #actions>
+        <button
+          class="px-4 py-2 bg-terracotta-600 text-white rounded-lg font-medium hover:bg-terracotta-700 transition-colors shadow-sm flex items-center gap-2"
+          @click="openGrantModal"
         >
-          <path
-            fill-rule="evenodd"
-            d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z"
-            clip-rule="evenodd"
-          />
-        </svg>
-        {{ t('admin.treats.grant_treats') }}
-      </button>
-    </div>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z"
+              clip-rule="evenodd"
+            />
+          </svg>
+          {{ t('admin.treats.grant_treats') }}
+        </button>
+      </template>
+    </AdminPageHeader>
 
     <!-- Stats summary cards -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -197,7 +196,7 @@
     <!-- Manual Grant Modal -->
     <div
       v-if="showGrantModal"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
       @click.self="closeGrantModal"
     >
       <div
@@ -271,7 +270,7 @@
           <!-- Selected user display -->
           <div
             v-if="grantForm.user_id"
-            class="flex items-center gap-3 px-4 py-3 bg-green-50/50 border border-green-100 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300"
+            class="flex items-center gap-3 px-4 py-3 bg-green-50/50 border border-green-100 rounded-2xl animate-[fade-in-down_0.3s_ease-out_forwards]"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -384,6 +383,8 @@ import { useToast } from '@/composables/useToast';
 import { useI18n } from 'vue-i18n';
 import RefreshButton from '@/components/ui/RefreshButton.vue';
 import AdminPagination from '@/components/ui/AdminPagination.vue';
+import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
+import { useAdminTable } from '@/composables/useAdminTable';
 import { formatTimestamp } from '@/utils/date';
 
 interface TreatStats {
@@ -408,26 +409,33 @@ interface UserSearchResult {
   email: string;
 }
 
-const PAGE_SIZE = 50;
-
 const { toast } = useToast();
 const { t, locale } = useI18n();
 
-const loading = ref(true);
 const statsLoading = ref(true);
 const submitting = ref(false);
 const stats = ref<Partial<TreatStats>>({});
-const transactions = ref<Transaction[]>([]);
 const showGrantModal = ref(false);
-
-// Pagination
-const currentPage = ref(1);
-const totalTransactions = ref(0);
-
-const totalPages = computed(() => Math.max(1, Math.ceil(totalTransactions.value / PAGE_SIZE)));
 
 // Filter
 const filterType = ref('');
+
+const {
+  items: transactions,
+  totalItems: totalTransactions,
+  page: currentPage,
+  limit: PAGE_SIZE,
+  isLoading: loading,
+  loadData,
+} = useAdminTable<Transaction>({
+  endpoint: '/admin/treats/transactions',
+  limit: 50,
+  exportHeaders: [],
+  formatExportRow: () => [],
+  exportFileNamePrefix: 'treats',
+});
+
+const totalPages = computed(() => Math.max(1, Math.ceil(totalTransactions.value / PAGE_SIZE)));
 
 // User search
 const userSearchQuery = ref('');
@@ -461,21 +469,7 @@ const fetchStats = async (): Promise<void> => {
 };
 
 const fetchTransactions = async (): Promise<void> => {
-  loading.value = true;
-  try {
-    const offset = (currentPage.value - 1) * PAGE_SIZE;
-    let url = `/admin/treats/transactions?limit=${PAGE_SIZE}&offset=${offset}`;
-    if (filterType.value) {
-      url += `&transaction_type=${filterType.value}`;
-    }
-    const data = await apiV1.get<{ data: Transaction[]; total: number }>(url);
-    transactions.value = data?.data || [];
-    totalTransactions.value = data?.total || 0;
-  } catch (error) {
-    console.error('Failed to fetch transactions:', error);
-  } finally {
-    loading.value = false;
-  }
+  await loadData(currentPage.value, filterType.value ? { transaction_type: filterType.value } : {});
 };
 
 const onFilterChange = (): void => {
@@ -582,9 +576,3 @@ onUnmounted(() => {
   if (userSearchTimeout) clearTimeout(userSearchTimeout);
 });
 </script>
-
-<style scoped>
-.font-display {
-  font-family: 'Outfit', sans-serif;
-}
-</style>

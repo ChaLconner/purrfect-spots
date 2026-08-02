@@ -1,8 +1,8 @@
-import { ref, watch, nextTick } from 'vue';
+import { ref, shallowRef, watch, nextTick, type Ref } from 'vue';
 import { GalleryService } from '@/services/galleryService';
 import { useCatsStore } from '@/stores';
 import { GALLERY_CONFIG } from '@/utils/constants';
-import type { CatLocation } from '@/generated/api';
+import type { CatLocation } from '@/types/api';
 
 export function useGalleryState(): {
   loading: Ref<boolean>;
@@ -20,7 +20,7 @@ export function useGalleryState(): {
   const loading = ref(catsStore.galleryLocations.length === 0);
   const loadingMore = ref(false);
   const error = ref('');
-  const visibleImages = ref<CatLocation[]>([...catsStore.galleryLocations]);
+  const visibleImages = shallowRef<CatLocation[]>([...catsStore.galleryLocations]);
 
   const currentPage = ref(1);
   const imagesPerPage = GALLERY_CONFIG.IMAGES_PER_PAGE;

@@ -29,7 +29,7 @@ from app.database import get_db
 from app.logger import logger
 from app.middleware.auth_middleware import get_current_user
 from app.schemas.user import User
-from app.utils.auth_utils import decode_token
+from app.utils.auth_utils import extract_bearer_token
 from app.utils.supabase_client import (
     get_async_supabase_admin_client,
     get_async_supabase_client,
@@ -38,7 +38,6 @@ from app.utils.supabase_client import (
 __all__ = [
     "get_async_supabase_client",
     "get_async_supabase_admin_client",
-    "get_current_user_from_token",
     "get_current_admin_user",
     "get_current_token",
     "get_current_user",
@@ -112,41 +111,12 @@ async def get_admin_gallery_service(
     return GalleryService(supabase_admin, db=db)
 
 
-def get_current_user_from_token(authorization: str | None = Header(None)) -> dict:
-    """
-    DEPRECATED: Use get_current_user instead.
-    Extract and verify user from JWT payload ONLY. Does NOT check for bans or DB state.
-    """
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Missing authorization header")
-
-    parts = authorization.split()
-    if len(parts) != 2 or parts[0].lower() != "bearer":
-        raise HTTPException(status_code=401, detail="Invalid authorization scheme")
-
-    token = parts[1]
-    try:
-        return decode_token(token)
-    except Exception:
-        logger.warning("Token validation failed")
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-
 def get_current_token(authorization: str | None = Header(None)) -> str | None:
     """
     Extract the JWT token string from the Authorization header.
     Returns None if header is missing or invalid scheme.
     """
-    if not authorization:
-        return None
-
-    try:
-        parts = authorization.split()
-        if len(parts) != 2 or parts[0].lower() != "bearer":
-            return None
-        return parts[1]
-    except (ValueError, IndexError):
-        return None
+    return extract_bearer_token(authorization)
 
 
 async def get_current_admin_user(user: User = Depends(get_current_user)) -> User:
@@ -190,7 +160,7 @@ async def get_social_service(
 
 async def get_subscription_service(
     db: AsyncSession = Depends(get_db),
-    supabase_client: AClient = Depends(get_async_supabase_client),
+    supabase_client: AClient = Depends(get_async_supabase_admin_client),
 ) -> SubscriptionService:
     from app.services.subscription_service import SubscriptionService
 

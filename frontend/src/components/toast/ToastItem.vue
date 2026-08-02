@@ -77,10 +77,7 @@ const styles = computed(() => {
     <div class="p-4 flex items-center relative overflow-hidden">
       <!-- Background Texture Overlay -->
       <div
-        class="absolute inset-0 opacity-[0.03] pointer-events-none"
-        style="
-          background-image: url(&quot;data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='1'/%3E%3C/svg%3E&quot;);
-        "
+        class="absolute inset-0 opacity-[0.03] pointer-events-none texture-noise"
       ></div>
 
       <div class="flex-1 relative z-10">

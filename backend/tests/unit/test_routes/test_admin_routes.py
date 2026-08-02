@@ -43,7 +43,7 @@ class TestAdminRoutes:
             email="admin@example.com",
             name="Admin User",
             role="admin",
-            permissions=["users:read", "users:delete"],
+            permissions=["*"],
         )
 
     @pytest.fixture

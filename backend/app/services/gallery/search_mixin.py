@@ -1,6 +1,8 @@
 from collections import Counter
 from typing import TYPE_CHECKING, Any, cast
 
+from sqlalchemy import text
+
 from app.compat import structlog
 from app.services.gallery.base_mixin import GalleryBaseMixin
 from app.utils.cache import cache, cached_tags
@@ -49,36 +51,80 @@ class GallerySearchMixin(GalleryBaseMixin):
 
             raise ExternalServiceError(f"Database error during photo retrieval: {e!s}", service="Supabase")
 
+    @cached_tags
     async def get_popular_tags(self, limit: int = 20) -> list[dict[str, Any]]:
-        return cast(list[dict[str, Any]], await GallerySearchMixin._get_popular_tags_impl(self.supabase, limit))
+        if self.db:
+            result = await self.db.execute(
+                text(
+                    """
+                    SELECT lower(tag) AS tag, count(*)::int AS count
+                    FROM cat_photos, unnest(tags) AS tag
+                    WHERE deleted_at IS NULL AND status = :approved_status
+                    GROUP BY lower(tag)
+                    ORDER BY count DESC, tag
+                    LIMIT :limit
+                    """
+                ),
+                {"approved_status": self.APPROVED_STATUS, "limit": max(1, min(limit, 100))},
+            )
+            return [dict(row._mapping) for row in result]
+
+        return await GallerySearchMixin._get_popular_tags_impl(self.supabase, limit)
 
     @staticmethod
-    @cached_tags
     async def _get_popular_tags_impl(supabase_client: AClient, limit: int) -> list[dict[str, Any]]:
         try:
-            res = await (
-                supabase_client.table("cat_photos")
-                .select("tags")
-                .not_.is_("tags", "null")
-                .is_("deleted_at", "null")
-                .eq("status", GallerySearchMixin.APPROVED_STATUS)
-                .execute()
-            )
-            data = cast(list[dict[str, Any]], res.data or [])
-            tag_counter: Counter = Counter()
-            for row in data:
+            res = await supabase_client.rpc("get_popular_tags", {"result_limit": max(1, min(limit, 100))}).execute()
+            rows = cast(list[dict[str, Any]], res.data or [])
+            if all("tag" in row and "count" in row for row in rows):
+                return rows
+
+            # Compatibility fallback for older RPC responses that return photos.
+            counts: Counter[str] = Counter()
+            for row in rows:
                 for tag in row.get("tags") or []:
-                    if tag:
-                        tag_counter[tag.lower()] += 1
-            return [{"tag": tag, "count": count} for tag, count in tag_counter.most_common(limit)]
+                    if isinstance(tag, str) and tag.strip():
+                        counts[tag.strip().lower().lstrip("#")] += 1
+            return [{"tag": tag, "count": count} for tag, count in counts.most_common(max(1, min(limit, 100)))]
         except Exception as e:
             from app.utils.exceptions import ExternalServiceError
 
             raise ExternalServiceError(f"Failed to get popular tags: {e!s}", service="Supabase")
 
     @cache(expire=300, key_prefix="user_photos", skip_args=1)
-    async def get_user_photos(self, user_id: str, include_unapproved: bool = False) -> list[dict[str, Any]]:
+    async def get_user_photos(
+        self, user_id: str, include_unapproved: bool = False, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
         try:
+            if self.db:
+                try:
+                    if include_unapproved:
+                        query = text(
+                            "SELECT id, image_url, latitude, longitude, description, location_name, uploaded_at, "
+                            "tags, likes_count, comments_count, user_id "
+                            "FROM cat_photos WHERE user_id = :user_id AND deleted_at IS NULL "
+                            "ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
+                        )
+                    else:
+                        query = text(
+                            "SELECT id, image_url, latitude, longitude, description, location_name, uploaded_at, "
+                            "tags, likes_count, comments_count, user_id "
+                            "FROM cat_photos WHERE user_id = :user_id AND deleted_at IS NULL "
+                            "AND status = :approved_status "
+                            "ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
+                        )
+                    params: dict[str, Any] = {
+                        "user_id": user_id,
+                        "limit": min(max(limit, 1), 100),
+                        "offset": max(offset, 0),
+                    }
+                    if not include_unapproved:
+                        params["approved_status"] = self.APPROVED_STATUS
+                    result = await self.db.execute(query, params)
+                    return self._process_photos([dict(row._mapping) for row in result.fetchall()])
+                except Exception as e:
+                    logger.warning("SQL user photo fetch failed, falling back to Supabase: %s", e)
+
             data: list[dict[str, Any]]
             res = (
                 await self._apply_visibility_filter(
@@ -87,6 +133,7 @@ class GallerySearchMixin(GalleryBaseMixin):
                 )
                 .eq("user_id", user_id)
                 .order("uploaded_at", desc=True)
+                .range(max(0, offset), max(0, offset) + min(max(1, limit), 100) - 1)
                 .execute()
             )
             data = cast(list[dict[str, Any]], res.data or [])

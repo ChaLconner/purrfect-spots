@@ -6,7 +6,7 @@ import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
 import ErrorState from '@/components/ui/ErrorState.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import GhibliLoader from '@/components/ui/GhibliLoader.vue';
-import type { CatLocation } from '@/generated/api';
+import type { CatLocation } from '@/types/api';
 import { formatDate } from '@/utils/date';
 
 const props = defineProps<{
@@ -107,8 +107,8 @@ const rows = computed(() => {
             class="w-full"
           >
             <div
-              class="grid gap-3 sm:gap-4 md:gap-6 p-2 sm:p-3 md:p-4 w-full"
-              :style="{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }"
+              class="grid grid-cols-[var(--gallery-columns)] gap-3 sm:gap-4 md:gap-6 p-2 sm:p-3 md:p-4 w-full"
+              :style="{ '--gallery-columns': `repeat(${cols}, minmax(0, 1fr))` }"
             >
               <button
                 v-for="upload in item.items"

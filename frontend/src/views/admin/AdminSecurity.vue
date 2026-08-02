@@ -6,6 +6,7 @@ import { apiV1 } from '@/utils/api';
 import { showSuccess, showError } from '@/stores/toast';
 import { PERMISSIONS } from '@/constants/permissions';
 import { formatTimestamp } from '@/utils/date';
+import AdminPageHeader from '@/components/admin/AdminPageHeader.vue';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import SkeletonLoader from '@/components/ui/SkeletonLoader.vue';
 import TableSkeleton from '@/components/ui/TableSkeleton.vue';
@@ -89,20 +90,16 @@ const getStatusColor = (level: string): string => {
 
 <template>
   <div class="space-y-6">
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-      <div class="flex flex-col gap-1">
-        <h1 class="text-2xl sm:text-3xl font-bold text-brown-900 font-display tracking-tight">
-          {{ t('admin.security.title') }}
-        </h1>
-        <p class="text-sm sm:text-base text-brown-500 font-medium">{{ t('admin.security.subtitle') }}</p>
-      </div>
-
-      <div class="flex justify-start sm:justify-end gap-2">
-        <BaseButton 
-          variant="sage" 
-          size="sm" 
-          :loading="loading" 
-          class="w-full sm:w-auto shadow-sm"
+    <AdminPageHeader
+      :title="t('admin.security.title')"
+      :subtitle="t('admin.security.subtitle')"
+    >
+      <template #actions>
+        <BaseButton
+          variant="secondary"
+          size="sm"
+          :loading="loading"
+          class="w-full sm:w-auto"
           @click="fetchSummary"
         >
           <div class="flex items-center justify-center gap-2">
@@ -110,8 +107,8 @@ const getStatusColor = (level: string): string => {
             {{ t('common.refresh') }}
           </div>
         </BaseButton>
-      </div>
-    </div>
+      </template>
+    </AdminPageHeader>
 
     <!-- Perceived Performance Skeleton State -->
     <div v-if="loading && !summary" class="space-y-8">
@@ -245,13 +242,13 @@ const getStatusColor = (level: string): string => {
 
       <!-- Action Area -->
       <div v-if="authStore.hasPermission(PERMISSIONS.SYSTEM_SETTINGS)" class="flex flex-col sm:flex-row gap-3 mt-4 sm:mt-8">
-        <BaseButton variant="terracotta" size="sm" :loading="resetting" class="w-full sm:w-auto shadow-sm font-bold text-[11px] px-6" @click="resetAlerts">
+        <BaseButton variant="primary" size="sm" :loading="resetting" class="w-full sm:w-auto shadow-sm font-bold text-[11px] px-6" @click="resetAlerts">
           <div class="flex items-center justify-center gap-2 uppercase tracking-widest">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
             {{ t('admin.security.resetAlerts') }}
           </div>
         </BaseButton>
-        <BaseButton variant="brown" size="sm" :loading="resetting" class="w-full sm:w-auto shadow-sm font-bold text-[11px] px-6" @click="resetSessions">
+        <BaseButton variant="secondary" size="sm" :loading="resetting" class="w-full sm:w-auto shadow-sm font-bold text-[11px] px-6" @click="resetSessions">
           <div class="flex items-center justify-center gap-2 uppercase tracking-widest">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
             {{ t('admin.security.resetSessions') }}
@@ -260,10 +257,10 @@ const getStatusColor = (level: string): string => {
       </div>
 
       <!-- Recent Alerts Table -->
-      <div class="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-8 border border-sand-200 shadow-sm transition-all ghibli-fade-in">
+      <div class="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-8 border border-sand-200 shadow-sm transition-all animate-[fadeIn_0.8s_cubic-bezier(0.16,1,0.3,1)_forwards]">
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
           <div>
-            <h2 class="text-xl font-bold text-brown-900 font-display flex items-center gap-3">
+            <h2 class="text-xl font-bold text-brown-900 font-heading flex items-center gap-3">
               <span class="p-2 bg-brown-50 rounded-lg group-hover:bg-brown-100 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-brown-600"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path d="M12 7v4" /><path d="M12 15h.01" /></svg>
               </span>
@@ -320,32 +317,3 @@ const getStatusColor = (level: string): string => {
   </div>
 </template>
 
-<style scoped>
-.font-display {
-  font-family: 'Outfit', sans-serif;
-}
-
-.ghibli-fade-in {
-  animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.ghibli-soft-scroll::-webkit-scrollbar {
-  height: 6px;
-  width: 6px;
-}
-.ghibli-soft-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-.ghibli-soft-scroll::-webkit-scrollbar-thumb {
-  background: #e7e5e4;
-  border-radius: 10px;
-}
-.ghibli-soft-scroll::-webkit-scrollbar-thumb:hover {
-  background: #d6d3d1;
-}
-</style>

@@ -30,7 +30,7 @@ class TestAdminRoutesExtended:
             email="admin@example.com",
             name="Admin User",
             role="admin",
-            permissions=["users:read", "users:update", "roles:read", "audit:read"],
+            permissions=["*"],
         )
 
     @pytest.fixture

@@ -3,6 +3,7 @@
  */
 
 import { getEnvVar } from './env';
+import { calculateScaledDimensions } from './imageDimensions';
 
 // Image optimization settings
 export interface ImageOptimizationOptions {
@@ -39,7 +40,7 @@ function getWorker(): Worker | null {
 }
 
 // CDN configuration
-export interface CDNConfig {
+interface CDNConfig {
   enabled: boolean;
   baseUrl?: string;
   defaultParams?: Record<string, string>;
@@ -186,29 +187,7 @@ const optimizeImageMainThread = async (
 
     img.onload = (): void => {
       try {
-        let { width, height } = img;
-        const { maxWidth, maxHeight } = options;
-
-        // Resolution safety bound: max 4096px to avoid mobile browser memory OOM
-        const MAX_CANVAS_DIM = 4096;
-        if (width > MAX_CANVAS_DIM || height > MAX_CANVAS_DIM) {
-          const maxDim = Math.max(width, height);
-          width = Math.round((width * MAX_CANVAS_DIM) / maxDim);
-          height = Math.round((height * MAX_CANVAS_DIM) / maxDim);
-        }
-
-        if (maxWidth && width > maxWidth) {
-          height = (height * maxWidth) / width;
-          width = maxWidth;
-        }
-
-        if (maxHeight && height > maxHeight) {
-          width = (width * maxHeight) / height;
-          height = maxHeight;
-        }
-
-        width = Math.round(width);
-        height = Math.round(height);
+        const { width, height } = calculateScaledDimensions(img.width, img.height, options.maxWidth, options.maxHeight, 4096);
 
         canvas.width = width;
         canvas.height = height;
@@ -283,37 +262,6 @@ export const generateResponsiveSources = (
 /**
  * Create a responsive image element with proper srcset and sizes
  */
-export const createResponsiveImage = (
-  container: HTMLElement,
-  imageUrl: string,
-  alt: string,
-  options: ImageOptimizationOptions = {},
-  sizes: string = '100vw'
-): HTMLImageElement => {
-  const img = document.createElement('img');
-  img.alt = alt;
-
-  // Generate responsive sources
-  const sources = generateResponsiveSources(imageUrl, options);
-
-  // Create srcset string
-  const srcset = sources.map((source) => source.srcSet).join(', ');
-  img.srcset = srcset;
-  img.sizes = sizes;
-
-  // Set fallback src
-  img.src = isCDNAvailable() ? getCDNUrl(imageUrl, options) : imageUrl;
-
-  // Add loading optimization
-  img.loading = 'lazy';
-  img.decoding = 'async';
-
-  // Append to container
-  container.appendChild(img);
-
-  return img;
-};
-
 /**
  * Preload critical images
  */
@@ -346,24 +294,6 @@ export const preloadImage = (url: string, options?: ImageOptimizationOptions): P
 /**
  * Get image dimensions without loading the full image
  */
-export const getImageDimensions = (file: File): Promise<{ width: number; height: number }> => {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-
-    img.onload = (): void => {
-      resolve({ width: img.width, height: img.height });
-      URL.revokeObjectURL(img.src);
-    };
-
-    img.onerror = (): void => {
-      reject(new Error('Failed to load image'));
-      URL.revokeObjectURL(img.src);
-    };
-
-    img.src = URL.createObjectURL(file);
-  });
-};
-
 /**
  * Validate image file with edge case protections
  */
@@ -411,35 +341,3 @@ export const validateImageFile = (
 /**
  * Generate a thumbnail for an image
  */
-export const generateThumbnail = async (
-  file: File,
-  maxSize: number = 200,
-  quality: number = 80
-): Promise<File> => {
-  return optimizeImage(file, {
-    maxWidth: maxSize,
-    maxHeight: maxSize,
-    quality,
-    format: 'jpeg',
-  });
-};
-
-/**
- * Convert image to base64
- */
-export const imageToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = (): void => {
-      if (typeof reader.result === 'string') {
-        resolve(reader.result);
-      } else {
-        reject(new Error('Failed to convert image to base64'));
-      }
-    };
-
-    reader.onerror = (): void => reject(new Error('Failed to read file'));
-    reader.readAsDataURL(file);
-  });
-};

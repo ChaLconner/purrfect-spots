@@ -2,7 +2,6 @@
 User profile management routes
 """
 
-from datetime import UTC, datetime
 from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Path, Response, UploadFile
@@ -202,9 +201,7 @@ UsernameOrIdPath = Annotated[
     ),
 ]
 
-from uuid import UUID
-
-PhotoIdPath = Annotated[UUID, Path(title="The ID of the photo", description="Must be a valid UUID")]
+from app.routes.gallery import PhotoIdPath, schedule_photo_deletion
 
 
 async def resolve_user_by_identifier(
@@ -535,8 +532,6 @@ async def update_user_photo(
         if not valid_updates:
             raise HTTPException(status_code=400, detail="No valid data provided")
 
-        valid_updates["updated_at"] = datetime.now(UTC).isoformat()
-
         # 3. Update
         # Use admin service because we already verified ownership
         admin_supabase = await get_async_supabase_admin_client()
@@ -557,8 +552,8 @@ async def update_user_photo(
 
     except HTTPException:
         raise
-    except Exception:
-        logger.error("Failed to update photo %s", sanitize_log_value(photo_id_str))
+    except Exception as e:
+        logger.error("Failed to update photo %s: %s", sanitize_log_value(photo_id_str), str(e), exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to update photo")
 
 
@@ -584,20 +579,7 @@ async def delete_user_photo(
     """
     photo_id_str = str(photo_id)
     try:
-        # 1. Check ownership using service method
-        photo = await gallery_service.verify_photo_ownership(photo_id_str, current_user.id)
-        if not photo:
-            raise HTTPException(status_code=404, detail="Photo not found or access denied")
-
-        # 2. Schedule background deletion (same as gallery route)
-        background_tasks.add_task(
-            gallery_service.process_photo_deletion,
-            photo_id=photo_id_str,
-            image_url=photo.get("image_url") or "",
-            user_id=current_user.id,
-            storage_service=storage_service,
-        )
-
+        await schedule_photo_deletion(photo_id_str, current_user.id, gallery_service, storage_service, background_tasks)
         return PhotoDeleteResponse(message="Deletion scheduled")
 
     except HTTPException:
@@ -605,6 +587,20 @@ async def delete_user_photo(
     except Exception:
         logger.error("Failed to delete photo %s", sanitize_log_value(photo_id_str))
         raise HTTPException(status_code=500, detail="Failed to delete photo")
+
+
+async def _execute_account_deletion_action(coro: Any, log_msg: str, detail_msg: str) -> AccountDeletionResponse:
+    try:
+        return cast(AccountDeletionResponse, await coro)
+    except HTTPException:
+        raise
+    except Exception as e:
+        from app.utils.exceptions import ConflictError
+
+        if isinstance(e, ConflictError):
+            raise HTTPException(status_code=400, detail=str(e))
+        logger.error(log_msg)
+        raise HTTPException(status_code=500, detail=detail_msg)
 
 
 @router.post(
@@ -626,20 +622,11 @@ async def request_account_deletion(
         HTTPException: 500 - If account deletion request fails.
     """
     client_ip = request.client.host if request.client else "unknown"
-    try:
-        return cast(
-            AccountDeletionResponse,
-            await auth_service.user_service.request_account_deletion(user_id=current_user.id, client_ip=client_ip),
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        from app.utils.exceptions import ConflictError
-
-        if isinstance(e, ConflictError):
-            raise HTTPException(status_code=400, detail=str(e))
-        logger.error("Failed to request account deletion")
-        raise HTTPException(status_code=500, detail="Failed to process account deletion request")
+    return await _execute_account_deletion_action(
+        auth_service.user_service.request_account_deletion(user_id=current_user.id, client_ip=client_ip),
+        "Failed to request account deletion",
+        "Failed to process account deletion request",
+    )
 
 
 @router.post(
@@ -660,16 +647,8 @@ async def cancel_account_deletion(
         HTTPException: 400 - If no pending deletion request or invalid data.
         HTTPException: 500 - If cancellation fails.
     """
-    try:
-        return cast(
-            AccountDeletionResponse, await auth_service.user_service.cancel_account_deletion(user_id=current_user.id)
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        from app.utils.exceptions import ConflictError
-
-        if isinstance(e, ConflictError):
-            raise HTTPException(status_code=400, detail=str(e))
-        logger.error("Failed to cancel account deletion")
-        raise HTTPException(status_code=500, detail="Failed to cancel account deletion")
+    return await _execute_account_deletion_action(
+        auth_service.user_service.cancel_account_deletion(user_id=current_user.id),
+        "Failed to cancel account deletion",
+        "Failed to cancel account deletion",
+    )

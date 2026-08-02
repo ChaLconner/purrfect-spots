@@ -147,6 +147,33 @@ describe('Auth Store', () => {
     expect(mockApiPost).toHaveBeenCalledWith('/auth/refresh-token');
   });
 
+  it('does not expose cached auth before refresh restores an access token', async () => {
+    const user = { id: '1', email: 'stored@example.com', name: 'Stored User' };
+    localStorage.setItem('user_data', JSON.stringify(user));
+
+    let resolveRefresh: ((value: { access_token: string; user: typeof user }) => void) | undefined;
+    mockApiPost.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveRefresh = resolve;
+        })
+    );
+
+    const store = useAuthStore();
+    const initialization = store.initializeAuth();
+
+    expect(store.user).toMatchObject(user);
+    expect(store.isAuthenticated).toBe(false);
+    expect(store.isInitialized).toBe(false);
+
+    resolveRefresh?.({ access_token: 'new-token', user });
+    await initialization;
+
+    expect(store.isAuthenticated).toBe(true);
+    expect(store.isInitialized).toBe(true);
+    expect(store.token).toBe('new-token');
+  });
+
   it('initializeAuth waits for refresh when no cached user exists', async () => {
     const freshUser = { id: '1', email: 'fresh@example.com', name: 'Fresh User' };
     mockApiPost.mockResolvedValueOnce({ access_token: 'fresh-token', user: freshUser });

@@ -43,13 +43,13 @@ const isUsingFallback = ref(false);
 
 // Use the composable for loading logic
 const {
+  imageRef,
   isLoaded,
   hasError,
   isIntersecting,
   handleLoad: onInternalLoad,
   handleError: onInternalError,
   retry,
-  imageRef,
 } = useImageLoader({
   src: props.src,
   lazy: props.lazy,
@@ -115,20 +115,20 @@ const referrerPolicy = computed(() => {
   return isAvatarUrl(currentSrc.value) ? 'no-referrer' : undefined;
 });
 
-// Aspect ratio style
+// Dynamic aspect ratio is passed through a CSS variable and consumed by a Tailwind utility.
 const aspectRatioStyle = computed(() => {
   if (props.aspectRatio) {
-    return { aspectRatio: props.aspectRatio };
+    return { '--image-aspect-ratio': props.aspectRatio };
   }
   if (props.width && props.height) {
-    return { aspectRatio: `${props.width} / ${props.height}` };
+    return { '--image-aspect-ratio': `${props.width} / ${props.height}` };
   }
   return {};
 });
 </script>
 
 <template>
-  <div ref="imageRef" class="relative overflow-hidden bg-gray-100" :style="aspectRatioStyle">
+  <div ref="imageRef" class="relative aspect-[var(--image-aspect-ratio)] overflow-hidden bg-gray-100" :style="aspectRatioStyle">
     <!-- Placeholder/Skeleton -->
     <div
       v-if="!isLoaded && !hasError"
@@ -159,6 +159,7 @@ const aspectRatioStyle = computed(() => {
       :height="height"
       :loading="lazy ? 'lazy' : 'eager'"
       :decoding="lazy ? 'async' : 'auto'"
+      :fetchpriority="lazy ? 'low' : 'high'"
       :referrerpolicy="referrerPolicy"
       class="w-full h-full opacity-0 transition-opacity duration-300 ease-out"
       :class="{

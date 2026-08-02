@@ -13,7 +13,7 @@
     "test:frontend": "npm test -w frontend",
     "test:backend": "cd backend && pytest",
     "test:all": "npm run test:frontend && npm run test:backend",
-    "lint:frontend": "npm exec --prefix frontend -- eslint --config frontend/eslint.config.mjs .",
+    "lint:frontend": "npm run lint:check -w frontend",
     "lint:backend": "cd backend && ruff check .",
     "lint:all": "npm run lint:frontend && npm run lint:backend",
     "prepare": "node -e \"if (!process.env.VERCEL) try { require('child_process').execSync('husky', {stdio: 'inherit'}) } catch (e) {}\"",

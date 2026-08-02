@@ -1,12 +1,12 @@
 <template>
   <div
-    class="min-h-screen bg-sand-50/50 flex pt-16 selection:bg-terracotta-100 selection:text-terracotta-900"
+    class="min-h-screen bg-[#faf9f6] text-[#2f231f] font-body flex pt-0 md:pt-16 selection:bg-terracotta-100 selection:text-terracotta-900"
   >
     <!-- Mobile Sidebar Toggle -->
-    <div class="md:hidden fixed top-20 left-4 z-40">
+    <div class="md:hidden fixed top-4 left-4 z-[60]">
       <button
         ref="toggleButtonRef"
-        class="bg-white p-2 rounded-lg shadow-md border border-sand-200 text-brown-600 focus:outline-none focus:ring-2 focus:ring-terracotta-500"
+        class="w-11 h-11 grid place-items-center p-0 rounded-[0.875rem] bg-white border border-[#ddd5ce] text-terracotta-700 shadow-[0_5px_16px_rgba(66,33,16,0.08)] focus:outline-none focus:ring-2 focus:ring-terracotta-500"
         aria-label="Toggle Menu"
         :aria-expanded="isSidebarOpen"
         aria-controls="admin-sidebar"
@@ -32,7 +32,7 @@
     <!-- Mobile Sidebar Overlay -->
     <div
       v-if="isSidebarOpen"
-      class="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
+      class="fixed inset-0 bg-[rgba(47,35,31,0.24)] backdrop-blur-[2px] z-30 md:hidden"
       @click="isSidebarOpen = false"
     ></div>
 
@@ -40,13 +40,13 @@
     <aside
       id="admin-sidebar"
       ref="sidebarRef"
-      class="w-64 bg-white border-r border-sand-200 fixed inset-y-0 left-0 pt-16 z-40 transition-all duration-500 ease-in-out md:translate-x-0 shadow-[4px_0_24px_rgba(0,0,0,0.02)]"
+      class="w-64 bg-white border-r border-sand-200 fixed inset-y-0 left-0 pt-16 z-[55] transition-all duration-500 ease-in-out md:translate-x-0 shadow-[8px_0_28px_rgba(66,33,16,0.025)]"
       :class="isSidebarOpen ? 'translate-x-0' : '-translate-x-full'"
       tabindex="-1"
       @keydown.esc="isSidebarOpen = false"
     >
-      <div class="h-full flex flex-col">
-        <nav class="flex-1 px-4 space-y-2 mt-6">
+      <div class="h-full flex flex-col overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
+        <nav class="flex flex-col flex-1 min-h-full gap-1 px-4 pb-6 mt-6">
           <router-link
             to="/admin"
             class="flex items-center px-4 py-2 rounded-lg text-brown-600 hover:bg-sand-50 hover:text-brown-900 transition-colors group"
@@ -234,20 +234,7 @@
             active-class="bg-terracotta-50 text-terracotta-700 font-medium"
             @click="isSidebarOpen = false"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="h-5 w-5 mr-3 text-brown-400 group-hover:text-brown-500 group-[.router-link-active]:text-terracotta-500"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-              />
-            </svg>
+            <AdminNavIcon />
             {{ t('admin.nav.roleManagement') }}
           </router-link>
 
@@ -258,20 +245,7 @@
             active-class="bg-terracotta-50 text-terracotta-700 font-medium"
             @click="isSidebarOpen = false"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="h-5 w-5 mr-3 text-brown-400 group-hover:text-brown-500 group-[.router-link-active]:text-terracotta-500"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-              />
-            </svg>
+            <AdminNavIcon />
             {{ t('admin.nav.security') }}
           </router-link>
 
@@ -327,10 +301,10 @@
 
     <!-- Main Content -->
     <div class="flex-1 flex flex-col md:pl-64 min-w-0 transition-all duration-500 ease-in-out">
-      <main class="flex-1 py-6 px-4 sm:px-6 lg:px-8 mt-4 md:mt-0 max-w-7xl mx-auto w-full">
+      <main class="flex-1 pt-20 pb-6 px-4 sm:px-6 lg:px-8 mt-4 md:pt-6 md:mt-0 max-w-7xl mx-auto w-full">
         <!-- Dashboard Content Container with subtle fade-in and Error Boundary fallback -->
-        <div class="animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <div v-if="hasViewError" class="p-6 bg-red-50 border border-red-200 rounded-xl text-red-700">
+        <div class="w-full max-w-[100rem] mx-auto animate-[fade-in-up_0.7s_ease-out_forwards]">
+          <div v-if="hasViewError" class="rounded-xl border border-red-200 bg-red-50 p-6 text-red-700">
             <h3 class="text-lg font-bold mb-2">View Load Error</h3>
             <p class="text-sm mb-4">{{ viewErrorMessage || 'An unexpected error occurred in this view.' }}</p>
             <button
@@ -353,6 +327,7 @@ import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '@/stores/authStore';
 import { useAdminStore } from '@/stores/adminStore';
 import { PERMISSIONS } from '@/constants/permissions';
+import AdminNavIcon from '@/components/admin/AdminNavIcon.vue';
 
 const { t } = useI18n();
 const authStore = useAuthStore();
@@ -370,7 +345,7 @@ onErrorCaptured((err: unknown) => {
   return false;
 });
 
-function resetViewError() {
+function resetViewError(): void {
   hasViewError.value = false;
   viewErrorMessage.value = '';
 }
@@ -381,7 +356,7 @@ function canAccess(permission: string): boolean {
   return authStore.isAdmin || authStore.hasPermission(permission);
 }
 
-function handleKeydown(event: KeyboardEvent) {
+function handleKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape' && isSidebarOpen.value) {
     isSidebarOpen.value = false;
     toggleButtonRef.value?.focus();

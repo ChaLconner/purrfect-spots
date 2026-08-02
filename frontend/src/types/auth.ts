@@ -17,7 +17,6 @@ export interface User {
   banned_at?: string;
   deleted_at?: string;
 }
-
 export interface LoginResponse {
   access_token?: string;
   token_type?: string;
@@ -25,11 +24,4 @@ export interface LoginResponse {
   message?: string;
   requires_verification?: boolean;
   email?: string;
-}
-
-export interface AuthState {
-  user: User | null;
-  token: string | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
 }

@@ -1,3 +1,5 @@
+import { calculateScaledDimensions } from '../utils/imageDimensions';
+
 // Dedicated worker for image optimization.
 interface WorkerOptions {
   maxWidth?: number;
@@ -33,21 +35,7 @@ self.onmessage = async (e: MessageEvent<WorkerMessageData>): Promise<void> => {
     const bitmap = await self.createImageBitmap(file);
 
     try {
-      let { width, height } = bitmap;
-      const { maxWidth, maxHeight } = options;
-
-      if (maxWidth && width > maxWidth) {
-        height = (height * maxWidth) / width;
-        width = maxWidth;
-      }
-
-      if (maxHeight && height > maxHeight) {
-        width = (width * maxHeight) / height;
-        height = maxHeight;
-      }
-
-      width = Math.round(width);
-      height = Math.round(height);
+      const { width, height } = calculateScaledDimensions(bitmap.width, bitmap.height, options.maxWidth, options.maxHeight, 4096);
 
       const canvas = new OffscreenCanvas(width, height);
       const ctx = canvas.getContext('2d');

@@ -3,6 +3,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.utils.db_security import stringify_uuid
+
 
 class CatLocation(BaseModel):
     id: str
@@ -22,6 +24,4 @@ class CatLocation(BaseModel):
     @classmethod
     def stringify_uuid_fields(cls, value: str | UUID | None) -> str | None:
         """Normalize UUID objects from DB clients into API-safe string IDs."""
-        if isinstance(value, UUID):
-            return str(value)
-        return value
+        return stringify_uuid(value)

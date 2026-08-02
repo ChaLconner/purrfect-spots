@@ -13,6 +13,7 @@ from app.dependencies import (
 from app.limiter import limiter
 from app.logger import logger
 from app.middleware.auth_middleware import require_permission
+from app.routes.admin.helpers import CommonPagination, fetch_cached_admin_list, fetch_photo_by_id
 from app.schemas.admin_schemas import BulkReportUpdate, ReportResolutionUpdate
 from app.schemas.user import User
 from app.services.email_service import EmailService
@@ -24,12 +25,34 @@ from app.utils.audit_logger import log_admin_action
 
 router = APIRouter()
 
-from app.utils.db_security import validate_uuid
+from app.utils.db_security import validate_or_raise_uuid as _validate_uuid
 
 
-def _validate_uuid(value: str, label: str = "ID") -> None:
-    if not validate_uuid(value):
-        raise HTTPException(status_code=400, detail=f"Invalid {label} format: expected UUID")
+def _schedule_photo_deletion_and_notification(
+    background_tasks: BackgroundTasks,
+    photo_id: str,
+    image_url: str,
+    user_id: str,
+    gallery_service: GalleryService,
+    notification_service: NotificationService,
+) -> None:
+    background_tasks.add_task(
+        gallery_service.process_photo_deletion,
+        photo_id=photo_id,
+        image_url=image_url,
+        user_id=user_id,
+        storage_service=storage_service,
+    )
+    if user_id:
+        background_tasks.add_task(
+            notification_service.create_notification,
+            user_id=user_id,
+            type="system",
+            title="Content Removed",
+            message="Your photo has been removed by a moderator due to a violation of our community guidelines.",
+            resource_id=photo_id,
+            resource_type="photo",
+        )
 
 
 def _reports_cache_key(
@@ -55,8 +78,7 @@ async def _invalidate_reports_cache() -> None:
 @limiter.limit("60/minute")
 async def list_reports(
     request: Request,
-    limit: Annotated[int, Query(ge=1, le=1000)] = 50,
-    offset: Annotated[int, Query(ge=0)] = 0,
+    pagination: Annotated[CommonPagination, Depends()],
     status: Annotated[str | None, Query()] = None,
     reason: Annotated[str | None, Query()] = None,
     start_date: Annotated[str | None, Query()] = None,
@@ -72,12 +94,9 @@ async def list_reports(
         HTTPException: 500 - If fetching reports fails.
     """
     try:
-        cache_key = _reports_cache_key(limit, offset, status, reason, start_date, end_date, reporter_id)
-        if not cache_bust:
-            cached = await redis_service.get(cache_key)
-            if cached is not None:
-                return cast(dict[str, Any], cached)
-
+        cache_key = _reports_cache_key(
+            pagination.limit, pagination.offset, status, reason, start_date, end_date, reporter_id
+        )
         admin_client = await get_async_supabase_admin_client()
         query = (
             admin_client.table("reports")
@@ -85,7 +104,7 @@ async def list_reports(
                 "*, reporter:users!reporter_id(email), photo:cat_photos(image_url, location_name)",
                 count=CountMethod.exact,
             )
-            .range(offset, offset + limit - 1)
+            .range(pagination.offset, pagination.offset + pagination.limit - 1)
             .order("created_at", desc=True)
         )
 
@@ -100,11 +119,7 @@ async def list_reports(
         if reporter_id:
             query = query.eq("reporter_id", reporter_id)
 
-        result = await query.execute()
-        response = {"data": result.data, "total": result.count}
-        if not cache_bust:
-            await redis_service.set(cache_key, response, expire=60)
-        return response
+        return await fetch_cached_admin_list(cache_key, bool(cache_bust), 60, query)
     except Exception as e:
         logger.error("Failed to list reports: %s", e)
         raise HTTPException(status_code=500, detail=f"Failed to fetch reports: {e}")
@@ -146,40 +161,19 @@ async def update_report(
             photo_id = report_check.data.get("photo_id")
 
             if photo_id:
-                photo_check = (
-                    await admin_client.table("cat_photos")
-                    .select("id, image_url, user_id")
-                    .eq("id", photo_id)
-                    .single()
-                    .execute()
-                )
-
-                if photo_check.data:
-                    assert isinstance(photo_check.data, dict)
-                    photo_data = photo_check.data
-
-                    # Schedule deletion
-                    background_tasks.add_task(
-                        gallery_service.process_photo_deletion,
+                photo_data = await fetch_photo_by_id(admin_client, str(photo_id))
+                if photo_data:
+                    _schedule_photo_deletion_and_notification(
+                        background_tasks,
                         photo_id=str(photo_id),
                         image_url=str(photo_data.get("image_url") or ""),
                         user_id=str(photo_data.get("user_id") or ""),
-                        storage_service=storage_service,
+                        gallery_service=gallery_service,
+                        notification_service=notification_service,
                     )
 
-                    # Notify Owner
                     user_id = photo_data.get("user_id")
                     if user_id:
-                        background_tasks.add_task(
-                            notification_service.create_notification,
-                            user_id=str(user_id),
-                            type="system",
-                            title="Content Removed",
-                            message="Your photo has been removed by a moderator due to a violation of our community guidelines.",
-                            resource_id=str(photo_id),
-                            resource_type="photo",
-                        )
-
                         user_check = (
                             await admin_client.table("users").select("email").eq("id", str(user_id)).single().execute()
                         )
@@ -289,25 +283,14 @@ async def bulk_update_reports(
                     photo_id = photo.get("id")
                     processed_photos.add(photo_id)
 
-                    background_tasks.add_task(
-                        gallery_service.process_photo_deletion,
+                    _schedule_photo_deletion_and_notification(
+                        background_tasks,
                         photo_id=str(photo_id),
                         image_url=str(photo.get("image_url") or ""),
                         user_id=str(photo.get("user_id") or ""),
-                        storage_service=storage_service,
+                        gallery_service=gallery_service,
+                        notification_service=notification_service,
                     )
-
-                    user_id = photo.get("user_id")
-                    if user_id:
-                        background_tasks.add_task(
-                            notification_service.create_notification,
-                            user_id=str(user_id),
-                            type="system",
-                            title="Content Removed",
-                            message="Your photo has been removed by a moderator due to a violation of our community guidelines.",
-                            resource_id=str(photo_id),
-                            resource_type="photo",
-                        )
 
                     await log_admin_action(
                         admin_client=admin_client,

@@ -77,10 +77,9 @@ import { ANIMATION_CONFIG } from '@/utils/constants';
 const catsStore = useCatsStore();
 
 // Local search state for debouncing
-const localSearchQuery = ref(catsStore.gallerySearchQuery);
+import { useDebounceFn } from '@/composables/useDebounce';
 
-// Debounce timer
-let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+const localSearchQuery = ref(catsStore.gallerySearchQuery);
 
 // Sync from store on mount
 onMounted(() => {
@@ -98,31 +97,19 @@ watch(
 );
 
 // Debounced search handler
-function handleSearchInput(): void {
-  // Clear existing timer
-  if (debounceTimer) {
-    clearTimeout(debounceTimer);
-  }
-
-  // Set new timer with debounce delay
-  debounceTimer = setTimeout(() => {
-    catsStore.setGallerySearchQuery(localSearchQuery.value);
-  }, ANIMATION_CONFIG.DEBOUNCE_DELAY_MS);
-}
+const handleSearchInput = useDebounceFn(() => {
+  catsStore.setGallerySearchQuery(localSearchQuery.value);
+}, ANIMATION_CONFIG.DEBOUNCE_DELAY_MS);
 
 // Clear search immediately
 function clearSearch(): void {
   localSearchQuery.value = '';
-  if (debounceTimer) {
-    clearTimeout(debounceTimer);
-  }
+  handleSearchInput.cancel();
   catsStore.setGallerySearchQuery('');
 }
 
 // Cleanup timer on unmount
 onUnmounted(() => {
-  if (debounceTimer) {
-    clearTimeout(debounceTimer);
-  }
+  handleSearchInput.cancel();
 });
 </script>

@@ -1,0 +1,56 @@
+"""Periodic Stripe-to-database subscription reconciliation."""
+
+import asyncio
+import contextlib
+
+from app.config import config
+from app.logger import logger
+from app.services.subscription_service import SubscriptionService
+from app.utils.supabase_client import get_async_supabase_admin_client
+
+
+async def reconcile_subscriptions_once() -> None:
+    """Run one best-effort reconciliation pass."""
+    admin_client = await get_async_supabase_admin_client()
+    summary = await SubscriptionService(admin_client).reconcile_all_subscriptions()
+    logger.info("Subscription reconciliation complete: %s", summary)
+
+
+async def _subscription_reconciliation_job() -> None:
+    while True:
+        try:
+            await reconcile_subscriptions_once()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            # Keep scheduler alive; next pass retries transient Stripe/DB errors.
+            logger.error("Subscription reconciliation job failed", exc_info=True)
+        await asyncio.sleep(config.SUBSCRIPTION_RECONCILIATION_INTERVAL_SECONDS)
+
+
+_subscription_reconciliation_task: asyncio.Task | None = None
+
+
+async def start_subscription_reconciliation_job() -> None:
+    """Start one reconciliation task per application process."""
+    global _subscription_reconciliation_task
+    if not config.ENABLE_SUBSCRIPTION_RECONCILIATION:
+        logger.info("Subscription reconciliation disabled")
+        return
+    if _subscription_reconciliation_task is None:
+        _subscription_reconciliation_task = asyncio.create_task(_subscription_reconciliation_job())
+        logger.info(
+            "Started subscription reconciliation every %s seconds",
+            config.SUBSCRIPTION_RECONCILIATION_INTERVAL_SECONDS,
+        )
+
+
+async def stop_subscription_reconciliation_job() -> None:
+    """Cancel the reconciliation task during application shutdown."""
+    global _subscription_reconciliation_task
+    task = _subscription_reconciliation_task
+    _subscription_reconciliation_task = None
+    if task is not None:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task

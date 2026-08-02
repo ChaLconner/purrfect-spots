@@ -1,4 +1,4 @@
-export interface CatDetected {
+interface CatDetected {
   description: string;
   breed_guess: string;
   position: string;

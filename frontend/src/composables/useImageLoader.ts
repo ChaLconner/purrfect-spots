@@ -25,6 +25,7 @@ export function useImageLoader(options: UseImageLoaderOptions): UseImageLoaderRe
   const isIntersecting = ref(!lazy);
   const imageRef = ref<HTMLElement | null>(null);
   let observer: IntersectionObserver | null = null;
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
   const handleLoad = (): void => {
     isLoaded.value = true;
@@ -36,6 +37,7 @@ export function useImageLoader(options: UseImageLoaderOptions): UseImageLoaderRe
   };
 
   const retry = (): void => {
+    if (retryTimer) clearTimeout(retryTimer);
     hasError.value = false;
     isLoaded.value = false;
     // Force re-render if needed, but usually src change or just retry logic in component handles it.
@@ -43,7 +45,8 @@ export function useImageLoader(options: UseImageLoaderOptions): UseImageLoaderRe
     // but usually user clicks retry.
     if (lazy) {
       isIntersecting.value = false;
-      setTimeout(() => {
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
         isIntersecting.value = true;
       }, 100);
     }
@@ -85,6 +88,7 @@ export function useImageLoader(options: UseImageLoaderOptions): UseImageLoaderRe
       if (observer) {
         observer.disconnect();
       }
+      if (retryTimer) clearTimeout(retryTimer);
     });
   }
 

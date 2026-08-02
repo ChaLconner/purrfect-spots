@@ -13,5 +13,3 @@
 <script setup lang="ts">
 // No logic needed for static footer
 </script>
-
-<style scoped></style>

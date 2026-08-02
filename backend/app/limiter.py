@@ -8,15 +8,16 @@ Features:
 - Different rate limits for different endpoint types
 """
 
+import os
 from typing import Any, cast
 
-import jwt
 from fastapi import Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.config import config
 from app.logger import logger
+from app.utils.auth_utils import decode_token, extract_bearer_token
 
 
 def get_redis_url() -> str | None:
@@ -91,39 +92,46 @@ def get_storage_uri() -> str | None:
     """
     redis_url = get_redis_url()
 
+    if config.is_production() and not redis_url:
+        raise RuntimeError("REDIS_URL is required in production environment")
+
+    # Do not block application import on a network round-trip. Redis storage
+    # validates lazily on first rate-limited request; opt into startup probing
+    # for deployments that prefer fail-fast diagnostics.
+    if redis_url and os.getenv("RATE_LIMITER_STARTUP_PING", "false").lower() == "true":
+        if test_redis_connection(redis_url):
+            return redis_url
+        logger.warning("Redis startup probe failed; using in-memory rate limiting (memory://)")
+        return "memory://"
+
     if redis_url:
-        # Optimization: Do not test redis connection synchronously on module import
+        logger.info("Redis configured for rate limiting; startup probe skipped")
         return redis_url
 
-    if config.is_production():
-        raise RuntimeError("REDIS_URL is required in production for distributed rate limiting")
-
-    logger.info("Using in-memory storage for rate limiting")
+    logger.warning("Falling back to in-memory rate limiting (memory://)")
     return "memory://"
+
+
+def _decode_request_jwt(request: Request) -> dict[str, Any] | None:
+    """Extract and decode Bearer JWT payload from request headers."""
+    auth_header = request.headers.get("Authorization", "")
+    token = extract_bearer_token(auth_header)
+    if token:
+        try:
+            return decode_token(token)
+        except Exception as e:
+            logger.debug(f"Failed to extract/decode JWT: {e}")
+    return None
 
 
 def get_user_tier(request: Request) -> str:
     """
     Extract user tier from JWT. Defaults to 'free'.
     """
-    auth_header = request.headers.get("Authorization", "")
-    if auth_header.startswith("Bearer "):
-        try:
-            token = auth_header.split(" ")[1]
-            if config.JWT_SECRET:
-                payload = jwt.decode(
-                    token,
-                    config.JWT_SECRET,
-                    algorithms=[config.JWT_ALGORITHM],
-                    options={"verify_signature": True, "verify_exp": True},
-                )
-                # Check for tier in app_metadata or user_metadata (Supabase standard)
-                # Supabase often puts it in app_metadata
-                app_metadata = payload.get("app_metadata", {})
-                return str(app_metadata.get("tier", "free")).lower()
-        except Exception as e:
-            logger.debug(f"Failed to extract user tier from JWT: {e}")
-            # pass
+    payload = _decode_request_jwt(request)
+    if payload:
+        app_metadata = payload.get("app_metadata", {})
+        return str(app_metadata.get("tier", "free")).lower()
     return "free"
 
 
@@ -134,25 +142,12 @@ def get_user_id_from_request(request: Request) -> str:
     Includes user tier in the identifier to support dynamic rate limits.
     """
     tier = get_user_tier(request)
-    auth_header = request.headers.get("Authorization", "")
-    if auth_header.startswith("Bearer "):
-        try:
-            token = auth_header.split(" ")[1]
-            if config.JWT_SECRET:
-                payload = jwt.decode(
-                    token,
-                    config.JWT_SECRET,
-                    algorithms=[config.JWT_ALGORITHM],
-                    options={"verify_signature": True, "verify_exp": True},
-                )
-                user_id = payload.get("sub") or payload.get("user_id")
-                if user_id:
-                    clean_user_id = "".join(c for c in str(user_id) if c.isalnum() or c in "-_@.")
-                    # Return user identifier WITH tier for dynamic limit resolution
-                    return f"user:{clean_user_id[0:128]}:{tier}"
-        except Exception as e:
-            logger.debug(f"Failed to extract user ID from JWT: {e}")
-            # pass
+    payload = _decode_request_jwt(request)
+    if payload:
+        user_id = payload.get("sub") or payload.get("user_id")
+        if user_id:
+            clean_user_id = "".join(c for c in str(user_id) if c.isalnum() or c in "-_@.")
+            return f"user:{clean_user_id[0:128]}:{tier}"
 
     # Fallback to IP address with tier
     return f"{get_remote_address(request)}:{tier}"

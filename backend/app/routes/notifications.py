@@ -18,9 +18,10 @@ async def get_notifications(
     service: Annotated[NotificationService, Depends(get_notification_service)],
     limit: int = Query(20, ge=1, le=50),
     offset: int = Query(0, ge=0),
+    before: str | None = Query(None, max_length=64),
 ) -> list[NotificationResponse]:
     """Get user notifications."""
-    return cast(list[NotificationResponse], await service.get_notifications(current_user.id, limit, offset))
+    return cast(list[NotificationResponse], await service.get_notifications(current_user.id, limit, offset, before))
 
 
 @router.get("/unread-count", response_model=NotificationUnreadCountResponse)

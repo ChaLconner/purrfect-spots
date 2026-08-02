@@ -1,14 +1,10 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
-
-def _stringify_uuid(value: str | UUID | None) -> str | None:
-    """Normalize UUID objects from DB clients into API-safe string IDs."""
-    if isinstance(value, UUID):
-        return str(value)
-    return value
+from app.utils.db_security import stringify_uuid
 
 
 class GiveTreatRequest(BaseModel):
@@ -17,7 +13,13 @@ class GiveTreatRequest(BaseModel):
 
 
 class PurchaseTreatsRequest(BaseModel):
-    package: str  # 'small' (5), 'medium' (20), 'large' (50)
+    package: str = Field(
+        ...,
+        min_length=1,
+        max_length=50,
+        pattern=r"^[a-zA-Z0-9_-]+$",
+        description="Package identifier (e.g. 'small', 'medium', 'large')",
+    )
 
 
 class TreatTransaction(BaseModel):
@@ -32,7 +34,7 @@ class TreatTransaction(BaseModel):
     @field_validator("id", "photo_id", "from_user_id", "to_user_id", mode="before")
     @classmethod
     def stringify_uuid_fields(cls, value: str | UUID | None) -> str | None:
-        return _stringify_uuid(value)
+        return stringify_uuid(value)
 
 
 class TreatBalanceResponse(BaseModel):
@@ -51,7 +53,18 @@ class GiveTreatResponse(BaseModel):
 class CheckoutUrlResponse(BaseModel):
     """Response containing a Stripe checkout URL."""
 
-    url: str
+    checkout_url: str = ""
+    url: str = ""
+    session_id: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def populate_url_fields(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            url_val = data.get("checkout_url") or data.get("url") or ""
+            data["checkout_url"] = url_val
+            data["url"] = url_val
+        return data
 
 
 class TreatPackageInfo(BaseModel):
@@ -61,12 +74,6 @@ class TreatPackageInfo(BaseModel):
     amount: int
     price: float | None = None
     price_id: str | None = None
-
-
-class TreatPackagesResponse(BaseModel):
-    """Response containing available treat packages."""
-
-    packages: dict[str, TreatPackageInfo] = Field(default_factory=dict)
 
 
 class LeaderboardEntry(BaseModel):
@@ -81,4 +88,4 @@ class LeaderboardEntry(BaseModel):
     @field_validator("id", mode="before")
     @classmethod
     def stringify_uuid_field(cls, value: str | UUID | None) -> str | None:
-        return _stringify_uuid(value)
+        return stringify_uuid(value)

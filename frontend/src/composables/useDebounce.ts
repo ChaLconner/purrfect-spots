@@ -52,7 +52,7 @@ export function useDebounce<T>(value: Ref<T>, delay: number = 300): Ref<T> {
 export function useDebounceFn<T extends (...args: Parameters<T>) => ReturnType<T>>(
   fn: T,
   delay: number = 300
-): (...args: Parameters<T>) => void {
+): ((...args: Parameters<T>) => void) & { cancel: () => void } {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
   const debouncedFn = (...args: Parameters<T>): void => {

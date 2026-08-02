@@ -2,7 +2,7 @@
 Cat detection API routes using Google Cloud Vision
 """
 
-from typing import Any
+from typing import Any, NoReturn, cast
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
@@ -29,31 +29,44 @@ from app.schemas.user import User
 from app.services.cat_detection_service import CatDetectionService
 
 
+async def _process_cat_image(file: UploadFile, user_id: str) -> bytes:
+    """Validate and process uploaded cat image with standard bounds."""
+    contents, _, _ = await process_uploaded_image(
+        file,
+        max_size_mb=config.UPLOAD_MAX_SIZE_MB,
+        optimize=True,
+        max_dimension=config.UPLOAD_MAX_DIMENSION,
+        user_id=user_id,
+    )
+    return cast(bytes, contents)
+
+
+def _handle_detection_error(e: Exception, action_name: str) -> NoReturn:
+    """Handle and log errors for cat detection endpoints."""
+    if isinstance(e, HTTPException):
+        raise e
+    logger.error("%s error: %s", action_name, e)
+    raise HTTPException(status_code=500, detail=f"{action_name} failed due to an internal error")
+
+
 @router.post("/cats", response_model=CatDetectionResult)
 @strict_limiter.limit(get_strict_limit)
-async def detect_cats_in_image(
+async def detect_cats_endpoint(
     request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
     detection_service: Annotated[CatDetectionService, Depends(get_cat_detection_service)],
     file: Annotated[UploadFile, File(...)],
 ) -> dict[str, Any]:
     """
-    Detect cats in images using Google Cloud Vision API.
+    Detect cats in an uploaded image using Google Cloud Vision API.
     Rate Limit: 5 requests per minute per user.
 
     Raises:
         HTTPException: 413 - If file size exceeds 10MB.
         HTTPException: 415 - If file type is unsupported.
-        HTTPException: 500 - If detection fails due to an internal error.
+        HTTPException: 500 - If cat detection fails due to an internal error.
     """
-    # Validate and read file using shared utility
-    contents, _, _ = await process_uploaded_image(
-        file,
-        max_size_mb=config.UPLOAD_MAX_SIZE_MB,
-        optimize=True,
-        max_dimension=config.UPLOAD_MAX_DIMENSION,
-        user_id=str(current_user.id),
-    )
+    contents = await _process_cat_image(file, str(current_user.id))
     file_size = len(contents)
 
     try:
@@ -83,11 +96,8 @@ async def detect_cats_in_image(
         logger.info(f"Cat detection completed for {file.filename} by {current_user.email}")
         return result
 
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error("Detection failed: %s", e)
-        raise HTTPException(status_code=500, detail="Detection failed due to an internal error")
+        _handle_detection_error(e, "Detection")
 
 
 @router.post("/spot-analysis", response_model=SpotAnalysisResult)
@@ -107,14 +117,7 @@ async def analyze_cat_spot(
         HTTPException: 415 - If file type is unsupported.
         HTTPException: 500 - If spot analysis fails due to an internal error.
     """
-    # Validate and read file using shared utility
-    contents, _, _ = await process_uploaded_image(
-        file,
-        max_size_mb=config.UPLOAD_MAX_SIZE_MB,
-        optimize=True,
-        max_dimension=config.UPLOAD_MAX_DIMENSION,
-        user_id=str(current_user.id),
-    )
+    contents = await _process_cat_image(file, str(current_user.id))
 
     try:
         # Analyze spot using pre-read contents
@@ -126,11 +129,8 @@ async def analyze_cat_spot(
         logger.info(f"Spot analysis completed for {file.filename} by {current_user.email}")
         return result
 
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error("Spot analysis error: %s", e)
-        raise HTTPException(status_code=500, detail="Spot analysis failed due to an internal error")
+        _handle_detection_error(e, "Spot analysis")
 
 
 @router.post("/combined", response_model=CombinedAnalysisResult)
@@ -150,14 +150,7 @@ async def combined_cat_and_spot_analysis(
         HTTPException: 415 - If file type is unsupported.
         HTTPException: 500 - If combined analysis fails due to an internal error.
     """
-    # Validate and read file using shared utility
-    contents, _, _ = await process_uploaded_image(
-        file,
-        max_size_mb=config.UPLOAD_MAX_SIZE_MB,
-        optimize=True,
-        max_dimension=config.UPLOAD_MAX_DIMENSION,
-        user_id=str(current_user.id),
-    )
+    contents = await _process_cat_image(file, str(current_user.id))
     file_size = len(contents)
 
     try:
@@ -186,11 +179,8 @@ async def combined_cat_and_spot_analysis(
         logger.info(f"Combined analysis completed for {file.filename} by {current_user.email}")
         return result
 
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error("Combined analysis error: %s", e)
-        raise HTTPException(status_code=500, detail="Combined analysis failed due to an internal error")
+        _handle_detection_error(e, "Combined analysis")
 
 
 # Test endpoints removed for security

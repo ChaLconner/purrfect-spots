@@ -32,7 +32,7 @@ const { t, locale } = useI18n();
 
 const formatJoinDate = (dateString?: string): string => {
   if (!dateString) return t('common.unknown');
-  return formatDate(dateString, { year: 'numeric', month: 'long' }, locale);
+  return formatDate(dateString, { year: 'numeric', month: 'long' }, locale.value);
 };
 
 const formatLocalDate = (dateString?: string | null): string => {
@@ -41,7 +41,7 @@ const formatLocalDate = (dateString?: string | null): string => {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
-  }, locale);
+  }, locale.value);
 };
 </script>
 

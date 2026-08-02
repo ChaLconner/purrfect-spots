@@ -10,20 +10,11 @@
  * 3. Memoized filtering
  */
 import { defineStore } from 'pinia';
-import { ref, computed, watch } from 'vue';
+import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue';
 
 // Re-export CatLocation from generated/api.ts (single source of truth)
 export type { CatLocation } from '../types/api';
-import type { CatLocation } from '../types/api';
-
-export interface PaginationMeta {
-  total: number;
-  limit: number;
-  offset: number;
-  has_more: boolean;
-  page: number;
-  total_pages: number;
-}
+import type { CatLocation, PaginationMeta } from '../types/api';
 
 export interface TagInfo {
   tag: string;
@@ -33,8 +24,9 @@ export interface TagInfo {
 // ========== Store Definition ==========
 export const useCatsStore = defineStore('cats', () => {
   // ========== State ==========
-  const locations = ref<CatLocation[]>([]);
-  const galleryLocations = ref<CatLocation[]>([]);
+  // Location records are replaced as immutable pages; avoid deep proxying every field.
+  const locations = shallowRef<CatLocation[]>([]);
+  const galleryLocations = shallowRef<CatLocation[]>([]);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
 
@@ -60,7 +52,7 @@ export const useCatsStore = defineStore('cats', () => {
   // ========== Persistence ==========
   // OPTIMIZATION: Async loading to avoid blocking main thread on boot
   if (typeof window !== 'undefined') {
-    setTimeout(() => {
+    const restoreCache = (): void => {
       try {
         const savedMap = localStorage.getItem('cats_store_cache');
         if (savedMap) {
@@ -80,7 +72,13 @@ export const useCatsStore = defineStore('cats', () => {
       } catch {
         // Ignore restoration errors
       }
-    }, 0);
+    };
+
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(restoreCache, { timeout: 1000 });
+    } else {
+      setTimeout(restoreCache, 0);
+    }
   }
 
   // OPTIMIZATION: Debounced localStorage write to avoid blocking main thread
@@ -107,7 +105,7 @@ export const useCatsStore = defineStore('cats', () => {
         }
       }, LOCAL_STORAGE_DEBOUNCE_MS);
     },
-    { deep: false } // OPTIMIZATION: Shallow watch - only trigger when array reference changes
+    { deep: false }
   );
 
   watch(
@@ -147,6 +145,20 @@ export const useCatsStore = defineStore('cats', () => {
    * Usage: Primary for Map View filtering
    * OPTIMIZATION: Memoized for better performance
    */
+  const searchableLocations = computed(() =>
+    locations.value.map((cat) => ({
+      cat,
+      locationName: cat.location_name?.toLowerCase() ?? '',
+      description: cat.description?.toLowerCase() ?? '',
+      tags: cat.tags?.map((tag) => tag.toLowerCase()) ?? [],
+    }))
+  );
+
+  onScopeDispose(() => {
+    if (mapStorageWriteTimer) clearTimeout(mapStorageWriteTimer);
+    if (galleryStorageWriteTimer) clearTimeout(galleryStorageWriteTimer);
+  });
+
   const filteredLocations = computed(() => {
     if (!searchQuery.value.trim()) {
       return locations.value;
@@ -156,15 +168,16 @@ export const useCatsStore = defineStore('cats', () => {
     const normalizedQuery = rawQuery.replace(/^#/, '');
     const hashtagQuery = `#${normalizedQuery}`;
 
-    return locations.value.filter((cat) => {
-      const locationMatch = cat.location_name?.toLowerCase().includes(normalizedQuery);
-      const descriptionLower = cat.description?.toLowerCase() || '';
-      const descriptionMatch = descriptionLower.includes(normalizedQuery);
-      const hashtagMatch = descriptionLower.includes(hashtagQuery);
-      const tagMatch = cat.tags?.some((tag) => tag.toLowerCase().includes(normalizedQuery));
+    return searchableLocations.value
+      .filter(({ locationName, description, tags }) => {
+        const locationMatch = locationName.includes(normalizedQuery);
+        const descriptionMatch = description.includes(normalizedQuery);
+        const hashtagMatch = description.includes(hashtagQuery);
+        const tagMatch = tags.some((tag) => tag.includes(normalizedQuery));
 
-      return locationMatch || descriptionMatch || hashtagMatch || tagMatch;
-    });
+        return locationMatch || descriptionMatch || hashtagMatch || tagMatch;
+      })
+      .map(({ cat }) => cat);
   });
 
   const filteredCount = computed(() => filteredLocations.value.length);

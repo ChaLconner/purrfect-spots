@@ -18,10 +18,10 @@ import type {
 import { isBrowserExtensionError, handleBrowserExtensionError } from './browserExtensionHandler';
 import { getEnvVar } from './env';
 import { getCsrfToken } from './csrf';
+import type { PaginationParams } from '../types/api';
 
-import { ApiError, ApiErrorTypes } from './apiErrors';
-export { ApiError, ApiErrorTypes };
-export type { ApiErrorType } from './apiErrors';
+import { ApiError, ApiErrorTypes, formatApiErrorMessage } from './apiErrors';
+export { ApiError, ApiErrorTypes, formatApiErrorMessage };
 
 // ========== State & Callbacks (Break Circular Dependencies) ==========
 // In-memory access token (not exposed to window/global)
@@ -39,33 +39,13 @@ export const setAuthCallbacks = (refreshFn: () => Promise<boolean>, logoutFn: ()
 };
 
 // ========== API Configuration ==========
-export const API_VERSION = 'v1';
-export const API_PREFIX = `/api/${API_VERSION}`;
+const API_VERSION = 'v1';
+const API_PREFIX = `/api/${API_VERSION}`;
 
 // Endpoints that should never trigger the 401 refresh interceptor
 const AUTH_ENDPOINTS = ['/auth/refresh-token', '/auth/login', '/auth/register', '/auth/logout'];
 
 // ========== Pagination Types ==========
-export interface PaginationParams {
-  limit?: number;
-  offset?: number;
-  page?: number;
-}
-
-export interface PaginationMeta {
-  total: number;
-  limit: number;
-  offset: number;
-  has_more: boolean;
-  page: number;
-  total_pages: number;
-}
-
-export interface PaginatedResponse<T> {
-  images: T[];
-  pagination: PaginationMeta;
-}
-
 // ========== Helpers ==========
 const SAME_ORIGIN_API_BASE_URL = '';
 
@@ -212,7 +192,7 @@ const createApiInstance = (): AxiosInstance => {
   instance.interceptors.response.use(
     (response): AxiosResponse => {
       const contentType = response.headers['content-type'];
-      if (contentType && !contentType.includes('application/json')) {
+      if (typeof contentType === 'string' && !contentType.includes('application/json')) {
         // Warn removed
         if (typeof response.data === 'string') {
           try {
@@ -397,6 +377,17 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
   retryableStatuses: [408, 429, 502, 503, 504],
 };
 
+const inFlightGetRequests = new Map<string, Promise<unknown>>();
+
+function getRequestDedupeKey(endpoint: string, options: AxiosRequestConfig): string | null {
+  if ((options.method ?? 'GET').toString().toUpperCase() !== 'GET' || options.signal) return null;
+  try {
+    return JSON.stringify([endpoint, options.params ?? null, currentAccessToken]);
+  } catch {
+    return null;
+  }
+}
+
 function calculateBackoffDelay(attempt: number, config: RetryConfig): number {
   const exponentialDelay = config.baseDelayMs * Math.pow(2, attempt);
   // nosec typescript:S2245 - Math.random() is intentional for retry jitter timing
@@ -432,7 +423,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export const apiRequest = async <T = unknown>(
+const requestWithRetry = async <T = unknown>(
   endpoint: string,
   options: AxiosRequestConfig = {},
   retryConfig: Partial<RetryConfig> = {}
@@ -483,6 +474,30 @@ export const apiRequest = async <T = unknown>(
     }
   }
   throw lastError;
+};
+
+export const apiRequest = async <T = unknown>(
+  endpoint: string,
+  options: AxiosRequestConfig = {},
+  retryConfig: Partial<RetryConfig> = {}
+): Promise<T> => {
+  const dedupeKey = getRequestDedupeKey(endpoint, options);
+  if (!dedupeKey) {
+    return requestWithRetry<T>(endpoint, options, retryConfig);
+  }
+
+  const existing = inFlightGetRequests.get(dedupeKey);
+  if (existing) return existing as Promise<T>;
+
+  const request = requestWithRetry<T>(endpoint, options, retryConfig);
+  inFlightGetRequests.set(dedupeKey, request);
+  try {
+    return await request;
+  } finally {
+    if (inFlightGetRequests.get(dedupeKey) === request) {
+      inFlightGetRequests.delete(dedupeKey);
+    }
+  }
 };
 
 export const api = {
@@ -565,11 +580,4 @@ export function buildPaginationQuery(params: PaginationParams): string {
   }
   const query = queryParams.toString();
   return query ? `?${query}` : '';
-}
-
-export async function fetchPaginatedGallery<T>(
-  params: PaginationParams = {}
-): Promise<PaginatedResponse<T>> {
-  const query = buildPaginationQuery(params);
-  return apiV1.get<PaginatedResponse<T>>(`/gallery${query}`);
 }

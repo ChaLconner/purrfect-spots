@@ -34,8 +34,8 @@
               :image="image"
               :is-loaded="isLoaded"
               :has-error="hasError"
-              :has-previous="hasPrevious"
-              :has-next="hasNext"
+              :has-previous="hasPrevious ?? false"
+              :has-next="hasNext ?? false"
               @close="$emit('close')"
               @navigate="handleNavigation"
               @image-load="onImageLoad"
@@ -48,19 +48,7 @@
               aria-label="Close"
               @click.stop="$emit('close')"
             >
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
+              <CloseIcon />
             </button>
 
             <!-- Right Side: Content -->
@@ -79,12 +67,13 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, computed } from 'vue';
-import type { CatLocation } from '@/generated/api';
+import type { CatLocation } from '@/types/api';
 import { useModalFocus } from '@/composables/useModalFocus';
 
 import GalleryModalImageStage from '@/components/gallery/GalleryModalImageStage.vue';
 import GalleryModalContent from '@/components/gallery/GalleryModalContent.vue';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
+import CloseIcon from '@/components/icons/CloseIcon.vue';
 
 const props = defineProps<{
   image: CatLocation | null;
@@ -154,20 +143,24 @@ function handleKeydown(e: KeyboardEvent): void {
 function preloadAdjacentImages(): void {
   if (!props.images || props.currentIndex === undefined) return;
 
+  const connection = (navigator as Navigator & {
+    connection?: { saveData?: boolean; effectiveType?: string };
+  }).connection;
+  if (connection?.saveData || connection?.effectiveType === '2g') return;
+
   const preloadImage = (url: string): void => {
     const img = new Image();
     img.src = url;
   };
 
-  // Preload next 2 images
-  for (let i = 1; i <= 2; i++) {
+  // Preload only immediate neighbors; full prefetch floods mobile connections.
+  for (let i = 1; i <= 1; i++) {
     if (props.currentIndex + i < props.images.length) {
       preloadImage(props.images[props.currentIndex + i].image_url);
     }
   }
 
-  // Preload previous 2 images
-  for (let i = 1; i <= 2; i++) {
+  for (let i = 1; i <= 1; i++) {
     if (props.currentIndex - i >= 0) {
       preloadImage(props.images[props.currentIndex - i].image_url);
     }

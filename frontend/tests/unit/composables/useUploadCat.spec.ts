@@ -25,6 +25,23 @@ vi.mock('@/utils/api', () => ({
     VALIDATION_ERROR: 'VALIDATION_ERROR',
     SERVER_ERROR: 'SERVER_ERROR',
   },
+  formatApiErrorMessage: (err: any, fallbackMessage = 'An unknown error occurred') => {
+    if (err && typeof err === 'object' && 'type' in err) {
+      switch (err.type) {
+        case 'NETWORK_ERROR':
+          return 'Cannot connect to server. Please check your internet connection';
+        case 'AUTHENTICATION_ERROR':
+          return 'Login session expired. Please log in again';
+        case 'VALIDATION_ERROR':
+          return err.message;
+        case 'SERVER_ERROR':
+          return 'Server error. Please try again later';
+        default:
+          return err.message || fallbackMessage;
+      }
+    }
+    return err?.message || fallbackMessage;
+  },
 }));
 
 vi.mock('@/utils/imageUtils', () => ({

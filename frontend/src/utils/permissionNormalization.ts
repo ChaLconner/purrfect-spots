@@ -1,6 +1,6 @@
 import { PERMISSIONS } from '@/constants/permissions';
 
-export const LEGACY_PERMISSION_ALIASES: Record<string, string> = {
+const LEGACY_PERMISSION_ALIASES: Record<string, string> = {
   admin_access: PERMISSIONS.ACCESS_ADMIN,
   'system:audit_logs': PERMISSIONS.AUDIT_READ,
   'system:config': PERMISSIONS.SYSTEM_SETTINGS,

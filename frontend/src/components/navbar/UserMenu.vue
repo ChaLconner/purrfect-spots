@@ -78,15 +78,13 @@ watch(avatarSrc, () => {
 <template>
   <div class="relative user-menu-container">
     <button
-      class="group relative w-10 h-10 flex items-center justify-center rounded-full bg-[var(--color-btn-shade-e)] border-2 border-[var(--color-btn-shade-a)] text-[var(--color-btn-shade-a)] shrink-0 cursor-pointer transition-all duration-[150ms] ease-out hover:bg-[var(--color-btn-shade-d)] hover:translate-y-[0.1rem] active:translate-y-[0.25rem]"
-      style="transform-style: preserve-3d; will-change: transform"
+      class="group relative w-10 h-10 flex items-center justify-center rounded-full bg-[var(--color-btn-shade-e)] border-2 border-[var(--color-btn-shade-a)] text-[var(--color-btn-shade-a)] shrink-0 cursor-pointer transition-all duration-[150ms] ease-out hover:bg-[var(--color-btn-shade-d)] hover:translate-y-[0.1rem] active:translate-y-[0.25rem] preserve-3d will-change-transform"
       :aria-expanded="showUserMenu"
       :aria-label="$t('accessibility.userMenu')"
       @click="showUserMenu = !showUserMenu"
     >
       <span
-        class="absolute inset-0 bg-[var(--color-btn-shade-c)] rounded-[inherit] shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.2rem_0_0_var(--color-btn-shade-a)] transition-all duration-[150ms] ease-out -z-10 group-hover:translate-y-[0.15rem] group-active:translate-y-0 group-active:translate-z-[-1em] group-active:shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.1em_0_0_var(--color-btn-shade-b)]"
-        style="transform: translate3d(0, 0.2rem, -1em); will-change: transform"
+        class="absolute inset-0 bg-[var(--color-btn-shade-c)] rounded-[inherit] shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.2rem_0_0_var(--color-btn-shade-a)] transition-all duration-[150ms] ease-out -z-10 group-hover:translate-y-[0.15rem] group-active:translate-y-0 group-active:translate-z-[-1em] group-active:shadow-[0_0_0_2px_var(--color-btn-shade-b),_0_0.1em_0_0_var(--color-btn-shade-b)] translate-3d-button-small"
       ></span>
       <span
         data-testid="user-avatar-fallback"

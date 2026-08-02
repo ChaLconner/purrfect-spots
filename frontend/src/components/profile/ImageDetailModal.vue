@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CatLocation } from '@/generated/api';
+import type { CatLocation } from '@/types/api';
 import type { User } from '@/types/auth';
 import { ref } from 'vue';
 import { BaseCard } from '@/components/ui';
@@ -185,7 +185,7 @@ const handleReportClick = (): void => {
                 <!-- Use currentUser to check auth status -->
                 <button
                   v-if="!isOwnProfile"
-                  class="treat-btn-mini group flex flex-col items-center"
+                  class="group flex flex-col items-center"
                   :disabled="isSendingTreat"
                   @click="handleGiveTreat"
                 >

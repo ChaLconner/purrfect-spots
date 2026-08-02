@@ -27,18 +27,20 @@ load_dotenv()
 import logging
 from typing import Any, cast
 
+import orjson
 import sentry_sdk
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.logging import LoggingIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.types import ExceptionHandler
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from app.app_info import APP_VERSION
@@ -60,6 +62,13 @@ from app.routes.admin import router as admin_router
 # Import versioned API router
 from app.routes.api_v1 import router as api_v1_router
 from app.routes.health import router as health_router
+from app.utils.exception_handlers import (
+    custom_http_exception_handler,
+    generic_exception_handler,
+    purrfect_spots_exception_handler,
+    validation_exception_handler,
+)
+from app.utils.exceptions import PurrfectSpotsException
 
 SENTRY_DSN = config.SENTRY_DSN
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
@@ -222,6 +231,7 @@ tags_metadata = [
 from contextlib import asynccontextmanager
 
 from app.tasks.cleanup_tasks import start_cleanup_jobs, stop_cleanup_jobs
+from app.tasks.subscription_tasks import start_subscription_reconciliation_job, stop_subscription_reconciliation_job
 from app.utils.http_client import close_shared_httpx_client
 from app.utils.telemetry import setup_telemetry
 
@@ -232,7 +242,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await start_cleanup_jobs()
     else:
         logger.info("Background cleanup tasks disabled (lifespan)")
+    await start_subscription_reconciliation_job()
     yield
+    await stop_subscription_reconciliation_job()
     if config.ENABLE_BACKGROUND_TASKS:
         await stop_cleanup_jobs()
     await close_shared_httpx_client()
@@ -240,71 +252,52 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 # ========== FastAPI Application ==========
 # SECURITY: In production, disable OpenAPI docs to prevent information disclosure
-if ENVIRONMENT == "production":
-    app = FastAPI(
-        lifespan=lifespan,
-        title="PurrFect Spots API",
-        description="""
-        PurrFect Spots API helps you share and discover cat locations in a socially-connected way.
-
-        ### 🌐 API Specification
-        All endpoints follow the `/api/v1/` prefix convention for stable identification.
-
-        ### ✨ Key Features
-        * 📍 **Geo-Location Awareness**: High-precision cat spot sharing with privacy protection.
-        * 🤳 **AI Photo Intelligence**: Automated cat detection and visual attribute extraction.
-        * 🔒 **Enterprise-Grade Security**: PKCE-enabled OAuth 2.0 and Supabase-backed authentication.
-        * ⚡ **Performance Optimized**: Built-in rate limiting, GZip compression, and ETag support.
-        * 🔄 **Real-time Ready**: Designed for low-latency interactions and live updates.
-        """,
-        version=APP_VERSION,
-        docs_url=None,  # SECURITY: Disabled in production
-        redoc_url=None,  # SECURITY: Disabled in production
-        openapi_url=None,  # SECURITY: Disabled in production
-        default_response_class=JSONResponse,
-        contact={
-            "name": "Purrfect Spots Team",
-            "email": "support@purrfectspots.com",
-        },
-        license_info={
-            "name": "MIT",
-            "identifier": "MIT",
-        },
-        openapi_tags=tags_metadata,
-    )
+is_prod = ENVIRONMENT == "production"
+if is_prod:
     logger.warning("OpenAPI docs disabled in production environment")
-else:
-    app = FastAPI(
-        lifespan=lifespan,
-        title="PurrFect Spots API",
-        description="""
-        PurrFect Spots API helps you share and discover cat locations in a socially-connected way.
 
-        ### 🌐 API Specification
-        All endpoints follow the `/api/v1/` prefix convention for stable identification.
 
-        ### ✨ Key Features
-        * 📍 **Geo-Location Awareness**: High-precision cat spot sharing with privacy protection.
-        * 🤳 **AI Photo Intelligence**: Automated cat detection and visual attribute extraction.
-        * 🔒 **Enterprise-Grade Security**: PKCE-enabled OAuth 2.0 and Supabase-backed authentication.
-        * ⚡ **Performance Optimized**: Built-in rate limiting, GZip compression, and ETag support.
-        * 🔄 **Real-time Ready**: Designed for low-latency interactions and live updates.
-        """,
-        version=APP_VERSION,
-        docs_url="/docs",
-        redoc_url="/redoc",
-        openapi_url="/openapi.json",
-        default_response_class=JSONResponse,
-        contact={
-            "name": "Purrfect Spots Team",
-            "email": "support@purrfectspots.com",
-        },
-        license_info={
-            "name": "MIT",
-            "identifier": "MIT",
-        },
-        openapi_tags=tags_metadata,
-    )
+class FastJSONResponse(Response):
+    """Compact JSON response without re-encoding through stdlib json."""
+
+    media_type = "application/json"
+
+    @staticmethod
+    def render(content: object) -> bytes:
+        return orjson.dumps(content)
+
+
+app = FastAPI(
+    lifespan=lifespan,
+    title="PurrFect Spots API",
+    description="""
+    PurrFect Spots API helps you share and discover cat locations in a socially-connected way.
+
+    ### 🌐 API Specification
+    All endpoints follow the `/api/v1/` prefix convention for stable identification.
+
+    ### ✨ Key Features
+    * 📍 **Geo-Location Awareness**: High-precision cat spot sharing with privacy protection.
+    * 🤳 **AI Photo Intelligence**: Automated cat detection and visual attribute extraction.
+    * 🔒 **Enterprise-Grade Security**: PKCE-enabled OAuth 2.0 and Supabase-backed authentication.
+    * ⚡ **Performance Optimized**: Built-in rate limiting, GZip compression, and ETag support.
+    * 🔄 **Real-time Ready**: Designed for low-latency interactions and live updates.
+    """,
+    version=APP_VERSION,
+    docs_url=None if is_prod else "/docs",
+    redoc_url=None if is_prod else "/redoc",
+    openapi_url=None if is_prod else "/openapi.json",
+    default_response_class=FastJSONResponse,
+    contact={
+        "name": "Purrfect Spots Team",
+        "email": "support@purrfectspots.com",
+    },
+    license_info={
+        "name": "MIT",
+        "identifier": "MIT",
+    },
+    openapi_tags=tags_metadata,
+)
 
 # Initialize Telemetry (OpenTelemetry)
 setup_telemetry(app)
@@ -313,22 +306,11 @@ setup_telemetry(app)
 
 
 # ========== Rate Limiter ==========
-from starlette.types import ExceptionHandler
-
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, cast(ExceptionHandler, _rate_limit_exceeded_handler))
 
+
 # ========== Exception Handlers ==========
-
-from app.utils.exception_handlers import (
-    custom_http_exception_handler,
-    generic_exception_handler,
-    purrfect_spots_exception_handler,
-    validation_exception_handler,
-)
-from app.utils.exceptions import PurrfectSpotsException
-
-
 def cancelled_error_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.info("Operation cancelled: %s", request.url.path)
     return JSONResponse(status_code=499, content={"detail": "Request cancelled"})
@@ -343,8 +325,6 @@ app.add_exception_handler(PurrfectSpotsException, cast(ExceptionHandler, purrfec
 app.add_exception_handler(Exception, cast(ExceptionHandler, generic_exception_handler))
 app.add_exception_handler(StarletteHTTPException, cast(ExceptionHandler, custom_http_exception_handler))
 app.add_exception_handler(RequestValidationError, cast(ExceptionHandler, validation_exception_handler))
-# import asyncio
-# app.add_exception_handler(asyncio.CancelledError, cast(ExceptionHandler, cancelled_error_handler))
 
 
 # ========== CORS Configuration (applied after all other middleware below) ==========
@@ -362,19 +342,6 @@ async def root() -> JSONResponse:
             "message": "PurrFect Spots API is running",
             "version": APP_VERSION,
             "api_versions": ["v1"],
-        },
-        headers={"Content-Type": CONTENT_TYPE_JSON},
-    )
-
-
-@app.get("/health")
-async def health_check() -> JSONResponse:
-    """Simple health check endpoint"""
-    return JSONResponse(
-        content={
-            "status": "healthy",
-            "message": "PurrFect Spots API is running",
-            "sentry_enabled": bool(SENTRY_DSN),
         },
         headers={"Content-Type": CONTENT_TYPE_JSON},
     )
@@ -433,7 +400,9 @@ app.add_middleware(RequestIdMiddleware)
 
 # ========== Compression ==========
 
-app.add_middleware(GZipMiddleware, minimum_size=1000)
+# Level 5 keeps API compression materially cheaper than Starlette's level-9
+# default while retaining near-identical wire size for JSON payloads.
+app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=5)
 
 # ========== CORS Middleware (MUST BE LAST - outermost layer) ==========
 # IMPORTANT: In Starlette/FastAPI, the LAST middleware added is the OUTERMOST.

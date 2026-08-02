@@ -1,9 +1,11 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request
+from stripe import SignatureVerificationError
 
 from app.config import config
 from app.dependencies import get_subscription_service
+from app.limiter import limiter
 from app.logger import logger
 from app.middleware.auth_middleware import get_current_user_from_credentials
 from app.schemas.common import MessageResponse
@@ -12,16 +14,35 @@ from app.schemas.subscription import (
     CreateCheckoutRequest,
     CreatePortalRequest,
     PortalResponse,
+    SubscriptionPlansResponse,
     SubscriptionStatus,
 )
 from app.schemas.user import User
-from app.services.subscription_service import SubscriptionService
+from app.services.subscription_service import SubscriptionPersistenceError, SubscriptionService
 
 router = APIRouter(prefix="/subscription", tags=["Subscription"])
 
 
+@router.get("/plans", response_model=SubscriptionPlansResponse)
+@limiter.limit("30/minute")
+async def get_subscription_plans(
+    request: Request,
+    subscription_service: Annotated[SubscriptionService, Depends(get_subscription_service)],
+) -> SubscriptionPlansResponse:
+    """Return current public subscription prices from Stripe."""
+    try:
+        return SubscriptionPlansResponse(**(await subscription_service.get_plan_prices()))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Subscription pricing lookup failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=503, detail="Subscription pricing temporarily unavailable") from e
+
+
 @router.post("/checkout", response_model=CheckoutSessionResponse)
+@limiter.limit("5/minute")
 async def create_checkout_session(
+    request: Request,
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     subscription_service: Annotated[SubscriptionService, Depends(get_subscription_service)],
     req: Annotated[CreateCheckoutRequest | None, Body()] = None,
@@ -41,11 +62,13 @@ async def create_checkout_session(
             price_id=price_id,
             success_url=config.resolve_frontend_url(default_path="/subscription?purchase=success"),
             cancel_url=config.resolve_frontend_url(default_path="/subscription?purchase=cancel"),
-            stripe_customer_id=current_user.stripe_customer_id,
+            stripe_customer_id=getattr(current_user, "stripe_customer_id", None),
         )
         return CheckoutSessionResponse(**result)
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error("Checkout creation failed: %s", e)
+        logger.error("Checkout creation failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to create checkout session")
 
 
@@ -62,17 +85,22 @@ async def stripe_webhook(
     payload = await request.body()
     try:
         await subscription_service.handle_webhook(payload, stripe_signature)
-    except ValueError:
+    except (ValueError, SignatureVerificationError):
         raise HTTPException(status_code=400, detail="Invalid payload")
+    except SubscriptionPersistenceError:
+        # Non-2xx tells Stripe to retry after a transient database failure.
+        raise HTTPException(status_code=503, detail="Webhook persistence temporarily unavailable")
     except Exception as e:
         logger.error("Webhook processing failed: %s", e)
-        raise HTTPException(status_code=400, detail="Webhook processing failed")
+        raise HTTPException(status_code=500, detail="Webhook processing failed")
 
     return MessageResponse(message="success")
 
 
 @router.get("/status", response_model=SubscriptionStatus)
+@limiter.limit("30/minute")
 async def get_subscription_status(
+    request: Request,
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     subscription_service: Annotated[SubscriptionService, Depends(get_subscription_service)],
 ) -> SubscriptionStatus:
@@ -82,7 +110,9 @@ async def get_subscription_status(
 
 
 @router.post("/cancel", response_model=MessageResponse)
+@limiter.limit("5/minute")
 async def cancel_subscription(
+    request: Request,
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     subscription_service: Annotated[SubscriptionService, Depends(get_subscription_service)],
 ) -> MessageResponse:
@@ -98,7 +128,9 @@ async def cancel_subscription(
 
 
 @router.post("/portal", response_model=PortalResponse)
+@limiter.limit("10/minute")
 async def create_portal_session(
+    request: Request,
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     subscription_service: Annotated[SubscriptionService, Depends(get_subscription_service)],
     req: Annotated[CreatePortalRequest | None, Body()] = None,

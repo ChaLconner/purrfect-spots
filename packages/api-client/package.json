@@ -4,8 +4,7 @@
   "private": true,
   "description": "TypeScript API client generator from OpenAPI spec",
   "scripts": {
-    "generate": "npx @openapitools/openapi-generator-cli generate -i ../../docs/openapi-baseline.json -g typescript-axios -o ./src/generated --additional-properties=supportsES6=true,withSeparateModelsAndApi=true,apiPackage=api,modelPackage=models",
-    "generate:fetch": "npx @openapitools/openapi-generator-cli generate -i ../../docs/openapi-baseline.json -g typescript-fetch -o ./src/generated-fetch --additional-properties=supportsES6=true",
+    "generate": "npx openapi-typescript ../../docs/openapi-baseline.json -o ../../frontend/src/generated/api.ts",
     "validate": "npx @openapitools/openapi-generator-cli validate -i ../../docs/openapi-baseline.json"
   },
   "devDependencies": {

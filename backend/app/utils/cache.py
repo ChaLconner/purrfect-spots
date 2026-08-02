@@ -1,3 +1,4 @@
+import asyncio
 import functools
 import hashlib
 import json
@@ -31,6 +32,7 @@ class MemoryCacheEntry:
 
 
 memory_cache: dict[str, MemoryCacheEntry] = {}
+_inflight_locks: dict[str, asyncio.Lock] = {}
 
 if redis_url:
     try:
@@ -78,6 +80,51 @@ def generate_cache_key(*args: Any, **kwargs: Any) -> str:
     return hashlib.md5(arg_str.encode(), usedforsecurity=False).hexdigest()  # nosec B303
 
 
+async def _read_cached_value(cache_key: str) -> Any | None:
+    """Read cache backends in priority order."""
+    if redis_client:
+        try:
+            cached_data = await redis_client.get(cache_key)
+            if cached_data:
+                try:
+                    return json.loads(cached_data)
+                except json.JSONDecodeError:
+                    logger.warning("Invalid cached JSON for key: %s", cache_key)
+        except Exception as e:
+            if "Event loop is closed" not in str(e):
+                logger.warning("Redis read error: %s", e)
+
+    memory_entry = memory_cache.get(cache_key)
+    if memory_entry is None:
+        return None
+    if memory_entry.expires_at <= time.monotonic():
+        memory_cache.pop(cache_key, None)
+        return None
+    return memory_entry.value
+
+
+async def _write_cached_value(cache_key: str, result: Any, expire: int) -> None:
+    """Write Redis when available; retain memory only as fallback."""
+    if redis_client:
+        try:
+            serialized = json.dumps(result, cls=JSONEncoder)
+            await redis_client.setex(cache_key, expire, serialized)
+            return
+        except Exception as e:
+            if "Event loop is closed" not in str(e):
+                logger.warning("Redis write error: %s", e)
+
+    _purge_expired_memory_entries()
+    if len(memory_cache) >= _MEMORY_CACHE_MAX_SIZE and cache_key not in memory_cache:
+        evict_count = _MEMORY_CACHE_MAX_SIZE // 5
+        for old_key in list(memory_cache.keys())[:evict_count]:
+            del memory_cache[old_key]
+    memory_cache[cache_key] = MemoryCacheEntry(
+        value=result,
+        expires_at=time.monotonic() + max(expire, 0),
+    )
+
+
 def cache(
     expire: int = 60, key_prefix: str = "", skip_args: int = 0
 ) -> Callable[[Callable[..., Coroutine[Any, Any, Any]]], Callable[..., Coroutine[Any, Any, Any]]]:
@@ -98,58 +145,36 @@ def cache(
                 namespace = key_prefix or func.__name__
                 cache_key = f"cache:{namespace}:{func.__name__}:{arg_hash}"
 
-                # 2. Try to get from Cache
-                if redis_client:
-                    try:
-                        cached_data = await redis_client.get(cache_key)
-                        if cached_data:
-                            if is_dev:
-                                logger.debug(f"Cache hit (Redis): {cache_key}")
-                            return json.loads(cached_data)
-                    except Exception as e:
-                        if "Event loop is closed" not in str(e):
-                            logger.warning(f"Redis read error: {e}")
-
-                memory_entry = memory_cache.get(cache_key)
-                if memory_entry is not None:
+                cached = await _read_cached_value(cache_key)
+                if cached is not None:
                     if is_dev:
-                        logger.debug(f"Cache hit (Memory): {cache_key}")
-                    return memory_entry.value
-
+                        logger.debug("Cache hit: %s", cache_key)
+                    return cached
                 if is_dev:
-                    logger.debug(f"Cache miss: {cache_key}")
+                    logger.debug("Cache miss: %s", cache_key)
             except Exception as e:
-                logger.warning(f"Cache key/read error: {e}")
+                logger.warning("Cache key/read error: %s", e)
 
-            # 3. Fetch fresh data
-            result = await func(*args, **kwargs)
-
-            # 4. Save to Cache
+            # 2. Coalesce concurrent misses for the same key.
+            lock = _inflight_locks.setdefault(cache_key, asyncio.Lock())
             try:
-                if redis_client:
+                async with lock:
+                    cached = await _read_cached_value(cache_key)
+                    if cached is not None:
+                        return cached
+                    result = await func(*args, **kwargs)
                     try:
-                        serialized = json.dumps(result, cls=JSONEncoder)
-                        await redis_client.setex(cache_key, expire, serialized)
+                        await _write_cached_value(cache_key, result, expire)
                     except Exception as e:
-                        if "Event loop is closed" not in str(e):
-                            logger.warning(f"Redis write error: {e}")
-
-                _purge_expired_memory_entries()
-
-                # PERF: Evict oldest entries when cache exceeds max size
-                if len(memory_cache) >= _MEMORY_CACHE_MAX_SIZE and cache_key not in memory_cache:
-                    evict_count = _MEMORY_CACHE_MAX_SIZE // 5
-                    for old_key in list(memory_cache.keys())[:evict_count]:
-                        del memory_cache[old_key]
-
-                memory_cache[cache_key] = MemoryCacheEntry(
-                    value=result,
-                    expires_at=time.monotonic() + max(expire, 0),
-                )
+                        logger.warning("Cache write skipped: %s", e)
+                    return result
             except Exception as e:
-                logger.warning(f"Memory cache write error: {e}")
-
-            return result
+                logger.warning("Cache fetch/write error: %s", e)
+                raise
+            finally:
+                waiters = getattr(lock, "_waiters", None)
+                if not lock.locked() and not waiters:
+                    _inflight_locks.pop(cache_key, None)
 
         return wrapper
 
@@ -194,6 +219,30 @@ async def clear_cache(pattern: str = "cache:*") -> None:
             # pass
 
 
+async def clear_cache_patterns(patterns: tuple[str, ...]) -> None:
+    """Invalidate related namespaces with one Redis scan."""
+    prefixes = tuple(pattern[:-1] if pattern.endswith("*") else pattern for pattern in patterns)
+    for key in list(memory_cache):
+        if any(key.startswith(prefix) for prefix in prefixes):
+            memory_cache.pop(key, None)
+
+    if not redis_client:
+        return
+    try:
+        batch: list[str] = []
+        async for key in redis_client.scan_iter(match="cache:*", count=500):
+            key_text = str(key)
+            if any(key_text.startswith(prefix) for prefix in prefixes):
+                batch.append(key_text)
+            if len(batch) >= 500:
+                await redis_client.delete(*batch)
+                batch.clear()
+        if batch:
+            await redis_client.delete(*batch)
+    except Exception as e:
+        logger.debug("Failed to clear related Redis caches: %s", e)
+
+
 async def invalidate_all_caches() -> None:
     """Invalidate all application caches"""
     await clear_cache("cache:*")
@@ -225,6 +274,19 @@ async def invalidate_user_cache(user_id: str | None = None) -> None:
     # Always clear user_photos as user_id specific one is hard to match with hash
     await clear_cache("cache:user_photos:*")
     await clear_cache("cache:user_likes:*")
+
+
+async def invalidate_after_upload(user_id: str) -> None:
+    """Invalidate upload-affected namespaces with one bounded Redis scan."""
+    await clear_cache_patterns(
+        (
+            "cache:gallery:*",
+            "cache:nearby:*",
+            "cache:tags:*",
+            "cache:user_photos:*",
+            "cache:user_likes:*",
+        )
+    )
 
 
 def get_cache_stats() -> dict[str, Any]:

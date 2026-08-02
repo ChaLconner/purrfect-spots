@@ -29,5 +29,3 @@ export const PERMISSIONS = {
   // General Access
   ACCESS_ADMIN: 'access:admin',
 } as const;
-
-export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
