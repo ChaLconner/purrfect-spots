@@ -8,7 +8,7 @@ import secrets
 from datetime import datetime, timedelta
 from typing import Any, cast
 
-from sqlalchemy import text
+from sqlalchemy import bindparam, column, desc, select, table, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from supabase import AClient
 
@@ -17,6 +17,23 @@ from app.utils.datetime_utils import utc_now
 from app.utils.exceptions import ExternalServiceError, PurrfectSpotsException
 
 TIMEZONE_UTC_OFFSET = "+00:00"
+
+_EMAIL_VERIFICATION_COLUMN_NAMES = (
+    "id",
+    "email",
+    "otp_hash",
+    "attempts",
+    "max_attempts",
+    "expires_at",
+    "verified_at",
+    "locked_until",
+    "created_at",
+)
+_EMAIL_VERIFICATIONS = table(
+    "email_verifications",
+    *(column(name) for name in _EMAIL_VERIFICATION_COLUMN_NAMES),
+)
+_EMAIL_VERIFICATION_COLUMNS = {name: getattr(_EMAIL_VERIFICATIONS.c, name) for name in _EMAIL_VERIFICATION_COLUMN_NAMES}
 
 
 class OTPService:
@@ -94,10 +111,22 @@ class OTPService:
     async def _fetch_pending_verification(self, email: str, columns: str) -> dict[str, Any] | None:
         """Fetch latest unverified email verification record by email."""
         if self.db:
-            query = text(
-                f"SELECT {columns} FROM email_verifications "  # noqa: S608
-                "WHERE email = :email AND verified_at IS NULL "
-                "ORDER BY created_at DESC LIMIT 1"
+            requested_columns = tuple(part.strip() for part in columns.split(",") if part.strip())
+            try:
+                selected_columns = [_EMAIL_VERIFICATION_COLUMNS[name] for name in requested_columns]
+            except KeyError as exc:
+                raise ValueError("Unsupported email verification column") from exc
+            if not selected_columns:
+                raise ValueError("At least one email verification column is required")
+
+            query = (
+                select(*selected_columns)
+                .where(
+                    _EMAIL_VERIFICATIONS.c.email == bindparam("email"),
+                    _EMAIL_VERIFICATIONS.c.verified_at.is_(None),
+                )
+                .order_by(desc(_EMAIL_VERIFICATIONS.c.created_at))
+                .limit(1)
             )
             result = await self.db.execute(query, {"email": email})
             row = result.fetchone()

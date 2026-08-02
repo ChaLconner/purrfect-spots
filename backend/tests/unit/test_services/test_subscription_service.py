@@ -347,20 +347,23 @@ async def test_get_plan_prices_reads_current_stripe_amounts(mock_retrieve, subsc
         patch.object(config, "STRIPE_PRO_PRICE_ID", "price_monthly"),
         patch.object(config, "STRIPE_PRO_ANNUAL_PRICE_ID", "price_annual"),
     ):
-        mock_retrieve.side_effect = [
-            {
-                "active": True,
-                "currency": "thb",
-                "unit_amount": 17500,
-                "recurring": {"interval": "month", "interval_count": 1},
-            },
-            {
+
+        def retrieve_price(price_id: str) -> dict[str, object]:
+            if price_id == "price_monthly":
+                return {
+                    "active": True,
+                    "currency": "thb",
+                    "unit_amount": 17500,
+                    "recurring": {"interval": "month", "interval_count": 1},
+                }
+            return {
                 "active": True,
                 "currency": "thb",
                 "unit_amount": 175000,
                 "recurring": {"interval": "year", "interval_count": 1},
-            },
-        ]
+            }
+
+        mock_retrieve.side_effect = retrieve_price
 
         plans = await subscription_service.get_plan_prices()
 
