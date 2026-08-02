@@ -145,7 +145,8 @@ class TestTokenService:
         jti = "jti-123"
         expires_at = datetime.now(UTC) + timedelta(hours=1)
 
-        result = await token_service.blacklist_token(token=token, user_id=user_id, jti=jti, expires_at=expires_at)
+        with patch("app.services.token_service.has_supabase_service_role_key", return_value=True):
+            result = await token_service.blacklist_token(token=token, user_id=user_id, jti=jti, expires_at=expires_at)
 
         assert result is True
 

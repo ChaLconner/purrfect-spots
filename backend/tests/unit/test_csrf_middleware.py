@@ -71,7 +71,10 @@ def test_csrf_middleware_prod_blocks_cross_site_cookie_auth_requests() -> None:
 
 
 def test_csrf_middleware_prod_allows_same_origin_cookie_auth_requests() -> None:
-    with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
+    with patch.dict(
+        os.environ,
+        {"ENVIRONMENT": "production", "CORS_ORIGINS": "http://localhost:5173"},
+    ):
         app = FastAPI()
         app.add_middleware(CSRFMiddleware)
 

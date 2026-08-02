@@ -1,6 +1,6 @@
 from typing import Any, cast
 
-from sqlalchemy import text
+from sqlalchemy import bindparam, column, desc, func, or_, select, table, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from supabase import AClient
 
@@ -8,6 +8,40 @@ from app.logger import logger
 from app.utils.db_security import escape_like_pattern, sanitize_search_input
 
 _fulltext_available_cache: bool | None = None
+
+_SQL_PHOTO_COLUMN_NAMES = (
+    "id",
+    "image_url",
+    "latitude",
+    "longitude",
+    "description",
+    "location_name",
+    "uploaded_at",
+    "tags",
+    "likes_count",
+    "comments_count",
+    "user_id",
+    "deleted_at",
+    "status",
+    "search_vector",
+)
+_SQL_PHOTOS = table("cat_photos", *(column(name) for name in _SQL_PHOTO_COLUMN_NAMES))
+_SQL_PHOTO_SELECTED_COLUMNS = tuple(
+    getattr(_SQL_PHOTOS.c, name)
+    for name in (
+        "id",
+        "image_url",
+        "latitude",
+        "longitude",
+        "description",
+        "location_name",
+        "uploaded_at",
+        "tags",
+        "likes_count",
+        "comments_count",
+        "user_id",
+    )
+)
 
 
 class SearchService:
@@ -80,20 +114,23 @@ class SearchService:
         if self.db:
             try:
                 params: dict[str, Any] = {"query": query, "approved_status": self.APPROVED_STATUS}
-                tag_clause = ""
+                sql_query = select(*_SQL_PHOTO_SELECTED_COLUMNS).where(
+                    _SQL_PHOTOS.c.deleted_at.is_(None),
+                    _SQL_PHOTOS.c.latitude.is_not(None),
+                    _SQL_PHOTOS.c.longitude.is_not(None),
+                    _SQL_PHOTOS.c.status == bindparam("approved_status"),
+                    _SQL_PHOTOS.c.search_vector.op("@@")(func.websearch_to_tsquery("english", bindparam("query"))),
+                )
                 if tags:
                     params["tags"] = self._clean_tags(tags)
-                    tag_clause = "AND tags @> :tags "
+                    sql_query = sql_query.where(_SQL_PHOTOS.c.tags.op("@>")(bindparam("tags")))
 
-                sql_str = (
-                    f"{self.SQL_PHOTO_SELECT} "
-                    "WHERE deleted_at IS NULL AND latitude IS NOT NULL AND longitude IS NOT NULL "
-                    "AND status = :approved_status "
-                    "AND search_vector @@ websearch_to_tsquery('english', :query) "
-                    f"{tag_clause}"
-                    "ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
+                sql_query = (
+                    sql_query.order_by(desc(_SQL_PHOTOS.c.uploaded_at))
+                    .limit(bindparam("limit"))
+                    .offset(bindparam("offset"))
                 )
-                return await self._execute_sql_query_dict_list(text(sql_str), params, limit, offset)
+                return await self._execute_sql_query_dict_list(sql_query, params, limit, offset)
             except Exception as e:
                 logger.warning("SQL full-text search failed, falling back to Supabase client: %s", e)
 
@@ -127,27 +164,32 @@ class SearchService:
         if self.db:
             try:
                 params: dict[str, Any] = {"approved_status": self.APPROVED_STATUS}
-                where_clauses = [
-                    "deleted_at IS NULL",
-                    "latitude IS NOT NULL",
-                    "longitude IS NOT NULL",
-                    "status = :approved_status",
-                ]
+                sql_query = select(*_SQL_PHOTO_SELECTED_COLUMNS).where(
+                    _SQL_PHOTOS.c.deleted_at.is_(None),
+                    _SQL_PHOTOS.c.latitude.is_not(None),
+                    _SQL_PHOTOS.c.longitude.is_not(None),
+                    _SQL_PHOTOS.c.status == bindparam("approved_status"),
+                )
 
                 if query:
                     params["query"] = f"%{escape_like_pattern(query)}%"
-                    where_clauses.append("(location_name ILIKE :query OR description ILIKE :query)")
+                    sql_query = sql_query.where(
+                        or_(
+                            _SQL_PHOTOS.c.location_name.ilike(bindparam("query")),
+                            _SQL_PHOTOS.c.description.ilike(bindparam("query")),
+                        )
+                    )
 
                 if tags:
                     params["tags"] = self._clean_tags(tags)
-                    where_clauses.append("tags @> :tags")
+                    sql_query = sql_query.where(_SQL_PHOTOS.c.tags.op("@>")(bindparam("tags")))
 
-                sql_str = (
-                    f"{self.SQL_PHOTO_SELECT} WHERE "
-                    + " AND ".join(where_clauses)
-                    + " ORDER BY uploaded_at DESC LIMIT :limit OFFSET :offset"
+                sql_query = (
+                    sql_query.order_by(desc(_SQL_PHOTOS.c.uploaded_at))
+                    .limit(bindparam("limit"))
+                    .offset(bindparam("offset"))
                 )
-                return await self._execute_sql_query_dict_list(text(sql_str), params, limit, offset)
+                return await self._execute_sql_query_dict_list(sql_query, params, limit, offset)
             except Exception as e:
                 logger.warning("SQL ILIKE search failed, falling back to Supabase client: %s", e)
 
