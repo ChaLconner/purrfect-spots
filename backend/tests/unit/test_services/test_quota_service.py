@@ -23,6 +23,7 @@ def mock_supabase():
     builder.lte.return_value = builder
     builder.is_.return_value = builder
     builder.order.return_value = builder
+    builder.limit.return_value = builder
     builder.maybe_single.return_value = builder
     builder.single.return_value = builder
     # Execute is the final call - MUST be async

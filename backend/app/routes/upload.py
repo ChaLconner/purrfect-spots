@@ -4,8 +4,9 @@ Enhanced with security features: rate limiting, input sanitization, security log
 """
 
 import json
-import sys
 import uuid
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -166,6 +167,27 @@ async def _perform_server_side_detection(
     }
 
 
+@asynccontextmanager
+async def _upload_quota_lock(user_id: str) -> AsyncIterator[None]:
+    """Hold the per-user admission lock only around quota and persistence work."""
+    try:
+        async with redis_service.lock(f"quota:upload:{user_id}", ttl=30, wait_timeout=15):
+            yield
+    except RedisLockError as lock_error:
+        logger.error("Upload quota lock unavailable for %s: %s", user_id, lock_error)
+        raise HTTPException(status_code=503, detail="Upload quota service unavailable") from lock_error
+
+
+async def _ensure_upload_quota(quota_service: QuotaService, user_id: str, is_pro: bool) -> None:
+    """Check quota under a short lock; expensive upload work runs outside the lock."""
+    async with _upload_quota_lock(user_id):
+        allowed = await quota_service.check_quota(user_id, is_pro)
+
+    if not allowed:
+        log_security_event("quota_exceeded", user_id=user_id, severity="WARNING")
+        raise HTTPException(status_code=429, detail="Daily upload limit reached. Upgrade to Pro for more uploads.")
+
+
 @router.get("/quota", response_model=UploadQuotaResponse)
 async def get_upload_quota(
     current_user: User = Depends(get_current_user),
@@ -212,8 +234,6 @@ async def upload_cat_photo(
         HTTPException: 500 - If image processing or upload fails.
     """
     user_id = str(current_user.id)
-    quota_lock: Any = None
-    quota_lock_acquired = False
 
     try:
         # Log upload attempt
@@ -234,21 +254,8 @@ async def upload_cat_photo(
             cleaned_description = format_tags_for_description(parsed_tags, cleaned_description)
         blurred_val = str(location_blurred).lower() in ["true", "1", "yes"]
 
-        # Serialize quota admission through persistence so concurrent uploads cannot
-        # all observe the same pre-upload photo count.
-        quota_lock = redis_service.lock(f"quota:upload:{user_id}", ttl=300, wait_timeout=15)
-        try:
-            await quota_lock.__aenter__()
-            quota_lock_acquired = True
-        except RedisLockError as lock_error:
-            logger.error("Upload quota lock unavailable for %s: %s", user_id, lock_error)
-            raise HTTPException(status_code=503, detail="Upload quota service unavailable") from lock_error
-
-        # Quota preflight. Usage analytics is recorded only after persistence succeeds.
-        allowed = await quota_service.check_quota(user_id, current_user.is_pro)
-        if not allowed:
-            log_security_event("quota_exceeded", user_id=user_id, severity="WARNING")
-            raise HTTPException(status_code=429, detail="Daily upload limit reached. Upgrade to Pro for more uploads.")
+        # Quota preflight. Lock is released before CPU, Vision, S3 and database work.
+        await _ensure_upload_quota(quota_service, user_id, current_user.is_pro)
 
         # Process and validate the uploaded image with optimization and security checks
         contents, content_type, file_extension = await process_uploaded_image(
@@ -322,11 +329,29 @@ async def upload_cat_photo(
             "status": status,
         }
 
-        try:
-            created_photo = await gallery_service.save_photo(photo_data)
-        except Exception as db_error:
+        created_photo: dict[str, Any] | None = None
+        quota_allowed = False
+        database_error: Exception | None = None
+        async with _upload_quota_lock(user_id):
+            quota_allowed = await quota_service.check_quota(user_id, current_user.is_pro)
+            if quota_allowed:
+                try:
+                    created_photo = await gallery_service.save_photo(photo_data)
+                    await quota_service.increment_usage(user_id)
+                except Exception as db_error:
+                    database_error = db_error
+
+        if not quota_allowed:
+            log_security_event("quota_exceeded", user_id=user_id, severity="WARNING")
+            try:
+                await storage_service.delete_file(image_url)
+            except Exception as cleanup_error:
+                logger.error("Failed to delete quota-rejected S3 object: %s", cleanup_error)
+            raise HTTPException(status_code=429, detail="Daily upload limit reached. Upgrade to Pro for more uploads.")
+
+        if database_error is not None or created_photo is None:
             # Rollback: Delete file from S3 if DB insert fails
-            logger.error("Database insert failed: %s. Rolling back S3 upload.", db_error)
+            logger.error("Database insert failed: %s. Rolling back S3 upload.", database_error)
             try:
                 await storage_service.delete_file(image_url)
             except Exception as s3_del_err:
@@ -335,12 +360,13 @@ async def upload_cat_photo(
             log_security_event(
                 "upload_transaction_rollback",
                 user_id=user_id,
-                details={"error": sanitize_log_value(str(db_error)[:200]), "image_url": sanitize_log_value(image_url)},
+                details={
+                    "error": sanitize_log_value(str(database_error)[:200]),
+                    "image_url": sanitize_log_value(image_url),
+                },
                 severity="ERROR",
             )
             raise HTTPException(status_code=500, detail="Failed to save cat photo")
-
-        await quota_service.increment_usage(user_id)
 
         # Invalidate gallery, tags and user photos cache after new upload in background
         background_tasks.add_task(invalidate_after_upload, user_id)
@@ -389,12 +415,6 @@ async def upload_cat_photo(
             severity="ERROR",
         )
         raise HTTPException(status_code=500, detail="Upload failed due to an internal error")
-    finally:
-        if quota_lock_acquired and quota_lock is not None:
-            try:
-                await quota_lock.__aexit__(*sys.exc_info())
-            except Exception:
-                logger.warning("Failed to release upload quota lock for %s", user_id, exc_info=True)
 
 
 # Test endpoint removed for security

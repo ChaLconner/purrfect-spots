@@ -3164,7 +3164,7 @@ export interface components {
             email: string;
             /**
              * Password
-             * @description Password must be at least 8 characters long and include uppercase, lowercase, number, and special character
+             * @description Password is required; strength is advisory
              */
             password: string;
             /**

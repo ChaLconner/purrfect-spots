@@ -42,11 +42,6 @@ const isUpdatingPassword = ref(false);
 const showPasswordSection = ref(false);
 const showPasswords = ref(false); // Toggle for password visibility
 
-const passwordRequirements = computed(() => {
-  const p = passwordForm.new;
-  return [{ label: t('auth.passwordMinLength'), met: p.length >= 8 }];
-});
-
 const editForm = reactive({
   name: props.initialName,
   username: props.initialUsername || '',
@@ -152,11 +147,6 @@ const handleFileSelect = async (event: Event): Promise<void> => {
 const updatePassword = async (): Promise<void> => {
   if (passwordForm.new !== passwordForm.confirm) {
     showError(t('auth.passwordsDoNotMatch'));
-    return;
-  }
-
-  if (passwordForm.new.length < 8) {
-    showError(t('auth.passwordTooShort'));
     return;
   }
 
@@ -503,20 +493,6 @@ const handleKeydown = (event: KeyboardEvent): void => {
                           required
                           class="w-full px-4 sm:px-5 py-2.5 sm:py-3 bg-white/60 border-2 border-stone-200 rounded-xl sm:rounded-2xl focus:border-terracotta focus:ring-4 focus:ring-terracotta/10 outline-none transition-all duration-300 text-sm sm:text-base text-brown pr-10"
                         />
-                      </div>
-                      <div class="mt-3 flex flex-wrap gap-2">
-                        <span
-                          v-for="req in passwordRequirements"
-                          :key="req.label"
-                          class="text-[10px] px-2 py-1 rounded-full border transition-all duration-300"
-                          :class="
-                            req.met
-                              ? 'bg-sage/20 border-sage text-sage-dark'
-                              : 'bg-stone-50 border-stone-200 text-stone-400'
-                          "
-                        >
-                          {{ req.met ? '✓' : '○' }} {{ req.label }}
-                        </span>
                       </div>
                       <div class="mt-2">
                         <PasswordStrengthMeter :password="passwordForm.new" />

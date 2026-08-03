@@ -28,7 +28,10 @@ vi.mock('axios', () => {
     defaults: { headers: { common: {} } },
   };
   return {
-    default: { create: vi.fn(() => mockInstance) },
+    default: {
+      create: vi.fn(() => mockInstance),
+      isCancel: vi.fn(() => false),
+    },
   };
 });
 
@@ -140,6 +143,16 @@ describe('API Utils', () => {
       await vi.runAllTimersAsync();
       const data = await requestPromise;
       expect(data).toEqual({ success: true });
+    });
+
+    it('does not start a request when its signal is already aborted', async () => {
+      const controller = new AbortController();
+      controller.abort();
+
+      await expect(apiRequest('/test', { signal: controller.signal })).rejects.toMatchObject({
+        name: 'AbortError',
+      });
+      expect(apiInstance.request).not.toHaveBeenCalled();
     });
   });
 

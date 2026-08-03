@@ -195,25 +195,34 @@ describe('security utils', () => {
       expect(result.errors).toHaveLength(0);
     });
 
-    it('requires 8 characters', () => {
+    it('allows short passwords because strength is advisory', () => {
       const result = validatePassword('Pass1');
-      expect(result.valid).toBe(false);
-      expect(result.errors).toContain('Password must be at least 8 characters');
+      expect(result.valid).toBe(true);
+      expect(result.errors).toHaveLength(0);
     });
 
-    it('requires uppercase letter', () => {
+    it('allows missing uppercase letters because strength is advisory', () => {
       const result = validatePassword('password1');
-      expect(result.errors).toContain('Password must contain at least one uppercase letter');
+      expect(result.valid).toBe(true);
+      expect(result.errors).toHaveLength(0);
     });
 
-    it('requires lowercase letter', () => {
+    it('allows missing lowercase letters because strength is advisory', () => {
       const result = validatePassword('PASSWORD1');
-      expect(result.errors).toContain('Password must contain at least one lowercase letter');
+      expect(result.valid).toBe(true);
+      expect(result.errors).toHaveLength(0);
     });
 
-    it('requires number', () => {
+    it('allows missing numbers because strength is advisory', () => {
       const result = validatePassword('Password');
-      expect(result.errors).toContain('Password must contain at least one number');
+      expect(result.valid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it('still requires a non-empty password', () => {
+      const result = validatePassword('');
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('Password is required');
     });
   });
 

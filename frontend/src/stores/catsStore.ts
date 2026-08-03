@@ -23,6 +23,7 @@ export interface TagInfo {
 
 // ========== Store Definition ==========
 export const useCatsStore = defineStore('cats', () => {
+  const MAX_MAP_LOCATIONS = 2000;
   // ========== State ==========
   // Location records are replaced as immutable pages; avoid deep proxying every field.
   const locations = shallowRef<CatLocation[]>([]);
@@ -217,7 +218,7 @@ export const useCatsStore = defineStore('cats', () => {
   // ========== Actions ==========
 
   function setLocations(data: CatLocation[], paginationData?: PaginationMeta): void {
-    locations.value = data;
+    locations.value = data.slice(-MAX_MAP_LOCATIONS);
     if (paginationData) {
       pagination.value = paginationData;
       galleryCount.value = paginationData.total;
@@ -229,39 +230,25 @@ export const useCatsStore = defineStore('cats', () => {
    * Prevents duplicates and ensures data freshness
    */
   function appendLocations(data: CatLocation[], paginationData?: PaginationMeta): void {
-    // Build O(1) lookup index
-    const indexMap = new Map<string, number>(
-      locations.value.map((item, idx) => [item.id, idx])
-    );
-    const newData = [...locations.value];
-    let hasChanged = false;
-
-    data.forEach((newItem) => {
-      const idx = indexMap.get(newItem.id);
-      if (idx !== undefined) {
-        // Compare essential fields to see if we really need an update
-        const existing = newData[idx];
-        const isDifferent = 
-          existing.latitude !== newItem.latitude || 
-          existing.longitude !== newItem.longitude ||
-          existing.image_url !== newItem.image_url ||
-          existing.description !== newItem.description ||
-          existing.location_name !== newItem.location_name;
-
-        if (isDifferent) {
-          newData[idx] = { ...existing, ...newItem };
-          hasChanged = true;
-        }
-      } else {
-        // Add new
-        newData.push(newItem);
-        hasChanged = true;
+    // Keep recently observed viewport records, bound memory after repeated pans.
+    const incomingIds = new Set(data.map((item) => item.id));
+    const existingById = new Map(locations.value.map((item) => [item.id, item]));
+    const retained = locations.value.filter((item) => !incomingIds.has(item.id));
+    const mergedIncoming = data.map((newItem) => {
+      const existing = existingById.get(newItem.id);
+      if (
+        existing &&
+        existing.latitude === newItem.latitude &&
+        existing.longitude === newItem.longitude &&
+        existing.image_url === newItem.image_url &&
+        existing.description === newItem.description &&
+        existing.location_name === newItem.location_name
+      ) {
+        return existing;
       }
+      return existing ? { ...existing, ...newItem } : newItem;
     });
-
-    if (hasChanged) {
-      locations.value = newData;
-    }
+    locations.value = [...retained, ...mergedIncoming].slice(-MAX_MAP_LOCATIONS);
 
     if (paginationData) {
       pagination.value = paginationData;

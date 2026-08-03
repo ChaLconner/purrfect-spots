@@ -230,6 +230,7 @@ tags_metadata = [
 # ========== Background Tasks ==========
 from contextlib import asynccontextmanager
 
+from app.services.redis_service import redis_service
 from app.tasks.cleanup_tasks import start_cleanup_jobs, stop_cleanup_jobs
 from app.tasks.subscription_tasks import start_subscription_reconciliation_job, stop_subscription_reconciliation_job
 from app.utils.http_client import close_shared_httpx_client
@@ -248,6 +249,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if config.ENABLE_BACKGROUND_TASKS:
         await stop_cleanup_jobs()
     await close_shared_httpx_client()
+    await redis_service.close()
 
 
 # ========== FastAPI Application ==========

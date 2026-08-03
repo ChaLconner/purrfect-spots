@@ -46,7 +46,7 @@
             size="lg"
             class="mt-4"
             :loading="isLoading"
-            :disabled="passwordMismatch || password.length < 8"
+            :disabled="passwordMismatch || !password || !confirmPassword"
           >
             {{ $t('auth.updatePassword') }}
           </BaseButton>
@@ -126,11 +126,6 @@ onUnmounted(() => {
 const handleSubmit = async (): Promise<void> => {
   if (password.value !== confirmPassword.value) {
     showError(t('auth.passwordsDoNotMatch'), t('common.validationError'));
-    return;
-  }
-
-  if (password.value.length < 8) {
-    showError(t('auth.passwordTooShort'), t('common.validationError'));
     return;
   }
 

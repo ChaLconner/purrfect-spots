@@ -67,9 +67,6 @@ export function useAuthForm(initialMode: 'login' | 'register' = 'login'): UseAut
     if (!pwd?.trim()) {
       formErrors.password = 'Password is required'; // NOSONAR typescript:S2068 - non-hardcoded user input
       isValid = false;
-    } else if (!isLogin.value && pwd.length < 8) {
-      formErrors.password = 'Password must be at least 8 characters'; // NOSONAR typescript:S2068 - non-hardcoded user input
-      isValid = false;
     }
 
     if (!isLogin.value && !form.name?.trim()) {

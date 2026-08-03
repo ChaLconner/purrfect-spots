@@ -20,7 +20,7 @@ class QuotaService:
         self.supabase: AClient = supabase
         self.db = db
 
-    async def get_quota_usage(self, user_id: str) -> tuple[int, datetime.datetime | None]:
+    async def get_quota_usage(self, user_id: str, max_rows: int | None = None) -> tuple[int, datetime.datetime | None]:
         """
         Calculates the number of used slots in the current 24h window.
         A window starts at the first upload and resets 24h later.
@@ -29,6 +29,7 @@ class QuotaService:
         now = datetime.datetime.now(datetime.UTC)
         # We fetch last 48 hours to reliably find the transition into the current active window.
         since = now - datetime.timedelta(hours=48)
+        row_limit = max(1, int(max_rows)) + 1 if max_rows is not None else max(self.PRO_LIMIT, self.FREE_LIMIT) + 1
 
         try:
             timestamps: list[datetime.datetime] = []
@@ -40,11 +41,11 @@ class QuotaService:
                         "WHERE user_id = :u_id "
                         "AND uploaded_at > :since "
                         "AND deleted_at IS NULL "
-                        "ORDER BY uploaded_at ASC"
+                        "ORDER BY uploaded_at DESC LIMIT :row_limit"
                     )
-                    result = await self.db.execute(query, {"u_id": user_id, "since": since})
+                    result = await self.db.execute(query, {"u_id": user_id, "since": since, "row_limit": row_limit})
                     rows = result.fetchall()
-                    timestamps = [row[0] for row in rows]
+                    timestamps = [row[0] for row in reversed(rows)]
                     source_succeeded = True
                 except Exception as e:
                     logger.warning(f"SQL quota fetch failed, falling back to Supabase client: {e}")
@@ -57,15 +58,20 @@ class QuotaService:
                         .eq("user_id", user_id)
                         .gt("uploaded_at", since.isoformat())
                         .is_("deleted_at", "null")
-                        .order("uploaded_at", desc=False)
+                        .order("uploaded_at", desc=True)
+                        .limit(row_limit)
                         .execute()
                     )
-                    timestamps = [
-                        datetime.datetime.fromisoformat(
-                            cast(dict[str, Any], item)["uploaded_at"].replace("Z", "+00:00")
+                    timestamps = list(
+                        reversed(
+                            [
+                                datetime.datetime.fromisoformat(
+                                    cast(dict[str, Any], item)["uploaded_at"].replace("Z", "+00:00")
+                                )
+                                for item in res.data
+                            ]
                         )
-                        for item in res.data
-                    ]
+                    )
                     source_succeeded = True
                 except Exception as e:
                     logger.error(f"Supabase quota fallback failed: {e}")
@@ -146,7 +152,7 @@ class QuotaService:
             return False
 
         # 2. Check User Rolling Quota
-        usage_count, _ = await self.get_quota_usage(user_id)
+        usage_count, _ = await self.get_quota_usage(user_id, max_quota)
 
         if usage_count >= max_quota:
             logger.warning(f"User {user_id} hit rolling quota: {usage_count}/{max_quota}")
@@ -182,7 +188,7 @@ class QuotaService:
         max_quota = self.PRO_LIMIT if is_pro else self.FREE_LIMIT
 
         try:
-            used, window_start = await self.get_quota_usage(user_id)
+            used, window_start = await self.get_quota_usage(user_id, max_quota)
             resets_at = (window_start + datetime.timedelta(hours=24)).isoformat() if window_start else None
 
             remaining = max(0, max_quota - used)

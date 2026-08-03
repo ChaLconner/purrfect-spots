@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from supabase import AClient
 
 from app.logger import logger
+from app.services.redis_service import redis_service
 from app.utils.datetime_utils import utc_now
 from app.utils.exceptions import ExternalServiceError, PurrfectSpotsException
 
@@ -65,24 +66,19 @@ class OTPService:
 
     async def _run_redis_otp_op(self, action: str, email: str, val: Any = None) -> tuple[bool, Any]:
         """Helper to run Redis operations for OTP lockout."""
-        import os
-
-        redis_url = os.getenv("REDIS_URL")
-        if not redis_url:
+        redis_client = redis_service.client
+        if redis_client is None:
             return False, None
         try:
-            import redis.asyncio as aioredis
-
-            async with aioredis.from_url(redis_url, encoding="utf-8", decode_responses=False) as redis_client:
-                lockout_key = f"otp_lockout:{email}"
-                if action == "exists":
-                    return True, bool(await redis_client.exists(lockout_key))
-                if action == "setex":
-                    await redis_client.setex(lockout_key, self.LOCKOUT_DURATION_MINUTES * 60, val)
-                    return True, None
-                if action == "delete":
-                    await redis_client.delete(lockout_key)
-                    return True, None
+            lockout_key = f"otp_lockout:{email}"
+            if action == "exists":
+                return True, bool(await redis_client.exists(lockout_key))
+            if action == "setex":
+                await redis_client.set(lockout_key, val, ex=self.LOCKOUT_DURATION_MINUTES * 60)
+                return True, None
+            if action == "delete":
+                await redis_client.delete(lockout_key)
+                return True, None
         except Exception as e:
             logger.debug(f"Redis {action} failed for {email}, falling back to DB: {e}")
         return False, None

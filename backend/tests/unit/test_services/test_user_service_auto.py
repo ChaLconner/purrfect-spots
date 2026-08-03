@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -155,9 +155,11 @@ async def test_create_unverified_user(user_service):
 
 
 @pytest.mark.asyncio
-async def test_create_unverified_user_rejects_weak_password(user_service):
-    with pytest.raises(ValueError, match="Password must be at least"):
-        await user_service.create_unverified_user("a@a.com", "weakpass", "A")
+async def test_create_unverified_user_allows_weak_password(user_service):
+    with patch("app.services.password_service.password_service.is_password_pwned", return_value=False):
+        user = await user_service.create_unverified_user("a@a.com", "weakpass", "A")
+
+    assert user["id"] == "1"
 
 
 @pytest.mark.asyncio

@@ -1,5 +1,6 @@
 from typing import Any, cast
 
+from postgrest.types import CountMethod
 from sqlalchemy import bindparam, column, desc, func, or_, select, table, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from supabase import AClient
@@ -100,6 +101,82 @@ class SearchService:
         except Exception as e:
             logger.error("Search failed: %s", e)
             raise
+
+    async def count_photos(
+        self,
+        query: str | None = None,
+        tags: list[str] | None = None,
+        use_fulltext: bool = True,
+    ) -> int | None:
+        """Count all matches without fetching another page of photo payloads."""
+        if query and use_fulltext and await self.fulltext_available:
+            try:
+                return await self._count_matches(query, tags, fulltext=True)
+            except Exception as e:
+                logger.info("Full-text count failed, falling back to ILIKE count: %s", e)
+
+        try:
+            sanitized_query = sanitize_search_input(query) if query else None
+            return await self._count_matches(sanitized_query, tags, fulltext=False)
+        except Exception as e:
+            logger.warning("Search count failed: %s", e)
+            return None
+
+    async def _count_matches(self, query: str | None, tags: list[str] | None, *, fulltext: bool) -> int:
+        """Run the count portion of the same visibility/search predicate."""
+        if self.db:
+            params: dict[str, Any] = {"approved_status": self.APPROVED_STATUS}
+            count_query = (
+                select(func.count())
+                .select_from(_SQL_PHOTOS)
+                .where(
+                    _SQL_PHOTOS.c.deleted_at.is_(None),
+                    _SQL_PHOTOS.c.latitude.is_not(None),
+                    _SQL_PHOTOS.c.longitude.is_not(None),
+                    _SQL_PHOTOS.c.status == bindparam("approved_status"),
+                )
+            )
+            if query:
+                params["query"] = query
+                if fulltext:
+                    count_query = count_query.where(
+                        _SQL_PHOTOS.c.search_vector.op("@@")(func.websearch_to_tsquery("english", bindparam("query")))
+                    )
+                else:
+                    params["like_query"] = f"%{escape_like_pattern(query)}%"
+                    count_query = count_query.where(
+                        or_(
+                            _SQL_PHOTOS.c.location_name.ilike(bindparam("like_query")),
+                            _SQL_PHOTOS.c.description.ilike(bindparam("like_query")),
+                        )
+                    )
+            if tags:
+                params["tags"] = self._clean_tags(tags)
+                count_query = count_query.where(_SQL_PHOTOS.c.tags.op("@>")(bindparam("tags")))
+
+            result = await self.db.execute(count_query, params)
+            return int(result.scalar_one() or 0)
+
+        db_query: Any = self.supabase.table("cat_photos").select("id", count=CountMethod.exact)
+        db_query = (
+            db_query.is_("deleted_at", "null")
+            .not_.is_("latitude", "null")
+            .not_.is_("longitude", "null")
+            .eq("status", self.APPROVED_STATUS)
+        )
+        if query:
+            if fulltext:
+                db_query = db_query.text_search("search_vector", query, options={"type": "websearch"})
+            else:
+                safe_query = escape_like_pattern(query)
+                db_query = db_query.or_(f"location_name.ilike.%{safe_query}%,description.ilike.%{safe_query}%")
+        if tags:
+            db_query = db_query.contains("tags", self._clean_tags(tags))
+        response = await db_query.limit(1).execute()
+        count = getattr(response, "count", None)
+        if count is None:
+            raise RuntimeError("Search count response did not include count")
+        return int(count)
 
     @staticmethod
     def _clean_tags(tags: list[str]) -> list[str]:

@@ -225,6 +225,12 @@ const createApiInstance = (): AxiosInstance => {
         });
       }
 
+      // Cancellation is caller-controlled flow, not a network failure. Keep
+      // Axios' cancellation error intact so request retries can stop too.
+      if (axios.isCancel(error)) {
+        throw error;
+      }
+
       if (!error.response) {
         throw new ApiError(
           ApiErrorTypes.NETWORK_ERROR,
@@ -419,8 +425,43 @@ function isRetryableError(error: unknown, config: RetryConfig): boolean {
   return isNetworkError; // Only retry if it was exactly a network error (and not in PROD)
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function createAbortError(): Error {
+  const error = new Error('The request was aborted');
+  error.name = 'AbortError';
+  return error;
+}
+
+export function isRequestAborted(error: unknown): boolean {
+  if (axios.isCancel(error)) return true;
+  if (error instanceof ApiError) return isRequestAborted(error.originalError);
+  if (error instanceof Error && error.name === 'AbortError') return true;
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    return (error as { code?: unknown }).code === 'ERR_CANCELED';
+  }
+  return false;
+}
+
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  if (!signal) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  if (signal.aborted) {
+    return Promise.reject(createAbortError());
+  }
+
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = (): void => {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', onAbort);
+      reject(createAbortError());
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 const requestWithRetry = async <T = unknown>(
@@ -437,6 +478,9 @@ const requestWithRetry = async <T = unknown>(
 
   for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
     try {
+      if (options.signal?.aborted) {
+        throw createAbortError();
+      }
       const response = await apiInstance.request<T>({
         url: endpoint,
         ...options,
@@ -444,6 +488,10 @@ const requestWithRetry = async <T = unknown>(
       return response.data;
     } catch (error) {
       lastError = error;
+
+      if (options.signal?.aborted || isRequestAborted(error)) {
+        throw error;
+      }
 
       if (
         error instanceof ApiError &&
@@ -460,7 +508,7 @@ const requestWithRetry = async <T = unknown>(
       if (shouldRetry) {
         const delay = calculateBackoffDelay(attempt, config);
         // Log removed
-        await sleep(delay);
+        await sleep(delay, options.signal);
         continue;
       }
 

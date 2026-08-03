@@ -85,9 +85,6 @@
               />
             </transition>
 
-            <p v-if="!isLogin" class="font-body text-sm text-brown-text mt-1 ml-2">
-              {{ $t('auth.minPasswordLength') }}
-            </p>
             <div v-if="isLogin" class="text-right mt-1">
               <router-link
                 to="/forgot-password"

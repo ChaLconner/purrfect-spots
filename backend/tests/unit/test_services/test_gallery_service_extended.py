@@ -131,6 +131,33 @@ class TestGalleryServiceExtended:
             assert len(results) == 1
             assert results[0]["id"] == "loc2"
 
+    async def test_get_viewport_photos_postgis(self, gallery_service, mock_supabase):
+        with patch("app.services.feature_flags.FeatureFlagService.is_enabled", return_value=True):
+            rpc_mock = MagicMock()
+            rpc_mock.execute = AsyncMock(return_value=MagicMock(data=[{"id": "viewport1", "status": "approved"}]))
+            mock_supabase.rpc.return_value = rpc_mock
+
+            results = await gallery_service.get_viewport_photos(
+                north=13.9,
+                south=13.7,
+                east=100.7,
+                west=100.5,
+                limit=100,
+            )
+
+            assert len(results) == 1
+            assert results[0]["id"] == "viewport1"
+            mock_supabase.rpc.assert_called_once_with(
+                "search_viewport_photos",
+                {
+                    "north": 13.9,
+                    "south": 13.7,
+                    "east": 100.7,
+                    "west": 100.5,
+                    "result_limit": 100,
+                },
+            )
+
     async def test_get_nearby_photos_postgis_fail(self, gallery_service, mock_supabase):
         with patch("app.services.feature_flags.FeatureFlagService.is_enabled", return_value=True):
             # Use isolated RPC mock

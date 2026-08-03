@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from supabase import AClient
 
 from app.logger import logger
+from app.services.redis_service import redis_service
 from app.utils.datetime_utils import utc_now_iso
 from app.utils.supabase_client import get_async_supabase_admin_client, has_supabase_service_role_key
 
@@ -329,7 +330,9 @@ class TokenService:
                 key = f"user_invalidated:{user_id}"
                 invalidated_at_str = await self.redis.get(key)
                 if invalidated_at_str:
-                    invalidated_at = datetime.fromisoformat(invalidated_at_str.decode())
+                    if isinstance(invalidated_at_str, bytes):
+                        invalidated_at_str = invalidated_at_str.decode()
+                    invalidated_at = datetime.fromisoformat(str(invalidated_at_str))
                     if invalidated_at.tzinfo is None:
                         invalidated_at = invalidated_at.replace(tzinfo=UTC)
                     return token_issued_at < invalidated_at
@@ -412,28 +415,10 @@ async def get_token_service(db: AsyncSession | None = None) -> TokenService:
     global _token_service
 
     if _token_service is None:
-        redis_client = None
-        redis_url = os.getenv("REDIS_URL")
-
-        if redis_url:
-            try:
-                import redis.asyncio as aioredis
-
-                # Use a specific pool name if possible or handle singleton initialization carefully
-                redis_client = aioredis.from_url(
-                    redis_url,
-                    encoding="utf-8",
-                    decode_responses=False,
-                    socket_connect_timeout=5,
-                    socket_timeout=5,
-                    retry_on_timeout=True,
-                    health_check_interval=30,
-                )
-                await redis_client.ping()
-                logger.info("Initializing Token Service singleton with Redis backend")
-            except Exception as e:
-                logger.warning("Could not connect to Redis: %s", e)
-                redis_client = None
+        # Share RedisService pool with cache and distributed locks.
+        redis_client = redis_service.client
+        if redis_client:
+            logger.info("Initializing Token Service singleton with shared Redis backend")
 
         # Admin client will be lazily loaded
         _token_service = TokenService(redis_client, db=None)

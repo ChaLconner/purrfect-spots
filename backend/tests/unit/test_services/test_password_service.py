@@ -84,12 +84,21 @@ class TestPasswordService:
             assert result is False  # Should fail safe (not blocked)
 
     @pytest.mark.asyncio
-    async def test_validate_new_password_too_short(self):
-        """Test new password validation with short password"""
-        is_valid, error = await password_service.validate_new_password("short")
+    async def test_validate_new_password_allows_weak_password(self):
+        """Password strength is advisory; weak non-empty passwords remain usable."""
+        with patch.object(password_service, "is_password_pwned", return_value=False):
+            is_valid, error = await password_service.validate_new_password("short")
+
+        assert is_valid is True
+        assert error is None
+
+    @pytest.mark.asyncio
+    async def test_validate_new_password_rejects_empty_password(self):
+        """An empty value is still not a password."""
+        is_valid, error = await password_service.validate_new_password("")
+
         assert is_valid is False
-        assert error is not None
-        assert "at least 8 characters" in error
+        assert error == "Password is required."
 
     @pytest.mark.asyncio
     async def test_validate_new_password_pwned(self):

@@ -22,6 +22,18 @@ describe('GalleryService', () => {
     expect(res).toEqual(mockRes);
   });
 
+  it('passes an AbortSignal to paginated requests', async () => {
+    vi.mocked(apiV1.get).mockResolvedValue({ images: [], pagination: {} } as any);
+    const signal = new AbortController().signal;
+
+    await GalleryService.getImages({ limit: 10 }, { signal });
+
+    expect(apiV1.get).toHaveBeenCalledWith('/gallery', {
+      params: { limit: 10 },
+      signal,
+    });
+  });
+
   describe('getLocations', () => {
     it('should handle array response', async () => {
       vi.mocked(apiV1.get).mockResolvedValue([{ id: '1' }] as any);

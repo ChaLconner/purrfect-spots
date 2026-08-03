@@ -5,15 +5,21 @@ import contextlib
 
 from app.config import config
 from app.logger import logger
+from app.services.redis_service import RedisLockError, redis_service
 from app.services.subscription_service import SubscriptionService
 from app.utils.supabase_client import get_async_supabase_admin_client
 
 
 async def reconcile_subscriptions_once() -> None:
     """Run one best-effort reconciliation pass."""
-    admin_client = await get_async_supabase_admin_client()
-    summary = await SubscriptionService(admin_client).reconcile_all_subscriptions()
-    logger.info("Subscription reconciliation complete: %s", summary)
+    lock_ttl = max(300, config.SUBSCRIPTION_RECONCILIATION_INTERVAL_SECONDS)
+    try:
+        async with redis_service.lock("maintenance:subscription-reconciliation", ttl=lock_ttl, wait_timeout=0):
+            admin_client = await get_async_supabase_admin_client()
+            summary = await SubscriptionService(admin_client).reconcile_all_subscriptions()
+            logger.info("Subscription reconciliation complete: %s", summary)
+    except RedisLockError:
+        logger.info("Subscription reconciliation skipped because another worker owns the lock")
 
 
 async def _subscription_reconciliation_job() -> None:

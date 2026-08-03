@@ -11,6 +11,14 @@ from app.utils.supabase_client import AClient
 logger = structlog.get_logger(__name__)
 
 
+class SearchResultList(list[dict[str, Any]]):
+    """List-compatible search result carrying an optional exact total."""
+
+    def __init__(self, values: list[dict[str, Any]], total: int | None = None) -> None:
+        super().__init__(values)
+        self.total = total
+
+
 if TYPE_CHECKING:
     from app.services.search_service import SearchService
 
@@ -38,12 +46,18 @@ class GallerySearchMixin(GalleryBaseMixin):
         offset: int = 0,
         use_fulltext: bool = True,
         user_id: str | None = None,
+        include_total: bool = False,
     ) -> list[dict[str, Any]]:
         try:
             results = await self.search_service.search_photos(query, tags, limit, offset, use_fulltext)
+            total = await self.search_service.count_photos(query, tags, use_fulltext) if include_total else None
             results = self._process_photos(results)
             if user_id and results:
                 results = await self.enrich_with_user_data(results, user_id)
+            if include_total:
+                if total is None:
+                    total = offset + len(results) + (1 if len(results) >= limit else 0)
+                return SearchResultList(results, total=total)
             return results
         except Exception as e:
             logger.error(f"Search error: {e}")

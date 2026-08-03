@@ -179,11 +179,14 @@ describe('GalleryView.vue', () => {
     await nextTick();
 
     expect(mockReplace).toHaveBeenCalled();
-    expect(GalleryService.search).toHaveBeenCalledWith({
-      query: 'cute cats',
-      page: 1,
-      limit: 20
-    });
+    expect(GalleryService.search).toHaveBeenCalledWith(
+      {
+        query: 'cute cats',
+        page: 1,
+        limit: 20,
+      },
+      { signal: expect.any(AbortSignal) }
+    );
   });
 
   it('handles loading more images', async () => {

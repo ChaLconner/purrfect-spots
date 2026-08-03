@@ -90,6 +90,7 @@ def check_redis() -> dict[str, Any]:
             "message": "Redis URL not set - using in-memory fallback",
         }
 
+    client: Any | None = None
     try:
         import redis
 
@@ -111,6 +112,12 @@ def check_redis() -> dict[str, Any]:
     except Exception as e:
         logger.error("Redis health check failed: %s", e)
         return {"status": "unhealthy", "error": ERROR_CONNECTION_FAILED}
+    finally:
+        if client is not None:
+            try:
+                client.close()
+            except Exception:
+                logger.debug("Failed to close Redis health-check client", exc_info=True)
 
 
 def check_s3() -> dict[str, Any]:

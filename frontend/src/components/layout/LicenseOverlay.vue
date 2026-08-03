@@ -1,5 +1,5 @@
 <template>
-  <footer class="mt-auto py-8 text-center">
+  <footer class="mt-auto bg-transparent py-8 text-center">
     <div
       class="text-[10px] text-[var(--color-brown-meta)] font-accent tracking-wider opacity-60 uppercase flex items-center justify-center gap-2"
     >

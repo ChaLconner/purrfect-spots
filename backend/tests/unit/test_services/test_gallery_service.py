@@ -2,7 +2,7 @@
 Tests for gallery service with pagination
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from postgrest.types import CountMethod
@@ -132,6 +132,17 @@ class TestGalleryService:
         result = await gallery_service.search_photos(query="nonexistent", use_fulltext=False)
 
         assert result == []
+
+    async def test_search_photos_can_carry_exact_total(self, gallery_service, mock_supabase, mock_cat_photo):
+        mock_response = MagicMock()
+        mock_response.data = [mock_cat_photo]
+        mock_supabase.execute.return_value = mock_response
+        gallery_service.search_service.count_photos = AsyncMock(return_value=42)
+
+        result = await gallery_service.search_photos(query="cat", use_fulltext=False, include_total=True)
+
+        assert len(result) == 1
+        assert result.total == 42
 
     async def test_get_popular_tags(self, gallery_service, mock_supabase):
         """Test getting popular tags"""

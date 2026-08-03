@@ -6,6 +6,7 @@ import pytest
 from app.config import config
 from app.middleware.csrf_middleware import CSRFMiddleware
 from app.services.otp_service import OTPService
+from app.services.redis_service import redis_service
 from app.services.subscription_service import SubscriptionService
 from app.services.treats_service import TreatsService
 from app.services.user_service import UserService
@@ -157,23 +158,16 @@ async def test_treats_give_treat_sql_success(mock_supabase, mock_db):
 
 
 @pytest.mark.asyncio
-@patch("redis.asyncio.from_url")
-async def test_otp_lockout_redis(mock_redis_from_url, mock_supabase):
-    import os
+async def test_otp_lockout_redis(mock_supabase):
+    service = OTPService(mock_supabase)
+    mock_redis = AsyncMock()
+    mock_redis.exists.return_value = 1
 
-    with patch.dict(os.environ, {"REDIS_URL": "redis://localhost"}):
-        service = OTPService(mock_supabase)
-
-        # Mock redis client
-        mock_redis = AsyncMock()
-        mock_redis.exists.return_value = 1
-
-        # Mock context manager
-        mock_redis_from_url.return_value.__aenter__.return_value = mock_redis
-
+    with patch.object(redis_service, "client", mock_redis):
         locked = await service._is_email_locked_out("test@example.com")
-        assert locked is True
-        mock_redis.exists.assert_called_with("otp_lockout:test@example.com")
+
+    assert locked is True
+    mock_redis.exists.assert_called_with("otp_lockout:test@example.com")
 
 
 @pytest.mark.asyncio

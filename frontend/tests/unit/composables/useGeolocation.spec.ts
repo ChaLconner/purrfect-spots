@@ -58,6 +58,8 @@ describe('useGeolocation', () => {
       expect(vm.error).toBeNull();
       expect(vm.isLoading).toBe(false);
       expect(vm.permissionDenied).toBe(false);
+      expect(vm.locationStatus).toBe('idle');
+      expect(vm.locationSource).toBeNull();
 
       wrapper.unmount();
     });
@@ -89,10 +91,12 @@ describe('useGeolocation', () => {
 
       const result = await vm.getCurrentPosition();
 
-      expect(result).toEqual({ lat: 13.7563, lng: 100.5018 });
-      expect(vm.userLocation).toEqual({ lat: 13.7563, lng: 100.5018 });
+      expect(result).toMatchObject({ lat: 13.7563, lng: 100.5018, accuracy: 10 });
+      expect(vm.userLocation).toMatchObject({ lat: 13.7563, lng: 100.5018, accuracy: 10 });
       expect(vm.isLoading).toBe(false);
       expect(vm.permissionDenied).toBe(false);
+      expect(vm.locationStatus).toBe('available');
+      expect(vm.locationSource).toBe('gps');
 
       wrapper.unmount();
     });
@@ -120,10 +124,12 @@ describe('useGeolocation', () => {
       const wrapper = mount(createTestComponent());
       const vm = wrapper.vm as ReturnType<typeof useGeolocation>;
 
-      const result = await vm.getCurrentPosition();
+      const result = await vm.getCurrentPosition({ allowIpFallback: true });
 
       expect(vm.permissionDenied).toBe(true);
-      expect(result).toEqual({ lat: 14.0, lng: 101.0 });
+      expect(result).toMatchObject({ lat: 14.0, lng: 101.0, accuracy: null });
+      expect(vm.locationStatus).toBe('stale');
+      expect(vm.locationSource).toBe('approximate');
 
       wrapper.unmount();
     });
@@ -149,7 +155,54 @@ describe('useGeolocation', () => {
       const wrapper = mount(createTestComponent());
       const vm = wrapper.vm as ReturnType<typeof useGeolocation>;
 
-      expect(await vm.getCurrentPosition()).toEqual({ lat: 0, lng: 0 });
+      expect(await vm.getCurrentPosition({ allowIpFallback: true })).toMatchObject({
+        lat: 0,
+        lng: 0,
+        accuracy: null,
+      });
+      wrapper.unmount();
+    });
+
+    it('does not use approximate IP location when fallback is disabled', async () => {
+      mockGeolocation.getCurrentPosition.mockImplementation(
+        (_success: PositionCallback, errorCallback: PositionErrorCallback) => {
+          errorCallback({
+            code: 2,
+            message: 'Position unavailable',
+            PERMISSION_DENIED: 1,
+            POSITION_UNAVAILABLE: 2,
+            TIMEOUT: 3,
+          });
+        }
+      );
+
+      (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ latitude: '14.0', longitude: '101.0' }),
+      });
+
+      const wrapper = mount(createTestComponent());
+      const vm = wrapper.vm as ReturnType<typeof useGeolocation>;
+
+      expect(await vm.getCurrentPosition({ allowIpFallback: false })).toBeNull();
+      expect(vm.locationStatus).toBe('unavailable');
+      expect(vm.locationSource).toBeNull();
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+
+      wrapper.unmount();
+    });
+
+    it('supports selecting a manual map location without browser permission', () => {
+      const wrapper = mount(createTestComponent());
+      const vm = wrapper.vm as ReturnType<typeof useGeolocation>;
+
+      const result = vm.setManualLocation({ lat: 13.7, lng: 100.5 });
+
+      expect(result).toMatchObject({ lat: 13.7, lng: 100.5, accuracy: null });
+      expect(vm.locationStatus).toBe('available');
+      expect(vm.locationSource).toBe('manual');
+      expect(mockGeolocation.getCurrentPosition).not.toHaveBeenCalled();
+
       wrapper.unmount();
     });
 
@@ -173,7 +226,7 @@ describe('useGeolocation', () => {
       const wrapper = mount(createTestComponent());
       const vm = wrapper.vm as ReturnType<typeof useGeolocation>;
 
-      const result = await vm.getCurrentPosition();
+      const result = await vm.getCurrentPosition({ allowIpFallback: true });
 
       expect(result).toBeNull();
       expect(vm.error).toBe('Position unavailable');
@@ -196,7 +249,7 @@ describe('useGeolocation', () => {
       const wrapper = mount(createTestComponent());
       const vm = wrapper.vm as ReturnType<typeof useGeolocation>;
 
-      const result = await vm.getCurrentPosition();
+      const result = await vm.getCurrentPosition({ allowIpFallback: true });
 
       expect(result).toBeNull();
       expect(vm.error).toBe('Geolocation is not supported by this browser');
@@ -236,6 +289,48 @@ describe('useGeolocation', () => {
       wrapper.unmount();
     });
 
+    it('keeps last GPS position and marks it stale when tracking loses signal', async () => {
+      const mockPosition: GeolocationPosition = {
+        coords: {
+          latitude: 13.7563,
+          longitude: 100.5018,
+          accuracy: 42,
+          altitude: null,
+          altitudeAccuracy: null,
+          heading: null,
+          speed: null,
+        },
+        timestamp: Date.now(),
+      };
+
+      mockGeolocation.getCurrentPosition.mockImplementation(
+        (successCallback: PositionCallback) => successCallback(mockPosition)
+      );
+      mockGeolocation.watchPosition.mockImplementation(
+        (_success: PositionCallback, errorCallback: PositionErrorCallback) => {
+          errorCallback({
+            code: 2,
+            message: 'Position unavailable',
+            PERMISSION_DENIED: 1,
+            POSITION_UNAVAILABLE: 2,
+            TIMEOUT: 3,
+          });
+          return 123;
+        }
+      );
+
+      const wrapper = mount(createTestComponent());
+      const vm = wrapper.vm as ReturnType<typeof useGeolocation>;
+
+      await vm.startWatchingPosition({ allowIpFallback: false });
+
+      expect(vm.userLocation).toMatchObject({ lat: 13.7563, lng: 100.5018, accuracy: 42 });
+      expect(vm.locationSource).toBe('gps');
+      expect(vm.locationStatus).toBe('stale');
+
+      wrapper.unmount();
+    });
+
     it('should skip watching if permission denied', async () => {
       // Mock getCurrentPosition to set permissionDenied
       mockGeolocation.getCurrentPosition.mockImplementation(
@@ -258,7 +353,7 @@ describe('useGeolocation', () => {
       const vm = wrapper.vm as ReturnType<typeof useGeolocation>;
 
       // First call sets permissionDenied
-      await vm.getCurrentPosition();
+      await vm.getCurrentPosition({ allowIpFallback: true });
       expect(vm.permissionDenied).toBe(true);
 
       // Now try to watch - should be skipped

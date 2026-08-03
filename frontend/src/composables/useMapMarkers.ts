@@ -1,6 +1,7 @@
 /// <reference types="google.maps" />
 import { shallowRef, watch, type Ref, onUnmounted, getCurrentInstance, type ShallowRef } from 'vue';
 import type { CatLocation } from '../types/api';
+import { EXTERNAL_URLS } from '../utils/constants';
 import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markerclusterer';
 
 // Type for google maps objects (since we load them dynamically)
@@ -9,29 +10,145 @@ type GoogleMap = google.maps.Map;
 type GoogleMarker = google.maps.Marker | google.maps.marker.AdvancedMarkerElement;
 const markerIconCache = new Map<string, string>();
 const MARKER_ICON_CACHE_MAX_SIZE = 200;
+const CAT_MARKER_SIZE = 52;
+const CAT_MARKER_HEIGHT = 72;
+const CAT_MARKER_ICON = EXTERNAL_URLS.CAT_MARKER_ICON;
+const CAT_MARKER_THEME_FALLBACKS = {
+  fill: '#d67a4f',
+  outline: '#a65d37',
+  inner: '#faf6ec',
+} as const;
 
+const readThemeColor = (variable: string, fallback: string): string => {
+  if (typeof window === 'undefined') return fallback;
+
+  return window.getComputedStyle(document.documentElement).getPropertyValue(variable).trim() || fallback;
+};
+
+const getCatMarkerTheme = (): typeof CAT_MARKER_THEME_FALLBACKS => ({
+  fill: readThemeColor('--color-terracotta', CAT_MARKER_THEME_FALLBACKS.fill),
+  outline: readThemeColor('--color-terracotta-dark', CAT_MARKER_THEME_FALLBACKS.outline),
+  inner: readThemeColor('--color-cream', CAT_MARKER_THEME_FALLBACKS.inner),
+});
+
+const createThemedCatMarkerIcon = (image: HTMLImageElement): string | null => {
+  const canvas = document.createElement('canvas');
+  canvas.width = CAT_MARKER_SIZE;
+  canvas.height = CAT_MARKER_HEIGHT;
+
+  const context = canvas.getContext('2d');
+  if (!context) return null;
+
+  const theme = getCatMarkerTheme();
+  const centerX = CAT_MARKER_SIZE / 2;
+  const centerY = 25;
+  const outerRadius = 23;
+  const tipY = CAT_MARKER_HEIGHT - 2;
+  const imageRadius = outerRadius - 4;
+
+  context.save();
+  context.shadowColor = 'rgba(66, 33, 16, 0.28)';
+  context.shadowBlur = 4;
+  context.shadowOffsetY = 2;
+  context.beginPath();
+  context.moveTo(centerX, tipY);
+  context.bezierCurveTo(
+    centerX - 3,
+    tipY - 7,
+    centerX - outerRadius,
+    centerY + 8,
+    centerX - outerRadius,
+    centerY
+  );
+  context.arc(centerX, centerY, outerRadius, Math.PI, 0, false);
+  context.bezierCurveTo(
+    centerX + outerRadius,
+    centerY + 8,
+    centerX + 3,
+    tipY - 7,
+    centerX,
+    tipY
+  );
+  context.closePath();
+  context.fillStyle = theme.fill;
+  context.fill();
+  context.shadowColor = 'transparent';
+  context.strokeStyle = theme.outline;
+  context.lineWidth = 2;
+  context.stroke();
+  context.restore();
+
+  context.save();
+  context.beginPath();
+  context.arc(centerX, centerY, imageRadius, 0, Math.PI * 2);
+  context.fillStyle = theme.inner;
+  context.fill();
+  context.clip();
+
+  const sourceWidth = image.naturalWidth || image.width || CAT_MARKER_SIZE;
+  const sourceHeight = image.naturalHeight || image.height || CAT_MARKER_SIZE;
+  const diameter = imageRadius * 2;
+  const scale = Math.max(diameter / sourceWidth, diameter / sourceHeight);
+  const drawWidth = sourceWidth * scale;
+  const drawHeight = sourceHeight * scale;
+  context.drawImage(
+    image,
+    centerX - drawWidth / 2,
+    centerY - drawHeight / 2,
+    drawWidth,
+    drawHeight
+  );
+  context.restore();
+
+  return canvas.toDataURL('image/png');
+};
+
+type UserLocationPosition = { lat: number; lng: number };
+type UserLocationMarkerOptions = {
+  accuracy?: number | null;
+  stale?: boolean;
+  title?: string;
+};
 export function useMapMarkers(map: Ref<GoogleMap | null>): {
   markers: ShallowRef<Map<string, GoogleMarker>>;
   userMarker: ShallowRef<GoogleMarker | null>;
   updateMarkers: (locations: CatLocation[], onMarkerClick?: (cat: CatLocation) => void) => void;
-  updateUserMarker: (position: { lat: number; lng: number } | null) => void;
+  updateUserMarker: (position: UserLocationPosition | null, options?: UserLocationMarkerOptions) => void;
+  updateUserRadiusCircle: (radiusKm: number | null, center?: UserLocationPosition | null) => void;
   clearMarkers: () => void;
 } {
   // Use shallowRef for markers array to avoid deep reactivity overhead with Google Maps objects
   const markers = shallowRef<Map<string, GoogleMarker>>(new Map());
   const userMarker = shallowRef<GoogleMarker | null>(null);
+  const userAccuracyCircle = shallowRef<google.maps.Circle | null>(null);
+  const userRadiusCircle = shallowRef<google.maps.Circle | null>(null);
+  const markerImageUrls = new Map<string, string>();
+  const markerImageTokens = new Map<string, symbol>();
+
+  const removeUserAccuracyCircle = (): void => {
+    userAccuracyCircle.value?.setMap(null);
+    userAccuracyCircle.value = null;
+  };
+
+  const removeUserRadiusCircle = (): void => {
+    userRadiusCircle.value?.setMap(null);
+    userRadiusCircle.value = null;
+  };
 
   const removeUserMarker = (): void => {
-    if (!userMarker.value) return;
-    if (userMarker.value instanceof google.maps.Marker) {
-      userMarker.value.setMap(null);
-    } else if (
-      google.maps.marker?.AdvancedMarkerElement &&
-      userMarker.value instanceof google.maps.marker.AdvancedMarkerElement
-    ) {
-      userMarker.value.map = null;
+    if (userMarker.value) {
+      if (userMarker.value instanceof google.maps.Marker) {
+        userMarker.value.setMap(null);
+      } else if (
+        google.maps.marker?.AdvancedMarkerElement &&
+        userMarker.value instanceof google.maps.marker.AdvancedMarkerElement
+      ) {
+        userMarker.value.map = null;
+      }
+      userMarker.value = null;
     }
-    userMarker.value = null;
+    removeUserAccuracyCircle();
+    removeUserRadiusCircle();
   };
   const clusterer = shallowRef<MarkerClusterer | null>(null);
 
@@ -70,6 +187,98 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
         });
       },
     },
+  };
+
+  const getFallbackCatMarkerIcon = (): google.maps.Icon => ({
+    url: CAT_MARKER_ICON,
+    scaledSize: new google.maps.Size(40, 40),
+    anchor: new google.maps.Point(20, 20),
+  });
+
+  const setCachedCatMarkerIcon = (imageUrl: string, iconUrl: string): void => {
+    if (markerIconCache.size >= MARKER_ICON_CACHE_MAX_SIZE) {
+      const oldest = markerIconCache.keys().next().value;
+      if (oldest) markerIconCache.delete(oldest);
+    }
+    markerIconCache.set(imageUrl, iconUrl);
+  };
+
+  const setImageCatMarker = (
+    id: string,
+    marker: google.maps.Marker,
+    imageUrl: string
+  ): void => {
+    markerImageUrls.set(id, imageUrl);
+
+    const cachedIcon = markerIconCache.get(imageUrl);
+    if (cachedIcon) {
+      marker.setIcon({
+        url: cachedIcon,
+        scaledSize: new google.maps.Size(CAT_MARKER_SIZE, CAT_MARKER_HEIGHT),
+        anchor: new google.maps.Point(CAT_MARKER_SIZE / 2, CAT_MARKER_HEIGHT - 4),
+      });
+      return;
+    }
+
+    const token = Symbol(id);
+    markerImageTokens.set(id, token);
+    const image = new Image();
+    image.crossOrigin = 'anonymous';
+    image.decoding = 'async';
+    image.width = CAT_MARKER_SIZE;
+    image.height = CAT_MARKER_SIZE;
+
+    image.onload = (): void => {
+      if (markerImageTokens.get(id) !== token) return;
+
+      const iconUrl = createThemedCatMarkerIcon(image);
+      if (!iconUrl) {
+        marker.setIcon({
+          url: imageUrl,
+          scaledSize: new google.maps.Size(40, 40),
+          anchor: new google.maps.Point(20, 20),
+        });
+        markerImageTokens.delete(id);
+        return;
+      }
+
+      setCachedCatMarkerIcon(imageUrl, iconUrl);
+      marker.setIcon({
+        url: iconUrl,
+        scaledSize: new google.maps.Size(CAT_MARKER_SIZE, CAT_MARKER_HEIGHT),
+        anchor: new google.maps.Point(CAT_MARKER_SIZE / 2, CAT_MARKER_HEIGHT - 4),
+      });
+      markerImageTokens.delete(id);
+    };
+
+    image.onerror = (): void => {
+      if (markerImageTokens.get(id) !== token) return;
+
+      marker.setIcon({
+        url: imageUrl,
+        scaledSize: new google.maps.Size(40, 40),
+        anchor: new google.maps.Point(20, 20),
+      });
+      markerImageTokens.delete(id);
+    };
+
+    image.src = imageUrl;
+  };
+
+  const updateCatMarkerImage = (
+    id: string,
+    marker: google.maps.Marker,
+    imageUrl?: string
+  ): void => {
+    markerImageTokens.delete(id);
+
+    if (!imageUrl) {
+      markerImageUrls.set(id, '');
+      marker.setIcon(getFallbackCatMarkerIcon());
+      return;
+    }
+
+    setImageCatMarker(id, marker, imageUrl);
   };
 
   // Watch for map changes to initialize/destroy clusterer
@@ -118,97 +327,10 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
     const marker = new google.maps.Marker({
       position: { lat: location.latitude, lng: location.longitude },
       title: location.location_name || 'Cat Location',
-      icon: {
-        url: '/location_10753796.png',
-        scaledSize: new google.maps.Size(40, 40),
-        anchor: new google.maps.Point(20, 20),
-      },
+      icon: getFallbackCatMarkerIcon(),
     });
 
-    if (location.image_url) {
-      const cachedIcon = markerIconCache.get(location.image_url);
-      if (cachedIcon) {
-        marker.setIcon({
-          url: cachedIcon,
-          scaledSize: new google.maps.Size(52, 68),
-          anchor: new google.maps.Point(26, 64),
-        });
-      } else {
-        const img = new Image();
-        img.crossOrigin = 'Anonymous';
-        img.decoding = 'async';
-        img.width = 52;
-        img.height = 52;
-        img.src = location.image_url;
-        img.onload = (): void => {
-          const canvas = document.createElement('canvas');
-          const size = 52;
-          canvas.width = size;
-          canvas.height = size + 16;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) return;
-
-          const cx = size / 2;
-          const cy = size / 2;
-          const r = size / 2 - 2;
-
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
-          ctx.shadowBlur = 4;
-          ctx.shadowOffsetY = 2;
-
-          ctx.fillStyle = '#d97757'; // location-badge color
-          ctx.beginPath();
-          ctx.arc(cx, cy, r, Math.PI * 0.2, Math.PI * 0.8, true);
-          ctx.lineTo(cx, canvas.height - 4);
-          ctx.closePath();
-          ctx.fill();
-
-          ctx.shadowColor = 'transparent';
-
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(cx, cy, r - 3, 0, Math.PI * 2);
-          ctx.clip();
-
-          const d = (r - 3) * 2;
-          const imgAspect = img.width / img.height;
-          let drawWidth = d;
-          let drawHeight = d;
-
-          if (imgAspect > 1) {
-            drawWidth = d * imgAspect;
-          } else {
-            drawHeight = d / imgAspect;
-          }
-
-          const drawX = cx - drawWidth / 2;
-          const drawY = cy - drawHeight / 2;
-
-          ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
-          ctx.restore();
-
-          const iconUrl = canvas.toDataURL();
-          if (markerIconCache.size >= MARKER_ICON_CACHE_MAX_SIZE) {
-            const oldest = markerIconCache.keys().next().value;
-            if (oldest) markerIconCache.delete(oldest);
-          }
-          markerIconCache.set(location.image_url, iconUrl);
-          marker.setIcon({
-            url: iconUrl,
-            scaledSize: new google.maps.Size(size, size + 16),
-            anchor: new google.maps.Point(size / 2, size + 12),
-          });
-        };
-
-        img.onerror = (): void => {
-          marker.setIcon({
-            url: location.image_url,
-            scaledSize: new google.maps.Size(40, 40),
-            anchor: new google.maps.Point(20, 20),
-          });
-        };
-      }
-    }
+    updateCatMarkerImage(location.id, marker, location.image_url);
 
     if (onMarkerClick) {
       const listener = marker.addListener('click', () => onMarkerClick(location));
@@ -236,6 +358,13 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
             lng: location.longitude,
           });
         }
+      }
+    }
+
+    if (marker instanceof google.maps.Marker) {
+      const imageUrl = location.image_url || '';
+      if (markerImageUrls.get(location.id) !== imageUrl) {
+        updateCatMarkerImage(location.id, marker, location.image_url);
       }
     }
   };
@@ -271,6 +400,8 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
           }
           markerListeners.delete(id);
         }
+        markerImageTokens.delete(id);
+        markerImageUrls.delete(id);
         markersMap.delete(id);
       }
     }
@@ -300,7 +431,10 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
   /**
    * Update user location marker (Blue Dot)
    */
-  const updateUserMarker = (position: { lat: number; lng: number } | null): void => {
+  const updateUserMarker = (
+    position: UserLocationPosition | null,
+    options: UserLocationMarkerOptions = {}
+  ): void => {
     if (!map.value) return;
 
     if (!position) {
@@ -308,10 +442,24 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
       return;
     }
 
+    const stale = options.stale ?? false;
+    const markerColor = stale ? '#7b8794' : '#4285F4';
+    const strokeColor = stale ? '#f3f4f6' : '#FFFFFF';
+    const markerIcon = {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 10,
+      fillColor: markerColor,
+      fillOpacity: stale ? 0.72 : 1,
+      strokeColor,
+      strokeWeight: 3,
+    };
+
     if (userMarker.value) {
       // Update existing marker
       if (userMarker.value instanceof google.maps.Marker) {
         userMarker.value.setPosition(position);
+        userMarker.value.setIcon(markerIcon);
+        userMarker.value.setTitle(options.title || 'Your location');
       } else if (
         google.maps.marker?.AdvancedMarkerElement &&
         userMarker.value instanceof google.maps.marker.AdvancedMarkerElement
@@ -324,31 +472,63 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
       userMarker.value = new google.maps.Marker({
         position: position,
         map: map.value, // User marker is NOT clustered, add to map directly
-        title: 'Your Location',
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 10,
-          fillColor: '#4285F4',
-          fillOpacity: 1,
-          strokeColor: '#FFFFFF',
-          strokeWeight: 3,
-        },
+        title: options.title || 'Your location',
+        icon: markerIcon,
         zIndex: 999,
       });
+    }
 
-      const infoWindow = new google.maps.InfoWindow({
-        content:
-          '<div class="p-2 font-sans"><strong>You are here</strong></div>',
-      });
+    const accuracy = options.accuracy;
+    if (accuracy !== undefined && accuracy !== null && Number.isFinite(accuracy) && accuracy > 0) {
+      const circleOptions: google.maps.CircleOptions = {
+        center: position,
+        radius: accuracy,
+        map: map.value,
+        strokeColor: markerColor,
+        strokeOpacity: stale ? 0.25 : 0.45,
+        strokeWeight: 1,
+        fillColor: markerColor,
+        fillOpacity: stale ? 0.06 : 0.12,
+        clickable: false,
+        zIndex: 998,
+      };
 
-      if (userMarker.value) {
-        // Use 'click' for legacy Marker
-        userMarker.value.addListener('click', () => {
-          if (map.value && userMarker.value) {
-            infoWindow.open(map.value, userMarker.value);
-          }
-        });
+      if (userAccuracyCircle.value) {
+        userAccuracyCircle.value.setOptions(circleOptions);
+      } else {
+        userAccuracyCircle.value = new google.maps.Circle(circleOptions);
       }
+    } else {
+      removeUserAccuracyCircle();
+    }
+  };
+
+  const updateUserRadiusCircle = (
+    radiusKm: number | null,
+    center: UserLocationPosition | null = null
+  ): void => {
+    if (!map.value || !center || radiusKm === null || !Number.isFinite(radiusKm) || radiusKm <= 0) {
+      removeUserRadiusCircle();
+      return;
+    }
+
+    const circleOptions: google.maps.CircleOptions = {
+      center,
+      radius: radiusKm * 1000,
+      map: map.value,
+      strokeColor: '#A65D37',
+      strokeOpacity: 0.55,
+      strokeWeight: 1.5,
+      fillColor: '#D67A4F',
+      fillOpacity: 0.04,
+      clickable: false,
+      zIndex: 997,
+    };
+
+    if (userRadiusCircle.value) {
+      userRadiusCircle.value.setOptions(circleOptions);
+    } else {
+      userRadiusCircle.value = new google.maps.Circle(circleOptions);
     }
   };
 
@@ -365,6 +545,8 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
     // Clear listeners
     markerListeners.forEach((listener) => google.maps.event.removeListener(listener));
     markerListeners.clear();
+    markerImageTokens.clear();
+    markerImageUrls.clear();
 
     removeUserMarker();
   };
@@ -384,6 +566,7 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
     userMarker,
     updateMarkers,
     updateUserMarker,
+    updateUserRadiusCircle,
     clearMarkers,
   };
 }

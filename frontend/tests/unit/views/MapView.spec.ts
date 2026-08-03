@@ -3,6 +3,7 @@ import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { createRouter, createWebHistory, type Router } from 'vue-router';
 import MapView from '@/views/MapView.vue';
+import MapLocationControl from '@/components/map/MapLocationControl.vue';
 import { GalleryService } from '@/services/galleryService';
 import { useCatsStore } from '@/stores';
 import { nextTick } from 'vue';
@@ -37,6 +38,7 @@ vi.mock('@/composables/useMapMarkers', () => ({
     userMarker: { value: null },
     updateMarkers: vi.fn(),
     updateUserMarker: vi.fn(),
+    updateUserRadiusCircle: vi.fn(),
     clearMarkers: vi.fn(),
   })),
 }));
@@ -328,5 +330,117 @@ describe('MapView.vue', () => {
       await badge.vm.$emit('clear');
       expect(catsStore.searchQuery).toBe('');
     }
+  });
+
+  it('does not request location until the user asks for it', async () => {
+    wrapper = mount(MapView, {
+      attachTo: document.body,
+      global: {
+        plugins: [router],
+        stubs: {
+          GhibliLoader: true,
+          CatDetailModal: true,
+          ErrorState: true,
+          OnboardingBanner: true,
+          MapSearchBadge: true,
+        },
+        mocks: {
+          $t: (msg: string): string => msg,
+        },
+      },
+    });
+
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(mockGeolocation.getCurrentPosition).not.toHaveBeenCalled();
+    expect(wrapper.findComponent(MapLocationControl).exists()).toBe(true);
+  });
+
+  it('requests live GPS only after location control action', async () => {
+    const mockPosition: GeolocationPosition = {
+      coords: {
+        latitude: 13.7563,
+        longitude: 100.5018,
+        accuracy: 24,
+        altitude: null,
+        altitudeAccuracy: null,
+        heading: null,
+        speed: null,
+      },
+      timestamp: Date.now(),
+    };
+    mockGeolocation.getCurrentPosition.mockImplementation(
+      (successCallback: PositionCallback) => successCallback(mockPosition)
+    );
+
+    wrapper = mount(MapView, {
+      attachTo: document.body,
+      global: {
+        plugins: [router],
+        stubs: {
+          GhibliLoader: true,
+          CatDetailModal: true,
+          ErrorState: true,
+          OnboardingBanner: true,
+          MapSearchBadge: true,
+        },
+        mocks: {
+          $t: (msg: string): string => msg,
+        },
+      },
+    });
+
+    await nextTick();
+    await wrapper.findComponent(MapLocationControl).vm.$emit('locate');
+    await nextTick();
+
+    expect(mockGeolocation.getCurrentPosition).toHaveBeenCalledTimes(1);
+    expect(mockGeolocation.getCurrentPosition.mock.calls[0][2]).toMatchObject({
+      enableHighAccuracy: true,
+    });
+    expect(wrapper.findComponent(MapLocationControl).props('status')).toBe('available');
+    expect(wrapper.findComponent(MapLocationControl).props('accuracy')).toBe(24);
+  });
+
+  it('supports manual map selection when GPS is unavailable', async () => {
+    wrapper = mount(MapView, {
+      attachTo: document.body,
+      global: {
+        plugins: [router],
+        stubs: {
+          GhibliLoader: true,
+          CatDetailModal: true,
+          ErrorState: true,
+          OnboardingBanner: true,
+          MapSearchBadge: true,
+        },
+        mocks: {
+          $t: (msg: string): string => msg,
+        },
+      },
+    });
+
+    await nextTick();
+    const control = wrapper.findComponent(MapLocationControl);
+    await control.vm.$emit('manual-select');
+
+    const mapClickCallback = mockMap.addListener.mock.calls.find(
+      (call) => call[0] === 'click'
+    )?.[1] as ((event: google.maps.MapMouseEvent) => void) | undefined;
+    expect(mapClickCallback).toBeDefined();
+
+    mapClickCallback?.({
+      latLng: {
+        lat: (): number => 13.7,
+        lng: (): number => 100.5,
+      },
+    } as google.maps.MapMouseEvent);
+    await nextTick();
+
+    expect(control.props('manualSelectMode')).toBe(false);
+    expect(control.props('source')).toBe('manual');
+    expect(control.props('status')).toBe('available');
+    expect(control.props('canFilterRadius')).toBe(true);
   });
 });

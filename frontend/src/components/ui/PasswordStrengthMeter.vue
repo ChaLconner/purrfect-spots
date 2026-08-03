@@ -12,12 +12,8 @@
         <div
           v-for="i in 4"
           :key="i"
-          class="flex-1 rounded-sm bg-black/10 transition-colors duration-300 ease-in-out"
-          :class="{
-            'bg-[#f6c1b1]': strength <= 2 && strength >= i,
-            'bg-[#ebc968]': strength === 3 && strength >= i,
-            'bg-[#7fb7a4]': strength === 4 && strength >= i,
-          }"
+          class="flex-1 rounded-sm transition-colors duration-300 ease-in-out"
+          :class="strength >= i ? strengthBarClass : 'bg-black/10'"
         ></div>
       </div>
       <p
@@ -112,6 +108,20 @@ const labelColorClass = computed(() => {
       return 'text-[#5a7558]';
     default:
       return 'text-gray-400';
+  }
+});
+
+const strengthBarClass = computed(() => {
+  switch (strength.value) {
+    case 1:
+    case 2:
+      return 'bg-[#f6c1b1]';
+    case 3:
+      return 'bg-[#ebc968]';
+    case 4:
+      return 'bg-[#7fb7a4]';
+    default:
+      return 'bg-black/10';
   }
 });
 </script>
