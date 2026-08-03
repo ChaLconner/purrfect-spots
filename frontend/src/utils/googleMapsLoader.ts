@@ -76,7 +76,7 @@ export const loadGoogleMaps = async (options: GoogleMapsLoaderOptions): Promise<
   const script = document.createElement('script');
   script.async = true;
   script.defer = true;
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${options.apiKey}&v=${options.version || 'weekly'}&libraries=${options.libraries || 'places'}&loading=async&callback=${callbackName}`;
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${options.apiKey}&v=${options.version || 'weekly'}&libraries=${options.libraries || 'marker'}&loading=async&callback=${callbackName}`;
 
   // Create the load promise
   loadPromise = new Promise<void>((resolve, reject) => {

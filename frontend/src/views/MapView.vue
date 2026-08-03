@@ -46,6 +46,22 @@
         <!-- Google Map -->
         <div id="map" ref="mapContainer" class="w-full h-full outline-none rounded-[inherit]"></div>
 
+        <MapLocationControl
+          :status="locationStatus"
+          :source="locationSource"
+          :accuracy="userAccuracy"
+          :low-accuracy="hasLowAccuracy"
+          :last-updated-at="lastUpdatedAt"
+          :show-recenter="showRecenterControl"
+          :manual-select-mode="manualLocationMode"
+          :radius="nearbyRadiusKm"
+          :can-filter-radius="canFilterByRadius"
+          @locate="requestUserLocation"
+          @recenter="recenterOnUser"
+          @manual-select="toggleManualLocationMode"
+          @radius-change="setNearbyRadius"
+        />
+
         <!-- Custom Map Controls (Glassmorphism) -->
 
         <MapSearchBadge
@@ -118,10 +134,12 @@ import ErrorState from '@/components/ui/ErrorState.vue';
 import CatDetailModal from '@/components/map/CatDetailModal.vue';
 import MapSearchBadge from '@/components/map/MapSearchBadge.vue';
 import OnboardingBanner from '@/components/map/OnboardingBanner.vue';
+import MapLocationControl from '@/components/map/MapLocationControl.vue';
 
 import { loadGoogleMaps, isGoogleMapsLoaded } from '../utils/googleMapsLoader';
 import { getEnvVar } from '../utils/env';
 import { FALLBACK_LOCATION, MAP_CONFIG, EXTERNAL_URLS } from '../utils/constants';
+import { isRequestAborted } from '../utils/api';
 import { openTrustedExternalUrl } from '../utils/security';
 import { useCatsStore } from '../stores';
 import type { CatLocation } from '../stores';
@@ -130,6 +148,7 @@ import type { CatLocation } from '../stores';
 import { useGeolocation } from '../composables/useGeolocation';
 import { useMapMarkers } from '../composables/useMapMarkers';
 import { useSeo } from '../composables/useSeo';
+import { distanceInKm } from '../utils/geo';
 
 const catIcon = '/cat-icon.webp';
 const route = useRoute();
@@ -148,10 +167,18 @@ const map = ref<google.maps.Map | null>(null);
 const mapContainer = ref<HTMLDivElement | null>(null);
 
 // Composables Setup
-const { userLocation, getCurrentPosition, startWatchingPosition, stopWatchingPosition } =
-  useGeolocation();
+const {
+  userLocation,
+  getCurrentPosition,
+  startWatchingPosition,
+  stopWatchingPosition,
+  locationStatus,
+  locationSource,
+  lastUpdatedAt,
+  setManualLocation,
+} = useGeolocation();
 
-const { updateMarkers, updateUserMarker, clearMarkers } = useMapMarkers(map);
+const { updateMarkers, updateUserMarker, updateUserRadiusCircle, clearMarkers } = useMapMarkers(map);
 
 let markerUpdateFrame: number | null = null;
 let pendingMarkerLocations: CatLocation[] | null = null;
@@ -183,16 +210,51 @@ const getQueryString = (
 
 // Search Query
 const searchQuery = computed(() => catsStore.searchQuery);
-const displayedLocations = computed(() => catsStore.filteredLocations);
+const nearbyRadiusKm = ref<number | null>(null);
+const isFollowingUser = ref(false);
+const showRecenterControl = ref(false);
+const manualLocationMode = ref(false);
+const userAccuracy = computed(() => userLocation.value?.accuracy ?? null);
+const hasLowAccuracy = computed(
+  () => userAccuracy.value !== null && userAccuracy.value > 500
+);
+const canFilterByRadius = computed(
+  () =>
+    Boolean(userLocation.value) &&
+    locationStatus.value === 'available' &&
+    (locationSource.value === 'manual' ||
+      (locationSource.value === 'gps' &&
+        !hasLowAccuracy.value))
+);
+const searchedLocations = computed(() => catsStore.filteredLocations);
+const displayedLocations = computed(() => {
+  const radiusKm = nearbyRadiusKm.value;
+  const position = userLocation.value;
+  if (!radiusKm || !canFilterByRadius.value || !position) {
+    return searchedLocations.value;
+  }
+
+  return searchedLocations.value.filter(
+    (location: CatLocation) =>
+      distanceInKm(position, {
+        lat: location.latitude,
+        lng: location.longitude,
+      }) <= radiusKm
+  );
+});
 
 // Viewport fetch logic
 // Using ref for proper cleanup
-const isViewportFetching = ref(false);
+const isFittingBounds = ref(false);
 const latestImageRequestId = ref(0);
+const latestViewportRequestId = ref(0);
 const viewportFetchTimer = ref<ReturnType<typeof setTimeout> | null>(null);
+let viewportRequestController: AbortController | null = null;
+let fitBoundsTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Map bounds tracking for visible counter
 const mapBounds = ref<google.maps.LatLngBounds | null>(null);
+const mapListeners: google.maps.MapsEventListener[] = [];
 
 /**
  * Filter markers to only those visible in the current viewport
@@ -262,6 +324,129 @@ const closeModal = (): void => {
   router.push({ path: route.path, query, hash: route.hash });
 };
 
+const centerOnUser = (position: { lat: number; lng: number }): void => {
+  if (!map.value) return;
+
+  map.value.panTo(position);
+  const currentZoom = map.value.getZoom();
+  if (currentZoom === undefined || currentZoom < 15) {
+    map.value.setZoom(15);
+  }
+  showRecenterControl.value = false;
+};
+
+const updateUserViewportState = (): void => {
+  if (!map.value || !userLocation.value) return;
+
+  const bounds = map.value.getBounds();
+  if (bounds && typeof bounds.contains === 'function' && !bounds.contains(userLocation.value)) {
+    showRecenterControl.value = true;
+  } else if (isFollowingUser.value) {
+    showRecenterControl.value = false;
+  }
+};
+
+const requestUserLocation = async (): Promise<void> => {
+  manualLocationMode.value = false;
+  isFollowingUser.value = true;
+  showRecenterControl.value = false;
+
+  const position = await getCurrentPosition({
+    enableHighAccuracy: true,
+    timeout: 10000,
+    maximumAge: 0,
+    allowIpFallback: false,
+  });
+
+  if (!position || locationStatus.value !== 'available') {
+    isFollowingUser.value = false;
+    return;
+  }
+
+  centerOnUser(position);
+  await startWatchingPosition({
+    enableHighAccuracy: false,
+    timeout: 15000,
+    maximumAge: 30000,
+    allowIpFallback: false,
+  });
+};
+
+const recenterOnUser = (): void => {
+  manualLocationMode.value = false;
+  if (!userLocation.value || locationStatus.value !== 'available') {
+    void requestUserLocation();
+    return;
+  }
+
+  isFollowingUser.value = true;
+  centerOnUser(userLocation.value);
+};
+
+const toggleManualLocationMode = (): void => {
+  manualLocationMode.value = !manualLocationMode.value;
+};
+
+const selectManualLocation = (event: google.maps.MapMouseEvent): void => {
+  if (!manualLocationMode.value || !event.latLng) return;
+
+  setManualLocation({ lat: event.latLng.lat(), lng: event.latLng.lng() });
+  manualLocationMode.value = false;
+  isFollowingUser.value = false;
+  showRecenterControl.value = false;
+};
+
+const setNearbyRadius = (radiusKm: number | null): void => {
+  const allowedRadius = radiusKm === null || [1, 5, 10].includes(radiusKm);
+  if (!allowedRadius || (radiusKm !== null && !canFilterByRadius.value)) return;
+  nearbyRadiusKm.value = radiusKm;
+};
+
+const updateUserOverlay = (): void => {
+  const position = userLocation.value;
+  updateUserMarker(position, {
+    accuracy: userAccuracy.value,
+    stale:
+      locationStatus.value !== 'available' ||
+      locationSource.value !== 'gps' ||
+      hasLowAccuracy.value,
+    title:
+      locationSource.value === 'manual'
+        ? t('map.location.selected')
+        : t('map.markers.yourLocation'),
+  });
+  updateUserRadiusCircle(nearbyRadiusKm.value, position);
+
+  if (position && isFollowingUser.value && map.value) {
+    centerOnUser(position);
+  } else {
+    updateUserViewportState();
+  }
+};
+
+let userOverlayFrame: number | null = null;
+const scheduleUserOverlayUpdate = (): void => {
+  if (userOverlayFrame !== null) return;
+
+  const run = (): void => {
+    userOverlayFrame = null;
+    updateUserOverlay();
+  };
+
+  if (typeof window !== 'undefined' && 'requestAnimationFrame' in window) {
+    userOverlayFrame = window.requestAnimationFrame(run);
+  } else {
+    userOverlayFrame = globalThis.setTimeout(run, 0);
+  }
+};
+
+watch([userLocation, locationStatus, nearbyRadiusKm], scheduleUserOverlayUpdate);
+watch(canFilterByRadius, (canFilter): void => {
+  if (!canFilter && nearbyRadiusKm.value !== null) {
+    nearbyRadiusKm.value = null;
+  }
+});
+
 // ==========================================
 // Map Logic
 // ==========================================
@@ -329,23 +514,38 @@ const initializeMap = async (): Promise<void> => {
     mapBounds.value = map.value.getBounds() || null;
 
     // Listeners with requestAnimationFrame for smooth performance
-    map.value.addListener('idle', (): void => {
+    const idleListener = map.value.addListener('idle', (): void => {
       if (map.value) {
         mapBounds.value = map.value.getBounds() || null;
+        updateUserViewportState();
       }
-      
-      // Don't trigger fetch if we're already fetching or if fitting bounds is in progress
-      if (!isViewportFetching.value && !isLoading.value) {
+
+      // A newer viewport supersedes an older request; fitting bounds is the
+      // only state that should temporarily suppress the idle fetch.
+      if (!isFittingBounds.value && !isLoading.value) {
         requestAnimationFrame(() => {
           debouncedViewportFetch();
         });
       }
     });
+    if (idleListener) mapListeners.push(idleListener);
+
+    const dragStartListener = map.value.addListener('dragstart', (): void => {
+      isFollowingUser.value = false;
+      showRecenterControl.value = true;
+    });
+    if (dragStartListener) mapListeners.push(dragStartListener);
+
+    const mapClickListener = map.value.addListener('click', selectManualLocation);
+    if (mapClickListener) mapListeners.push(mapClickListener);
 
     // Initial Render - use RAF for smooth transition
     requestAnimationFrame((): void => {
       if (userLocation.value) {
-        updateUserMarker(userLocation.value);
+        updateUserOverlay();
+        if (isFollowingUser.value) {
+          centerOnUser(userLocation.value);
+        }
       }
 
       scheduleMarkerUpdate(displayedLocations.value);
@@ -365,7 +565,7 @@ const initializeMap = async (): Promise<void> => {
 // ==========================================
 
 const fetchLocationsInViewport = async (): Promise<void> => {
-  if (!map.value || isViewportFetching.value) return;
+  if (!map.value) return;
 
   const bounds = map.value.getBounds();
   const zoom = map.value.getZoom();
@@ -374,7 +574,10 @@ const fetchLocationsInViewport = async (): Promise<void> => {
     return;
   }
 
-  isViewportFetching.value = true;
+  viewportRequestController?.abort();
+  const requestController = new AbortController();
+  viewportRequestController = requestController;
+  const requestId = ++latestViewportRequestId.value;
   // Don't show full loading if we already have some data (better UX)
   if (displayedLocations.value.length === 0) {
     isLoading.value = true;
@@ -385,25 +588,36 @@ const fetchLocationsInViewport = async (): Promise<void> => {
     const ne = bounds.getNorthEast();
     const sw = bounds.getSouthWest();
 
-    const locations = await GalleryService.getViewportLocations({
-      north: ne.lat(),
-      south: sw.lat(),
-      east: ne.lng(),
-      west: sw.lng(),
-      limit: MAP_CONFIG.MAX_MARKERS_PER_VIEWPORT,
-    });
+    const locations = await GalleryService.getViewportLocations(
+      {
+        north: ne.lat(),
+        south: sw.lat(),
+        east: ne.lng(),
+        west: sw.lng(),
+        limit: MAP_CONFIG.MAX_MARKERS_PER_VIEWPORT,
+      },
+      { signal: requestController.signal }
+    );
+
+    if (requestId !== latestViewportRequestId.value) return;
 
     // Use store action to merge locations (handles duplicates and updates)
     catsStore.appendLocations(locations);
 
   } catch (err) {
+    if (isRequestAborted(err)) return;
+    if (requestId !== latestViewportRequestId.value) return;
     console.warn('Failed to fetch marker locations:', err);
     // Keep the map interactive when the marker API is temporarily unavailable.
     // The backend still logs the 500; users should not lose the whole map.
     catsStore.setError(t('map.errorLoadingLocations'));
   } finally {
-    isViewportFetching.value = false;
-    isLoading.value = false;
+    if (requestId === latestViewportRequestId.value) {
+      isLoading.value = false;
+    }
+    if (viewportRequestController === requestController) {
+      viewportRequestController = null;
+    }
   }
 };
 
@@ -453,13 +667,15 @@ watch(
         });
 
         // Use a temporary flag to prevent the 'idle' listener from refetching immediately
-        isViewportFetching.value = true;
+        isFittingBounds.value = true;
         map.value.fitBounds(bounds, MAP_CONFIG.FIT_BOUNDS_PADDING);
         hasFittedForCurrentSearch.value = true;
 
         // Release the lock after animation roughly finishes
-        setTimeout((): void => {
-          isViewportFetching.value = false;
+        if (fitBoundsTimer) clearTimeout(fitBoundsTimer);
+        fitBoundsTimer = setTimeout((): void => {
+          isFittingBounds.value = false;
+          fitBoundsTimer = null;
         }, 1000);
       } else if (locations.length === 1) {
         map.value.panTo({ lat: locations[0].latitude, lng: locations[0].longitude });
@@ -470,18 +686,6 @@ watch(
   },
   { immediate: false }
 );
-
-// Watch user location
-watch(userLocation, (pos, oldPos): void => {
-  updateUserMarker(pos);
-
-  // Auto-pan to user's location if newly detected and map is ready
-  // Only if no search is active (don't disrupt user's current view if they are searching)
-  if (pos && !oldPos && map.value && !searchQuery.value && !route.query.image) {
-    map.value.panTo(pos);
-    map.value.setZoom(15);
-  }
-});
 
 // Watch Map Instance - Fix for race condition where data loads before map
 watch(map, (newMap): void => {
@@ -591,38 +795,19 @@ onMounted((): void => {
     type: 'website',
   });
 
-  // Start with a single low-cost location lookup so the first render stays responsive.
-  void getCurrentPosition({
-    enableHighAccuracy: false,
-    timeout: 3000,
-    maximumAge: 5 * 60 * 1000,
-  });
-
-  // Start map initialization immediately to improve LCP
+  // Map loads without requesting sensitive location permission.
   initializeMap();
-
-  // Continuous tracking is useful, but it does not need to compete with the
-  // initial map render and first viewport fetch.
-  const startDeferredTracking = (): void => {
-    void startWatchingPosition({
-      enableHighAccuracy: false,
-      timeout: 10000,
-      maximumAge: 30000,
-    });
-  };
-
-  if ('requestIdleCallback' in globalThis) {
-    (
-      globalThis as unknown as {
-        requestIdleCallback: (cb: () => void, options?: { timeout: number }) => void;
-      }
-    ).requestIdleCallback(startDeferredTracking, { timeout: 2000 });
-  } else {
-    globalThis.setTimeout(startDeferredTracking, 1000);
-  }
 });
 
 onUnmounted((): void => {
+  if (userOverlayFrame !== null) {
+    if (typeof window !== 'undefined' && 'cancelAnimationFrame' in window) {
+      window.cancelAnimationFrame(userOverlayFrame);
+    } else {
+      globalThis.clearTimeout(userOverlayFrame);
+    }
+    userOverlayFrame = null;
+  }
   if (markerUpdateFrame !== null) {
     if (typeof window !== 'undefined' && 'cancelAnimationFrame' in window) {
       window.cancelAnimationFrame(markerUpdateFrame);
@@ -641,9 +826,18 @@ onUnmounted((): void => {
     visibleCountFrame = null;
   }
   stopWatchingPosition();
+  mapListeners.forEach((listener) => listener.remove());
+  mapListeners.length = 0;
   if (viewportFetchTimer.value) {
     clearTimeout(viewportFetchTimer.value);
   }
+  if (fitBoundsTimer) {
+    clearTimeout(fitBoundsTimer);
+    fitBoundsTimer = null;
+  }
+  viewportRequestController?.abort();
+  viewportRequestController = null;
+  latestViewportRequestId.value++;
   clearMarkers(); // Clean up all map objects
   map.value = null;
   resetMetaTags(); // Reset SEO meta tags

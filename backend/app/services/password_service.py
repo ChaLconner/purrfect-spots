@@ -86,17 +86,16 @@ class PasswordService:
 
     async def validate_new_password(self, password: str, check_breach: bool = True) -> tuple[bool, str | None]:
         """
-        Validate a new password for all security requirements.
+        Validate a new password for required input and optional breach protection.
+
+        Password length and character classes are advisory UI signals. Supabase
+        Auth still applies its own platform minimum when the password is stored.
 
         Returns:
             Tuple of (is_valid, error_message)
         """
-        # Check complexity
-        if not self.validate_complexity(password):
-            return (
-                False,
-                f"Password must be at least {self.MIN_PASSWORD_LENGTH} characters long and include uppercase, lowercase, number, and special character.",
-            )
+        if not password:
+            return False, "Password is required."
 
         # Check for data breaches
         if check_breach and await self.is_password_pwned(password):

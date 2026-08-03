@@ -2,9 +2,11 @@ import asyncio
 import contextlib
 from datetime import UTC, datetime, timedelta
 from typing import cast
+from urllib.parse import urlparse
 
 from app.logger import logger
 from app.services.notification_service import NotificationService
+from app.services.redis_service import RedisLockError, redis_service
 from app.services.storage_service import storage_service
 from app.services.user_service import UserService
 from app.utils.supabase_client import get_async_supabase_admin_client
@@ -13,10 +15,13 @@ from app.utils.supabase_client import get_async_supabase_admin_client
 async def _cleanup_notifications() -> None:
     """Run notification cleanup once."""
     try:
-        logger.info("Running notification cleanup...")
-        admin_client = await get_async_supabase_admin_client()
-        notification_service = NotificationService(admin_client)
-        await notification_service.cleanup_old_notifications(days=30)
+        async with redis_service.lock("maintenance:notifications", ttl=3600, wait_timeout=0):
+            logger.info("Running notification cleanup...")
+            admin_client = await get_async_supabase_admin_client()
+            notification_service = NotificationService(admin_client)
+            await notification_service.cleanup_old_notifications(days=30)
+    except RedisLockError:
+        logger.info("Notification cleanup skipped because another worker owns the lock")
     except Exception as e:
         logger.error(f"Error in notification cleanup: {e}")
 
@@ -36,43 +41,46 @@ async def _cleanup_notifications_job() -> None:
 async def _cleanup_orphaned_s3_files() -> None:
     """Run S3 orphaned files cleanup once."""
     try:
-        logger.info("Running S3 orphaned files cleanup...")
-        admin_client = await get_async_supabase_admin_client()
+        async with redis_service.lock("maintenance:s3-orphans", ttl=3600, wait_timeout=0):
+            logger.info("Running S3 orphaned files cleanup...")
+            admin_client = await get_async_supabase_admin_client()
 
-        # 1. Get all image URLs from database
-        result = await admin_client.table("cat_photos").select("image_url").execute()
-        assert isinstance(result.data, list)
-        db_image_urls = (
-            {cast(str, row["image_url"]) for row in result.data if isinstance(row, dict) and "image_url" in row}
-            if result.data
-            else set()
-        )
+            # 1. Get all image URLs from database
+            result = await admin_client.table("cat_photos").select("image_url").execute()
+            assert isinstance(result.data, list)
+            referenced_keys: set[str] = set()
+            for row in result.data or []:
+                if not isinstance(row, dict) or not row.get("image_url"):
+                    continue
+                path = urlparse(cast(str, row["image_url"])).path.lstrip("/")
+                marker = path.find("upload/")
+                if marker >= 0:
+                    referenced_keys.add(path[marker:])
 
-        # 2. List all files in S3
-        s3_files = await storage_service.list_files(prefix="upload/")
+            # 2. List all files in S3
+            s3_files = await storage_service.list_files(prefix="upload/")
 
-        # 3. Compare and identify orphans
-        now = datetime.now(UTC)
-        orphans_to_delete = []
+            # 3. Compare and identify orphans
+            now = datetime.now(UTC)
+            orphans_to_delete = []
 
-        for key, last_modified in s3_files:
-            if now - last_modified < timedelta(hours=24):
-                continue
+            for key, last_modified in s3_files:
+                if now - last_modified < timedelta(hours=24):
+                    continue
 
-            is_referenced = any(key in url for url in db_image_urls)
-            if not is_referenced:
-                orphans_to_delete.append(key)
+                if key not in referenced_keys:
+                    orphans_to_delete.append(key)
 
-        # 4. Delete orphans
-        if orphans_to_delete:
-            logger.info("Found %d orphaned files in S3. Starting deletion...", len(orphans_to_delete))
-            for key in orphans_to_delete:
-                dummy_url = f"https://dummy.s3.amazonaws.com/{key}"
-                await storage_service.delete_file(dummy_url)
-            logger.info("Successfully deleted %d orphaned files from S3.", len(orphans_to_delete))
-        else:
-            logger.info("No orphaned S3 files found.")
+            # 4. Delete orphans
+            if orphans_to_delete:
+                logger.info("Found %d orphaned files in S3. Starting deletion...", len(orphans_to_delete))
+                await storage_service.delete_files(orphans_to_delete)
+                logger.info("Successfully deleted %d orphaned files from S3.", len(orphans_to_delete))
+            else:
+                logger.info("No orphaned S3 files found.")
 
+    except RedisLockError:
+        logger.info("S3 cleanup skipped because another worker owns the lock")
     except Exception as e:
         logger.error(f"Error in S3 cleanup: {e}")
 
@@ -101,10 +109,13 @@ _s3_cleanup_task: asyncio.Task | None = None
 async def _cleanup_deleted_accounts() -> None:
     """Run account deletion cleanup once."""
     try:
-        logger.info("Running account deletion cleanup...")
-        admin_client = await get_async_supabase_admin_client()
-        user_service = UserService(admin_client, admin_client)
-        await user_service.execute_hard_delete()
+        async with redis_service.lock("maintenance:deleted-accounts", ttl=3600, wait_timeout=0):
+            logger.info("Running account deletion cleanup...")
+            admin_client = await get_async_supabase_admin_client()
+            user_service = UserService(admin_client, admin_client)
+            await user_service.execute_hard_delete()
+    except RedisLockError:
+        logger.info("Account deletion cleanup skipped because another worker owns the lock")
     except Exception as e:
         logger.error(f"Error in account deletion cleanup: {e}")
 

@@ -115,7 +115,7 @@ jobs:
             [ -z "$file" ] && continue
 
             case "$file" in
-              backend/*|packages/api-client/*)
+              backend/*|packages/api-client/*|supabase/migrations/*)
                 backend=true
                 ;;
             esac
@@ -325,7 +325,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
       - name: Security Audit
-        run: npm audit --audit-level=high || true
+        run: npm audit --audit-level=high
       - name: Lint & Typecheck
         run: |
           npm run type-check -w frontend

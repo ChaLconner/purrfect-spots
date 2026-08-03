@@ -13,10 +13,11 @@ import redis.asyncio as redis
 
 from app.config import config
 from app.logger import logger
+from app.services.redis_service import redis_service
 
-# Initialize Redis client
-redis_url = config.REDIS_URL
-redis_client: redis.Redis | None = None
+# Reuse RedisService connection pool. Separate clients created here and in token
+# handling caused unnecessary pools and made shutdown harder to manage.
+redis_client: redis.Redis | None = redis_service.client
 
 # Export is_dev for compatibility with tests
 is_dev = config.ENVIRONMENT.lower() in ["development", "testing"]
@@ -33,19 +34,6 @@ class MemoryCacheEntry:
 
 memory_cache: dict[str, MemoryCacheEntry] = {}
 _inflight_locks: dict[str, asyncio.Lock] = {}
-
-if redis_url:
-    try:
-        redis_client = redis.from_url(
-            redis_url,
-            encoding="utf-8",
-            decode_responses=True,
-            socket_timeout=5,
-            socket_connect_timeout=5,
-            retry_on_timeout=True,
-        )
-    except Exception as e:
-        logger.error(f"Redis connection failed: {e}")
 
 
 class JSONEncoder(json.JSONEncoder):
@@ -258,8 +246,7 @@ cached_user_likes = cache(expire=300, key_prefix="user_likes", skip_args=1)
 
 # Invalidation helpers
 async def invalidate_gallery_cache() -> None:
-    await clear_cache("cache:gallery:*")
-    await clear_cache("cache:nearby:*")
+    await clear_cache_patterns(("cache:gallery:*", "cache:nearby:*", "cache:viewport:*"))
 
 
 async def invalidate_tags_cache() -> None:
@@ -272,8 +259,7 @@ async def invalidate_leaderboard_cache() -> None:
 
 async def invalidate_user_cache(user_id: str | None = None) -> None:
     # Always clear user_photos as user_id specific one is hard to match with hash
-    await clear_cache("cache:user_photos:*")
-    await clear_cache("cache:user_likes:*")
+    await clear_cache_patterns(("cache:user_photos:*", "cache:user_likes:*"))
 
 
 async def invalidate_after_upload(user_id: str) -> None:
@@ -282,6 +268,7 @@ async def invalidate_after_upload(user_id: str) -> None:
         (
             "cache:gallery:*",
             "cache:nearby:*",
+            "cache:viewport:*",
             "cache:tags:*",
             "cache:user_photos:*",
             "cache:user_likes:*",

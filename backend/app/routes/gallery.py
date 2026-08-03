@@ -249,16 +249,11 @@ async def get_locations_in_viewport(
     else:
         response.headers["Cache-Control"] = "public, max-age=60, stale-while-revalidate=30"
     try:
-        center_lat = (north + south) / 2
-        center_lng = (east + west) / 2
-        lat_diff = abs(north - south)
-        lng_diff = abs(east - west)
-        radius_km = max(lat_diff, lng_diff) * 111 / 2
-
-        photos = await gallery_service.get_nearby_photos(
-            latitude=center_lat,
-            longitude=center_lng,
-            radius_km=max(radius_km, 1.0),
+        photos = await gallery_service.get_viewport_photos(
+            north=north,
+            south=south,
+            east=east,
+            west=west,
             limit=limit,
         )
 
@@ -308,6 +303,7 @@ async def search_locations(
             limit=limit,
             offset=actual_offset,
             user_id=current_user.id if current_user else None,
+            include_total=True,
         )
 
         # Apply sorting
@@ -317,9 +313,10 @@ async def search_locations(
 
         results = [CatLocation(**photo) for photo in photos] if photos else []
 
+        total = int(getattr(photos, "total", len(results)))
         return SearchResponse(
             results=results,
-            total=len(results),
+            total=total,
             query=q,
             tags=tag_list,
             limit=limit,

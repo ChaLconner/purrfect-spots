@@ -213,7 +213,7 @@ def test_get_ip_location_skips_lookup_during_rate_limit_cooldown(client) -> None
 
 def test_get_viewport(client) -> None:
     mock_service = MagicMock()
-    mock_service.get_nearby_photos = AsyncMock(
+    mock_service.get_viewport_photos = AsyncMock(
         return_value=[
             {
                 "id": "1",
@@ -238,7 +238,7 @@ def test_get_viewport_accepts_uuid_ids(client) -> None:
     photo_id = uuid4()
     user_id = uuid4()
     mock_service = MagicMock()
-    mock_service.get_nearby_photos = AsyncMock(
+    mock_service.get_viewport_photos = AsyncMock(
         return_value=[
             {
                 "id": photo_id,

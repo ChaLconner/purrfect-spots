@@ -34,7 +34,7 @@
               >
                 <!-- Placeholder -->
                 <div
-                  v-if="!loadedImages[image.id]"
+                  v-if="!loadedImages.has(image.id)"
                   class="absolute inset-0 z-10 h-full w-full rounded bg-[#f0fdf4] after:absolute after:inset-0 after:-translate-x-full after:animate-[shimmer_1.5s_infinite] after:bg-gradient-to-r after:from-transparent after:via-white/60 after:to-transparent after:content-['']"
                   aria-hidden="true"
                 >
@@ -63,7 +63,7 @@
                         : t('galleryPage.modal.aCat')
                     "
                     class="block h-full w-full scale-100 rounded object-cover opacity-0 shadow-md transition-[transform,opacity] duration-500 ease-in-out group-hover:scale-105"
-                    :class="{ 'opacity-100': loadedImages[image.id] }"
+                    :class="{ 'opacity-100': loadedImages.has(image.id) }"
                     @load="handleImageLoad(image.id)"
                     @error="handleImageError(image.id, $event)"
                   />
@@ -89,7 +89,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, shallowRef, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import { ref, shallowRef, computed, onMounted, onUnmounted, watch, nextTick, triggerRef } from 'vue';
 import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller';
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css';
 import { IMAGE_CONFIG, GALLERY_CONFIG } from '@/utils/constants';
@@ -109,7 +109,7 @@ const emit = defineEmits<{
   (e: 'load-more'): void;
 }>();
 
-const loadedImages = shallowRef<Record<string, boolean>>({});
+const loadedImages = shallowRef<Set<string>>(new Set());
 const loadMoreTrigger = ref<HTMLElement | null>(null);
 const loadMoreObserver = ref<IntersectionObserver | null>(null);
 
@@ -204,7 +204,13 @@ function generateSrcSet(url: string): string {
 
 // Image Loading
 function handleImageLoad(id: string): void {
-  loadedImages.value = { ...loadedImages.value, [id]: true };
+  loadedImages.value.add(id);
+  while (loadedImages.value.size > GALLERY_CONFIG.MAX_LOADED_IMAGES_CACHE) {
+    const oldestId = loadedImages.value.values().next().value;
+    if (oldestId === undefined) break;
+    loadedImages.value.delete(oldestId);
+  }
+  triggerRef(loadedImages);
 }
 
 function handleImageError(id: string, event: Event): void {
@@ -214,7 +220,7 @@ function handleImageError(id: string, event: Event): void {
   }
   // Clear shimmer on error
 
-  loadedImages.value = { ...loadedImages.value, [id]: true };
+  handleImageLoad(id);
 }
 
 // Infinite Scroll Observer
@@ -258,13 +264,20 @@ onUnmounted(() => {
     loadMoreObserver.value.disconnect();
     loadMoreObserver.value = null;
   }
-  loadedImages.value = {};
+  loadedImages.value.clear();
 });
 
 // Watchers
 watch(
   () => props.images,
   () => {
+    const visibleIds = new Set(props.images.map((image) => image.id));
+    for (const loadedId of loadedImages.value) {
+      if (!visibleIds.has(loadedId)) {
+        loadedImages.value.delete(loadedId);
+      }
+    }
+    triggerRef(loadedImages);
     // Re-setup observer on data change
     nextTick(() => setupLoadMoreObserver());
   },

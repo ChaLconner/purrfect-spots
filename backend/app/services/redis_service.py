@@ -6,7 +6,7 @@ import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 import redis.asyncio as aioredis
 
@@ -75,6 +75,16 @@ class RedisService:
             logger.error("Redis ping failed: %s", e)
             return False
 
+    async def close(self) -> None:
+        """Close shared Redis pool during application shutdown."""
+        if self.client:
+            try:
+                # redis-py exposes aclose at runtime; its installed typing
+                # surface still exposes only close on some supported versions.
+                await cast(Any, self.client).aclose()
+            except Exception:
+                logger.warning("Failed to close Redis pool", exc_info=True)
+
     async def get(self, key: str) -> Any | None:
         if not self.client:
             return None
@@ -131,6 +141,20 @@ class RedisService:
         """Keep unit tests deterministic without touching configured Redis."""
         return Config.ENVIRONMENT.lower() in {"test", "testing"} or bool(os.getenv("PYTEST_CURRENT_TEST"))
 
+    @classmethod
+    async def _acquire_local_lock(cls, key: str, wait_timeout: float) -> asyncio.Lock:
+        local_lock = cls._local_locks.setdefault(key, asyncio.Lock())
+        if wait_timeout <= 0:
+            if local_lock.locked():
+                raise RedisLockTimeout(f"Timed out acquiring local lock {key}")
+            await local_lock.acquire()
+            return local_lock
+        try:
+            await asyncio.wait_for(local_lock.acquire(), timeout=wait_timeout)
+        except TimeoutError as exc:
+            raise RedisLockTimeout(f"Timed out acquiring local lock {key}") from exc
+        return local_lock
+
     @asynccontextmanager
     async def lock(self, key: str, *, ttl: int = 60, wait_timeout: float = 15.0) -> AsyncIterator[None]:
         """Acquire a cross-instance lock with token-safe release.
@@ -144,11 +168,10 @@ class RedisService:
         wait_timeout = max(0.0, float(wait_timeout))
 
         if self._use_local_lock():
-            local_lock = self._local_locks.setdefault(key, asyncio.Lock())
             try:
-                await asyncio.wait_for(local_lock.acquire(), timeout=wait_timeout)
-            except TimeoutError as exc:
-                raise RedisLockTimeout(f"Timed out acquiring local lock {key}") from exc
+                local_lock = await self._acquire_local_lock(key, wait_timeout)
+            except RedisLockTimeout:
+                raise
             try:
                 yield
             finally:
@@ -160,11 +183,10 @@ class RedisService:
             if Config.is_production():
                 raise RedisLockUnavailable("Redis is required for distributed subscription locking")
             # Development without Redis still gets a safe single-process guard.
-            local_lock = self._local_locks.setdefault(key, asyncio.Lock())
             try:
-                await asyncio.wait_for(local_lock.acquire(), timeout=wait_timeout)
-            except TimeoutError as exc:
-                raise RedisLockTimeout(f"Timed out acquiring local lock {key}") from exc
+                local_lock = await self._acquire_local_lock(key, wait_timeout)
+            except RedisLockTimeout:
+                raise
             try:
                 yield
             finally:

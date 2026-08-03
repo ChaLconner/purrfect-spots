@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from typing import Annotated, Any, cast
 from uuid import UUID
@@ -36,17 +37,21 @@ async def _invalidate_user_list_cache() -> None:
 
 
 async def _invalidate_auth_cache_for_users(user_ids: list[str]) -> None:
-    for user_id in user_ids:
-        await invalidate_user_auth_cache(user_id)
+    unique_user_ids = list(dict.fromkeys(user_ids))
+    await asyncio.gather(*(invalidate_user_auth_cache(user_id) for user_id in unique_user_ids))
 
 
 async def _invalidate_banned_user_auth_state(user_ids: list[str], reason: str) -> None:
     unique_user_ids = list(dict.fromkeys(user_ids))
     token_service = await get_token_service()
 
-    for user_id in unique_user_ids:
-        await invalidate_user_auth_cache(user_id)
-        await token_service.blacklist_all_user_tokens(user_id, reason=reason)
+    async def invalidate_one(user_id: str) -> None:
+        await asyncio.gather(
+            invalidate_user_auth_cache(user_id),
+            token_service.blacklist_all_user_tokens(user_id, reason=reason),
+        )
+
+    await asyncio.gather(*(invalidate_one(user_id) for user_id in unique_user_ids))
 
 
 @router.get("/users", response_model=dict[str, Any])

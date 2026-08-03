@@ -47,6 +47,20 @@
 
     <title>Home | Purrfect Spots</title>
 
+    <style>
+      /* Keep the accessibility link hidden before Vite injects app CSS. */
+      #skip-to-main {
+        position: absolute;
+        top: -2.5rem;
+        left: 0;
+        z-index: 9999;
+      }
+
+      #skip-to-main:focus {
+        top: 0;
+      }
+    </style>
+
   </head>
   <body>
     <!-- Skip to main content link for accessibility -->

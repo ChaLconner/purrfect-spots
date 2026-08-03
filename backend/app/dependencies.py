@@ -62,20 +62,22 @@ __all__ = [
 
 
 def get_storage_service() -> StorageService:
-    from app.services.storage_service import StorageService
+    from app.services.storage_service import storage_service
 
-    return StorageService()
+    return storage_service
 
 
 def get_vision_service() -> GoogleVisionService:
-    from app.services.google_vision import GoogleVisionService
+    from app.services.google_vision import vision_service
 
-    return GoogleVisionService()
+    return vision_service
 
 
 def get_cat_detection_service(vision_service: GoogleVisionService = Depends(get_vision_service)) -> CatDetectionService:
-    from app.services.cat_detection_service import CatDetectionService
+    from app.services.cat_detection_service import CatDetectionService, cat_detection_service
 
+    if vision_service is cat_detection_service.vision_service:
+        return cat_detection_service
     return CatDetectionService(vision_service=vision_service)
 
 

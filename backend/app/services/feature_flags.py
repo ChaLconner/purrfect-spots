@@ -16,7 +16,9 @@ class FeatureFlagService:
     # Define default flags here
     _DEFAULTS = {
         "ENABLE_NEW_UI": False,
-        "ENABLE_POSTGIS_SEARCH": False,  # Feature flag for our new migration
+        # The spatial function is now deployed and verified remotely; keep the
+        # bounding-box path as a runtime fallback if RPC/RLS is unavailable.
+        "ENABLE_POSTGIS_SEARCH": True,
         "ENABLE_AI_DETECTION_V2": False,
         "MAINTENANCE_MODE": False,
     }

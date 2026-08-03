@@ -1,3 +1,4 @@
+import asyncio
 from datetime import UTC, datetime
 from typing import Annotated, Any, cast
 
@@ -274,6 +275,7 @@ async def bulk_update_reports(
             )
 
             processed_photos = set()
+            audit_tasks: list[Any] = []
 
             assert isinstance(reports_data.data, list)
             for item in reports_data.data:
@@ -292,17 +294,22 @@ async def bulk_update_reports(
                         notification_service=notification_service,
                     )
 
-                    await log_admin_action(
-                        admin_client=admin_client,
-                        admin_id=current_admin.id,
-                        action="DELETE_PHOTO_VIA_BULK_REPORT",
-                        target_type="photos",
-                        target_id=str(photo_id),
-                        details={
-                            "report_id": report.get("id"),
-                            "ip": request.client.host if request.client else "unknown",
-                        },
+                    audit_tasks.append(
+                        log_admin_action(
+                            admin_client=admin_client,
+                            admin_id=current_admin.id,
+                            action="DELETE_PHOTO_VIA_BULK_REPORT",
+                            target_type="photos",
+                            target_id=str(photo_id),
+                            details={
+                                "report_id": report.get("id"),
+                                "ip": request.client.host if request.client else "unknown",
+                            },
+                        )
                     )
+
+            if audit_tasks:
+                await asyncio.gather(*audit_tasks)
 
         result = (
             await admin_client.table("reports")

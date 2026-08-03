@@ -35,6 +35,7 @@ class GoogleVisionService:
         """Initialize Google Vision client"""
         self.client = None
         self.is_initialized = False
+        self._inflight_tasks: dict[str, asyncio.Task[dict[str, Any]]] = {}
 
         if not VISION_AVAILABLE:
             logger.warning("Google Vision library not available, using fallback mode")
@@ -163,19 +164,19 @@ class GoogleVisionService:
             if cached_result:
                 return cached_result
 
-            if not self.is_initialized or not self.client:
-                return self._fallback_cat_detection()
+            existing_task = self._inflight_tasks.get(image_hash)
+            if existing_task is not None:
+                return await asyncio.shield(existing_task)
 
-            label_response, object_response = await self._get_vision_api_responses(content)
-            if not label_response or not object_response:
-                return self._fallback_cat_detection(error="Vision API failed")
-
-            result = self._process_vision_responses(label_response, object_response)
-
-            # 2. Store in Cache
-            await self._cache_result(image_hash, result)
-
-            return result
+            task = asyncio.create_task(self._detect_uncached(content, image_hash))
+            self._inflight_tasks[image_hash] = task
+            try:
+                # A cancelled request must not cancel shared work needed by
+                # other callers waiting for the same image hash.
+                return await asyncio.shield(task)
+            finally:
+                if self._inflight_tasks.get(image_hash) is task:
+                    self._inflight_tasks.pop(image_hash, None)
 
         except Exception as e:
             logger.error(f"Google Vision detection failed: {e!s}")
@@ -183,6 +184,19 @@ class GoogleVisionService:
         finally:
             if not isinstance(image_input, bytes):
                 image_input.file.seek(0)
+
+    async def _detect_uncached(self, content: bytes, image_hash: str) -> dict[str, Any]:
+        """Run one uncached Vision request for a content hash."""
+        if not self.is_initialized or not self.client:
+            return self._fallback_cat_detection()
+
+        label_response, object_response = await self._get_vision_api_responses(content)
+        if not label_response or not object_response:
+            return self._fallback_cat_detection(error="Vision API failed")
+
+        result = self._process_vision_responses(label_response, object_response)
+        await self._cache_result(image_hash, result)
+        return result
 
     def _process_vision_responses(self, label_response: Any, object_response: Any) -> dict:
         """Process Raw Vision API responses into detection result."""
@@ -455,3 +469,7 @@ class GoogleVisionService:
         if safety["escape_routes"]:
             score += 10
         return max(0, min(100, score))
+
+
+# Reuse one credentialed client per application process through FastAPI dependencies.
+vision_service = GoogleVisionService()

@@ -52,7 +52,7 @@ class TestFeatureFlagService:
         with patch.dict(os.environ, {}, clear=False):
             if "FEATURE_ENABLE_POSTGIS_SEARCH" in os.environ:
                 del os.environ["FEATURE_ENABLE_POSTGIS_SEARCH"]
-            assert FeatureFlagService.is_enabled("ENABLE_POSTGIS_SEARCH") is False
+            assert FeatureFlagService.is_enabled("ENABLE_POSTGIS_SEARCH") is True
 
     def test_is_enabled_default_ai_v2(self) -> None:
         """Test ENABLE_AI_DETECTION_V2 default"""
@@ -82,7 +82,7 @@ class TestFeatureFlagService:
             assert "ENABLE_AI_DETECTION_V2" in flags
             assert "MAINTENANCE_MODE" in flags
             assert flags["ENABLE_NEW_UI"] is False
-            assert flags["ENABLE_POSTGIS_SEARCH"] is False
+            assert flags["ENABLE_POSTGIS_SEARCH"] is True
             assert flags["ENABLE_AI_DETECTION_V2"] is False
             assert flags["MAINTENANCE_MODE"] is False
 
@@ -98,7 +98,7 @@ class TestFeatureFlagService:
             flags = FeatureFlagService.get_all_flags()
             assert flags["ENABLE_NEW_UI"] is True
             assert flags["MAINTENANCE_MODE"] is True
-            assert flags["ENABLE_POSTGIS_SEARCH"] is False
+            assert flags["ENABLE_POSTGIS_SEARCH"] is True
             assert flags["ENABLE_AI_DETECTION_V2"] is False
 
     def test_feature_flag_name_normalization(self) -> None:

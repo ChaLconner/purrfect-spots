@@ -59,6 +59,7 @@ def test_redis_connection(redis_url: str) -> bool:
     Returns:
         True if connection successful, False otherwise
     """
+    client: Any | None = None
     try:
         import redis
 
@@ -81,6 +82,12 @@ def test_redis_connection(redis_url: str) -> bool:
     except Exception as e:
         logger.warning(f"Redis connection failed: {e} - using in-memory rate limiting")
         return False
+    finally:
+        if client is not None:
+            try:
+                client.close()
+            except Exception:
+                logger.debug("Failed to close Redis startup probe client", exc_info=True)
 
 
 def get_storage_uri() -> str | None:
@@ -129,6 +136,11 @@ def get_user_tier(request: Request) -> str:
     Extract user tier from JWT. Defaults to 'free'.
     """
     payload = _decode_request_jwt(request)
+    return _get_tier_from_payload(payload)
+
+
+def _get_tier_from_payload(payload: dict[str, Any] | None) -> str:
+    """Resolve the tier without decoding the same JWT more than once."""
     if payload:
         app_metadata = payload.get("app_metadata")
         app_metadata = app_metadata if isinstance(app_metadata, dict) else {}
@@ -143,8 +155,8 @@ def get_user_id_from_request(request: Request) -> str:
     Uses authenticated user ID if available, falls back to IP address.
     Includes user tier in the identifier to support dynamic rate limits.
     """
-    tier = get_user_tier(request)
     payload = _decode_request_jwt(request)
+    tier = _get_tier_from_payload(payload)
     if payload:
         user_id = payload.get("sub") or payload.get("user_id")
         if user_id:

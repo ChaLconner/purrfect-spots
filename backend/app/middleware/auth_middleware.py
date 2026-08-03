@@ -37,6 +37,7 @@ _jwks_cache: dict[str, Any] | None = None
 _jwks_state: dict[str, float] = {"last_update": 0.0}
 _jwks_lock = asyncio.Lock()
 JWKS_CACHE_TTL = 3600  # 1 hour
+_user_auth_refresh_tasks: dict[str, asyncio.Task[User]] = {}
 
 
 def get_user_auth_cache_key(user_id: str) -> str:
@@ -218,6 +219,21 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
 
 
 async def _refresh_user_auth_cache(user_id: str, cache_key: str, current_time: float) -> User:
+    """Coalesce concurrent cache misses for the same user within one worker."""
+    existing_task = _user_auth_refresh_tasks.get(user_id)
+    if existing_task is not None and not existing_task.done():
+        return await asyncio.shield(existing_task)
+
+    refresh_task = asyncio.create_task(_refresh_user_auth_cache_uncached(user_id, cache_key, current_time))
+    _user_auth_refresh_tasks[user_id] = refresh_task
+    try:
+        return await asyncio.shield(refresh_task)
+    finally:
+        if _user_auth_refresh_tasks.get(user_id) is refresh_task:
+            _user_auth_refresh_tasks.pop(user_id, None)
+
+
+async def _refresh_user_auth_cache_uncached(user_id: str, cache_key: str, current_time: float) -> User:
     """Fetch user from database and update cache."""
     from app.services.redis_service import redis_service
     from app.utils.supabase_client import get_async_supabase_admin_client
@@ -422,12 +438,13 @@ get_current_user_from_credentials = get_current_user
 
 async def get_current_user_optional(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
-    supabase: AClient = Depends(get_async_supabase_client),
 ) -> User | None:
     """Get current user if authenticated, otherwise return None."""
     if not credentials:
         return None
     try:
+        # Do not initialize Supabase for anonymous public requests.
+        supabase = await get_async_supabase_client()
         return await get_current_user(credentials, supabase)
     except HTTPException:
         return None

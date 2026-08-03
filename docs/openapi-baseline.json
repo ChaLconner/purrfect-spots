@@ -8006,9 +8006,9 @@
           },
           "password": {
             "type": "string",
-            "minLength": 8,
+            "minLength": 1,
             "title": "Password",
-            "description": "Password must be at least 8 characters long and include uppercase, lowercase, number, and special character"
+            "description": "Password is required; strength is advisory"
           },
           "name": {
             "type": "string",

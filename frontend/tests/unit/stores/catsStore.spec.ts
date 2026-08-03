@@ -163,6 +163,23 @@ describe('Cats Store', () => {
       expect(store.locations[0].description).toBe('New');
       expect(store.locations[1].id).toBe('2');
     });
+
+    it('bounds accumulated viewport locations to protect client memory', () => {
+      const store = useCatsStore();
+      const locations = Array.from({ length: 2100 }, (_, index) => ({
+        id: `viewport-${index}`,
+        latitude: 13,
+        longitude: 100,
+        location_name: `Location ${index}`,
+        image_url: '',
+      })) as CatLocation[];
+
+      store.appendLocations(locations);
+
+      expect(store.locations).toHaveLength(2000);
+      expect(store.locations[0].id).toBe('viewport-100');
+      expect(store.locations.at(-1)?.id).toBe('viewport-2099');
+    });
   });
 
   // ========== Search & Filtering ==========

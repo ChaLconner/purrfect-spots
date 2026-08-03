@@ -116,15 +116,37 @@ class StorageService:
     def _list_files_sync(self, prefix: str) -> list[tuple[str, datetime]]:
         """Internal synchronous list method"""
         try:
-            response = self.s3_client.list_objects_v2(Bucket=self.aws_bucket, Prefix=prefix)
             files = []
-            if "Contents" in response:
-                for obj in response["Contents"]:
+            request: dict[str, typing.Any] = {"Bucket": self.aws_bucket, "Prefix": prefix}
+            while True:
+                response = self.s3_client.list_objects_v2(**request)
+                for obj in response.get("Contents", []):
                     files.append((obj["Key"], obj["LastModified"]))
+                if not response.get("IsTruncated") or not response.get("NextContinuationToken"):
+                    break
+                request["ContinuationToken"] = response["NextContinuationToken"]
             return files
         except Exception as e:
             logger.error(f"S3 list_objects error: {e}")
             return []
+
+    async def delete_files(self, keys: list[str]) -> None:
+        """Delete S3 keys in provider-sized batches."""
+        if not keys:
+            return
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, self._delete_files_sync, keys)
+
+    def _delete_files_sync(self, keys: list[str]) -> None:
+        for start in range(0, len(keys), 1000):
+            batch = keys[start : start + 1000]
+            try:
+                self.s3_client.delete_objects(
+                    Bucket=self.aws_bucket,
+                    Delete={"Objects": [{"Key": key} for key in batch], "Quiet": True},
+                )
+            except Exception as e:
+                logger.warning("S3 batch delete failed for %d objects: %s", len(batch), e)
 
     async def delete_file(self, file_url: str) -> None:
         """

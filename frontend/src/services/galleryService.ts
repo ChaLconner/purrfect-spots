@@ -1,12 +1,20 @@
 import type { CatLocation, PaginatedResponse, SearchParams, PaginationParams } from '../types/api';
 import { apiV1 } from '../utils/api';
 
+type GalleryRequestOptions = {
+  signal?: AbortSignal;
+};
+
 export class GalleryService {
   /**
    * Get paginated gallery images
    */
-  static async getImages(params: PaginationParams = {}): Promise<PaginatedResponse<CatLocation>> {
-    return await apiV1.get<PaginatedResponse<CatLocation>>('/gallery', { params });
+  static async getImages(
+    params: PaginationParams = {},
+    options: GalleryRequestOptions = {}
+  ): Promise<PaginatedResponse<CatLocation>> {
+    const config = options.signal ? { params, signal: options.signal } : { params };
+    return await apiV1.get<PaginatedResponse<CatLocation>>('/gallery', config);
   }
 
   /**
@@ -31,10 +39,9 @@ export class GalleryService {
     east: number;
     west: number;
     limit?: number;
-  }): Promise<CatLocation[]> {
-    const data = await apiV1.get<CatLocation[] | { images: CatLocation[] }>('/gallery/viewport', {
-      params: bounds,
-    });
+  }, options: GalleryRequestOptions = {}): Promise<CatLocation[]> {
+    const config = options.signal ? { params: bounds, signal: options.signal } : { params: bounds };
+    const data = await apiV1.get<CatLocation[] | { images: CatLocation[] }>('/gallery/viewport', config);
     if (Array.isArray(data)) {
       return data;
     }
@@ -45,7 +52,8 @@ export class GalleryService {
    * Search for cat locations
    */
   static async search(
-    params: SearchParams
+    params: SearchParams,
+    options: GalleryRequestOptions = {}
   ): Promise<{ results: CatLocation[]; total: number; limit?: number; offset?: number }> {
     const apiParams = {
       q: params.query,
@@ -54,13 +62,14 @@ export class GalleryService {
       offset: params.offset,
       page: params.page,
     };
+    const config = options.signal ? { params: apiParams, signal: options.signal } : { params: apiParams };
     return await apiV1.get<{
       results: CatLocation[];
       total: number;
       limit?: number;
       offset?: number;
     }>('/gallery/search', {
-      params: apiParams,
+      ...config,
     });
   }
 

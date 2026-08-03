@@ -113,16 +113,22 @@ describe('useAuthForm', () => {
       expect(AuthService.login).not.toHaveBeenCalled();
     });
 
-    it('should validate password length for registration', async () => {
+    it('should allow weak password for registration and leave strength to the UI meter', async () => {
       const wrapper = mount(createTestComponent('register'));
       const vm = wrapper.vm as any;
       
       vm.form.name = 'Test User';
       vm.form.email = 'test@example.com';
       vm.form.password = 'short';
+
+      (AuthService.signup as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+        requires_verification: true,
+        email: 'test@example.com',
+      });
       
       await vm.handleSubmit();
-      expect(vm.formErrors.password).toBe('Password must be at least 8 characters');
+      expect(vm.formErrors.password).toBe('');
+      expect(AuthService.signup).toHaveBeenCalledWith('test@example.com', 'short', 'Test User');
     });
   });
 

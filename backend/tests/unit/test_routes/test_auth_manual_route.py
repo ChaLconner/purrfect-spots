@@ -124,8 +124,8 @@ class TestRegisterEndpoint:
             assert "verification code" in data["message"]
             assert data["email"] == "test@example.com"
 
-    async def test_register_password_too_short(self, client, mock_limiter):
-        """Test registration fails with short password"""
+    async def test_register_allows_weak_password(self, client, mock_auth_service, mock_limiter):
+        """Registration does not reject a weak password before Supabase Auth."""
         response = await client.post(
             "/api/v1/auth/register",
             json={
@@ -135,11 +135,11 @@ class TestRegisterEndpoint:
             },
         )
 
-        assert response.status_code == 422
-        assert "8 characters" in str(response.json()["detail"])
+        assert response.status_code == 200
+        mock_auth_service.create_user_with_password.assert_awaited_once_with("test@example.com", "short", "Test User")
 
-    async def test_register_password_requires_complexity(self, client, mock_auth_service, mock_limiter):
-        """Test registration rejects passwords that miss required character classes."""
+    async def test_register_allows_password_without_complexity(self, client, mock_auth_service, mock_limiter):
+        """Registration does not reject missing character classes."""
         response = await client.post(
             "/api/v1/auth/register",
             json={
@@ -149,8 +149,10 @@ class TestRegisterEndpoint:
             },
         )
 
-        assert response.status_code == 400
-        assert "special character" in response.json()["detail"].lower()
+        assert response.status_code == 200
+        mock_auth_service.create_user_with_password.assert_awaited_once_with(
+            "unique_no_number@example.com", "longpasswordwithoutnumbers", "Test User"
+        )
 
     async def test_register_empty_name(self, client, mock_limiter):
         """Test registration fails with empty name"""

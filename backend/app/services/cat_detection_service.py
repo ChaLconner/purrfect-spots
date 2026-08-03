@@ -1,16 +1,21 @@
 import hashlib
 import io
+import time
+from collections import OrderedDict
 from typing import Any, cast
 
 from fastapi import HTTPException, UploadFile
 from PIL import Image
 
 from app.logger import logger
+from app.services.google_vision import vision_service
 
 # Set explicit max pixel limit to prevent Decompression Bomb Attacks
 Image.MAX_IMAGE_PIXELS = 89_478_485
 
-_detection_cache: dict[str, dict[str, Any]] = {}
+_DETECTION_CACHE_MAX_SIZE = 512
+_DETECTION_CACHE_TTL_SECONDS = 3600.0
+_detection_cache: OrderedDict[str, tuple[float, dict[str, Any]]] = OrderedDict()
 
 
 def clear_detection_cache() -> None:
@@ -81,9 +86,15 @@ class CatDetectionService:
                 if isinstance(content_bytes, (bytes, bytearray)) and len(content_bytes) > 0
                 else None
             )
-            if image_hash and image_hash in _detection_cache:
-                logger.info("Cat detection cache hit for SHA256 hash")
-                return _detection_cache[image_hash]
+            if image_hash:
+                cached_entry = _detection_cache.get(image_hash)
+                if cached_entry:
+                    expires_at, cached_result = cached_entry
+                    if expires_at > time.monotonic():
+                        _detection_cache.move_to_end(image_hash)
+                        logger.info("Cat detection cache hit for SHA256 hash")
+                        return cached_result
+                    _detection_cache.pop(image_hash, None)
 
             # Use Google Vision API to detect cats
             vision_result = await self.vision_service.detect_cats(file)
@@ -130,7 +141,10 @@ class CatDetectionService:
             }
 
             if result.get("service_available") and image_hash:
-                _detection_cache[image_hash] = result
+                _detection_cache[image_hash] = (time.monotonic() + _DETECTION_CACHE_TTL_SECONDS, result)
+                _detection_cache.move_to_end(image_hash)
+                while len(_detection_cache) > _DETECTION_CACHE_MAX_SIZE:
+                    _detection_cache.popitem(last=False)
 
             return result
 
@@ -168,7 +182,7 @@ class CatDetectionService:
 
 
 # Singleton instance
-cat_detection_service = CatDetectionService()
+cat_detection_service = CatDetectionService(vision_service=vision_service)
 
 
 def get_cat_detection_service() -> CatDetectionService:
