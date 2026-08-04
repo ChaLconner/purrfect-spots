@@ -201,11 +201,6 @@ const handleInput = (index: number, event: Event): void => {
   if (value && index < 5) {
     inputRefs.value[index + 1]?.focus();
   }
-
-  // Auto-submit when complete
-  if (otpCode.value.length === 6) {
-    handleVerify();
-  }
 };
 
 // Handle keydown for backspace navigation
