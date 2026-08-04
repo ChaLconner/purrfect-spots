@@ -31,6 +31,7 @@ if sys.platform == "win32":
         if reconfigure_err:
             reconfigure_err(encoding="utf-8")
     except AttributeError:
+        # Older Python runtimes may expose streams without reconfigure().
         pass
 
 # Add parent directory to path for imports

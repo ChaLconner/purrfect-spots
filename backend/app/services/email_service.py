@@ -5,7 +5,7 @@ from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from app.logger import logger
+from app.logger import logger, sanitize_log_value
 
 WARN_SMTP_NOT_SET = "SMTP credentials not set. Skipping email send."
 DEBUG_SEPARATOR = "============================================"
@@ -94,7 +94,7 @@ class EmailService:
             logger.warning(WARN_SMTP_NOT_SET)
             logger.debug(DEBUG_SEPARATOR)
             logger.debug(f"VERIFICATION OTP CODE: {otp_code}")
-            logger.debug(f"For email: {to_email}")
+            logger.debug("For email: %s", sanitize_log_value(to_email))
             logger.debug(f"Expires in: {expires_minutes} minutes")
             logger.debug(DEBUG_SEPARATOR)
             return True
@@ -139,8 +139,9 @@ class EmailService:
     def _send_html_email(self, to_email: str, subject: str, body_html: str, action_label: str) -> bool:
         """Helper to construct and dispatch HTML email messages using thread pool."""
         if not self.smtp_user or not self.smtp_password:
-            logger.warning(f"SMTP credentials not set. Skipping {action_label}.")
-            logger.debug(f"{action_label.upper()} to {to_email}")
+            safe_action_label = sanitize_log_value(action_label)
+            logger.warning("SMTP credentials not set. Skipping %s.", safe_action_label)
+            logger.debug("%s to %s", safe_action_label.upper(), sanitize_log_value(to_email))
             return True
 
         try:
@@ -152,7 +153,7 @@ class EmailService:
             future = _email_executor.submit(self._send, msg)
             return future.result(timeout=15)
         except Exception as e:
-            logger.error(f"Failed to send {action_label}: {e}")
+            logger.error("Failed to send %s: %s", sanitize_log_value(action_label), sanitize_log_value(str(e)))
             return False
 
     def send_ban_notification(self, to_email: str, reason: str) -> bool:

@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from supabase import AClient
 
 from app.config import config
-from app.logger import logger
+from app.logger import logger, sanitize_log_value
 from app.schemas.gallery import UploadQuotaResponse
 
 
@@ -101,7 +101,11 @@ class QuotaService:
             return count, active_window_start
 
         except Exception as e:
-            logger.error(f"Failed to calculate quota usage for user {user_id}: {e}")
+            logger.error(
+                "Failed to calculate quota usage for user %s: %s",
+                sanitize_log_value(user_id),
+                sanitize_log_value(str(e)),
+            )
             # Fail closed for security
             return 9999, None
 
@@ -148,14 +152,14 @@ class QuotaService:
                 logger.critical(f"System Global Quota Reached: {sys_total}/{self.GLOBAL_SYSTEM_LIMIT}")
                 return False
         except Exception as e:
-            logger.error(f"Global quota check failed: {e}")
+            logger.error("Global quota check failed: %s", sanitize_log_value(str(e)))
             return False
 
         # 2. Check User Rolling Quota
         usage_count, _ = await self.get_quota_usage(user_id, max_quota)
 
         if usage_count >= max_quota:
-            logger.warning(f"User {user_id} hit rolling quota: {usage_count}/{max_quota}")
+            logger.warning("User %s hit rolling quota: %s/%s", sanitize_log_value(user_id), usage_count, max_quota)
             return False
 
         return True
@@ -180,7 +184,11 @@ class QuotaService:
             # unless it's a simple logic.
             await self.supabase.rpc("increment_usage", {"p_user_id": user_id, "p_date": today}).execute()
         except Exception as e:
-            logger.error(f"Failed to increment legacy quota for user {user_id}: {e}")
+            logger.error(
+                "Failed to increment legacy quota for user %s: %s",
+                sanitize_log_value(user_id),
+                sanitize_log_value(str(e)),
+            )
 
     async def get_user_quota_status(self, user_id: str, is_pro: bool) -> UploadQuotaResponse:
         """Get quota usage details for UI based on rolling window."""

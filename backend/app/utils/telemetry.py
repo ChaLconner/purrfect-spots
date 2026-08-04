@@ -10,9 +10,6 @@ from fastapi import FastAPI
 
 from app.logger import logger
 
-# Global flag to check if OTel is initialized
-_OTEL_INITIALIZED = False
-
 
 def setup_telemetry(app: FastAPI, service_name: str = "purrfect-backend") -> None:
     """
@@ -22,8 +19,6 @@ def setup_telemetry(app: FastAPI, service_name: str = "purrfect-backend") -> Non
         app: FastAPI application instance
         service_name: Name of the service for traces
     """
-    global _OTEL_INITIALIZED
-
     # Skip if disabled via env
     if os.getenv("ENABLE_TELEMETRY", "false").lower() != "true":
         logger.info("Telemetry disabled (ENABLE_TELEMETRY!=true)")
@@ -68,7 +63,6 @@ def setup_telemetry(app: FastAPI, service_name: str = "purrfect-backend") -> Non
         # Instrument FastAPI
         FastAPIInstrumentor.instrument_app(app, tracer_provider=provider)
 
-        _OTEL_INITIALIZED = True
         logger.info(f"Telemetry initialized for {service_name} -> {otlp_endpoint}")
 
     except Exception as e:

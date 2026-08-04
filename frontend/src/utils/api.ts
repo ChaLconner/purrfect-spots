@@ -397,7 +397,12 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
   retryableStatuses: [408, 429, 502, 503, 504],
 };
 
-const inFlightGetRequests = new Map<string, Promise<unknown>>();
+interface InFlightGetRequest {
+  promise: Promise<unknown>;
+  token: symbol;
+}
+
+const inFlightGetRequests = new Map<string, InFlightGetRequest>();
 
 function getRequestDedupeKey(endpoint: string, options: ApiRequestConfig): string | null {
   if ((options.method ?? 'GET').toString().toUpperCase() !== 'GET' || options.signal) return null;
@@ -649,14 +654,15 @@ export const apiRequest = async <T = unknown>(
   }
 
   const existing = inFlightGetRequests.get(dedupeKey);
-  if (existing) return existing as Promise<T>;
+  if (existing) return existing.promise as Promise<T>;
 
   const request = requestWithRetry<T>(endpoint, options, retryConfig);
-  inFlightGetRequests.set(dedupeKey, request);
+  const inFlightRequest: InFlightGetRequest = { promise: request, token: Symbol('in-flight-get') };
+  inFlightGetRequests.set(dedupeKey, inFlightRequest);
   try {
     return await request;
   } finally {
-    if (inFlightGetRequests.get(dedupeKey) === request) {
+    if (inFlightGetRequests.get(dedupeKey)?.token === inFlightRequest.token) {
       inFlightGetRequests.delete(dedupeKey);
     }
   }

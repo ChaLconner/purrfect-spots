@@ -36,7 +36,7 @@ _READINESS_CACHE_TTL_SECONDS = 5.0
 _READINESS_CACHE_ENABLED = (
     os.getenv("HEALTH_READINESS_CACHE_ENABLED", "true" if config.is_production() else "false").lower() == "true"
 )
-_readiness_cache: tuple[float, int, dict[str, Any]] | None = None
+_readiness_cache: dict[str, tuple[float, int, dict[str, Any]]] = {}
 _readiness_cache_lock = asyncio.Lock()
 
 
@@ -341,11 +341,10 @@ async def readiness_check(request: Request) -> JSONResponse:
         200 OK if ready to serve requests
         503 Service Unavailable if critical dependencies are down
     """
-    global _readiness_cache
-
     now = monotonic()
-    if _READINESS_CACHE_ENABLED and _readiness_cache and now - _readiness_cache[0] < _READINESS_CACHE_TTL_SECONDS:
-        _, status_code, content = _readiness_cache
+    cached_readiness = _readiness_cache.get("value")
+    if _READINESS_CACHE_ENABLED and cached_readiness and now - cached_readiness[0] < _READINESS_CACHE_TTL_SECONDS:
+        _, status_code, content = cached_readiness
         return JSONResponse(
             status_code=status_code,
             content=content,
@@ -354,8 +353,9 @@ async def readiness_check(request: Request) -> JSONResponse:
 
     async with _readiness_cache_lock:
         now = monotonic()
-        if _READINESS_CACHE_ENABLED and _readiness_cache and now - _readiness_cache[0] < _READINESS_CACHE_TTL_SECONDS:
-            _, status_code, content = _readiness_cache
+        cached_readiness = _readiness_cache.get("value")
+        if _READINESS_CACHE_ENABLED and cached_readiness and now - cached_readiness[0] < _READINESS_CACHE_TTL_SECONDS:
+            _, status_code, content = cached_readiness
             return JSONResponse(
                 status_code=status_code,
                 content=content,
@@ -412,7 +412,7 @@ async def readiness_check(request: Request) -> JSONResponse:
             }
         )
         if _READINESS_CACHE_ENABLED:
-            _readiness_cache = (monotonic(), status_code, content)
+            _readiness_cache["value"] = (monotonic(), status_code, content)
 
     return JSONResponse(
         status_code=status_code,

@@ -96,10 +96,10 @@ async def register(
             await auth_service.create_user_with_password(data.email, data.password, sanitized_name)
         except ConflictError as e:
             # Re-raise conflict for existing registered users
-            logger.warning("Registration attempt for existing email: %s", data.email)
+            logger.warning("Registration attempt for existing email: %s", sanitize_log_value(data.email))
             raise HTTPException(status_code=409, detail="This email is already registered") from e
         except Exception as e:
-            logger.error("Registration processing error: %s", e)
+            logger.error("Registration processing error: %s", sanitize_log_value(str(e)))
             error_msg = str(e)
             if "already registered" in error_msg.lower() or "unique constraint" in error_msg.lower():
                 raise HTTPException(status_code=409, detail="Email already in use") from e
@@ -111,11 +111,11 @@ async def register(
             # Send OTP via email
             email_sent = email_service.send_otp_email(data.email, otp_code)
             if not email_sent:
-                logger.warning("Failed to send OTP email to %s", data.email)
+                logger.warning("Failed to send OTP email to %s", sanitize_log_value(data.email))
         except Exception as e:
-            logger.error("Failed to process OTP for %s: %s", data.email, e)
+            logger.error("Failed to process OTP for %s: %s", sanitize_log_value(data.email), sanitize_log_value(str(e)))
             # We don't fail registration if OTP fails (user can resend), but we log it
-            pass
+            logger.warning("OTP delivery failed; registration remains pending")
 
         log_security_event("register_success_otp_pending", details={"email": data.email}, severity="INFO")
 
@@ -131,7 +131,7 @@ async def register(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Registration failed: %s", e)
+        logger.error("Registration failed: %s", sanitize_log_value(str(e)))
         log_security_event("register_failed", details={"error": str(e)}, severity="ERROR")
         raise HTTPException(status_code=500, detail="Registration failed. Please try again") from e
 
@@ -170,13 +170,13 @@ async def verify_otp(
         # 2. Confirm email in Auth system
         confirmed = await auth_service.confirm_user_email(req.email)
         if not confirmed:
-            logger.error("Email confirmation failed for %s", str(req.email).replace("\n", " "))
+            logger.error("Email confirmation failed for %s", sanitize_log_value(req.email))
             raise HTTPException(status_code=500, detail="Failed to verify email. Please contact support.")
 
         # 3. Retrieve user to create session
         user_info = await auth_service.get_user_by_email_unverified(req.email)
         if not user_info:
-            logger.error("Post-verification user retrieval failed for %s", req.email)
+            logger.error("Post-verification user retrieval failed for %s", sanitize_log_value(req.email))
             raise HTTPException(status_code=404, detail="User account not found after verification")
 
         # 4. Success - Create login response
@@ -192,7 +192,7 @@ async def verify_otp(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("OTP Verification exception: %s", e)
+        logger.error("OTP Verification exception: %s", sanitize_log_value(str(e)))
         raise HTTPException(status_code=500, detail="Verification process failed. Please try again.") from e
 
 
@@ -226,7 +226,7 @@ async def resend_otp(
         email_sent = email_service.send_otp_email(req.email, otp_code)
 
         if not email_sent:
-            logger.warning("Failed to send OTP email to %s", req.email)
+            logger.warning("Failed to send OTP email to %s", sanitize_log_value(req.email))
 
         log_security_event("otp_resend", details={"email": req.email}, severity="INFO")
 
@@ -626,9 +626,9 @@ async def sync_user_data(
         # Safe access to data attribute
         sync_result = getattr(res, "data", [upsert_data])[0] if getattr(res, "data", None) else upsert_data
 
-        logger.info("User synced successfully: %s", user_id)
+        logger.info("User synced successfully: %s", sanitize_log_value(user_id))
         return SyncUserResponse(message="User synced", data=sync_result)
 
     except Exception as e:
-        logger.error("Sync failed for user: %s", e)
+        logger.error("Sync failed for user: %s", sanitize_log_value(str(e)))
         raise HTTPException(status_code=500, detail="Sync failed")

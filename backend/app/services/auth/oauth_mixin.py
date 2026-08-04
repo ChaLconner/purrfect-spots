@@ -18,19 +18,6 @@ class AuthOAuthMixin(AuthBaseMixin):
     # Will be assigned in the main class
     user_service: Any
 
-    def create_access_token(
-        self,
-        user_id: str,
-        user_data: dict[str, Any] | None = None,
-        role: str = "user",
-        permissions: list[str] | None = None,
-        tier: str = "free",
-    ) -> str:
-        raise NotImplementedError
-
-    def create_refresh_token(self, user_id: str, ip: str | None = None, user_agent: str | None = None) -> str:
-        raise NotImplementedError
-
     async def _find_or_create_google_user(self, user_info: dict[str, Any], google_id: str) -> dict[str, Any]:
         """Find existing user by Google ID or email to handle account linking (Async)"""
         email = user_info.get("email")

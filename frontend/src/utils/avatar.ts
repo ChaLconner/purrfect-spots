@@ -7,6 +7,14 @@ export const getAvatarFallback = (name?: string | null): string => {
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=EBE4DD&color=C26D45`;
 };
 
+const isUiAvatarUrl = (url: string): boolean => {
+  try {
+    return new URL(url, globalThis.location?.origin).hostname.toLowerCase() === 'ui-avatars.com';
+  } catch {
+    return false;
+  }
+};
+
 export const isAvatarUrl = (url?: string | null): boolean => {
   if (!url) return false;
 
@@ -35,7 +43,7 @@ export const handleAvatarError = (event: Event, name?: string | null): void => {
   const fallbackUrl = getAvatarFallback(name);
   const staticFallback = '/cat-icon.webp';
 
-  if (target.src !== fallbackUrl && !target.src.includes('ui-avatars.com')) {
+  if (target.src !== fallbackUrl && !isUiAvatarUrl(target.src)) {
     target.src = fallbackUrl;
   } else if (target.src !== staticFallback && !target.src.endsWith(staticFallback)) {
     target.src = staticFallback;

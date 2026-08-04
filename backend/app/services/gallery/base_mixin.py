@@ -50,3 +50,9 @@ class GalleryBaseMixin:
         from app.services.image_service import ImageService
 
         return ImageService.process_photos(photos, width)
+
+    async def enrich_with_user_data(
+        self, photos: list[dict[str, Any]], user_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Provide the enrichment contract implemented by the read mixin."""
+        raise NotImplementedError

@@ -2,7 +2,6 @@ import { readdir, stat, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const dist = new URL('../dist/', import.meta.url);
 const manifestPath = new URL('../dist/.vite/manifest.json', import.meta.url);
 const entryPath = new URL('../dist/index.html', import.meta.url);
 const initialJsBudget = 650 * 1024;

@@ -4,7 +4,7 @@ from typing import Annotated, Any, cast
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.dependencies import get_async_supabase_admin_client
-from app.logger import logger
+from app.logger import logger, sanitize_log_value
 from app.middleware.auth_middleware import require_permission
 from app.schemas.settings_schemas import (
     ConfigHistoryResponse,
@@ -149,7 +149,7 @@ async def get_setting_history(
         await redis_service.set(cache_key, history_entries, expire=120)
         return history_entries
     except Exception as e:
-        logger.error("Failed to fetch history for %s: %s", key, e)
+        logger.error("Failed to fetch history for %s: %s", sanitize_log_value(key), sanitize_log_value(str(e)))
         raise HTTPException(status_code=500, detail="Failed to fetch config history")
 
 
@@ -184,7 +184,7 @@ async def update_setting(
                 encrypted = encryption_service.encrypt_value(update_data.value, setting.get("type", "string"))
                 value_to_store = encrypted
             except Exception as e:
-                logger.error("Failed to encrypt setting %s: %s", key, e)
+                logger.error("Failed to encrypt setting %s: %s", sanitize_log_value(key), sanitize_log_value(str(e)))
                 raise HTTPException(status_code=500, detail="Failed to encrypt sensitive setting")
 
         # Check if approval is required (Maker-Checker)
@@ -242,7 +242,7 @@ async def update_setting(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Failed to update setting %s: %s", key, e)
+        logger.error("Failed to update setting %s: %s", sanitize_log_value(key), sanitize_log_value(str(e)))
         raise HTTPException(status_code=500, detail="Failed to update system setting")
 
 
@@ -393,7 +393,7 @@ async def approve_change(
     except Exception as e:
         if isinstance(e, HTTPException):
             raise e
-        logger.error("Approval failed for change %s: %s", change_id, e)
+        logger.error("Approval failed for change %s: %s", sanitize_log_value(change_id), sanitize_log_value(str(e)))
         raise HTTPException(status_code=500, detail="Approval process failed")
 
 
@@ -435,5 +435,5 @@ async def reject_change(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Rejection failed for %s: %s", change_id, e)
+        logger.error("Rejection failed for %s: %s", sanitize_log_value(change_id), sanitize_log_value(str(e)))
         raise HTTPException(status_code=500, detail="Rejection process failed")

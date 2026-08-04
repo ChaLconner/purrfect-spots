@@ -1,7 +1,6 @@
 """Periodic Stripe-to-database subscription reconciliation."""
 
 import asyncio
-import contextlib
 
 from app.config import config
 from app.logger import logger
@@ -58,5 +57,7 @@ async def stop_subscription_reconciliation_job() -> None:
     _subscription_reconciliation_task = None
     if task is not None:
         task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
+        try:
             await task
+        except asyncio.CancelledError:
+            logger.debug("Subscription reconciliation task cancelled during shutdown")

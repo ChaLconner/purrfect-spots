@@ -34,7 +34,6 @@
 
 <script setup lang="ts">
 import { ref, watch, onUnmounted } from 'vue';
-import { useDebounceFn } from '@/composables/useDebounce';
 import { SocialService } from '@/services/socialService';
 import { isOfflineQueuedResponse } from '@/utils/offlineQueue';
 import { useToastStore } from '@/stores';
@@ -137,6 +136,7 @@ onUnmounted(() => {
   cleanupRealtimeChannel();
   if (debounceTimer) {
     clearTimeout(debounceTimer);
+    debounceTimer = null;
   }
 });
 
@@ -194,7 +194,11 @@ function handleClick(): void {
   }, 300);
 
   // --- Debounced API call ---
-  const debouncedSendToggleLike = useDebounceFn(() => {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+  }
+  debounceTimer = setTimeout(() => {
+    debounceTimer = null;
     // If user toggled back to the same state as server → no API call needed
     if (liked.value === serverLiked) {
       count.value = serverCount;
@@ -202,8 +206,6 @@ function handleClick(): void {
     }
     sendToggleLike();
   }, 300);
-
-  debouncedSendToggleLike();
 }
 
 type LikeToggleResponse = Awaited<ReturnType<typeof SocialService.toggleLike>>;

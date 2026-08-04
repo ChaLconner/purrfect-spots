@@ -283,7 +283,7 @@ def validate_positive_int(value: str, max_value: int = 1000000) -> int | None:
         if 0 < num <= max_value:
             return num
     except (ValueError, TypeError):
-        pass
+        return None
     return None
 
 
@@ -308,7 +308,7 @@ def validate_pagination(page: str | None, limit: str | None, max_limit: int = 10
             if p > 0:
                 validated_page = p
         except ValueError:
-            pass
+            validated_page = 1
 
     if limit:
         try:
@@ -316,7 +316,7 @@ def validate_pagination(page: str | None, limit: str | None, max_limit: int = 10
             if 0 < lim <= max_limit:
                 validated_limit = lim
         except ValueError:
-            pass
+            validated_limit = 20
 
     return validated_page, validated_limit
 
