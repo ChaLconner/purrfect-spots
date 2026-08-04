@@ -91,7 +91,7 @@ async def stripe_webhook(
         # Non-2xx tells Stripe to retry after a transient database failure.
         raise HTTPException(status_code=503, detail="Webhook persistence temporarily unavailable")
     except Exception as e:
-        logger.error("Webhook processing failed: %s", e)
+        logger.exception("Webhook processing failed: %s", e)
         raise HTTPException(status_code=500, detail="Webhook processing failed")
 
     return MessageResponse(message="success")
