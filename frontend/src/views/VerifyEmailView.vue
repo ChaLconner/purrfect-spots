@@ -231,7 +231,8 @@ const handlePaste = (event: ClipboardEvent): void => {
 
 // Verify OTP
 const handleVerify = async (): Promise<void> => {
-  if (otpCode.value.length !== 6 || isLoading.value) return;
+  // The API is the authority for OTP validity; this guard only prevents duplicate submissions.
+  if (isLoading.value) return;
 
   isLoading.value = true;
   hasError.value = false;
