@@ -496,12 +496,13 @@ class SubscriptionService:
             logger.error("Stripe webhook: invalid signature: %s", e)
             raise
 
-        if hasattr(event, "to_dict_recursive"):
-            normalized_event = event.to_dict_recursive()
-        elif isinstance(event, dict):
+        to_dict = getattr(event, "to_dict", None)
+        if callable(to_dict):
+            normalized_event = to_dict()
+        elif isinstance(event, Mapping):
             normalized_event = dict(event)
         else:
-            normalized_event = dict(event)
+            raise TypeError("Stripe webhook event cannot be normalized")
         if not isinstance(normalized_event, dict):
             raise ValueError("Stripe webhook event is not a mapping")
         return cast(dict[str, Any], normalized_event)
