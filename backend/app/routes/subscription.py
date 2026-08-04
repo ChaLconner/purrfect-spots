@@ -75,7 +75,6 @@ async def create_checkout_session(
 
 @router.post(
     "/webhook",
-    response_model=MessageResponse,
     responses={503: {"description": "Webhook queue or persistence temporarily unavailable"}},
 )
 async def stripe_webhook(

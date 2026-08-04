@@ -162,7 +162,7 @@ jobs:
     name: Staging - Frontend
     runs-on: ubuntu-latest
     needs: prepare
-    if: ${{ needs.prepare.outputs.environment == 'staging' && needs.prepare.outputs.should_deploy == 'true' }}
+    if: ${{ needs.prepare.outputs.environment == 'staging' && needs.prepare.outputs.should_deploy == 'true' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_repository.full_name == github.repository) }}
     timeout-minutes: 15
     outputs:
       deployment_url: ${{ steps.deploy.outputs.deployment_url }}
@@ -171,7 +171,7 @@ jobs:
       url: ${{ vars.STAGING_FRONTEND_URL }}
     steps:
       - name: Checkout source revision
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # NOSONAR - prepare and this job require a same-repository workflow run.
         with:
           ref: ${{ needs.prepare.outputs.source_sha }}
           fetch-depth: 0
@@ -297,13 +297,13 @@ jobs:
     name: Staging - Backend
     runs-on: ubuntu-latest
     needs: prepare
-    if: ${{ needs.prepare.outputs.environment == 'staging' && needs.prepare.outputs.should_deploy == 'true' }}
+    if: ${{ needs.prepare.outputs.environment == 'staging' && needs.prepare.outputs.should_deploy == 'true' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_repository.full_name == github.repository) }}
     timeout-minutes: 15
     environment:
       name: staging
     steps:
       - name: Checkout source revision
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # NOSONAR - prepare and this job require a same-repository workflow run.
         with:
           ref: ${{ needs.prepare.outputs.source_sha }}
           fetch-depth: 0
@@ -485,7 +485,7 @@ jobs:
     name: Production - Backup
     runs-on: ubuntu-latest
     needs: prepare
-    if: ${{ needs.prepare.outputs.environment == 'production' && needs.prepare.outputs.should_deploy == 'true' }}
+    if: ${{ needs.prepare.outputs.environment == 'production' && needs.prepare.outputs.should_deploy == 'true' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_repository.full_name == github.repository) }}
     timeout-minutes: 10
     environment:
       name: production
@@ -518,7 +518,7 @@ jobs:
     name: Production - Frontend
     runs-on: ubuntu-latest
     needs: [prepare, production-backup]
-    if: ${{ needs.prepare.outputs.environment == 'production' && needs.prepare.outputs.should_deploy == 'true' }}
+    if: ${{ needs.prepare.outputs.environment == 'production' && needs.prepare.outputs.should_deploy == 'true' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_repository.full_name == github.repository) }}
     timeout-minutes: 15
     outputs:
       deployment_url: ${{ steps.deploy.outputs.deployment_url }}
@@ -527,7 +527,7 @@ jobs:
       url: ${{ vars.PROD_FRONTEND_URL || 'https://purrfect-spots.vercel.app' }}
     steps:
       - name: Checkout source revision
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # NOSONAR - successful pushes are restricted to this repository.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # NOSONAR - prepare and this job require a same-repository workflow run.
         with:
           ref: ${{ needs.prepare.outputs.source_sha }}
           fetch-depth: 0
@@ -633,13 +633,13 @@ jobs:
     name: Production - Backend
     runs-on: ubuntu-latest
     needs: [prepare, production-backup]
-    if: ${{ needs.prepare.outputs.environment == 'production' && needs.prepare.outputs.should_deploy == 'true' }}
+    if: ${{ needs.prepare.outputs.environment == 'production' && needs.prepare.outputs.should_deploy == 'true' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_repository.full_name == github.repository) }}
     timeout-minutes: 15
     environment:
       name: production
     steps:
       - name: Checkout source revision
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # NOSONAR - successful pushes are restricted to this repository.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # NOSONAR - prepare and this job require a same-repository workflow run.
         with:
           ref: ${{ needs.prepare.outputs.source_sha }}
           fetch-depth: 0
@@ -904,13 +904,13 @@ jobs:
     name: Production - Deployment Record
     runs-on: ubuntu-latest
     needs: [prepare, production-verify]
-    if: ${{ needs.prepare.outputs.environment == 'production' && needs.prepare.outputs.should_deploy == 'true' && needs.production-verify.result == 'success' }}
+    if: ${{ needs.prepare.outputs.environment == 'production' && needs.prepare.outputs.should_deploy == 'true' && needs.production-verify.result == 'success' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_repository.full_name == github.repository) }}
     timeout-minutes: 10
     permissions:
       contents: write
     steps:
       - name: Checkout released revision
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # NOSONAR - successful pushes are restricted to this repository.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # NOSONAR - prepare and this job require a same-repository workflow run.
         with:
           ref: ${{ needs.prepare.outputs.source_sha }}
           fetch-depth: 0

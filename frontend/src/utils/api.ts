@@ -501,10 +501,9 @@ function isOfflineQueueEnabled(endpoint: string, options: ApiRequestConfig): boo
   );
 }
 
-function getQueueIdempotencyKey(options: ApiRequestConfig, queueEnabled: boolean): string | undefined {
-  return queueEnabled
-    ? getHeaderValue(options.headers, 'Idempotency-Key') || createOfflineIdempotencyKey()
-    : undefined;
+function getQueueIdempotencyKey(endpoint: string, options: ApiRequestConfig): string | undefined {
+  if (!isOfflineQueueEnabled(endpoint, options)) return undefined;
+  return getHeaderValue(options.headers, 'Idempotency-Key') || createOfflineIdempotencyKey();
 }
 
 function buildRequestOptions(options: ApiRequestConfig, queueIdempotencyKey: string | undefined): ApiRequestConfig {
@@ -538,11 +537,9 @@ async function enqueueOfflineMutation<T>(
 async function performRequestAttempt<T>(
   endpoint: string,
   requestOptions: ApiRequestConfig,
-  queueEnabled: boolean,
   queueIdempotencyKey: string | undefined
 ): Promise<T> {
-  if (queueEnabled && typeof navigator !== 'undefined' && !navigator.onLine) {
-    if (!queueIdempotencyKey) throw new OfflineQueueError('Offline queue idempotency key is missing');
+  if (queueIdempotencyKey && typeof navigator !== 'undefined' && !navigator.onLine) {
     return enqueueOfflineMutation<T>(endpoint, requestOptions, queueIdempotencyKey);
   }
   if (requestOptions.signal?.aborted) throw createAbortError();
@@ -576,6 +573,29 @@ function throwRequestError(error: unknown): never {
   );
 }
 
+async function waitForRetry(
+  error: unknown,
+  attempt: number,
+  config: RetryConfig,
+  signal: AbortSignal | undefined
+): Promise<boolean> {
+  if (attempt >= config.maxRetries || !isRetryableError(error, config)) return false;
+  await sleep(calculateBackoffDelay(attempt, config), signal);
+  return true;
+}
+
+function handleFinalRequestError<T>(
+  error: unknown,
+  endpoint: string,
+  requestOptions: ApiRequestConfig,
+  queueIdempotencyKey: string | undefined
+): Promise<T> {
+  if (queueIdempotencyKey && shouldQueueNetworkFailure(error)) {
+    return enqueueOfflineMutation<T>(endpoint, requestOptions, queueIdempotencyKey);
+  }
+  throwRequestError(error);
+}
+
 const requestWithRetry = async <T = unknown>(
   endpoint: string,
   options: ApiRequestConfig = {},
@@ -586,35 +606,21 @@ const requestWithRetry = async <T = unknown>(
   const config = isAuthEndpoint
     ? { ...DEFAULT_RETRY_CONFIG, ...retryConfig, maxRetries: 0 }
     : { ...DEFAULT_RETRY_CONFIG, ...retryConfig };
-  const queueEnabled = isOfflineQueueEnabled(endpoint, options);
-  const queueIdempotencyKey = getQueueIdempotencyKey(options, queueEnabled);
+  const queueIdempotencyKey = getQueueIdempotencyKey(endpoint, options);
   const requestOptions = buildRequestOptions(options, queueIdempotencyKey);
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
     try {
-      return await performRequestAttempt(endpoint, requestOptions, queueEnabled, queueIdempotencyKey);
+      return await performRequestAttempt(endpoint, requestOptions, queueIdempotencyKey);
     } catch (error) {
       lastError = error;
 
       if (isNonRetryableRequestError(error, requestOptions)) throw error;
 
-      const isLastAttempt = attempt === config.maxRetries;
-      const shouldRetry = !isLastAttempt && isRetryableError(error, config);
+      if (await waitForRetry(error, attempt, config, requestOptions.signal)) continue;
 
-      if (shouldRetry) {
-        const delay = calculateBackoffDelay(attempt, config);
-        // Log removed
-        await sleep(delay, requestOptions.signal);
-        continue;
-      }
-
-      if (queueEnabled && shouldQueueNetworkFailure(error)) {
-        if (!queueIdempotencyKey) throw new OfflineQueueError('Offline queue idempotency key is missing');
-        return enqueueOfflineMutation<T>(endpoint, requestOptions, queueIdempotencyKey);
-      }
-
-      throwRequestError(error);
+      return handleFinalRequestError<T>(error, endpoint, requestOptions, queueIdempotencyKey);
     }
   }
   throw lastError;
