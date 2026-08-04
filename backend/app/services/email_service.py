@@ -140,7 +140,7 @@ class EmailService:
         """Helper to construct and dispatch HTML email messages using thread pool."""
         if not self.smtp_user or not self.smtp_password:
             safe_action_label = sanitize_log_value(action_label)
-            logger.warning("SMTP credentials not set. Skipping %s.", safe_action_label)
+            logger.warning("Email delivery is not configured. Skipping %s.", safe_action_label)
             logger.debug("%s to %s", safe_action_label.upper(), sanitize_log_value(to_email))
             return True
 
