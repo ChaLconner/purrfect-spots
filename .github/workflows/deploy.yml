@@ -171,6 +171,7 @@ jobs:
       url: ${{ vars.STAGING_FRONTEND_URL }}
     steps:
       - name: Checkout source revision
+        if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_repository.full_name == github.repository }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # NOSONAR - prepare and this job require a same-repository workflow run.
         with:
           ref: ${{ needs.prepare.outputs.source_sha }}
@@ -303,6 +304,7 @@ jobs:
       name: staging
     steps:
       - name: Checkout source revision
+        if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_repository.full_name == github.repository }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # NOSONAR - prepare and this job require a same-repository workflow run.
         with:
           ref: ${{ needs.prepare.outputs.source_sha }}
@@ -581,6 +583,7 @@ jobs:
       url: ${{ vars.PROD_FRONTEND_URL || 'https://purrfect-spots.vercel.app' }}
     steps:
       - name: Checkout source revision
+        if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_repository.full_name == github.repository }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # NOSONAR - prepare and this job require a same-repository workflow run.
         with:
           ref: ${{ needs.prepare.outputs.source_sha }}
@@ -693,6 +696,7 @@ jobs:
       name: production
     steps:
       - name: Checkout source revision
+        if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_repository.full_name == github.repository }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # NOSONAR - prepare and this job require a same-repository workflow run.
         with:
           ref: ${{ needs.prepare.outputs.source_sha }}
