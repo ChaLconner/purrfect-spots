@@ -230,10 +230,7 @@ const handlePaste = (event: ClipboardEvent): void => {
 
     inputRefs.value[focusIndex]?.focus();
 
-    // Auto-submit if complete
-    if (digits.length === 6) {
-      handleVerify();
-    }
+    // Keep verification explicit; pasted user input must not trigger the sensitive action.
   }
 };
 
