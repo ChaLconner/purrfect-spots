@@ -2,6 +2,7 @@ import asyncio
 import inspect
 import os
 import time
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any, cast
@@ -480,8 +481,8 @@ class SubscriptionService:
 
     # ── Webhook ──────────────────────────────────────────────────────
 
-    async def handle_webhook(self, payload: bytes, sig_header: str) -> None:
-        """Handles Stripe Webhook events."""
+    def construct_webhook_event(self, payload: bytes, sig_header: str) -> dict[str, Any]:
+        """Verify a Stripe signature and return a JSON-safe event envelope."""
         endpoint_secret = config.STRIPE_WEBHOOK_SECRET or os.getenv("STRIPE_WEBHOOK_SECRET")
         if not endpoint_secret:
             logger.error("Stripe webhook received while STRIPE_WEBHOOK_SECRET is not configured")
@@ -495,15 +496,33 @@ class SubscriptionService:
             logger.error("Stripe webhook: invalid signature: %s", e)
             raise
 
+        if hasattr(event, "to_dict_recursive"):
+            normalized_event = event.to_dict_recursive()
+        elif isinstance(event, dict):
+            normalized_event = dict(event)
+        else:
+            normalized_event = dict(event)
+        if not isinstance(normalized_event, dict):
+            raise ValueError("Stripe webhook event is not a mapping")
+        return cast(dict[str, Any], normalized_event)
+
+    async def handle_webhook(self, payload: bytes, sig_header: str) -> None:
+        """Verify and process a Stripe Webhook event synchronously."""
+        event = self.construct_webhook_event(payload, sig_header)
+        await self.handle_verified_webhook(event)
+
+    async def handle_verified_webhook(self, event: Mapping[str, Any]) -> None:
+        """Process a previously verified event, suitable for a queue worker."""
         event_type: str = str(event["type"])
         event_id = str(event.get("id") or "")
         event_created = event.get("created")
         if not event_id or not event_created:
             raise ValueError("Stripe webhook event is missing id or created timestamp")
         event_created_at = datetime.fromtimestamp(int(event_created), UTC)
-        data_object = event["data"]["object"]
-
-        from collections.abc import Awaitable, Callable
+        event_data = event.get("data")
+        if not isinstance(event_data, Mapping) or "object" not in event_data:
+            raise ValueError("Stripe webhook event is missing data.object")
+        data_object = event_data["object"]
 
         handler_map: dict[str, Callable[[Any, str, datetime], Awaitable[None]]] = {
             "checkout.session.completed": self._dispatch_checkout_completed,
