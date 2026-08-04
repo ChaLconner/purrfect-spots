@@ -703,6 +703,8 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # Stripe runtime values stay managed by the Vercel Production environment;
+      # the production smoke test validates the effective public plan response.
       - name: Validate production backend configuration
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -715,10 +717,6 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
           GOOGLE_VISION_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_VISION_SERVICE_ACCOUNT }}
-          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
-          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
-          STRIPE_PRO_PRICE_ID: ${{ secrets.STRIPE_PRO_PRICE_ID }}
-          STRIPE_PRO_ANNUAL_PRICE_ID: ${{ secrets.STRIPE_PRO_ANNUAL_PRICE_ID }}
           FRONTEND_URL: ${{ vars.PROD_FRONTEND_URL || 'https://purrfect-spots.vercel.app' }}
         run: |
           set -euo pipefail
@@ -733,10 +731,6 @@ jobs:
             JWT_SECRET
             JWT_REFRESH_SECRET
             GOOGLE_VISION_SERVICE_ACCOUNT
-            STRIPE_SECRET_KEY
-            STRIPE_WEBHOOK_SECRET
-            STRIPE_PRO_PRICE_ID
-            STRIPE_PRO_ANNUAL_PRICE_ID
             FRONTEND_URL
           )
 
@@ -773,10 +767,6 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
           GOOGLE_VISION_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_VISION_SERVICE_ACCOUNT }}
-          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
-          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
-          STRIPE_PRO_PRICE_ID: ${{ secrets.STRIPE_PRO_PRICE_ID }}
-          STRIPE_PRO_ANNUAL_PRICE_ID: ${{ secrets.STRIPE_PRO_ANNUAL_PRICE_ID }}
           FRONTEND_URL: ${{ vars.PROD_FRONTEND_URL || 'https://purrfect-spots.vercel.app' }}
         run: |
           set -euo pipefail
@@ -785,6 +775,7 @@ jobs:
           vercel link --yes --token="$VERCEL_TOKEN"
           vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
 
+          # Do not override Stripe variables here. Vercel Production is the source of truth.
           DEPLOY_ARGS=(deploy . --prod --yes --token="$VERCEL_TOKEN")
           DEPLOY_ARGS+=(-e "DATABASE_URL=$DATABASE_URL")
           DEPLOY_ARGS+=(-e "SUPABASE_URL=$SUPABASE_URL")
@@ -793,10 +784,6 @@ jobs:
           DEPLOY_ARGS+=(-e "JWT_SECRET=$JWT_SECRET")
           DEPLOY_ARGS+=(-e "JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET")
           DEPLOY_ARGS+=(-e "GOOGLE_VISION_SERVICE_ACCOUNT=$GOOGLE_VISION_SERVICE_ACCOUNT")
-          DEPLOY_ARGS+=(-e "STRIPE_SECRET_KEY=$STRIPE_SECRET_KEY")
-          DEPLOY_ARGS+=(-e "STRIPE_WEBHOOK_SECRET=$STRIPE_WEBHOOK_SECRET")
-          DEPLOY_ARGS+=(-e "STRIPE_PRO_PRICE_ID=$STRIPE_PRO_PRICE_ID")
-          DEPLOY_ARGS+=(-e "STRIPE_PRO_ANNUAL_PRICE_ID=$STRIPE_PRO_ANNUAL_PRICE_ID")
           DEPLOY_ARGS+=(-e "FRONTEND_URL=$FRONTEND_URL")
           DEPLOY_ARGS+=(-e "CORS_ORIGINS=$FRONTEND_URL")
 
@@ -869,6 +856,20 @@ jobs:
           if [ "$VISION_STATUS" != "configured" ]; then
             echo "::error::Google Vision production dependency is ${VISION_STATUS}."
             FAILED=1
+          fi
+
+          PLANS_RESPONSE=$(curl --fail --show-error --silent --max-time 30 "${PROD_API_URL%/}/api/v1/subscription/plans" || true)
+          MONTHLY_AMOUNT=$(printf '%s' "$PLANS_RESPONSE" | jq -r '.monthly.unit_amount // empty' 2>/dev/null || true)
+          MONTHLY_CURRENCY=$(printf '%s' "$PLANS_RESPONSE" | jq -r '.monthly.currency // empty' 2>/dev/null || true)
+          ANNUAL_AMOUNT=$(printf '%s' "$PLANS_RESPONSE" | jq -r '.annual.unit_amount // empty' 2>/dev/null || true)
+          if ! [[ "$MONTHLY_AMOUNT" =~ ^[1-9][0-9]*$ ]] || [ -z "$MONTHLY_CURRENCY" ]; then
+            echo "::error::Production Stripe monthly plan is not configured in the Vercel environment."
+            FAILED=1
+          else
+            echo "Production Stripe monthly plan check passed (${MONTHLY_CURRENCY})."
+          fi
+          if [ -z "$ANNUAL_AMOUNT" ]; then
+            echo "::warning::Production Stripe annual plan is not configured; annual checkout remains disabled."
           fi
 
           FRONTEND_URL="${PROD_FRONTEND_URL:-$DEPLOYMENT_URL}"
