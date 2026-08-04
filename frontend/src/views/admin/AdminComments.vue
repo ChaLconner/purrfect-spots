@@ -404,4 +404,3 @@ const viewReports = (comment: AdminComment): void => {
   });
 };
 </script>
-

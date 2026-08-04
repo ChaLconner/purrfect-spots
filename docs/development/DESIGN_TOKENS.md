@@ -224,8 +224,8 @@
   left: 0;
   background: var(--color-btn-shade-c);
   border-radius: inherit;
-  box-shadow: 
-    0 0 0 2px var(--color-btn-shade-b), 
+  box-shadow:
+    0 0 0 2px var(--color-btn-shade-b),
     0 0.5em 0 0 var(--color-btn-shade-a);
   transform: translate3d(0, 0.5em, -1em);
   transition: all 175ms cubic-bezier(0, 0, 1, 1);
@@ -244,8 +244,8 @@
 
 .btn-3d:active::before {
   transform: translate3d(0, 0, -1em);
-  box-shadow: 
-    0 0 0 2px var(--color-btn-shade-b), 
+  box-shadow:
+    0 0 0 2px var(--color-btn-shade-b),
     0 0.1em 0 0 var(--color-btn-shade-b);
 }
 ```
@@ -285,4 +285,3 @@
 - [ ] Update `--color-btn-brown-*` for special elements (optional)
 - [ ] Verify contrast ratios for accessibility
 - [ ] Test hover and active states
-

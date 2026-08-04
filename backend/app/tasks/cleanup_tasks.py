@@ -1,7 +1,7 @@
 import asyncio
 import contextlib
 from datetime import UTC, datetime, timedelta
-from typing import cast
+from typing import Any, cast
 from urllib.parse import urlparse
 
 from app.logger import logger
@@ -47,12 +47,13 @@ async def _cleanup_orphaned_s3_files() -> None:
 
             # 1. Get all image URLs from database
             result = await admin_client.table("cat_photos").select("image_url").execute()
-            assert isinstance(result.data, list)
+            rows = cast(list[dict[str, Any]], result.data or [])
             referenced_keys: set[str] = set()
-            for row in result.data or []:
-                if not isinstance(row, dict) or not row.get("image_url"):
+            for row in rows:
+                image_url = row.get("image_url") if isinstance(row, dict) else None
+                if not isinstance(image_url, str) or not image_url:
                     continue
-                path = urlparse(cast(str, row["image_url"])).path.lstrip("/")
+                path = urlparse(image_url).path.lstrip("/")
                 marker = path.find("upload/")
                 if marker >= 0:
                     referenced_keys.add(path[marker:])

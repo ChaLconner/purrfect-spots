@@ -36,33 +36,33 @@ async def seed_data() -> None:
 
     # 1. Seed Permissions
     print("Seeding Permissions...")
-    permission_map = {}  # code -> id
+    permission_map: dict[str, str] = {}  # code -> id
 
     for perm in INITIAL_PERMISSIONS:
         try:
+            perm_record = cast(dict[str, Any], perm)
             # Upsert permission
-            res = supabase.table("permissions").upsert(cast(dict[str, Any], perm), on_conflict="code").execute()
-            assert isinstance(res.data, list)
+            res = supabase.table("permissions").upsert(cast(Any, perm_record), on_conflict="code").execute()
             if res.data:
-                data_dict = cast(dict[str, Any], res.data[0])
-                permission_map[perm["code"]] = data_dict["id"]
+                rows = cast(list[dict[str, Any]], res.data)
+                permission_map[cast(str, perm_record["code"])] = cast(str, rows[0]["id"])
         except Exception as e:
-            print(f"Error seeding permission {perm['code']}: {e}")
+            print(f"Error seeding permission {perm_record['code']}: {e}")
 
     # 2. Seed Roles
     print("Seeding Roles...")
-    role_map = {}  # name -> id
+    role_map: dict[str, str] = {}  # name -> id
 
     for role in INITIAL_ROLES:
         try:
+            role_record = cast(dict[str, Any], role)
             # Upsert role
-            res = supabase.table("roles").upsert(cast(dict[str, Any], role), on_conflict="name").execute()
-            assert isinstance(res.data, list)
+            res = supabase.table("roles").upsert(cast(Any, role_record), on_conflict="name").execute()
             if res.data:
-                data_dict = cast(dict[str, Any], res.data[0])
-                role_map[role["name"]] = data_dict["id"]
+                rows = cast(list[dict[str, Any]], res.data)
+                role_map[cast(str, role_record["name"])] = cast(str, rows[0]["id"])
         except Exception as e:
-            print(f"Error seeding role {role['name']}: {e}")
+            print(f"Error seeding role {role_record['name']}: {e}")
 
     # 3. Assign Permissions to Roles
     print("Assigning Permissions to Roles...")

@@ -8,7 +8,7 @@ ALTER TABLE public.account_deletion_requests
   FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 -- 2. GIST Index & Location Trigger for cat_photos PostGIS spatial queries
-CREATE INDEX IF NOT EXISTS idx_cat_photos_location_gist 
+CREATE INDEX IF NOT EXISTS idx_cat_photos_location_gist
   ON public.cat_photos USING GIST (location);
 
 -- Function and trigger to keep location updated from latitude/longitude
@@ -56,9 +56,9 @@ DECLARE
     search_geo GEOGRAPHY;
 BEGIN
     search_geo := ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography;
-    
+
     RETURN QUERY
-    SELECT 
+    SELECT
         p.id,
         p.user_id,
         p.image_url,

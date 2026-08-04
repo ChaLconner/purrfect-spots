@@ -206,4 +206,3 @@ const openImage = (_image: CatLocation): void => {
     </Transition>
   </div>
 </template>
-

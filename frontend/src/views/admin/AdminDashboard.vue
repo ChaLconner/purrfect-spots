@@ -119,4 +119,3 @@ const statCards = computed(() => [
   },
 ]);
 </script>
-

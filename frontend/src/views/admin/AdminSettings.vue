@@ -715,4 +715,3 @@ onMounted(() => {
   fetchSettings();
 });
 </script>
-

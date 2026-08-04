@@ -1,7 +1,3 @@
--- Migration 044: fail closed when Stripe sends an incomplete active snapshot.
--- An active/trialing subscription without current_period_end must never grant
--- an entitlement that cannot be expired deterministically.
-
 begin;
 
 create or replace function public.apply_stripe_subscription_event(
@@ -43,7 +39,6 @@ begin
         p_customer_id,
         p_user_id,
         p_status,
-        -- A missing period end is never eligible for paid access.
         coalesce(p_is_pro_plan, false) and p_current_period_end is not null,
         coalesce(p_cancel_at_period_end, false),
         p_current_period_end,
@@ -72,15 +67,13 @@ begin
         return jsonb_build_object('applied', false, 'user_found', true);
     end if;
 
-    select u.id
-    into v_user_id
+    select u.id into v_user_id
     from public.users as u
     where u.stripe_customer_id = p_customer_id
     limit 1;
 
     if v_user_id is null and p_user_id is not null then
-        select u.id
-        into v_user_id
+        select u.id into v_user_id
         from public.users as u
         where u.id = p_user_id
           and (u.stripe_customer_id is null or u.stripe_customer_id = p_customer_id)
@@ -92,8 +85,7 @@ begin
     end if;
 
     update public.users
-    set stripe_customer_id = p_customer_id,
-        updated_at = pg_catalog.now()
+    set stripe_customer_id = p_customer_id, updated_at = pg_catalog.now()
     where id = v_user_id
       and (stripe_customer_id is null or stripe_customer_id = p_customer_id);
 

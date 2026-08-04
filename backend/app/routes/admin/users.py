@@ -103,13 +103,11 @@ async def list_users(
                 query = cast(Any, query.or_(f"email.ilike.%{clean_search}%,name.ilike.%{clean_search}%"))
 
         result = await query.execute()
-        users_data = result.data
-        assert isinstance(users_data, list)
+        users_data = cast(list[dict[str, Any]], result.data or [])
         total_count = result.count if result.count is not None else 0
 
         processed_data = []
-        for item in users_data:
-            user = cast(dict[str, Any], item)
+        for user in users_data:
             user_copy = user.copy()
             role_info = user_copy.pop("roles", None)
 
@@ -156,20 +154,15 @@ async def bulk_ban_users(
         target_emails = []
         skipped_admins = 0
 
-        roles_check_data = roles_check.data
-        assert isinstance(roles_check_data, list)
-
-        for item in roles_check_data:
-            u = cast(dict[str, Any], item)
-            role_info = u.get("roles")
-            role_dict = cast(dict[str, Any], role_info) if isinstance(role_info, dict) else {}
-            role_name = role_dict.get("name", "user") or "user"
-            if str(role_name).lower() in ("admin", "super_admin"):
+        role_rows = cast(list[dict[str, Any]], roles_check.data or [])
+        for u in role_rows:
+            role_name = (u.get("roles") or {}).get("name") or "user"
+            if role_name.lower() in ("admin", "super_admin"):
                 skipped_admins += 1
             else:
-                target_uids.append(str(u["id"]))
+                target_uids.append(u["id"])
                 if u.get("email"):
-                    target_emails.append(str(u["email"]))
+                    target_emails.append(u["email"])
 
         if not target_uids:
             return {"message": "No valid users found to ban.", "skipped": skipped_admins}
@@ -274,11 +267,9 @@ async def delete_user(
         if not check.data:
             raise HTTPException(status_code=404, detail="User not found")
 
-        assert isinstance(check.data, list)
         user_data = cast(dict[str, Any], check.data[0])
         role_info = user_data.get("roles")
-        role_dict = cast(dict[str, Any], role_info) if isinstance(role_info, dict) else {}
-        role_name = str(role_dict.get("name", "user")).lower()
+        role_name = (role_info.get("name") if role_info else "user").lower()
 
         if role_name == "admin" or role_name == "super_admin":
             raise HTTPException(status_code=400, detail="Cannot delete an admin user")
@@ -382,8 +373,8 @@ async def update_user_role(
         if not role_check.data:
             raise HTTPException(status_code=404, detail="Role not found")
 
-        assert isinstance(role_check.data, dict)
-        role_name = role_check.data.get("name")
+        role_record = cast(dict[str, Any], role_check.data)
+        role_name = cast(str | None, role_record.get("name"))
         result = await admin_client.table("users").update({"role_id": role_id_str}).eq("id", user_id_str).execute()
         if not result.data:
             raise HTTPException(status_code=404, detail="User not found")

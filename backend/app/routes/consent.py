@@ -54,11 +54,10 @@ async def get_my_consents(
             .execute()
         )
 
-        consents = {}
-        assert isinstance(result.data, list)
-        for record in result.data or []:
-            assert isinstance(record, dict)
-            ctype = str(record["consent_type"])
+        consents: dict[str, dict[str, Any]] = {}
+        records = cast(list[dict[str, Any]], result.data or [])
+        for record in records:
+            ctype = record["consent_type"]
             if ctype not in consents:
                 consents[ctype] = {
                     "consent_type": ctype,
@@ -106,9 +105,8 @@ async def record_consent(
                 .single()
                 .execute()
             )
-            version_data = version_res.data
-            assert isinstance(version_data, dict)
-            version = str(version_data.get("version", "1.0")) if version_data else "1.0"
+            version_data = cast(dict[str, Any], version_res.data or {})
+            version = cast(str, version_data.get("version", "1.0"))
         except Exception as version_error:
             if not _is_missing_relation_error(version_error):
                 raise
@@ -126,7 +124,7 @@ async def record_consent(
         }
 
         try:
-            await admin_client.table("user_consents").insert(cast(dict[str, Any], record)).execute()
+            await admin_client.table("user_consents").insert(cast(Any, record)).execute()
         except Exception as insert_error:
             if not _is_missing_relation_error(insert_error):
                 raise

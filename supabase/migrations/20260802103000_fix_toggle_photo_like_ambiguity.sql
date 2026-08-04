@@ -1,6 +1,4 @@
--- Keep the local migration history aligned with the remote fix for the
--- SECURITY DEFINER social mutation.
-
+-- Qualify the table column so the RETURNS TABLE output name cannot shadow it.
 begin;
 
 create or replace function public.toggle_photo_like(
@@ -58,7 +56,9 @@ begin
 end;
 $$;
 
-revoke execute on function public.toggle_photo_like(uuid, uuid) from public;
-grant execute on function public.toggle_photo_like(uuid, uuid) to service_role;
+revoke execute on function public.toggle_photo_like(uuid, uuid)
+    from public, anon, authenticated;
+grant execute on function public.toggle_photo_like(uuid, uuid)
+    to service_role;
 
 commit;

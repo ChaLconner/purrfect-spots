@@ -11,3 +11,5 @@ ALTER TABLE public.cat_photos
             AND longitude BETWEEN -180 AND 180
         )
     );
+
+

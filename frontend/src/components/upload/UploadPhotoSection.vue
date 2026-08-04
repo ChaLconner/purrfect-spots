@@ -347,4 +347,3 @@ const processFile = async (imageFile: File): Promise<void> => {
   img.src = tempUrl;
 };
 </script>
-

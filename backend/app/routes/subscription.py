@@ -104,7 +104,7 @@ async def stripe_webhook(
         # Stripe receives a non-2xx response and retries the event.
         raise HTTPException(status_code=503, detail="Webhook queue temporarily unavailable")
     except Exception as e:
-        logger.error("Webhook processing failed: %s", e)
+        logger.exception("Webhook processing failed: %s", e)
         raise HTTPException(status_code=500, detail="Webhook processing failed")
 
     return MessageResponse(message="accepted" if config.ENABLE_STRIPE_WEBHOOK_QUEUE else "success")

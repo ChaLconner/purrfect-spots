@@ -642,22 +642,24 @@ watch(
   { deep: false, immediate: true }
 );
 
-// 2. ONLY Fit bounds when searching (Manual trigger via searchQuery change)
+// 2. ONLY Fit bounds when searching (triggered by search query change, NOT every data update)
 const hasFittedForCurrentSearch = ref(false);
 const getDisplayedLocationCount = (): number => displayedLocations.value.length;
 watch(searchQuery, (): void => {
   hasFittedForCurrentSearch.value = false;
 });
 
-// Fit bounds only when (search changed AND we have new data AND we haven't fitted yet)
 watch(
-  [getDisplayedLocationCount],
-  ([count]: [number]): void => {
+  [searchQuery, getDisplayedLocationCount],
+  ([newQuery, count], [oldQuery, oldCount]): void => {
+    // Only fit bounds if search query actually changed or we got first results for a search
+    // AND we haven't already fitted bounds for this specific search result set
     if (
-      searchQuery.value &&
-      map.value &&
-      count > 0 &&
-      !hasFittedForCurrentSearch.value
+      newQuery && 
+      map.value && 
+      count > 0 && 
+      !hasFittedForCurrentSearch.value &&
+      (newQuery !== oldQuery || oldCount === 0)
     ) {
       const locations = displayedLocations.value;
       if (locations.length > 1) {
@@ -665,12 +667,12 @@ watch(
         locations.forEach((loc: CatLocation): void => {
           bounds.extend({ lat: loc.latitude, lng: loc.longitude });
         });
-
+        
         // Use a temporary flag to prevent the 'idle' listener from refetching immediately
         isFittingBounds.value = true;
         map.value.fitBounds(bounds, MAP_CONFIG.FIT_BOUNDS_PADDING);
         hasFittedForCurrentSearch.value = true;
-
+        
         // Release the lock after animation roughly finishes
         if (fitBoundsTimer) clearTimeout(fitBoundsTimer);
         fitBoundsTimer = setTimeout((): void => {

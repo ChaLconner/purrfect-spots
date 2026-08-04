@@ -7,6 +7,7 @@ from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path, Query, Request, Response
+from pydantic import ValidationError
 
 from app.dependencies import get_current_token, get_gallery_service, get_storage_service
 from app.limiter import get_api_limit, limiter
@@ -70,6 +71,21 @@ def _filter_fields(data: dict[str, Any], fields: set[str] | None) -> dict[str, A
     if not fields:
         return data
     return {k: v for k, v in data.items() if k in fields}
+
+
+def _build_gallery_locations(photos: list[dict[str, Any]]) -> list[CatLocation]:
+    """Keep malformed cached or legacy rows from breaking the whole gallery response."""
+    locations: list[CatLocation] = []
+    skipped = 0
+    for photo in photos:
+        try:
+            locations.append(CatLocation(**photo))
+        except ValidationError:
+            skipped += 1
+
+    if skipped:
+        logger.warning("Skipped %d gallery photos with incomplete location data", skipped)
+    return locations
 
 
 def _apply_sort(
@@ -186,7 +202,7 @@ async def get_gallery(
         total_pages = (total + limit - 1) // limit if total > 0 else 0
         current_page = (actual_offset // limit) + 1 if limit > 0 else 1
 
-        cat_locations = [CatLocation(**photo) for photo in protected_data]
+        cat_locations = _build_gallery_locations(protected_data)
 
         return PaginatedGalleryResponse(
             images=cat_locations,

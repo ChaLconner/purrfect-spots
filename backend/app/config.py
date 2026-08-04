@@ -248,15 +248,12 @@ class Config:
         VISION_QUEUE_MAX_IMAGE_BYTES = 5 * 1024 * 1024
 
     # App URLs
+    # App URLs
     _frontend_urls = os.getenv("FRONTEND_URL", "http://localhost:5173").split(",")
     FRONTEND_URL = _frontend_urls[0].strip() if _frontend_urls else "http://localhost:5173"
 
     # Sentry (optional)
     SENTRY_DSN = os.getenv("SENTRY_DSN")
-
-    # AWS configuration
-    AWS_S3_BUCKET = os.getenv("AWS_S3_BUCKET", "purrfect-spots-bucket")
-    AWS_REGION = os.getenv("AWS_REGION", "ap-southeast-2")
 
     # CDN Configuration
     CDN_BASE_URL = os.getenv("CDN_BASE_URL", "").rstrip("/")

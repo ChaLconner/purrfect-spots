@@ -181,4 +181,3 @@ const handleAction = (): void => {
     </div>
   </div>
 </template>
-

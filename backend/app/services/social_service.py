@@ -303,7 +303,6 @@ class SocialService:
             await self.supabase.table("photo_comments")
             .select("*, users(name, picture, is_pro)")
             .eq("photo_id", photo_id)
-            .is_("deleted_at", "null")
             .order("created_at", desc=False)
             .limit(limit)
             .execute()

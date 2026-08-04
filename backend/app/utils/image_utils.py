@@ -241,4 +241,4 @@ def is_valid_image(image_content: bytes | Any) -> bool:
         return False
     finally:
         if position is not None and hasattr(image_content, "seek"):
-            image_content.seek(position)  # pyright: ignore[reportAttributeAccessIssue]
+            image_content.seek(position)

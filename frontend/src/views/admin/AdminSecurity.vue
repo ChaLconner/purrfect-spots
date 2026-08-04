@@ -316,4 +316,3 @@ const getStatusColor = (level: string): string => {
     </div>
   </div>
 </template>
-

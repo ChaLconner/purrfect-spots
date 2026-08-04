@@ -106,9 +106,6 @@ ALTER TABLE public.cat_photos
     ADD CONSTRAINT cat_photos_coordinates_valid CHECK (
         (latitude IS NULL AND longitude IS NULL)
         OR (
-            latitude IS NOT NULL
-            AND longitude IS NOT NULL
-            AND
             latitude BETWEEN -90 AND 90
             AND longitude BETWEEN -180 AND 180
         )
@@ -405,3 +402,5 @@ REVOKE ALL ON FUNCTION public.purchase_treats_atomic(uuid, integer, text, text) 
 GRANT EXECUTE ON FUNCTION public.purchase_treats_atomic(uuid, integer, text, text) TO service_role;
 
 COMMIT;
+
+

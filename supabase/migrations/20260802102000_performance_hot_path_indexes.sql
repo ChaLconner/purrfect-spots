@@ -68,3 +68,5 @@ $$;
 
 REVOKE EXECUTE ON FUNCTION public.get_popular_tags(integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_popular_tags(integer) TO anon, authenticated, service_role;
+
+
