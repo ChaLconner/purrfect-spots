@@ -423,21 +423,75 @@ jobs:
         if: ${{ needs.prepare.outputs.skip_health_check != 'true' && needs.staging-frontend.result == 'success' && needs.staging-backend.result == 'success' }}
         env:
           STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_BACKEND_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
         run: |
           set -euo pipefail
 
-          if [ -z "${STAGING_API_URL:-}" ]; then
-            echo "::error::STAGING_API_URL is required for the staging health check."
-            exit 1
-          fi
+          required_vars=(
+            STAGING_API_URL
+            VERCEL_TOKEN
+            VERCEL_ORG_ID
+            VERCEL_BACKEND_PROJECT_ID
+          )
+
+          for var_name in "${required_vars[@]}"; do
+            if [ -z "${!var_name:-}" ]; then
+              echo "::error::${var_name} is required for the staging health check."
+              exit 1
+            fi
+          done
+
+          # Preview deployments are protected by Vercel Authentication. Create a
+          # CI-only bypass for this run instead of accepting the protection page's
+          # HTTP 200 response as an API health result.
+          VERCEL_PROTECTION_BYPASS=$(openssl rand -hex 16)
+          echo "::add-mask::${VERCEL_PROTECTION_BYPASS}"
+          BYPASS_PAYLOAD=$(jq -n \
+            --arg secret "$VERCEL_PROTECTION_BYPASS" \
+            '{generate: {secret: $secret, note: "staging CI health check"}}')
+          curl --fail --show-error --silent --max-time 15 \
+            -X PATCH \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "$BYPASS_PAYLOAD" \
+            "https://api.vercel.com/v1/projects/${VERCEL_BACKEND_PROJECT_ID}/protection-bypass?teamId=${VERCEL_ORG_ID}" \
+            >/dev/null
+
+          cleanup_bypass() {
+            REVOKE_PAYLOAD=$(jq -n \
+              --arg secret "$VERCEL_PROTECTION_BYPASS" \
+              '{revoke: {secret: $secret, regenerate: false}}')
+            curl --fail --show-error --silent --max-time 15 \
+              -X PATCH \
+              -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+              -H "Content-Type: application/json" \
+              --data "$REVOKE_PAYLOAD" \
+              "https://api.vercel.com/v1/projects/${VERCEL_BACKEND_PROJECT_ID}/protection-bypass?teamId=${VERCEL_ORG_ID}" \
+              >/dev/null \
+              || echo "::warning::Unable to revoke the staging Vercel protection bypass automatically."
+          }
+          trap cleanup_bypass EXIT
+
+          API_URL="${STAGING_API_URL%/}/health/ready"
 
           MAX_ATTEMPTS=5
           for i in $(seq 1 "$MAX_ATTEMPTS"); do
             echo "Health check attempt ${i}/${MAX_ATTEMPTS}"
-            if curl --fail --show-error --silent --max-time 15 "${STAGING_API_URL}/health/ready"; then
-              echo "Staging backend is healthy"
+            RESPONSE=$(curl --show-error --silent --location --max-time 15 \
+              -H "x-vercel-protection-bypass: ${VERCEL_PROTECTION_BYPASS}" \
+              --write-out $'\n%{http_code}' \
+              "$API_URL" || true)
+            HTTP_STATUS="${RESPONSE##*$'\n'}"
+            BODY="${RESPONSE%$'\n'*}"
+            HEALTH_STATUS=$(printf '%s' "$BODY" | jq -r '.status // empty' 2>/dev/null || true)
+
+            if [ "$HTTP_STATUS" = "200" ] && [ "$HEALTH_STATUS" = "ready" ]; then
+              echo "Staging backend is healthy (JSON status: ready)"
               exit 0
             fi
+            echo "::warning::Staging health response was not ready JSON (HTTP ${HTTP_STATUS}, status ${HEALTH_STATUS:-unknown})."
             [ "$i" -lt "$MAX_ATTEMPTS" ] && sleep 10
           done
 
@@ -788,10 +842,12 @@ jobs:
 
           for i in $(seq 1 "$MAX_ATTEMPTS"); do
             START_MS=$(date +%s%3N)
-            if curl --fail --show-error --silent --max-time 15 "${PROD_API_URL}/health/ready"; then
+            RESPONSE=$(curl --fail --show-error --silent --location --max-time 15 "${PROD_API_URL%/}/health/ready" || true)
+            HEALTH_STATUS=$(printf '%s' "$RESPONSE" | jq -r '.status // empty' 2>/dev/null || true)
+            if [ "$HEALTH_STATUS" = "ready" ]; then
               END_MS=$(date +%s%3N)
               RESPONSE_TIME=$((END_MS - START_MS))
-              echo "Backend health check passed in ${RESPONSE_TIME}ms"
+              echo "Backend health check passed with JSON status ready in ${RESPONSE_TIME}ms"
               [ "$RESPONSE_TIME" -gt 5000 ] && echo "::warning::Backend response time ${RESPONSE_TIME}ms exceeded the 5000ms threshold."
               BACKEND_OK=true
               break
