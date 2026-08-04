@@ -2,9 +2,10 @@
 Cat detection API routes using Google Cloud Vision
 """
 
-from typing import Any, NoReturn, cast
+from typing import Annotated, Any, Literal, NoReturn, cast
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi.responses import JSONResponse
 
 from app.config import config
 from app.dependencies import get_cat_detection_service
@@ -17,16 +18,16 @@ from app.utils.upload_verification import create_upload_verification_token
 router = APIRouter(prefix="/detect", tags=["Cat Detection"])
 
 
-# local function removed
-from typing import Annotated
-
 from app.schemas.cat_detection import (
     CatDetectionResult,
     CombinedAnalysisResult,
     SpotAnalysisResult,
+    VisionJobAccepted,
+    VisionJobStatus,
 )
 from app.schemas.user import User
 from app.services.cat_detection_service import CatDetectionService
+from app.services.queue_service import QueueBackpressure, QueueUnavailable, queue_service
 
 
 async def _process_cat_image(file: UploadFile, user_id: str) -> bytes:
@@ -47,6 +48,34 @@ def _handle_detection_error(e: Exception, action_name: str) -> NoReturn:
         raise e
     logger.error("%s error: %s", action_name, e)
     raise HTTPException(status_code=500, detail=f"{action_name} failed due to an internal error")
+
+
+async def _enqueue_vision_job(
+    *,
+    operation: Literal["spot-analysis", "combined"],
+    current_user: User,
+    filename: str | None,
+    contents: bytes,
+) -> JSONResponse | None:
+    if not config.ENABLE_VISION_ANALYSIS_QUEUE:
+        return None
+    try:
+        job = await queue_service.enqueue_vision_job(
+            operation=operation,
+            user_id=str(current_user.id),
+            analyzed_by=current_user.email,
+            filename=filename,
+            contents=contents,
+        )
+    except (QueueUnavailable, QueueBackpressure) as exc:
+        raise HTTPException(status_code=503, detail="Vision analysis queue temporarily unavailable") from exc
+    accepted = VisionJobAccepted(
+        status="queued",
+        job_id=str(job["job_id"]),
+        operation=operation,
+        created_at=str(job["created_at"]),
+    )
+    return JSONResponse(status_code=202, content=accepted.model_dump())
 
 
 @router.post("/cats", response_model=CatDetectionResult)
@@ -100,14 +129,14 @@ async def detect_cats_endpoint(
         _handle_detection_error(e, "Detection")
 
 
-@router.post("/spot-analysis", response_model=SpotAnalysisResult)
+@router.post("/spot-analysis", response_model=SpotAnalysisResult | VisionJobAccepted)
 @strict_limiter.limit(get_strict_limit)
 async def analyze_cat_spot(
     request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
     detection_service: Annotated[CatDetectionService, Depends(get_cat_detection_service)],
     file: Annotated[UploadFile, File(...)],
-) -> dict[str, Any]:
+) -> dict[str, Any] | JSONResponse:
     """
     Analyze suitability of locations for cats using Google Cloud Vision.
     Rate Limit: 5 requests per minute per user.
@@ -118,6 +147,15 @@ async def analyze_cat_spot(
         HTTPException: 500 - If spot analysis fails due to an internal error.
     """
     contents = await _process_cat_image(file, str(current_user.id))
+
+    queued_response = await _enqueue_vision_job(
+        operation="spot-analysis",
+        current_user=current_user,
+        filename=file.filename,
+        contents=contents,
+    )
+    if queued_response is not None:
+        return queued_response
 
     try:
         # Analyze spot using pre-read contents
@@ -133,14 +171,14 @@ async def analyze_cat_spot(
         _handle_detection_error(e, "Spot analysis")
 
 
-@router.post("/combined", response_model=CombinedAnalysisResult)
+@router.post("/combined", response_model=CombinedAnalysisResult | VisionJobAccepted)
 @strict_limiter.limit(get_strict_limit)
 async def combined_cat_and_spot_analysis(
     request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
     detection_service: Annotated[CatDetectionService, Depends(get_cat_detection_service)],
     file: Annotated[UploadFile, File(...)],
-) -> dict[str, Any]:
+) -> dict[str, Any] | JSONResponse:
     """
     Analyze both cat detection and location suitability using Google Cloud Vision.
     Rate Limit: 3 requests per minute per user.
@@ -152,6 +190,17 @@ async def combined_cat_and_spot_analysis(
     """
     contents = await _process_cat_image(file, str(current_user.id))
     file_size = len(contents)
+
+    # This queue is for analysis only. Upload admission still uses /cats and
+    # remains synchronous so the verification token cannot be bypassed.
+    queued_response = await _enqueue_vision_job(
+        operation="combined",
+        current_user=current_user,
+        filename=file.filename,
+        contents=contents,
+    )
+    if queued_response is not None:
+        return queued_response
 
     try:
         # Run cat detection using pre-read contents
@@ -181,6 +230,21 @@ async def combined_cat_and_spot_analysis(
 
     except Exception as e:
         _handle_detection_error(e, "Combined analysis")
+
+
+@router.get("/jobs/{job_id}", response_model=VisionJobStatus)
+async def get_vision_job_status(
+    job_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> VisionJobStatus:
+    """Return a Vision analysis result owned by the authenticated user."""
+    try:
+        job = await queue_service.get_vision_job(job_id, str(current_user.id))
+    except QueueUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Vision analysis queue temporarily unavailable") from exc
+    if not job:
+        raise HTTPException(status_code=404, detail="Vision analysis job not found")
+    return VisionJobStatus(**job)
 
 
 # Test endpoints removed for security

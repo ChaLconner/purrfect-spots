@@ -36,6 +36,7 @@
 import { ref, watch, onUnmounted } from 'vue';
 import { useDebounceFn } from '@/composables/useDebounce';
 import { SocialService } from '@/services/socialService';
+import { isOfflineQueuedResponse } from '@/utils/offlineQueue';
 import { useToastStore } from '@/stores';
 import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase';
@@ -218,6 +219,15 @@ async function sendToggleLike(): Promise<void> {
 
     // If this is an old request (newer one started), ignore the results for UI update
     if (requestId !== lastRequestId) {
+      return;
+    }
+
+    if (isOfflineQueuedResponse(res)) {
+      // Keep the optimistic state as the local baseline. The mutation is
+      // idempotent and will be replayed with the current auth token online.
+      serverLiked = liked.value;
+      serverCount = count.value;
+      toastStore.showInfo('Like saved and will sync when you are online.');
       return;
     }
 

@@ -71,6 +71,30 @@ Open browser to:
 - **Interactive Documentation**: Automatic API documentation with Swagger UI
 - **Error Handling**: Appropriate error management
 
+### External API Worker
+
+Stripe webhook persistence and non-admission Google Vision analysis use Redis
+Streams when the queue flags are enabled. The API verifies the Stripe
+signature, stores a bounded queue envelope, and returns a retryable `503` if
+Redis is unavailable. The worker reclaims stale consumer-group entries and
+moves exhausted jobs to a dead-letter stream.
+
+```bash
+# Local/Docker: starts the API, worker, and Redis dependencies.
+docker compose up -d backend backend-worker redis
+```
+
+`POST /api/v1/detect/cats` remains synchronous and fail-closed because its
+Vision result creates the upload verification token. `spot-analysis` and
+`combined` may return `202` with a `job_id`; the frontend polls
+`GET /api/v1/detect/jobs/{job_id}`.
+
+Vercel runs the API as serverless functions and does not run this long-lived
+worker. Keep the queue flags disabled there until `app.worker` is deployed on
+a long-lived host with the same `QUEUE_REDIS_URL`; then create the Stripe
+event destination for `/api/v1/subscription/webhook` and configure the
+generated signing secret in the runtime environment.
+
 ## 📋 API Endpoints
 
 ### 🔍 System

@@ -1,457 +1,72 @@
 /**
- * Pinia Cats Store
+ * Compatibility facade for the modular map and gallery stores.
  *
- * State management for cat locations and gallery data.
- * Supports search, filtering, pagination, and tag-based queries.
- *
- * Performance optimizations included:
- * 1. Debounced localStorage writes (2s) to avoid blocking main thread
- * 2. Shallow watch for better performance
- * 3. Memoized filtering
+ * Existing views keep using useCatsStore while each domain owns its state in
+ * mapStore.ts or galleryStore.ts. New code should import the narrower store.
  */
-import { defineStore } from 'pinia';
-import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue';
-
-// Re-export CatLocation from generated/api.ts (single source of truth)
-export type { CatLocation } from '../types/api';
+import { defineStore, storeToRefs } from 'pinia';
 import type { CatLocation, PaginationMeta } from '../types/api';
+import { useGalleryStore } from './galleryStore';
+import { useMapStore } from './mapStore';
 
-export interface TagInfo {
-  tag: string;
-  count: number;
-}
+export type { CatLocation } from '../types/api';
+export type { TagInfo } from './catStoreUtils';
+export { extractTags, getCleanDescription, hasTag } from './catStoreUtils';
 
-// ========== Store Definition ==========
 export const useCatsStore = defineStore('cats', () => {
-  const MAX_MAP_LOCATIONS = 2000;
-  // ========== State ==========
-  // Location records are replaced as immutable pages; avoid deep proxying every field.
-  const locations = shallowRef<CatLocation[]>([]);
-  const galleryLocations = shallowRef<CatLocation[]>([]);
-  const isLoading = ref(false);
-  const error = ref<string | null>(null);
+  const mapStore = useMapStore();
+  const galleryStore = useGalleryStore();
+  const map = storeToRefs(mapStore);
+  const gallery = storeToRefs(galleryStore);
 
-  // Client-side search for Map View (filters loaded locations)
-  const searchQuery = ref('');
-
-  // Server-side search for Gallery View (API based)
-  const gallerySearchQuery = ref('');
-  const popularTags = ref<TagInfo[]>([]);
-  const selectedTags = ref<string[]>([]);
-  const galleryCount = ref(0);
-
-  // Pagination state
-  const pagination = ref<PaginationMeta>({
-    total: 0,
-    limit: 20,
-    offset: 0,
-    has_more: false,
-    page: 1,
-    total_pages: 0,
-  });
-
-  // ========== Persistence ==========
-  // OPTIMIZATION: Async loading to avoid blocking main thread on boot
-  if (typeof window !== 'undefined') {
-    const restoreCache = (): void => {
-      try {
-        const savedMap = localStorage.getItem('cats_store_cache');
-        if (savedMap) {
-          const data = JSON.parse(savedMap);
-          if (Array.isArray(data.locations) && locations.value.length === 0) {
-            locations.value = data.locations;
-          }
-        }
-
-        const savedGallery = localStorage.getItem('gallery_store_cache');
-        if (savedGallery) {
-          const data = JSON.parse(savedGallery);
-          if (Array.isArray(data.locations) && galleryLocations.value.length === 0) {
-            galleryLocations.value = data.locations;
-          }
-        }
-      } catch {
-        // Ignore restoration errors
-      }
-    };
-
-    if ('requestIdleCallback' in window) {
-      window.requestIdleCallback(restoreCache, { timeout: 1000 });
-    } else {
-      setTimeout(restoreCache, 0);
-    }
+  function setLocations(data: CatLocation[], pagination?: PaginationMeta): void {
+    mapStore.setLocations(data);
+    if (pagination) galleryStore.setPagination(pagination);
   }
 
-  // OPTIMIZATION: Debounced localStorage write to avoid blocking main thread
-  let mapStorageWriteTimer: ReturnType<typeof setTimeout> | null = null;
-  let galleryStorageWriteTimer: ReturnType<typeof setTimeout> | null = null;
-  const LOCAL_STORAGE_DEBOUNCE_MS = 2000; // 2 seconds debounce
-
-  watch(
-    locations,
-    (newLocations) => {
-      // Clear previous timer
-      if (mapStorageWriteTimer) {
-        clearTimeout(mapStorageWriteTimer);
-      }
-
-      // Debounce the write operation
-      mapStorageWriteTimer = setTimeout(() => {
-        try {
-          // Limit cache size to avoid quota exceeded
-          const cacheData = { locations: newLocations.slice(0, 100) };
-          localStorage.setItem('cats_store_cache', JSON.stringify(cacheData));
-        } catch {
-          // Ignore quota errors
-        }
-      }, LOCAL_STORAGE_DEBOUNCE_MS);
-    },
-    { deep: false }
-  );
-
-  watch(
-    galleryLocations,
-    (newLocations) => {
-      if (galleryStorageWriteTimer) {
-        clearTimeout(galleryStorageWriteTimer);
-      }
-
-      galleryStorageWriteTimer = setTimeout(() => {
-        try {
-          const cacheData = { locations: newLocations.slice(0, 100) };
-          localStorage.setItem('gallery_store_cache', JSON.stringify(cacheData));
-        } catch {
-          // Ignore quota errors
-        }
-      }, LOCAL_STORAGE_DEBOUNCE_MS);
-    },
-    { deep: false }
-  );
-
-  // ========== Getters ==========
-
-  const catCount = computed(() => locations.value.length);
-
-  const totalCount = computed(() => pagination.value.total);
-  const galleryCountComputed = computed(() => galleryCount.value);
-
-  const hasMore = computed(() => pagination.value.has_more);
-
-  const currentPage = computed(() => pagination.value.page);
-
-  const totalPages = computed(() => pagination.value.total_pages);
-
-  /**
-   * Filter locations by search query (client-side)
-   * Usage: Primary for Map View filtering
-   * OPTIMIZATION: Memoized for better performance
-   */
-  const searchableLocations = computed(() =>
-    locations.value.map((cat) => ({
-      cat,
-      locationName: cat.location_name?.toLowerCase() ?? '',
-      description: cat.description?.toLowerCase() ?? '',
-      tags: cat.tags?.map((tag) => tag.toLowerCase()) ?? [],
-    }))
-  );
-
-  onScopeDispose(() => {
-    if (mapStorageWriteTimer) clearTimeout(mapStorageWriteTimer);
-    if (galleryStorageWriteTimer) clearTimeout(galleryStorageWriteTimer);
-  });
-
-  const filteredLocations = computed(() => {
-    if (!searchQuery.value.trim()) {
-      return locations.value;
-    }
-
-    const rawQuery = searchQuery.value.toLowerCase().trim();
-    const normalizedQuery = rawQuery.replace(/^#/, '');
-    const hashtagQuery = `#${normalizedQuery}`;
-
-    return searchableLocations.value
-      .filter(({ locationName, description, tags }) => {
-        const locationMatch = locationName.includes(normalizedQuery);
-        const descriptionMatch = description.includes(normalizedQuery);
-        const hashtagMatch = description.includes(hashtagQuery);
-        const tagMatch = tags.some((tag) => tag.includes(normalizedQuery));
-
-        return locationMatch || descriptionMatch || hashtagMatch || tagMatch;
-      })
-      .map(({ cat }) => cat);
-  });
-
-  const filteredCount = computed(() => filteredLocations.value.length);
-
-  /**
-   * Pre-compute tag statistics for both allTags and popularTagsComputed
-   */
-  const _tagStats = computed(() => {
-    const tagCounts = new Map<string, number>();
-    locations.value.forEach((location) => {
-      const tags = location.tags && location.tags.length > 0 ? location.tags : extractTags(location.description);
-      tags.forEach((tag) => {
-        const normalizedTag = tag.toLowerCase();
-        tagCounts.set(normalizedTag, (tagCounts.get(normalizedTag) || 0) + 1);
-      });
-    });
-    return tagCounts;
-  });
-
-  /**
-   * Get all unique tags from loaded locations
-   */
-  const allTags = computed(() => {
-    return Array.from(_tagStats.value.keys()).sort((a, b) => a.localeCompare(b));
-  });
-
-  /**
-   * Get popular tags from loaded locations (computed locally)
-   */
-  const popularTagsComputed = computed(() => {
-    return Array.from(_tagStats.value.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([tag, count]) => ({ tag, count }));
-  });
-
-  // ========== Actions ==========
-
-  function setLocations(data: CatLocation[], paginationData?: PaginationMeta): void {
-    locations.value = data.slice(-MAX_MAP_LOCATIONS);
-    if (paginationData) {
-      pagination.value = paginationData;
-      galleryCount.value = paginationData.total;
-    }
-  }
-
-  /**
-   * Append or update locations (upsert logic)
-   * Prevents duplicates and ensures data freshness
-   */
-  function appendLocations(data: CatLocation[], paginationData?: PaginationMeta): void {
-    // Keep recently observed viewport records, bound memory after repeated pans.
-    const incomingIds = new Set(data.map((item) => item.id));
-    const existingById = new Map(locations.value.map((item) => [item.id, item]));
-    const retained = locations.value.filter((item) => !incomingIds.has(item.id));
-    const mergedIncoming = data.map((newItem) => {
-      const existing = existingById.get(newItem.id);
-      if (
-        existing &&
-        existing.latitude === newItem.latitude &&
-        existing.longitude === newItem.longitude &&
-        existing.image_url === newItem.image_url &&
-        existing.description === newItem.description &&
-        existing.location_name === newItem.location_name
-      ) {
-        return existing;
-      }
-      return existing ? { ...existing, ...newItem } : newItem;
-    });
-    locations.value = [...retained, ...mergedIncoming].slice(-MAX_MAP_LOCATIONS);
-
-    if (paginationData) {
-      pagination.value = paginationData;
-      galleryCount.value = paginationData.total;
-    }
-  }
-
-  function setGalleryLocations(data: CatLocation[], paginationData?: PaginationMeta): void {
-    galleryLocations.value = data;
-    if (paginationData) {
-      pagination.value = paginationData;
-      galleryCount.value = paginationData.total;
-    }
-  }
-
-  function clearGalleryLocations(): void {
-    galleryLocations.value = [];
-  }
-
-  /**
-   * Set loading state
-   */
-  function setLoading(loading: boolean): void {
-    isLoading.value = loading;
-  }
-
-  /**
-   * Set error state
-   */
-  function setError(err: string | null): void {
-    error.value = err;
-  }
-
-  /**
-   * Set search query (Global/Map)
-   */
-  function setSearchQuery(query: string): void {
-    searchQuery.value = query;
-  }
-
-  /**
-   * Set gallery search query
-   */
-  function setGallerySearchQuery(query: string): void {
-    gallerySearchQuery.value = query;
-  }
-
-  /**
-   * Clear search query
-   */
-  function clearSearch(): void {
-    searchQuery.value = '';
-    selectedTags.value = [];
-  }
-
-  /**
-   * Clear gallery search
-   */
-  function clearGallerySearch(): void {
-    gallerySearchQuery.value = '';
-  }
-
-  /**
-   * Set popular tags from API
-   */
-  function setPopularTags(tags: TagInfo[]): void {
-    popularTags.value = tags;
-  }
-
-  /**
-   * Toggle tag selection for filtering
-   */
-  function toggleTag(tag: string): void {
-    const index = selectedTags.value.indexOf(tag);
-    if (index === -1) {
-      selectedTags.value.push(tag);
-    } else {
-      selectedTags.value.splice(index, 1);
-    }
-  }
-
-  /**
-   * Clear all filters
-   */
-  function clearFilters(): void {
-    searchQuery.value = '';
-    selectedTags.value = [];
-  }
-
-  /**
-   * Reset pagination to first page
-   */
-  function resetPagination(): void {
-    pagination.value = {
-      ...pagination.value,
-      offset: 0,
-      page: 1,
-      total_pages: 0,
-    };
-  }
-
-  /**
-   * Go to next page
-   */
-  function nextPage(): void {
-    if (pagination.value.has_more) {
-      pagination.value.page++;
-      pagination.value.offset = (pagination.value.page - 1) * pagination.value.limit;
-    }
-  }
-
-  /**
-   * Go to previous page
-   */
-  function prevPage(): void {
-    if (pagination.value.page > 1) {
-      pagination.value.page--;
-      pagination.value.offset = (pagination.value.page - 1) * pagination.value.limit;
-    }
-  }
-
-  /**
-   * Go to specific page
-   */
-  function goToPage(page: number): void {
-    if (page >= 1 && page <= pagination.value.total_pages) {
-      pagination.value.page = page;
-      pagination.value.offset = (page - 1) * pagination.value.limit;
-    }
+  function appendLocations(data: CatLocation[], pagination?: PaginationMeta): void {
+    mapStore.appendLocations(data);
+    if (pagination) galleryStore.setPagination(pagination);
   }
 
   return {
-    // State
-    locations,
-    galleryLocations,
-    isLoading,
-    error,
-    searchQuery,
-    gallerySearchQuery,
-    popularTags,
-
-    selectedTags,
-    pagination,
-
-    // Getters
-    catCount,
-    totalCount,
-    galleryCount: galleryCountComputed,
-    hasMore,
-    currentPage,
-    totalPages,
-    filteredLocations,
-    filteredCount,
-    allTags,
-    popularTagsComputed,
-
-    // Actions
+    locations: map.locations,
+    galleryLocations: gallery.galleryLocations,
+    isLoading: gallery.isLoading,
+    error: gallery.error,
+    searchQuery: map.searchQuery,
+    gallerySearchQuery: gallery.gallerySearchQuery,
+    popularTags: map.popularTags,
+    selectedTags: map.selectedTags,
+    pagination: gallery.pagination,
+    catCount: map.catCount,
+    totalCount: gallery.totalCount,
+    galleryCount: gallery.galleryCount,
+    hasMore: gallery.hasMore,
+    currentPage: gallery.currentPage,
+    totalPages: gallery.totalPages,
+    filteredLocations: map.filteredLocations,
+    filteredCount: map.filteredCount,
+    allTags: map.allTags,
+    popularTagsComputed: map.popularTagsComputed,
     setLocations,
     appendLocations,
-    setGalleryLocations,
-    clearGalleryLocations,
-    setLoading,
-    setError,
-    setSearchQuery,
-    setGallerySearchQuery,
-    clearSearch,
-    clearGallerySearch,
-    setPopularTags,
-    toggleTag,
-    clearFilters,
-    resetPagination,
-    nextPage,
-    prevPage,
-    goToPage,
+    setGalleryLocations: galleryStore.setGalleryLocations,
+    clearGalleryLocations: galleryStore.clearGalleryLocations,
+    setLoading: galleryStore.setLoading,
+    setError: galleryStore.setError,
+    setSearchQuery: mapStore.setSearchQuery,
+    setGallerySearchQuery: galleryStore.setGallerySearchQuery,
+    clearSearch: mapStore.clearSearch,
+    clearGallerySearch: galleryStore.clearGallerySearch,
+    setPopularTags: mapStore.setPopularTags,
+    toggleTag: mapStore.toggleTag,
+    clearFilters: mapStore.clearFilters,
+    resetPagination: galleryStore.resetPagination,
+    nextPage: galleryStore.nextPage,
+    prevPage: galleryStore.prevPage,
+    goToPage: galleryStore.goToPage,
   };
 });
 
-// ========== Utility Functions ==========
-
-/**
- * Extract hashtags from a description string
- */
-export function extractTags(description: string | null | undefined): string[] {
-  if (!description) return [];
-  const matches = description.match(/#[a-z0-9ก-๙]+/gi);
-  if (!matches) return [];
-  return [...new Set(matches.map((tag) => tag.slice(1).toLowerCase()))];
-}
-
-/**
- * Get clean description without hashtags section
- */
-export function getCleanDescription(description: string | null | undefined): string {
-  if (!description) return '';
-  return description.replace(/\n\n#.+$/s, '').trim();
-}
-
-/**
- * Check if a location matches the given tag
- */
-export function hasTag(location: CatLocation, tag: string): boolean {
-  const normalizedTag = tag.toLowerCase().replace(/^#/, '');
-  const tags =
-    location.tags && location.tags.length > 0 ? location.tags : extractTags(location.description);
-  return tags.some((t) => t.toLowerCase() === normalizedTag);
-}
+export type { TagInfo as CatsTagInfo } from './catStoreUtils';

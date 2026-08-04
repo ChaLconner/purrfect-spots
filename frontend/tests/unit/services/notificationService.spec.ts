@@ -56,7 +56,10 @@ describe('NotificationService', () => {
 
       await NotificationService.markAsRead('notif-123');
 
-      expect(mockRequest).toHaveBeenCalledWith('put', '/notifications/notif-123/read');
+      expect(mockRequest).toHaveBeenCalledWith('put', '/notifications/notif-123/read', undefined, {
+        queueWhenOffline: true,
+        retryConfig: { maxRetries: 0 },
+      });
     });
   });
 
@@ -66,7 +69,10 @@ describe('NotificationService', () => {
 
       await NotificationService.markAllAsRead();
 
-      expect(mockRequest).toHaveBeenCalledWith('put', '/notifications/read-all');
+      expect(mockRequest).toHaveBeenCalledWith('put', '/notifications/read-all', undefined, {
+        queueWhenOffline: true,
+        retryConfig: { maxRetries: 0 },
+      });
     });
   });
 });

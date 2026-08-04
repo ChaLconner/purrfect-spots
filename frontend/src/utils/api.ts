@@ -19,9 +19,19 @@ import { isBrowserExtensionError, handleBrowserExtensionError } from './browserE
 import { getEnvVar } from './env';
 import { getCsrfToken } from './csrf';
 import type { PaginationParams } from '../types/api';
+import {
+  createOfflineIdempotencyKey,
+  enqueueMutation,
+  isAllowedMutation,
+  registerOfflineReplayHandler,
+  OfflineQueueError,
+  type OfflineMutation,
+  type OfflineQueuedResponse,
+} from './offlineQueue';
 
 import { ApiError, ApiErrorTypes, formatApiErrorMessage } from './apiErrors';
 export { ApiError, ApiErrorTypes, formatApiErrorMessage };
+export type { OfflineQueuedResponse };
 
 // ========== State & Callbacks (Break Circular Dependencies) ==========
 // In-memory access token (not exposed to window/global)
@@ -304,7 +314,12 @@ const createApiInstance = (): AxiosInstance => {
   return instance;
 };
 
-interface RetryableRequestConfig extends AxiosRequestConfig {
+export interface ApiRequestConfig extends AxiosRequestConfig {
+  /** Explicit opt-in for the allow-listed social/notification offline queue. */
+  queueWhenOffline?: boolean;
+}
+
+interface RetryableRequestConfig extends ApiRequestConfig {
   _retry?: boolean;
   __is_refreshing?: boolean;
 }
@@ -385,7 +400,7 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
 
 const inFlightGetRequests = new Map<string, Promise<unknown>>();
 
-function getRequestDedupeKey(endpoint: string, options: AxiosRequestConfig): string | null {
+function getRequestDedupeKey(endpoint: string, options: ApiRequestConfig): string | null {
   if ((options.method ?? 'GET').toString().toUpperCase() !== 'GET' || options.signal) return null;
   try {
     return JSON.stringify([endpoint, options.params ?? null, currentAccessToken]);
@@ -464,9 +479,24 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
+function getHeaderValue(headers: ApiRequestConfig['headers'], name: string): string | undefined {
+  if (!headers) return undefined;
+  if (typeof (headers as { get?: (headerName: string) => unknown }).get === 'function') {
+    const value = (headers as { get: (headerName: string) => unknown }).get(name);
+    return typeof value === 'string' ? value : undefined;
+  }
+  const record = headers as Record<string, unknown>;
+  const value = record[name] ?? record[name.toLowerCase()];
+  return typeof value === 'string' ? value : undefined;
+}
+
+function shouldQueueNetworkFailure(error: unknown): boolean {
+  return error instanceof ApiError && error.type === ApiErrorTypes.NETWORK_ERROR;
+}
+
 const requestWithRetry = async <T = unknown>(
   endpoint: string,
-  options: AxiosRequestConfig = {},
+  options: ApiRequestConfig = {},
   retryConfig: Partial<RetryConfig> = {}
 ): Promise<T> => {
   // Never retry auth endpoints - they have their own refresh/retry logic
@@ -474,22 +504,49 @@ const requestWithRetry = async <T = unknown>(
   const config = isAuthEndpoint
     ? { ...DEFAULT_RETRY_CONFIG, ...retryConfig, maxRetries: 0 }
     : { ...DEFAULT_RETRY_CONFIG, ...retryConfig };
+  const queueEnabled = Boolean(
+    options.queueWhenOffline &&
+      isAllowedMutation((options.method ?? 'GET').toString(), endpoint) &&
+      typeof window !== 'undefined'
+  );
+  const queueIdempotencyKey = queueEnabled
+    ? getHeaderValue(options.headers, 'Idempotency-Key') || createOfflineIdempotencyKey()
+    : undefined;
+  const requestOptions: ApiRequestConfig = queueEnabled
+    ? {
+        ...options,
+        headers: {
+          ...(options.headers as Record<string, string> | undefined),
+          'Idempotency-Key': queueIdempotencyKey,
+        },
+      }
+    : options;
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
     try {
-      if (options.signal?.aborted) {
+      if (queueEnabled && typeof navigator !== 'undefined' && !navigator.onLine) {
+        return (await enqueueMutation({
+          method: requestOptions.method?.toString().toUpperCase() as 'POST' | 'PUT',
+          endpoint,
+          data: requestOptions.data,
+          idempotencyKey: queueIdempotencyKey,
+        })) as T;
+      }
+      if (requestOptions.signal?.aborted) {
         throw createAbortError();
       }
       const response = await apiInstance.request<T>({
         url: endpoint,
-        ...options,
+        ...requestOptions,
       });
       return response.data;
     } catch (error) {
       lastError = error;
 
-      if (options.signal?.aborted || isRequestAborted(error)) {
+      if (error instanceof OfflineQueueError) throw error;
+
+      if (requestOptions.signal?.aborted || isRequestAborted(error)) {
         throw error;
       }
 
@@ -508,8 +565,17 @@ const requestWithRetry = async <T = unknown>(
       if (shouldRetry) {
         const delay = calculateBackoffDelay(attempt, config);
         // Log removed
-        await sleep(delay, options.signal);
+        await sleep(delay, requestOptions.signal);
         continue;
+      }
+
+      if (queueEnabled && shouldQueueNetworkFailure(error)) {
+        return (await enqueueMutation({
+          method: requestOptions.method?.toString().toUpperCase() as 'POST' | 'PUT',
+          endpoint,
+          data: requestOptions.data,
+          idempotencyKey: queueIdempotencyKey,
+        })) as T;
       }
 
       if (error instanceof ApiError) throw error;
@@ -524,9 +590,21 @@ const requestWithRetry = async <T = unknown>(
   throw lastError;
 };
 
+// Replay gets a fresh Authorization/CSRF header from the Axios request
+// interceptor. Tokens are never stored in IndexedDB/localStorage.
+registerOfflineReplayHandler(async (mutation: OfflineMutation) => {
+  const response = await apiInstance.request({
+    url: mutation.endpoint,
+    method: mutation.method,
+    data: mutation.data,
+    headers: { 'Idempotency-Key': mutation.idempotencyKey },
+  });
+  return response.data;
+});
+
 export const apiRequest = async <T = unknown>(
   endpoint: string,
-  options: AxiosRequestConfig = {},
+  options: ApiRequestConfig = {},
   retryConfig: Partial<RetryConfig> = {}
 ): Promise<T> => {
   const dedupeKey = getRequestDedupeKey(endpoint, options);
@@ -549,19 +627,19 @@ export const apiRequest = async <T = unknown>(
 };
 
 export const api = {
-  get: <T = unknown>(endpoint: string, config?: AxiosRequestConfig): Promise<T> =>
+  get: <T = unknown>(endpoint: string, config?: ApiRequestConfig): Promise<T> =>
     apiRequest<T>(endpoint, { method: 'GET', ...config }),
 
-  post: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> =>
+  post: <T = unknown>(endpoint: string, data?: unknown, config?: ApiRequestConfig): Promise<T> =>
     apiRequest<T>(endpoint, { method: 'POST', data, ...config }),
 
-  put: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> =>
+  put: <T = unknown>(endpoint: string, data?: unknown, config?: ApiRequestConfig): Promise<T> =>
     apiRequest<T>(endpoint, { method: 'PUT', data, ...config }),
 
-  patch: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> =>
+  patch: <T = unknown>(endpoint: string, data?: unknown, config?: ApiRequestConfig): Promise<T> =>
     apiRequest<T>(endpoint, { method: 'PATCH', data, ...config }),
 
-  delete: <T = unknown>(endpoint: string, config?: AxiosRequestConfig): Promise<T> =>
+  delete: <T = unknown>(endpoint: string, config?: ApiRequestConfig): Promise<T> =>
     apiRequest<T>(endpoint, { method: 'DELETE', ...config }),
 };
 
@@ -602,19 +680,19 @@ export const uploadFile = async <T = unknown>(
 };
 
 export const apiV1 = {
-  get: <T = unknown>(endpoint: string, config?: AxiosRequestConfig): Promise<T> =>
+  get: <T = unknown>(endpoint: string, config?: ApiRequestConfig): Promise<T> =>
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'GET', ...config }),
 
-  post: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> =>
+  post: <T = unknown>(endpoint: string, data?: unknown, config?: ApiRequestConfig): Promise<T> =>
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'POST', data, ...config }),
 
-  put: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> =>
+  put: <T = unknown>(endpoint: string, data?: unknown, config?: ApiRequestConfig): Promise<T> =>
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'PUT', data, ...config }),
 
-  patch: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> =>
+  patch: <T = unknown>(endpoint: string, data?: unknown, config?: ApiRequestConfig): Promise<T> =>
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'PATCH', data, ...config }),
 
-  delete: <T = unknown>(endpoint: string, config?: AxiosRequestConfig): Promise<T> =>
+  delete: <T = unknown>(endpoint: string, config?: ApiRequestConfig): Promise<T> =>
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'DELETE', ...config }),
 };
 

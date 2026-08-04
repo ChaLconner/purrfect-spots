@@ -319,6 +319,10 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_PRO_PRICE_ID: ${{ secrets.STRIPE_PRO_PRICE_ID }}
+          STRIPE_PRO_ANNUAL_PRICE_ID: ${{ secrets.STRIPE_PRO_ANNUAL_PRICE_ID }}
           FRONTEND_URL: ${{ vars.STAGING_FRONTEND_URL }}
         run: |
           set -euo pipefail
@@ -332,6 +336,10 @@ jobs:
             SUPABASE_SERVICE_ROLE_KEY
             JWT_SECRET
             JWT_REFRESH_SECRET
+            STRIPE_SECRET_KEY
+            STRIPE_WEBHOOK_SECRET
+            STRIPE_PRO_PRICE_ID
+            STRIPE_PRO_ANNUAL_PRICE_ID
             FRONTEND_URL
           )
 
@@ -367,6 +375,10 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_PRO_PRICE_ID: ${{ secrets.STRIPE_PRO_PRICE_ID }}
+          STRIPE_PRO_ANNUAL_PRICE_ID: ${{ secrets.STRIPE_PRO_ANNUAL_PRICE_ID }}
           FRONTEND_URL: ${{ vars.STAGING_FRONTEND_URL }}
         run: |
           set -euo pipefail
@@ -382,6 +394,10 @@ jobs:
           DEPLOY_ARGS+=(-e "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY")
           DEPLOY_ARGS+=(-e "JWT_SECRET=$JWT_SECRET")
           DEPLOY_ARGS+=(-e "JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET")
+          DEPLOY_ARGS+=(-e "STRIPE_SECRET_KEY=$STRIPE_SECRET_KEY")
+          DEPLOY_ARGS+=(-e "STRIPE_WEBHOOK_SECRET=$STRIPE_WEBHOOK_SECRET")
+          DEPLOY_ARGS+=(-e "STRIPE_PRO_PRICE_ID=$STRIPE_PRO_PRICE_ID")
+          DEPLOY_ARGS+=(-e "STRIPE_PRO_ANNUAL_PRICE_ID=$STRIPE_PRO_ANNUAL_PRICE_ID")
           DEPLOY_ARGS+=(-e "FRONTEND_URL=$FRONTEND_URL")
           DEPLOY_ARGS+=(-e "CORS_ORIGINS=$FRONTEND_URL")
 
@@ -640,6 +656,10 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
           GOOGLE_VISION_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_VISION_SERVICE_ACCOUNT }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_PRO_PRICE_ID: ${{ secrets.STRIPE_PRO_PRICE_ID }}
+          STRIPE_PRO_ANNUAL_PRICE_ID: ${{ secrets.STRIPE_PRO_ANNUAL_PRICE_ID }}
           FRONTEND_URL: ${{ vars.PROD_FRONTEND_URL || 'https://purrfect-spots.vercel.app' }}
         run: |
           set -euo pipefail
@@ -654,6 +674,10 @@ jobs:
             JWT_SECRET
             JWT_REFRESH_SECRET
             GOOGLE_VISION_SERVICE_ACCOUNT
+            STRIPE_SECRET_KEY
+            STRIPE_WEBHOOK_SECRET
+            STRIPE_PRO_PRICE_ID
+            STRIPE_PRO_ANNUAL_PRICE_ID
             FRONTEND_URL
           )
 
@@ -690,6 +714,10 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
           GOOGLE_VISION_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_VISION_SERVICE_ACCOUNT }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_PRO_PRICE_ID: ${{ secrets.STRIPE_PRO_PRICE_ID }}
+          STRIPE_PRO_ANNUAL_PRICE_ID: ${{ secrets.STRIPE_PRO_ANNUAL_PRICE_ID }}
           FRONTEND_URL: ${{ vars.PROD_FRONTEND_URL || 'https://purrfect-spots.vercel.app' }}
         run: |
           set -euo pipefail
@@ -706,6 +734,10 @@ jobs:
           DEPLOY_ARGS+=(-e "JWT_SECRET=$JWT_SECRET")
           DEPLOY_ARGS+=(-e "JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET")
           DEPLOY_ARGS+=(-e "GOOGLE_VISION_SERVICE_ACCOUNT=$GOOGLE_VISION_SERVICE_ACCOUNT")
+          DEPLOY_ARGS+=(-e "STRIPE_SECRET_KEY=$STRIPE_SECRET_KEY")
+          DEPLOY_ARGS+=(-e "STRIPE_WEBHOOK_SECRET=$STRIPE_WEBHOOK_SECRET")
+          DEPLOY_ARGS+=(-e "STRIPE_PRO_PRICE_ID=$STRIPE_PRO_PRICE_ID")
+          DEPLOY_ARGS+=(-e "STRIPE_PRO_ANNUAL_PRICE_ID=$STRIPE_PRO_ANNUAL_PRICE_ID")
           DEPLOY_ARGS+=(-e "FRONTEND_URL=$FRONTEND_URL")
           DEPLOY_ARGS+=(-e "CORS_ORIGINS=$FRONTEND_URL")
 

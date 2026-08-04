@@ -13,8 +13,14 @@ services:
     env_file:
       - path: ./backend/.env
         required: false
+    environment:
+      - QUEUE_REDIS_URL=redis://redis-queue:6379
+      - ENABLE_STRIPE_WEBHOOK_QUEUE=true
+      - ENABLE_VISION_ANALYSIS_QUEUE=true
     depends_on:
       redis-cache:
+        condition: service_healthy
+      redis-queue:
         condition: service_healthy
       redis-ratelimit:
         condition: service_healthy
@@ -24,6 +30,31 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+    networks:
+      - purrfect-network
+
+  # ========================================================================
+  # Backend Worker (Stripe webhooks and Google Vision analysis)
+  # ========================================================================
+  backend-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: purrfect-backend-worker
+    restart: always
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      - QUEUE_REDIS_URL=redis://redis-queue:6379
+      - ENABLE_STRIPE_WEBHOOK_QUEUE=true
+      - ENABLE_VISION_ANALYSIS_QUEUE=true
+    command: ["python", "-m", "app.worker"]
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      redis-queue:
+        condition: service_healthy
     networks:
       - purrfect-network
 
@@ -88,6 +119,29 @@ services:
     networks:
       - purrfect-network
 
+  # ========================================================================
+  # Redis - Durable queue storage (no eviction)
+  # ========================================================================
+  redis-queue:
+    image: redis:7-alpine
+    container_name: purrfect-redis-queue
+    restart: always
+    volumes:
+      - redis-queue-data:/data
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - purrfect-network
+
   # ==========================================================================
   # Redis - Isolated Rate Limiting
   # ==========================================================================
@@ -117,6 +171,8 @@ networks:
 
 volumes:
   redis-cache-data:
+    driver: local
+  redis-queue-data:
     driver: local
   redis-ratelimit-data:
     driver: local

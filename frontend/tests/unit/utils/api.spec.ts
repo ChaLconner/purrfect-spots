@@ -16,6 +16,7 @@ import {
   apiV1,
   getDefaultHeaders
 } from '@/utils/api';
+import { clearOfflineQueue, listOfflineMutations } from '@/utils/offlineQueue';
 import { getEnvVar } from '@/utils/env';
 
 vi.mock('axios', () => {
@@ -45,11 +46,13 @@ vi.mock('@/utils/security', () => ({
 }));
 
 describe('API Utils', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     setAccessToken(null);
     vi.useFakeTimers();
     vi.mocked(getEnvVar).mockReturnValue('');
+    await clearOfflineQueue();
+    Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
   });
 
   afterEach(() => {
@@ -153,6 +156,19 @@ describe('API Utils', () => {
         name: 'AbortError',
       });
       expect(apiInstance.request).not.toHaveBeenCalled();
+    });
+
+    it('queues an explicitly opted-in allow-listed mutation while offline', async () => {
+      Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
+
+      const result = await apiV1.post('/social/photos/photo-1/like', undefined, {
+        queueWhenOffline: true,
+        retryConfig: { maxRetries: 0 },
+      });
+
+      expect(result).toMatchObject({ queued: true });
+      expect(apiInstance.request).not.toHaveBeenCalled();
+      expect(await listOfflineMutations()).toHaveLength(1);
     });
   });
 
