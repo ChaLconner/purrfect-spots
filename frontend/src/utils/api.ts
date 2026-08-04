@@ -26,12 +26,11 @@ import {
   registerOfflineReplayHandler,
   OfflineQueueError,
   type OfflineMutation,
-  type OfflineQueuedResponse,
 } from './offlineQueue';
 
 import { ApiError, ApiErrorTypes, formatApiErrorMessage } from './apiErrors';
 export { ApiError, ApiErrorTypes, formatApiErrorMessage };
-export type { OfflineQueuedResponse };
+export type { OfflineQueuedResponse } from './offlineQueue';
 
 // ========== State & Callbacks (Break Circular Dependencies) ==========
 // In-memory access token (not exposed to window/global)
@@ -494,6 +493,89 @@ function shouldQueueNetworkFailure(error: unknown): boolean {
   return error instanceof ApiError && error.type === ApiErrorTypes.NETWORK_ERROR;
 }
 
+function isOfflineQueueEnabled(endpoint: string, options: ApiRequestConfig): boolean {
+  return Boolean(
+    options.queueWhenOffline &&
+      isAllowedMutation((options.method ?? 'GET').toString(), endpoint) &&
+      typeof window !== 'undefined'
+  );
+}
+
+function getQueueIdempotencyKey(options: ApiRequestConfig, queueEnabled: boolean): string | undefined {
+  return queueEnabled
+    ? getHeaderValue(options.headers, 'Idempotency-Key') || createOfflineIdempotencyKey()
+    : undefined;
+}
+
+function buildRequestOptions(options: ApiRequestConfig, queueIdempotencyKey: string | undefined): ApiRequestConfig {
+  if (!queueIdempotencyKey) return options;
+  return {
+    ...options,
+    headers: {
+      ...(options.headers as Record<string, string> | undefined),
+      'Idempotency-Key': queueIdempotencyKey,
+    },
+  };
+}
+
+async function enqueueOfflineMutation<T>(
+  endpoint: string,
+  requestOptions: ApiRequestConfig,
+  idempotencyKey: string
+): Promise<T> {
+  const method = requestOptions.method?.toString().toUpperCase();
+  if (method !== 'POST' && method !== 'PUT') {
+    throw new OfflineQueueError('Offline queue requires a POST or PUT mutation');
+  }
+  return (await enqueueMutation({
+    method,
+    endpoint,
+    data: requestOptions.data,
+    idempotencyKey,
+  })) as T;
+}
+
+async function performRequestAttempt<T>(
+  endpoint: string,
+  requestOptions: ApiRequestConfig,
+  queueEnabled: boolean,
+  queueIdempotencyKey: string | undefined
+): Promise<T> {
+  if (queueEnabled && typeof navigator !== 'undefined' && !navigator.onLine) {
+    if (!queueIdempotencyKey) throw new OfflineQueueError('Offline queue idempotency key is missing');
+    return enqueueOfflineMutation<T>(endpoint, requestOptions, queueIdempotencyKey);
+  }
+  if (requestOptions.signal?.aborted) throw createAbortError();
+  const response = await apiInstance.request<T>({
+    url: endpoint,
+    ...requestOptions,
+  });
+  return response.data;
+}
+
+function isNonRetryableRequestError(error: unknown, requestOptions: ApiRequestConfig): boolean {
+  if (error instanceof OfflineQueueError) return true;
+  if (requestOptions.signal?.aborted || isRequestAborted(error)) return true;
+  return (
+    error instanceof ApiError &&
+    [
+      ApiErrorTypes.AUTHENTICATION_ERROR,
+      ApiErrorTypes.AUTHORIZATION_ERROR,
+      ApiErrorTypes.VALIDATION_ERROR,
+    ].includes(error.type)
+  );
+}
+
+function throwRequestError(error: unknown): never {
+  if (error instanceof ApiError) throw error;
+  throw new ApiError(
+    ApiErrorTypes.UNKNOWN_ERROR,
+    (error as Error).message || 'An unknown error occurred',
+    undefined,
+    error
+  );
+}
+
 const requestWithRetry = async <T = unknown>(
   endpoint: string,
   options: ApiRequestConfig = {},
@@ -504,60 +586,18 @@ const requestWithRetry = async <T = unknown>(
   const config = isAuthEndpoint
     ? { ...DEFAULT_RETRY_CONFIG, ...retryConfig, maxRetries: 0 }
     : { ...DEFAULT_RETRY_CONFIG, ...retryConfig };
-  const queueEnabled = Boolean(
-    options.queueWhenOffline &&
-      isAllowedMutation((options.method ?? 'GET').toString(), endpoint) &&
-      typeof window !== 'undefined'
-  );
-  const queueIdempotencyKey = queueEnabled
-    ? getHeaderValue(options.headers, 'Idempotency-Key') || createOfflineIdempotencyKey()
-    : undefined;
-  const requestOptions: ApiRequestConfig = queueEnabled
-    ? {
-        ...options,
-        headers: {
-          ...(options.headers as Record<string, string> | undefined),
-          'Idempotency-Key': queueIdempotencyKey,
-        },
-      }
-    : options;
+  const queueEnabled = isOfflineQueueEnabled(endpoint, options);
+  const queueIdempotencyKey = getQueueIdempotencyKey(options, queueEnabled);
+  const requestOptions = buildRequestOptions(options, queueIdempotencyKey);
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
     try {
-      if (queueEnabled && typeof navigator !== 'undefined' && !navigator.onLine) {
-        return (await enqueueMutation({
-          method: requestOptions.method?.toString().toUpperCase() as 'POST' | 'PUT',
-          endpoint,
-          data: requestOptions.data,
-          idempotencyKey: queueIdempotencyKey,
-        })) as T;
-      }
-      if (requestOptions.signal?.aborted) {
-        throw createAbortError();
-      }
-      const response = await apiInstance.request<T>({
-        url: endpoint,
-        ...requestOptions,
-      });
-      return response.data;
+      return await performRequestAttempt(endpoint, requestOptions, queueEnabled, queueIdempotencyKey);
     } catch (error) {
       lastError = error;
 
-      if (error instanceof OfflineQueueError) throw error;
-
-      if (requestOptions.signal?.aborted || isRequestAborted(error)) {
-        throw error;
-      }
-
-      if (
-        error instanceof ApiError &&
-        (error.type === ApiErrorTypes.AUTHENTICATION_ERROR ||
-          error.type === ApiErrorTypes.AUTHORIZATION_ERROR ||
-          error.type === ApiErrorTypes.VALIDATION_ERROR)
-      ) {
-        throw error;
-      }
+      if (isNonRetryableRequestError(error, requestOptions)) throw error;
 
       const isLastAttempt = attempt === config.maxRetries;
       const shouldRetry = !isLastAttempt && isRetryableError(error, config);
@@ -570,21 +610,11 @@ const requestWithRetry = async <T = unknown>(
       }
 
       if (queueEnabled && shouldQueueNetworkFailure(error)) {
-        return (await enqueueMutation({
-          method: requestOptions.method?.toString().toUpperCase() as 'POST' | 'PUT',
-          endpoint,
-          data: requestOptions.data,
-          idempotencyKey: queueIdempotencyKey,
-        })) as T;
+        if (!queueIdempotencyKey) throw new OfflineQueueError('Offline queue idempotency key is missing');
+        return enqueueOfflineMutation<T>(endpoint, requestOptions, queueIdempotencyKey);
       }
 
-      if (error instanceof ApiError) throw error;
-      throw new ApiError(
-        ApiErrorTypes.UNKNOWN_ERROR,
-        (error as Error).message || 'An unknown error occurred',
-        undefined,
-        error
-      );
+      throwRequestError(error);
     }
   }
   throw lastError;

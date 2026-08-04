@@ -112,7 +112,7 @@ class QueueService:
             return None
         try:
             parsed = json.loads(value.decode() if isinstance(value, bytes) else str(value))
-        except (TypeError, ValueError, UnicodeDecodeError):
+        except (TypeError, ValueError):
             return None
         return parsed if isinstance(parsed, dict) else None
 
@@ -235,7 +235,7 @@ class QueueService:
             raise QueuePayloadMissing(f"Vision payload expired for job {job_id}")
         try:
             return base64.b64decode(raw.decode() if isinstance(raw, bytes) else str(raw), validate=True)
-        except (ValueError, TypeError, UnicodeDecodeError) as exc:
+        except (ValueError, TypeError) as exc:
             raise QueuePayloadMissing(f"Vision payload is invalid for job {job_id}") from exc
 
     async def delete_vision_payload(self, job_id: str) -> None:

@@ -19,7 +19,7 @@ def valid_jpeg() -> bytes:
 
 
 @pytest.mark.asyncio
-async def test_stripe_webhook_is_accepted_only_after_enqueue() -> None:
+async def test_stripe_webhook_is_accepted_only_after_enqueue(monkeypatch: pytest.MonkeyPatch) -> None:
     subscription_service = MagicMock()
     subscription_service.construct_webhook_event.return_value = {
         "id": "evt_test_1",
@@ -27,20 +27,17 @@ async def test_stripe_webhook_is_accepted_only_after_enqueue() -> None:
         "created": 1,
         "data": {"object": {}},
     }
-    app.dependency_overrides[get_subscription_service] = lambda: subscription_service
-    try:
-        with (
-            patch.object(config, "ENABLE_STRIPE_WEBHOOK_QUEUE", True),
-            patch("app.routes.subscription.queue_service.enqueue_stripe_webhook", new=AsyncMock(return_value="1-0")),
-        ):
-            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-                response = await client.post(
-                    "/api/v1/subscription/webhook",
-                    content=b"signed-payload",
-                    headers={"stripe-signature": "sig"},
-                )
-    finally:
-        app.dependency_overrides = {}
+    monkeypatch.setitem(app.dependency_overrides, get_subscription_service, lambda: subscription_service)
+    with (
+        patch.object(config, "ENABLE_STRIPE_WEBHOOK_QUEUE", True),
+        patch("app.routes.subscription.queue_service.enqueue_stripe_webhook", new=AsyncMock(return_value="1-0")),
+    ):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post(
+                "/api/v1/subscription/webhook",
+                content=b"signed-payload",
+                headers={"stripe-signature": "sig"},
+            )
 
     assert response.status_code == 200
     assert response.json() == {"message": "accepted", "status": None}
@@ -48,7 +45,9 @@ async def test_stripe_webhook_is_accepted_only_after_enqueue() -> None:
 
 
 @pytest.mark.asyncio
-async def test_stripe_webhook_returns_retryable_status_when_queue_is_unavailable() -> None:
+async def test_stripe_webhook_returns_retryable_status_when_queue_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     subscription_service = MagicMock()
     subscription_service.construct_webhook_event.return_value = {
         "id": "evt_test_2",
@@ -56,55 +55,49 @@ async def test_stripe_webhook_returns_retryable_status_when_queue_is_unavailable
         "created": 1,
         "data": {"object": {}},
     }
-    app.dependency_overrides[get_subscription_service] = lambda: subscription_service
-    try:
-        with (
-            patch.object(config, "ENABLE_STRIPE_WEBHOOK_QUEUE", True),
-            patch(
-                "app.routes.subscription.queue_service.enqueue_stripe_webhook",
-                new=AsyncMock(side_effect=QueueUnavailable("redis down")),
-            ),
-        ):
-            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-                response = await client.post(
-                    "/api/v1/subscription/webhook",
-                    content=b"signed-payload",
-                    headers={"stripe-signature": "sig"},
-                )
-    finally:
-        app.dependency_overrides = {}
+    monkeypatch.setitem(app.dependency_overrides, get_subscription_service, lambda: subscription_service)
+    with (
+        patch.object(config, "ENABLE_STRIPE_WEBHOOK_QUEUE", True),
+        patch(
+            "app.routes.subscription.queue_service.enqueue_stripe_webhook",
+            new=AsyncMock(side_effect=QueueUnavailable("redis down")),
+        ),
+    ):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post(
+                "/api/v1/subscription/webhook",
+                content=b"signed-payload",
+                headers={"stripe-signature": "sig"},
+            )
 
     assert response.status_code == 503
     subscription_service.handle_webhook.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_vision_analysis_returns_accepted_job_without_calling_vision() -> None:
+async def test_vision_analysis_returns_accepted_job_without_calling_vision(monkeypatch: pytest.MonkeyPatch) -> None:
     user = MagicMock(id="user-1", email="user@example.com")
     detection_service = MagicMock()
-    app.dependency_overrides[get_current_user] = lambda: user
-    app.dependency_overrides[get_cat_detection_service] = lambda: detection_service
-    try:
-        with (
-            patch.object(config, "ENABLE_VISION_ANALYSIS_QUEUE", True),
-            patch(
-                "app.routes.cat_detection.queue_service.enqueue_vision_job",
-                new=AsyncMock(
-                    return_value={
-                        "job_id": "job-1",
-                        "operation": "spot-analysis",
-                        "created_at": "2026-08-04T00:00:00+00:00",
-                    }
-                ),
+    monkeypatch.setitem(app.dependency_overrides, get_current_user, lambda: user)
+    monkeypatch.setitem(app.dependency_overrides, get_cat_detection_service, lambda: detection_service)
+    with (
+        patch.object(config, "ENABLE_VISION_ANALYSIS_QUEUE", True),
+        patch(
+            "app.routes.cat_detection.queue_service.enqueue_vision_job",
+            new=AsyncMock(
+                return_value={
+                    "job_id": "job-1",
+                    "operation": "spot-analysis",
+                    "created_at": "2026-08-04T00:00:00+00:00",
+                }
             ),
-        ):
-            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-                response = await client.post(
-                    "/api/v1/detect/spot-analysis",
-                    files={"file": ("spot.jpg", valid_jpeg(), "image/jpeg")},
-                )
-    finally:
-        app.dependency_overrides = {}
+        ),
+    ):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post(
+                "/api/v1/detect/spot-analysis",
+                files={"file": ("spot.jpg", valid_jpeg(), "image/jpeg")},
+            )
 
     assert response.status_code == 202
     assert response.json()["job_id"] == "job-1"

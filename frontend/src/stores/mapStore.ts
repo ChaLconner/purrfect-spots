@@ -111,8 +111,7 @@ export const useMapStore = defineStore('map', () => {
     const mergedIncoming = data.map((newItem) => {
       const existing = existingById.get(newItem.id);
       if (
-        existing &&
-        existing.latitude === newItem.latitude &&
+        existing?.latitude === newItem.latitude &&
         existing.longitude === newItem.longitude &&
         existing.image_url === newItem.image_url &&
         existing.description === newItem.description &&

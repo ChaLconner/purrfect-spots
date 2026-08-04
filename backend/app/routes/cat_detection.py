@@ -129,7 +129,11 @@ async def detect_cats_endpoint(
         _handle_detection_error(e, "Detection")
 
 
-@router.post("/spot-analysis", response_model=SpotAnalysisResult | VisionJobAccepted)
+@router.post(
+    "/spot-analysis",
+    response_model=SpotAnalysisResult | VisionJobAccepted,
+    responses={503: {"description": "Vision analysis queue temporarily unavailable"}},
+)
 @strict_limiter.limit(get_strict_limit)
 async def analyze_cat_spot(
     request: Request,
@@ -171,7 +175,11 @@ async def analyze_cat_spot(
         _handle_detection_error(e, "Spot analysis")
 
 
-@router.post("/combined", response_model=CombinedAnalysisResult | VisionJobAccepted)
+@router.post(
+    "/combined",
+    response_model=CombinedAnalysisResult | VisionJobAccepted,
+    responses={503: {"description": "Vision analysis queue temporarily unavailable"}},
+)
 @strict_limiter.limit(get_strict_limit)
 async def combined_cat_and_spot_analysis(
     request: Request,
@@ -232,7 +240,13 @@ async def combined_cat_and_spot_analysis(
         _handle_detection_error(e, "Combined analysis")
 
 
-@router.get("/jobs/{job_id}", response_model=VisionJobStatus)
+@router.get(
+    "/jobs/{job_id}",
+    responses={
+        404: {"description": "Vision analysis job not found"},
+        503: {"description": "Vision analysis queue temporarily unavailable"},
+    },
+)
 async def get_vision_job_status(
     job_id: str,
     current_user: Annotated[User, Depends(get_current_user)],

@@ -121,11 +121,9 @@ function attachListeners(): () => void {
   if (typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', visibilityHandler);
   }
-  if (!unsubscribeQueue) {
-    unsubscribeQueue = subscribeOfflineQueue(() => {
-      void refreshQueueState();
-    });
-  }
+  unsubscribeQueue ??= subscribeOfflineQueue(() => {
+    void refreshQueueState();
+  });
   return () => {
     globalThis.removeEventListener('online', onlineHandler);
     globalThis.removeEventListener('offline', offlineHandler);

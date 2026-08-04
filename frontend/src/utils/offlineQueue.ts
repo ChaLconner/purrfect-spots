@@ -48,6 +48,7 @@ const listeners = new Set<QueueListener>();
 let replayHandler: ReplayHandler | null = null;
 let databasePromise: Promise<IDBDatabase | null> | null = null;
 let flushPromise: Promise<OfflineFlushResult> | null = null;
+let fallbackIdSequence = 0;
 
 export function createOfflineIdempotencyKey(): string {
   if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
@@ -55,7 +56,7 @@ export function createOfflineIdempotencyKey(): string {
     const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
     return Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
   }
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `${Date.now().toString(36)}-${(fallbackIdSequence++).toString(36)}`;
 }
 
 function createId(): string {
@@ -70,11 +71,11 @@ function notify(reason: QueueChangeReason = 'changed'): void {
 }
 
 function isBrowserStorageAvailable(): boolean {
-  return typeof globalThis.localStorage !== 'undefined';
+  return globalThis.localStorage !== undefined;
 }
 
 function openDatabase(): Promise<IDBDatabase | null> {
-  if (typeof globalThis.indexedDB === 'undefined') return Promise.resolve(null);
+  if (globalThis.indexedDB === undefined) return Promise.resolve(null);
   if (databasePromise) return databasePromise;
 
   databasePromise = new Promise((resolve) => {

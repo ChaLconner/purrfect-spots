@@ -64,55 +64,79 @@ class QueueWorker:
 
     async def _process_with_retry(self, message: QueueMessage, group: str) -> None:
         try:
-            if message.stream == queue_service.STRIPE_STREAM:
-                await self._process_stripe(message)
-            elif message.stream == queue_service.VISION_STREAM:
-                await self._process_vision(message)
-            else:
-                raise PermanentJobError(f"Unsupported queue stream {message.stream}")
+            await self._dispatch_message(message)
         except Exception as exc:
-            try:
-                attempts = await queue_service.increment_attempt(message)
-            except Exception:
-                logger.error("Queue acknowledgement state is temporarily unavailable", exc_info=True)
-                return
-            permanent = isinstance(exc, (PermanentJobError, QueuePayloadMissing))
-            if permanent or attempts >= config.QUEUE_MAX_ATTEMPTS:
-                if message.stream == queue_service.VISION_STREAM:
-                    job_id = message.fields.get("job_id", "")
-                    if job_id:
-                        await queue_service.update_vision_job(
-                            job_id,
-                            status="failed",
-                            error=self._safe_error(exc),
-                            attempts=attempts,
-                        )
-                        await queue_service.delete_vision_payload(job_id)
-                try:
-                    await queue_service.dead_letter(message, group, self._safe_error(exc))
-                    await queue_service.clear_attempt(message)
-                    logger.error("Queue job moved to dead-letter stream: %s", message.message_id, exc_info=True)
-                except Exception:
-                    # Keep the source entry pending if the dead-letter write
-                    # is unavailable; the worker must not acknowledge data it
-                    # could not preserve.
-                    logger.error("Could not persist queue dead-letter entry: %s", message.message_id, exc_info=True)
-            else:
-                if message.stream == queue_service.VISION_STREAM:
-                    job_id = message.fields.get("job_id", "")
-                    if job_id:
-                        await queue_service.update_vision_job(job_id, status="queued", attempts=attempts)
-                logger.warning(
-                    "Queue job failed; leaving it pending for stale-claim retry (%s/%s): %s",
-                    attempts,
-                    config.QUEUE_MAX_ATTEMPTS,
-                    message.message_id,
-                    exc_info=True,
-                )
+            await self._handle_processing_failure(message, group, exc)
             return
 
         await queue_service.clear_attempt(message)
         await queue_service.acknowledge(message, group)
+
+    async def _dispatch_message(self, message: QueueMessage) -> None:
+        if message.stream == queue_service.STRIPE_STREAM:
+            await self._process_stripe(message)
+        elif message.stream == queue_service.VISION_STREAM:
+            await self._process_vision(message)
+        else:
+            raise PermanentJobError(f"Unsupported queue stream {message.stream}")
+
+    async def _handle_processing_failure(self, message: QueueMessage, group: str, error: Exception) -> None:
+        try:
+            attempts = await queue_service.increment_attempt(message)
+        except Exception:
+            logger.error("Queue acknowledgement state is temporarily unavailable", exc_info=True)
+            return
+
+        if self._should_dead_letter(error, attempts):
+            await self._mark_vision_job_failed(message, error, attempts)
+            await self._move_to_dead_letter(message, group, error)
+            return
+
+        await self._mark_vision_job_for_retry(message, attempts)
+        logger.warning(
+            "Queue job failed; leaving it pending for stale-claim retry (%s/%s): %s",
+            attempts,
+            config.QUEUE_MAX_ATTEMPTS,
+            message.message_id,
+            exc_info=True,
+        )
+
+    @staticmethod
+    def _should_dead_letter(error: Exception, attempts: int) -> bool:
+        return isinstance(error, (PermanentJobError, QueuePayloadMissing)) or attempts >= config.QUEUE_MAX_ATTEMPTS
+
+    async def _mark_vision_job_failed(self, message: QueueMessage, error: Exception, attempts: int) -> None:
+        job_id = self._vision_job_id(message)
+        if not job_id:
+            return
+        await queue_service.update_vision_job(
+            job_id,
+            status="failed",
+            error=self._safe_error(error),
+            attempts=attempts,
+        )
+        await queue_service.delete_vision_payload(job_id)
+
+    async def _mark_vision_job_for_retry(self, message: QueueMessage, attempts: int) -> None:
+        job_id = self._vision_job_id(message)
+        if job_id:
+            await queue_service.update_vision_job(job_id, status="queued", attempts=attempts)
+
+    @staticmethod
+    def _vision_job_id(message: QueueMessage) -> str:
+        if message.stream != queue_service.VISION_STREAM:
+            return ""
+        return message.fields.get("job_id", "")
+
+    async def _move_to_dead_letter(self, message: QueueMessage, group: str, error: Exception) -> None:
+        try:
+            await queue_service.dead_letter(message, group, self._safe_error(error))
+            await queue_service.clear_attempt(message)
+            logger.error("Queue job moved to dead-letter stream: %s", message.message_id, exc_info=True)
+        except Exception:
+            # Keep the source entry pending if the dead-letter write is
+            # unavailable; the worker must not acknowledge data it could not preserve.
+            logger.error("Could not persist queue dead-letter entry: %s", message.message_id, exc_info=True)
 
     async def _process_stripe(self, message: QueueMessage) -> None:
         raw_event = message.fields.get("event")
