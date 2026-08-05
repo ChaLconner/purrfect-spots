@@ -11,6 +11,7 @@
  */
 
 import { isDev } from './env';
+import { onINP } from 'web-vitals';
 
 // Web Vitals metric types
 export interface WebVitalMetric {
@@ -264,28 +265,7 @@ function observeTTFB(): void {
  * Observe Interaction to Next Paint
  */
 function observeINP(): void {
-  try {
-    let maxINP = 0;
-    const observer = new PerformanceObserver((list) => {
-      for (const entry of list.getEntries() as (PerformanceEntry & { duration: number })[]) {
-        if (entry.duration > maxINP) {
-          maxINP = entry.duration;
-        }
-      }
-    });
-    observer.observe({ type: 'event', buffered: true });
-
-    // Report on page hide
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden' && maxINP > 0) {
-        createReporter('INP')({ duration: maxINP, value: maxINP } as PerformanceEntry & {
-          value: number;
-        });
-      }
-    });
-  } catch {
-    // Browser doesn't support INP
-  }
+  onINP(sendToAnalytics);
 }
 
 /**

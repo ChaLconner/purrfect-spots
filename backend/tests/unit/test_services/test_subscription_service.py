@@ -176,6 +176,26 @@ async def test_webhook_requires_configured_secret(subscription_service):
         await subscription_service.handle_webhook(b"{}", "sig")
 
 
+@patch("app.services.subscription_service.stripe.Webhook.construct_event")
+def test_construct_webhook_event_normalizes_stripe_object(mock_construct_event, subscription_service):
+    class StripeEventFixture:
+        def to_dict(self):
+            return {
+                "id": "evt_object",
+                "type": "invoice.paid",
+                "created": 1700000000,
+                "data": {"object": {"id": "in_123"}},
+            }
+
+    mock_construct_event.return_value = StripeEventFixture()
+
+    with patch.object(config, "STRIPE_WEBHOOK_SECRET", "whsec_test"):
+        event = subscription_service.construct_webhook_event(b"{}", "sig")
+
+    assert event["id"] == "evt_object"
+    assert event["data"]["object"]["id"] == "in_123"
+
+
 async def test_handle_subscription_deleted(subscription_service):
     """Test subscription deletion clears pro status."""
     subscription = {
