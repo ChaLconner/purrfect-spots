@@ -28,10 +28,16 @@ export const NotificationService = {
   },
 
   async markAsRead(id: string): Promise<void> {
-    return apiV1.put(`/notifications/${id}/read`);
+    return apiV1.put(`/notifications/${id}/read`, undefined, {
+      queueWhenOffline: true,
+      retryConfig: { maxRetries: 0 },
+    });
   },
 
   async markAllAsRead(): Promise<void> {
-    return apiV1.put('/notifications/read-all');
+    return apiV1.put('/notifications/read-all', undefined, {
+      queueWhenOffline: true,
+      retryConfig: { maxRetries: 0 },
+    });
   },
 };

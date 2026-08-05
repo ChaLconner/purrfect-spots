@@ -222,6 +222,30 @@ class Config:
 
     # Redis (optional)
     REDIS_URL = os.getenv("REDIS_URL", "").replace("localhost", "127.0.0.1")
+    # Queue traffic uses a dedicated Redis instance in production so cache
+    # eviction cannot discard unprocessed Stripe or Vision jobs.
+    QUEUE_REDIS_URL = os.getenv("QUEUE_REDIS_URL", REDIS_URL).replace("localhost", "127.0.0.1")
+
+    # Durable external-work queue controls. The API only enables these paths
+    # when a long-lived worker is deployed with the same queue Redis URL.
+    ENABLE_STRIPE_WEBHOOK_QUEUE = os.getenv("ENABLE_STRIPE_WEBHOOK_QUEUE", "false").lower() in ("true", "1", "yes")
+    ENABLE_VISION_ANALYSIS_QUEUE = os.getenv("ENABLE_VISION_ANALYSIS_QUEUE", "false").lower() in ("true", "1", "yes")
+    try:
+        QUEUE_MAX_ATTEMPTS = max(1, int(os.getenv("QUEUE_MAX_ATTEMPTS", "5")))
+        QUEUE_VISIBILITY_TIMEOUT_SECONDS = max(10, int(os.getenv("QUEUE_VISIBILITY_TIMEOUT_SECONDS", "60")))
+        QUEUE_RESULT_TTL_SECONDS = max(60, int(os.getenv("QUEUE_RESULT_TTL_SECONDS", "1800")))
+        QUEUE_STREAM_MAXLEN = max(100, int(os.getenv("QUEUE_STREAM_MAXLEN", "10000")))
+        VISION_QUEUE_MAX_IMAGE_BYTES = max(
+            256 * 1024,
+            int(os.getenv("VISION_QUEUE_MAX_IMAGE_BYTES", str(5 * 1024 * 1024))),
+        )
+    except ValueError:
+        logger.warning("Invalid queue configuration; using safe defaults")
+        QUEUE_MAX_ATTEMPTS = 5
+        QUEUE_VISIBILITY_TIMEOUT_SECONDS = 60
+        QUEUE_RESULT_TTL_SECONDS = 1800
+        QUEUE_STREAM_MAXLEN = 10000
+        VISION_QUEUE_MAX_IMAGE_BYTES = 5 * 1024 * 1024
 
     # App URLs
     # App URLs
@@ -308,6 +332,7 @@ class Config:
             ("STRIPE_SECRET_KEY", Config.STRIPE_SECRET_KEY),
             ("STRIPE_WEBHOOK_SECRET", Config.STRIPE_WEBHOOK_SECRET),
             ("STRIPE_PRO_PRICE_ID", Config.STRIPE_PRO_PRICE_ID),
+            ("STRIPE_PRO_ANNUAL_PRICE_ID", Config.STRIPE_PRO_ANNUAL_PRICE_ID),
         ]
 
         for r_name, r_value in required_vars:

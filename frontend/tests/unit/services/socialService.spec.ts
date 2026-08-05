@@ -22,7 +22,10 @@ describe('SocialService', () => {
 
     const result = await SocialService.toggleLike('photo-123');
     
-    expect(apiV1.post).toHaveBeenCalledWith('/social/photos/photo-123/like');
+    expect(apiV1.post).toHaveBeenCalledWith('/social/photos/photo-123/like', undefined, {
+      queueWhenOffline: true,
+      retryConfig: { maxRetries: 0 },
+    });
     expect(result).toEqual(mockResponse);
   });
 
@@ -44,7 +47,10 @@ describe('SocialService', () => {
 
     const result = await SocialService.addComment('photo-123', 'New comment');
 
-    expect(apiV1.post).toHaveBeenCalledWith('/social/photos/photo-123/comments', { content: 'New comment' });
+    expect(apiV1.post).toHaveBeenCalledWith('/social/photos/photo-123/comments', { content: 'New comment' }, {
+      queueWhenOffline: true,
+      retryConfig: { maxRetries: 0 },
+    });
     expect(result).toEqual(mockComment);
   });
 
@@ -54,7 +60,10 @@ describe('SocialService', () => {
 
     const result = await SocialService.updateComment('c1', 'Updated');
 
-    expect(apiV1.put).toHaveBeenCalledWith('/social/comments/c1', { content: 'Updated' });
+    expect(apiV1.put).toHaveBeenCalledWith('/social/comments/c1', { content: 'Updated' }, {
+      queueWhenOffline: true,
+      retryConfig: { maxRetries: 0 },
+    });
     expect(result).toEqual(mockComment);
   });
 

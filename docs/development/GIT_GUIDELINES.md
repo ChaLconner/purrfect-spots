@@ -77,5 +77,11 @@ fix(auth): correct password validation logic and update login styles
 
 We use **Husky** and **lint-staged** to ensure code quality before it reaches the repository.
 
-- **Pre-commit**: Runs linters and relevant type-checks.
+- **Pre-commit**: Runs linters, relevant type-checks, `detect-secrets`, and Gitleaks on staged changes.
 - **Commit-msg**: Enforces Conventional Commit format on the first line.
+
+Install the backend development dependencies before committing:
+
+```bash
+python -m pip install -r backend/requirements-dev.txt
+```

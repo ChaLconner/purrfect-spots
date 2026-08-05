@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.dependencies import get_current_user, get_report_service
 from app.limiter import limiter
-from app.logger import logger
+from app.logger import logger, sanitize_log_value
 from app.schemas.report import ReportCreate, ReportResponse
 from app.schemas.user import User
 from app.services.report_service import ReportService
@@ -32,7 +32,7 @@ async def create_report(
         return cast(ReportResponse, report)
 
     except Exception as e:
-        logger.error("Failed to create report: %s", e)
+        logger.error("Failed to create report: %s", sanitize_log_value(str(e)))
         raise HTTPException(status_code=500, detail="Failed to submit report")
 
 

@@ -11,6 +11,8 @@ export const pinia = createPinia();
 
 // Export all stores
 export { useCatsStore } from './catsStore';
+export { useGalleryStore } from './galleryStore';
+export { useMapStore } from './mapStore';
 export { useToastStore } from './toastStore';
 
 // Export types

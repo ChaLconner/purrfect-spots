@@ -201,11 +201,6 @@ const handleInput = (index: number, event: Event): void => {
   if (value && index < 5) {
     inputRefs.value[index + 1]?.focus();
   }
-
-  // Auto-submit when complete
-  if (otpCode.value.length === 6) {
-    handleVerify();
-  }
 };
 
 // Handle keydown for backspace navigation
@@ -230,16 +225,14 @@ const handlePaste = (event: ClipboardEvent): void => {
 
     inputRefs.value[focusIndex]?.focus();
 
-    // Auto-submit if complete
-    if (digits.length === 6) {
-      handleVerify();
-    }
+    // Keep verification explicit; pasted user input must not trigger the sensitive action.
   }
 };
 
 // Verify OTP
 const handleVerify = async (): Promise<void> => {
-  if (otpCode.value.length !== 6 || isLoading.value) return;
+  // The API is the authority for OTP validity; this guard only prevents duplicate submissions.
+  if (isLoading.value) return;
 
   isLoading.value = true;
   hasError.value = false;

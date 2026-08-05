@@ -1,4 +1,5 @@
 import hashlib
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from supabase import AClient
@@ -22,6 +23,21 @@ class AuthBaseMixin:
 
     @property
     def db(self) -> AsyncSession | None:
+        raise NotImplementedError
+
+    def create_access_token(
+        self,
+        user_id: str,
+        user_data: dict[str, Any] | None = None,
+        role: str = "user",
+        permissions: list[str] | None = None,
+        tier: str = "free",
+    ) -> str:
+        """Provide the token-service contract shared by auth mixins."""
+        raise NotImplementedError
+
+    def create_refresh_token(self, user_id: str, ip: str | None = None, user_agent: str | None = None) -> str:
+        """Provide the refresh-token contract shared by auth mixins."""
         raise NotImplementedError
 
     # Will be assigned in the main class

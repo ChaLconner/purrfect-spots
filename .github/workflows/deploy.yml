@@ -48,7 +48,8 @@ jobs:
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.status == 'completed' &&
-       github.event.workflow_run.event == 'push')
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     outputs:
       environment: ${{ steps.meta.outputs.environment }}
       should_deploy: ${{ steps.meta.outputs.should_deploy }}
@@ -161,7 +162,7 @@ jobs:
     name: Staging - Frontend
     runs-on: ubuntu-latest
     needs: prepare
-    if: ${{ needs.prepare.outputs.environment == 'staging' && needs.prepare.outputs.should_deploy == 'true' }}
+    if: ${{ needs.prepare.outputs.environment == 'staging' && needs.prepare.outputs.should_deploy == 'true' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_repository.full_name == github.repository) }}
     timeout-minutes: 15
     outputs:
       deployment_url: ${{ steps.deploy.outputs.deployment_url }}
@@ -170,7 +171,8 @@ jobs:
       url: ${{ vars.STAGING_FRONTEND_URL }}
     steps:
       - name: Checkout source revision
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_repository.full_name == github.repository }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # NOSONAR - prepare and this job require a same-repository workflow run.
         with:
           ref: ${{ needs.prepare.outputs.source_sha }}
           fetch-depth: 0
@@ -296,13 +298,14 @@ jobs:
     name: Staging - Backend
     runs-on: ubuntu-latest
     needs: prepare
-    if: ${{ needs.prepare.outputs.environment == 'staging' && needs.prepare.outputs.should_deploy == 'true' }}
+    if: ${{ needs.prepare.outputs.environment == 'staging' && needs.prepare.outputs.should_deploy == 'true' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_repository.full_name == github.repository) }}
     timeout-minutes: 15
     environment:
       name: staging
     steps:
       - name: Checkout source revision
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_repository.full_name == github.repository }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # NOSONAR - prepare and this job require a same-repository workflow run.
         with:
           ref: ${{ needs.prepare.outputs.source_sha }}
           fetch-depth: 0
@@ -319,6 +322,10 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_PRO_PRICE_ID: ${{ secrets.STRIPE_PRO_PRICE_ID }}
+          STRIPE_PRO_ANNUAL_PRICE_ID: ${{ secrets.STRIPE_PRO_ANNUAL_PRICE_ID }}
           FRONTEND_URL: ${{ vars.STAGING_FRONTEND_URL }}
         run: |
           set -euo pipefail
@@ -332,6 +339,10 @@ jobs:
             SUPABASE_SERVICE_ROLE_KEY
             JWT_SECRET
             JWT_REFRESH_SECRET
+            STRIPE_SECRET_KEY
+            STRIPE_WEBHOOK_SECRET
+            STRIPE_PRO_PRICE_ID
+            STRIPE_PRO_ANNUAL_PRICE_ID
             FRONTEND_URL
           )
 
@@ -367,6 +378,10 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_PRO_PRICE_ID: ${{ secrets.STRIPE_PRO_PRICE_ID }}
+          STRIPE_PRO_ANNUAL_PRICE_ID: ${{ secrets.STRIPE_PRO_ANNUAL_PRICE_ID }}
           FRONTEND_URL: ${{ vars.STAGING_FRONTEND_URL }}
         run: |
           set -euo pipefail
@@ -382,6 +397,10 @@ jobs:
           DEPLOY_ARGS+=(-e "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY")
           DEPLOY_ARGS+=(-e "JWT_SECRET=$JWT_SECRET")
           DEPLOY_ARGS+=(-e "JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET")
+          DEPLOY_ARGS+=(-e "STRIPE_SECRET_KEY=$STRIPE_SECRET_KEY")
+          DEPLOY_ARGS+=(-e "STRIPE_WEBHOOK_SECRET=$STRIPE_WEBHOOK_SECRET")
+          DEPLOY_ARGS+=(-e "STRIPE_PRO_PRICE_ID=$STRIPE_PRO_PRICE_ID")
+          DEPLOY_ARGS+=(-e "STRIPE_PRO_ANNUAL_PRICE_ID=$STRIPE_PRO_ANNUAL_PRICE_ID")
           DEPLOY_ARGS+=(-e "FRONTEND_URL=$FRONTEND_URL")
           DEPLOY_ARGS+=(-e "CORS_ORIGINS=$FRONTEND_URL")
 
@@ -406,21 +425,75 @@ jobs:
         if: ${{ needs.prepare.outputs.skip_health_check != 'true' && needs.staging-frontend.result == 'success' && needs.staging-backend.result == 'success' }}
         env:
           STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_BACKEND_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
         run: |
           set -euo pipefail
 
-          if [ -z "${STAGING_API_URL:-}" ]; then
-            echo "::error::STAGING_API_URL is required for the staging health check."
-            exit 1
-          fi
+          required_vars=(
+            STAGING_API_URL
+            VERCEL_TOKEN
+            VERCEL_ORG_ID
+            VERCEL_BACKEND_PROJECT_ID
+          )
+
+          for var_name in "${required_vars[@]}"; do
+            if [ -z "${!var_name:-}" ]; then
+              echo "::error::${var_name} is required for the staging health check."
+              exit 1
+            fi
+          done
+
+          # Preview deployments are protected by Vercel Authentication. Create a
+          # CI-only bypass for this run instead of accepting the protection page's
+          # HTTP 200 response as an API health result.
+          VERCEL_PROTECTION_BYPASS=$(openssl rand -hex 16)
+          echo "::add-mask::${VERCEL_PROTECTION_BYPASS}"
+          BYPASS_PAYLOAD=$(jq -n \
+            --arg secret "$VERCEL_PROTECTION_BYPASS" \
+            '{generate: {secret: $secret, note: "staging CI health check"}}')
+          curl --fail --show-error --silent --max-time 15 \
+            -X PATCH \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "$BYPASS_PAYLOAD" \
+            "https://api.vercel.com/v1/projects/${VERCEL_BACKEND_PROJECT_ID}/protection-bypass?teamId=${VERCEL_ORG_ID}" \
+            >/dev/null
+
+          cleanup_bypass() {
+            REVOKE_PAYLOAD=$(jq -n \
+              --arg secret "$VERCEL_PROTECTION_BYPASS" \
+              '{revoke: {secret: $secret, regenerate: false}}')
+            curl --fail --show-error --silent --max-time 15 \
+              -X PATCH \
+              -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+              -H "Content-Type: application/json" \
+              --data "$REVOKE_PAYLOAD" \
+              "https://api.vercel.com/v1/projects/${VERCEL_BACKEND_PROJECT_ID}/protection-bypass?teamId=${VERCEL_ORG_ID}" \
+              >/dev/null \
+              || echo "::warning::Unable to revoke the staging Vercel protection bypass automatically."
+          }
+          trap cleanup_bypass EXIT
+
+          API_URL="${STAGING_API_URL%/}/health/ready"
 
           MAX_ATTEMPTS=5
           for i in $(seq 1 "$MAX_ATTEMPTS"); do
             echo "Health check attempt ${i}/${MAX_ATTEMPTS}"
-            if curl --fail --show-error --silent --max-time 15 "${STAGING_API_URL}/health/ready"; then
-              echo "Staging backend is healthy"
+            RESPONSE=$(curl --show-error --silent --location --max-time 15 \
+              -H "x-vercel-protection-bypass: ${VERCEL_PROTECTION_BYPASS}" \
+              --write-out $'\n%{http_code}' \
+              "$API_URL" || true)
+            HTTP_STATUS="${RESPONSE##*$'\n'}"
+            BODY="${RESPONSE%$'\n'*}"
+            HEALTH_STATUS=$(printf '%s' "$BODY" | jq -r '.status // empty' 2>/dev/null || true)
+
+            if [ "$HTTP_STATUS" = "200" ] && [ "$HEALTH_STATUS" = "ready" ]; then
+              echo "Staging backend is healthy (JSON status: ready)"
               exit 0
             fi
+            echo "::warning::Staging health response was not ready JSON (HTTP ${HTTP_STATUS}, status ${HEALTH_STATUS:-unknown})."
             [ "$i" -lt "$MAX_ATTEMPTS" ] && sleep 10
           done
 
@@ -468,7 +541,7 @@ jobs:
     name: Production - Backup
     runs-on: ubuntu-latest
     needs: prepare
-    if: ${{ needs.prepare.outputs.environment == 'production' && needs.prepare.outputs.should_deploy == 'true' }}
+    if: ${{ needs.prepare.outputs.environment == 'production' && needs.prepare.outputs.should_deploy == 'true' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_repository.full_name == github.repository) }}
     timeout-minutes: 10
     environment:
       name: production
@@ -501,7 +574,7 @@ jobs:
     name: Production - Frontend
     runs-on: ubuntu-latest
     needs: [prepare, production-backup]
-    if: ${{ needs.prepare.outputs.environment == 'production' && needs.prepare.outputs.should_deploy == 'true' }}
+    if: ${{ needs.prepare.outputs.environment == 'production' && needs.prepare.outputs.should_deploy == 'true' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_repository.full_name == github.repository) }}
     timeout-minutes: 15
     outputs:
       deployment_url: ${{ steps.deploy.outputs.deployment_url }}
@@ -510,7 +583,8 @@ jobs:
       url: ${{ vars.PROD_FRONTEND_URL || 'https://purrfect-spots.vercel.app' }}
     steps:
       - name: Checkout source revision
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_repository.full_name == github.repository }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # NOSONAR - prepare and this job require a same-repository workflow run.
         with:
           ref: ${{ needs.prepare.outputs.source_sha }}
           fetch-depth: 0
@@ -616,18 +690,21 @@ jobs:
     name: Production - Backend
     runs-on: ubuntu-latest
     needs: [prepare, production-backup]
-    if: ${{ needs.prepare.outputs.environment == 'production' && needs.prepare.outputs.should_deploy == 'true' }}
+    if: ${{ needs.prepare.outputs.environment == 'production' && needs.prepare.outputs.should_deploy == 'true' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_repository.full_name == github.repository) }}
     timeout-minutes: 15
     environment:
       name: production
     steps:
       - name: Checkout source revision
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_repository.full_name == github.repository }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # NOSONAR - prepare and this job require a same-repository workflow run.
         with:
           ref: ${{ needs.prepare.outputs.source_sha }}
           fetch-depth: 0
           persist-credentials: false
 
+      # Stripe runtime values stay managed by the Vercel Production environment;
+      # the production smoke test validates the effective public plan response.
       - name: Validate production backend configuration
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -698,6 +775,7 @@ jobs:
           vercel link --yes --token="$VERCEL_TOKEN"
           vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
 
+          # Do not override Stripe variables here. Vercel Production is the source of truth.
           DEPLOY_ARGS=(deploy . --prod --yes --token="$VERCEL_TOKEN")
           DEPLOY_ARGS+=(-e "DATABASE_URL=$DATABASE_URL")
           DEPLOY_ARGS+=(-e "SUPABASE_URL=$SUPABASE_URL")
@@ -755,10 +833,12 @@ jobs:
 
           for i in $(seq 1 "$MAX_ATTEMPTS"); do
             START_MS=$(date +%s%3N)
-            if curl --fail --show-error --silent --max-time 15 "${PROD_API_URL}/health/ready"; then
+            RESPONSE=$(curl --fail --show-error --silent --location --max-time 15 "${PROD_API_URL%/}/health/ready" || true)
+            HEALTH_STATUS=$(printf '%s' "$RESPONSE" | jq -r '.status // empty' 2>/dev/null || true)
+            if [ "$HEALTH_STATUS" = "ready" ]; then
               END_MS=$(date +%s%3N)
               RESPONSE_TIME=$((END_MS - START_MS))
-              echo "Backend health check passed in ${RESPONSE_TIME}ms"
+              echo "Backend health check passed with JSON status ready in ${RESPONSE_TIME}ms"
               [ "$RESPONSE_TIME" -gt 5000 ] && echo "::warning::Backend response time ${RESPONSE_TIME}ms exceeded the 5000ms threshold."
               BACKEND_OK=true
               break
@@ -776,6 +856,20 @@ jobs:
           if [ "$VISION_STATUS" != "configured" ]; then
             echo "::error::Google Vision production dependency is ${VISION_STATUS}."
             FAILED=1
+          fi
+
+          PLANS_RESPONSE=$(curl --fail --show-error --silent --max-time 30 "${PROD_API_URL%/}/api/v1/subscription/plans" || true)
+          MONTHLY_AMOUNT=$(printf '%s' "$PLANS_RESPONSE" | jq -r '.monthly.unit_amount // empty' 2>/dev/null || true)
+          MONTHLY_CURRENCY=$(printf '%s' "$PLANS_RESPONSE" | jq -r '.monthly.currency // empty' 2>/dev/null || true)
+          ANNUAL_AMOUNT=$(printf '%s' "$PLANS_RESPONSE" | jq -r '.annual.unit_amount // empty' 2>/dev/null || true)
+          if ! [[ "$MONTHLY_AMOUNT" =~ ^[1-9][0-9]*$ ]] || [ -z "$MONTHLY_CURRENCY" ]; then
+            echo "::error::Production Stripe monthly plan is not configured in the Vercel environment."
+            FAILED=1
+          else
+            echo "Production Stripe monthly plan check passed (${MONTHLY_CURRENCY})."
+          fi
+          if [ -z "$ANNUAL_AMOUNT" ]; then
+            echo "::warning::Production Stripe annual plan is not configured; annual checkout remains disabled."
           fi
 
           FRONTEND_URL="${PROD_FRONTEND_URL:-$DEPLOYMENT_URL}"
@@ -871,13 +965,13 @@ jobs:
     name: Production - Deployment Record
     runs-on: ubuntu-latest
     needs: [prepare, production-verify]
-    if: ${{ needs.prepare.outputs.environment == 'production' && needs.prepare.outputs.should_deploy == 'true' && needs.production-verify.result == 'success' }}
+    if: ${{ needs.prepare.outputs.environment == 'production' && needs.prepare.outputs.should_deploy == 'true' && needs.production-verify.result == 'success' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_repository.full_name == github.repository) }}
     timeout-minutes: 10
     permissions:
       contents: write
     steps:
       - name: Checkout released revision
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # NOSONAR - prepare and this job require a same-repository workflow run.
         with:
           ref: ${{ needs.prepare.outputs.source_sha }}
           fetch-depth: 0

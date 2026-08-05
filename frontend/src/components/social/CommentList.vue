@@ -61,7 +61,7 @@
               </span>
               <span
                 class="text-[10px] uppercase tracking-wider font-bold text-brown-light/60 whitespace-nowrap flex-shrink-0"
-                >{{ formatTimestamp(comment.created_at, locale) }}</span
+                ><span v-if="comment.pending" class="text-amber-700 mr-1">pending sync</span>{{ formatTimestamp(comment.created_at, locale) }}</span
               >
             </div>
             <div v-if="editingId === comment.id" class="mt-2">
@@ -93,7 +93,7 @@
 
             <!-- Action Icons at Bottom Right -->
             <div
-              v-if="currentUserId === comment.user_id && editingId !== comment.id"
+              v-if="currentUserId === comment.user_id && !comment.pending && editingId !== comment.id"
               class="absolute bottom-2 right-2 flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity bg-white/60 backdrop-blur-sm rounded-lg p-0.5"
             >
               <button
@@ -202,8 +202,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { SocialService, type Comment } from '@/services/socialService';
+import { isOfflineQueuedResponse } from '@/utils/offlineQueue';
 import { useToastStore } from '@/stores';
 import { useAuthStore } from '@/stores/authStore';
 import { BaseButton, BaseCard, BaseInput, BaseConfirmModal } from '@/components/ui';
@@ -272,7 +273,17 @@ watch(
 
 onMounted(() => {
   fetchComments();
+  window.addEventListener('offline-queue-updated', handleOfflineQueueUpdated);
 });
+
+onUnmounted(() => {
+  window.removeEventListener('offline-queue-updated', handleOfflineQueueUpdated);
+});
+
+function handleOfflineQueueUpdated(event: Event): void {
+  const reason = (event as CustomEvent<{ reason?: string }>).detail?.reason;
+  if (reason === 'synced') void fetchComments();
+}
 
 async function fetchComments(): Promise<void> {
   loading.value = true;
@@ -289,9 +300,25 @@ async function postComment(): Promise<void> {
   if (!newComment.value.trim()) return;
 
   isSubmitting.value = true;
+  const content = newComment.value.trim();
   try {
-    const comment = await SocialService.addComment(props.photoId, newComment.value);
-    comments.value.push(comment); // Append locally
+    const result = await SocialService.addComment(props.photoId, content);
+    if (isOfflineQueuedResponse(result)) {
+      comments.value.push({
+        id: `offline-${result.queue_id}`,
+        user_id: currentUserId.value || '',
+        photo_id: props.photoId,
+        content,
+        created_at: new Date().toISOString(),
+        user_name: authStore.user?.name || authStore.user?.email || 'You',
+        user_picture: authStore.user?.picture,
+        pending: true,
+        queue_id: result.queue_id,
+      });
+      toastStore.showInfo('Comment saved and will sync when you are online.');
+    } else {
+      comments.value.push(result); // Append locally
+    }
     newComment.value = '';
     emit('comment:added');
   } catch (e) {
@@ -356,10 +383,16 @@ async function saveEdit(id: string): Promise<void> {
 
   isUpdating.value = true;
   try {
-    const updated = await SocialService.updateComment(id, editContent.value);
+    const content = editContent.value.trim();
+    const updated = await SocialService.updateComment(id, content);
     const index = comments.value.findIndex((c) => c.id === id);
     if (index !== -1) {
-      comments.value[index] = updated;
+      comments.value[index] = isOfflineQueuedResponse(updated)
+        ? { ...comments.value[index], content, pending: true, queue_id: updated.queue_id }
+        : updated;
+    }
+    if (isOfflineQueuedResponse(updated)) {
+      toastStore.showInfo('Comment update saved and will sync when you are online.');
     }
     cancelEdit();
   } catch {

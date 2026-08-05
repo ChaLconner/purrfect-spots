@@ -34,8 +34,8 @@
 
 <script setup lang="ts">
 import { ref, watch, onUnmounted } from 'vue';
-import { useDebounceFn } from '@/composables/useDebounce';
 import { SocialService } from '@/services/socialService';
+import { isOfflineQueuedResponse } from '@/utils/offlineQueue';
 import { useToastStore } from '@/stores';
 import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase';
@@ -136,6 +136,7 @@ onUnmounted(() => {
   cleanupRealtimeChannel();
   if (debounceTimer) {
     clearTimeout(debounceTimer);
+    debounceTimer = null;
   }
 });
 
@@ -193,7 +194,11 @@ function handleClick(): void {
   }, 300);
 
   // --- Debounced API call ---
-  const debouncedSendToggleLike = useDebounceFn(() => {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+  }
+  debounceTimer = setTimeout(() => {
+    debounceTimer = null;
     // If user toggled back to the same state as server → no API call needed
     if (liked.value === serverLiked) {
       count.value = serverCount;
@@ -201,8 +206,57 @@ function handleClick(): void {
     }
     sendToggleLike();
   }, 300);
+}
 
-  debouncedSendToggleLike();
+type LikeToggleResponse = Awaited<ReturnType<typeof SocialService.toggleLike>>;
+
+function applyLikeResponse(requestId: number, response: LikeToggleResponse): void {
+  if (requestId !== lastRequestId) return;
+
+  if (isOfflineQueuedResponse(response)) {
+    // Keep the optimistic state as the local baseline. The mutation is
+    // idempotent and will be replayed with the current auth token online.
+    serverLiked = liked.value;
+    serverCount = count.value;
+    toastStore.showInfo('Like saved and will sync when you are online.');
+    return;
+  }
+
+  serverLiked = response.liked;
+  serverCount = response.likes_count;
+  if (debounceTimer) return;
+
+  liked.value = response.liked;
+  count.value = response.likes_count;
+  emit('update:liked', response.liked);
+  emit('update:count', response.likes_count);
+}
+
+function showLikeRequestError(error: unknown): void {
+  const status = (error as { response?: { status?: number } }).response?.status;
+  if (status === 404) {
+    toastStore.showError('This photo seems to have disappeared like a ninja.', 'Ghost Cat?');
+  } else if (status === 429) {
+    toastStore.showWarning('Too many likes too fast! Take a breath. 🐱', 'Slow Down!');
+  } else if (status === 503) {
+    toastStore.showWarning(
+      'Our servers are taking a short break. Try again soon!',
+      'Cat Nap in Progress'
+    );
+  } else {
+    toastStore.showError('Something went wrong. Please try liking again.', 'Hairball Error');
+  }
+}
+
+function handleLikeRequestError(requestId: number, error: unknown): void {
+  if (requestId === lastRequestId && !debounceTimer) {
+    liked.value = serverLiked;
+    count.value = serverCount;
+    showLikeRequestError(error);
+  }
+  if (isDev()) {
+    console.error('Toggle like error:', error);
+  }
 }
 
 /**
@@ -215,54 +269,9 @@ async function sendToggleLike(): Promise<void> {
 
   try {
     const res = await SocialService.toggleLike(props.photoId);
-
-    // If this is an old request (newer one started), ignore the results for UI update
-    if (requestId !== lastRequestId) {
-      return;
-    }
-
-    // Update server truth
-    serverLiked = res.liked;
-    serverCount = res.likes_count;
-
-    // If the user has started a NEW interaction (debounceTimer exists),
-    // DO NOT overwrite their optimistic state with this response.
-    // The new interaction will eventually trigger its own request.
-    if (debounceTimer) {
-      return;
-    }
-
-    // Sync UI with server response
-    liked.value = res.liked;
-    count.value = res.likes_count;
-
-    emit('update:liked', res.liked);
-    emit('update:count', res.likes_count);
+    applyLikeResponse(requestId, res);
   } catch (e: unknown) {
-    // Only rollback if this is the latest request AND no new interaction is pending
-    if (requestId === lastRequestId && !debounceTimer) {
-      liked.value = serverLiked;
-      count.value = serverCount;
-
-      // Show error toast
-      const error = e as { response?: { status?: number; data?: { detail?: string } } };
-      if (error.response?.status === 404) {
-        toastStore.showError('This photo seems to have disappeared like a ninja.', 'Ghost Cat?');
-      } else if (error.response?.status === 429) {
-        // For rate limits, we should technically revert.
-        toastStore.showWarning('Too many likes too fast! Take a breath. 🐱', 'Slow Down!');
-      } else if (error.response?.status === 503) {
-        toastStore.showWarning(
-          'Our servers are taking a short break. Try again soon!',
-          'Cat Nap in Progress'
-        );
-      } else {
-        toastStore.showError('Something went wrong. Please try liking again.', 'Hairball Error');
-      }
-    }
-    if (isDev()) {
-      console.error('Toggle like error:', e);
-    }
+    handleLikeRequestError(requestId, e);
   } finally {
     activeRequests = Math.max(0, activeRequests - 1);
     if (activeRequests === 0) {

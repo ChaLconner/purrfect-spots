@@ -19,9 +19,18 @@ import { isBrowserExtensionError, handleBrowserExtensionError } from './browserE
 import { getEnvVar } from './env';
 import { getCsrfToken } from './csrf';
 import type { PaginationParams } from '../types/api';
+import {
+  createOfflineIdempotencyKey,
+  enqueueMutation,
+  isAllowedMutation,
+  registerOfflineReplayHandler,
+  OfflineQueueError,
+  type OfflineMutation,
+} from './offlineQueue';
 
 import { ApiError, ApiErrorTypes, formatApiErrorMessage } from './apiErrors';
 export { ApiError, ApiErrorTypes, formatApiErrorMessage };
+export type { OfflineQueuedResponse } from './offlineQueue';
 
 // ========== State & Callbacks (Break Circular Dependencies) ==========
 // In-memory access token (not exposed to window/global)
@@ -304,7 +313,12 @@ const createApiInstance = (): AxiosInstance => {
   return instance;
 };
 
-interface RetryableRequestConfig extends AxiosRequestConfig {
+export interface ApiRequestConfig extends AxiosRequestConfig {
+  /** Explicit opt-in for the allow-listed social/notification offline queue. */
+  queueWhenOffline?: boolean;
+}
+
+interface RetryableRequestConfig extends ApiRequestConfig {
   _retry?: boolean;
   __is_refreshing?: boolean;
 }
@@ -383,9 +397,14 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
   retryableStatuses: [408, 429, 502, 503, 504],
 };
 
-const inFlightGetRequests = new Map<string, Promise<unknown>>();
+interface InFlightGetRequest {
+  promise: Promise<unknown>;
+  token: symbol;
+}
 
-function getRequestDedupeKey(endpoint: string, options: AxiosRequestConfig): string | null {
+const inFlightGetRequests = new Map<string, InFlightGetRequest>();
+
+function getRequestDedupeKey(endpoint: string, options: ApiRequestConfig): string | null {
   if ((options.method ?? 'GET').toString().toUpperCase() !== 'GET' || options.signal) return null;
   try {
     return JSON.stringify([endpoint, options.params ?? null, currentAccessToken]);
@@ -464,9 +483,127 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
+function getHeaderValue(headers: ApiRequestConfig['headers'], name: string): string | undefined {
+  if (!headers) return undefined;
+  if (typeof (headers as { get?: (headerName: string) => unknown }).get === 'function') {
+    const value = (headers as { get: (headerName: string) => unknown }).get(name);
+    return typeof value === 'string' ? value : undefined;
+  }
+  const record = headers as Record<string, unknown>;
+  const value = record[name] ?? record[name.toLowerCase()];
+  return typeof value === 'string' ? value : undefined;
+}
+
+function shouldQueueNetworkFailure(error: unknown): boolean {
+  return error instanceof ApiError && error.type === ApiErrorTypes.NETWORK_ERROR;
+}
+
+function isOfflineQueueEnabled(endpoint: string, options: ApiRequestConfig): boolean {
+  return Boolean(
+    options.queueWhenOffline &&
+      isAllowedMutation((options.method ?? 'GET').toString(), endpoint) &&
+      typeof window !== 'undefined'
+  );
+}
+
+function getQueueIdempotencyKey(endpoint: string, options: ApiRequestConfig): string | undefined {
+  if (!isOfflineQueueEnabled(endpoint, options)) return undefined;
+  return getHeaderValue(options.headers, 'Idempotency-Key') || createOfflineIdempotencyKey();
+}
+
+function buildRequestOptions(options: ApiRequestConfig, queueIdempotencyKey: string | undefined): ApiRequestConfig {
+  if (!queueIdempotencyKey) return options;
+  return {
+    ...options,
+    headers: {
+      ...(options.headers as Record<string, string> | undefined),
+      'Idempotency-Key': queueIdempotencyKey,
+    },
+  };
+}
+
+async function enqueueOfflineMutation<T>(
+  endpoint: string,
+  requestOptions: ApiRequestConfig,
+  idempotencyKey: string
+): Promise<T> {
+  const method = requestOptions.method?.toString().toUpperCase();
+  if (method !== 'POST' && method !== 'PUT') {
+    throw new OfflineQueueError('Offline queue requires a POST or PUT mutation');
+  }
+  return (await enqueueMutation({
+    method,
+    endpoint,
+    data: requestOptions.data,
+    idempotencyKey,
+  })) as T;
+}
+
+async function performRequestAttempt<T>(
+  endpoint: string,
+  requestOptions: ApiRequestConfig,
+  queueIdempotencyKey: string | undefined
+): Promise<T> {
+  if (queueIdempotencyKey && typeof navigator !== 'undefined' && !navigator.onLine) {
+    return enqueueOfflineMutation<T>(endpoint, requestOptions, queueIdempotencyKey);
+  }
+  if (requestOptions.signal?.aborted) throw createAbortError();
+  const response = await apiInstance.request<T>({
+    url: endpoint,
+    ...requestOptions,
+  });
+  return response.data;
+}
+
+function isNonRetryableRequestError(error: unknown, requestOptions: ApiRequestConfig): boolean {
+  if (error instanceof OfflineQueueError) return true;
+  if (requestOptions.signal?.aborted || isRequestAborted(error)) return true;
+  return (
+    error instanceof ApiError &&
+    [
+      ApiErrorTypes.AUTHENTICATION_ERROR,
+      ApiErrorTypes.AUTHORIZATION_ERROR,
+      ApiErrorTypes.VALIDATION_ERROR,
+    ].includes(error.type)
+  );
+}
+
+function throwRequestError(error: unknown): never {
+  if (error instanceof ApiError) throw error;
+  throw new ApiError(
+    ApiErrorTypes.UNKNOWN_ERROR,
+    (error as Error).message || 'An unknown error occurred',
+    undefined,
+    error
+  );
+}
+
+async function waitForRetry(
+  error: unknown,
+  attempt: number,
+  config: RetryConfig,
+  signal: AbortSignal | undefined
+): Promise<boolean> {
+  if (attempt >= config.maxRetries || !isRetryableError(error, config)) return false;
+  await sleep(calculateBackoffDelay(attempt, config), signal);
+  return true;
+}
+
+function handleFinalRequestError<T>(
+  error: unknown,
+  endpoint: string,
+  requestOptions: ApiRequestConfig,
+  queueIdempotencyKey: string | undefined
+): Promise<T> {
+  if (queueIdempotencyKey && shouldQueueNetworkFailure(error)) {
+    return enqueueOfflineMutation<T>(endpoint, requestOptions, queueIdempotencyKey);
+  }
+  throwRequestError(error);
+}
+
 const requestWithRetry = async <T = unknown>(
   endpoint: string,
-  options: AxiosRequestConfig = {},
+  options: ApiRequestConfig = {},
   retryConfig: Partial<RetryConfig> = {}
 ): Promise<T> => {
   // Never retry auth endpoints - they have their own refresh/retry logic
@@ -474,59 +611,41 @@ const requestWithRetry = async <T = unknown>(
   const config = isAuthEndpoint
     ? { ...DEFAULT_RETRY_CONFIG, ...retryConfig, maxRetries: 0 }
     : { ...DEFAULT_RETRY_CONFIG, ...retryConfig };
+  const queueIdempotencyKey = getQueueIdempotencyKey(endpoint, options);
+  const requestOptions = buildRequestOptions(options, queueIdempotencyKey);
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
     try {
-      if (options.signal?.aborted) {
-        throw createAbortError();
-      }
-      const response = await apiInstance.request<T>({
-        url: endpoint,
-        ...options,
-      });
-      return response.data;
+      return await performRequestAttempt(endpoint, requestOptions, queueIdempotencyKey);
     } catch (error) {
       lastError = error;
 
-      if (options.signal?.aborted || isRequestAborted(error)) {
-        throw error;
-      }
+      if (isNonRetryableRequestError(error, requestOptions)) throw error;
 
-      if (
-        error instanceof ApiError &&
-        (error.type === ApiErrorTypes.AUTHENTICATION_ERROR ||
-          error.type === ApiErrorTypes.AUTHORIZATION_ERROR ||
-          error.type === ApiErrorTypes.VALIDATION_ERROR)
-      ) {
-        throw error;
-      }
+      if (await waitForRetry(error, attempt, config, requestOptions.signal)) continue;
 
-      const isLastAttempt = attempt === config.maxRetries;
-      const shouldRetry = !isLastAttempt && isRetryableError(error, config);
-
-      if (shouldRetry) {
-        const delay = calculateBackoffDelay(attempt, config);
-        // Log removed
-        await sleep(delay, options.signal);
-        continue;
-      }
-
-      if (error instanceof ApiError) throw error;
-      throw new ApiError(
-        ApiErrorTypes.UNKNOWN_ERROR,
-        (error as Error).message || 'An unknown error occurred',
-        undefined,
-        error
-      );
+      return handleFinalRequestError<T>(error, endpoint, requestOptions, queueIdempotencyKey);
     }
   }
   throw lastError;
 };
 
+// Replay gets a fresh Authorization/CSRF header from the Axios request
+// interceptor. Tokens are never stored in IndexedDB/localStorage.
+registerOfflineReplayHandler(async (mutation: OfflineMutation) => {
+  const response = await apiInstance.request({
+    url: mutation.endpoint,
+    method: mutation.method,
+    data: mutation.data,
+    headers: { 'Idempotency-Key': mutation.idempotencyKey },
+  });
+  return response.data;
+});
+
 export const apiRequest = async <T = unknown>(
   endpoint: string,
-  options: AxiosRequestConfig = {},
+  options: ApiRequestConfig = {},
   retryConfig: Partial<RetryConfig> = {}
 ): Promise<T> => {
   const dedupeKey = getRequestDedupeKey(endpoint, options);
@@ -535,33 +654,34 @@ export const apiRequest = async <T = unknown>(
   }
 
   const existing = inFlightGetRequests.get(dedupeKey);
-  if (existing) return existing as Promise<T>;
+  if (existing) return existing.promise as Promise<T>;
 
   const request = requestWithRetry<T>(endpoint, options, retryConfig);
-  inFlightGetRequests.set(dedupeKey, request);
+  const inFlightRequest: InFlightGetRequest = { promise: request, token: Symbol('in-flight-get') };
+  inFlightGetRequests.set(dedupeKey, inFlightRequest);
   try {
     return await request;
   } finally {
-    if (inFlightGetRequests.get(dedupeKey) === request) {
+    if (inFlightGetRequests.get(dedupeKey)?.token === inFlightRequest.token) {
       inFlightGetRequests.delete(dedupeKey);
     }
   }
 };
 
 export const api = {
-  get: <T = unknown>(endpoint: string, config?: AxiosRequestConfig): Promise<T> =>
+  get: <T = unknown>(endpoint: string, config?: ApiRequestConfig): Promise<T> =>
     apiRequest<T>(endpoint, { method: 'GET', ...config }),
 
-  post: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> =>
+  post: <T = unknown>(endpoint: string, data?: unknown, config?: ApiRequestConfig): Promise<T> =>
     apiRequest<T>(endpoint, { method: 'POST', data, ...config }),
 
-  put: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> =>
+  put: <T = unknown>(endpoint: string, data?: unknown, config?: ApiRequestConfig): Promise<T> =>
     apiRequest<T>(endpoint, { method: 'PUT', data, ...config }),
 
-  patch: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> =>
+  patch: <T = unknown>(endpoint: string, data?: unknown, config?: ApiRequestConfig): Promise<T> =>
     apiRequest<T>(endpoint, { method: 'PATCH', data, ...config }),
 
-  delete: <T = unknown>(endpoint: string, config?: AxiosRequestConfig): Promise<T> =>
+  delete: <T = unknown>(endpoint: string, config?: ApiRequestConfig): Promise<T> =>
     apiRequest<T>(endpoint, { method: 'DELETE', ...config }),
 };
 
@@ -602,19 +722,19 @@ export const uploadFile = async <T = unknown>(
 };
 
 export const apiV1 = {
-  get: <T = unknown>(endpoint: string, config?: AxiosRequestConfig): Promise<T> =>
+  get: <T = unknown>(endpoint: string, config?: ApiRequestConfig): Promise<T> =>
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'GET', ...config }),
 
-  post: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> =>
+  post: <T = unknown>(endpoint: string, data?: unknown, config?: ApiRequestConfig): Promise<T> =>
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'POST', data, ...config }),
 
-  put: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> =>
+  put: <T = unknown>(endpoint: string, data?: unknown, config?: ApiRequestConfig): Promise<T> =>
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'PUT', data, ...config }),
 
-  patch: <T = unknown>(endpoint: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> =>
+  patch: <T = unknown>(endpoint: string, data?: unknown, config?: ApiRequestConfig): Promise<T> =>
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'PATCH', data, ...config }),
 
-  delete: <T = unknown>(endpoint: string, config?: AxiosRequestConfig): Promise<T> =>
+  delete: <T = unknown>(endpoint: string, config?: ApiRequestConfig): Promise<T> =>
     apiRequest<T>(`${API_PREFIX}${endpoint}`, { method: 'DELETE', ...config }),
 };
 

@@ -20,11 +20,17 @@ services:
       dockerfile: Dockerfile
     container_name: purrfect-backend
     restart: unless-stopped
+    env_file:
+      - path: ./backend/.env
+        required: false
     ports:
       - "8000:8000"
     environment:
       - ENVIRONMENT=development
       - REDIS_URL=redis://redis:6379
+      - QUEUE_REDIS_URL=redis://redis:6379
+      - ENABLE_STRIPE_WEBHOOK_QUEUE=true
+      - ENABLE_VISION_ANALYSIS_QUEUE=true
       - JWT_SECRET=${JWT_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
       - SUPABASE_URL=${SUPABASE_URL}
@@ -51,6 +57,35 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+    networks:
+      - purrfect-network
+
+  # ========================================================================
+  # Backend Worker (Stripe webhooks and Google Vision analysis)
+  # ========================================================================
+  backend-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: purrfect-backend-worker
+    restart: unless-stopped
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      - ENVIRONMENT=development
+      - REDIS_URL=redis://redis:6379
+      - QUEUE_REDIS_URL=redis://redis:6379
+      - ENABLE_STRIPE_WEBHOOK_QUEUE=true
+      - ENABLE_VISION_ANALYSIS_QUEUE=true
+    command: ["python", "-m", "app.worker"]
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./backend/keys:/app/keys:ro
+    depends_on:
+      redis:
+        condition: service_healthy
     networks:
       - purrfect-network
 

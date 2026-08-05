@@ -5,7 +5,7 @@ import time
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 import stripe
 from fastapi import HTTPException
@@ -30,19 +30,6 @@ stripe.api_version = config.STRIPE_API_VERSION
 _ACTIVE_STATUSES = frozenset({"active", "trialing"})
 _CANCELLABLE_STATUSES = frozenset({"active", "trialing", "past_due", "incomplete"})
 
-# Webhook events handled by this service.
-_HANDLED_WEBHOOK_EVENTS = frozenset(
-    {
-        "checkout.session.completed",
-        "customer.subscription.deleted",
-        "customer.subscription.updated",
-        "invoice.payment_failed",
-        "invoice.payment_action_required",
-        "invoice.paid",
-    }
-)
-
-_PLAN_PRICE_CACHE: tuple[float, tuple[str, str | None], dict[str, Any]] | None = None
 _PLAN_PRICE_CACHE_TTL_SECONDS = 300
 
 
@@ -96,6 +83,8 @@ async def cancel_customer_subscriptions(customer_id: str) -> int:
 
 
 class SubscriptionService:
+    _plan_price_cache: ClassVar[tuple[float, tuple[str, str | None], dict[str, Any]] | None] = None
+
     def __init__(self, supabase_client: AClient, db: AsyncSession | None = None) -> None:
         self.supabase = supabase_client
         self.db = db
@@ -205,10 +194,10 @@ class SubscriptionService:
             raise HTTPException(status_code=503, detail="Subscription pricing is not configured")
 
         cache_key = (str(monthly_id), str(annual_id) if annual_id else None)
-        global _PLAN_PRICE_CACHE
         now = time.monotonic()
-        if _PLAN_PRICE_CACHE and _PLAN_PRICE_CACHE[0] > now and _PLAN_PRICE_CACHE[1] == cache_key:
-            return _PLAN_PRICE_CACHE[2]
+        cached_prices = type(self)._plan_price_cache
+        if cached_prices and cached_prices[0] > now and cached_prices[1] == cache_key:
+            return cached_prices[2]
 
         try:
 
@@ -229,7 +218,7 @@ class SubscriptionService:
             logger.error("Failed to retrieve subscription prices from Stripe: %s", exc, exc_info=True)
             raise HTTPException(status_code=503, detail="Subscription pricing temporarily unavailable") from exc
 
-        _PLAN_PRICE_CACHE = (now + _PLAN_PRICE_CACHE_TTL_SECONDS, cache_key, prices)
+        type(self)._plan_price_cache = (now + _PLAN_PRICE_CACHE_TTL_SECONDS, cache_key, prices)
         return prices
 
     async def _apply_subscription_snapshot(

@@ -187,8 +187,6 @@ async def clear_cache(pattern: str = "cache:*") -> None:
     # 2. Clear Redis Cache
     if redis_client:
         try:
-            import asyncio
-
             try:
                 asyncio.get_running_loop()
             except RuntimeError:

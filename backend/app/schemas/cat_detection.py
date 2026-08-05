@@ -1,3 +1,5 @@
+from typing import Any, Literal
+
 from pydantic import BaseModel
 
 
@@ -63,3 +65,20 @@ class CombinedAnalysisResult(BaseModel):
     spot_analysis: SpotAnalysisResult
     overall_recommendation: OverallRecommendation
     metadata: AnalysisMetadata
+
+
+class VisionJobAccepted(BaseModel):
+    status: Literal["queued"]
+    job_id: str
+    operation: Literal["spot-analysis", "combined"]
+    created_at: str
+
+
+class VisionJobStatus(BaseModel):
+    job_id: str
+    operation: Literal["spot-analysis", "combined"]
+    status: Literal["queued", "processing", "completed", "failed"]
+    result: dict[str, Any] | None = None
+    error: str | None = None
+    created_at: str
+    updated_at: str

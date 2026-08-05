@@ -88,6 +88,7 @@ describe('useNetwork', () => {
 
   it('should remove event listeners on unmount', () => {
     const removeEventListenerSpy = vi.spyOn(globalThis, 'removeEventListener');
+    const removeDocumentEventListenerSpy = vi.spyOn(document, 'removeEventListener');
 
     const TestComponent = defineComponent({
       setup() {
@@ -102,5 +103,6 @@ describe('useNetwork', () => {
 
     expect(removeEventListenerSpy).toHaveBeenCalledWith('online', expect.any(Function));
     expect(removeEventListenerSpy).toHaveBeenCalledWith('offline', expect.any(Function));
+    expect(removeDocumentEventListenerSpy).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
   });
 });

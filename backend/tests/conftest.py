@@ -117,6 +117,7 @@ try:
     mock_sentry_mcp.MCPIntegration = MockMCPIntegration
     sys.modules["sentry_sdk.integrations.mcp"] = mock_sentry_mcp
 except ImportError:
+    # Sentry's optional MCP integration is unavailable in the test environment.
     pass
 
 # Now we can import the app

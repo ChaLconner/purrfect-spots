@@ -29,11 +29,6 @@ class GallerySearchMixin(GalleryBaseMixin):
     # These are provided by the main GalleryService or other mixins
     search_service: "SearchService"
 
-    async def enrich_with_user_data(
-        self, photos: list[dict[str, Any]], user_id: str | None = None
-    ) -> list[dict[str, Any]]:
-        raise NotImplementedError
-
     @property
     async def _fulltext_available(self) -> bool:
         return await self.search_service.fulltext_available

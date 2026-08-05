@@ -1,6 +1,6 @@
 import os
 import time
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 import stripe
 from fastapi import HTTPException
@@ -18,9 +18,6 @@ from app.utils.cache import cached_leaderboard, invalidate_leaderboard_cache
 stripe.api_key = config.STRIPE_SECRET_KEY or os.getenv("STRIPE_SECRET_KEY")
 stripe.api_version = config.STRIPE_API_VERSION
 
-# ── In-memory package cache ──────────────────────────────────────────
-_packages_cache: dict[str, dict[str, Any]] | None = None
-_packages_cache_ts: float = 0.0
 _PACKAGES_CACHE_TTL = 300  # 5 minutes
 
 
@@ -31,6 +28,9 @@ from app.repositories import UserRepository
 
 
 class TreatsService:
+    _packages_cache: ClassVar[dict[str, dict[str, Any]] | None] = None
+    _packages_cache_ts: ClassVar[float] = 0.0
+
     def __init__(self, supabase_client: AClient, db: AsyncSession | None = None) -> None:
         self.supabase = supabase_client
         self.db = db
@@ -364,11 +364,10 @@ class TreatsService:
 
     async def get_packages(self) -> dict[str, dict[str, Any]]:
         """Fetch treat packages from database with in-memory caching."""
-        global _packages_cache, _packages_cache_ts
-
         now = time.monotonic()
-        if _packages_cache is not None and (now - _packages_cache_ts) < _PACKAGES_CACHE_TTL:
-            return _packages_cache
+        cached_packages = type(self)._packages_cache
+        if cached_packages is not None and (now - type(self)._packages_cache_ts) < _PACKAGES_CACHE_TTL:
+            return cached_packages
 
         try:
             data = []
@@ -392,14 +391,15 @@ class TreatsService:
                 }
 
             # Update cache
-            _packages_cache = packages
-            _packages_cache_ts = now
+            type(self)._packages_cache = packages
+            type(self)._packages_cache_ts = now
             return packages
         except Exception as e:
             logger.error("Failed to fetch treat packages: %s", e)
             # Return stale cache if available
-            if _packages_cache is not None:
-                return _packages_cache
+            stale_packages = type(self)._packages_cache
+            if stale_packages is not None:
+                return stale_packages
             return {}
 
     async def get_package_by_id(self, package_id: str) -> dict[str, Any] | None:

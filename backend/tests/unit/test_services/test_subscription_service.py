@@ -340,9 +340,7 @@ async def test_cancel_customer_subscriptions_paginates_all_results(mock_list, mo
 
 @patch("app.services.subscription_service.stripe.Price.retrieve")
 async def test_get_plan_prices_reads_current_stripe_amounts(mock_retrieve, subscription_service):
-    import app.services.subscription_service as subscription_module
-
-    subscription_module._PLAN_PRICE_CACHE = None
+    SubscriptionService._plan_price_cache = None
     with (
         patch.object(config, "STRIPE_PRO_PRICE_ID", "price_monthly"),
         patch.object(config, "STRIPE_PRO_ANNUAL_PRICE_ID", "price_annual"),

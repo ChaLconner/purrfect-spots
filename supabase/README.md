@@ -17,6 +17,14 @@ supabase migration list
 supabase db push --dry-run
 ```
 
+Migration version prefixes are part of the migration identity. For migrations
+already applied after that synchronization point, the local filename must use
+the exact remote version; do not create a second copy under a new timestamp.
+Review the remote schema before restoring a missing file, then validate with
+`supabase db push --dry-run`.
+
+Do not use `supabase migration repair` to mark missing historical files as
+applied unless the remote schema has first been dumped and reviewed.
 Only the migrations shown by the dry-run as pending should be applied. If
 history drift recurs, dump and review the remote schema before using
 `supabase migration repair`.

@@ -27,3 +27,18 @@ if [ "$has_backend_changes" -eq 0 ]; then
     python -m mypy . --config-file pyproject.toml
   )
 fi
+
+if python -m pre_commit --version >/dev/null 2>&1; then
+  echo "husky: running secret-scanning hooks"
+  precommit_failed=0
+  python -m pre_commit run detect-secrets --hook-stage pre-commit || precommit_failed=1
+  python -m pre_commit run gitleaks --hook-stage pre-commit || precommit_failed=1
+  if [ "$precommit_failed" -ne 0 ]; then
+    echo "husky: secret-scanning hooks failed"
+    exit 1
+  fi
+else
+  echo "husky: pre-commit is required for secret scanning"
+  echo "install backend/requirements-dev.txt before committing"
+  exit 1
+fi

@@ -29,6 +29,7 @@ graph TD
         SupabaseDB[(🗄️ Supabase PostgreSQL)]:::db
         S3[(📁 AWS S3 / Supabase Storage)]:::db
         Redis[(⚡ Redis Cache)]:::db
+        QueueRedis[(Redis Streams Queue)]:::db
     end
 
     %% External APIs
@@ -45,6 +46,10 @@ graph TD
     
     FastAPI -- "SQL / Async" --> SupabaseDB
     FastAPI -- "Rate Limit / Cache" --> Redis
+    FastAPI -- "Verified events / Vision jobs" --> QueueRedis
+    QueueWorker[Background Worker]:::backend --> QueueRedis
+    QueueWorker -- "Stripe / Vision" --> Stripe
+    QueueWorker -- "Analysis results" --> SupabaseDB
     FastAPI -- "File Uploads" --> S3
     
     FastAPI -- "Cat Verification" --> VisionAI
@@ -71,6 +76,7 @@ graph TD
 ### 3. Data & Storage Layer
 - **Primary Database**: Supabase PostgreSQL. Heavily leverages Row Level Security (RLS) to enforce data access policies directly within the database engine.
 - **Caching**: Redis is used for API rate limiting (via `slowapi`) and caching high-traffic views (like Leaderboards and Gallery stats).
+- **Durable work**: A dedicated no-eviction Redis Streams instance holds verified Stripe events and bounded non-admission Vision jobs for `app.worker`; cache eviction must never remove pending work.
 - **Storage**: AWS S3 compatible storage for saving uploaded cat photos securely.
 
 ### 4. External Services

@@ -18,6 +18,7 @@ from app.schemas.subscription import (
     SubscriptionStatus,
 )
 from app.schemas.user import User
+from app.services.queue_service import QueueBackpressure, QueueUnavailable, queue_service
 from app.services.subscription_service import SubscriptionPersistenceError, SubscriptionService
 
 router = APIRouter(prefix="/subscription", tags=["Subscription"])
@@ -72,7 +73,10 @@ async def create_checkout_session(
         raise HTTPException(status_code=500, detail="Failed to create checkout session")
 
 
-@router.post("/webhook", response_model=MessageResponse)
+@router.post(
+    "/webhook",
+    responses={503: {"description": "Webhook queue or persistence temporarily unavailable"}},
+)
 async def stripe_webhook(
     request: Request,
     subscription_service: Annotated[SubscriptionService, Depends(get_subscription_service)],
@@ -84,17 +88,25 @@ async def stripe_webhook(
 
     payload = await request.body()
     try:
-        await subscription_service.handle_webhook(payload, stripe_signature)
+        if config.ENABLE_STRIPE_WEBHOOK_QUEUE:
+            event = subscription_service.construct_webhook_event(payload, stripe_signature)
+            await queue_service.enqueue_stripe_webhook(event)
+        else:
+            await subscription_service.handle_webhook(payload, stripe_signature)
     except (ValueError, SignatureVerificationError):
         raise HTTPException(status_code=400, detail="Invalid payload")
     except SubscriptionPersistenceError:
         # Non-2xx tells Stripe to retry after a transient database failure.
         raise HTTPException(status_code=503, detail="Webhook persistence temporarily unavailable")
+    except (QueueUnavailable, QueueBackpressure):
+        # Never fall back to request-cycle processing when queue mode is on.
+        # Stripe receives a non-2xx response and retries the event.
+        raise HTTPException(status_code=503, detail="Webhook queue temporarily unavailable")
     except Exception as e:
         logger.exception("Webhook processing failed: %s", e)
         raise HTTPException(status_code=500, detail="Webhook processing failed")
 
-    return MessageResponse(message="success")
+    return MessageResponse(message="accepted" if config.ENABLE_STRIPE_WEBHOOK_QUEUE else "success")
 
 
 @router.get("/status", response_model=SubscriptionStatus)
