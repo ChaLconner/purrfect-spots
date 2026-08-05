@@ -1,20 +1,22 @@
 import { nextTick } from 'vue';
 import { mount } from '@vue/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createI18n } from 'vue-i18n';
 import PasswordStrengthMeter from '@/components/ui/PasswordStrengthMeter.vue';
 
-vi.mock('vue-i18n', () => ({
-  useI18n: () => ({
-    t: (key: string): string => {
-      const labels: Record<string, string> = {
-        'passwordStrength.weak': 'Weak',
-        'passwordStrength.good': 'Good',
-        'passwordStrength.strong': 'Strong',
-      };
-      return labels[key] ?? key;
+const i18n = createI18n({
+  legacy: false,
+  locale: 'en',
+  messages: {
+    en: {
+      passwordStrength: {
+        weak: 'Weak',
+        good: 'Good',
+        strong: 'Strong',
+      },
     },
-  }),
-}));
+  },
+});
 
 describe('PasswordStrengthMeter.vue', () => {
   beforeEach(() => {
@@ -29,6 +31,7 @@ describe('PasswordStrengthMeter.vue', () => {
     mount(PasswordStrengthMeter, {
       props: { password },
       global: {
+        plugins: [i18n],
         stubs: { transition: false },
       },
     });
