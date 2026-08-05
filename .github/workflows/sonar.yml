@@ -26,7 +26,20 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check SonarCloud configuration
+        id: sonar-config
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          if [ -n "$SONAR_TOKEN" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::SonarCloud scan skipped because SONAR_TOKEN is not configured."
+          fi
+
       - name: Run SonarCloud scan
+        if: steps.sonar-config.outputs.configured == 'true'
         uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
