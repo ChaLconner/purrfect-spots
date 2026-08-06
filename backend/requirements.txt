@@ -28,7 +28,7 @@ greenlet>=3.5.4
 
 # --- HTTP Client ---
 httpx>=0.28.1
-websockets>=15.0.1,<16.0.0
+websockets>=15.0.1,<17.0.0
 
 # --- Authentication & Security ---
 PyJWT>=2.13.0
