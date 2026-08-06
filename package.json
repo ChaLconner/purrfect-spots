@@ -40,7 +40,7 @@
   },
   "homepage": "https://github.com/ChaLconner/purrfect-spots#readme",
   "devDependencies": {
-    "concurrently": "^9.1.2",
+    "concurrently": "^10.0.4",
     "husky": "^9.1.7",
     "lint-staged": "^17.2.0",
     "vite": "8.1.5",
