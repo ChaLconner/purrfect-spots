@@ -270,7 +270,6 @@ class SocialService:
                     "JOIN cat_photos p ON p.id = c.photo_id "
                     "LEFT JOIN users u ON c.user_id = u.id "
                     "WHERE c.photo_id = CAST(:p_id AS UUID) "
-                    "AND c.deleted_at IS NULL "
                     "AND p.deleted_at IS NULL "
                     "AND p.status = 'approved' "
                     "ORDER BY c.created_at ASC "
@@ -284,7 +283,11 @@ class SocialService:
                     comments.append(item)
                 return comments
             except Exception as e:
-                logger.error(f"SQLAlchemy get_comments failed: {e}")
+                try:
+                    await self.db.rollback()
+                except Exception as rollback_error:
+                    logger.debug("SQLAlchemy get_comments rollback failed: %s", rollback_error)
+                logger.warning("SQLAlchemy get_comments unavailable; falling back to Supabase: %s", e)
                 # Fallback to Supabase
 
         photo_res = (

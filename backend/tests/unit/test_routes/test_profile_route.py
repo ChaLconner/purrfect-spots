@@ -274,6 +274,8 @@ class TestProfileRoute:
 
         assert response.status_code == 200
         assert response.json()["message"] == "Photo updated successfully"
+        update_payload = mock_admin.table.return_value.update.call_args.args[0]
+        assert "updated_at" not in update_payload
 
     @pytest.mark.asyncio
     async def test_delete_user_photo(self, client, mock_user, mock_gallery_service, mock_storage_service):
