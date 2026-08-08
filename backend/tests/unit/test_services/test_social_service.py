@@ -146,6 +146,82 @@ async def test_get_comments(social_service):
 
 
 @pytest.mark.asyncio
+async def test_get_comments_sql_path_matches_photo_comments_schema() -> None:
+    mock_db = MagicMock()
+    mock_db.rollback = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.__iter__.return_value = iter(
+        [
+            MagicMock(
+                _mapping={
+                    "id": "c1",
+                    "photo_id": "photo1",
+                    "user_id": "user1",
+                    "content": "cute",
+                    "user_name": "Alice",
+                    "user_picture": "alice.jpg",
+                    "user_is_pro": False,
+                }
+            )
+        ]
+    )
+    mock_db.execute = AsyncMock(return_value=mock_result)
+
+    service = SocialService(MagicMock(), db=mock_db)
+    result = await service.get_comments("photo1")
+
+    query = str(mock_db.execute.call_args.args[0])
+    assert "c.deleted_at" not in query
+    assert "p.deleted_at IS NULL" in query
+    assert result[0]["user_name"] == "Alice"
+    mock_db.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_comments_sql_failure_falls_back_without_error_logging() -> None:
+    mock_db = MagicMock()
+    mock_db.execute = AsyncMock(side_effect=OSError("Cannot assign requested address"))
+    mock_db.rollback = AsyncMock()
+
+    photo_builder = MagicMock()
+    photo_builder.select.return_value = photo_builder
+    photo_builder.eq.return_value = photo_builder
+    photo_builder.is_.return_value = photo_builder
+    photo_builder.limit.return_value = photo_builder
+    photo_builder.execute = AsyncMock(return_value=MagicMock(data=[{"id": "photo1"}]))
+
+    comment_builder = MagicMock()
+    comment_builder.select.return_value = comment_builder
+    comment_builder.eq.return_value = comment_builder
+    comment_builder.order.return_value = comment_builder
+    comment_builder.limit.return_value = comment_builder
+    comment_builder.execute = AsyncMock(
+        return_value=MagicMock(
+            data=[
+                {
+                    "id": "c1",
+                    "photo_id": "photo1",
+                    "user_id": "user1",
+                    "content": "cute",
+                    "users": {"name": "Alice", "picture": "alice.jpg", "is_pro": False},
+                }
+            ]
+        )
+    )
+
+    mock_sb = MagicMock()
+    mock_sb.table.side_effect = [photo_builder, comment_builder]
+
+    with patch("app.services.social_service.logger.error") as error_logger:
+        service = SocialService(mock_sb, db=mock_db)
+        result = await service.get_comments("photo1")
+
+    assert result[0]["user_name"] == "Alice"
+    mock_db.rollback.assert_awaited_once()
+    error_logger.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_sql_comment_write_requires_approved_non_deleted_photo():
     mock_db = MagicMock()
     photo_result = MagicMock()
