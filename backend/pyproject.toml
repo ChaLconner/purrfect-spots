@@ -55,6 +55,9 @@ dev = [
     "Faker>=40.36.0",
 ]
 
+[tool.vercel]
+entrypoint = "api/index.py"
+
 [tool.ruff]
 line-length = 120
 target-version = "py311"

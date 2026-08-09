@@ -389,10 +389,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # The backend project owns backend/vercel.json and api/index.py.
-          # Deploy from that directory so Vercel cannot resolve the monorepo
-          # root as the backend project and return a platform error page.
-          cd backend
           rm -rf .vercel
           vercel link --yes --token="$VERCEL_TOKEN"
           vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
@@ -871,7 +867,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          cd backend
           rm -rf .vercel
           vercel link --yes --token="$VERCEL_TOKEN"
           vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
