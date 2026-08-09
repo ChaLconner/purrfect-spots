@@ -404,6 +404,11 @@ jobs:
           DEPLOY_ARGS+=(-e "STRIPE_WEBHOOK_SECRET=$STRIPE_WEBHOOK_SECRET")
           DEPLOY_ARGS+=(-e "STRIPE_PRO_PRICE_ID=$STRIPE_PRO_PRICE_ID")
           DEPLOY_ARGS+=(-e "STRIPE_PRO_ANNUAL_PRICE_ID=$STRIPE_PRO_ANNUAL_PRICE_ID")
+          # Keep staging isolated from a production value configured at the
+          # Vercel project level. Production requires ENCRYPTION_KEY; staging
+          # uses an explicit non-production environment and must not inherit
+          # that requirement accidentally.
+          DEPLOY_ARGS+=(-e "ENVIRONMENT=staging")
           DEPLOY_ARGS+=(-e "FRONTEND_URL=$FRONTEND_URL")
           DEPLOY_ARGS+=(-e "CORS_ORIGINS=$FRONTEND_URL")
 
