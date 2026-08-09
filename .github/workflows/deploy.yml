@@ -556,17 +556,31 @@ jobs:
             "https://api.vercel.com/v1/projects/${VERCEL_BACKEND_PROJECT_ID}/protection-bypass?teamId=${VERCEL_ORG_ID}" \
             >/dev/null
 
+          LOG_FILE=$(mktemp)
+          (timeout 30s npx --yes "vercel@${VERCEL_CLI_VERSION}" logs "$DEPLOYMENT_URL" \
+            --json --token="$VERCEL_TOKEN" >"$LOG_FILE" 2>&1) &
+          LOG_PID=$!
+          sleep 3
+
           curl --silent --location --max-time 15 \
             -H "x-vercel-protection-bypass: ${VERCEL_PROTECTION_BYPASS}" \
             "${DEPLOYMENT_URL%/}/health/ready" \
             >/dev/null
+          sleep 8
+          kill "$LOG_PID" >/dev/null 2>&1 || true
+          wait "$LOG_PID" >/dev/null 2>&1 || true
 
-          timeout 20s npx --yes "vercel@${VERCEL_CLI_VERSION}" logs "$DEPLOYMENT_URL" \
-            --json --token="$VERCEL_TOKEN" 2>/dev/null \
-            | jq -r 'select((.level // "") == "error" or (.level // "") == "fatal") | (.message // .text // .error // "")' \
+          RUNTIME_SIGNATURES=$(cat "$LOG_FILE" \
+            | jq -r 'select((.level // "") == "error" or (.level // "") == "fatal") | (.message // .text // .error // "")' 2>/dev/null \
             | grep -E 'Traceback|Error|Exception|ImportError|ModuleNotFound|ConfigurationError|RuntimeError|SyntaxError' \
             | sed -E 's#https?://[^[:space:]]+#<url-redacted>#g; s#[A-Za-z0-9+/=_-]{40,}#[value-redacted]#g' \
-            | head -c 4000
+            | head -c 4000)
+          rm -f "$LOG_FILE"
+          if [ -n "${RUNTIME_SIGNATURES:-}" ]; then
+            echo "::warning::Staging runtime error signatures: ${RUNTIME_SIGNATURES}"
+          else
+            echo "::notice::Vercel returned no filtered runtime error signatures for the staging request."
+          fi
 
           REVOKE_PAYLOAD=$(jq -n --arg secret "$VERCEL_PROTECTION_BYPASS" \
             '{revoke: {secret: $secret, regenerate: false}}')
