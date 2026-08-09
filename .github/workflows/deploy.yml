@@ -300,6 +300,8 @@ jobs:
     needs: prepare
     if: ${{ needs.prepare.outputs.environment == 'staging' && needs.prepare.outputs.should_deploy == 'true' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_repository.full_name == github.repository) }}
     timeout-minutes: 15
+    outputs:
+      deployment_url: ${{ steps.deploy.outputs.deployment_url }}
     environment:
       name: staging
     steps:
@@ -368,6 +370,7 @@ jobs:
         run: vercel whoami --token="$VERCEL_TOKEN"
 
       - name: Deploy backend to Vercel (staging)
+        id: deploy
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -404,7 +407,17 @@ jobs:
           DEPLOY_ARGS+=(-e "FRONTEND_URL=$FRONTEND_URL")
           DEPLOY_ARGS+=(-e "CORS_ORIGINS=$FRONTEND_URL")
 
-          vercel "${DEPLOY_ARGS[@]}"
+          DEPLOY_OUTPUT=$(vercel "${DEPLOY_ARGS[@]}")
+          printf '%s\n' "$DEPLOY_OUTPUT"
+          URL=$(printf '%s\n' "$DEPLOY_OUTPUT" | grep -oE 'https://[a-zA-Z0-9.-]+\.vercel\.app' | tail -1)
+
+          if [ -z "${URL:-}" ]; then
+            echo "::error::Unable to determine the staging backend deployment URL."
+            exit 1
+          fi
+
+          echo "deployment_url=${URL}" >> "$GITHUB_OUTPUT"
+          echo "Staging backend deployed to ${URL}"
 
   staging-verify:
     name: Staging - Verification
@@ -425,6 +438,7 @@ jobs:
         if: ${{ needs.prepare.outputs.skip_health_check != 'true' && needs.staging-frontend.result == 'success' && needs.staging-backend.result == 'success' }}
         env:
           STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
+          DEPLOYMENT_URL: ${{ needs.staging-backend.outputs.deployment_url }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_BACKEND_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
@@ -432,7 +446,6 @@ jobs:
           set -euo pipefail
 
           required_vars=(
-            STAGING_API_URL
             VERCEL_TOKEN
             VERCEL_ORG_ID
             VERCEL_BACKEND_PROJECT_ID
@@ -476,7 +489,12 @@ jobs:
           }
           trap cleanup_bypass EXIT
 
-          API_URL="${STAGING_API_URL%/}/health/ready"
+          API_BASE_URL="${DEPLOYMENT_URL:-${STAGING_API_URL:-}}"
+          if [ -z "${API_BASE_URL:-}" ]; then
+            echo "::error::A staging backend deployment URL or STAGING_API_URL is required for the health check."
+            exit 1
+          fi
+          API_URL="${API_BASE_URL%/}/health/ready"
 
           MAX_ATTEMPTS=5
           for i in $(seq 1 "$MAX_ATTEMPTS"); do
@@ -488,6 +506,8 @@ jobs:
             HTTP_STATUS="${RESPONSE##*$'\n'}"
             BODY="${RESPONSE%$'\n'*}"
             HEALTH_STATUS=$(printf '%s' "$BODY" | jq -r '.status // empty' 2>/dev/null || true)
+
+            echo "Health response: $(printf '%s' "$BODY" | jq -c '{status, detail, error, checks}' 2>/dev/null || printf '%s' "$BODY" | cut -c1-500)"
 
             if [ "$HTTP_STATUS" = "200" ] && [ "$HEALTH_STATUS" = "ready" ]; then
               echo "Staging backend is healthy (JSON status: ready)"
