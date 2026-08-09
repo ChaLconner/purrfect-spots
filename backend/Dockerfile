@@ -50,7 +50,8 @@ RUN groupadd -r appgroup && \
 
 # Copy application code with explicit ownership
 # chmod=550 (r-x r-x ---) removes write permissions; .dockerignore excludes tests/cache/git
-COPY --chown=appuser:appgroup --chmod=550 . . # NOSONAR docker:S6470,docker:S6504,docker:S2612
+# NOSONAR docker:S6470,docker:S6504,docker:S2612
+COPY --chown=appuser:appgroup --chmod=550 . .
 
 # Remove unnecessary files
 RUN rm -rf tests/ .pytest_cache/ __pycache__/ .coverage .git/
