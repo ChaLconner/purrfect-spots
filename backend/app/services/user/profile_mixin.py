@@ -46,11 +46,24 @@ class UserProfileMixin(UserBaseMixin):
 
     def _prepare_user_record(self, user_data: dict[str, Any], user_id: str) -> dict[str, Any]:
         """Prepare user record for upsert."""
+        picture = user_data.get("picture", "")
+        if picture:
+            from app.utils.avatar import validate_avatar_url
+
+            try:
+                picture = validate_avatar_url(picture) or ""
+            except ValueError:
+                # Identity-provider metadata is not a trusted storage URL.
+                # Keep account creation usable while never persisting an
+                # unapproved external resource.
+                logger.warning("Rejected unapproved avatar during user sync", extra={"user_id": user_id})
+                picture = ""
+
         return {
             "id": user_id,
             "email": user_data.get("email", ""),
             "name": user_data.get("name", ""),
-            "picture": user_data.get("picture", ""),
+            "picture": picture,
             "google_id": user_data.get("google_id"),
             "bio": None,
             "created_at": utc_now_iso(),
@@ -99,6 +112,10 @@ class UserProfileMixin(UserBaseMixin):
     ) -> dict[str, Any]:
         """Update user profile (Async)"""
         try:
+            if "picture" in update_data:
+                from app.utils.avatar import validate_avatar_url
+
+                update_data = {**update_data, "picture": validate_avatar_url(update_data["picture"])}
             if self.db:
                 try:
                     safe_cols = [k for k in update_data if k in {"name", "username", "bio", "picture"}]

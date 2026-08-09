@@ -3,7 +3,12 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.tasks.cleanup_tasks import _cleanup_notifications_job, start_cleanup_jobs, stop_cleanup_jobs
+from app.tasks.cleanup_tasks import (
+    _cleanup_notifications_job,
+    run_maintenance_tasks,
+    start_cleanup_jobs,
+    stop_cleanup_jobs,
+)
 
 
 class TestCleanupTasks:
@@ -42,3 +47,19 @@ class TestCleanupTasks:
         ):
             await _cleanup_notifications_job()
             # Should log error and continue to sleep (which cancels it)
+
+    @pytest.mark.asyncio
+    async def test_manual_maintenance_surfaces_task_failures(self):
+        with (
+            patch("app.tasks.cleanup_tasks._cleanup_notifications", new_callable=AsyncMock, return_value="failed"),
+            patch(
+                "app.tasks.cleanup_tasks._cleanup_deleted_accounts", new_callable=AsyncMock, return_value="completed"
+            ),
+            patch("app.tasks.cleanup_tasks._cleanup_orphaned_s3_files", new_callable=AsyncMock, return_value="skipped"),
+        ):
+            result = await run_maintenance_tasks()
+
+        assert result["status"] == "failed"
+        assert result["notifications"] == "failed"
+        assert result["deleted_accounts"] == "completed"
+        assert result["s3_orphans"] == "skipped"

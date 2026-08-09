@@ -7,6 +7,7 @@ from supabase import AClient
 from app.logger import logger, sanitize_log_value
 from app.schemas.notification import NotificationType
 from app.services.notification_service import NotificationService
+from app.utils.avatar import sanitize_avatar_url
 from app.utils.exceptions import ExternalServiceError, NotFoundError
 
 PHOTO_NOT_FOUND = "Photo not found"
@@ -226,7 +227,7 @@ class SocialService:
 
             if user_row:
                 comment["user_name"] = user_row[0]
-                comment["user_picture"] = user_row[1]
+                comment["user_picture"] = sanitize_avatar_url(user_row[1])
                 comment["user_is_pro"] = user_row[2]
         else:
             user_info_res = (
@@ -236,7 +237,7 @@ class SocialService:
             if user_info_res.data:
                 user_info = cast(dict[str, Any], user_info_res.data[0])
                 comment["user_name"] = user_info.get("name")
-                comment["user_picture"] = user_info.get("picture")
+                comment["user_picture"] = sanitize_avatar_url(user_info.get("picture"))
                 comment["user_is_pro"] = user_info.get("is_pro")
 
     async def _send_comment_notification(
@@ -280,6 +281,7 @@ class SocialService:
                 comments = []
                 for row in result:
                     item = dict(row._mapping)
+                    item["user_picture"] = sanitize_avatar_url(item.get("user_picture"))
                     comments.append(item)
                 return comments
             except Exception as e:
@@ -317,7 +319,7 @@ class SocialService:
             user_data = cast(dict[str, Any], item.get("users", {}) or {})
             # Flatten structure
             item["user_name"] = user_data.get("name")
-            item["user_picture"] = user_data.get("picture")
+            item["user_picture"] = sanitize_avatar_url(user_data.get("picture"))
             item["user_is_pro"] = user_data.get("is_pro")
             if "users" in item:
                 item.pop("users", None)

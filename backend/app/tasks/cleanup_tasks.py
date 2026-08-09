@@ -12,18 +12,21 @@ from app.services.user_service import UserService
 from app.utils.supabase_client import get_async_supabase_admin_client
 
 
-async def _cleanup_notifications() -> None:
-    """Run notification cleanup once."""
+async def _cleanup_notifications() -> str:
+    """Run notification cleanup once and return an observable outcome."""
     try:
         async with redis_service.lock("maintenance:notifications", ttl=3600, wait_timeout=0):
             logger.info("Running notification cleanup...")
             admin_client = await get_async_supabase_admin_client()
             notification_service = NotificationService(admin_client)
             await notification_service.cleanup_old_notifications(days=30)
+            return "completed"
     except RedisLockError:
         logger.info("Notification cleanup skipped because another worker owns the lock")
+        return "skipped"
     except Exception as e:
         logger.error(f"Error in notification cleanup: {e}")
+        return "failed"
 
 
 async def _cleanup_notifications_job() -> None:
@@ -38,8 +41,8 @@ async def _cleanup_notifications_job() -> None:
             raise
 
 
-async def _cleanup_orphaned_s3_files() -> None:
-    """Run S3 orphaned files cleanup once."""
+async def _cleanup_orphaned_s3_files() -> str:
+    """Run S3 orphaned files cleanup once and return an observable outcome."""
     try:
         async with redis_service.lock("maintenance:s3-orphans", ttl=3600, wait_timeout=0):
             logger.info("Running S3 orphaned files cleanup...")
@@ -80,10 +83,14 @@ async def _cleanup_orphaned_s3_files() -> None:
             else:
                 logger.info("No orphaned S3 files found.")
 
+            return "completed"
+
     except RedisLockError:
         logger.info("S3 cleanup skipped because another worker owns the lock")
+        return "skipped"
     except Exception as e:
         logger.error(f"Error in S3 cleanup: {e}")
+        return "failed"
 
 
 async def _cleanup_orphaned_s3_files_job() -> None:
@@ -107,18 +114,21 @@ _account_deletion_task: asyncio.Task | None = None
 _s3_cleanup_task: asyncio.Task | None = None
 
 
-async def _cleanup_deleted_accounts() -> None:
-    """Run account deletion cleanup once."""
+async def _cleanup_deleted_accounts() -> str:
+    """Run account deletion cleanup once and return an observable outcome."""
     try:
         async with redis_service.lock("maintenance:deleted-accounts", ttl=3600, wait_timeout=0):
             logger.info("Running account deletion cleanup...")
             admin_client = await get_async_supabase_admin_client()
             user_service = UserService(admin_client, admin_client)
-            await user_service.execute_hard_delete()
+            result = await user_service.execute_hard_delete()
+            return "failed" if result.get("failed", 0) else "completed"
     except RedisLockError:
         logger.info("Account deletion cleanup skipped because another worker owns the lock")
+        return "skipped"
     except Exception as e:
         logger.error(f"Error in account deletion cleanup: {e}")
+        return "failed"
 
 
 async def _cleanup_deleted_accounts_job() -> None:
@@ -174,9 +184,16 @@ async def stop_cleanup_jobs() -> None:
 
 
 async def run_maintenance_tasks() -> dict[str, str]:
-    """Run all maintenance tasks exactly once and return results."""
+    """Run all maintenance tasks exactly once and expose each outcome."""
     logger.info("Starting manual maintenance task execution")
-    await _cleanup_notifications()
-    await _cleanup_deleted_accounts()
-    await _cleanup_orphaned_s3_files()
-    return {"status": "completed", "message": "All maintenance tasks executed successfully"}
+    results = {
+        "notifications": await _cleanup_notifications(),
+        "deleted_accounts": await _cleanup_deleted_accounts(),
+        "s3_orphans": await _cleanup_orphaned_s3_files(),
+    }
+    failed = [name for name, status in results.items() if status == "failed"]
+    status = "failed" if failed else "completed"
+    message = "All maintenance tasks executed successfully"
+    if failed:
+        message = f"Maintenance tasks failed: {', '.join(failed)}"
+    return {"status": status, **results, "message": message}

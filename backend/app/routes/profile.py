@@ -19,6 +19,7 @@ from app.logger import logger, sanitize_log_value
 from app.middleware.auth_middleware import get_current_user_from_credentials
 from app.schemas.location import CatLocation
 from app.schemas.user import User
+from app.utils.avatar import sanitize_avatar_url
 from app.utils.cache import invalidate_gallery_cache
 from app.utils.file_processing import process_uploaded_image
 from app.utils.location_utils import protect_photo_locations
@@ -87,7 +88,15 @@ async def update_profile(
         if profile_data.bio is not None:
             update_data["bio"] = profile_data.bio
         if profile_data.picture is not None:
-            update_data["picture"] = profile_data.picture
+            from app.utils.avatar import validate_avatar_url
+
+            try:
+                validated_picture = validate_avatar_url(profile_data.picture)
+                if validated_picture is None:
+                    raise ValueError("Avatar URL cannot be null in this update")
+                update_data["picture"] = validated_picture
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         if not update_data:
             raise HTTPException(status_code=400, detail="No data provided for update")
@@ -177,7 +186,7 @@ async def get_profile(
             email=user.email,
             username=user.username,
             name=user.name,
-            picture=user.picture,
+            picture=sanitize_avatar_url(user.picture),
             bio=user.bio,
             created_at=user.created_at,
             is_pro=user.is_pro,
@@ -244,7 +253,7 @@ def _public_profile_response(user: Any) -> PublicProfileResponse:
     return PublicProfileResponse(
         id=user.id,
         name=user.name,
-        picture=user.picture,
+        picture=sanitize_avatar_url(user.picture),
         bio=user.bio,
         created_at=user.created_at,
         is_pro=user.is_pro,

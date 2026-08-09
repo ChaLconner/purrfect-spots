@@ -9,7 +9,6 @@ Provides:
 - Clickjacking protection
 """
 
-import os
 from collections.abc import Awaitable, Callable
 
 from fastapi import Request
@@ -17,11 +16,12 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import RedirectResponse, Response
 from starlette.types import ASGIApp
 
+from app.runtime_environment import is_production_environment
 from app.utils.auth_utils import _is_trusted_proxy_client
 
 
 def _is_production_env() -> bool:
-    return os.getenv("ENVIRONMENT", "development").lower() == "production"
+    return is_production_environment()
 
 
 PROD_CSP_POLICY = (

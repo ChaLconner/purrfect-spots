@@ -21,12 +21,13 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.logger import logger
+from app.runtime_environment import resolve_environment
 from app.utils.security import log_security_event
 
 from .exceptions import PurrfectSpotsException
 
 SENTRY_DSN = os.getenv("SENTRY_DSN")
-ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+ENVIRONMENT = resolve_environment()
 CONTENT_TYPE_JSON = "application/json"
 
 

@@ -83,7 +83,7 @@ class TestGoogleAuthRoutes:
         mock_jwt_payload = {
             "sub": "00000000-0000-4000-a000-000000000123",
             "email": "test@example.com",
-            "user_metadata": {"full_name": "Test User", "avatar_url": "p.jpg"},
+            "user_metadata": {"full_name": "Test User", "avatar_url": "https://lh3.googleusercontent.com/avatar"},
             "app_metadata": {"provider": "google"},
         }
 
@@ -102,6 +102,32 @@ class TestGoogleAuthRoutes:
             assert response.json()["message"] == "User synced"
 
         app.dependency_overrides = {}
+
+    async def test_sync_user_data_drops_unapproved_avatar(self, client):
+        """JWT metadata cannot persist an attacker-controlled avatar URL."""
+        mock_jwt_payload = {
+            "sub": "00000000-0000-4000-a000-000000000124",
+            "email": "test@example.com",
+            "user_metadata": {"avatar_url": "https://attacker.example/pixel.png"},
+            "app_metadata": {},
+        }
+
+        mock_supabase_admin = MagicMock()
+        mock_supabase_admin.table.return_value.upsert.return_value.execute = AsyncMock(
+            return_value=MagicMock(data=[{"id": mock_jwt_payload["sub"]}])
+        )
+
+        with patch("app.dependencies.get_async_supabase_admin_client", new_callable=AsyncMock) as mock_get_admin:
+            mock_get_admin.return_value = mock_supabase_admin
+            app.dependency_overrides[get_current_user_from_header] = lambda: mock_jwt_payload
+
+            response = await client.post("/api/v1/auth/sync-user")
+
+        upsert_payload = mock_supabase_admin.table.return_value.upsert.call_args.args[0]
+        app.dependency_overrides = {}
+
+        assert response.status_code == 200
+        assert "picture" not in upsert_payload
 
     async def test_logout(self, client):
         """Test logout endpoint"""

@@ -11,6 +11,7 @@ from app.config import config
 from app.logger import logger, sanitize_log_value
 from app.schemas.notification import NotificationType
 from app.services.notification_service import NotificationService
+from app.utils.avatar import sanitize_avatar_url
 from app.utils.cache import cached_leaderboard, invalidate_leaderboard_cache
 
 # Pin the same API version as subscription_service to ensure consistent
@@ -326,6 +327,9 @@ class TreatsService:
                 ).execute()
                 rows = cast(list[dict[str, Any]], res.data or [])
 
+            for row in rows:
+                if "picture" in row:
+                    row["picture"] = sanitize_avatar_url(row.get("picture"))
             return rows
         except Exception as e:
             logger.warning("SQL leaderboard fetch failed, checking fallback: %s", e)
@@ -346,7 +350,11 @@ class TreatsService:
                     "LIMIT :limit OFFSET :offset"
                 )
                 result = await self.db.execute(query, {"limit": limit, "offset": offset})
-                return [dict(row._mapping) for row in result]
+                rows = [dict(row._mapping) for row in result]
+                for row in rows:
+                    if "picture" in row:
+                        row["picture"] = sanitize_avatar_url(row.get("picture"))
+                return rows
             except Exception as e:
                 logger.warning(f"SQLAlchemy _get_leaderboard_fallback failed: {e}")
                 await self.db.rollback()
@@ -358,7 +366,11 @@ class TreatsService:
             .range(offset, offset + limit - 1)
             .execute()
         )
-        return cast(list[dict[str, Any]], res.data or [])
+        rows = cast(list[dict[str, Any]], res.data or [])
+        for row in rows:
+            if "picture" in row:
+                row["picture"] = sanitize_avatar_url(row.get("picture"))
+        return rows
 
     # ── Packages (cached) ────────────────────────────────────────────
 

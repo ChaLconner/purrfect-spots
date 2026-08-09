@@ -1,4 +1,6 @@
 import io
+from collections.abc import Callable
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -10,6 +12,17 @@ from app.dependencies import get_cat_detection_service, get_subscription_service
 from app.main import app
 from app.middleware.auth_middleware import get_current_user
 from app.services.queue_service import QueueUnavailable
+
+DependencyOverride = Callable[..., Any]
+
+
+def set_dependency_override(
+    monkeypatch: pytest.MonkeyPatch,
+    dependency: DependencyOverride,
+    replacement: DependencyOverride,
+) -> None:
+    overrides: dict[DependencyOverride, DependencyOverride] = app.dependency_overrides
+    monkeypatch.setitem(overrides, dependency, replacement)
 
 
 def valid_jpeg() -> bytes:
@@ -27,7 +40,7 @@ async def test_stripe_webhook_is_accepted_only_after_enqueue(monkeypatch: pytest
         "created": 1,
         "data": {"object": {}},
     }
-    monkeypatch.setitem(app.dependency_overrides, get_subscription_service, lambda: subscription_service)
+    set_dependency_override(monkeypatch, get_subscription_service, lambda: subscription_service)
     with (
         patch.object(config, "ENABLE_STRIPE_WEBHOOK_QUEUE", True),
         patch("app.routes.subscription.queue_service.enqueue_stripe_webhook", new=AsyncMock(return_value="1-0")),
@@ -55,7 +68,7 @@ async def test_stripe_webhook_returns_retryable_status_when_queue_is_unavailable
         "created": 1,
         "data": {"object": {}},
     }
-    monkeypatch.setitem(app.dependency_overrides, get_subscription_service, lambda: subscription_service)
+    set_dependency_override(monkeypatch, get_subscription_service, lambda: subscription_service)
     with (
         patch.object(config, "ENABLE_STRIPE_WEBHOOK_QUEUE", True),
         patch(
@@ -78,8 +91,8 @@ async def test_stripe_webhook_returns_retryable_status_when_queue_is_unavailable
 async def test_vision_analysis_returns_accepted_job_without_calling_vision(monkeypatch: pytest.MonkeyPatch) -> None:
     user = MagicMock(id="user-1", email="user@example.com")
     detection_service = MagicMock()
-    monkeypatch.setitem(app.dependency_overrides, get_current_user, lambda: user)
-    monkeypatch.setitem(app.dependency_overrides, get_cat_detection_service, lambda: detection_service)
+    set_dependency_override(monkeypatch, get_current_user, lambda: user)
+    set_dependency_override(monkeypatch, get_cat_detection_service, lambda: detection_service)
     with (
         patch.object(config, "ENABLE_VISION_ANALYSIS_QUEUE", True),
         patch(

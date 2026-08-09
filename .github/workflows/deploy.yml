@@ -716,6 +716,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
           GOOGLE_VISION_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_VISION_SERVICE_ACCOUNT }}
           FRONTEND_URL: ${{ vars.PROD_FRONTEND_URL || 'https://purrfect-spots.vercel.app' }}
         run: |
@@ -730,6 +731,7 @@ jobs:
             SUPABASE_SERVICE_ROLE_KEY
             JWT_SECRET
             JWT_REFRESH_SECRET
+            ENCRYPTION_KEY
             GOOGLE_VISION_SERVICE_ACCOUNT
             FRONTEND_URL
           )
@@ -766,6 +768,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
           GOOGLE_VISION_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_VISION_SERVICE_ACCOUNT }}
           FRONTEND_URL: ${{ vars.PROD_FRONTEND_URL || 'https://purrfect-spots.vercel.app' }}
         run: |
@@ -783,6 +786,8 @@ jobs:
           DEPLOY_ARGS+=(-e "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY")
           DEPLOY_ARGS+=(-e "JWT_SECRET=$JWT_SECRET")
           DEPLOY_ARGS+=(-e "JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET")
+          DEPLOY_ARGS+=(-e "ENCRYPTION_KEY=$ENCRYPTION_KEY")
+          DEPLOY_ARGS+=(-e "ENVIRONMENT=production")
           DEPLOY_ARGS+=(-e "GOOGLE_VISION_SERVICE_ACCOUNT=$GOOGLE_VISION_SERVICE_ACCOUNT")
           DEPLOY_ARGS+=(-e "FRONTEND_URL=$FRONTEND_URL")
           DEPLOY_ARGS+=(-e "CORS_ORIGINS=$FRONTEND_URL")
@@ -848,6 +853,22 @@ jobs:
 
           if [ "$BACKEND_OK" != "true" ]; then
             echo "::error::Production backend health check failed after ${MAX_ATTEMPTS} attempts."
+            FAILED=1
+          fi
+
+          DOCS_STATUS=$(curl --silent --show-error --output /dev/null --write-out "%{http_code}" --max-time 30 "${PROD_API_URL%/}/docs" || true)
+          if [ "$DOCS_STATUS" != "404" ]; then
+            echo "::error::Production API docs must be disabled, got HTTP ${DOCS_STATUS}."
+            FAILED=1
+          fi
+
+          SECURITY_HEADERS=$(curl --silent --show-error --dump-header - --output /dev/null --max-time 30 "${PROD_API_URL%/}/health/live" || true)
+          if ! printf '%s' "$SECURITY_HEADERS" | grep -qi '^strict-transport-security:'; then
+            echo "::error::Production API is missing Strict-Transport-Security."
+            FAILED=1
+          fi
+          if ! printf '%s' "$SECURITY_HEADERS" | grep -qi '^content-security-policy:'; then
+            echo "::error::Production API is missing Content-Security-Policy."
             FAILED=1
           fi
 

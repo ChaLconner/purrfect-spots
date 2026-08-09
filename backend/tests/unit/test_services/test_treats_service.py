@@ -205,6 +205,17 @@ async def test_get_balance(treats_service):
 
 
 @pytest.mark.asyncio
+async def test_leaderboard_drops_unapproved_avatar_urls(treats_service):
+    """Public leaderboard responses must not expose legacy tracking URLs."""
+    response = MagicMock(data=[{"id": "u1", "picture": "https://attacker.example/pixel.png"}])
+    treats_service.supabase.rpc.return_value.execute = AsyncMock(return_value=response)
+
+    rows = await treats_service.get_leaderboard()
+
+    assert rows[0]["picture"] is None
+
+
+@pytest.mark.asyncio
 async def test_fulfill_treat_purchase_idempotent(treats_service):
     """Test that duplicate purchase fulfillment is handled gracefully."""
     # This also uses run_in_threadpool + sync client

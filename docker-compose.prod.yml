@@ -14,9 +14,11 @@ services:
       - path: ./backend/.env
         required: false
     environment:
+      - ENVIRONMENT=production
       - QUEUE_REDIS_URL=redis://redis-queue:6379
       - ENABLE_STRIPE_WEBHOOK_QUEUE=true
       - ENABLE_VISION_ANALYSIS_QUEUE=true
+      - ENABLE_BACKGROUND_TASKS=true
     depends_on:
       redis-cache:
         condition: service_healthy
@@ -46,6 +48,7 @@ services:
       - path: ./backend/.env
         required: false
     environment:
+      - ENVIRONMENT=production
       - QUEUE_REDIS_URL=redis://redis-queue:6379
       - ENABLE_STRIPE_WEBHOOK_QUEUE=true
       - ENABLE_VISION_ANALYSIS_QUEUE=true

@@ -254,7 +254,7 @@ def check_sentry() -> dict[str, Any]:
 
     return {
         "status": "configured",
-        "environment": os.getenv("ENVIRONMENT", "development"),
+        "environment": config.ENVIRONMENT,
     }
 
 
@@ -400,7 +400,7 @@ async def readiness_check(request: Request) -> JSONResponse:
                 "status": overall_status,
                 "timestamp": datetime.now(UTC).isoformat(),
                 "version": APP_VERSION,
-                "environment": os.getenv("ENVIRONMENT", "development"),
+                "environment": config.ENVIRONMENT,
                 "checks": results,
             }
             if _detailed_health_enabled()
@@ -463,7 +463,7 @@ async def dependency_check(request: Request) -> JSONResponse:
         content = {
             "timestamp": datetime.now(UTC).isoformat(),
             "version": APP_VERSION,
-            "environment": os.getenv("ENVIRONMENT", "development"),
+            "environment": config.ENVIRONMENT,
             "health_score": health_score,
             "health_score_label": f"{healthy_count}/{total_count} services healthy",
             "dependencies": results,
@@ -497,7 +497,7 @@ def metrics(request: Request) -> JSONResponse:
         content = {
             "timestamp": datetime.now(UTC).isoformat(),
             "cache": cache_stats,
-            "environment": os.getenv("ENVIRONMENT", "development"),
+            "environment": config.ENVIRONMENT,
             "python_version": sys.version.split()[0],
         }
     else:

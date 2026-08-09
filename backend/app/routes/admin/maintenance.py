@@ -17,7 +17,12 @@ async def trigger_cleanup(
     Used for maintenance or via external CRON triggers in serverless environments.
     """
     try:
-        return await run_maintenance_tasks()
+        result = await run_maintenance_tasks()
+        if result.get("status") == "failed":
+            raise HTTPException(status_code=500, detail=result)
+        return result
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise
         logger.error(f"Maintenance cleanup failed: {e}")
         raise HTTPException(status_code=500, detail=f"Cleanup failed: {e}")

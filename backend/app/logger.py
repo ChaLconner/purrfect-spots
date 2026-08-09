@@ -19,6 +19,8 @@ from datetime import UTC, datetime
 from functools import wraps
 from typing import Any, TypeVar
 
+from app.runtime_environment import is_production_environment
+
 # Type variable for generic function decoration
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -140,7 +142,7 @@ def setup_logger(name: str = "purrfect_spots") -> logging.Logger:
         handler.setLevel(getattr(logging, log_level, logging.INFO))
 
         # Use JSON formatter in production, colored in development
-        is_production = os.getenv("ENVIRONMENT", "development").lower() == "production"
+        is_production = is_production_environment()
 
         if is_production:
             handler.setFormatter(CustomJsonFormatter("%(timestamp)s %(level)s %(name)s %(message)s"))

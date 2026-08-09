@@ -9,6 +9,7 @@ from typing import Any
 from fastapi import FastAPI
 
 from app.logger import logger
+from app.runtime_environment import resolve_environment
 
 
 def setup_telemetry(app: FastAPI, service_name: str = "purrfect-backend") -> None:
@@ -41,7 +42,7 @@ def setup_telemetry(app: FastAPI, service_name: str = "purrfect-backend") -> Non
             {
                 "service.name": service_name,
                 "service.version": os.getenv("APP_VERSION", "unknown"),
-                "deployment.environment": os.getenv("ENVIRONMENT", "development"),
+                "deployment.environment": resolve_environment(),
             }
         )
 

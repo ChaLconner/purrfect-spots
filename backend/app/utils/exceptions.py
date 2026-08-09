@@ -8,8 +8,9 @@ Provides standardized exception handling with:
 - SECURITY: Generic error messages in production to prevent information disclosure
 """
 
-import os
 from typing import Any
+
+from app.runtime_environment import is_production_environment
 
 # SECURITY: Use generic error messages in production
 # Detailed error messages can reveal sensitive information about:
@@ -17,8 +18,7 @@ from typing import Any
 # - Internal implementation details
 # - Third-party service dependencies
 # - Configuration details
-ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
-USE_GENERIC_ERRORS = ENVIRONMENT == "production"
+USE_GENERIC_ERRORS = is_production_environment()
 
 
 class PurrfectSpotsException(Exception):

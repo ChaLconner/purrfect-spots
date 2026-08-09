@@ -330,7 +330,7 @@ async def _notify_change_requester(
             )
 
 
-@router.post("/approve/{change_id}", response_model=dict)
+@router.post("/approve/{change_id}", response_model=ConfigResponse)
 async def approve_change(
     change_id: str,
     current_admin: Annotated[User, Depends(require_permission("system:settings"))],
