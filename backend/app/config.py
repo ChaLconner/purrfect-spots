@@ -13,11 +13,15 @@ from urllib.parse import urlsplit
 from dotenv import load_dotenv
 
 from app.logger import logger
+from app.runtime_environment import is_production_environment, resolve_environment
 
 # Load .env from backend directory
 backend_dir = Path(__file__).parent
 env_path = backend_dir / ".env"
-dotenv_override = os.getenv("ENVIRONMENT", "development").lower() not in {"test", "testing"}
+# Keep deployment-provided variables authoritative. Local development may use
+# the checked-out .env file, while production/preview/test processes must not
+# let a local file downgrade their environment or replace injected secrets.
+dotenv_override = resolve_environment() == "development"
 if env_path.exists():
     load_dotenv(env_path, override=dotenv_override)
 else:
@@ -60,7 +64,7 @@ def get_required_env(key: str, production_only: bool = False) -> str:
         ConfigurationError: If the variable is missing when required
     """
     value = os.getenv(key)
-    is_production = os.getenv("ENVIRONMENT", "development").lower() == "production"
+    is_production = is_production_environment()
 
     if value:
         return value.strip()
@@ -97,7 +101,7 @@ def get_env_with_fallback(primary_key: str, *fallback_keys: str, default: str = 
         value = os.getenv(key)
         if value:
             # Log deprecation warning in development
-            if os.getenv("ENVIRONMENT", "development").lower() == "development":
+            if resolve_environment() == "development":
                 warnings.warn(
                     f"Using deprecated env var '{key}'. Please use '{primary_key}' instead.",
                     DeprecationWarning,
@@ -130,14 +134,15 @@ class Config:
 
     # Environment
     # Auto-detect Vercel environment if not explicitly set
-    ENVIRONMENT = os.getenv("ENVIRONMENT") or os.getenv("VERCEL_ENV") or "development"
+    ENVIRONMENT = resolve_environment()
     DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
-    # SECURITY: Disable background tasks in serverless environments (Vercel) to avoid port exhaustion
-    ENABLE_BACKGROUND_TASKS = (
-        os.getenv("ENABLE_BACKGROUND_TASKS", "").lower() in ("true", "1", "yes")
-        and not os.getenv("VERCEL")
-        and ENVIRONMENT != "production"
-    )
+    # Enable only when explicitly requested on a long-lived process. Vercel
+    # functions remain disabled to avoid port exhaustion and duplicate jobs.
+    ENABLE_BACKGROUND_TASKS = os.getenv("ENABLE_BACKGROUND_TASKS", "").lower() in (
+        "true",
+        "1",
+        "yes",
+    ) and not os.getenv("VERCEL")
     # Stripe webhooks are at-least-once and can be delayed. Reconciliation is
     # enabled by default for long-running production workers, disabled in local
     # development/tests unless explicitly enabled, and never started on Vercel.
@@ -179,7 +184,8 @@ class Config:
         JWT_SECRET = get_required_env("JWT_SECRET")
         if (
             ENVIRONMENT.lower() == "production"
-            and JWT_SECRET == "purrfect_spots_jwt_secret_key_2025_secure_random_string_change_in_production"
+            and JWT_SECRET
+            == "purrfect_spots_jwt_secret_key_2025_secure_random_string_change_in_production"  # pragma: allowlist secret
         ):
             raise ConfigurationError(
                 "CRITICAL: JWT_SECRET environment variable is using the default development placeholder key in production. "
@@ -193,11 +199,15 @@ class Config:
                 "Please add JWT_SECRET to your Vercel Project Settings / Environment Variables. "
                 "Generate a strong 32+ character random string."
             )
-        JWT_SECRET = "dev-jwt-secret-stable-for-local-testing"
+        JWT_SECRET = "dev-jwt-secret-stable-for-local-testing"  # pragma: allowlist secret
 
     # JWT_REFRESH_SECRET is REQUIRED in production for security
     # Using the same secret for both access and refresh tokens is a security vulnerability
     JWT_REFRESH_SECRET = os.getenv("JWT_REFRESH_SECRET")
+
+    # Field-level encryption must have a stable key in production. The
+    # encryption service uses a development-only generated key otherwise.
+    ENCRYPTION_KEY = get_required_env("ENCRYPTION_KEY", production_only=True)
 
     if not JWT_REFRESH_SECRET:
         if ENVIRONMENT.lower() == "production":
@@ -214,7 +224,7 @@ class Config:
                 UserWarning,
                 stacklevel=2,
             )
-            JWT_REFRESH_SECRET = "dev-refresh-secret-do-not-use-in-production-32chars"  # nosec S105
+            JWT_REFRESH_SECRET = "dev-refresh-secret-do-not-use-in-production-32chars"  # nosec S105  # pragma: allowlist secret
 
     JWT_REFRESH_EXPIRATION_DAYS = int(os.getenv("JWT_REFRESH_EXPIRATION_DAYS", "7"))
     JWT_ACCESS_EXPIRATION_HOURS = int(os.getenv("JWT_ACCESS_EXPIRATION_HOURS", "1"))
@@ -370,7 +380,7 @@ class Config:
             return f"{parsed.scheme}://{parsed.netloc}"
 
         cors_origins_str = os.getenv("CORS_ORIGINS", "").strip()
-        environment = os.getenv("ENVIRONMENT", "development").lower()
+        environment = resolve_environment()
 
         if cors_origins_str:
             raw_origins = cors_origins_str.split(",")

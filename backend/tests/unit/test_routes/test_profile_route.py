@@ -95,6 +95,24 @@ class TestProfileRoute:
         assert response.status_code == 400
 
     @pytest.mark.asyncio
+    async def test_update_profile_rejects_unapproved_avatar_host(self, client, mock_user, mock_auth_service):
+        """User-controlled avatar URLs must stay on approved hosts."""
+        mock_auth_service.update_user_profile = AsyncMock()
+
+        app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
+        app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
+
+        response = await client.put(
+            "/api/v1/profile",
+            json={"picture": "https://attacker.example/pixel.png"},
+        )
+
+        app.dependency_overrides = {}
+
+        assert response.status_code == 400
+        mock_auth_service.update_user_profile.assert_not_awaited()
+
+    @pytest.mark.asyncio
     async def test_get_user_uploads(self, client, mock_user, mock_gallery_service, mock_cat_photo):
         """Test getting user uploads"""
         mock_gallery_service.get_user_photos = AsyncMock(return_value=[mock_cat_photo])

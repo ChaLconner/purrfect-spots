@@ -11,8 +11,8 @@ let reportInsertHandler: (() => void) | null = null;
 
 vi.mock('@/utils/api', () => ({
   apiV1: {
-    get: (...args: any[]) => mockApiGet(...args)
-  }
+    get: (...args: any[]) => mockApiGet(...args),
+  },
 }));
 
 vi.mock('@/lib/supabase', () => ({
@@ -29,7 +29,7 @@ const makeSummaryResponse = (stats: Record<string, unknown>) => ({
   stats,
   trends: { users: [], photos: [], reports: [] },
   monthly: [],
-  generated_at: new Date().toISOString()
+  generated_at: new Date().toISOString(),
 });
 
 describe('Admin Store', () => {
@@ -57,13 +57,25 @@ describe('Admin Store', () => {
     expect(store.isLoading).toBe(false);
   });
 
+  it('persists performance stats visibility when toggled', () => {
+    const store = useAdminStore();
+
+    store.togglePerformanceStats(false);
+    expect(store.showPerformanceStats).toBe(false);
+    expect(localStorage.getItem('admin_show_perf_stats')).toBe('false');
+
+    store.togglePerformanceStats();
+    expect(store.showPerformanceStats).toBe(true);
+    expect(localStorage.getItem('admin_show_perf_stats')).toBe('true');
+  });
+
   it('fetchStats updates state and respects cache', async () => {
     const store = useAdminStore();
     const mockStats = {
       total_users: 100,
       total_photos: 500,
       pending_reports: 5,
-      total_reports: 50
+      total_reports: 50,
     };
 
     mockApiGet.mockResolvedValueOnce(makeSummaryResponse(mockStats));
@@ -87,9 +99,9 @@ describe('Admin Store', () => {
   it('handles fetch errors gracefully', async () => {
     const store = useAdminStore();
     mockApiGet.mockRejectedValue(new Error('API Error'));
-    
+
     await store.fetchStats();
-    
+
     expect(store.isLoading).toBe(false);
     expect(store.stats.total_users).toBe(0);
   });
@@ -99,8 +111,16 @@ describe('Admin Store', () => {
     const mockResponse = {
       stats: { total_users: 10, total_photos: 20, pending_reports: 1, total_reports: 5 },
       trends: { users: [{ date: '2024-01-01', count: 1 }], photos: [], reports: [] },
-      monthly: [{ month_timestamp: '2024-01-01', new_users: 5, new_photos: 10, resolved_reports: 2, points_earned: 100 }],
-      generated_at: new Date().toISOString()
+      monthly: [
+        {
+          month_timestamp: '2024-01-01',
+          new_users: 5,
+          new_photos: 10,
+          resolved_reports: 2,
+          points_earned: 100,
+        },
+      ],
+      generated_at: new Date().toISOString(),
     };
 
     mockApiGet.mockResolvedValueOnce(mockResponse);
@@ -142,11 +162,11 @@ describe('Admin Store', () => {
 
   it('manages realtime subscriptions', () => {
     const store = useAdminStore();
-    
+
     // Test subscription starts
     store.subscribeToReports();
     expect(store.reportChannel).not.toBeNull();
-    
+
     // Test unsubscription cleans up
     store.unsubscribeReports();
     expect(store.reportChannel).toBeNull();
@@ -176,4 +196,3 @@ describe('Admin Store', () => {
     expect(store.reportChannel).toBeNull();
   });
 });
-

@@ -125,3 +125,12 @@ class TestUserService:
 
         with pytest.raises(PurrfectSpotsException, match="Failed to update profile"):
             await user_service.update_user_profile("u1", {"name": "X"})
+
+    async def test_update_user_profile_rejects_unapproved_picture(self, user_service, mock_supabase_admin):
+        """The service must enforce avatar validation for non-route callers too."""
+        chain = mock_supabase_admin.table.return_value
+
+        with pytest.raises(PurrfectSpotsException, match="Failed to update profile"):
+            await user_service.update_user_profile("u1", {"picture": "https://attacker.example/pixel.png"})
+
+        chain.execute.assert_not_awaited()

@@ -8,6 +8,7 @@ Uses Fernet symmetric encryption (AES-128-CBC) for field-level encryption.
 """
 
 import base64
+import json
 import os
 from typing import Any
 
@@ -15,6 +16,7 @@ from cryptography.fernet import Fernet, InvalidToken
 from dotenv import load_dotenv
 
 from app.logger import logger
+from app.runtime_environment import is_production_environment
 
 # Load .env from backend directory
 load_dotenv()
@@ -31,7 +33,8 @@ class EncryptionService:
 
     Key Management:
     - ENCRYPTION_KEY environment variable (base64-encoded Fernet key)
-    - If not set, generates a new key (WARNING: data will be lost on restart)
+    - If not set in production, startup fails instead of silently losing data
+    - If not set outside production, generates a development-only key
     """
 
     def __init__(self) -> None:
@@ -46,28 +49,28 @@ class EncryptionService:
         key = os.getenv("ENCRYPTION_KEY")
 
         if not key:
+            if is_production_environment():
+                raise RuntimeError("ENCRYPTION_KEY must be configured in production")
+
             # Generate a new key for development
             import warnings
 
             key = Fernet.generate_key().decode()
             warnings.warn(
-                f"ENCRYPTION_KEY not set. Generated a development key: {key[:20]}...\n"
-                "Add this to your .env file to persist encrypted data across restarts.",
+                "ENCRYPTION_KEY not set. Generated an ephemeral development key. "
+                "Add ENCRYPTION_KEY to persist encrypted data across restarts.",
                 UserWarning,
                 stacklevel=2,
             )
             os.environ["ENCRYPTION_KEY"] = key
 
         try:
-            # Ensure key is properly formatted
-            if len(key) == 44 and key.endswith("="):
-                self._fernet = Fernet(key.encode())
-            else:
-                # Try to decode as base64
-                decoded = base64.urlsafe_b64decode(key)
-                if len(decoded) != 32:
-                    raise ValueError("Encryption key must be 32 bytes (44 base64 characters)")
-                self._fernet = Fernet(key.encode() if len(key) == 44 else base64.urlsafe_b64encode(decoded))
+            # Decode and re-encode so accepted keys always use Fernet's
+            # canonical 32-byte URL-safe base64 representation.
+            decoded = base64.urlsafe_b64decode(key.encode())
+            if len(decoded) != 32:
+                raise ValueError("Encryption key must decode to 32 bytes")
+            self._fernet = Fernet(base64.urlsafe_b64encode(decoded))
         except Exception as e:
             logger.error(f"Failed to initialize encryption service: {e}")
             raise
@@ -130,7 +133,10 @@ class EncryptionService:
         Returns:
             Dictionary with encrypted_value and original_type
         """
-        str_value = str(value)
+        if value_type == "json":
+            str_value = json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+        else:
+            str_value = str(value)
         encrypted = self.encrypt(str_value)
 
         return {
@@ -168,8 +174,6 @@ class EncryptionService:
         if original_type == "float":
             return float(decrypted)
         if original_type == "json":
-            import json
-
             return json.loads(decrypted)
         return decrypted
 

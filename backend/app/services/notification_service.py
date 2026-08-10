@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from supabase import AClient
 
 from app.logger import logger
+from app.utils.avatar import sanitize_avatar_url
 
 _UUID_PATTERN = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -155,7 +156,10 @@ class NotificationService:
                         params["before"] = parsed_before
                     db_res = await self.db.execute(query, params)
                     for row in db_res.fetchall():
-                        notifications.append(dict(row._mapping))
+                        item = dict(row._mapping)
+                        if "actor_picture" in item:
+                            item["actor_picture"] = sanitize_avatar_url(item["actor_picture"])
+                        notifications.append(item)
                     return notifications
                 except Exception as e:
                     logger.warning(f"SQL notification fetch failed, falling back to Supabase client: {e}")
@@ -179,7 +183,7 @@ class NotificationService:
                 item = cast(dict[str, Any], item_json)
                 actor = cast(dict[str, Any], item.get("actor", {}) or {})
                 item["actor_name"] = actor.get("name")
-                item["actor_picture"] = actor.get("picture")
+                item["actor_picture"] = sanitize_avatar_url(actor.get("picture"))
                 item.pop("actor", None)
                 notifications.append(item)
 

@@ -79,6 +79,159 @@ class TestCompareSchemas:
         assert len(changes) == 1
         assert changes[0]["type"] == "response_removed"
 
+    def test_parameter_type_change_is_breaking(self) -> None:
+        baseline: dict[str, Any] = {
+            "paths": {
+                "/api/v1/users": {
+                    "get": {
+                        "parameters": [{"name": "limit", "in": "query", "required": True, "schema": {"type": "string"}}]
+                    }
+                }
+            }
+        }
+        current: dict[str, Any] = {
+            "paths": {
+                "/api/v1/users": {
+                    "get": {
+                        "parameters": [
+                            {"name": "limit", "in": "query", "required": True, "schema": {"type": "integer"}}
+                        ]
+                    }
+                }
+            }
+        }
+
+        changes = compare_schemas(baseline, current)
+
+        assert any(change["type"] == "parameter_schema_changed" for change in changes)
+
+    def test_required_response_field_removal_is_breaking(self) -> None:
+        baseline: dict[str, Any] = {
+            "paths": {
+                "/api/v1/users": {
+                    "get": {
+                        "responses": {
+                            "200": {
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "required": ["id", "name"],
+                                            "properties": {"id": {"type": "string"}, "name": {"type": "string"}},
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        current = {
+            "paths": {
+                "/api/v1/users": {
+                    "get": {
+                        "responses": {
+                            "200": {
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "required": ["id"],
+                                            "properties": {"id": {"type": "string"}},
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        changes = compare_schemas(baseline, current)
+
+        assert any(change["type"] == "response_schema_changed" for change in changes)
+
+    def test_component_reference_schema_change_is_breaking(self) -> None:
+        baseline: dict[str, Any] = {
+            "components": {"schemas": {"UserId": {"type": "string"}}},
+            "paths": {
+                "/api/v1/users": {
+                    "get": {
+                        "parameters": [
+                            {
+                                "name": "user_id",
+                                "in": "query",
+                                "required": True,
+                                "schema": {"$ref": "#/components/schemas/UserId"},
+                            }
+                        ]
+                    }
+                }
+            },
+        }
+        current = {
+            "components": {"schemas": {"UserId": {"type": "integer"}}},
+            "paths": baseline["paths"],
+        }
+
+        changes = compare_schemas(baseline, current)
+
+        assert any(change["type"] == "parameter_schema_changed" for change in changes)
+
+    def test_required_request_field_addition_is_breaking(self) -> None:
+        baseline: dict[str, Any] = {
+            "paths": {
+                "/api/v1/users": {
+                    "post": {
+                        "requestBody": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "required": ["name"],
+                                        "properties": {
+                                            "name": {"type": "string"},
+                                            "email": {"type": "string"},
+                                        },
+                                    }
+                                }
+                            }
+                        },
+                        "responses": {"200": {}},
+                    }
+                }
+            }
+        }
+        current = {
+            "paths": {
+                "/api/v1/users": {
+                    "post": {
+                        "requestBody": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "required": ["name", "email"],
+                                        "properties": {
+                                            "name": {"type": "string"},
+                                            "email": {"type": "string"},
+                                        },
+                                    }
+                                }
+                            }
+                        },
+                        "responses": {"200": {}},
+                    }
+                }
+            }
+        }
+
+        changes = compare_schemas(baseline, current)
+
+        assert any(change["type"] == "request_schema_changed" for change in changes)
+
 
 class TestNonBreakingChanges:
     """Tests for check_non_breaking_changes function."""

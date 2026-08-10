@@ -54,7 +54,9 @@ class CheckoutUrlResponse(BaseModel):
     """Response containing a Stripe checkout URL."""
 
     checkout_url: str = ""
-    url: str = ""
+    # Keep ``url`` required for backwards-compatible clients. The validator
+    # accepts the newer ``checkout_url`` service field and populates both.
+    url: str
     session_id: str | None = None
 
     @model_validator(mode="before")

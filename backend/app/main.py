@@ -71,7 +71,7 @@ from app.utils.exception_handlers import (
 from app.utils.exceptions import PurrfectSpotsException
 
 SENTRY_DSN = config.SENTRY_DSN
-ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+ENVIRONMENT = config.ENVIRONMENT
 CONTENT_TYPE_JSON = "application/json"
 IS_TEST_ENV = (
     ENVIRONMENT.lower() in {"test", "testing"} or bool(os.getenv("PYTEST_CURRENT_TEST")) or "pytest" in sys.modules
@@ -256,12 +256,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 # ========== FastAPI Application ==========
 # SECURITY: In production, disable OpenAPI docs to prevent information disclosure
-is_prod = ENVIRONMENT == "production"
+is_prod = config.is_production()
 if is_prod:
     logger.warning("OpenAPI docs disabled in production environment")
 
 
-class FastJSONResponse(Response):
+class FastJSONResponse(JSONResponse):
     """Compact JSON response without re-encoding through stdlib json."""
 
     media_type = "application/json"
@@ -393,7 +393,7 @@ app.add_middleware(CSRFMiddleware)
 
 # ETag support for conditional GET requests (304 Not Modified)
 # SECURITY: Enable in production for performance, disable in dev for easier debugging
-if ENVIRONMENT != "development":
+if config.ENVIRONMENT != "development":
     app.add_middleware(ETagMiddleware)
 
 # Idempotency key support for POST operations

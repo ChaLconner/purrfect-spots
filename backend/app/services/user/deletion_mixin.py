@@ -134,8 +134,9 @@ class UserDeletionMixin(UserBaseMixin):
             logger.error("Failed to request account deletion: %s", e)
             raise PurrfectSpotsException("Failed to request account deletion")
 
-    async def execute_hard_delete(self) -> None:
-        """Service to be run by a Cron Job to permanently delete expired accounts"""
+    async def execute_hard_delete(self) -> dict[str, int]:
+        """Permanently delete expired accounts with an atomic processing claim."""
+        result_counts = {"completed": 0, "failed": 0, "skipped": 0}
         try:
             from typing import Any, cast
 
@@ -160,10 +161,48 @@ class UserDeletionMixin(UserBaseMixin):
                 data = cast(list[dict[str, Any]], expired_reqs.data or [])
 
             if not data:
-                return
+                return result_counts
 
             admin = await self._get_admin_client()
             for req in data:
+                req_id = req["id"]
+
+                # Claim the request before calling the external auth API. This
+                # prevents cancellation or a second worker from racing the
+                # destructive delete after the request was selected.
+                if self.db:
+                    claim_result = await self.db.execute(
+                        text(
+                            "UPDATE account_deletion_requests "
+                            "SET status = 'processing' "
+                            "WHERE id = :id AND status = 'pending' "
+                            "AND scheduled_deletion_at <= :now "
+                            "RETURNING user_id, id"
+                        ),
+                        {"id": req_id, "now": now},
+                    )
+                    claimed = claim_result.fetchone()
+                    if not claimed:
+                        result_counts["skipped"] += 1
+                        continue
+                    req = dict(claimed._mapping)
+                    await self.db.commit()
+                else:
+                    claim_response = (
+                        await admin.table("account_deletion_requests")
+                        .update({"status": "processing"})
+                        .eq("id", req_id)
+                        .eq("status", "pending")
+                        .lte("scheduled_deletion_at", now)
+                        .select("user_id, id")
+                        .execute()
+                    )
+                    claimed_rows = cast(list[dict[str, Any]], claim_response.data or [])
+                    if not claimed_rows:
+                        result_counts["skipped"] += 1
+                        continue
+                    req = {**req, **claimed_rows[0]}
+
                 user_id = req["user_id"]
                 try:
                     user_row = (
@@ -182,7 +221,7 @@ class UserDeletionMixin(UserBaseMixin):
                     if self.db:
                         await self.db.execute(
                             text("UPDATE account_deletion_requests SET status = 'completed' WHERE id = :id"),
-                            {"id": req["id"]},
+                            {"id": req_id},
                         )
                         await self._log_audit_event("ACCOUNT_HARD_DELETED", user_id)
                         await self.db.commit()
@@ -190,15 +229,35 @@ class UserDeletionMixin(UserBaseMixin):
                         await (
                             admin.table("account_deletion_requests")
                             .update({"status": "completed"})
-                            .eq("id", req["id"])
+                            .eq("id", req_id)
                             .execute()
                         )
                         await self._log_audit_event("ACCOUNT_HARD_DELETED", user_id)
 
                     logger.info("account_hard_deleted", extra={"user_id": user_id})
+                    result_counts["completed"] += 1
                 except Exception as e:
                     if self.db:
                         await self.db.rollback()
+                        await self.db.execute(
+                            text(
+                                "UPDATE account_deletion_requests SET status = 'pending' "
+                                "WHERE id = :id AND status = 'processing'"
+                            ),
+                            {"id": req_id},
+                        )
+                        await self.db.commit()
+                    else:
+                        await (
+                            admin.table("account_deletion_requests")
+                            .update({"status": "pending"})
+                            .eq("id", req_id)
+                            .eq("status", "processing")
+                            .execute()
+                        )
+                    result_counts["failed"] += 1
                     logger.error("account_hard_delete_failed", extra={"user_id": user_id, "error": str(e)})
         except Exception as e:
             logger.error("Failed to run execute_hard_delete: %s", e)
+            result_counts["failed"] += 1
+        return result_counts

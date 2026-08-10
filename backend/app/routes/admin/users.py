@@ -337,6 +337,14 @@ async def update_user_profile_admin(
         if not filtered_data:
             raise HTTPException(status_code=400, detail="No valid fields provided")
 
+        if "picture" in filtered_data:
+            from app.utils.avatar import validate_avatar_url
+
+            try:
+                filtered_data["picture"] = validate_avatar_url(filtered_data["picture"])
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+
         result = await admin_client.table("users").update(filtered_data).eq("id", user_id_str).execute()
         if not result.data:
             raise HTTPException(status_code=404, detail="User not found")

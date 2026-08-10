@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatDate, formatTimestamp } from '@/utils/date';
+import { formatDate, formatRelativeTime, formatTimestamp } from '@/utils/date';
 
 describe('date utils', () => {
   it('formats dates as DD/MM/YYYY by default', () => {
@@ -27,5 +27,12 @@ describe('date utils', () => {
     expect(englishTimestamp).toMatch(/AM|PM/);
     expect(thaiTimestamp).toContain('20/04/2026');
     expect(thaiTimestamp.length).toBeGreaterThan('20/04/2026 '.length);
+  });
+
+  it('formats recent relative times with and without translation', () => {
+    const recent = new Date(Date.now() - 30_000).toISOString();
+
+    expect(formatRelativeTime(recent)).toBe('just now');
+    expect(formatRelativeTime(recent, (key) => key)).toBe('time.justNow');
   });
 });

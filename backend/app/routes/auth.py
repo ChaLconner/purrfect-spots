@@ -597,6 +597,16 @@ async def sync_user_data(
         # Extract name and picture with fallback
         name = user_metadata.get("name") or user_metadata.get("full_name") or user_payload.get("name")
         picture = user_metadata.get("avatar_url") or user_metadata.get("picture") or user_payload.get("picture")
+        if picture:
+            from app.utils.avatar import validate_avatar_url
+
+            try:
+                picture = validate_avatar_url(picture)
+            except ValueError:
+                # Metadata is user-controlled; do not let an arbitrary remote
+                # image enter the public profile or comment avatar sinks.
+                logger.warning("Rejected unapproved avatar during JWT sync", extra={"user_id": user_id})
+                picture = None
 
         google_id = None
         provider = app_metadata.get("provider", "")

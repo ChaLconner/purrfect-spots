@@ -8,7 +8,6 @@ This protects against Cross-Site Request Forgery attacks by:
 3. Validating both tokens match using constant-time comparison
 """
 
-import os
 import secrets
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -20,6 +19,7 @@ from starlette.responses import JSONResponse, Response
 
 from app.config import config
 from app.logger import logger
+from app.runtime_environment import is_production_environment
 
 
 class CSRFMiddleware(BaseHTTPMiddleware):
@@ -46,7 +46,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 
     def __init__(self, app: Any, exempt_paths: list[str] | None = None) -> None:
         super().__init__(app)
-        self.is_production = os.getenv("ENVIRONMENT", "development").lower() == "production"
+        self.is_production = is_production_environment()
         self.allowed_origins = {origin.rstrip("/") for origin in config.get_allowed_origins()}
         # Default exempt paths - APIs that don't need CSRF
         # (they use other auth mechanisms like OAuth tokens)

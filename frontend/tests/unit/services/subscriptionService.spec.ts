@@ -24,7 +24,9 @@ describe('SubscriptionService', (): void => {
 
       const result = await SubscriptionService.createCheckout();
 
-      expect(mockRequest).toHaveBeenCalledWith('post', '/subscription/checkout', { plan: 'monthly' });
+      expect(mockRequest).toHaveBeenCalledWith('post', '/subscription/checkout', {
+        plan: 'monthly',
+      });
       expect(result.checkout_url).toBe('https://stripe.com/checkout');
     });
   });
@@ -43,6 +45,27 @@ describe('SubscriptionService', (): void => {
 
       expect(mockRequest).toHaveBeenCalledWith('get', '/subscription/status');
       expect(result.is_pro).toBe(true);
+    });
+  });
+
+  describe('getPlans', () => {
+    it('calls GET /subscription/plans', async () => {
+      mockRequest.mockResolvedValue({
+        monthly: {
+          plan: 'monthly',
+          unit_amount: 999,
+          currency: 'thb',
+          interval: 'month',
+          interval_count: 1,
+        },
+        annual: null,
+      });
+
+      const result = await SubscriptionService.getPlans();
+
+      expect(mockRequest).toHaveBeenCalledWith('get', '/subscription/plans');
+      expect(result.monthly.unit_amount).toBe(999);
+      expect(result.annual).toBeNull();
     });
   });
 

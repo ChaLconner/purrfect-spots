@@ -32,7 +32,7 @@ permissions:
 
 env:
   NODE_VERSION: "24"
-  VERCEL_CLI_VERSION: "48.0.0"
+  VERCEL_CLI_VERSION: "48.12.1"
 
 defaults:
   run:
@@ -300,6 +300,8 @@ jobs:
     needs: prepare
     if: ${{ needs.prepare.outputs.environment == 'staging' && needs.prepare.outputs.should_deploy == 'true' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_repository.full_name == github.repository) }}
     timeout-minutes: 15
+    outputs:
+      deployment_url: ${{ steps.deploy.outputs.deployment_url }}
     environment:
       name: staging
     steps:
@@ -368,6 +370,7 @@ jobs:
         run: vercel whoami --token="$VERCEL_TOKEN"
 
       - name: Deploy backend to Vercel (staging)
+        id: deploy
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -401,10 +404,25 @@ jobs:
           DEPLOY_ARGS+=(-e "STRIPE_WEBHOOK_SECRET=$STRIPE_WEBHOOK_SECRET")
           DEPLOY_ARGS+=(-e "STRIPE_PRO_PRICE_ID=$STRIPE_PRO_PRICE_ID")
           DEPLOY_ARGS+=(-e "STRIPE_PRO_ANNUAL_PRICE_ID=$STRIPE_PRO_ANNUAL_PRICE_ID")
+          # Keep staging isolated from a production value configured at the
+          # Vercel project level. Production requires ENCRYPTION_KEY; staging
+          # uses an explicit non-production environment and must not inherit
+          # that requirement accidentally.
+          DEPLOY_ARGS+=(-e "ENVIRONMENT=staging")
           DEPLOY_ARGS+=(-e "FRONTEND_URL=$FRONTEND_URL")
           DEPLOY_ARGS+=(-e "CORS_ORIGINS=$FRONTEND_URL")
 
-          vercel "${DEPLOY_ARGS[@]}"
+          DEPLOY_OUTPUT=$(vercel "${DEPLOY_ARGS[@]}")
+          printf '%s\n' "$DEPLOY_OUTPUT"
+          URL=$(printf '%s\n' "$DEPLOY_OUTPUT" | grep -oE 'https://[a-zA-Z0-9.-]+\.vercel\.app' | tail -1)
+
+          if [ -z "${URL:-}" ]; then
+            echo "::error::Unable to determine the staging backend deployment URL."
+            exit 1
+          fi
+
+          echo "deployment_url=${URL}" >> "$GITHUB_OUTPUT"
+          echo "Staging backend deployed to ${URL}"
 
   staging-verify:
     name: Staging - Verification
@@ -425,6 +443,7 @@ jobs:
         if: ${{ needs.prepare.outputs.skip_health_check != 'true' && needs.staging-frontend.result == 'success' && needs.staging-backend.result == 'success' }}
         env:
           STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
+          DEPLOYMENT_URL: ${{ needs.staging-backend.outputs.deployment_url }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_BACKEND_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
@@ -432,7 +451,6 @@ jobs:
           set -euo pipefail
 
           required_vars=(
-            STAGING_API_URL
             VERCEL_TOKEN
             VERCEL_ORG_ID
             VERCEL_BACKEND_PROJECT_ID
@@ -450,6 +468,7 @@ jobs:
           # HTTP 200 response as an API health result.
           VERCEL_PROTECTION_BYPASS=$(openssl rand -hex 16)
           echo "::add-mask::${VERCEL_PROTECTION_BYPASS}"
+          BYPASS_COOKIE_JAR=$(mktemp)
           BYPASS_PAYLOAD=$(jq -n \
             --arg secret "$VERCEL_PROTECTION_BYPASS" \
             '{generate: {secret: $secret, note: "staging CI health check"}}')
@@ -473,21 +492,32 @@ jobs:
               "https://api.vercel.com/v1/projects/${VERCEL_BACKEND_PROJECT_ID}/protection-bypass?teamId=${VERCEL_ORG_ID}" \
               >/dev/null \
               || echo "::warning::Unable to revoke the staging Vercel protection bypass automatically."
+            rm -f "$BYPASS_COOKIE_JAR"
           }
           trap cleanup_bypass EXIT
 
-          API_URL="${STAGING_API_URL%/}/health/ready"
+          API_BASE_URL="${DEPLOYMENT_URL:-${STAGING_API_URL:-}}"
+          if [ -z "${API_BASE_URL:-}" ]; then
+            echo "::error::A staging backend deployment URL or STAGING_API_URL is required for the health check."
+            exit 1
+          fi
+          API_URL="${API_BASE_URL%/}/health/ready"
 
           MAX_ATTEMPTS=5
           for i in $(seq 1 "$MAX_ATTEMPTS"); do
             echo "Health check attempt ${i}/${MAX_ATTEMPTS}"
             RESPONSE=$(curl --show-error --silent --location --max-time 15 \
+              --cookie "$BYPASS_COOKIE_JAR" \
+              --cookie-jar "$BYPASS_COOKIE_JAR" \
               -H "x-vercel-protection-bypass: ${VERCEL_PROTECTION_BYPASS}" \
+              -H "x-vercel-set-bypass-cookie: true" \
               --write-out $'\n%{http_code}' \
               "$API_URL" || true)
             HTTP_STATUS="${RESPONSE##*$'\n'}"
             BODY="${RESPONSE%$'\n'*}"
             HEALTH_STATUS=$(printf '%s' "$BODY" | jq -r '.status // empty' 2>/dev/null || true)
+
+            echo "Health response: $(printf '%s' "$BODY" | jq -c '{status, detail, error, checks}' 2>/dev/null || printf '%s' "$BODY" | cut -c1-500)"
 
             if [ "$HTTP_STATUS" = "200" ] && [ "$HEALTH_STATUS" = "ready" ]; then
               echo "Staging backend is healthy (JSON status: ready)"
@@ -499,6 +529,79 @@ jobs:
 
           echo "::error::Staging health check failed after ${MAX_ATTEMPTS} attempts."
           exit 1
+
+      - name: Capture staging runtime error signatures
+        if: ${{ failure() && needs.staging-backend.result == 'success' }}
+        continue-on-error: true
+        env:
+          DEPLOYMENT_URL: ${{ needs.staging-backend.outputs.deployment_url }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_BACKEND_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
+        run: |
+          set +e
+
+          if [ -z "${DEPLOYMENT_URL:-}" ]; then
+            echo "::notice::No staging deployment URL was available for runtime diagnostics."
+            exit 0
+          fi
+
+          # Generate one short-lived bypass so the diagnostic request reaches
+          # the function, then stream only bounded error signatures. Never
+          # print raw runtime logs because they can contain request metadata.
+          VERCEL_PROTECTION_BYPASS=$(openssl rand -hex 16)
+          echo "::add-mask::${VERCEL_PROTECTION_BYPASS}"
+          BYPASS_COOKIE_JAR=$(mktemp)
+          BYPASS_PAYLOAD=$(jq -n --arg secret "$VERCEL_PROTECTION_BYPASS" \
+            '{generate: {secret: $secret, note: "staging CI runtime diagnostic"}}')
+          curl --fail --silent --show-error --max-time 15 \
+            -X PATCH \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "$BYPASS_PAYLOAD" \
+            "https://api.vercel.com/v1/projects/${VERCEL_BACKEND_PROJECT_ID}/protection-bypass?teamId=${VERCEL_ORG_ID}" \
+            >/dev/null
+
+          LOG_FILE=$(mktemp)
+          (timeout 30s npx --yes "vercel@${VERCEL_CLI_VERSION}" logs "$DEPLOYMENT_URL" \
+            --json --token="$VERCEL_TOKEN" >"$LOG_FILE" 2>&1) &
+          LOG_PID=$!
+          sleep 3
+
+          curl --silent --location --max-time 15 \
+            --cookie "$BYPASS_COOKIE_JAR" \
+            --cookie-jar "$BYPASS_COOKIE_JAR" \
+            -H "x-vercel-protection-bypass: ${VERCEL_PROTECTION_BYPASS}" \
+            -H "x-vercel-set-bypass-cookie: true" \
+            "${DEPLOYMENT_URL%/}/health/ready" \
+            >/dev/null
+          sleep 8
+          kill "$LOG_PID" >/dev/null 2>&1 || true
+          wait "$LOG_PID" >/dev/null 2>&1 || true
+
+          RUNTIME_SIGNATURES=$(cat "$LOG_FILE" \
+            | jq -r 'if type == "object" then [(.level // ""), (.message // ""), (.text // ""), (.error // ""), (.code // ""), (.type // "")] | map(tostring) | join(" ") else tostring end' 2>/dev/null \
+            | grep -Ei 'Traceback|Error|Exception|ImportError|ModuleNotFound|ConfigurationError|RuntimeError|SyntaxError|FUNCTION_INVOCATION_FAILED' \
+            | sed -E 's#https?://[^[:space:]]+#<url-redacted>#g; s#[A-Za-z0-9+/=_-]{40,}#[value-redacted]#g' \
+            | head -c 4000)
+          rm -f "$LOG_FILE"
+          rm -f "$BYPASS_COOKIE_JAR"
+          if [ -n "${RUNTIME_SIGNATURES:-}" ]; then
+            echo "::warning::Staging runtime error signatures: ${RUNTIME_SIGNATURES}"
+          else
+            echo "::notice::Vercel returned no filtered runtime error signatures for the staging request."
+          fi
+
+          REVOKE_PAYLOAD=$(jq -n --arg secret "$VERCEL_PROTECTION_BYPASS" \
+            '{revoke: {secret: $secret, regenerate: false}}')
+          curl --fail --silent --show-error --max-time 15 \
+            -X PATCH \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "$REVOKE_PAYLOAD" \
+            "https://api.vercel.com/v1/projects/${VERCEL_BACKEND_PROJECT_ID}/protection-bypass?teamId=${VERCEL_ORG_ID}" \
+            >/dev/null \
+            || echo "::warning::Unable to revoke the staging diagnostic bypass automatically."
 
       - name: Notify staging result
         if: always()
@@ -716,6 +819,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
           GOOGLE_VISION_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_VISION_SERVICE_ACCOUNT }}
           FRONTEND_URL: ${{ vars.PROD_FRONTEND_URL || 'https://purrfect-spots.vercel.app' }}
         run: |
@@ -730,6 +834,7 @@ jobs:
             SUPABASE_SERVICE_ROLE_KEY
             JWT_SECRET
             JWT_REFRESH_SECRET
+            ENCRYPTION_KEY
             GOOGLE_VISION_SERVICE_ACCOUNT
             FRONTEND_URL
           )
@@ -766,6 +871,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
           GOOGLE_VISION_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_VISION_SERVICE_ACCOUNT }}
           FRONTEND_URL: ${{ vars.PROD_FRONTEND_URL || 'https://purrfect-spots.vercel.app' }}
         run: |
@@ -783,6 +889,8 @@ jobs:
           DEPLOY_ARGS+=(-e "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY")
           DEPLOY_ARGS+=(-e "JWT_SECRET=$JWT_SECRET")
           DEPLOY_ARGS+=(-e "JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET")
+          DEPLOY_ARGS+=(-e "ENCRYPTION_KEY=$ENCRYPTION_KEY")
+          DEPLOY_ARGS+=(-e "ENVIRONMENT=production")
           DEPLOY_ARGS+=(-e "GOOGLE_VISION_SERVICE_ACCOUNT=$GOOGLE_VISION_SERVICE_ACCOUNT")
           DEPLOY_ARGS+=(-e "FRONTEND_URL=$FRONTEND_URL")
           DEPLOY_ARGS+=(-e "CORS_ORIGINS=$FRONTEND_URL")
@@ -848,6 +956,22 @@ jobs:
 
           if [ "$BACKEND_OK" != "true" ]; then
             echo "::error::Production backend health check failed after ${MAX_ATTEMPTS} attempts."
+            FAILED=1
+          fi
+
+          DOCS_STATUS=$(curl --silent --show-error --output /dev/null --write-out "%{http_code}" --max-time 30 "${PROD_API_URL%/}/docs" || true)
+          if [ "$DOCS_STATUS" != "404" ]; then
+            echo "::error::Production API docs must be disabled, got HTTP ${DOCS_STATUS}."
+            FAILED=1
+          fi
+
+          SECURITY_HEADERS=$(curl --silent --show-error --dump-header - --output /dev/null --max-time 30 "${PROD_API_URL%/}/health/live" || true)
+          if ! printf '%s' "$SECURITY_HEADERS" | grep -qi '^strict-transport-security:'; then
+            echo "::error::Production API is missing Strict-Transport-Security."
+            FAILED=1
+          fi
+          if ! printf '%s' "$SECURITY_HEADERS" | grep -qi '^content-security-policy:'; then
+            echo "::error::Production API is missing Content-Security-Policy."
             FAILED=1
           fi
 

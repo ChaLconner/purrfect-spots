@@ -19,6 +19,8 @@ from datetime import UTC, datetime
 from functools import wraps
 from typing import Any, TypeVar
 
+from app.runtime_environment import is_production_environment
+
 # Type variable for generic function decoration
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -140,7 +142,7 @@ def setup_logger(name: str = "purrfect_spots") -> logging.Logger:
         handler.setLevel(getattr(logging, log_level, logging.INFO))
 
         # Use JSON formatter in production, colored in development
-        is_production = os.getenv("ENVIRONMENT", "development").lower() == "production"
+        is_production = is_production_environment()
 
         if is_production:
             handler.setFormatter(CustomJsonFormatter("%(timestamp)s %(level)s %(name)s %(message)s"))
@@ -150,9 +152,9 @@ def setup_logger(name: str = "purrfect_spots") -> logging.Logger:
         # Add handler to logger
         logger.addHandler(handler)
 
-        # Add FileHandler for debugging (development only)
-        # In production, rely on structured JSON stdout logging collected by the platform
-        if not is_production:
+        # Add FileHandler for debugging in local development only. Vercel's
+        # deployed filesystem is read-only outside its temporary directory.
+        if not is_production and not os.getenv("VERCEL"):
             file_handler = logging.FileHandler("debug.log")
             file_handler.setLevel(logging.DEBUG)
             file_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))

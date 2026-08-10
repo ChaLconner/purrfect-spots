@@ -9,7 +9,6 @@ Centralized token management providing:
 
 import hashlib
 import math
-import os
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, cast
 
@@ -21,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from supabase import AClient
 
 from app.logger import logger
+from app.runtime_environment import is_production_environment
 from app.services.redis_service import redis_service
 from app.utils.datetime_utils import utc_now_iso
 from app.utils.supabase_client import get_async_supabase_admin_client, has_supabase_service_role_key
@@ -203,7 +203,7 @@ class TokenService:
 
     async def _check_db_blacklist(self, jti: str | None, token_hash: str) -> bool:
         """Check database blacklist (Async-safe)."""
-        is_production = os.getenv("ENVIRONMENT", "development").lower() == "production"
+        is_production = is_production_environment()
         if not is_production:
             return False
 

@@ -55,6 +55,9 @@ dev = [
     "Faker>=40.36.0",
 ]
 
+[tool.vercel]
+entrypoint = "main:app"
+
 [tool.ruff]
 line-length = 120
 target-version = "py311"
@@ -67,7 +70,7 @@ ignore = ["B008", "PLR0913", "PLR2004"]
 known-first-party = ["app"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.14"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
