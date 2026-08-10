@@ -152,9 +152,9 @@ def setup_logger(name: str = "purrfect_spots") -> logging.Logger:
         # Add handler to logger
         logger.addHandler(handler)
 
-        # Add FileHandler for debugging (development only)
-        # In production, rely on structured JSON stdout logging collected by the platform
-        if not is_production:
+        # Add FileHandler for debugging in local development only. Vercel's
+        # deployed filesystem is read-only outside its temporary directory.
+        if not is_production and not os.getenv("VERCEL"):
             file_handler = logging.FileHandler("debug.log")
             file_handler.setLevel(logging.DEBUG)
             file_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
