@@ -468,6 +468,7 @@ jobs:
           # HTTP 200 response as an API health result.
           VERCEL_PROTECTION_BYPASS=$(openssl rand -hex 16)
           echo "::add-mask::${VERCEL_PROTECTION_BYPASS}"
+          BYPASS_COOKIE_JAR=$(mktemp)
           BYPASS_PAYLOAD=$(jq -n \
             --arg secret "$VERCEL_PROTECTION_BYPASS" \
             '{generate: {secret: $secret, note: "staging CI health check"}}')
@@ -491,6 +492,7 @@ jobs:
               "https://api.vercel.com/v1/projects/${VERCEL_BACKEND_PROJECT_ID}/protection-bypass?teamId=${VERCEL_ORG_ID}" \
               >/dev/null \
               || echo "::warning::Unable to revoke the staging Vercel protection bypass automatically."
+            rm -f "$BYPASS_COOKIE_JAR"
           }
           trap cleanup_bypass EXIT
 
@@ -505,7 +507,10 @@ jobs:
           for i in $(seq 1 "$MAX_ATTEMPTS"); do
             echo "Health check attempt ${i}/${MAX_ATTEMPTS}"
             RESPONSE=$(curl --show-error --silent --location --max-time 15 \
+              --cookie "$BYPASS_COOKIE_JAR" \
+              --cookie-jar "$BYPASS_COOKIE_JAR" \
               -H "x-vercel-protection-bypass: ${VERCEL_PROTECTION_BYPASS}" \
+              -H "x-vercel-set-bypass-cookie: true" \
               --write-out $'\n%{http_code}' \
               "$API_URL" || true)
             HTTP_STATUS="${RESPONSE##*$'\n'}"
@@ -546,6 +551,7 @@ jobs:
           # print raw runtime logs because they can contain request metadata.
           VERCEL_PROTECTION_BYPASS=$(openssl rand -hex 16)
           echo "::add-mask::${VERCEL_PROTECTION_BYPASS}"
+          BYPASS_COOKIE_JAR=$(mktemp)
           BYPASS_PAYLOAD=$(jq -n --arg secret "$VERCEL_PROTECTION_BYPASS" \
             '{generate: {secret: $secret, note: "staging CI runtime diagnostic"}}')
           curl --fail --silent --show-error --max-time 15 \
@@ -563,7 +569,10 @@ jobs:
           sleep 3
 
           curl --silent --location --max-time 15 \
+            --cookie "$BYPASS_COOKIE_JAR" \
+            --cookie-jar "$BYPASS_COOKIE_JAR" \
             -H "x-vercel-protection-bypass: ${VERCEL_PROTECTION_BYPASS}" \
+            -H "x-vercel-set-bypass-cookie: true" \
             "${DEPLOYMENT_URL%/}/health/ready" \
             >/dev/null
           sleep 8
@@ -571,11 +580,12 @@ jobs:
           wait "$LOG_PID" >/dev/null 2>&1 || true
 
           RUNTIME_SIGNATURES=$(cat "$LOG_FILE" \
-            | jq -r 'select((.level // "") == "error" or (.level // "") == "fatal") | (.message // .text // .error // "")' 2>/dev/null \
-            | grep -E 'Traceback|Error|Exception|ImportError|ModuleNotFound|ConfigurationError|RuntimeError|SyntaxError' \
+            | jq -r 'if type == "object" then [(.level // ""), (.message // ""), (.text // ""), (.error // ""), (.code // ""), (.type // "")] | map(tostring) | join(" ") else tostring end' 2>/dev/null \
+            | grep -Ei 'Traceback|Error|Exception|ImportError|ModuleNotFound|ConfigurationError|RuntimeError|SyntaxError|FUNCTION_INVOCATION_FAILED' \
             | sed -E 's#https?://[^[:space:]]+#<url-redacted>#g; s#[A-Za-z0-9+/=_-]{40,}#[value-redacted]#g' \
             | head -c 4000)
           rm -f "$LOG_FILE"
+          rm -f "$BYPASS_COOKIE_JAR"
           if [ -n "${RUNTIME_SIGNATURES:-}" ]; then
             echo "::warning::Staging runtime error signatures: ${RUNTIME_SIGNATURES}"
           else
