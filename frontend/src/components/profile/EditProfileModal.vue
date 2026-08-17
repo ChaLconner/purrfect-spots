@@ -495,7 +495,7 @@ const handleKeydown = (event: KeyboardEvent): void => {
                         />
                       </div>
                       <div class="mt-2">
-                        <PasswordStrengthMeter :password="passwordForm.new" />
+                        <PasswordStrengthMeter :value="passwordForm.new" />
                       </div>
                     </div>
                     <div>

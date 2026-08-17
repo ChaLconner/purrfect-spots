@@ -303,7 +303,7 @@ class TokenService:
                 key = f"user_invalidated:{user_id}"
                 await self.redis.set(key, now_iso)
                 await self.redis.expire(key, self.default_ttl)
-                logger.info("Session state cleared in Redis for user: %s", user_id)
+                logger.info("Session state cleared in Redis")
             except Exception as e:
                 logger.warning("Redis user invalidation failed: %s", e)
 

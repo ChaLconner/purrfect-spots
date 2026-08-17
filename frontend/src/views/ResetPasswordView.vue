@@ -22,7 +22,7 @@
               autocomplete="new-password"
               :disabled="isLoading"
             />
-            <PasswordStrengthMeter :password="password" />
+            <PasswordStrengthMeter :value="password" />
           </div>
 
           <div class="flex flex-col gap-2 mb-2">

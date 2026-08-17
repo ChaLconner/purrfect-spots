@@ -124,7 +124,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 
     @staticmethod
     def _has_manual_authorization(request: Request) -> bool:
-        return bool(request.headers.get("Authorization") or request.headers.get("authorization"))
+        return request.headers.get("Authorization") is not None or request.headers.get("authorization") is not None
 
     async def _handle_development_request(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
@@ -132,7 +132,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         cookie_token = request.cookies.get(self.CSRF_COOKIE_NAME)
         header_token = request.headers.get(self.CSRF_HEADER_NAME)
         if cookie_token and header_token and not secrets.compare_digest(cookie_token, header_token):
-            logger.warning("CSRF token mismatch in dev mode: path=%s", request.url.path)
+            logger.warning("CSRF token mismatch in development mode")
         return await call_next(request)
 
     async def _handle_production_request(
@@ -142,19 +142,14 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         header_token = request.headers.get(self.CSRF_HEADER_NAME)
 
         if not cookie_token or not header_token:
-            logger.warning(
-                "CSRF token missing: path=%s cookie_present=%s header_present=%s",
-                request.url.path,
-                bool(cookie_token),
-                bool(header_token),
-            )
+            logger.warning("CSRF token missing")
             return self._csrf_error_response(
                 "CSRF_TOKEN_MISSING",
                 "CSRF token missing. Please refresh and try again.",
             )
 
         if not secrets.compare_digest(cookie_token, header_token):
-            logger.warning("CSRF token mismatch: path=%s", request.url.path)
+            logger.warning("CSRF token mismatch")
             return self._csrf_error_response(
                 "CSRF_TOKEN_MISMATCH",
                 "CSRF token validation failed. Please refresh and try again.",
