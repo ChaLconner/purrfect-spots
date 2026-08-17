@@ -276,8 +276,18 @@ jobs:
           # staging alias used by backend CORS and the deployment environment.
           # Bind the verified preview deployment to that alias before exposing
           # it as the staging URL.
-          vercel alias set "$URL" "$STAGING_FRONTEND_URL" --token="$VERCEL_TOKEN"
-          URL="$STAGING_FRONTEND_URL"
+          STAGING_ALIAS="${STAGING_FRONTEND_URL#https://}"
+          STAGING_ALIAS="${STAGING_ALIAS#http://}"
+          STAGING_ALIAS="${STAGING_ALIAS%/}"
+          vercel alias set "$URL" "$STAGING_ALIAS" --token="$VERCEL_TOKEN"
+          URL="https://${STAGING_ALIAS}"
+
+          FRONTEND_STATUS=$(curl --show-error --silent --location --max-time 15 \
+            --output /dev/null --write-out '%{http_code}' "$URL/")
+          if [ "$FRONTEND_STATUS" != "200" ]; then
+            echo "::error::Staging frontend alias returned HTTP ${FRONTEND_STATUS}: ${URL}"
+            exit 1
+          fi
 
           echo "deployment_url=${URL}" >> "$GITHUB_OUTPUT"
           echo "Staging frontend deployed to ${URL}"
