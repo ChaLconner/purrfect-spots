@@ -294,7 +294,7 @@ class TokenService:
 
     async def blacklist_all_user_tokens(self, user_id: str, reason: str = "security_event") -> int:
         """Invalidate all tokens for a user by setting a global revocation timestamp."""
-        logger.debug("Global token revocation requested for user %s (%s)", user_id, reason.split(":", 1)[0])
+        logger.debug("Global token revocation requested")
         now_iso = utc_now_iso()
 
         # 1. Update Fast Cache (Redis)
