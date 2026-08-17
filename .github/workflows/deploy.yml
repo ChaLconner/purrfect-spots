@@ -294,6 +294,7 @@ jobs:
 
       - name: Create Sentry release (staging)
         if: success()
+        continue-on-error: true
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
