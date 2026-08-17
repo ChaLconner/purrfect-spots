@@ -5,7 +5,8 @@
     <!-- Mobile Sidebar Toggle -->
     <div class="md:hidden fixed top-4 left-4 z-[60]">
       <button
-        ref="toggleButtonRef"
+ref="toggleButtonRef"
+        type="button"
         class="w-11 h-11 grid place-items-center p-0 rounded-[0.875rem] bg-white border border-[#ddd5ce] text-terracotta-700 shadow-[0_5px_16px_rgba(66,33,16,0.08)] focus:outline-none focus:ring-2 focus:ring-terracotta-500"
         aria-label="Toggle Menu"
         :aria-expanded="isSidebarOpen"
@@ -308,6 +309,7 @@
             <h3 class="text-lg font-bold mb-2">View Load Error</h3>
             <p class="text-sm mb-4">{{ viewErrorMessage || 'An unexpected error occurred in this view.' }}</p>
             <button
+type="button"
               class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700"
               @click="resetViewError"
             >

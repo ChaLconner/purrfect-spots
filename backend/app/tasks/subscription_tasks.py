@@ -48,6 +48,7 @@ async def start_subscription_reconciliation_job() -> None:
             "Started subscription reconciliation every %s seconds",
             config.SUBSCRIPTION_RECONCILIATION_INTERVAL_SECONDS,
         )
+    await asyncio.sleep(0)
 
 
 async def stop_subscription_reconciliation_job() -> None:
@@ -61,3 +62,4 @@ async def stop_subscription_reconciliation_job() -> None:
             await task
         except asyncio.CancelledError:
             logger.debug("Subscription reconciliation task cancelled during shutdown")
+            raise

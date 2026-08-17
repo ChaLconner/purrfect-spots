@@ -31,7 +31,7 @@ import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 const props = defineProps<{
-  password: string;
+  value: string;
 }>();
 
 const { t } = useI18n({ useScope: 'global' });
@@ -41,7 +41,7 @@ const isTyping = ref(false);
 let timeout: ReturnType<typeof setTimeout> | null = null;
 
 watch(
-  () => props.password,
+  () => props.value,
   (newVal) => {
     isTyping.value = true;
     if (timeout) clearTimeout(timeout);

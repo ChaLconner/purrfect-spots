@@ -1,16 +1,19 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.logger import logger
 from app.middleware.auth_middleware import require_permission
+from app.routes.admin.helpers import ADMIN_ERROR_RESPONSES
 from app.schemas.user import User
 from app.tasks.cleanup_tasks import run_maintenance_tasks
 
 router = APIRouter()
 
 
-@router.post("/maintenance/cleanup")
+@router.post("/maintenance/cleanup", responses=ADMIN_ERROR_RESPONSES)
 async def trigger_cleanup(
-    current_admin: User = Depends(require_permission("system:settings")),
+    current_admin: Annotated[User, Depends(require_permission("system:settings"))],
 ) -> dict:
     """
     Manually trigger background cleanup tasks.

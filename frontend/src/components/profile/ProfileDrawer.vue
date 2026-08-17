@@ -120,6 +120,7 @@ const openImage = (_image: CatLocation): void => {
             </h2>
           </div>
           <button
+type="button"
             class="p-2.5 hover:bg-stone-100 rounded-xl transition-all duration-200 text-stone-400 hover:text-stone-600 hover:rotate-90 group"
             @click="close"
           >

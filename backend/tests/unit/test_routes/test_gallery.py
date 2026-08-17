@@ -26,7 +26,7 @@ def test_get_gallery_empty(client) -> None:
         }
     )
 
-    app.dependency_overrides[get_gallery_service] = lambda: mock_service
+    app.dependency_overrides.update({get_gallery_service: lambda: mock_service})
 
     response = client.get("/api/v1/gallery/")
     assert response.status_code == 200
@@ -34,7 +34,7 @@ def test_get_gallery_empty(client) -> None:
     assert data["images"] == []
     assert data["pagination"]["total"] == 0
 
-    app.dependency_overrides = {}
+    app.dependency_overrides.clear()
 
 
 def test_get_gallery_with_data(client, mock_cat_photo) -> None:
@@ -50,7 +50,7 @@ def test_get_gallery_with_data(client, mock_cat_photo) -> None:
         }
     )
 
-    app.dependency_overrides[get_gallery_service] = lambda: mock_service
+    app.dependency_overrides.update({get_gallery_service: lambda: mock_service})
 
     response = client.get("/api/v1/gallery/")
     assert response.status_code == 200
@@ -60,7 +60,7 @@ def test_get_gallery_with_data(client, mock_cat_photo) -> None:
     assert data["images"][0]["image_url"] == "https://example.com/cat.jpg"
     assert data["pagination"]["total"] == 1
 
-    app.dependency_overrides = {}
+    app.dependency_overrides.clear()
 
 
 def test_get_gallery_skips_photo_with_incomplete_location_data(client, monkeypatch) -> None:
@@ -94,7 +94,7 @@ def test_get_gallery_fields_retains_cat_location_required_fields(client, mock_ca
     mock_service.get_all_photos = AsyncMock(
         return_value={"data": [mock_cat_photo], "total": 1, "limit": 20, "offset": 0, "has_more": False}
     )
-    app.dependency_overrides[get_gallery_service] = lambda: mock_service
+    app.dependency_overrides.update({get_gallery_service: lambda: mock_service})
 
     response = client.get("/api/v1/gallery/?fields=id")
 
@@ -104,7 +104,7 @@ def test_get_gallery_fields_retains_cat_location_required_fields(client, mock_ca
     assert image["image_url"] == mock_cat_photo["image_url"]
     assert image["latitude"] is not None
     assert image["longitude"] is not None
-    app.dependency_overrides = {}
+    app.dependency_overrides.clear()
 
 
 def test_get_gallery_empty_page_preserves_pagination_metadata(client) -> None:
@@ -112,14 +112,14 @@ def test_get_gallery_empty_page_preserves_pagination_metadata(client) -> None:
     mock_service.get_all_photos = AsyncMock(
         return_value={"data": [], "total": 41, "limit": 20, "offset": 40, "has_more": False}
     )
-    app.dependency_overrides[get_gallery_service] = lambda: mock_service
+    app.dependency_overrides.update({get_gallery_service: lambda: mock_service})
 
     response = client.get("/api/v1/gallery/?limit=20&offset=40")
 
     assert response.status_code == 200
     pagination = response.json()["pagination"]
     assert pagination == {"total": 41, "limit": 20, "offset": 40, "has_more": False, "page": 3, "total_pages": 3}
-    app.dependency_overrides = {}
+    app.dependency_overrides.clear()
 
 
 def test_get_gallery_error(client) -> None:
@@ -127,13 +127,13 @@ def test_get_gallery_error(client) -> None:
     mock_service = MagicMock()
     mock_service.get_all_photos = AsyncMock(side_effect=Exception("Database error"))
 
-    app.dependency_overrides[get_gallery_service] = lambda: mock_service
+    app.dependency_overrides.update({get_gallery_service: lambda: mock_service})
 
     response = client.get("/api/v1/gallery/")
     assert response.status_code == 500
     assert "Failed to fetch gallery images" in response.json()["message"]
 
-    app.dependency_overrides = {}
+    app.dependency_overrides.clear()
 
 
 def test_get_locations(client) -> None:
@@ -150,7 +150,7 @@ def test_get_locations(client) -> None:
             }
         ]
     )
-    app.dependency_overrides[get_gallery_service] = lambda: mock_service
+    app.dependency_overrides.update({get_gallery_service: lambda: mock_service})
     response = client.get("/api/v1/gallery/locations")
     assert response.status_code == 200
     mock_service.get_map_locations.assert_awaited_once_with(limit=500)
@@ -163,11 +163,11 @@ def test_get_locations(client) -> None:
 def test_get_locations_accepts_bounded_limit(client) -> None:
     mock_service = MagicMock()
     mock_service.get_map_locations = AsyncMock(return_value=[])
-    app.dependency_overrides[get_gallery_service] = lambda: mock_service
+    app.dependency_overrides.update({get_gallery_service: lambda: mock_service})
     response = client.get("/api/v1/gallery/locations?limit=25")
     assert response.status_code == 200
     mock_service.get_map_locations.assert_awaited_once_with(limit=25)
-    app.dependency_overrides = {}
+    app.dependency_overrides.clear()
 
 
 def test_get_ip_location(client) -> None:
@@ -251,7 +251,7 @@ def test_get_viewport(client) -> None:
             }
         ]
     )
-    app.dependency_overrides[get_gallery_service] = lambda: mock_service
+    app.dependency_overrides.update({get_gallery_service: lambda: mock_service})
     response = client.get("/api/v1/gallery/viewport?north=10&south=5&east=10&west=5")
     assert response.status_code == 200
     assert len(response.json()["images"]) == 1
@@ -277,7 +277,7 @@ def test_get_viewport_accepts_uuid_ids(client) -> None:
             }
         ]
     )
-    app.dependency_overrides[get_gallery_service] = lambda: mock_service
+    app.dependency_overrides.update({get_gallery_service: lambda: mock_service})
 
     response = client.get("/api/v1/gallery/viewport?north=10&south=5&east=10&west=5")
 
@@ -301,7 +301,7 @@ def test_search_locations(client) -> None:
             }
         ]
     )
-    app.dependency_overrides[get_gallery_service] = lambda: mock_service
+    app.dependency_overrides.update({get_gallery_service: lambda: mock_service})
     response = client.get("/api/v1/gallery/search?q=cat&tags=cute")
     assert response.status_code == 200
     assert response.json()["total"] == 1
@@ -313,7 +313,7 @@ def test_search_locations(client) -> None:
 def test_get_popular_tags(client) -> None:
     mock_service = MagicMock()
     mock_service.get_popular_tags = AsyncMock(return_value=[{"tag": "cute", "count": 10}])
-    app.dependency_overrides[get_gallery_service] = lambda: mock_service
+    app.dependency_overrides.update({get_gallery_service: lambda: mock_service})
     response = client.get("/api/v1/gallery/popular-tags")
     assert response.status_code == 200
     assert len(response.json()["tags"]) == 1
@@ -331,7 +331,7 @@ def test_get_photo(client) -> None:
             "uploaded_at": "2024-03-20T10:00:00Z",
         }
     )
-    app.dependency_overrides[get_gallery_service] = lambda: mock_service
+    app.dependency_overrides.update({get_gallery_service: lambda: mock_service})
     response = client.get("/api/v1/gallery/00000000-0000-0000-0000-000000000001")
     assert response.status_code == 200
     assert response.json()["id"] == "1"
@@ -346,8 +346,12 @@ def test_delete_photo(client) -> None:
     mock_service = MagicMock()
     mock_service.verify_photo_ownership = AsyncMock(return_value={"id": "1", "image_url": "url"})
     mock_service.process_photo_deletion = AsyncMock()
-    app.dependency_overrides[get_gallery_service] = lambda: mock_service
-    app.dependency_overrides[get_current_user_from_credentials] = lambda: MagicMock(id="user1")
+    app.dependency_overrides.update(
+        {
+            get_gallery_service: lambda: mock_service,
+            get_current_user_from_credentials: lambda: MagicMock(id="user1"),
+        }
+    )
     response = client.delete("/api/v1/gallery/00000000-0000-0000-0000-000000000001")
     assert response.status_code == 202
     assert response.json()["message"] == "Deletion scheduled"

@@ -15,13 +15,10 @@ class TestFeatureFlagService:
         """Test that unknown flags default to False"""
         assert FeatureFlagService.is_enabled("UNKNOWN_FLAG") is False
 
-    def test_is_enabled_default_true(self) -> None:
+    def test_is_enabled_default_true(self, monkeypatch) -> None:
         """Test that ENABLE_NEW_UI defaults to False"""
-        with patch.dict(os.environ, {}, clear=False):
-            # Remove any env var that might exist
-            if "FEATURE_ENABLE_NEW_UI" in os.environ:
-                del os.environ["FEATURE_ENABLE_NEW_UI"]
-            assert FeatureFlagService.is_enabled("ENABLE_NEW_UI") is False
+        monkeypatch.delenv("FEATURE_ENABLE_NEW_UI", raising=False)
+        assert FeatureFlagService.is_enabled("ENABLE_NEW_UI") is False
 
     def test_is_enabled_from_env_true(self) -> None:
         """Test that environment variable overrides default (true)"""
@@ -47,44 +44,36 @@ class TestFeatureFlagService:
         with patch.dict(os.environ, {"FEATURE_TEST_FLAG": "1"}):
             assert FeatureFlagService.is_enabled("TEST_FLAG") is False
 
-    def test_is_enabled_default_postgis(self) -> None:
+    def test_is_enabled_default_postgis(self, monkeypatch) -> None:
         """Test ENABLE_POSTGIS_SEARCH default"""
-        with patch.dict(os.environ, {}, clear=False):
-            if "FEATURE_ENABLE_POSTGIS_SEARCH" in os.environ:
-                del os.environ["FEATURE_ENABLE_POSTGIS_SEARCH"]
-            assert FeatureFlagService.is_enabled("ENABLE_POSTGIS_SEARCH") is True
+        monkeypatch.delenv("FEATURE_ENABLE_POSTGIS_SEARCH", raising=False)
+        assert FeatureFlagService.is_enabled("ENABLE_POSTGIS_SEARCH") is True
 
-    def test_is_enabled_default_ai_v2(self) -> None:
+    def test_is_enabled_default_ai_v2(self, monkeypatch) -> None:
         """Test ENABLE_AI_DETECTION_V2 default"""
-        with patch.dict(os.environ, {}, clear=False):
-            if "FEATURE_ENABLE_AI_DETECTION_V2" in os.environ:
-                del os.environ["FEATURE_ENABLE_AI_DETECTION_V2"]
-            assert FeatureFlagService.is_enabled("ENABLE_AI_DETECTION_V2") is False
+        monkeypatch.delenv("FEATURE_ENABLE_AI_DETECTION_V2", raising=False)
+        assert FeatureFlagService.is_enabled("ENABLE_AI_DETECTION_V2") is False
 
-    def test_is_enabled_default_maintenance(self) -> None:
+    def test_is_enabled_default_maintenance(self, monkeypatch) -> None:
         """Test MAINTENANCE_MODE default"""
-        with patch.dict(os.environ, {}, clear=False):
-            if "FEATURE_MAINTENANCE_MODE" in os.environ:
-                del os.environ["FEATURE_MAINTENANCE_MODE"]
-            assert FeatureFlagService.is_enabled("MAINTENANCE_MODE") is False
+        monkeypatch.delenv("FEATURE_MAINTENANCE_MODE", raising=False)
+        assert FeatureFlagService.is_enabled("MAINTENANCE_MODE") is False
 
-    def test_get_all_flags_defaults(self) -> None:
+    def test_get_all_flags_defaults(self, monkeypatch) -> None:
         """Test get_all_flags returns all default flags"""
-        with patch.dict(os.environ, {}, clear=False):
-            # Clear any existing feature flags
-            for key in os.environ:
-                if key.startswith("FEATURE_"):
-                    del os.environ[key]
+        for key in list(os.environ):
+            if key.startswith("FEATURE_"):
+                monkeypatch.delenv(key, raising=False)
 
-            flags = FeatureFlagService.get_all_flags()
-            assert "ENABLE_NEW_UI" in flags
-            assert "ENABLE_POSTGIS_SEARCH" in flags
-            assert "ENABLE_AI_DETECTION_V2" in flags
-            assert "MAINTENANCE_MODE" in flags
-            assert flags["ENABLE_NEW_UI"] is False
-            assert flags["ENABLE_POSTGIS_SEARCH"] is True
-            assert flags["ENABLE_AI_DETECTION_V2"] is False
-            assert flags["MAINTENANCE_MODE"] is False
+        flags = FeatureFlagService.get_all_flags()
+        assert "ENABLE_NEW_UI" in flags
+        assert "ENABLE_POSTGIS_SEARCH" in flags
+        assert "ENABLE_AI_DETECTION_V2" in flags
+        assert "MAINTENANCE_MODE" in flags
+        assert flags["ENABLE_NEW_UI"] is False
+        assert flags["ENABLE_POSTGIS_SEARCH"] is True
+        assert flags["ENABLE_AI_DETECTION_V2"] is False
+        assert flags["MAINTENANCE_MODE"] is False
 
     def test_get_all_flags_with_env_override(self) -> None:
         with patch.dict(

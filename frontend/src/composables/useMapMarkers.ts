@@ -431,6 +431,62 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
   /**
    * Update user location marker (Blue Dot)
    */
+  const updateUserMarkerVisual = (
+    position: UserLocationPosition,
+    options: UserLocationMarkerOptions,
+    markerIcon: google.maps.Symbol
+  ): void => {
+    if (userMarker.value instanceof google.maps.Marker) {
+      userMarker.value.setPosition(position);
+      userMarker.value.setIcon(markerIcon);
+      userMarker.value.setTitle(options.title || 'Your location');
+      return;
+    }
+    if (
+      google.maps.marker?.AdvancedMarkerElement &&
+      userMarker.value instanceof google.maps.marker.AdvancedMarkerElement
+    ) {
+      userMarker.value.position = position;
+      return;
+    }
+    userMarker.value = new google.maps.Marker({
+      position,
+      map: map.value,
+      title: options.title || 'Your location',
+      icon: markerIcon,
+      zIndex: 999,
+    });
+  };
+
+  const updateUserAccuracyCircle = (
+    position: UserLocationPosition,
+    accuracy: number | null | undefined,
+    markerColor: string,
+    stale: boolean
+  ): void => {
+    if (accuracy == null || !Number.isFinite(accuracy) || accuracy <= 0) {
+      removeUserAccuracyCircle();
+      return;
+    }
+    const circleOptions: google.maps.CircleOptions = {
+      center: position,
+      radius: accuracy,
+      map: map.value,
+      strokeColor: markerColor,
+      strokeOpacity: stale ? 0.25 : 0.45,
+      strokeWeight: 1,
+      fillColor: markerColor,
+      fillOpacity: stale ? 0.06 : 0.12,
+      clickable: false,
+      zIndex: 998,
+    };
+    if (userAccuracyCircle.value) {
+      userAccuracyCircle.value.setOptions(circleOptions);
+    } else {
+      userAccuracyCircle.value = new google.maps.Circle(circleOptions);
+    }
+  };
+
   const updateUserMarker = (
     position: UserLocationPosition | null,
     options: UserLocationMarkerOptions = {}
@@ -445,7 +501,7 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
     const stale = options.stale ?? false;
     const markerColor = stale ? '#7b8794' : '#4285F4';
     const strokeColor = stale ? '#f3f4f6' : '#FFFFFF';
-    const markerIcon = {
+    const markerIcon: google.maps.Symbol = {
       path: google.maps.SymbolPath.CIRCLE,
       scale: 10,
       fillColor: markerColor,
@@ -454,53 +510,8 @@ export function useMapMarkers(map: Ref<GoogleMap | null>): {
       strokeWeight: 3,
     };
 
-    if (userMarker.value) {
-      // Update existing marker
-      if (userMarker.value instanceof google.maps.Marker) {
-        userMarker.value.setPosition(position);
-        userMarker.value.setIcon(markerIcon);
-        userMarker.value.setTitle(options.title || 'Your location');
-      } else if (
-        google.maps.marker?.AdvancedMarkerElement &&
-        userMarker.value instanceof google.maps.marker.AdvancedMarkerElement
-      ) {
-        // AdvancedMarkerElement
-        userMarker.value.position = position;
-      }
-    } else {
-      // Use Legacy Marker for user location as well (consistent with cat markers)
-      userMarker.value = new google.maps.Marker({
-        position: position,
-        map: map.value, // User marker is NOT clustered, add to map directly
-        title: options.title || 'Your location',
-        icon: markerIcon,
-        zIndex: 999,
-      });
-    }
-
-    const accuracy = options.accuracy;
-    if (accuracy !== undefined && accuracy !== null && Number.isFinite(accuracy) && accuracy > 0) {
-      const circleOptions: google.maps.CircleOptions = {
-        center: position,
-        radius: accuracy,
-        map: map.value,
-        strokeColor: markerColor,
-        strokeOpacity: stale ? 0.25 : 0.45,
-        strokeWeight: 1,
-        fillColor: markerColor,
-        fillOpacity: stale ? 0.06 : 0.12,
-        clickable: false,
-        zIndex: 998,
-      };
-
-      if (userAccuracyCircle.value) {
-        userAccuracyCircle.value.setOptions(circleOptions);
-      } else {
-        userAccuracyCircle.value = new google.maps.Circle(circleOptions);
-      }
-    } else {
-      removeUserAccuracyCircle();
-    }
+    updateUserMarkerVisual(position, options, markerIcon);
+    updateUserAccuracyCircle(position, options.accuracy, markerColor, stale);
   };
 
   const updateUserRadiusCircle = (

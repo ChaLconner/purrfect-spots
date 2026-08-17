@@ -39,11 +39,11 @@ class TestSocialRoute:
         }
         mock_social_service.get_comments = AsyncMock(return_value=[comment])
 
-        app.dependency_overrides[get_social_service] = lambda: mock_social_service
+        app.dependency_overrides.update({get_social_service: lambda: mock_social_service})
 
         response = await client.get(f"/api/v1/social/photos/{comment['photo_id']}/comments")
 
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 200
         data = response.json()
@@ -67,16 +67,20 @@ class TestSocialRoute:
         }
         mock_social_service.update_comment = AsyncMock(return_value=comment)
 
-        app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
-        app.dependency_overrides[get_social_service] = lambda: mock_social_service
-        app.dependency_overrides[get_current_token] = lambda: "test-token"
+        app.dependency_overrides.update(
+            {
+                get_current_user_from_credentials: lambda: mock_user,
+                get_social_service: lambda: mock_social_service,
+                get_current_token: lambda: "test-token",
+            }
+        )
 
         response = await client.put(
             f"/api/v1/social/comments/{comment['id']}",
             json={"content": "updated meow"},
         )
 
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 200
         data = response.json()

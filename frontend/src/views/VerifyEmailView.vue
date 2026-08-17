@@ -76,6 +76,7 @@
 
       <!-- Verify Button -->
       <button
+type="button"
          class="flex items-center justify-center gap-3 w-full py-4 px-8 font-['Nunito'] text-[1.1rem] font-bold text-white bg-gradient-to-br from-[#7fb7a4] to-[#6da491] border-none rounded-2xl cursor-pointer transition-all duration-300 shadow-[0_4px_15px_rgba(127,183,164,0.4)] hover:enabled:-translate-y-0.5 hover:enabled:shadow-[0_8px_25px_rgba(127,183,164,0.5)] active:enabled:translate-y-0 disabled:opacity-70 disabled:cursor-not-allowed"
         :disabled="isLoading || otpCode.length !== 6"
         @click="handleVerify"
@@ -93,7 +94,8 @@
           {{ t('auth.verifyEmail.didNotReceive') }}
         </p>
         <button
-          v-if="resendCooldown === 0"
+v-if="resendCooldown === 0"
+          type="button"
            class="bg-transparent border-none text-[#7fb7a4] font-['Nunito'] text-base font-semibold cursor-pointer transition-colors duration-200 hover:enabled:text-[#6da491] hover:enabled:underline disabled:opacity-60 disabled:cursor-not-allowed"
           :disabled="isResending"
           @click="handleResend"

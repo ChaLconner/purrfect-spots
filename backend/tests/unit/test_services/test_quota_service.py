@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.services.quota_service import QuotaService
+from app.services.quota_service import QuotaService, QuotaServiceUnavailable
 
 
 @pytest.fixture
@@ -138,3 +138,37 @@ async def test_check_quota_fails_closed_when_all_quota_reads_fail():
     service = QuotaService(broken_supabase, db=broken_db)
 
     assert await service.check_quota("user1", False) is False
+
+
+@pytest.mark.asyncio
+async def test_reserve_upload_quota_uses_authoritative_atomic_rpc(mock_supabase):
+    response = MagicMock(data=True)
+    mock_supabase.rpc.return_value.execute.return_value = response
+    service = QuotaService(mock_supabase)
+
+    reservation_id = await service.reserve_upload_quota("user1", False)
+
+    assert reservation_id is not None
+    assert mock_supabase.rpc.call_args.args[0] == "reserve_upload_quota"
+    params = mock_supabase.rpc.call_args.args[1]
+    assert params["p_user_id"] == "user1"
+    assert params["p_user_limit"] == service.FREE_LIMIT
+    assert params["p_global_limit"] == service.GLOBAL_SYSTEM_LIMIT
+
+
+@pytest.mark.asyncio
+async def test_reserve_upload_quota_fails_closed_when_rpc_is_unavailable(mock_supabase):
+    mock_supabase.rpc.return_value.execute.side_effect = RuntimeError("rpc unavailable")
+    service = QuotaService(mock_supabase)
+
+    with pytest.raises(QuotaServiceUnavailable):
+        await service.reserve_upload_quota("user1", False)
+
+
+@pytest.mark.asyncio
+async def test_renew_upload_quota_calls_authoritative_rpc(mock_supabase):
+    mock_supabase.rpc.return_value.execute.return_value = MagicMock(data=True)
+    service = QuotaService(mock_supabase)
+
+    assert await service.renew_upload_quota("reservation-1") is True
+    assert mock_supabase.rpc.call_args.args[0] == "renew_upload_quota"

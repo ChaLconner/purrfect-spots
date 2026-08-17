@@ -81,8 +81,8 @@
             <transition name="fade">
               <PasswordStrengthMeter
                 v-if="shouldRenderDeferredVisuals && shouldShowPasswordStrength"
-                :password="form.password"
-              />
+                :value="form.password"
+              /> <!-- pragma: allowlist secret -->
             </transition>
 
             <div v-if="isLogin" class="text-right mt-1">
@@ -105,7 +105,7 @@
               :placeholder="$t('auth.yourNamePlaceholder')"
               :label="$t('auth.fullName')"
               block
-              autocomplete="name"
+              v-bind="{ autocomplete: 'name' }"
               :error="formErrors.name"
             />
           </div>

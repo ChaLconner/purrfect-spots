@@ -120,6 +120,9 @@
 
           <div class="flex items-center gap-2 sm:gap-3">
             <div class="relative group">
+              <label for="admin-permission-search" class="sr-only">
+                {{ t('admin.roles.search_perms') }}
+              </label>
               <svg
                 class="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-brown-400 group-focus-within:text-terracotta-500 transition-colors"
                 xmlns="http://www.w3.org/2000/svg"
@@ -135,6 +138,7 @@
                 />
               </svg>
               <input
+                id="admin-permission-search"
                 v-model="permissionSearch"
                 type="text"
                 :placeholder="t('admin.roles.search_perms')"
@@ -143,7 +147,8 @@
             </div>
 
             <button
-              v-if="dirty"
+v-if="dirty"
+              type="button"
               class="px-4 py-2 border border-sand-300 text-brown-600 rounded-lg hover:bg-sand-50 transition-colors text-sm font-medium flex items-center gap-2 shadow-sm"
               :disabled="saving"
               @click="resetToOriginal"
@@ -166,6 +171,7 @@
             </button>
 
             <button
+type="button"
               class="px-4 py-2 bg-terracotta-600 text-white rounded-lg hover:bg-terracotta-700 transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2 text-sm font-medium"
               :disabled="saving || !dirty || permissionsLoadFailed"
               @click="savePermissions"
@@ -297,6 +303,7 @@
                 </h4>
                 <div class="flex items-center gap-3 text-xs font-medium">
                   <button
+type="button"
                     class="text-terracotta-500 hover:text-terracotta-600 transition-colors"
                     @click="toggleGroup(groupPermissions, true)"
                   >
@@ -304,6 +311,7 @@
                   </button>
                   <span class="text-sand-300">/</span>
                   <button
+type="button"
                     class="text-brown-400 hover:text-brown-600 transition-colors"
                     @click="toggleGroup(groupPermissions, false)"
                   >
@@ -486,7 +494,7 @@ const getRolePermissionCount = (roleId: string): number => {
 const groupedPermissions = computed(() => {
   const groups: Record<string, AdminPermission[]> = {};
   permissions.value.forEach((p) => {
-    let group = (p.group || 'general').toLowerCase().trim().replace(/ /g, '_');
+    let group = (p.group || 'general').toLowerCase().trim().replaceAll(' ', '_');
 
     // Manual mapping for common inconsistent groups
     if (group === 'rbac' || group === 'role' || group === 'roles') group = 'access_control';
@@ -502,7 +510,7 @@ const groupedPermissions = computed(() => {
 });
 
 const formatGroupName = (key: string): string => {
-  return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  return key.replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 };
 
 const formattedGroupedPermissions = computed(() => {

@@ -107,6 +107,18 @@ class RedisService:
             logger.error("Redis set error for %s: %s", str(key).replace("\n", " "), str(e).replace("\n", " "))
             return False
 
+    async def consume_once(self, key: str, expire: int) -> bool:
+        """Atomically claim a short-lived key exactly once across instances."""
+        if not key:
+            raise ValueError("Redis consume key cannot be empty")
+        if not self.client:
+            return False
+        try:
+            return bool(await self.client.set(key, "1", nx=True, ex=max(1, int(expire))))
+        except Exception as e:
+            logger.error("Redis consume error for %s: %s", str(key).replace("\n", " "), str(e).replace("\n", " "))
+            return False
+
     async def delete(self, key: str) -> bool:
         if not self.client:
             return False
@@ -156,6 +168,15 @@ class RedisService:
         return local_lock
 
     @asynccontextmanager
+    async def _local_lock_context(self, key: str, wait_timeout: float) -> AsyncIterator[None]:
+        local_lock = await self._acquire_local_lock(key, wait_timeout)
+        try:
+            yield
+        finally:
+            if local_lock.locked():
+                local_lock.release()
+
+    @asynccontextmanager
     async def lock(self, key: str, *, ttl: int = 60, wait_timeout: float = 15.0) -> AsyncIterator[None]:
         """Acquire a cross-instance lock with token-safe release.
 
@@ -168,30 +189,16 @@ class RedisService:
         wait_timeout = max(0.0, float(wait_timeout))
 
         if self._use_local_lock():
-            try:
-                local_lock = await self._acquire_local_lock(key, wait_timeout)
-            except RedisLockTimeout:
-                raise
-            try:
+            async with self._local_lock_context(key, wait_timeout):
                 yield
-            finally:
-                if local_lock.locked():
-                    local_lock.release()
             return
 
         if not self.client:
             if Config.is_production():
                 raise RedisLockUnavailable("Redis is required for distributed subscription locking")
             # Development without Redis still gets a safe single-process guard.
-            try:
-                local_lock = await self._acquire_local_lock(key, wait_timeout)
-            except RedisLockTimeout:
-                raise
-            try:
+            async with self._local_lock_context(key, wait_timeout):
                 yield
-            finally:
-                if local_lock.locked():
-                    local_lock.release()
             return
 
         token = secrets.token_urlsafe(24)

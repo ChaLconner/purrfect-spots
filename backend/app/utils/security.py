@@ -17,9 +17,10 @@ except ImportError:  # pragma: no cover - exercised indirectly when dependency i
 from app.logger import logger
 
 # ========== File Security Constants ==========
-ALLOWED_IMAGE_MIMES: set[str] = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+JPEG_MIME = "image/jpeg"
+ALLOWED_IMAGE_MIMES: set[str] = {JPEG_MIME, "image/png", "image/webp", "image/gif"}
 IMAGE_MIME_ALIASES: dict[str, str] = {
-    "image/jpg": "image/jpeg",
+    "image/jpg": JPEG_MIME,
 }
 MAX_IMAGE_PIXELS = 40_000_000
 PUBLIC_COORDINATE_ROUNDING_DECIMALS = 3
@@ -193,7 +194,7 @@ def _guess_mime_from_magic_bytes(file_content: bytes) -> str | None:
         return kind.mime if kind else None
 
     if file_content.startswith(b"\xff\xd8\xff"):
-        return "image/jpeg"
+        return JPEG_MIME
 
     if file_content.startswith(b"\x89PNG\r\n\x1a\n"):
         return "image/png"
@@ -578,4 +579,4 @@ def is_safe_filename(filename: str) -> bool:
         return False
 
     # Check length
-    return not len(filename) > MAX_FILENAME_LENGTH
+    return len(filename) <= MAX_FILENAME_LENGTH

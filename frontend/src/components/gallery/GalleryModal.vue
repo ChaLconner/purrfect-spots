@@ -44,6 +44,7 @@
 
             <!-- Mobile Close Button (Overlays Image) -->
             <button
+type="button"
               class="absolute top-4 right-4 z-50 w-10 h-10 rounded-full border-none bg-black/40 backdrop-blur-[4px] text-white flex items-center justify-center cursor-pointer transition-all duration-300 shadow-[0_4px_12px_rgba(0,0,0,0.2)] active:scale-95 hover:bg-black/60 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 min-[900px]:hidden"
               aria-label="Close"
               @click.stop="$emit('close')"

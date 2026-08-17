@@ -40,13 +40,17 @@ class TestProfileRoute:
         """Test getting current user profile"""
         mock_auth_service.get_user_by_id = AsyncMock(return_value=mock_user)
 
-        app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
-        app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
+        app.dependency_overrides.update(
+            {
+                get_current_user_from_credentials: lambda: mock_user,
+                get_auth_service: lambda: mock_auth_service,
+            }
+        )
 
         response = await client.get("/api/v1/profile")
 
         # Cleanup
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 200
         data = response.json()
@@ -67,14 +71,18 @@ class TestProfileRoute:
         # Update is async now
         mock_auth_service.update_user_profile = AsyncMock(return_value=updated_user_data)
 
-        app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
-        app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
+        app.dependency_overrides.update(
+            {
+                get_current_user_from_credentials: lambda: mock_user,
+                get_auth_service: lambda: mock_auth_service,
+            }
+        )
 
         payload: dict[str, str] = {"name": "Updated Name", "bio": "Updated Bio"}
         response = await client.put("/api/v1/profile", json=payload)
 
         # Cleanup
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 200
         data = response.json()
@@ -84,13 +92,17 @@ class TestProfileRoute:
     @pytest.mark.asyncio
     async def test_update_profile_no_data(self, client, mock_user, mock_auth_service):
         """Test updating profile with no data"""
-        app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
-        app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
+        app.dependency_overrides.update(
+            {
+                get_current_user_from_credentials: lambda: mock_user,
+                get_auth_service: lambda: mock_auth_service,
+            }
+        )
 
         payload: dict[str, Any] = {}
         response = await client.put("/api/v1/profile", json=payload)
 
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 400
 
@@ -99,15 +111,19 @@ class TestProfileRoute:
         """User-controlled avatar URLs must stay on approved hosts."""
         mock_auth_service.update_user_profile = AsyncMock()
 
-        app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
-        app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
+        app.dependency_overrides.update(
+            {
+                get_current_user_from_credentials: lambda: mock_user,
+                get_auth_service: lambda: mock_auth_service,
+            }
+        )
 
         response = await client.put(
             "/api/v1/profile",
             json={"picture": "https://attacker.example/pixel.png"},
         )
 
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 400
         mock_auth_service.update_user_profile.assert_not_awaited()
@@ -117,12 +133,16 @@ class TestProfileRoute:
         """Test getting user uploads"""
         mock_gallery_service.get_user_photos = AsyncMock(return_value=[mock_cat_photo])
 
-        app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
-        app.dependency_overrides[get_admin_gallery_service] = lambda: mock_gallery_service
+        app.dependency_overrides.update(
+            {
+                get_current_user_from_credentials: lambda: mock_user,
+                get_admin_gallery_service: lambda: mock_gallery_service,
+            }
+        )
 
         response = await client.get("/api/v1/profile/uploads")
 
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 200
         data = response.json()
@@ -139,12 +159,16 @@ class TestProfileRoute:
         }
         mock_gallery_service.get_user_photos = AsyncMock(return_value=[photo_with_uuid_ids])
 
-        app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
-        app.dependency_overrides[get_admin_gallery_service] = lambda: mock_gallery_service
+        app.dependency_overrides.update(
+            {
+                get_current_user_from_credentials: lambda: mock_user,
+                get_admin_gallery_service: lambda: mock_gallery_service,
+            }
+        )
 
         response = await client.get("/api/v1/profile/uploads")
 
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 200
         data = response.json()
@@ -163,16 +187,20 @@ class TestProfileRoute:
         """Test uploading profile picture"""
         mock_storage_service.upload_file.return_value = "https://example.com/new-avatar.jpg"
 
-        app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
-        app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
-        app.dependency_overrides[get_storage_service] = lambda: mock_storage_service
+        app.dependency_overrides.update(
+            {
+                get_current_user_from_credentials: lambda: mock_user,
+                get_auth_service: lambda: mock_auth_service,
+                get_storage_service: lambda: mock_storage_service,
+            }
+        )
 
         mock_process = AsyncMock(return_value=(sample_image_bytes, "image/jpeg", "jpg"))
         with patch("app.routes.profile.process_uploaded_image", new=mock_process):
             files = {"file": ("avatar.jpg", sample_image_bytes, "image/jpeg")}
             response = await client.post("/api/v1/profile/picture", files=files)
 
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 200
         data = response.json()
@@ -184,13 +212,17 @@ class TestProfileRoute:
         # change_password is async, mock it as AsyncMock
         mock_auth_service.change_password = AsyncMock(return_value=True)
 
-        app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
-        app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
+        app.dependency_overrides.update(
+            {
+                get_current_user_from_credentials: lambda: mock_user,
+                get_auth_service: lambda: mock_auth_service,
+            }
+        )
 
         payload: dict[str, str] = {"current_password": "old_password", "new_password": "new_password"}
         response = await client.put("/api/v1/profile/password", json=payload)
 
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 200
         assert response.json()["message"] == "Password changed successfully"
@@ -201,13 +233,17 @@ class TestProfileRoute:
         # change_password is async, mock it as AsyncMock
         mock_auth_service.change_password = AsyncMock(return_value=False)
 
-        app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
-        app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
+        app.dependency_overrides.update(
+            {
+                get_current_user_from_credentials: lambda: mock_user,
+                get_auth_service: lambda: mock_auth_service,
+            }
+        )
 
         payload: dict[str, str] = {"current_password": "wrong_password", "new_password": "new_password"}
         response = await client.put("/api/v1/profile/password", json=payload)
 
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 400
 
@@ -215,11 +251,11 @@ class TestProfileRoute:
     async def test_get_public_profile(self, client, mock_user, mock_auth_service):
         """Test getting public profile"""
         mock_auth_service.get_user_by_id = AsyncMock(return_value=mock_user)
-        app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
+        app.dependency_overrides.update({get_auth_service: lambda: mock_auth_service})
 
         response = await client.get(f"/api/v1/profile/public/{mock_user.id}")
 
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 200
         data = response.json()
@@ -233,12 +269,16 @@ class TestProfileRoute:
 
         mock_gallery_service.get_user_photos = AsyncMock(return_value=[mock_cat_photo])
 
-        app.dependency_overrides[resolve_user_by_identifier] = lambda: mock_user
-        app.dependency_overrides[get_admin_gallery_service] = lambda: mock_gallery_service
+        app.dependency_overrides.update(
+            {
+                resolve_user_by_identifier: lambda: mock_user,
+                get_admin_gallery_service: lambda: mock_gallery_service,
+            }
+        )
 
         response = await client.get("/api/v1/profile/public/user123/uploads")
 
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 200
         data = response.json()
@@ -252,12 +292,16 @@ class TestProfileRoute:
 
         mock_gallery_service.get_user_photos = AsyncMock(return_value=[mock_cat_photo])
 
-        app.dependency_overrides[resolve_user_by_identifier] = lambda: mock_user
-        app.dependency_overrides[get_admin_gallery_service] = lambda: mock_gallery_service
+        app.dependency_overrides.update(
+            {
+                resolve_user_by_identifier: lambda: mock_user,
+                get_admin_gallery_service: lambda: mock_gallery_service,
+            }
+        )
 
         response = await client.get("/api/v1/profile/public/user123/bundle")
 
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 200
         data = response.json()
@@ -276,8 +320,12 @@ class TestProfileRoute:
         mock_admin = MagicMock()
         mock_admin.table.return_value.update.return_value.eq.return_value.execute = AsyncMock()
 
-        app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
-        app.dependency_overrides[get_admin_gallery_service] = lambda: mock_gallery_service
+        app.dependency_overrides.update(
+            {
+                get_current_user_from_credentials: lambda: mock_user,
+                get_admin_gallery_service: lambda: mock_gallery_service,
+            }
+        )
 
         with (
             patch("app.routes.profile.invalidate_gallery_cache", new_callable=AsyncMock),
@@ -288,7 +336,7 @@ class TestProfileRoute:
             payload: dict[str, str] = {"location_name": "New Loc", "description": "New Desc"}
             response = await client.put("/api/v1/profile/uploads/00000000-0000-0000-0000-000000000001", json=payload)
 
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 200
         assert response.json()["message"] == "Photo updated successfully"
@@ -303,13 +351,17 @@ class TestProfileRoute:
         )
         mock_gallery_service.process_photo_deletion = AsyncMock()
 
-        app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
-        app.dependency_overrides[get_admin_gallery_service] = lambda: mock_gallery_service
-        app.dependency_overrides[get_storage_service] = lambda: mock_storage_service
+        app.dependency_overrides.update(
+            {
+                get_current_user_from_credentials: lambda: mock_user,
+                get_admin_gallery_service: lambda: mock_gallery_service,
+                get_storage_service: lambda: mock_storage_service,
+            }
+        )
 
         response = await client.delete("/api/v1/profile/uploads/00000000-0000-0000-0000-000000000001")
 
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 202
         assert response.json()["message"] == "Deletion scheduled"

@@ -23,7 +23,6 @@ from app.utils.db_security import validate_or_raise_uuid as _validate_uuid
 
 @router.post(
     "/photos/{photo_id}/like",
-    response_model=LikeResponse,
     responses={
         404: {"description": "Photo not found"},
         429: {"description": "Too many requests"},
@@ -63,7 +62,6 @@ async def toggle_like(
 
 @router.post(
     "/photos/{photo_id}/comments",
-    response_model=CommentResponse,
     responses={
         404: {"description": "Photo not found"},
         500: {"description": "Internal Server Error"},
@@ -94,7 +92,6 @@ async def add_comment(
 
 @router.get(
     "/photos/{photo_id}/comments",
-    response_model=list[CommentResponse],
     responses={500: {"description": "Internal Server Error"}},
 )
 async def get_comments(
@@ -113,7 +110,6 @@ async def get_comments(
 
 @router.delete(
     "/comments/{comment_id}",
-    response_model=MessageResponse,
     responses={403: {"description": "Forbidden"}, 500: {"description": "Internal Server Error"}},
 )
 async def delete_comment(
@@ -138,7 +134,6 @@ async def delete_comment(
 
 @router.put(
     "/comments/{comment_id}",
-    response_model=CommentResponse,
     responses={403: {"description": "Forbidden"}, 500: {"description": "Internal Server Error"}},
 )
 async def update_comment(

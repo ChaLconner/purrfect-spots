@@ -35,7 +35,6 @@ class GalleryReadMixin(GalleryBaseMixin):
             data, total = await self._fetch_photos(
                 limit,
                 offset,
-                user_id,
                 include_count=include_total,
                 sort_field=sort_field,
                 sort_desc=sort_desc,
@@ -69,19 +68,17 @@ class GalleryReadMixin(GalleryBaseMixin):
         self,
         limit: int,
         offset: int,
-        user_id: str | None,
         include_count: bool = False,
         sort_field: str | None = None,
         sort_desc: bool = True,
     ) -> tuple[list[dict[str, Any]], int | None]:
         """Fetch photos with hydrated user details where possible."""
-        return await self._fetch_photos_supabase(limit, offset, user_id, include_count, sort_field, sort_desc)
+        return await self._fetch_photos_supabase(limit, offset, include_count, sort_field, sort_desc)
 
     async def _fetch_photos_supabase(
         self,
         limit: int,
         offset: int,
-        user_id: str | None,
         include_count: bool = False,
         sort_field: str | None = None,
         sort_desc: bool = True,

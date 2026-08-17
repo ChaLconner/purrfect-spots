@@ -47,11 +47,11 @@ class TestSubscriptionRoute:
                 },
             }
         )
-        app.dependency_overrides[get_subscription_service] = lambda: mock_subscription_service
+        app.dependency_overrides.update({get_subscription_service: lambda: mock_subscription_service})
 
         response = await client.get("/api/v1/subscription/plans")
 
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 200
         assert response.json()["monthly"]["unit_amount"] == 17500
@@ -59,13 +59,17 @@ class TestSubscriptionRoute:
     @pytest.mark.asyncio
     async def test_checkout_unconfigured_price(self, client, mock_user, mock_subscription_service):
         """Checkout should return 503 if price ID is missing."""
-        app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
-        app.dependency_overrides[get_subscription_service] = lambda: mock_subscription_service
+        app.dependency_overrides.update(
+            {
+                get_current_user_from_credentials: lambda: mock_user,
+                get_subscription_service: lambda: mock_subscription_service,
+            }
+        )
 
         with patch.object(config, "STRIPE_PRO_PRICE_ID", None):
             response = await client.post("/api/v1/subscription/checkout", json={"plan": "monthly"})
 
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 503
         assert "not configured" in response.json()["detail"]
@@ -77,13 +81,17 @@ class TestSubscriptionRoute:
             return_value={"checkout_url": "https://checkout.stripe.com/test", "session_id": "sess_123"}
         )
 
-        app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
-        app.dependency_overrides[get_subscription_service] = lambda: mock_subscription_service
+        app.dependency_overrides.update(
+            {
+                get_current_user_from_credentials: lambda: mock_user,
+                get_subscription_service: lambda: mock_subscription_service,
+            }
+        )
 
         with patch.object(config, "STRIPE_PRO_PRICE_ID", "price_pro_monthly"):
             response = await client.post("/api/v1/subscription/checkout", json={"plan": "monthly"})
 
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 200
         assert response.json()["checkout_url"] == "https://checkout.stripe.com/test"
@@ -95,13 +103,17 @@ class TestSubscriptionRoute:
             side_effect=HTTPException(status_code=400, detail="Stripe error: Invalid API Key")
         )
 
-        app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
-        app.dependency_overrides[get_subscription_service] = lambda: mock_subscription_service
+        app.dependency_overrides.update(
+            {
+                get_current_user_from_credentials: lambda: mock_user,
+                get_subscription_service: lambda: mock_subscription_service,
+            }
+        )
 
         with patch.object(config, "STRIPE_PRO_PRICE_ID", "price_pro_monthly"):
             response = await client.post("/api/v1/subscription/checkout", json={"plan": "monthly"})
 
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 400
         assert "Invalid API Key" in response.json()["detail"]
@@ -109,7 +121,7 @@ class TestSubscriptionRoute:
     @pytest.mark.asyncio
     async def test_webhook_persistence_failure_returns_retryable_status(self, client, mock_subscription_service):
         mock_subscription_service.handle_webhook = AsyncMock(side_effect=SubscriptionPersistenceError("db down"))
-        app.dependency_overrides[get_subscription_service] = lambda: mock_subscription_service
+        app.dependency_overrides.update({get_subscription_service: lambda: mock_subscription_service})
 
         response = await client.post(
             "/api/v1/subscription/webhook",
@@ -117,7 +129,7 @@ class TestSubscriptionRoute:
             headers={"stripe-signature": "sig"},
         )
 
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 503
 
@@ -126,7 +138,7 @@ class TestSubscriptionRoute:
         mock_subscription_service.handle_webhook = AsyncMock(
             side_effect=SignatureVerificationError("bad signature", "sig_header")
         )
-        app.dependency_overrides[get_subscription_service] = lambda: mock_subscription_service
+        app.dependency_overrides.update({get_subscription_service: lambda: mock_subscription_service})
 
         response = await client.post(
             "/api/v1/subscription/webhook",
@@ -134,6 +146,6 @@ class TestSubscriptionRoute:
             headers={"stripe-signature": "sig"},
         )
 
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 400

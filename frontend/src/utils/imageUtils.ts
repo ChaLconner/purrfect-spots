@@ -29,11 +29,9 @@ const WORKER_TIMEOUT_MS = 15_000;
 
 function getWorker(): Worker | null {
   if (typeof window !== 'undefined' && window.Worker) {
-    if (!imageWorker) {
-      imageWorker = new Worker(new URL('../workers/image-worker.ts', import.meta.url), {
-        type: 'module',
-      });
-    }
+    imageWorker ??= new Worker(new URL('../workers/image-worker.ts', import.meta.url), {
+      type: 'module',
+    });
     return imageWorker;
   }
   return null;
@@ -69,39 +67,38 @@ export const isCDNAvailable = (): boolean => {
 /**
  * Get CDN URL for an image
  */
+const getSupabaseUrl = (imageUrl: string, options?: ImageOptimizationOptions): string | null => {
+  if (!imageUrl.includes('supabase.co')) return null;
+  const url = new URL(imageUrl);
+  if (options?.maxWidth) url.searchParams.set('width', options.maxWidth.toString());
+  if (options?.maxHeight) url.searchParams.set('height', options.maxHeight.toString());
+  if (options?.quality) url.searchParams.set('quality', options.quality.toString());
+  url.searchParams.set('format', options?.format || 'webp');
+  url.searchParams.set('resize', 'cover');
+  return url.toString();
+};
+
+const getResizeProxyUrl = (imageUrl: string, options?: ImageOptimizationOptions): string | null => {
+  if (!options || (!options.maxWidth && !options.maxHeight)) return null;
+  const params = new URLSearchParams();
+  params.set('url', imageUrl);
+  if (options.maxWidth) params.set('w', options.maxWidth.toString());
+  if (options.maxHeight) params.set('h', options.maxHeight.toString());
+  params.set('q', (options.quality || 80).toString());
+  params.set('output', options.format || 'webp');
+  return `https://wsrv.nl/?${params.toString()}`;
+};
+
 export const getCDNUrl = (imageUrl: string, options?: ImageOptimizationOptions): string => {
-  // 1. Supabase Storage (already optimized)
-  if (imageUrl.includes('supabase.co')) {
-    // Supabase handles params natively via query string
-    const url = new URL(imageUrl);
-    if (options?.maxWidth) url.searchParams.set('width', options.maxWidth.toString());
-    if (options?.maxHeight) url.searchParams.set('height', options.maxHeight.toString());
-    if (options?.quality) url.searchParams.set('quality', options.quality.toString());
-    if (options?.format) url.searchParams.set('format', options.format);
-    else url.searchParams.set('format', 'webp'); // Default to webp
-    url.searchParams.set('resize', 'cover');
-    return url.toString();
-  }
+  const supabaseUrl = getSupabaseUrl(imageUrl, options);
+  if (supabaseUrl) return supabaseUrl;
 
-  // 2. External / S3 (Use Proxy)
-  if (options && (options.maxWidth || options.maxHeight)) {
-    // If we need resizing on S3, use wsrv.nl proxy
-    // This provides FREE, FAST, GLOBAL resizing for S3 buckets
-    const params = new URLSearchParams();
-    params.set('url', imageUrl);
-    if (options.maxWidth) params.set('w', options.maxWidth.toString());
-    if (options.maxHeight) params.set('h', options.maxHeight.toString());
-    params.set('q', (options.quality || 80).toString());
-    params.set('output', options.format || 'webp');
+  const resizeProxyUrl = getResizeProxyUrl(imageUrl, options);
+  if (resizeProxyUrl) return resizeProxyUrl;
 
-    return `https://wsrv.nl/?${params.toString()}`;
-  }
-
-  // 3. Fallback to simple CDN rewrite (if configured in env)
   if (!isCDNAvailable()) {
     return imageUrl;
   }
-
   const { baseUrl } = DEFAULT_CDN_CONFIG;
   const url = new URL(imageUrl, baseUrl);
   // ... rest of traditional CDN logic ...
@@ -274,7 +271,7 @@ export const preloadImage = (url: string, options?: ImageOptimizationOptions): P
 
     const cleanup = (): void => {
       if (link.parentNode) {
-        link.parentNode.removeChild(link);
+        link.remove();
       }
     };
 

@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import type { CatLocation } from '@/types/api';
 import type { User } from '@/types/auth';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { BaseCard } from '@/components/ui';
 import ReportModal from '@/components/ui/ReportModal.vue';
 import { useToast } from '@/composables/useToast';
 import { useI18n } from 'vue-i18n';
-import { getAvatarFallback, handleAvatarError } from '@/utils/avatar';
+import { getAvatarSrc, handleAvatarError } from '@/utils/avatar';
 import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 import { formatDate } from '@/utils/date';
 
@@ -28,6 +28,7 @@ const emit = defineEmits<{
 
 const { toast } = useToast();
 const { t, locale } = useI18n();
+const altDescription = computed(() => props.image?.description || 'A cat');
 
 const handleGiveTreat = (): void => {
   if (props.image) {
@@ -76,6 +77,7 @@ const handleReportClick = (): void => {
       >
         <!-- Close Button (Minimalist) -->
         <button
+          type="button"
           class="absolute top-3 right-3 md:top-6 md:right-6 z-20 text-stone-400 hover:text-brown bg-white/80 md:bg-transparent rounded-full md:rounded-none p-1.5 md:p-1 transition-colors cursor-pointer"
           @click="$emit('close')"
         >
@@ -97,7 +99,7 @@ const handleReportClick = (): void => {
           <img
             :src="image.image_url"
             class="w-full h-full object-cover z-10"
-            :alt="image.description || 'A cat'"
+            :alt="altDescription"
           />
         </div>
 
@@ -109,7 +111,7 @@ const handleReportClick = (): void => {
             <!-- Header: User Info -->
             <div class="flex items-center gap-3 md:gap-4 mb-4 md:mb-6 lg:mb-8 pt-0 md:pt-2">
               <img
-                :src="user?.picture || getAvatarFallback(user?.name)"
+                :src="getAvatarSrc(user?.picture, user?.name)"
                 referrerpolicy="no-referrer"
                 class="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full object-cover border-2 border-stone-100 shadow-sm bg-stone-100"
                 :alt="user?.name || t('profile.unknownUser')"
@@ -185,6 +187,7 @@ const handleReportClick = (): void => {
                 <!-- Use currentUser to check auth status -->
                 <button
                   v-if="!isOwnProfile"
+                  type="button"
                   class="group flex flex-col items-center"
                   :disabled="isSendingTreat"
                   @click="handleGiveTreat"
@@ -211,6 +214,7 @@ const handleReportClick = (): void => {
                 <!-- Edit Button -->
                 <button
                   v-if="isOwnProfile"
+                  type="button"
                   class="p-2 text-stone-400 hover:text-brown transition-colors rounded-full hover:bg-stone-50 cursor-pointer"
                   :title="t('profile.editDetails')"
                   @click="$emit('edit', image)"
@@ -234,6 +238,7 @@ const handleReportClick = (): void => {
                 <!-- Delete Button -->
                 <button
                   v-if="isOwnProfile"
+                  type="button"
                   class="p-2 text-stone-400 hover:text-red-500 transition-colors rounded-full hover:bg-red-50 cursor-pointer"
                   :title="t('profile.deletePhoto')"
                   @click="$emit('delete', image)"
@@ -257,6 +262,7 @@ const handleReportClick = (): void => {
                 <!-- Report Button (Visible for non-owners) -->
                 <button
                   v-if="!isOwnProfile"
+                  type="button"
                   class="p-2 text-stone-400 hover:text-red-500 transition-colors rounded-full hover:bg-red-50 cursor-pointer"
                   :title="t('profile.reportPhoto')"
                   @click="handleReportClick"

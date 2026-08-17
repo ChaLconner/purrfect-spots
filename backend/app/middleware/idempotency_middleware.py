@@ -111,87 +111,100 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
     IDEMPOTENT_METHODS = {"POST"}
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
-        # Only process POST requests with Idempotency-Key header
-        if request.method not in self.IDEMPOTENT_METHODS:
+        supported_request = self._get_supported_idempotency_key(request)
+        if supported_request is None:
             return await call_next(request)
+        idempotency_key, principal_fingerprint = supported_request
 
-        idempotency_key = request.headers.get("Idempotency-Key")
-        if not idempotency_key:
-            return await call_next(request)
-
-        principal_fingerprint = _get_principal_fingerprint(request)
-        if principal_fingerprint is None:
-            return await call_next(request)
-
-        # Multipart uploads are streamed and must not be copied into memory by
-        # middleware. Upload routes own their idempotency token handling.
-        content_type = request.headers.get("content-type", "").lower()
-        if not content_type.startswith("application/json"):
-            return await call_next(request)
-
-        # Read and hash the request body
         body = await request.body()
         body_hash = hashlib.sha256(body).hexdigest()[:16]
-
-        # Build composite key
         composite_key = _build_idempotency_key(
             header_key=f"{principal_fingerprint}:{idempotency_key}",
             method=request.method,
             path=request.url.path,
             body_hash=body_hash,
         )
+        return await self._process_idempotent_request(request, call_next, composite_key, idempotency_key)
 
+    def _get_supported_idempotency_key(self, request: Request) -> tuple[str, str] | None:
+        if request.method not in self.IDEMPOTENT_METHODS:
+            return None
+
+        idempotency_key = request.headers.get("Idempotency-Key")
+        principal_fingerprint = _get_principal_fingerprint(request)
+        if not idempotency_key or principal_fingerprint is None:
+            return None
+
+        content_type = request.headers.get("content-type", "").lower()
+        if not content_type.startswith("application/json"):
+            return None
+        return idempotency_key, principal_fingerprint
+
+    async def _process_idempotent_request(
+        self,
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+        composite_key: str,
+        idempotency_key: str,
+    ) -> Response:
         lock = _inflight_locks.setdefault(composite_key, asyncio.Lock())
+
         try:
             async with lock:
-                # Re-check after waiting so concurrent requests share one result.
                 cached = await _get_cached_response(composite_key)
                 if cached is not None:
-                    logger.info(
-                        "Idempotent replay: key=%s path=%s",
-                        idempotency_key[:16] + "...",
-                        request.url.path,
-                    )
-                    return JSONResponse(
-                        status_code=cached.get("status_code", 200),
-                        content=cached.get("body", {}),
-                        headers={
-                            **cached.get("headers", {}),
-                            "X-Idempotent-Replayed": "true",
-                        },
-                    )
+                    return self._replay_cached_response(request, idempotency_key, cached)
 
                 response = await call_next(request)
-
-                # Cache only bounded JSON responses. Never copy an unbounded body.
-                if 200 <= response.status_code < 500:
-                    content_length = int(response.headers.get("content-length", "0") or 0)
-                    if 0 < content_length <= 1_048_576:
-                        response_chunks: list[bytes] = []
-                        async for chunk in response.body_iterator:  # type: ignore[attr-defined]
-                            response_chunks.append(chunk if isinstance(chunk, bytes) else chunk.encode())
-                        response_body = b"".join(response_chunks)
-
-                        try:
-                            body_json = json.loads(response_body.decode())
-                        except (json.JSONDecodeError, UnicodeDecodeError):
-                            body_json = None
-
-                        if body_json is not None:
-                            response_data = {
-                                "status_code": response.status_code,
-                                "body": body_json,
-                                "headers": {"Content-Type": "application/json"},
-                            }
-                            await _set_cached_response(composite_key, response_data)
-                            return JSONResponse(
-                                status_code=response.status_code,
-                                content=body_json,
-                                headers=dict(response.headers),
-                            )
-
-                return response
+                cached_response = await self._cache_json_response(composite_key, response)
+                return cached_response or response
         finally:
             waiters = getattr(lock, "_waiters", None)
             if not lock.locked() and not waiters:
                 _inflight_locks.pop(composite_key, None)
+
+    @staticmethod
+    def _replay_cached_response(request: Request, idempotency_key: str, cached: dict[str, Any]) -> JSONResponse:
+        logger.info(
+            "Idempotent replay: key=%s path=%s",
+            idempotency_key[:16] + "...",
+            request.url.path,
+        )
+        return JSONResponse(
+            status_code=cached.get("status_code", 200),
+            content=cached.get("body", {}),
+            headers={
+                **cached.get("headers", {}),
+                "X-Idempotent-Replayed": "true",
+            },
+        )
+
+    async def _cache_json_response(self, key: str, response: Response) -> Response | None:
+        if not 200 <= response.status_code < 500:
+            return None
+
+        content_length = int(response.headers.get("content-length", "0") or 0)
+        if not 0 < content_length <= 1_048_576:
+            return None
+
+        response_chunks: list[bytes] = []
+        async for chunk in response.body_iterator:  # type: ignore[attr-defined]
+            response_chunks.append(chunk if isinstance(chunk, bytes) else chunk.encode())
+        response_body = b"".join(response_chunks)
+
+        try:
+            body_json = json.loads(response_body.decode())
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return None
+
+        response_data = {
+            "status_code": response.status_code,
+            "body": body_json,
+            "headers": {"Content-Type": "application/json"},
+        }
+        await _set_cached_response(key, response_data)
+        return JSONResponse(
+            status_code=response.status_code,
+            content=body_json,
+            headers=dict(response.headers),
+        )

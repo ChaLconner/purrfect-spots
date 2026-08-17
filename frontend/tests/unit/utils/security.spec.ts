@@ -64,7 +64,7 @@ describe('security utils', () => {
     it('truncates to max length', () => {
       const long = 'a'.repeat(2000);
       const result = sanitizeInput(long, 500);
-      expect(result.length).toBe(500);
+      expect(result).toHaveLength(500);
     });
 
     it('returns empty string for null/undefined', () => {
@@ -189,32 +189,14 @@ describe('security utils', () => {
   });
 
   describe('validatePassword', () => {
-    it('validates strong passwords', () => {
-      const result = validatePassword('Password1');
-      expect(result.valid).toBe(true);
-      expect(result.errors).toHaveLength(0);
-    });
-
-    it('allows short passwords because strength is advisory', () => {
-      const result = validatePassword('Pass1');
-      expect(result.valid).toBe(true);
-      expect(result.errors).toHaveLength(0);
-    });
-
-    it('allows missing uppercase letters because strength is advisory', () => {
-      const result = validatePassword('password1');
-      expect(result.valid).toBe(true);
-      expect(result.errors).toHaveLength(0);
-    });
-
-    it('allows missing lowercase letters because strength is advisory', () => {
-      const result = validatePassword('PASSWORD1');
-      expect(result.valid).toBe(true);
-      expect(result.errors).toHaveLength(0);
-    });
-
-    it('allows missing numbers because strength is advisory', () => {
-      const result = validatePassword('Password');
+    it.each([
+      ['strong passwords', 'Password1'],
+      ['short passwords because strength is advisory', 'Pass1'],
+      ['missing uppercase letters because strength is advisory', 'password1'],
+      ['missing lowercase letters because strength is advisory', 'PASSWORD1'],
+      ['missing numbers because strength is advisory', 'Password'],
+    ])('accepts %s', (_caseName, password) => {
+      const result = validatePassword(password);
       expect(result.valid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });

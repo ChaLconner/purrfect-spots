@@ -141,6 +141,28 @@ export const useNotificationStore = defineStore('notifications', () => {
     if (!authStore.user?.id) return;
     if (subscription) return; // Already subscribed
 
+    const hydrateActor = async (notification: Notification): Promise<void> => {
+      if (!notification.actor_id) return;
+      try {
+        const cachedActor = actorCache.get(notification.actor_id);
+        if (cachedActor) {
+          notification.actor_name = cachedActor.name;
+          notification.actor_picture = cachedActor.picture;
+          return;
+        }
+        const user = await ProfileService.getPublicProfile(notification.actor_id);
+        actorCache.set(notification.actor_id, { name: user.name, picture: user.picture });
+        if (actorCache.size > MAX_ACTOR_CACHE) {
+          const oldestActorId = actorCache.keys().next().value;
+          if (oldestActorId) actorCache.delete(oldestActorId);
+        }
+        notification.actor_name = user.name;
+        notification.actor_picture = user.picture;
+      } catch (e) {
+        if (isDev()) console.error('Failed to fetch actor details for notification', e);
+      }
+    };
+
     subscription = supabase
       .channel('public:notifications')
       .on(
@@ -153,38 +175,8 @@ export const useNotificationStore = defineStore('notifications', () => {
         },
         async (payload: { new: Notification }): Promise<void> => {
           const newNotification = payload.new as Notification;
-
-          if (serverUnreadCount.value !== null) {
-            serverUnreadCount.value++;
-          }
-
-          // Fetch actor details if available
-          if (newNotification.actor_id) {
-            try {
-              const cachedActor = actorCache.get(newNotification.actor_id);
-              if (cachedActor) {
-                newNotification.actor_name = cachedActor.name;
-                newNotification.actor_picture = cachedActor.picture;
-              } else {
-                const user = await ProfileService.getPublicProfile(newNotification.actor_id);
-                actorCache.set(newNotification.actor_id, {
-                  name: user.name,
-                  picture: user.picture,
-                });
-                if (actorCache.size > MAX_ACTOR_CACHE) {
-                  const oldestActorId = actorCache.keys().next().value;
-                  if (oldestActorId) actorCache.delete(oldestActorId);
-                }
-                newNotification.actor_name = user.name;
-                newNotification.actor_picture = user.picture;
-              }
-            } catch (e) {
-              if (isDev()) {
-                console.error('Failed to fetch actor details for notification', e);
-              }
-            }
-          }
-
+          if (serverUnreadCount.value !== null) serverUnreadCount.value++;
+          await hydrateActor(newNotification);
           notifications.value = [newNotification, ...notifications.value].slice(0, MAX_NOTIFICATIONS);
         }
       )

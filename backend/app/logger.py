@@ -17,12 +17,12 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from functools import wraps
-from typing import Any, TypeVar
+from typing import Any, ParamSpec
 
 from app.runtime_environment import is_production_environment
 
-# Type variable for generic function decoration
-F = TypeVar("F", bound=Callable[..., Any])
+# Preserve decorated function parameter types on Python 3.11 and newer.
+P = ParamSpec("P")
 
 
 try:
@@ -34,8 +34,6 @@ except ImportError:
 
         JsonFormatter = jsonlogger.JsonFormatter  # type: ignore
     except ImportError:
-        #         import logging
-
         # Last resort fallback to allow application to start even if logging is degraded
         class JsonFormatter(logging.Formatter):  # type: ignore
             def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -44,6 +42,7 @@ except ImportError:
             def add_fields(
                 self, log_record: dict[str, Any], record: logging.LogRecord, message_dict: dict[str, Any]
             ) -> None:
+                # The fallback formatter intentionally leaves structured fields unchanged.
                 pass
 
 
@@ -167,7 +166,7 @@ def setup_logger(name: str = "purrfect_spots") -> logging.Logger:
 logger = setup_logger()
 
 
-def log_performance(operation_name: str | None = None) -> Callable[[F], F]:
+def log_performance(operation_name: str | None = None) -> Callable[[Callable[P, Any]], Callable[P, Any]]:
     """
     Decorator to log function execution time.
 
@@ -180,7 +179,7 @@ def log_performance(operation_name: str | None = None) -> Callable[[F], F]:
             ...
     """
 
-    def decorator(func: F) -> F:
+    def decorator(func: Callable[P, Any]) -> Callable[P, Any]:
         def get_log_record(level: int, msg: str, duration_ms: float) -> logging.LogRecord:
             record = logging.LogRecord(
                 name="purrfect_spots",
@@ -203,7 +202,7 @@ def log_performance(operation_name: str | None = None) -> Callable[[F], F]:
                 logger.handle(get_log_record(logging.ERROR, f"✗ {name} failed: {exc!s}", duration_ms))
 
         @wraps(func)
-        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+        async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
             name = operation_name or f"{func.__module__}.{func.__name__}"
             start_time = time.perf_counter()
             try:
@@ -215,7 +214,7 @@ def log_performance(operation_name: str | None = None) -> Callable[[F], F]:
                 raise
 
         @wraps(func)
-        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+        def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
             name = operation_name or f"{func.__module__}.{func.__name__}"
             start_time = time.perf_counter()
             try:
@@ -230,8 +229,8 @@ def log_performance(operation_name: str | None = None) -> Callable[[F], F]:
         import asyncio
 
         if asyncio.iscoroutinefunction(func):
-            return async_wrapper  # type: ignore
-        return sync_wrapper  # type: ignore
+            return async_wrapper
+        return sync_wrapper
 
     return decorator
 

@@ -507,6 +507,21 @@ class TestAdminCommentsListing:
         assert "cat_photo_id" not in selected_columns
         assert "user_email" not in selected_columns
 
+    def test_list_all_comments_escapes_raw_search_filter(self, client, override_admin, mock_supabase_admin) -> None:
+        mock_supabase_admin.execute = AsyncMock(side_effect=[MagicMock(data=[], count=0)])
+
+        with patch(
+            "app.routes.admin.comments.get_async_supabase_admin_client",
+            new_callable=AsyncMock,
+            return_value=mock_supabase_admin,
+        ):
+            response = client.get("/api/v1/admin/comments?search=x),y%_")
+
+        assert response.status_code == 200
+        mock_supabase_admin.or_.assert_called_once_with(
+            "content.ilike.%xy\\%\\_%,user_display_name.ilike.%xy\\%\\_%,user_username.ilike.%xy\\%\\_%"
+        )
+
 
 class TestAdminUserProfileUpdates:
     @pytest.fixture

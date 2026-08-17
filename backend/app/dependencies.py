@@ -81,7 +81,7 @@ def get_cat_detection_service(vision_service: GoogleVisionService = Depends(get_
     return CatDetectionService(vision_service=vision_service)
 
 
-async def get_auth_service(
+def get_auth_service(
     db: AsyncSession = Depends(get_db),
     supabase_client: AClient = Depends(get_async_supabase_client),
     supabase_admin: AClient = Depends(get_async_supabase_admin_client),
@@ -95,7 +95,7 @@ async def get_auth_service(
     )
 
 
-async def get_gallery_service(
+def get_gallery_service(
     db: AsyncSession = Depends(get_db),
     supabase_client: AClient = Depends(get_async_supabase_client),
 ) -> GalleryService:
@@ -104,7 +104,7 @@ async def get_gallery_service(
     return GalleryService(supabase_client, db=db)
 
 
-async def get_admin_gallery_service(
+def get_admin_gallery_service(
     db: AsyncSession = Depends(get_db),
     supabase_admin: AClient = Depends(get_async_supabase_admin_client),
 ) -> GalleryService:
@@ -121,7 +121,7 @@ def get_current_token(authorization: str | None = Header(None)) -> str | None:
     return extract_bearer_token(authorization)
 
 
-async def get_current_admin_user(user: User = Depends(get_current_user)) -> User:
+def get_current_admin_user(user: User = Depends(get_current_user)) -> User:
     """
     Dependency to check if current user is an admin.
     Now correctly uses the validated User object which checks for bans.
@@ -151,7 +151,7 @@ async def get_quota_service(db: AsyncSession = Depends(get_db)) -> QuotaService:
     return QuotaService(await get_async_supabase_admin_client(), db=db)
 
 
-async def get_social_service(
+def get_social_service(
     db: AsyncSession = Depends(get_db),
     supabase_admin: AClient = Depends(get_async_supabase_admin_client),
 ) -> SocialService:
@@ -160,7 +160,7 @@ async def get_social_service(
     return SocialService(supabase_admin, db=db)
 
 
-async def get_subscription_service(
+def get_subscription_service(
     db: AsyncSession = Depends(get_db),
     supabase_client: AClient = Depends(get_async_supabase_admin_client),
 ) -> SubscriptionService:
@@ -175,7 +175,7 @@ async def get_treats_service(db: AsyncSession = Depends(get_db)) -> TreatsServic
     return TreatsService(await get_async_supabase_admin_client(), db=db)
 
 
-async def get_report_service(
+def get_report_service(
     db: AsyncSession = Depends(get_db),
     supabase_admin: AClient = Depends(get_async_supabase_admin_client),
 ) -> ReportService:
@@ -184,7 +184,7 @@ async def get_report_service(
     return ReportService(supabase_admin, db=db)
 
 
-async def get_seo_service(
+def get_seo_service(
     db: AsyncSession = Depends(get_db),
     supabase_client: AClient = Depends(get_async_supabase_client),
 ) -> SeoService:

@@ -78,10 +78,15 @@ def mock_auth_service(app):
 @pytest.fixture
 def mock_limiter():
     """Mock rate limiter to avoid rate limit issues in tests"""
-    with patch("app.routes.auth.auth_limiter") as mock1, patch("app.routes.auth.forgot_password_limiter") as mock2:
+    with (
+        patch("app.routes.auth.auth_limiter") as mock1,
+        patch("app.routes.auth.forgot_password_limiter") as mock2,
+        patch("app.routes.auth.refresh_token_limiter") as mock3,
+    ):
         mock1.limit = lambda x: lambda f: f
         mock2.limit = lambda x: lambda f: f
-        yield mock1, mock2
+        mock3.limit = lambda x: lambda f: f
+        yield mock1, mock2, mock3
 
 
 class TestRegisterEndpoint:
@@ -130,7 +135,7 @@ class TestRegisterEndpoint:
             "/api/v1/auth/register",
             json={
                 "email": "test@example.com",
-                "password": "short",  # nosonar - intentionally invalid test input
+                "password": "short",  # pragma: allowlist secret
                 "name": "Test User",
             },
         )
@@ -144,7 +149,7 @@ class TestRegisterEndpoint:
             "/api/v1/auth/register",
             json={
                 "email": "unique_no_number@example.com",
-                "password": "longpasswordwithoutnumbers",  # nosonar - test fixture, 8+ chars, no numbers
+                "password": "longpasswordwithoutnumbers",  # pragma: allowlist secret
                 "name": "Test User",
             },
         )
@@ -230,7 +235,7 @@ class TestLoginEndpoint:
 
         response = await client.post(
             "/api/v1/auth/login",
-            json={"email": "test@example.com", "password": "wrongpassword"},
+            json={"email": "test@example.com", "password": "wrongpassword"},  # pragma: allowlist secret
         )
 
         assert response.status_code == 401
@@ -240,7 +245,7 @@ class TestLoginEndpoint:
         """Test login fails with invalid email format"""
         response = await client.post(
             "/api/v1/auth/login",
-            json={"email": "not-an-email", "password": "somepassword"},
+            json={"email": "not-an-email", "password": "somepassword"},  # pragma: allowlist secret
         )
 
         assert response.status_code == 422  # Validation error
@@ -407,7 +412,7 @@ class TestResetPasswordEndpoint:
 
         response = await client.post(
             "/api/v1/auth/reset-password",
-            json={"token": "valid-reset-token", "new_password": "newpassword123"},  # nosonar - test fixture
+            json={"token": "valid-reset-token", "new_password": "newpassword123"},  # pragma: allowlist secret
         )
 
         if response.status_code == 200:
@@ -421,7 +426,7 @@ class TestResetPasswordEndpoint:
 
         response = await client.post(
             "/api/v1/auth/reset-password",
-            json={"token": "invalid-token", "new_password": "newpassword123"},  # nosonar - test fixture
+            json={"token": "invalid-token", "new_password": "newpassword123"},  # pragma: allowlist secret
         )
 
         # If mock is active, should return 400; if not, may return 200

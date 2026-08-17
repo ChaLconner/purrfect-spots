@@ -5,6 +5,7 @@
     >
       <template #actions>
         <button
+type="button"
           class="px-4 py-2 bg-white border border-sand-300 text-brown-600 rounded-lg hover:bg-sand-50 transition-colors text-sm font-medium flex items-center gap-2 shadow-sm"
           @click="exportReports"
         >
@@ -30,7 +31,11 @@
     <div class="overflow-hidden border border-sand-200/95 rounded-xl bg-white shadow-sm">
       <div class="p-4 border-b border-sand-200 bg-sand-50/50 flex flex-wrap gap-4 items-center justify-between">
         <div class="flex flex-wrap gap-2 items-center">
+          <label for="reports-status-filter" class="sr-only">
+            {{ t('admin.reports.table.status') }}
+          </label>
           <select
+          id="reports-status-filter"
           v-model="statusFilter"
           class="px-3 py-2 border border-sand-300 rounded-lg bg-white text-brown-700 text-sm"
           @change="loadReports(1)"
@@ -40,7 +45,11 @@
           <option value="resolved">{{ t('admin.reports.filters.resolved') }}</option>
           <option value="dismissed">{{ t('admin.reports.filters.dismissed') }}</option>
         </select>
+        <label for="reports-reason-filter" class="sr-only">
+          {{ t('admin.comments.reason') }}
+        </label>
         <select
+          id="reports-reason-filter"
           v-model="reasonFilter"
           class="px-3 py-2 border border-sand-300 rounded-lg bg-white text-brown-700 text-sm"
           @change="loadReports(1)"
@@ -51,14 +60,22 @@
           </option>
         </select>
         <div class="flex items-center gap-2">
+          <label for="reports-start-date" class="sr-only">
+            {{ t('admin.reports.filters.startDate') }}
+          </label>
           <input
+            id="reports-start-date"
             v-model="startDate"
             type="date"
             class="px-3 py-2 border border-sand-300 rounded-lg bg-white text-brown-700 text-sm"
             @change="loadReports(1)"
           />
           <span class="text-brown-400">-</span>
+          <label for="reports-end-date" class="sr-only">
+            {{ t('admin.reports.filters.endDate') }}
+          </label>
           <input
+            id="reports-end-date"
             v-model="endDate"
             type="date"
             class="px-3 py-2 border border-sand-300 rounded-lg bg-white text-brown-700 text-sm"
@@ -73,12 +90,14 @@
             {{ t('admin.reports.selectedCount', { count: selectedReportIds.length }) }}
           </span>
           <button
+type="button"
             class="px-2 py-1 border border-terracotta-200 rounded bg-white text-terracotta-700 text-xs font-medium hover:bg-terracotta-100"
             @click="openBulkActionModal('resolve')"
           >
             {{ t('admin.reports.actions.resolve') }}
           </button>
           <button
+type="button"
             class="px-2 py-1 border border-terracotta-200 rounded bg-white text-terracotta-700 text-xs font-medium hover:bg-terracotta-100"
             @click="openBulkActionModal('dismiss')"
           >
@@ -97,7 +116,9 @@
         <thead class="bg-sand-50/50">
           <tr>
             <th class="px-6 py-4 w-10">
+              <label for="reports-select-all" class="sr-only">{{ t('common.selectAll') }}</label>
               <input
+                id="reports-select-all"
                 type="checkbox"
                 class="w-4 h-4 rounded border-sand-300 text-terracotta-600 focus:ring-terracotta-500/20 transition-all cursor-pointer"
                 :checked="isAllSelected"
@@ -145,7 +166,11 @@
         <tbody class="bg-white divide-y divide-sand-200">
           <tr v-for="report in reports" :key="report.id" class="hover:bg-sand-50 transition-colors">
             <td class="px-6 py-3 w-10">
+              <label :for="`report-${report.id}`" class="sr-only">
+                {{ t('admin.reports.table.subject') }} {{ report.id }}
+              </label>
               <input
+                :id="`report-${report.id}`"
                 type="checkbox"
                 class="rounded border-sand-300 text-terracotta-600 focus:ring-terracotta-500"
                 :checked="selectedReportIds.includes(report.id)"
@@ -230,6 +255,7 @@
                 class="flex justify-end gap-2"
               >
                 <button
+type="button"
                   class="text-green-600 hover:text-green-900"
                   :title="t('admin.reports.actions.resolve')"
                   @click="openActionModal(report, 'resolve')"
@@ -237,6 +263,7 @@
                   {{ t('admin.reports.actions.resolve') }}
                 </button>
                 <button
+type="button"
                   class="text-gray-600 hover:text-gray-900"
                   :title="t('admin.reports.actions.dismiss')"
                   @click="openActionModal(report, 'dismiss')"
@@ -244,6 +271,7 @@
                   {{ t('admin.reports.actions.dismiss') }}
                 </button>
                 <button
+type="button"
                   class="text-red-600 hover:text-red-900 ml-2"
                   :title="t('admin.reports.actions.delete')"
                   @click="openActionModal(report, 'delete')"
@@ -292,6 +320,7 @@
           :lazy="false"
         />
         <button
+type="button"
           class="absolute -top-4 -right-4 bg-white text-black rounded-full p-1 hover:text-gray-300 shadow-lg"
           @click.stop="previewImageUrl = null"
         >
@@ -407,6 +436,8 @@ interface Report {
   };
 }
 
+type ReportAction = 'resolve' | 'dismiss' | 'delete';
+
 const statusFilter = ref('');
 const reasonFilter = ref('');
 const startDate = ref('');
@@ -435,7 +466,7 @@ const {
     r.reason,
     r.status,
     r.reporter?.email || t('profile.unknownUser'),
-    `"${(r.details || '').replace(/"/g, '""')}"`,
+    `"${(r.details || '').replaceAll('"', '""')}"`,
     r.photo?.image_url || '',
   ],
   limit: 50,
@@ -463,7 +494,7 @@ const exportReports = (): void => {
 // Action Modal State
 const isBulkAction = ref(false);
 const selectedReport = ref<Report | null>(null);
-const actionType = ref<'resolve' | 'dismiss' | 'delete'>('resolve');
+const actionType = ref<ReportAction>('resolve');
 const selectedReason = ref('');
 const resolutionNote = ref('');
 
@@ -477,7 +508,7 @@ const hasValidSelectedReason = computed(() =>
   filteredReasons.value.some((reason) => reason.value === selectedReason.value)
 );
 
-const openActionModal = (report: Report, type: 'resolve' | 'dismiss' | 'delete'): void => {
+const openActionModal = (report: Report, type: ReportAction): void => {
   if (!canManageReports.value) return;
   selectedReport.value = report;
   isBulkAction.value = false;
@@ -486,7 +517,7 @@ const openActionModal = (report: Report, type: 'resolve' | 'dismiss' | 'delete')
   resolutionNote.value = '';
 };
 
-const openBulkActionModal = (type: 'resolve' | 'dismiss' | 'delete'): void => {
+const openBulkActionModal = (type: ReportAction): void => {
   if (!canManageReports.value || selectedReportIds.value.length === 0) return;
   selectedReport.value = reports.value.find((r) => r.id === selectedReportIds.value[0]) || null;
   isBulkAction.value = true;

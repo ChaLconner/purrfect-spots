@@ -1084,6 +1084,7 @@
         "resolved": "Resolved",
         "dismissed": "Dismissed",
         "allReasons": "All Reasons",
+        "startDate": "Start Date",
         "endDate": "End Date"
       },
       "reasons": {

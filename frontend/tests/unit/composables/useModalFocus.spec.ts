@@ -143,8 +143,7 @@ describe('useModalFocus', () => {
     const { trapFocus } = useModalFocus(modalRef, { onClose: () => {} });
 
     const event = new KeyboardEvent('keydown', { key: 'Tab' });
-    trapFocus(event);
-    // Should not throw
+    expect(() => trapFocus(event)).not.toThrow();
   });
 
   it('handles null modalContainer', () => {
@@ -152,7 +151,6 @@ describe('useModalFocus', () => {
     const { trapFocus } = useModalFocus(modalRef, { onClose: () => {} });
 
     const event = new KeyboardEvent('keydown', { key: 'Tab' });
-    trapFocus(event);
-    // Should not throw
+    expect(() => trapFocus(event)).not.toThrow();
   });
 });

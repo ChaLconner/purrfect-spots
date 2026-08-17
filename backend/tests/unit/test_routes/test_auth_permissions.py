@@ -11,8 +11,7 @@ from app.middleware.auth_middleware import require_permission
 from app.schemas.user import User
 
 
-@pytest.mark.asyncio
-async def test_require_permission_direct_success():
+def test_require_permission_direct_success():
     """Test user has direct permission"""
     # User(id=..., email=..., name=...) are required
     user = User(id="123", email="test@example.com", name="Test User", permissions=["content:write"], role="user")
@@ -22,48 +21,44 @@ async def test_require_permission_direct_success():
     mock_request = MagicMock()
     mock_request.url.path = "/test"
 
-    result = await checker(request=mock_request, user=user)
+    result = checker(request=mock_request, user=user)
     assert result == user
 
 
-@pytest.mark.asyncio
-async def test_require_permission_admin_bypass():
+def test_require_permission_admin_bypass():
     """Test admin role bypasses permission check"""
     user = User(id="123", email="admin@example.com", name="Admin User", permissions=[], role="admin")
 
     checker = require_permission("content:write")
     mock_request = MagicMock()
     mock_request.url.path = "/test"
-    result = await checker(request=mock_request, user=user)
+    result = checker(request=mock_request, user=user)
     assert result == user
 
 
-@pytest.mark.asyncio
-async def test_require_permission_super_admin_bypass():
+def test_require_permission_super_admin_bypass():
     """Test super_admin role bypasses permission check"""
     user = User(id="123", email="super@example.com", name="Super Admin", permissions=[], role="super_admin")
 
     checker = require_permission("content:write")
     mock_request = MagicMock()
     mock_request.url.path = "/test"
-    result = await checker(request=mock_request, user=user)
+    result = checker(request=mock_request, user=user)
     assert result == user
 
 
-@pytest.mark.asyncio
-async def test_require_permission_legacy_superadmin_role_bypass():
+def test_require_permission_legacy_superadmin_role_bypass():
     """Legacy superadmin role alias should bypass permission checks."""
     user = User(id="123", email="super@example.com", name="Super Admin", permissions=[], role="superadmin")
 
     checker = require_permission("content:write")
     mock_request = MagicMock()
     mock_request.url.path = "/test"
-    result = await checker(request=mock_request, user=user)
+    result = checker(request=mock_request, user=user)
     assert result == user
 
 
-@pytest.mark.asyncio
-async def test_require_permission_fail():
+def test_require_permission_fail():
     """Test failure when no permission and not admin"""
     user = User(id="123", email="user@example.com", name="Normal User", permissions=["other:permission"], role="user")
 
@@ -71,12 +66,11 @@ async def test_require_permission_fail():
     mock_request = MagicMock()
     mock_request.url.path = "/test"
     with pytest.raises(HTTPException) as exc:
-        await checker(request=mock_request, user=user)
+        checker(request=mock_request, user=user)
     assert exc.value.status_code == 403
 
 
-@pytest.mark.asyncio
-async def test_require_permission_legacy_permission_alias_succeeds():
+def test_require_permission_legacy_permission_alias_succeeds():
     """Legacy permission codes should be normalized during permission checks."""
     user = User(id="123", email="legacy@example.com", name="Legacy User", permissions=["system:config"], role="user")
 
@@ -84,12 +78,11 @@ async def test_require_permission_legacy_permission_alias_succeeds():
     mock_request = MagicMock()
     mock_request.url.path = "/test"
 
-    result = await checker(request=mock_request, user=user)
+    result = checker(request=mock_request, user=user)
     assert result == user
 
 
-@pytest.mark.asyncio
-async def test_require_permission_legacy_admin_alias_bypasses():
+def test_require_permission_legacy_admin_alias_bypasses():
     """Legacy admin permission alias should still grant admin bypass."""
     user = User(
         id="123",
@@ -103,5 +96,5 @@ async def test_require_permission_legacy_admin_alias_bypasses():
     mock_request = MagicMock()
     mock_request.url.path = "/test"
 
-    result = await checker(request=mock_request, user=user)
+    result = checker(request=mock_request, user=user)
     assert result == user

@@ -10,6 +10,7 @@
         </div>
         <div class="flex flex-col items-end gap-3">
           <button
+type="button"
             class="flex items-center gap-2 px-5 py-2.5 text-[10px] font-bold text-terracotta-600 bg-white border-2 border-terracotta-100 rounded-xl shadow-sm uppercase tracking-widest"
             :disabled="adminStore.isTrendsLoading"
             @click="adminStore.fetchTrends(true)"

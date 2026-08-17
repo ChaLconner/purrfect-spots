@@ -28,6 +28,7 @@ const currentLabel = computed((): string => {
 
 <template>
   <button
+type="button"
     class="group relative flex items-center gap-2 px-3 py-1.5 bg-[var(--color-btn-shade-e)] border-2 border-[var(--color-btn-shade-a)] rounded-2xl cursor-pointer min-h-[2.5rem] transition-all duration-[150ms] ease-out hover:bg-[var(--color-btn-shade-d)] hover:translate-y-[0.1rem] active:translate-y-[0.25rem] preserve-3d will-change-transform"
     :aria-label="$t('common.switchLanguage')"
     :aria-busy="isSwitching"

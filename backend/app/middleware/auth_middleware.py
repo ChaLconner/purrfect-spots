@@ -38,6 +38,18 @@ _jwks_state: dict[str, float] = {"last_update": 0.0}
 _jwks_lock = asyncio.Lock()
 JWKS_CACHE_TTL = 3600  # 1 hour
 _user_auth_refresh_tasks: dict[str, asyncio.Task[User]] = {}
+_background_user_auth_refresh_tasks: set[asyncio.Task[User]] = set()
+
+
+def _finish_background_user_auth_refresh(task: asyncio.Task[User]) -> None:
+    """Retain background refresh tasks until completion and consume failures."""
+    _background_user_auth_refresh_tasks.discard(task)
+    if task.cancelled():
+        return
+    try:
+        task.result()
+    except Exception:
+        logger.warning("Background user auth cache refresh failed", exc_info=True)
 
 
 def get_user_auth_cache_key(user_id: str) -> str:
@@ -178,7 +190,7 @@ async def _is_token_revoked(jti: str) -> bool:
         return True
 
 
-async def _get_user_from_payload(payload: dict, source: str) -> User:
+async def _get_user_from_payload(payload: dict, _source: str) -> User:
     """Helper to convert JWT payload to User object"""
     user_id = payload.get("sub") or payload.get("user_id")
     if not user_id:
@@ -211,7 +223,9 @@ async def _get_user_from_payload(payload: dict, source: str) -> User:
 
         # If we need refresh but have stale data, we return stale data immediately
         # and refresh in background to avoid blocking the request
-        asyncio.create_task(_refresh_user_auth_cache(user_id, cache_key, current_time))
+        refresh_task = asyncio.create_task(_refresh_user_auth_cache(user_id, cache_key, current_time))
+        _background_user_auth_refresh_tasks.add(refresh_task)
+        refresh_task.add_done_callback(_finish_background_user_auth_refresh)
         return _assert_user_not_banned(cached_user)
 
     # Cache miss - block and fetch
@@ -282,7 +296,7 @@ def require_permission(permission_code: str) -> Any:
     """Dependency factory to check for specific permission"""
     required_permission = normalize_permission_code(permission_code) or permission_code
 
-    async def permission_checker(request: Request, user: User = Depends(get_current_user)) -> User:
+    def permission_checker(request: Request, user: User = Depends(get_current_user)) -> User:
         user_permissions = set(normalize_permissions(user.permissions))
 
         # 1. Direct permission check

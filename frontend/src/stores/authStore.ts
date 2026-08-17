@@ -10,6 +10,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { User, LoginResponse } from '../types/auth';
 import { canAccessAdminShell, hasAdminBypass } from '../utils/adminAccess';
 import { normalizePermissions } from '../utils/permissionNormalization';
+import { sanitizeAvatarUrl } from '../utils/avatar';
 
 import { apiV1, setAccessToken, setAuthCallbacks } from '../utils/api';
 import { ProfileService } from '../services/profileService';
@@ -81,9 +82,7 @@ type SupabaseClient = typeof supabaseInstance;
 let supabaseClientPromise: Promise<SupabaseClient> | null = null;
 
 async function getSupabaseClient(): Promise<SupabaseClient> {
-  if (!supabaseClientPromise) {
-    supabaseClientPromise = import('../lib/supabase').then(({ supabase }) => supabase);
-  }
+  supabaseClientPromise ??= import('../lib/supabase').then(({ supabase }) => supabase);
 
   return supabaseClientPromise;
 }
@@ -125,7 +124,7 @@ export const useAuthStore = defineStore('auth', () => {
   });
 
   const userAvatar = computed(() => {
-    return user.value?.picture || '/default-avatar.svg';
+    return sanitizeAvatarUrl(user.value?.picture) || '/default-avatar.svg';
   });
 
   const isAdmin = computed(() => {
@@ -330,7 +329,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     // Check if we already have a channel for this user and it's active
     const channelName = `user_balance_${userId}`;
-    if (balanceChannel && balanceChannel.topic === `realtime:${channelName}`) {
+    if (balanceChannel?.topic === `realtime:${channelName}`) {
       // Already subscribed to the correct channel
       return;
     }

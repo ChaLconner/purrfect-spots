@@ -57,6 +57,35 @@ describe('Image Utils', () => {
           const result = getCDNUrl(url);
           expect(result).toBe(url);
       });
+
+      it('builds Supabase transformations for all configured dimensions', () => {
+          const result = getCDNUrl(
+            'https://project.supabase.co/storage/v1/object/public/cats/cat.jpg',
+            { maxWidth: 640, maxHeight: 480, quality: 70, format: 'jpeg' }
+          );
+          const url = new URL(result);
+
+          expect(url.searchParams.get('width')).toBe('640');
+          expect(url.searchParams.get('height')).toBe('480');
+          expect(url.searchParams.get('quality')).toBe('70');
+          expect(url.searchParams.get('format')).toBe('jpeg');
+          expect(url.searchParams.get('resize')).toBe('cover');
+      });
+
+      it('uses the resize proxy for external images', () => {
+          const result = getCDNUrl('https://images.example.com/cat.jpg', {
+            maxWidth: 320,
+            maxHeight: 240,
+            format: 'png',
+          });
+          const url = new URL(result);
+
+          expect(url.hostname).toBe('wsrv.nl');
+          expect(url.searchParams.get('w')).toBe('320');
+          expect(url.searchParams.get('h')).toBe('240');
+          expect(url.searchParams.get('q')).toBe('80');
+          expect(url.searchParams.get('output')).toBe('png');
+      });
   });
 
   describe('generateResponsiveSources', () => {

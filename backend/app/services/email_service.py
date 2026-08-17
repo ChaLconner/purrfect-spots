@@ -9,6 +9,7 @@ from app.logger import logger, sanitize_log_value
 
 WARN_SMTP_NOT_SET = "SMTP credentials not set. Skipping email send."
 DEBUG_SEPARATOR = "============================================"
+AUTOMATED_NOTIFICATION_FOOTER = "This is an automated notification."
 _email_executor = ThreadPoolExecutor(max_workers=5)
 
 
@@ -27,7 +28,7 @@ class EmailService:
         content_html: str,
         title_color: str = "#7FB7A4",
         border_color: str = "#eee",
-        footer_note: str = "This is an automated notification.",
+        footer_note: str = AUTOMATED_NOTIFICATION_FOOTER,
     ) -> str:
         """Construct a standardized HTML email template body."""
         return f"""
@@ -185,7 +186,7 @@ class EmailService:
                 <p>Please review our guidelines to ensure future posts comply with our community standards.</p>
             """,
             title_color="#f0ad4e",
-            footer_note="This is an automated notification.",
+            footer_note=AUTOMATED_NOTIFICATION_FOOTER,
         )
         return self._send_html_email(
             to_email, "Content Removal Notice - Purrfect Spots", body, "content removal notification"
@@ -203,7 +204,7 @@ class EmailService:
                 <p>All your data has been removed from our systems in accordance with our retention policy.</p>
             """,
             title_color="#666",
-            footer_note="This is an automated notification.",
+            footer_note=AUTOMATED_NOTIFICATION_FOOTER,
         )
         return self._send_html_email(
             to_email, "Account Deleted - Purrfect Spots", body, "account deletion notification"

@@ -19,6 +19,9 @@ from app.config import config
 from app.logger import logger
 from app.utils.auth_utils import decode_token, extract_bearer_token
 
+REDIS_TLS_SCHEME = "rediss://"
+IN_MEMORY_STORAGE_URI = "memory://"
+
 
 def get_redis_url() -> str | None:
     """
@@ -27,22 +30,23 @@ def get_redis_url() -> str | None:
     Returns:
         Redis URL if available and valid, None otherwise
     """
-    redis_url = config.REDIS_URL
+    redis_url = config.RATE_LIMIT_REDIS_URL
 
     if not redis_url:
         if config.is_production():
             logger.warning(
-                "REDIS_URL not configured - using in-memory rate limiting. "
+                "RATE_LIMIT_REDIS_URL not configured - using in-memory rate limiting. "
                 "This is not suitable for production with multiple server instances."
             )
         else:
-            logger.info("REDIS_URL not configured - using in-memory rate limiting (dev mode).")
+            logger.info("RATE_LIMIT_REDIS_URL not configured - using in-memory rate limiting (dev mode).")
         return None
 
     # Validate Redis URL format
-    if not redis_url.startswith(("redis://", "rediss://")):
+    if not redis_url.startswith(("redis://", REDIS_TLS_SCHEME)):
         logger.warning(
-            "Invalid REDIS_URL format: should start with redis:// or rediss://. Falling back to in-memory storage."
+            "Invalid RATE_LIMIT_REDIS_URL format: should start with redis:// or %s. Falling back to in-memory storage.",
+            REDIS_TLS_SCHEME,
         )
         return None
 
@@ -63,7 +67,7 @@ def test_redis_connection(redis_url: str) -> bool:
     try:
         import redis
 
-        if redis_url.startswith("rediss://"):
+        if redis_url.startswith(REDIS_TLS_SCHEME):
             client = redis.from_url(
                 redis_url,
                 socket_connect_timeout=10,
@@ -100,7 +104,7 @@ def get_storage_uri() -> str | None:
     redis_url = get_redis_url()
 
     if config.is_production() and not redis_url:
-        raise RuntimeError("REDIS_URL is required in production environment")
+        raise RuntimeError("RATE_LIMIT_REDIS_URL is required in production environment")
 
     # Do not block application import on a network round-trip. Redis storage
     # validates lazily on first rate-limited request; opt into startup probing
@@ -108,15 +112,15 @@ def get_storage_uri() -> str | None:
     if redis_url and os.getenv("RATE_LIMITER_STARTUP_PING", "false").lower() == "true":
         if test_redis_connection(redis_url):
             return redis_url
-        logger.warning("Redis startup probe failed; using in-memory rate limiting (memory://)")
-        return "memory://"
+        logger.warning("Redis startup probe failed; using in-memory rate limiting (%s)", IN_MEMORY_STORAGE_URI)
+        return IN_MEMORY_STORAGE_URI
 
     if redis_url:
         logger.info("Redis configured for rate limiting; startup probe skipped")
         return redis_url
 
-    logger.warning("Falling back to in-memory rate limiting (memory://)")
-    return "memory://"
+    logger.warning("Falling back to in-memory rate limiting (%s)", IN_MEMORY_STORAGE_URI)
+    return IN_MEMORY_STORAGE_URI
 
 
 def _decode_request_jwt(request: Request) -> dict[str, Any] | None:
@@ -211,14 +215,14 @@ except Exception as e:
     if config.is_production():
         raise
     logger.warning(f"Failed to initialize rate limit storage: {e} — falling back to in-memory")
-    _storage_uri = "memory://"
+    _storage_uri = IN_MEMORY_STORAGE_URI
 
 # ========== Rate Limiters ==========
 
 # Prepare storage options for Redis to handle timeouts and connection drops gracefully
 # This is especially important for Upstash which may close idle connections
 _storage_options = {}
-if _storage_uri and _storage_uri.startswith("rediss://"):
+if _storage_uri and _storage_uri.startswith(REDIS_TLS_SCHEME):
     _storage_options = {
         "socket_connect_timeout": 5,
         "socket_timeout": 5,
@@ -289,6 +293,17 @@ forgot_password_limiter = Limiter(
     in_memory_fallback_enabled=_allow_rate_limit_fallback,
 )
 
+# Refresh-token rotation is a separate abuse surface from login attempts.
+refresh_token_limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=[config.RATE_LIMIT_REFRESH_TOKEN],
+    storage_uri=_storage_uri,
+    storage_options=cast(Any, _storage_options),
+    strategy="fixed-window",
+    swallow_errors=_allow_rate_limit_fallback,
+    in_memory_fallback_enabled=_allow_rate_limit_fallback,
+)
+
 
 def get_rate_limit_info() -> dict:
     """
@@ -299,8 +314,8 @@ def get_rate_limit_info() -> dict:
         Dictionary with rate limiting configuration
     """
     return {
-        "storage_type": "redis" if _storage_uri and _storage_uri != "memory://" else "memory",
-        "redis_configured": bool(config.REDIS_URL),
+        "storage_type": "redis" if _storage_uri and _storage_uri != IN_MEMORY_STORAGE_URI else "memory",
+        "redis_configured": bool(config.RATE_LIMIT_REDIS_URL),
         "limits": {
             "default": config.RATE_LIMIT_API_DEFAULT,
             "strict_free": config.RATE_LIMIT_STRICT_FREE,
@@ -310,6 +325,7 @@ def get_rate_limit_info() -> dict:
             "api_free": config.RATE_LIMIT_API_FREE,
             "api_pro": config.RATE_LIMIT_API_PRO,
             "auth": config.RATE_LIMIT_AUTH,
+            "refresh_token": config.RATE_LIMIT_REFRESH_TOKEN,
             "forgot_password": config.RATE_LIMIT_FORGOT_PASSWORD,
         },
     }

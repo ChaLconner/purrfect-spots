@@ -23,6 +23,7 @@
 
     <!-- Retry Button -->
     <button
+type="button"
       class="group relative px-10 py-3.5 overflow-hidden bg-white/40 hover:bg-white/60 backdrop-blur-md border border-white/60 rounded-full transition-all duration-500 shadow-sm hover:shadow-lg hover:-translate-y-0.5 cursor-pointer z-10"
       @click="$emit('retry')"
     >

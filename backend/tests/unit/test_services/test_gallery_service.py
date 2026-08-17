@@ -8,6 +8,7 @@ import pytest
 from postgrest.types import CountMethod
 
 from app.services.gallery_service import GalleryService
+from app.utils.exceptions import ExternalServiceError
 
 
 @pytest.mark.asyncio
@@ -205,7 +206,7 @@ class TestGalleryService:
         # Fallback will also use .execute(), which raises Exception too (since we mocked the common method).
         # So eventually it should raise exception.
 
-        with pytest.raises(Exception) as excinfo:
+        with pytest.raises(ExternalServiceError) as excinfo:
             # Use unique parameters to ensure we don't hit a cached success from a previous test
             await gallery_service.get_all_photos(limit=99, offset=99)
 
@@ -218,11 +219,11 @@ class TestGalleryService:
         mock_response.count = 1
         mock_supabase.execute.return_value = mock_response
 
-        await gallery_service.get_all_photos(limit=11, offset=11)
+        result = await gallery_service.get_all_photos(limit=11, offset=11)
 
-        # Verify the call completes successfully
-        # Mocking issues prevent deep assertion here, but execution is verified
-        assert True
+        assert result["data"]
+        assert result["data"][0]["id"] == mock_cat_photo["id"]
+        assert result["total"] == 1
 
     async def test_get_all_photos_retries_count_with_head_only_query(
         self, gallery_service, mock_supabase, mock_cat_photo
@@ -259,7 +260,7 @@ class TestGalleryService:
         """Test error handling in search_photos"""
         mock_supabase.execute.side_effect = Exception("Database error")
 
-        with pytest.raises(Exception) as excinfo:
+        with pytest.raises(ExternalServiceError) as excinfo:
             # Force ILIKE search to test error handling
             await gallery_service.search_photos(query="test", use_fulltext=False)
 

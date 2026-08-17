@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 import supabase.lib.client_options
 from dotenv import load_dotenv
+from postgrest.exceptions import APIError
 from supabase import Client, create_client
 
 ClientOptions: Any = getattr(supabase.lib.client_options, "SyncClientOptions", None) or getattr(
@@ -65,7 +66,7 @@ class TestSocialLikesIntegration:
 
         # If no user, create one
         email = f"test_{uuid.uuid4()}@example.com"
-        password = "testpassword123"
+        password = "testpassword123"  # pragma: allowlist secret
         return supabase.auth.admin.create_user({"email": email, "password": password, "email_confirm": True})
 
     @pytest.fixture(scope="class")
@@ -166,10 +167,10 @@ class TestSocialLikesIntegration:
         fake_photo_id = str(uuid.uuid4())
 
         # Expect an error
-        with pytest.raises(Exception) as excinfo:
-            supabase.rpc("toggle_photo_like", {"p_user_id": user_id, "p_photo_id": fake_photo_id}).execute()
+        toggle_like = supabase.rpc("toggle_photo_like", {"p_user_id": user_id, "p_photo_id": fake_photo_id})
+        with pytest.raises(APIError) as excinfo:
+            toggle_like.execute()
 
-        # Supabase-py raises postgrest.exceptions.APIError, but generic Exception catch works
         assert "Photo not found" in str(excinfo.value) or "P0002" in str(excinfo.value), (
             f"Should raise Photo not found error, got: {str(excinfo.value)}"
         )

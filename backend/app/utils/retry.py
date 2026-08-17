@@ -12,7 +12,8 @@ logger = structlog.get_logger(__name__)
 T = TypeVar("T")
 
 
-async def retry_on_network_error(
+# Python 3.11 compatibility requires TypeVar syntax.
+async def retry_on_network_error(  # NOSONAR
     func: Callable[..., Coroutine[Any, Any, T]],
     *args: Any,
     max_retries: int = 3,
@@ -32,7 +33,8 @@ async def retry_on_network_error(
             is_db_conn_err = isinstance(e, OperationalError)
             is_busy_err = "Device or resource busy" in err_msg or "[Errno 16]" in err_msg
 
-            if (is_conn_err or is_db_conn_err or is_busy_err) and attempt < max_retries - 1:
+            is_retryable = is_conn_err or is_db_conn_err or is_busy_err
+            if is_retryable and attempt < max_retries - 1:
                 logger.warning(
                     "Network connection error, retrying call...",
                     error=err_msg,

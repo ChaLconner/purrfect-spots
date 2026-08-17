@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
 from sqlalchemy import text
 
@@ -134,129 +135,124 @@ class UserDeletionMixin(UserBaseMixin):
             logger.error("Failed to request account deletion: %s", e)
             raise PurrfectSpotsException("Failed to request account deletion")
 
+    async def _load_expired_deletion_requests(self) -> tuple[list[dict[str, Any]], str]:
+        now = datetime.now(UTC).isoformat()
+        if self.db:
+            result = await self.db.execute(
+                text(
+                    "SELECT user_id, id FROM account_deletion_requests "
+                    "WHERE status = 'pending' AND scheduled_deletion_at <= :now"
+                ),
+                {"now": now},
+            )
+            return [dict(row._mapping) for row in result], now
+
+        admin = await self._get_admin_client()
+        expired_reqs = (
+            await admin.table("account_deletion_requests")
+            .select("user_id, id")
+            .eq("status", "pending")
+            .lte("scheduled_deletion_at", now)
+            .execute()
+        )
+        return cast(list[dict[str, Any]], expired_reqs.data or []), now
+
+    async def _claim_deletion_request(self, admin: Any, request: dict[str, Any], now: str) -> dict[str, Any] | None:
+        req_id = request["id"]
+        if self.db:
+            claim_result = await self.db.execute(
+                text(
+                    "UPDATE account_deletion_requests "
+                    "SET status = 'processing' "
+                    "WHERE id = :id AND status = 'pending' "
+                    "AND scheduled_deletion_at <= :now "
+                    "RETURNING user_id, id"
+                ),
+                {"id": req_id, "now": now},
+            )
+            claimed = claim_result.fetchone()
+            if not claimed:
+                return None
+            await self.db.commit()
+            return dict(claimed._mapping)
+
+        claim_response = (
+            await admin.table("account_deletion_requests")
+            .update({"status": "processing"})
+            .eq("id", req_id)
+            .eq("status", "pending")
+            .lte("scheduled_deletion_at", now)
+            .select("user_id, id")
+            .execute()
+        )
+        claimed_rows = cast(list[dict[str, Any]], claim_response.data or [])
+        return {**request, **claimed_rows[0]} if claimed_rows else None
+
+    async def _mark_hard_delete_completed(self, admin: Any, req_id: Any, user_id: str) -> None:
+        if self.db:
+            await self.db.execute(
+                text("UPDATE account_deletion_requests SET status = 'completed' WHERE id = :id"),
+                {"id": req_id},
+            )
+            await self._log_audit_event("ACCOUNT_HARD_DELETED", user_id)
+            await self.db.commit()
+            return
+
+        await admin.table("account_deletion_requests").update({"status": "completed"}).eq("id", req_id).execute()
+        await self._log_audit_event("ACCOUNT_HARD_DELETED", user_id)
+
+    async def _rollback_hard_delete_claim(self, req_id: Any, admin: Any) -> None:
+        if self.db:
+            await self.db.rollback()
+            await self.db.execute(
+                text(
+                    "UPDATE account_deletion_requests SET status = 'pending' WHERE id = :id AND status = 'processing'"
+                ),
+                {"id": req_id},
+            )
+            await self.db.commit()
+            return
+
+        rollback_query = admin.table("account_deletion_requests").update({"status": "pending"})
+        await rollback_query.eq("id", req_id).eq("status", "processing").execute()
+
+    async def _process_hard_delete_request(self, admin: Any, request: dict[str, Any]) -> bool:
+        req_id = request["id"]
+        user_id = request["user_id"]
+        try:
+            user_row = (
+                await admin.table("users").select("stripe_customer_id").eq("id", user_id).maybe_single().execute()
+            )
+            user_data = user_row.data if user_row else None
+            customer_id = user_data.get("stripe_customer_id") if isinstance(user_data, dict) else None
+            if isinstance(customer_id, str) and customer_id:
+                await cancel_customer_subscriptions(customer_id)
+            await admin.auth.admin.delete_user(user_id)
+            await self._mark_hard_delete_completed(admin, req_id, user_id)
+            logger.info("account_hard_deleted", extra={"user_id": user_id})
+            return True
+        except Exception as e:
+            await self._rollback_hard_delete_claim(req_id, admin)
+            logger.error("account_hard_delete_failed", extra={"user_id": user_id, "error": str(e)})
+            return False
+
     async def execute_hard_delete(self) -> dict[str, int]:
         """Permanently delete expired accounts with an atomic processing claim."""
         result_counts = {"completed": 0, "failed": 0, "skipped": 0}
         try:
-            from typing import Any, cast
-
-            data: list[dict[str, Any]] = []
-            if self.db:
-                now = datetime.now(UTC).isoformat()
-                query = text(
-                    "SELECT user_id, id FROM account_deletion_requests WHERE status = 'pending' AND scheduled_deletion_at <= :now"
-                )
-                result = await self.db.execute(query, {"now": now})
-                data = [dict(row._mapping) for row in result]
-            else:
-                admin = await self._get_admin_client()
-                now = datetime.now(UTC).isoformat()
-                expired_reqs = (
-                    await admin.table("account_deletion_requests")
-                    .select("user_id, id")
-                    .eq("status", "pending")
-                    .lte("scheduled_deletion_at", now)
-                    .execute()
-                )
-                data = cast(list[dict[str, Any]], expired_reqs.data or [])
-
+            data, now = await self._load_expired_deletion_requests()
             if not data:
                 return result_counts
-
             admin = await self._get_admin_client()
-            for req in data:
-                req_id = req["id"]
-
-                # Claim the request before calling the external auth API. This
-                # prevents cancellation or a second worker from racing the
-                # destructive delete after the request was selected.
-                if self.db:
-                    claim_result = await self.db.execute(
-                        text(
-                            "UPDATE account_deletion_requests "
-                            "SET status = 'processing' "
-                            "WHERE id = :id AND status = 'pending' "
-                            "AND scheduled_deletion_at <= :now "
-                            "RETURNING user_id, id"
-                        ),
-                        {"id": req_id, "now": now},
-                    )
-                    claimed = claim_result.fetchone()
-                    if not claimed:
-                        result_counts["skipped"] += 1
-                        continue
-                    req = dict(claimed._mapping)
-                    await self.db.commit()
-                else:
-                    claim_response = (
-                        await admin.table("account_deletion_requests")
-                        .update({"status": "processing"})
-                        .eq("id", req_id)
-                        .eq("status", "pending")
-                        .lte("scheduled_deletion_at", now)
-                        .select("user_id, id")
-                        .execute()
-                    )
-                    claimed_rows = cast(list[dict[str, Any]], claim_response.data or [])
-                    if not claimed_rows:
-                        result_counts["skipped"] += 1
-                        continue
-                    req = {**req, **claimed_rows[0]}
-
-                user_id = req["user_id"]
-                try:
-                    user_row = (
-                        await admin.table("users")
-                        .select("stripe_customer_id")
-                        .eq("id", user_id)
-                        .maybe_single()
-                        .execute()
-                    )
-                    user_data = user_row.data if user_row else None
-                    customer_id = user_data.get("stripe_customer_id") if isinstance(user_data, dict) else None
-                    if isinstance(customer_id, str) and customer_id:
-                        await cancel_customer_subscriptions(customer_id)
-                    await admin.auth.admin.delete_user(user_id)
-
-                    if self.db:
-                        await self.db.execute(
-                            text("UPDATE account_deletion_requests SET status = 'completed' WHERE id = :id"),
-                            {"id": req_id},
-                        )
-                        await self._log_audit_event("ACCOUNT_HARD_DELETED", user_id)
-                        await self.db.commit()
-                    else:
-                        await (
-                            admin.table("account_deletion_requests")
-                            .update({"status": "completed"})
-                            .eq("id", req_id)
-                            .execute()
-                        )
-                        await self._log_audit_event("ACCOUNT_HARD_DELETED", user_id)
-
-                    logger.info("account_hard_deleted", extra={"user_id": user_id})
+            for request in data:
+                claimed = await self._claim_deletion_request(admin, request, now)
+                if not claimed:
+                    result_counts["skipped"] += 1
+                    continue
+                if await self._process_hard_delete_request(admin, claimed):
                     result_counts["completed"] += 1
-                except Exception as e:
-                    if self.db:
-                        await self.db.rollback()
-                        await self.db.execute(
-                            text(
-                                "UPDATE account_deletion_requests SET status = 'pending' "
-                                "WHERE id = :id AND status = 'processing'"
-                            ),
-                            {"id": req_id},
-                        )
-                        await self.db.commit()
-                    else:
-                        await (
-                            admin.table("account_deletion_requests")
-                            .update({"status": "pending"})
-                            .eq("id", req_id)
-                            .eq("status", "processing")
-                            .execute()
-                        )
+                else:
                     result_counts["failed"] += 1
-                    logger.error("account_hard_delete_failed", extra={"user_id": user_id, "error": str(e)})
         except Exception as e:
             logger.error("Failed to run execute_hard_delete: %s", e)
             result_counts["failed"] += 1

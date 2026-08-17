@@ -10,18 +10,12 @@ const props = defineProps<{
 const baseClasses = 'transition-all duration-300 rounded-3xl overflow-hidden';
 
 const variantClasses = computed(() => {
-  switch (props.variant) {
-    case 'glass':
-      return 'backdrop-blur-md bg-white/70 border border-white/50 shadow-card';
-    case 'white':
-      return 'bg-white shadow-lg border border-stone-100';
-    case 'image':
-      return 'bg-white/40 backdrop-blur-xl border border-white/60 shadow-sm transition-all duration-500 ease-out';
-    case 'flat':
-      return 'bg-cream-light border border-cream-dark/50';
-    default:
-      return 'backdrop-blur-md bg-white/70 border border-white/50 shadow-card';
+  if (props.variant === 'white') return 'bg-white shadow-lg border border-stone-100';
+  if (props.variant === 'image') {
+    return 'bg-white/40 backdrop-blur-xl border border-white/60 shadow-sm transition-all duration-500 ease-out';
   }
+  if (props.variant === 'flat') return 'bg-cream-light border border-cream-dark/50';
+  return 'backdrop-blur-md bg-white/70 border border-white/50 shadow-card';
 });
 
 const paddingClasses = computed(() => {
@@ -39,12 +33,10 @@ const paddingClasses = computed(() => {
 
 const hoverClasses = computed(() => {
   if (!props.hover) return '';
-  switch (props.variant) {
-    case 'image':
-      return 'hover:scale-[1.02] hover:shadow-lg hover:bg-white/50 hover:border-white/80 cursor-pointer';
-    default:
-      return 'hover:scale-[1.02] hover:shadow-xl cursor-pointer';
+  if (props.variant === 'image') {
+    return 'hover:scale-[1.02] hover:shadow-lg hover:bg-white/50 hover:border-white/80 cursor-pointer';
   }
+  return 'hover:scale-[1.02] hover:shadow-xl cursor-pointer';
 });
 
 const classes = computed(() => {

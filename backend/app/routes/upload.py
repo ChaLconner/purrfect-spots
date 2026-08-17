@@ -3,12 +3,14 @@ Upload routes for cat photo uploads with location information
 Enhanced with security features: rate limiting, input sanitization, security logging
 """
 
+import inspect
 import json
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
@@ -24,7 +26,7 @@ from app.schemas.gallery import UploadQuotaResponse
 from app.schemas.user import User
 from app.services.cat_detection_service import CatDetectionService
 from app.services.gallery_service import GalleryService
-from app.services.quota_service import QuotaService
+from app.services.quota_service import QuotaService, QuotaServiceUnavailable
 from app.services.redis_service import RedisLockError, redis_service
 from app.services.storage_service import StorageService
 from app.utils import cache as cache_utils
@@ -38,6 +40,54 @@ from app.utils.security import (
 from app.utils.upload_verification import verify_upload_verification_token
 
 router = APIRouter(prefix="/upload", tags=["Upload"])
+
+UPLOAD_QUOTA_UNAVAILABLE = "Upload quota service unavailable"
+UPLOAD_LIMIT_REACHED = "Daily upload limit reached. Upgrade to Pro for more uploads."
+UPLOAD_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
+    400: {"description": "Invalid upload data or no cats detected"},
+    429: {"description": "Daily upload limit reached"},
+    500: {"description": "Internal Server Error"},
+    503: {"description": "Upload quota or verification service unavailable"},
+}
+
+
+@dataclass(frozen=True)
+class UploadFormData:
+    file: UploadFile
+    lat: str
+    lng: str
+    location_name: str
+    description: str | None
+    tags: str | None
+    cat_detection_data: str | None
+    verification_token: str | None
+    location_blurred: str
+
+
+def _get_upload_form_data(
+    file: Annotated[UploadFile, File(...)],
+    lat: Annotated[str, Form(...)],
+    lng: Annotated[str, Form(...)],
+    location_name: Annotated[str, Form(...)],
+    description: Annotated[str | None, Form()] = "",
+    tags: Annotated[str | None, Form()] = None,
+    cat_detection_data: Annotated[str | None, Form()] = None,
+    verification_token: Annotated[str | None, Form()] = None,
+    location_blurred: Annotated[str, Form()] = "false",
+) -> UploadFormData:
+    """Collect multipart upload fields without expanding the route signature."""
+    return UploadFormData(
+        file=file,
+        lat=lat,
+        lng=lng,
+        location_name=location_name,
+        description=description,
+        tags=tags,
+        cat_detection_data=cat_detection_data,
+        verification_token=verification_token,
+        location_blurred=location_blurred,
+    )
+
 
 # Compatibility exports for integrations that patch the legacy invalidation
 # tasks. Uploads now use one coalesced invalidation task below.
@@ -175,7 +225,7 @@ async def _upload_quota_lock(user_id: str) -> AsyncIterator[None]:
             yield
     except RedisLockError as lock_error:
         logger.error("Upload quota lock unavailable for %s: %s", user_id, lock_error)
-        raise HTTPException(status_code=503, detail="Upload quota service unavailable") from lock_error
+        raise HTTPException(status_code=503, detail=UPLOAD_QUOTA_UNAVAILABLE) from lock_error
 
 
 async def _ensure_upload_quota(quota_service: QuotaService, user_id: str, is_pro: bool) -> None:
@@ -185,19 +235,212 @@ async def _ensure_upload_quota(quota_service: QuotaService, user_id: str, is_pro
 
     if not allowed:
         log_security_event("quota_exceeded", user_id=user_id, severity="WARNING")
-        raise HTTPException(status_code=429, detail="Daily upload limit reached. Upgrade to Pro for more uploads.")
+        raise HTTPException(status_code=429, detail=UPLOAD_LIMIT_REACHED)
 
 
-@router.get("/quota", response_model=UploadQuotaResponse)
+async def _reserve_or_check_upload_quota(
+    quota_service: QuotaService, user_id: str, is_pro: bool
+) -> tuple[str | None, bool]:
+    """Use atomic DB reservations, retaining a compatibility path for legacy test doubles."""
+    reserve_method = getattr(quota_service, "reserve_upload_quota", None)
+    if callable(reserve_method):
+        result = reserve_method(user_id, is_pro)
+        if inspect.isawaitable(result):
+            try:
+                reservation_id = await result
+            except QuotaServiceUnavailable as exc:
+                raise HTTPException(status_code=503, detail=UPLOAD_QUOTA_UNAVAILABLE) from exc
+            if not reservation_id:
+                log_security_event("quota_exceeded", user_id=user_id, severity="WARNING")
+                raise HTTPException(
+                    status_code=429,
+                    detail=UPLOAD_LIMIT_REACHED,
+                )
+            return str(reservation_id), True
+
+    # Older integrations may provide only check_quota/increment_usage. Keep
+    # them safe and compatible until they adopt the reservation contract.
+    await _ensure_upload_quota(quota_service, user_id, is_pro)
+    return None, False
+
+
+@router.get("/quota")
 async def get_upload_quota(
-    current_user: User = Depends(get_current_user),
-    quota_service: QuotaService = Depends(get_quota_service),
+    current_user: Annotated[User, Depends(get_current_user)],
+    quota_service: Annotated[QuotaService, Depends(get_quota_service)],
 ) -> UploadQuotaResponse:
     """Get current user upload quota status."""
     return await quota_service.get_user_quota_status(str(current_user.id), current_user.is_pro)
 
 
-@router.post("/cat")
+@dataclass(frozen=True)
+class PreparedUploadData:
+    latitude: float
+    longitude: float
+    location_name: str
+    description: str
+    tags: list[str]
+    location_blurred: bool
+
+
+def _prepare_upload_data(form_data: UploadFormData) -> PreparedUploadData:
+    latitude, longitude = validate_coordinates(form_data.lat, form_data.lng)
+    cleaned_location_name, cleaned_description = validate_location_data(form_data.location_name, form_data.description)
+    parsed_tags = parse_and_sanitize_tags(form_data.tags)
+    if parsed_tags:
+        cleaned_description = format_tags_for_description(parsed_tags, cleaned_description)
+    return PreparedUploadData(
+        latitude=latitude,
+        longitude=longitude,
+        location_name=cleaned_location_name,
+        description=cleaned_description,
+        tags=parsed_tags,
+        location_blurred=str(form_data.location_blurred).lower() in ["true", "1", "yes"],
+    )
+
+
+def _parse_client_detection_data(cat_detection_data: str | None) -> dict | None:
+    if not cat_detection_data:
+        return None
+    try:
+        client_cat_data = json.loads(cat_detection_data)
+        logger.debug("Client-side detection data received")
+        return cast(dict[str, Any], client_cat_data)
+    except json.JSONDecodeError:
+        logger.warning("Failed to parse client detection data: %s", sanitize_log_value(cat_detection_data))
+        return None
+
+
+async def _resolve_upload_detection(
+    verification_token: str | None,
+    contents: bytes,
+    user_id: str,
+    detection_service: CatDetectionService,
+    client_cat_data: dict | None,
+) -> dict[str, Any]:
+    verified_detection = None
+    if verification_token:
+        verified_detection = await verify_upload_verification_token(verification_token, contents, user_id)
+    if verified_detection:
+        return {
+            **verified_detection,
+            "detection_timestamp": datetime.now().isoformat(),
+            "detection_source": "verified_token",
+        }
+    return await _perform_server_side_detection(contents, detection_service, user_id, client_cat_data)
+
+
+async def _renew_upload_reservation(
+    quota_service: QuotaService, reservation_id: str | None, uses_reservation: bool
+) -> None:
+    if not (uses_reservation and reservation_id):
+        return
+    try:
+        renewed = await quota_service.renew_upload_quota(reservation_id)
+    except QuotaServiceUnavailable as exc:
+        raise HTTPException(status_code=503, detail=UPLOAD_QUOTA_UNAVAILABLE) from exc
+    if not renewed:
+        raise HTTPException(status_code=503, detail="Upload quota reservation expired")
+
+
+def _get_upload_status(cat_data: dict[str, Any]) -> str:
+    confidence_val = float(cat_data.get("confidence", 0))
+    confidence_pct = confidence_val * 100.0 if confidence_val <= 1.0 else confidence_val
+    return "approved" if confidence_pct >= 60.0 else "pending_review"
+
+
+async def _upload_to_storage(
+    storage_service: StorageService,
+    contents: bytes,
+    content_type: str,
+    file_extension: str,
+    user_id: str,
+) -> str:
+    try:
+        return await storage_service.upload_file(
+            file_content=contents,
+            content_type=content_type,
+            file_extension=file_extension,
+        )
+    except ExternalServiceError as s3_error:
+        logger.error("S3 upload failed: %s", s3_error)
+        log_security_event(
+            "s3_upload_failed",
+            user_id=user_id,
+            details={"error": sanitize_log_value(str(s3_error)[:200])},
+            severity="ERROR",
+        )
+        raise HTTPException(status_code=500, detail="Failed to upload image") from s3_error
+
+
+def _build_photo_data(
+    current_user: User,
+    prepared: PreparedUploadData,
+    image_url: str,
+    status: str,
+) -> dict[str, Any]:
+    return {
+        "id": str(uuid.uuid4()),
+        "user_id": current_user.id,
+        "location_name": prepared.location_name,
+        "description": prepared.description if prepared.description else None,
+        "tags": prepared.tags if prepared.tags else [],
+        "latitude": prepared.latitude,
+        "longitude": prepared.longitude,
+        "image_url": image_url,
+        "uploaded_at": datetime.now().isoformat(),
+        "location_blurred": prepared.location_blurred,
+        "status": status,
+    }
+
+
+async def _save_photo_record(
+    gallery_service: GalleryService,
+    quota_service: QuotaService,
+    photo_data: dict[str, Any],
+    user_id: str,
+    is_pro: bool,
+    uses_reservation: bool,
+) -> tuple[dict[str, Any] | None, bool, Exception | None]:
+    if uses_reservation:
+        try:
+            return await gallery_service.save_photo(photo_data), True, None
+        except Exception as database_error:
+            return None, True, database_error
+
+    async with _upload_quota_lock(user_id):
+        quota_allowed = await quota_service.check_quota(user_id, is_pro)
+        if not quota_allowed:
+            return None, False, None
+        try:
+            created_photo = await gallery_service.save_photo(photo_data)
+            await quota_service.increment_usage(user_id)
+            return created_photo, True, None
+        except Exception as database_error:
+            return None, True, database_error
+
+
+async def _delete_uploaded_file(storage_service: StorageService, image_url: str, context: str) -> None:
+    try:
+        await storage_service.delete_file(image_url)
+    except Exception as cleanup_error:
+        logger.error("Failed to delete S3 file %s: %s", context, cleanup_error)
+
+
+async def _complete_upload_reservation(
+    quota_service: QuotaService, reservation_id: str | None, uses_reservation: bool
+) -> None:
+    if not (uses_reservation and reservation_id):
+        return
+    try:
+        completed = await quota_service.complete_upload_quota(reservation_id)
+        if not completed:
+            logger.warning("Upload quota reservation %s was not marked consumed", reservation_id)
+    except QuotaServiceUnavailable:
+        logger.error("Upload quota completion unavailable for reservation %s", reservation_id)
+
+
+@router.post("/cat", responses=UPLOAD_ERROR_RESPONSES)
 @upload_limiter.limit(get_upload_limit)  # Uses default_limits=[get_upload_limit] defined in upload_limiter
 async def upload_cat_photo(
     request: Request,  # Required for rate limiting
@@ -207,15 +450,7 @@ async def upload_cat_photo(
     detection_service: Annotated[CatDetectionService, Depends(get_cat_detection_service)],
     storage_service: Annotated[StorageService, Depends(get_storage_service)],
     quota_service: Annotated[QuotaService, Depends(get_quota_service)],
-    file: UploadFile = File(...),
-    lat: str = Form(...),
-    lng: str = Form(...),
-    location_name: str = Form(...),
-    description: str | None = Form(""),
-    tags: str | None = Form(None),
-    cat_detection_data: str | None = Form(None),
-    verification_token: str | None = Form(None),
-    location_blurred: str = Form("false"),
+    form_data: Annotated[UploadFormData, Depends(_get_upload_form_data)],
 ) -> JSONResponse:
     """
     Upload cat photo with location information.
@@ -234,6 +469,9 @@ async def upload_cat_photo(
         HTTPException: 500 - If image processing or upload fails.
     """
     user_id = str(current_user.id)
+    reservation_id: str | None = None
+    uses_reservation = False
+    photo_saved = False
 
     try:
         # Log upload attempt
@@ -241,121 +479,55 @@ async def upload_cat_photo(
             "cat_photo_upload_started",
             user_id=user_id,
             details={
-                "filename": sanitize_log_value(file.filename),
-                "location_name": sanitize_log_value(location_name[:50]) if location_name else "unknown",
+                "filename": sanitize_log_value(form_data.file.filename),
+                "location_name": sanitize_log_value(form_data.location_name[:50])
+                if form_data.location_name
+                else "unknown",
             },
         )
 
-        # Reject cheap invalid input before quota, image processing, storage, or Vision work.
-        latitude, longitude = validate_coordinates(lat, lng)
-        cleaned_location_name, cleaned_description = validate_location_data(location_name, description)
-        parsed_tags = parse_and_sanitize_tags(tags)
-        if parsed_tags:
-            cleaned_description = format_tags_for_description(parsed_tags, cleaned_description)
-        blurred_val = str(location_blurred).lower() in ["true", "1", "yes"]
+        prepared = _prepare_upload_data(form_data)
 
-        # Quota preflight. Lock is released before CPU, Vision, S3 and database work.
-        await _ensure_upload_quota(quota_service, user_id, current_user.is_pro)
+        reservation_id, uses_reservation = await _reserve_or_check_upload_quota(
+            quota_service, user_id, current_user.is_pro
+        )
 
-        # Process and validate the uploaded image with optimization and security checks
         contents, content_type, file_extension = await process_uploaded_image(
-            file,
+            form_data.file,
             max_size_mb=config.UPLOAD_MAX_SIZE_MB,
             optimize=True,
             max_dimension=config.UPLOAD_MAX_DIMENSION,
             user_id=user_id,
         )
 
-        # Parse client side cat detection data (logging/debugging only)
-        client_cat_data = None
-        if cat_detection_data:
-            try:
-                client_cat_data = json.loads(cat_detection_data)
-                logger.debug("Client-side detection data received")
-            except json.JSONDecodeError:
-                logger.warning("Failed to parse client detection data: %s", sanitize_log_value(cat_detection_data))
-
-        # Reuse a short-lived server-signed result only when it belongs to this user
-        # and these exact canonical bytes. Otherwise fail closed through Vision.
-        verified_detection = (
-            verify_upload_verification_token(verification_token, contents, user_id) if verification_token else None
+        cat_data = await _resolve_upload_detection(
+            form_data.verification_token,
+            contents,
+            user_id,
+            detection_service,
+            _parse_client_detection_data(form_data.cat_detection_data),
         )
-        if verified_detection:
-            cat_data = {
-                **verified_detection,
-                "detection_timestamp": datetime.now().isoformat(),
-                "detection_source": "verified_token",
-            }
-        else:
-            cat_data = await _perform_server_side_detection(contents, detection_service, user_id, client_cat_data)
 
-        # Determine approval status based on confidence threshold:
-        # High confidence (>= 60%) -> approved; Borderline confidence -> pending_review
-        confidence_val = float(cat_data.get("confidence", 0))
-        confidence_pct = confidence_val * 100.0 if confidence_val <= 1.0 else confidence_val
-        status = "approved" if confidence_pct >= 60.0 else "pending_review"
-
-        # Upload optimized file to S3
-        try:
-            image_url = await storage_service.upload_file(
-                file_content=contents,
-                content_type=content_type,
-                file_extension=file_extension,
-            )
-        except ExternalServiceError as s3_error:
-            # Catch all S3/storage related errors
-            logger.error("S3 upload failed: %s", s3_error)
-            log_security_event(
-                "s3_upload_failed",
-                user_id=user_id,
-                details={"error": sanitize_log_value(str(s3_error)[:200])},
-                severity="ERROR",
-            )
-            raise HTTPException(status_code=500, detail="Failed to upload image")
-
-        # Insert into database (cat_photos table) - original coordinates preserved in DB;
-        # dynamic privacy fuzzing is applied on public API read endpoints via location_blurred flag.
-        photo_data = {
-            "id": str(uuid.uuid4()),
-            "user_id": current_user.id,
-            "location_name": cleaned_location_name,
-            "description": cleaned_description if cleaned_description else None,
-            "tags": parsed_tags if parsed_tags else [],
-            "latitude": latitude,
-            "longitude": longitude,
-            "image_url": image_url,
-            "uploaded_at": datetime.now().isoformat(),
-            "location_blurred": blurred_val,
-            "status": status,
-        }
-
-        created_photo: dict[str, Any] | None = None
-        quota_allowed = False
-        database_error: Exception | None = None
-        async with _upload_quota_lock(user_id):
-            quota_allowed = await quota_service.check_quota(user_id, current_user.is_pro)
-            if quota_allowed:
-                try:
-                    created_photo = await gallery_service.save_photo(photo_data)
-                    await quota_service.increment_usage(user_id)
-                except Exception as db_error:
-                    database_error = db_error
+        await _renew_upload_reservation(quota_service, reservation_id, uses_reservation)
+        image_url = await _upload_to_storage(storage_service, contents, content_type, file_extension, user_id)
+        photo_data = _build_photo_data(current_user, prepared, image_url, _get_upload_status(cat_data))
+        created_photo, quota_allowed, database_error = await _save_photo_record(
+            gallery_service,
+            quota_service,
+            photo_data,
+            user_id,
+            current_user.is_pro,
+            uses_reservation,
+        )
 
         if not quota_allowed:
             log_security_event("quota_exceeded", user_id=user_id, severity="WARNING")
-            try:
-                await storage_service.delete_file(image_url)
-            except Exception as cleanup_error:
-                logger.error("Failed to delete quota-rejected S3 object: %s", cleanup_error)
-            raise HTTPException(status_code=429, detail="Daily upload limit reached. Upgrade to Pro for more uploads.")
+            await _delete_uploaded_file(storage_service, image_url, "after quota rejection")
+            raise HTTPException(status_code=429, detail=UPLOAD_LIMIT_REACHED)
 
         if database_error is not None or created_photo is None:
-            # Rollback: Delete file from S3 if DB insert fails
             logger.error("Database insert failed: %s. Rolling back S3 upload.", database_error)
-            try:
-                await storage_service.delete_file(image_url)
-            except Exception as s3_del_err:
-                logger.error("Failed to delete S3 file during DB rollback: %s", s3_del_err)
+            await _delete_uploaded_file(storage_service, image_url, "during DB rollback")
 
             log_security_event(
                 "upload_transaction_rollback",
@@ -368,15 +540,18 @@ async def upload_cat_photo(
             )
             raise HTTPException(status_code=500, detail="Failed to save cat photo")
 
+        photo_saved = True
+        await _complete_upload_reservation(quota_service, reservation_id, uses_reservation)
+
         # Invalidate gallery, tags and user photos cache after new upload in background
-        background_tasks.add_task(invalidate_after_upload, user_id)
+        background_tasks.add_task(invalidate_after_upload)
 
         log_security_event(
             "cat_photo_upload_success",
             user_id=user_id,
             details={
                 "photo_id": created_photo["id"],
-                "location_name": cleaned_location_name,
+                "location_name": prepared.location_name,
             },
         )
 
@@ -415,6 +590,12 @@ async def upload_cat_photo(
             severity="ERROR",
         )
         raise HTTPException(status_code=500, detail="Upload failed due to an internal error")
+    finally:
+        if reservation_id and not photo_saved:
+            try:
+                await quota_service.release_upload_quota(reservation_id)
+            except Exception as release_error:
+                logger.error("Failed to release upload quota reservation: %s", release_error)
 
 
 # Test endpoint removed for security

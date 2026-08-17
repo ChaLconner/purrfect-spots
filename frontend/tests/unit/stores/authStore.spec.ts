@@ -281,13 +281,13 @@ describe('Auth Store', () => {
 
   it('getters return expected values', () => {
     const store = useAuthStore();
-    store.user = { id: '1', email: 'test@example.com', name: 'John', picture: 'pic.jpg' } as any;
+    store.user = { id: '1', email: 'test@example.com', name: 'John', picture: '/uploads/pic.jpg' } as any;
     store.isAuthenticated = true;
 
     expect(store.hasCompleteProfile).toBe(true);
     expect(store.isUserReady).toBe(true);
     expect(store.userDisplayName).toBe('John');
-    expect(store.userAvatar).toBe('pic.jpg');
+    expect(store.userAvatar).toBe('/uploads/pic.jpg');
 
     store.user!.name = '';
     expect(store.userDisplayName).toBe('test@example.com');

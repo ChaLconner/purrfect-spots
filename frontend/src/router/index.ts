@@ -1,4 +1,9 @@
-import { createRouter, createWebHistory, type RouteLocationRaw } from 'vue-router';
+import {
+  createRouter,
+  createWebHistory,
+  type RouteLocationNormalized,
+  type RouteLocationRaw,
+} from 'vue-router';
 import { PERMISSIONS } from '@/constants/permissions';
 import { getDefaultAdminPath, hasAdminPermission } from '@/utils/adminAccess';
 import type { useAuthStore as UseAuthStore } from '@/stores/authStore';
@@ -216,6 +221,44 @@ const getAuthStore = async (): Promise<ReturnType<typeof UseAuthStore>> => {
   return useAuthStore();
 };
 
+const guardAuthenticatedRoute = async (
+  to: RouteLocationNormalized,
+  authStore: ReturnType<typeof UseAuthStore>
+): Promise<RouteLocationRaw | true> => {
+  const isAdminRoute = !!to.meta.requiresAdmin;
+  if (!authStore.isInitialized || isAdminRoute) await authStore.initializeAuth();
+  if (!authStore.isUserReady) {
+    sessionStorage.setItem('redirectAfterAuth', to.fullPath);
+    return { name: 'Login' };
+  }
+  if (to.meta.requiresAdmin && !authStore.canAccessAdmin) {
+    return {
+      name: 'NotFound',
+      params: { pathMatch: to.path.substring(1).split('/') },
+      query: to.query,
+      hash: to.hash,
+    };
+  }
+
+  const requiredAdminPermission =
+    typeof to.meta.adminPermission === 'string' ? to.meta.adminPermission : null;
+  if (
+    to.meta.requiresAdmin &&
+    requiredAdminPermission &&
+    !hasAdminPermission(authStore.user, requiredAdminPermission)
+  ) {
+    const redirectPath = getDefaultAdminPath(authStore.user);
+    if (redirectPath && redirectPath !== to.path && redirectPath !== '') return { path: redirectPath };
+    return {
+      name: 'NotFound',
+      params: { pathMatch: to.path.substring(1).split('/') },
+      query: to.query,
+      hash: to.hash,
+    };
+  }
+  return true;
+};
+
 // Initialize auth state before navigation
 // Initialize auth state is handled by Pinia store automatically on first use
 
@@ -223,7 +266,7 @@ const getAuthStore = async (): Promise<ReturnType<typeof UseAuthStore>> => {
 router.beforeEach(async (to): Promise<RouteLocationRaw | boolean | void> => {
   // 1. Handle Supabase Auth Redirects (e.g. Email Verification links landing on root)
   // If we see a hash with access_token, redirect to AuthCallback to process it
-  if (to.hash && to.hash.includes('access_token=') && to.name !== 'AuthCallback') {
+  if (to.hash?.includes('access_token=') && to.name !== 'AuthCallback') {
     return { name: 'AuthCallback', query: to.query, hash: to.hash };
   }
 
@@ -231,58 +274,8 @@ router.beforeEach(async (to): Promise<RouteLocationRaw | boolean | void> => {
     !!to.meta.requiresAuth || to.name === 'Auth';
   const authStore = needsAuthStore ? await getAuthStore() : null;
 
-  // 2. Auth Protection Guard
-  if (to.meta.requiresAuth && authStore) {
-    // For admin routes, always await the full session check to prevent the race
-    // condition where cached state passes the guard but a failed background
-    // refresh then calls clearAuth() and boots the user out mid-session.
-    // For regular auth routes, proceed optimistically with cached state.
-    const isAdminRoute = !!to.meta.requiresAdmin;
-    if (!authStore.isInitialized || isAdminRoute) {
-      await authStore.initializeAuth();
-    }
-
-    if (!authStore.isUserReady) {
-      // Store the intended destination
-      sessionStorage.setItem('redirectAfterAuth', to.fullPath);
-      return { name: 'Login' };
-    }
-
-    // 3. Admin Access Guard
-    if (to.meta.requiresAdmin && !authStore.canAccessAdmin) {
-      // Security: Redirect users without admin access to 404
-      return {
-        name: 'NotFound',
-        params: { pathMatch: to.path.substring(1).split('/') },
-        query: to.query,
-        hash: to.hash,
-      };
-    }
-
-    const requiredAdminPermission =
-      typeof to.meta.adminPermission === 'string' ? to.meta.adminPermission : null;
-
-    if (
-      to.meta.requiresAdmin &&
-      requiredAdminPermission &&
-      !hasAdminPermission(authStore.user, requiredAdminPermission)
-    ) {
-      const redirectPath = getDefaultAdminPath(authStore.user);
-      if (redirectPath && redirectPath !== to.path && redirectPath !== '') {
-        return { path: redirectPath };
-      }
-
-      return {
-        name: 'NotFound',
-        params: { pathMatch: to.path.substring(1).split('/') },
-        query: to.query,
-        hash: to.hash,
-      };
-    }
-  } else {
-    // Auth pages handle cached-user redirects after the first paint so the
-    // login/register UI is never blocked on a store import or session check.
-  }
+  // 2. Auth protection and admin access guard.
+  if (to.meta.requiresAuth && authStore) return guardAuthenticatedRoute(to, authStore);
 
   return true;
 });

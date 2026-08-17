@@ -36,11 +36,11 @@ class TestTreatsRoute:
         }
         mock_treats_service.get_leaderboard = AsyncMock(return_value=[leaderboard_entry])
 
-        app.dependency_overrides[get_treats_service] = lambda: mock_treats_service
+        app.dependency_overrides.update({get_treats_service: lambda: mock_treats_service})
 
         response = await client.get("/api/v1/treats/leaderboard?period=all_time")
 
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 200
         data = response.json()
@@ -66,12 +66,16 @@ class TestTreatsRoute:
             }
         )
 
-        app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
-        app.dependency_overrides[get_treats_service] = lambda: mock_treats_service
+        app.dependency_overrides.update(
+            {
+                get_current_user_from_credentials: lambda: mock_user,
+                get_treats_service: lambda: mock_treats_service,
+            }
+        )
 
         response = await client.get("/api/v1/treats/balance")
 
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 200
         data = response.json()
@@ -88,12 +92,16 @@ class TestTreatsRoute:
             return_value={"checkout_url": "https://checkout.stripe.com/treats", "session_id": "sess_treats_123"}
         )
 
-        app.dependency_overrides[get_current_user_from_credentials] = lambda: mock_user
-        app.dependency_overrides[get_treats_service] = lambda: mock_treats_service
+        app.dependency_overrides.update(
+            {
+                get_current_user_from_credentials: lambda: mock_user,
+                get_treats_service: lambda: mock_treats_service,
+            }
+        )
 
         response = await client.post("/api/v1/treats/purchase/checkout", json={"package": "small_pack"})
 
-        app.dependency_overrides = {}
+        app.dependency_overrides.clear()
 
         assert response.status_code == 200
         assert response.json()["checkout_url"] == "https://checkout.stripe.com/treats"

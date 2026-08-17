@@ -10,7 +10,7 @@ Provides user consent tracking for:
 """
 
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -32,15 +32,26 @@ CONSENT_TYPES = {
     "cookies": "Cookie Consent",
 }
 
+CONSENT_UPDATE_FIELDS = {
+    "tos": "tos_accepted",
+    "privacy": "privacy_accepted",
+    "marketing": "marketing_opt_in",
+}
+CONSENT_LOG_TYPES = {"tos", "privacy", "marketing"}
+CONSENT_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
+    400: {"description": "Invalid consent type"},
+    500: {"description": "Internal Server Error"},
+}
+
 
 def _is_missing_relation_error(error: Exception) -> bool:
     error_str = str(error)
     return "PGRST205" in error_str or "schema cache" in error_str or "Could not find the table" in error_str
 
 
-@router.get("/my-consents")
+@router.get("/my-consents", responses={500: {"description": "Internal Server Error"}})
 async def get_my_consents(
-    current_user: User = Depends(get_current_user),
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, Any]:
     """Get all consent records for the current user."""
     try:
@@ -77,12 +88,12 @@ async def get_my_consents(
         raise HTTPException(status_code=500, detail="Failed to fetch consent records")
 
 
-@router.post("/consent")
+@router.post("/consent", responses=CONSENT_ERROR_RESPONSES)
 @limiter.limit("10/minute")
 async def record_consent(
     request: Request,
     consent: ConsentRecord,
-    current_user: User = Depends(get_current_user),
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, Any]:
     """
     Record user consent for a specific type.
@@ -130,33 +141,15 @@ async def record_consent(
                 raise
             logger.warning("Consent history table is unavailable; storing consent state in users table only")
 
-        # Update user's consent status in users table for quick lookup
-        if consent.consent_type == "tos":
+        # Update the user's consent status in users for quick lookup.
+        update_field = CONSENT_UPDATE_FIELDS.get(consent.consent_type)
+        if update_field:
             await (
-                admin_client.table("users")
-                .update({"tos_accepted": consent.granted})
-                .eq("id", current_user.id)
-                .execute()
-            )
-        elif consent.consent_type == "privacy":
-            await (
-                admin_client.table("users")
-                .update({"privacy_accepted": consent.granted})
-                .eq("id", current_user.id)
-                .execute()
-            )
-        elif consent.consent_type == "marketing":
-            await (
-                admin_client.table("users")
-                .update({"marketing_opt_in": consent.granted})
-                .eq("id", current_user.id)
-                .execute()
+                admin_client.table("users").update({update_field: consent.granted}).eq("id", current_user.id).execute()
             )
 
         action = "granted" if consent.granted else "withdrawn"
-        consent_type_for_log = (
-            "tos" if consent.consent_type == "tos" else "privacy" if consent.consent_type == "privacy" else "marketing"
-        )
+        consent_type_for_log = consent.consent_type if consent.consent_type in CONSENT_LOG_TYPES else "marketing"
         logger.info(
             "Consent %s | user_id=%s | type=%s | version=%s",
             action,

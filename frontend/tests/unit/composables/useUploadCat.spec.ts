@@ -1,5 +1,5 @@
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useUploadCat } from '@/composables/useUploadCat';
 import * as api from '@/utils/api';
 import * as imageUtils from '@/utils/imageUtils';
@@ -69,10 +69,14 @@ describe('useUploadCat', () => {
     };
   });
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('should initialize with default state', () => {
     const { isUploading, error, uploadProgress } = useUploadCat();
     expect(isUploading.value).toBe(false);
-    expect(error.value).toBe(null);
+    expect(error.value).toBeNull();
     expect(uploadProgress.value).toBe(0);
   });
 
@@ -105,6 +109,32 @@ describe('useUploadCat', () => {
     expect(error.value).toBeNull();
     expect(result).toEqual({ id: '123', url: 'http://test.com/img.jpg' });
     expect(api.uploadFile).toHaveBeenCalled();
+  });
+
+  it('should generate an idempotency key without Math.random', async () => {
+    vi.spyOn(imageUtils, 'validateImageFile').mockReturnValue({ valid: true });
+    vi.spyOn(imageUtils, 'getImageDimensions').mockResolvedValue({ width: 100, height: 100 });
+    vi.spyOn(imageUtils, 'optimizeImage').mockResolvedValue(mockFile);
+    vi.spyOn(api, 'uploadFile').mockResolvedValue({ id: '123', url: 'http://test.com/img.jpg' });
+
+    vi.stubGlobal('crypto', {
+      getRandomValues: (bytes: Uint8Array) => {
+        bytes.fill(1);
+        return bytes;
+      },
+    });
+
+    const { uploadCatPhoto } = useUploadCat();
+    await uploadCatPhoto(mockFile, mockLocationData);
+
+    const firstOptions = vi.mocked(api.uploadFile).mock.calls.at(-1)?.[4] as { idempotencyKey?: string };
+    expect(firstOptions.idempotencyKey).toBe('upload-01010101010101010101010101010101');
+
+    vi.stubGlobal('crypto', undefined);
+    await uploadCatPhoto(mockFile, mockLocationData);
+
+    const secondOptions = vi.mocked(api.uploadFile).mock.calls.at(-1)?.[4] as { idempotencyKey?: string };
+    expect(secondOptions.idempotencyKey).toMatch(/^upload-\d+$/);
   });
 
   it('should handle different API error types', async () => {
@@ -181,7 +211,7 @@ describe('useUploadCat', () => {
     resetState();
 
     expect(isUploading.value).toBe(false);
-    expect(error.value).toBe(null);
+    expect(error.value).toBeNull();
     expect(uploadProgress.value).toBe(0);
   });
 

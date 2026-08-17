@@ -78,7 +78,14 @@ async def _enqueue_vision_job(
     return JSONResponse(status_code=202, content=accepted.model_dump())
 
 
-@router.post("/cats", response_model=CatDetectionResult)
+@router.post(
+    "/cats",
+    response_model=CatDetectionResult,
+    responses={
+        500: {"description": "Internal Server Error"},
+        503: {"description": "Cat verification service unavailable"},
+    },
+)
 @strict_limiter.limit(get_strict_limit)
 async def detect_cats_endpoint(
     request: Request,
@@ -132,7 +139,10 @@ async def detect_cats_endpoint(
 @router.post(
     "/spot-analysis",
     response_model=SpotAnalysisResult | VisionJobAccepted,
-    responses={503: {"description": "Vision analysis queue temporarily unavailable"}},
+    responses={
+        500: {"description": "Internal Server Error"},
+        503: {"description": "Vision analysis queue temporarily unavailable"},
+    },
 )
 @strict_limiter.limit(get_strict_limit)
 async def analyze_cat_spot(
@@ -178,7 +188,10 @@ async def analyze_cat_spot(
 @router.post(
     "/combined",
     response_model=CombinedAnalysisResult | VisionJobAccepted,
-    responses={503: {"description": "Vision analysis queue temporarily unavailable"}},
+    responses={
+        500: {"description": "Internal Server Error"},
+        503: {"description": "Vision analysis queue temporarily unavailable"},
+    },
 )
 @strict_limiter.limit(get_strict_limit)
 async def combined_cat_and_spot_analysis(

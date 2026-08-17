@@ -50,6 +50,10 @@ class FakeRedis:
     async def xautoclaim(self, *_: Any, **__: Any) -> list[Any]:
         return ["0-0", [], []]
 
+    async def xrevrange(self, stream: str, **kwargs: Any) -> list[Any]:
+        count = int(kwargs.get("count", 100))
+        return list(reversed(self.streams.get(stream, [])))[:count]
+
     async def xack(self, *_: Any, **__: Any) -> int:
         return 1
 
@@ -122,3 +126,33 @@ async def test_vision_enqueue_preserves_queue_error_when_cleanup_also_fails() ->
             filename="spot.jpg",
             contents=b"image-bytes",
         )
+
+
+@pytest.mark.asyncio
+async def test_read_dead_letters_is_bounded_and_metadata_only() -> None:
+    service = QueueService()
+    fake = FakeRedis()
+    service.client = fake  # type: ignore[assignment]
+    dead_letter_stream = f"{service.STRIPE_STREAM}{service.DEAD_LETTER_SUFFIX}"
+    await fake.xadd(
+        dead_letter_stream,
+        {
+            "message": json.dumps(
+                {
+                    "source_stream": service.STRIPE_STREAM,
+                    "source_message_id": "1-0",
+                    "fields": {"event_id": "evt_test_1", "event_type": "invoice.paid"},
+                    "fields_redacted": True,
+                }
+            )
+        },
+    )
+
+    messages = await service.read_dead_letters(service.STRIPE_STREAM, count=5000)
+
+    assert len(messages) == 1
+    stored = json.loads(messages[0].fields["message"])
+    assert stored["fields_redacted"] is True
+    assert "event" not in stored["fields"]
+    with pytest.raises(ValueError):
+        await service.read_dead_letters("unknown-stream")

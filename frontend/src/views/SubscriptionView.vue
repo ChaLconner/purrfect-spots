@@ -156,6 +156,7 @@
                   {{ formatDate(subscriptionStore.subscriptionEndDate) }}
                 </div>
                 <button
+type="button"
                   class="w-full bg-stone-100 text-stone-500 py-3 rounded-2xl hover:bg-stone-200 transition-colors font-bold text-sm"
                   :disabled="isLoading"
                   @click="handleManageSubscription"
@@ -163,7 +164,8 @@
                   {{ $t('subscription.proPlan.manage') }}
                 </button>
                 <button
-                  v-if="!subscriptionStore.cancelAtPeriodEnd"
+v-if="!subscriptionStore.cancelAtPeriodEnd"
+                  type="button"
                   class="w-full mt-2 bg-transparent text-red-500/70 hover:text-red-600 hover:bg-red-50 py-2 rounded-2xl transition-colors font-bold text-xs"
                   :disabled="isLoading || isCanceling"
                   @click="showCancelModal = true"
@@ -172,7 +174,8 @@
                 </button>
               </div>
               <button
-                v-else
+v-else
+                type="button"
                 class="w-full bg-terracotta text-white font-bold py-4 rounded-2xl shadow-xl shadow-terracotta/20 hover:bg-terracotta-dark transition-all transform hover:-translate-y-1 block text-center text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 :disabled="isLoading || !selectedPrice || planPriceError"
                 @click="handleSubscribe"
@@ -260,6 +263,7 @@
 
             <div class="mt-auto">
               <button
+type="button"
                 class="w-full py-2.5 rounded-xl font-bold transition-all text-sm mb-2"
                 :class="
                   pkg.key === 'medium'

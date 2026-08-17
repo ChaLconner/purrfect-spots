@@ -789,6 +789,15 @@ const openDirections = (cat: CatLocation): void => {
 // Lifecycle
 // ==========================================
 
+const cancelScheduledFrame = (frame: number | null): void => {
+  if (frame === null) return;
+  if (typeof window !== 'undefined' && 'cancelAnimationFrame' in window) {
+    window.cancelAnimationFrame(frame);
+  } else {
+    globalThis.clearTimeout(frame);
+  }
+};
+
 onMounted((): void => {
   // Set SEO meta tags
   setMetaTags({
@@ -802,31 +811,13 @@ onMounted((): void => {
 });
 
 onUnmounted((): void => {
-  if (userOverlayFrame !== null) {
-    if (typeof window !== 'undefined' && 'cancelAnimationFrame' in window) {
-      window.cancelAnimationFrame(userOverlayFrame);
-    } else {
-      globalThis.clearTimeout(userOverlayFrame);
-    }
-    userOverlayFrame = null;
-  }
-  if (markerUpdateFrame !== null) {
-    if (typeof window !== 'undefined' && 'cancelAnimationFrame' in window) {
-      window.cancelAnimationFrame(markerUpdateFrame);
-    } else {
-      window.clearTimeout(markerUpdateFrame);
-    }
-    markerUpdateFrame = null;
-  }
+  cancelScheduledFrame(userOverlayFrame);
+  userOverlayFrame = null;
+  cancelScheduledFrame(markerUpdateFrame);
+  markerUpdateFrame = null;
   pendingMarkerLocations = null;
-  if (visibleCountFrame !== null) {
-    if (typeof window !== 'undefined' && 'cancelAnimationFrame' in window) {
-      window.cancelAnimationFrame(visibleCountFrame);
-    } else {
-      window.clearTimeout(visibleCountFrame);
-    }
-    visibleCountFrame = null;
-  }
+  cancelScheduledFrame(visibleCountFrame);
+  visibleCountFrame = null;
   stopWatchingPosition();
   mapListeners.forEach((listener) => listener.remove());
   mapListeners.length = 0;

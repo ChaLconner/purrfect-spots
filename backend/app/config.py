@@ -15,6 +15,8 @@ from dotenv import load_dotenv
 from app.logger import logger
 from app.runtime_environment import is_production_environment, resolve_environment
 
+DEFAULT_FRONTEND_URL = "http://localhost:5173"
+
 # Load .env from backend directory
 backend_dir = Path(__file__).parent
 env_path = backend_dir / ".env"
@@ -81,6 +83,40 @@ def get_required_env(key: str, production_only: bool = False) -> str:
     return ""
 
 
+def _normalize_cors_origin(raw_origin: str) -> str | None:
+    origin = raw_origin.strip().rstrip("/")
+    if not origin or origin == "*":
+        return None
+
+    parsed = urlsplit(origin)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return None
+    if parsed.path or parsed.query or parsed.fragment or parsed.username or parsed.password:
+        return None
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def _get_raw_cors_origins(cors_origins: str, environment: str) -> list[str]:
+    if cors_origins:
+        return cors_origins.split(",")
+
+    if environment != "production":
+        return [
+            "http://localhost:3000",
+            DEFAULT_FRONTEND_URL,
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:5173",
+        ]
+
+    origins = [value for value in os.getenv("FRONTEND_URL", "").split(",") if value.strip()]
+    vercel_url = os.getenv("VERCEL_URL", "").strip()
+    if vercel_url:
+        origins.append(vercel_url if "://" in vercel_url else f"https://{vercel_url}")
+    if not origins:
+        logger.error("No CORS origin configured for production")
+    return origins
+
+
 def get_env_with_fallback(primary_key: str, *fallback_keys: str, default: str = "") -> str:
     """
     Get an environment variable with fallback keys for backward compatibility.
@@ -128,7 +164,8 @@ class Config:
             - CORS_ORIGINS: Comma-separated list of allowed origins
             - JWT_REFRESH_SECRET: Separate secret for refresh tokens
             - JWT_REFRESH_EXPIRATION_DAYS: Refresh token expiration (default: 7)
-            - REDIS_URL: Redis URL for rate limiting
+            - REDIS_URL: Redis URL for application cache and distributed locks
+            - RATE_LIMIT_REDIS_URL: Redis URL for distributed rate limiting
             - SENTRY_DSN: Sentry DSN for error monitoring
     """
 
@@ -232,6 +269,9 @@ class Config:
 
     # Redis (optional)
     REDIS_URL = os.getenv("REDIS_URL", "").replace("localhost", "127.0.0.1")
+    # Rate-limit counters may use a dedicated Redis instance so cache
+    # eviction and application cache traffic cannot affect abuse controls.
+    RATE_LIMIT_REDIS_URL = os.getenv("RATE_LIMIT_REDIS_URL", REDIS_URL).replace("localhost", "127.0.0.1")
     # Queue traffic uses a dedicated Redis instance in production so cache
     # eviction cannot discard unprocessed Stripe or Vision jobs.
     QUEUE_REDIS_URL = os.getenv("QUEUE_REDIS_URL", REDIS_URL).replace("localhost", "127.0.0.1")
@@ -245,6 +285,14 @@ class Config:
         QUEUE_VISIBILITY_TIMEOUT_SECONDS = max(10, int(os.getenv("QUEUE_VISIBILITY_TIMEOUT_SECONDS", "60")))
         QUEUE_RESULT_TTL_SECONDS = max(60, int(os.getenv("QUEUE_RESULT_TTL_SECONDS", "1800")))
         QUEUE_STREAM_MAXLEN = max(100, int(os.getenv("QUEUE_STREAM_MAXLEN", "10000")))
+        QUEUE_DEAD_LETTER_MAXLEN = max(
+            100,
+            int(os.getenv("QUEUE_DEAD_LETTER_MAXLEN", str(QUEUE_STREAM_MAXLEN))),
+        )
+        QUEUE_DEAD_LETTER_TTL_SECONDS = max(
+            60,
+            int(os.getenv("QUEUE_DEAD_LETTER_TTL_SECONDS", "604800")),
+        )
         VISION_QUEUE_MAX_IMAGE_BYTES = max(
             256 * 1024,
             int(os.getenv("VISION_QUEUE_MAX_IMAGE_BYTES", str(5 * 1024 * 1024))),
@@ -255,12 +303,13 @@ class Config:
         QUEUE_VISIBILITY_TIMEOUT_SECONDS = 60
         QUEUE_RESULT_TTL_SECONDS = 1800
         QUEUE_STREAM_MAXLEN = 10000
+        QUEUE_DEAD_LETTER_MAXLEN = 10000
+        QUEUE_DEAD_LETTER_TTL_SECONDS = 604800
         VISION_QUEUE_MAX_IMAGE_BYTES = 5 * 1024 * 1024
 
     # App URLs
-    # App URLs
-    _frontend_urls = os.getenv("FRONTEND_URL", "http://localhost:5173").split(",")
-    FRONTEND_URL = _frontend_urls[0].strip() if _frontend_urls else "http://localhost:5173"
+    _frontend_urls = os.getenv("FRONTEND_URL", DEFAULT_FRONTEND_URL).split(",")
+    FRONTEND_URL = _frontend_urls[0].strip() if _frontend_urls else DEFAULT_FRONTEND_URL
 
     # Sentry (optional)
     SENTRY_DSN = os.getenv("SENTRY_DSN")
@@ -286,6 +335,9 @@ class Config:
     # ==========================================
     QUOTA_FREE_LIMIT = int(os.getenv("QUOTA_FREE_LIMIT", "2"))
     QUOTA_PRO_LIMIT = int(os.getenv("QUOTA_PRO_LIMIT", "30"))
+    UPLOAD_QUOTA_RESERVATION_TTL_SECONDS = max(
+        60, min(3600, int(os.getenv("UPLOAD_QUOTA_RESERVATION_TTL_SECONDS", "900")))
+    )
 
     # ==========================================
     # Gallery/Pagination Configuration
@@ -295,7 +347,10 @@ class Config:
     # Rate Limiting Configuration
     # ==========================================
     RATE_LIMIT_AUTH = os.getenv("RATE_LIMIT_AUTH", "5/minute")
-    RATE_LIMIT_FORGOT_PASSWORD = os.getenv("RATE_LIMIT_FORGOT_PASSWORD", "3/minute")
+    RATE_LIMIT_REFRESH_TOKEN = os.getenv("RATE_LIMIT_REFRESH_TOKEN", "10/minute")
+    RATE_LIMIT_FORGOT_PASSWORD = os.getenv(  # NOSONAR python:S2068 - this is a rate-limit setting, not a credential
+        "RATE_LIMIT_FORGOT_PASSWORD", "3/minute"
+    )
     RATE_LIMIT_API_DEFAULT = os.getenv("RATE_LIMIT_API_DEFAULT", "60/minute")
 
     # Tiered API Limits
@@ -368,46 +423,10 @@ class Config:
             List of allowed origin URLs
         """
 
-        def normalize_origin(raw_origin: str) -> str | None:
-            origin = raw_origin.strip().rstrip("/")
-            if not origin or origin == "*":
-                return None
-            parsed = urlsplit(origin)
-            if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-                return None
-            if parsed.path or parsed.query or parsed.fragment or parsed.username or parsed.password:
-                return None
-            return f"{parsed.scheme}://{parsed.netloc}"
-
         cors_origins_str = os.getenv("CORS_ORIGINS", "").strip()
-        environment = resolve_environment()
-
-        if cors_origins_str:
-            raw_origins = cors_origins_str.split(",")
-        elif environment == "production":
-            # Production must opt in to exact frontend origins. Never add
-            # localhost or unrelated production domains implicitly.
-            raw_origins = [value for value in os.getenv("FRONTEND_URL", "").split(",") if value.strip()]
-            vercel_url = os.getenv("VERCEL_URL", "").strip()
-            if vercel_url:
-                raw_origins.append(vercel_url if "://" in vercel_url else f"https://{vercel_url}")
-            if not raw_origins:
-                logger.error("No CORS origin configured for production")
-        else:
-            raw_origins = [
-                "http://localhost:3000",
-                "http://localhost:5173",
-                "http://127.0.0.1:3000",
-                "http://127.0.0.1:5173",
-            ]
-
-        allowed: list[str] = []
-        for raw_origin in raw_origins:
-            origin = normalize_origin(raw_origin)
-            if origin and origin not in allowed:
-                allowed.append(origin)
-
-        return allowed
+        raw_origins = _get_raw_cors_origins(cors_origins_str, resolve_environment())
+        normalized_origins = (_normalize_cors_origin(raw_origin) for raw_origin in raw_origins)
+        return list(dict.fromkeys(origin for origin in normalized_origins if origin is not None))
 
     @staticmethod
     def get_trusted_proxy_hosts() -> list[str]:

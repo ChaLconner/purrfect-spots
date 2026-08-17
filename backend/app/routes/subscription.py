@@ -24,7 +24,7 @@ from app.services.subscription_service import SubscriptionPersistenceError, Subs
 router = APIRouter(prefix="/subscription", tags=["Subscription"])
 
 
-@router.get("/plans", response_model=SubscriptionPlansResponse)
+@router.get("/plans", responses={503: {"description": "Subscription pricing temporarily unavailable"}})
 @limiter.limit("30/minute")
 async def get_subscription_plans(
     request: Request,
@@ -40,7 +40,13 @@ async def get_subscription_plans(
         raise HTTPException(status_code=503, detail="Subscription pricing temporarily unavailable") from e
 
 
-@router.post("/checkout", response_model=CheckoutSessionResponse)
+@router.post(
+    "/checkout",
+    responses={
+        500: {"description": "Internal Server Error"},
+        503: {"description": "Subscription checkout is not configured"},
+    },
+)
 @limiter.limit("5/minute")
 async def create_checkout_session(
     request: Request,
@@ -75,7 +81,11 @@ async def create_checkout_session(
 
 @router.post(
     "/webhook",
-    responses={503: {"description": "Webhook queue or persistence temporarily unavailable"}},
+    responses={
+        400: {"description": "Invalid Stripe webhook payload"},
+        500: {"description": "Webhook processing failed"},
+        503: {"description": "Webhook queue or persistence temporarily unavailable"},
+    },
 )
 async def stripe_webhook(
     request: Request,
@@ -109,7 +119,7 @@ async def stripe_webhook(
     return MessageResponse(message="accepted" if config.ENABLE_STRIPE_WEBHOOK_QUEUE else "success")
 
 
-@router.get("/status", response_model=SubscriptionStatus)
+@router.get("/status")
 @limiter.limit("30/minute")
 async def get_subscription_status(
     request: Request,
@@ -121,7 +131,10 @@ async def get_subscription_status(
     return SubscriptionStatus(**result)
 
 
-@router.post("/cancel", response_model=MessageResponse)
+@router.post(
+    "/cancel",
+    responses={400: {"description": "Invalid subscription state"}, 500: {"description": "Internal Server Error"}},
+)
 @limiter.limit("5/minute")
 async def cancel_subscription(
     request: Request,
@@ -139,7 +152,10 @@ async def cancel_subscription(
         raise HTTPException(status_code=500, detail="Failed to cancel subscription")
 
 
-@router.post("/portal", response_model=PortalResponse)
+@router.post(
+    "/portal",
+    responses={400: {"description": "Invalid portal request"}, 500: {"description": "Internal Server Error"}},
+)
 @limiter.limit("10/minute")
 async def create_portal_session(
     request: Request,

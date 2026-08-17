@@ -6,7 +6,7 @@
 # Multi-stage build for optimized image size
 
 # Stage 1: Builder
-FROM node:24.18.0-alpine3.24 AS builder
+FROM node:24.18.0-alpine3.24@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd AS builder
 
 WORKDIR /build
 
@@ -29,6 +29,7 @@ ARG VITE_GOOGLE_CLIENT_ID
 ARG VITE_GOOGLE_MAPS_API_KEY
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_ANON_KEY
+ARG VITE_CDN_BASE_URL
 
 # Set environment variables for build (public config only)
 # nosec docker:S6472 - ENV values are public API endpoints, not credentials
@@ -36,13 +37,14 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
     VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID \
     VITE_GOOGLE_MAPS_API_KEY=$VITE_GOOGLE_MAPS_API_KEY \
     VITE_SUPABASE_URL=$VITE_SUPABASE_URL \
-    VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
+    VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY \
+    VITE_CDN_BASE_URL=$VITE_CDN_BASE_URL
 
 # Build the application
 RUN npm run build
 
 # Stage 2: Production with nginx
-FROM nginx:1.28.3-alpine3.23 AS production
+FROM nginx:1.28.3-alpine3.23@sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236 AS production
 
 LABEL maintainer="Purrfect Spots Team <support@purrfectspots.com>"
 LABEL description="Purrfect Spots Frontend - Vue.js application"

@@ -28,6 +28,7 @@ const route = useRoute();
 const isLoading = ref(true);
 const error = ref('');
 const success = ref(false);
+const MAX_AUTH_RETRIES = 3;
 
 // Error handling for browser extension conflicts
 onErrorCaptured((err) => {
@@ -111,12 +112,7 @@ const handleGoogleCode = async (code: string, codeVerifier: string): Promise<boo
 };
 
 const handleAuthError = (err: unknown): void => {
-  const errorMsg =
-    err instanceof Error
-      ? err.message
-      : typeof err === 'object' && err !== null && 'message' in err
-        ? String((err as Record<string, unknown>).message)
-        : String(err);
+  const errorMsg = getErrorMessage(err);
 
   if (errorMsg.includes('invalid_grant')) {
     error.value = t('auth.callback.authExpired');
@@ -132,55 +128,73 @@ const handleAuthError = (err: unknown): void => {
   }
 };
 
+const getErrorMessage = (err: unknown): string => {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    return String((err as Record<string, unknown>).message);
+  }
+  return String(err);
+};
+
+const processMagicLinkCallback = async (hashParams: URLSearchParams | null): Promise<boolean> => {
+  if (!hashParams?.get('access_token') || !hashParams.get('refresh_token')) return false;
+  return handleMagicLink(hashParams);
+};
+
+const processGoogleCallback = async (code: string): Promise<boolean> => {
+  const codeVerifier = globalThis.sessionStorage.getItem('google_code_verifier');
+  if (!codeVerifier) throw new Error(t('auth.callback.authDataNotFound'));
+  return handleGoogleCode(code, codeVerifier);
+};
+
+const handleHashCallbackError = (hashParams: URLSearchParams | null): void => {
+  if (!hashParams?.get('error_description')) return;
+  if (hashParams.get('access_token') && hashParams.get('refresh_token')) return;
+  const errorMsg = hashParams.get('error_description');
+  if (errorMsg) throw new Error(decodeURIComponent(errorMsg.replaceAll('+', ' ')));
+};
+
 const processAuthCallback = async (): Promise<boolean> => {
   const code = route.query.code as string;
-  const codeVerifier = globalThis.sessionStorage.getItem('google_code_verifier');
   const hash = globalThis.location.hash;
   const hashParams = hash ? new URLSearchParams(hash.substring(1)) : null;
-  const hasMagicLinkTokens = Boolean(
-    hashParams?.get('access_token') && hashParams.get('refresh_token')
-  );
-
-  if (hasMagicLinkTokens && hashParams) {
-    if (await handleMagicLink(hashParams)) return true;
-  }
+  if (await processMagicLinkCallback(hashParams)) return true;
 
   if (code) {
-    if (!codeVerifier) throw new Error(t('auth.callback.authDataNotFound'));
-    if (await handleGoogleCode(code, codeVerifier)) return true;
+    return processGoogleCallback(code);
   } else if (!hash) {
     throw new Error(t('auth.callback.noAuthData'));
   }
 
-  if (hashParams && !hasMagicLinkTokens) {
-    const errorMsg = hashParams.get('error_description');
-    if (errorMsg) throw new Error(decodeURIComponent(errorMsg.replaceAll(/\+/g, ' ')));
-  }
+  handleHashCallbackError(hashParams);
   return false;
 };
 
-const handleAuthCallback = async (): Promise<void> => {
+const runAuthCallbackWithRetries = async (): Promise<number> => {
   let retryCount = 0;
-  const maxRetries = 3;
-
-  while (retryCount < maxRetries) {
+  while (retryCount < MAX_AUTH_RETRIES) {
     try {
-      if (await processAuthCallback()) return;
-      break;
+      await processAuthCallback();
+      return retryCount;
     } catch (err: unknown) {
       if (err instanceof Error && err.message?.includes('message channel closed')) {
         retryCount++;
-        if (retryCount < maxRetries) {
+        if (retryCount < MAX_AUTH_RETRIES) {
           await new Promise((resolve) => setTimeout(resolve, 1000));
           continue;
         }
       }
       handleAuthError(err);
-      break;
+      return retryCount;
     }
   }
+  return retryCount;
+};
 
-  if (retryCount >= maxRetries) {
+const handleAuthCallback = async (): Promise<void> => {
+  const retryCount = await runAuthCallbackWithRetries();
+
+  if (retryCount >= MAX_AUTH_RETRIES) {
     error.value = t('auth.callback.extensionError');
     showError(error.value, t('auth.callback.loginErrorTitle'));
   } else if (error.value) {

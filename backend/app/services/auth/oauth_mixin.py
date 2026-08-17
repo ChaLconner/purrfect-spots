@@ -8,6 +8,7 @@ from app.schemas.auth import LoginResponse
 from app.schemas.user import UserResponse
 from app.services.auth.base_mixin import AuthBaseMixin
 from app.services.google_auth_service import google_auth_service
+from app.utils.avatar import sanitize_avatar_url
 
 logger = structlog.get_logger(__name__)
 
@@ -87,9 +88,7 @@ class AuthOAuthMixin(AuthBaseMixin):
         """Verify Google OAuth token"""
         return google_auth_service.verify_google_token(token)
 
-    async def exchange_google_code(
-        self, code: str, code_verifier: str, redirect_uri: str, ip: str | None = None, user_agent: str | None = None
-    ) -> LoginResponse:
+    async def exchange_google_code(self, code: str, code_verifier: str, redirect_uri: str) -> LoginResponse:
         """Exchange Google authorization code for access token (Async)"""
         try:
             result = await google_auth_service.exchange_google_code(code, code_verifier, redirect_uri)
@@ -115,7 +114,7 @@ class AuthOAuthMixin(AuthBaseMixin):
                     id=user.id,
                     email=user.email,
                     name=user.name,
-                    picture=user.picture,
+                    picture=sanitize_avatar_url(user.picture),
                     bio=user.bio,
                     created_at=user.created_at,
                     google_id=user.google_id,

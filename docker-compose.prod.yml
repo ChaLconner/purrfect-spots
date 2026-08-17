@@ -15,6 +15,8 @@ services:
         required: false
     environment:
       - ENVIRONMENT=production
+      - REDIS_URL=redis://redis-cache:6379
+      - RATE_LIMIT_REDIS_URL=redis://redis-ratelimit:6379
       - QUEUE_REDIS_URL=redis://redis-queue:6379
       - ENABLE_STRIPE_WEBHOOK_QUEUE=true
       - ENABLE_VISION_ANALYSIS_QUEUE=true
@@ -74,6 +76,7 @@ services:
         - VITE_GOOGLE_MAPS_API_KEY=${VITE_GOOGLE_MAPS_API_KEY}
         - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
         - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+        - VITE_CDN_BASE_URL=${VITE_CDN_BASE_URL}
     container_name: purrfect-frontend
     restart: always
     ports:
@@ -102,7 +105,7 @@ services:
   # Redis - Isolated Data Caching
   # ==========================================================================
   redis-cache:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2
     container_name: purrfect-redis-cache
     restart: always
     volumes:
@@ -126,7 +129,7 @@ services:
   # Redis - Durable queue storage (no eviction)
   # ========================================================================
   redis-queue:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2
     container_name: purrfect-redis-queue
     restart: always
     volumes:
@@ -149,7 +152,7 @@ services:
   # Redis - Isolated Rate Limiting
   # ==========================================================================
   redis-ratelimit:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2
     container_name: purrfect-redis-ratelimit
     restart: always
     volumes:

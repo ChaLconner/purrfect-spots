@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getAvatarFallback, handleAvatarError, isAvatarUrl } from '@/utils/avatar';
+import { getAvatarFallback, getAvatarSrc, handleAvatarError, isAvatarUrl, sanitizeAvatarUrl } from '@/utils/avatar';
 
 describe('avatar utilities', () => {
   it('builds a ui-avatar fallback from a display name', () => {
@@ -29,9 +29,22 @@ describe('avatar utilities', () => {
     undefined,
     null,
     'https://example.com/avatar.png',
+    'http://ui-avatars.com/api/?name=Cat',
+    'javascript:alert(1)',
+    'https://ui-avatars.com@evil.example/avatar.png',
     'not a url with spaces',
   ])('rejects untrusted or missing avatar url %s', (url) => {
     expect(isAvatarUrl(url)).toBe(false);
+  });
+
+  it('accepts a same-origin relative avatar path and rejects protocol-relative URLs', () => {
+    expect(isAvatarUrl('/uploads/avatar.webp')).toBe(true);
+    expect(isAvatarUrl('//evil.example/avatar.webp')).toBe(false);
+  });
+
+  it('sanitizes unsafe server data before it reaches an image sink', () => {
+    expect(sanitizeAvatarUrl('javascript:alert(1)')).toBeNull();
+    expect(getAvatarSrc('javascript:alert(1)', 'Milo Cat')).toBe(getAvatarFallback('Milo Cat'));
   });
 
   it('replaces an untrusted failed image source with a generated fallback', () => {

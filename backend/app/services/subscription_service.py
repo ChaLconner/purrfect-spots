@@ -29,6 +29,7 @@ stripe.api_version = config.STRIPE_API_VERSION
 # Subscription statuses that grant Pro access.
 _ACTIVE_STATUSES = frozenset({"active", "trialing"})
 _CANCELLABLE_STATUSES = frozenset({"active", "trialing", "past_due", "incomplete"})
+NO_SUCH_CUSTOMER = "No such customer"
 
 _PLAN_PRICE_CACHE_TTL_SECONDS = 300
 
@@ -54,6 +55,20 @@ def _list_all_customer_subscriptions(customer_id: str) -> list[Any]:
     return list(getattr(collection, "data", []) or [])
 
 
+def _is_missing_stripe_customer(exc: Exception) -> bool:
+    return NO_SUCH_CUSTOMER in str(exc) or getattr(exc, "code", None) == "resource_missing"
+
+
+def _subscription_status(subscription: Any) -> str | None:
+    value = subscription.get("status") if isinstance(subscription, dict) else getattr(subscription, "status", None)
+    return str(value) if value is not None else None
+
+
+def _subscription_id(subscription: Any) -> str | None:
+    value = subscription.get("id") if isinstance(subscription, dict) else getattr(subscription, "id", None)
+    return str(value) if value else None
+
+
 async def cancel_customer_subscriptions(customer_id: str) -> int:
     """Stop future renewals for every live Stripe subscription of a customer."""
     if not customer_id:
@@ -62,23 +77,21 @@ async def cancel_customer_subscriptions(customer_id: str) -> int:
     try:
         subscriptions = await run_in_threadpool(_list_all_customer_subscriptions, customer_id)
     except stripe.error.InvalidRequestError as exc:
-        if "No such customer" in str(exc) or getattr(exc, "code", None) == "resource_missing":
+        if _is_missing_stripe_customer(exc):
             logger.info("Stripe customer %s already absent; no subscriptions to cancel", customer_id)
             return 0
         raise
 
     canceled = 0
     for subscription in subscriptions:
-        status = subscription.get("status") if isinstance(subscription, dict) else getattr(subscription, "status", None)
-        if status in _CANCELLABLE_STATUSES:
-            subscription_id = (
-                subscription.get("id") if isinstance(subscription, dict) else getattr(subscription, "id", None)
-            )
-            if not subscription_id:
-                logger.warning("Skipping cancellable Stripe subscription without ID for customer %s", customer_id)
-                continue
-            await run_in_threadpool(stripe.Subscription.modify, str(subscription_id), cancel_at_period_end=True)
-            canceled += 1
+        if _subscription_status(subscription) not in _CANCELLABLE_STATUSES:
+            continue
+        subscription_id = _subscription_id(subscription)
+        if not subscription_id:
+            logger.warning("Skipping cancellable Stripe subscription without ID for customer %s", customer_id)
+            continue
+        await run_in_threadpool(stripe.Subscription.modify, subscription_id, cancel_at_period_end=True)
+        canceled += 1
     return canceled
 
 
@@ -115,7 +128,12 @@ class SubscriptionService:
     def _extract_subscription_price_ids(self, subscription: Any) -> set[str]:
         """Extract Stripe price IDs from a subscription payload/object."""
         items = subscription.get("items") if isinstance(subscription, dict) else getattr(subscription, "items", None)
-        raw_items = items.get("data", []) if isinstance(items, dict) else getattr(items, "data", []) if items else []
+        if isinstance(items, dict):
+            raw_items = items.get("data", [])
+        elif items:
+            raw_items = getattr(items, "data", [])
+        else:
+            raw_items = []
 
         price_ids: set[str] = set()
         for item in raw_items or []:
@@ -200,13 +218,11 @@ class SubscriptionService:
             return cached_prices[2]
 
         try:
-
-            async def no_annual_price() -> Any:
-                return None
-
             monthly_price, annual_price = await asyncio.gather(
                 run_in_threadpool(stripe.Price.retrieve, str(monthly_id)),
-                run_in_threadpool(stripe.Price.retrieve, str(annual_id)) if annual_id else no_annual_price(),
+                run_in_threadpool(stripe.Price.retrieve, str(annual_id))
+                if annual_id
+                else asyncio.sleep(0, result=None),
             )
             prices: dict[str, Any] = {
                 "monthly": self._normalise_public_price("monthly", monthly_price),
@@ -220,6 +236,73 @@ class SubscriptionService:
 
         type(self)._plan_price_cache = (now + _PLAN_PRICE_CACHE_TTL_SECONDS, cache_key, prices)
         return prices
+
+    async def _apply_subscription_event_snapshot(
+        self,
+        subscription_id: Any,
+        customer_id: Any,
+        status: str,
+        period_end_dt: datetime | None,
+        is_pro_plan: bool,
+        cancel_at_period_end: bool,
+        *,
+        user_id: str | None,
+        event_id: str,
+        event_created_at: datetime,
+    ) -> bool:
+        rpc_result = await self.supabase.rpc(
+            "apply_stripe_subscription_event",
+            {
+                "p_subscription_id": str(subscription_id),
+                "p_customer_id": str(customer_id),
+                "p_user_id": user_id,
+                "p_status": status,
+                "p_is_pro_plan": is_pro_plan,
+                "p_cancel_at_period_end": cancel_at_period_end,
+                "p_current_period_end": period_end_dt.isoformat() if period_end_dt else None,
+                "p_event_id": event_id,
+                "p_event_created_at": event_created_at.isoformat(),
+            },
+        ).execute()
+        raw_data = getattr(rpc_result, "data", None)
+        if isinstance(raw_data, list):
+            raw_data = raw_data[0] if raw_data else None
+        if not isinstance(raw_data, dict):
+            raise SubscriptionPersistenceError("Subscription state RPC returned no result")
+        user_found = bool(raw_data.get("user_found", True))
+        if not user_found:
+            logger.warning("Subscription event %s has no matching user for customer %s", event_id, customer_id)
+        applied = bool(raw_data.get("applied", False))
+        if applied and user_found:
+            await self._invalidate_auth_cache_for_customer(str(customer_id))
+        return applied
+
+    async def _apply_direct_subscription_snapshot(
+        self,
+        subscription_id: Any,
+        customer_id: Any,
+        status: str,
+        period_end_dt: datetime | None,
+        is_pro_plan: bool,
+        user_id: str | None,
+        subscription: Any,
+    ) -> bool:
+        if status in _ACTIVE_STATUSES:
+            if not is_pro_plan:
+                logger.warning("Ignoring subscription %s with unexpected Pro price", subscription_id)
+                return False
+            await self._update_user_data(
+                {
+                    "is_pro": True,
+                    "cancel_at_period_end": bool(self._subscription_value(subscription, "cancel_at_period_end", False)),
+                    "subscription_end_date": period_end_dt.isoformat() if period_end_dt else None,
+                },
+                {"id": user_id} if user_id else {"stripe_customer_id": customer_id},
+            )
+            return True
+
+        await self._revoke_pro_status_by_customer_id(str(customer_id))
+        return True
 
     async def _apply_subscription_snapshot(
         self,
@@ -248,53 +331,28 @@ class SubscriptionService:
             return False
 
         if event_id and event_created_at:
-            rpc_result = await self.supabase.rpc(
-                "apply_stripe_subscription_event",
-                {
-                    "p_subscription_id": str(subscription_id),
-                    "p_customer_id": str(customer_id),
-                    "p_user_id": user_id,
-                    "p_status": status,
-                    "p_is_pro_plan": is_pro_plan,
-                    "p_cancel_at_period_end": bool(
-                        self._subscription_value(subscription, "cancel_at_period_end", False)
-                    ),
-                    "p_current_period_end": period_end_dt.isoformat() if period_end_dt else None,
-                    "p_event_id": event_id,
-                    "p_event_created_at": event_created_at.isoformat(),
-                },
-            ).execute()
-            raw_data = getattr(rpc_result, "data", None)
-            if isinstance(raw_data, list):
-                raw_data = raw_data[0] if raw_data else None
-            if not isinstance(raw_data, dict):
-                raise SubscriptionPersistenceError("Subscription state RPC returned no result")
-            if not raw_data.get("user_found", True):
-                logger.warning("Subscription event %s has no matching user for customer %s", event_id, customer_id)
-            applied = bool(raw_data.get("applied", False))
-            if applied and raw_data.get("user_found", True):
-                await self._invalidate_auth_cache_for_customer(str(customer_id))
-            return applied
+            return await self._apply_subscription_event_snapshot(
+                subscription_id,
+                customer_id,
+                status,
+                period_end_dt,
+                is_pro_plan,
+                bool(self._subscription_value(subscription, "cancel_at_period_end", False)),
+                user_id=user_id,
+                event_id=event_id,
+                event_created_at=event_created_at,
+            )
 
         # Direct calls remain useful for unit-level handlers and migration rollback checks.
-        if status in _ACTIVE_STATUSES and not is_pro_plan:
-            logger.warning("Ignoring subscription %s with unexpected Pro price", subscription_id)
-            return False
-        if status in _ACTIVE_STATUSES and period_end_dt is None:
-            logger.warning("Ignoring subscription %s without current_period_end", subscription_id)
-            return False
-        if status in _ACTIVE_STATUSES:
-            await self._update_user_data(
-                {
-                    "is_pro": True,
-                    "cancel_at_period_end": bool(self._subscription_value(subscription, "cancel_at_period_end", False)),
-                    "subscription_end_date": period_end_dt.isoformat() if period_end_dt else None,
-                },
-                {"id": user_id} if user_id else {"stripe_customer_id": customer_id},
-            )
-        else:
-            await self._revoke_pro_status_by_customer_id(str(customer_id))
-        return True
+        return await self._apply_direct_subscription_snapshot(
+            subscription_id,
+            customer_id,
+            status,
+            period_end_dt,
+            is_pro_plan,
+            user_id,
+            subscription,
+        )
 
     async def _invalidate_auth_cache_for_customer(self, customer_id: str) -> None:
         """Drop cached auth snapshots after billing entitlement changes."""
@@ -375,7 +433,7 @@ class SubscriptionService:
         try:
             subscriptions = await run_in_threadpool(_list_all_customer_subscriptions, customer_id)
         except stripe.error.InvalidRequestError as exc:
-            if "No such customer" in str(exc) or getattr(exc, "code", None) == "resource_missing":
+            if NO_SUCH_CUSTOMER in str(exc) or getattr(exc, "code", None) == "resource_missing":
                 return
             raise
 
@@ -430,7 +488,7 @@ class SubscriptionService:
                         idempotency_key=idempotency_key,
                     )
                 except stripe.error.InvalidRequestError as e:
-                    if "No such customer" in str(e) or getattr(e, "code", None) == "resource_missing":
+                    if NO_SUCH_CUSTOMER in str(e) or getattr(e, "code", None) == "resource_missing":
                         logger.warning(
                             "Stripe customer %s not found. Creating new customer for user %s", customer_id, user_id
                         )
@@ -737,6 +795,8 @@ class SubscriptionService:
             # Sentry alerting is best-effort; never let it break webhook handling.
             pass
 
+        await asyncio.sleep(0)
+
     async def _handle_invoice_paid(
         self, invoice: dict[str, Any], event_id: str | None = None, event_created_at: datetime | None = None
     ) -> None:
@@ -780,6 +840,16 @@ class SubscriptionService:
             subscription_id,
         )
 
+    @staticmethod
+    def _normalise_billing_user(row: Any) -> dict[str, str] | None:
+        if not isinstance(row, dict):
+            return None
+        user_id = row.get("id")
+        customer_id = row.get("stripe_customer_id")
+        if not user_id or not customer_id:
+            return None
+        return {"id": str(user_id), "stripe_customer_id": str(customer_id)}
+
     async def _list_billing_users(self) -> list[dict[str, str]]:
         """Read all users with Stripe customer IDs in bounded pages."""
         users: list[dict[str, str]] = []
@@ -794,23 +864,41 @@ class SubscriptionService:
             if not isinstance(rows, list):
                 break
             for row in rows:
-                if not isinstance(row, dict):
-                    continue
-                user_id = row.get("id")
-                customer_id = row.get("stripe_customer_id")
-                if user_id and customer_id:
-                    users.append({"id": str(user_id), "stripe_customer_id": str(customer_id)})
+                billing_user = self._normalise_billing_user(row)
+                if billing_user:
+                    users.append(billing_user)
             if len(rows) < page_size:
                 break
             offset += page_size
         return users
+
+    def _reconciliation_subscription_id(self, subscription: Any, customer_id: str) -> str | None:
+        subscription_id = self._subscription_value(subscription, "id")
+        if not subscription_id:
+            logger.warning("Skipping Stripe subscription without ID for customer %s", customer_id)
+            return None
+        subscription_customer = str(self._subscription_value(subscription, "customer", customer_id))
+        if subscription_customer != customer_id:
+            logger.warning("Skipping subscription %s returned for unexpected customer %s", subscription_id, customer_id)
+            return None
+        return str(subscription_id)
+
+    def _has_live_pro_subscription(self, subscription: Any, run_at: datetime) -> bool:
+        status = str(self._subscription_value(subscription, "status", ""))
+        period_end = self._subscription_value(subscription, "current_period_end")
+        period_end_is_valid = isinstance(period_end, (int, float)) and period_end > 0
+        if not self._subscription_matches_pro_plan(subscription) or not period_end_is_valid:
+            return False
+        if status in _ACTIVE_STATUSES:
+            return True
+        return status == "past_due" and datetime.fromtimestamp(float(period_end), UTC) > run_at
 
     async def _reconcile_customer(self, user_id: str, customer_id: str, run_at: datetime) -> int:
         """Sync one customer's complete Stripe subscription set."""
         try:
             subscriptions = await run_in_threadpool(_list_all_customer_subscriptions, customer_id)
         except stripe.error.InvalidRequestError as exc:
-            if "No such customer" in str(exc) or getattr(exc, "code", None) == "resource_missing":
+            if _is_missing_stripe_customer(exc):
                 logger.warning("Reconciliation found deleted Stripe customer %s", customer_id)
                 await self._revoke_pro_status_by_customer_id(customer_id)
                 return 0
@@ -819,29 +907,12 @@ class SubscriptionService:
         has_live_pro_subscription = False
         reconciled = 0
         for subscription in subscriptions:
-            subscription_id = self._subscription_value(subscription, "id")
+            subscription_id = self._reconciliation_subscription_id(subscription, customer_id)
             if not subscription_id:
-                logger.warning("Skipping Stripe subscription without ID for customer %s", customer_id)
                 continue
-            subscription_customer = str(self._subscription_value(subscription, "customer", customer_id))
-            if subscription_customer != customer_id:
-                logger.warning(
-                    "Skipping subscription %s returned for unexpected customer %s", subscription_id, customer_id
-                )
-                continue
-
-            status = str(self._subscription_value(subscription, "status", ""))
-            period_end = self._subscription_value(subscription, "current_period_end")
-            period_end_is_valid = isinstance(period_end, (int, float)) and period_end > 0
-            if self._subscription_matches_pro_plan(subscription) and (
-                (status in _ACTIVE_STATUSES and period_end_is_valid)
-                or (
-                    status == "past_due"
-                    and period_end_is_valid
-                    and datetime.fromtimestamp(float(period_end), UTC) > run_at
-                )
-            ):
-                has_live_pro_subscription = True
+            has_live_pro_subscription = has_live_pro_subscription or self._has_live_pro_subscription(
+                subscription, run_at
+            )
 
             event_id = f"reconciliation:{int(run_at.timestamp())}:{subscription_id}"
             applied = await self._apply_subscription_snapshot(
@@ -941,7 +1012,7 @@ class SubscriptionService:
             )
             return portal_session.url
         except stripe.error.InvalidRequestError as e:
-            if "No such customer" in str(e) or getattr(e, "code", None) == "resource_missing":
+            if NO_SUCH_CUSTOMER in str(e) or getattr(e, "code", None) == "resource_missing":
                 logger.warning("Stripe customer %s not found when creating portal. Clearing invalid ID.", customer_id)
                 await self._update_user_data({"stripe_customer_id": None}, {"id": user_id})
                 raise ValueError("Stripe customer record invalid or missing. Please subscribe first.") from e

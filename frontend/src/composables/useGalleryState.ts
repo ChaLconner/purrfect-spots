@@ -7,6 +7,39 @@ import type { CatLocation } from '@/types/api';
 
 const MAX_VISIBLE_IMAGES = 1000;
 
+interface GalleryPageResult {
+  images: CatLocation[];
+  hasMore: boolean;
+  total: number;
+}
+
+async function fetchGalleryPage(
+  query: string,
+  page: number,
+  limit: number,
+  signal: AbortSignal
+): Promise<GalleryPageResult> {
+  if (query) {
+    const response = await GalleryService.search(
+      { query, page, limit },
+      { signal }
+    );
+    const total = response.total || 0;
+    return {
+      images: response.results || [],
+      total,
+      hasMore: page * limit < total,
+    };
+  }
+
+  const response = await GalleryService.getImages({ page, limit }, { signal });
+  return {
+    images: response.images || [],
+    hasMore: response.pagination?.has_more || false,
+    total: response.pagination?.total || 0,
+  };
+}
+
 export function useGalleryState(): {
   loading: Ref<boolean>;
   loadingMore: Ref<boolean>;
@@ -43,6 +76,42 @@ export function useGalleryState(): {
     return [...current, ...uniqueIncoming].slice(-MAX_VISIBLE_IMAGES);
   };
 
+  const applyGalleryPage = (page: GalleryPageResult, reset: boolean, callback?: () => void): void => {
+    visibleImages.value = reset
+      ? page.images.slice(-MAX_VISIBLE_IMAGES)
+      : appendUniqueImages(visibleImages.value, page.images);
+    hasMoreImages.value = page.hasMore;
+    totalImages.value = page.total || visibleImages.value.length;
+    if (page.total > 0) {
+      catsStore.setGalleryLocations(visibleImages.value, {
+        total: page.total,
+        limit: imagesPerPage,
+        offset: (currentPage.value - 1) * imagesPerPage,
+        has_more: page.hasMore,
+        page: currentPage.value,
+        total_pages: Math.ceil(page.total / imagesPerPage),
+      });
+    } else {
+      catsStore.setGalleryLocations(visibleImages.value);
+    }
+    if (reset && callback) nextTick(() => callback());
+  };
+
+  const handleGalleryRequestError = (requestError: unknown): void => {
+    if (isRequestAborted(requestError)) return;
+    const message = (requestError as Error).message || 'Failed to load images from server';
+    console.error(`[Gallery] Error fetching data:`, requestError);
+    if (visibleImages.value.length === 0) error.value = message;
+  };
+
+  const finishGalleryRequest = (requestId: number, controller: AbortController): void => {
+    if (requestId === latestRequestId) {
+      loading.value = false;
+      loadingMore.value = false;
+    }
+    if (activeAbortController === controller) activeAbortController = null;
+  };
+
   async function fetchGalleryData(reset = false, callback?: () => void): Promise<void> {
     if (!reset && inFlightRequest && inFlightRequestKey) {
       return inFlightRequest;
@@ -60,101 +129,27 @@ export function useGalleryState(): {
 
     const runRequest = async (): Promise<void> => {
       const requestId = ++latestRequestId;
-      const hasData = visibleImages.value.length > 0;
-
       if (reset) {
-        // Only show full-page loading if we don't have any cached data
-        if (!hasData) {
-          loading.value = true;
-        }
-        // Note: We keep stale data during reset for stale-while-revalidate UX.
+        if (visibleImages.value.length === 0) loading.value = true;
         hasMoreImages.value = true;
       } else {
         loadingMore.value = true;
       }
-
       error.value = '';
 
       try {
-        const query = catsStore.gallerySearchQuery;
-        let newImages: CatLocation[] = [];
-        let hasNext = false;
-        let total = 0;
-
-        if (query) {
-          const response = await GalleryService.search(
-            {
-              query,
-              page: currentPage.value,
-              limit: imagesPerPage,
-            },
-            { signal: currentController.signal }
-          );
-
-          newImages = response.results || [];
-          total = response.total || 0;
-          hasNext = currentPage.value * imagesPerPage < total;
-        } else {
-          const response = await GalleryService.getImages(
-            {
-              page: currentPage.value,
-              limit: imagesPerPage,
-            },
-            { signal: currentController.signal }
-          );
-
-          newImages = response.images || [];
-          if (response.pagination) {
-            hasNext = response.pagination.has_more;
-            total = response.pagination.total;
-          }
-        }
-
-        if (requestId !== latestRequestId) {
-          return;
-        }
-
-        visibleImages.value = reset
-          ? newImages.slice(-MAX_VISIBLE_IMAGES)
-          : appendUniqueImages(visibleImages.value, newImages);
-
-        hasMoreImages.value = hasNext;
-        if (total > 0) {
-          totalImages.value = total;
-          catsStore.setGalleryLocations(visibleImages.value, {
-            total,
-            limit: imagesPerPage,
-            offset: (currentPage.value - 1) * imagesPerPage,
-            has_more: hasNext,
-            page: currentPage.value,
-            total_pages: Math.ceil(total / imagesPerPage),
-          });
-        } else {
-          totalImages.value = visibleImages.value.length;
-          catsStore.setGalleryLocations(visibleImages.value);
-        }
-
-        if (reset && callback) {
-          nextTick(() => callback());
-        }
-      } catch (err: unknown) {
-        if (isRequestAborted(err)) {
-          return;
-        }
-        const message = (err as Error).message || 'Failed to load images from server';
-        console.error(`[Gallery] Error fetching data:`, err);
-        // Only show error if we have no data
-        if (visibleImages.value.length === 0) {
-          error.value = message;
-        }
+        const page = await fetchGalleryPage(
+          catsStore.gallerySearchQuery,
+          currentPage.value,
+          imagesPerPage,
+          currentController.signal
+        );
+        if (requestId !== latestRequestId) return;
+        applyGalleryPage(page, reset, callback);
+      } catch (requestError: unknown) {
+        handleGalleryRequestError(requestError);
       } finally {
-        if (requestId === latestRequestId) {
-          loading.value = false;
-          loadingMore.value = false;
-        }
-        if (activeAbortController === currentController) {
-          activeAbortController = null;
-        }
+        finishGalleryRequest(requestId, currentController);
       }
     };
 
@@ -195,9 +190,11 @@ export function useGalleryState(): {
         link.as = 'image';
         let preloadUrl = image.image_url;
         if (image.image_url.includes('supabase.co')) {
-          preloadUrl = image.image_url.includes('width=')
-            ? image.image_url.replace(/width=\d+/, 'width=300')
-            : `${image.image_url}${image.image_url.includes('?') ? '&' : '?'}width=300`;
+          if (image.image_url.includes('width=')) {
+            preloadUrl = image.image_url.replace(/width=\d+/, 'width=300');
+          } else {
+            preloadUrl = `${image.image_url}${image.image_url.includes('?') ? '&' : '?'}width=300`;
+          }
         }
         link.href = preloadUrl;
         link.setAttribute('fetchpriority', index === 0 ? 'high' : 'low');
@@ -213,9 +210,7 @@ export function useGalleryState(): {
       activeAbortController = null;
     }
     preloadedLinks.forEach((link) => {
-      if (link.parentNode) {
-        link.parentNode.removeChild(link);
-      }
+      link.remove();
     });
     preloadedLinks.length = 0;
   }

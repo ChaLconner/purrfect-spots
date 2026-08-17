@@ -46,8 +46,19 @@ export const isBrowserExtensionError = (error: unknown): boolean => {
   if (!error) return false;
 
   const err = error as Record<string, unknown>;
-  const errorString =
-    (err?.message as string) || (typeof error?.toString === 'function' ? error.toString() : '');
+  let errorString = '';
+  if (typeof err?.message === 'string') {
+    errorString = err.message;
+  } else if (error instanceof Error) {
+    errorString = error.message;
+  } else if (typeof error === 'string') {
+    errorString = error;
+  } else {
+    const toStringMethod = (error as { toString?: unknown }).toString;
+    if (typeof toStringMethod === 'function') {
+      errorString = toStringMethod.call(error);
+    }
+  }
 
   if (
     typeof errorString === 'string' &&

@@ -1017,6 +1017,7 @@
         "resolved": "แก้ไขแล้ว",
         "dismissed": "ยกเลิก",
         "allReasons": "เหตุผลทั้งหมด",
+        "startDate": "วันที่เริ่มต้น",
         "endDate": "วันที่สิ้นสุด"
       },
       "reasons": {

@@ -7,7 +7,7 @@ from app.dependencies import get_async_supabase_admin_client
 from app.limiter import limiter
 from app.logger import logger
 from app.middleware.auth_middleware import require_permission
-from app.routes.admin.helpers import CommonPagination, fetch_cached_admin_list
+from app.routes.admin.helpers import ADMIN_ERROR_RESPONSES, CommonPagination, fetch_cached_admin_list
 from app.schemas.user import User
 
 router = APIRouter()
@@ -17,7 +17,7 @@ def _audit_logs_cache_key(limit: int, offset: int, user_id: str | None, action: 
     return f"admin_audit_logs:{limit}:{offset}:{user_id or '_'}:{action or '_'}"
 
 
-@router.get("/audit-logs", response_model=dict[str, Any])
+@router.get("/audit-logs", responses=ADMIN_ERROR_RESPONSES)
 @limiter.limit("60/minute")
 async def list_audit_logs(
     request: Request,

@@ -107,9 +107,7 @@ class UserProfileMixin(UserBaseMixin):
 
         await admin.table("users").upsert(user_record, on_conflict="id").execute()
 
-    async def update_user_profile(
-        self, user_id: str, update_data: dict[str, Any], jwt_token: str | None = None
-    ) -> dict[str, Any]:
+    async def update_user_profile(self, user_id: str, update_data: dict[str, Any]) -> dict[str, Any]:
         """Update user profile (Async)"""
         try:
             if "picture" in update_data:

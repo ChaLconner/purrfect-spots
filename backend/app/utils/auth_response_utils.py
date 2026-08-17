@@ -10,6 +10,7 @@ from fastapi import Request, Response
 from app.schemas.auth import LoginResponse
 from app.schemas.user import UserResponse
 from app.utils.auth_utils import get_client_info, set_refresh_cookie
+from app.utils.avatar import sanitize_avatar_url
 
 if TYPE_CHECKING:
     from app.services.auth_service import AuthService  # noqa: F401
@@ -50,7 +51,7 @@ def create_login_response(
         id=_get(user, "id"),
         email=_get(user, "email", ""),
         name=_get(user, "name", ""),
-        picture=_get(user, "picture", ""),
+        picture=sanitize_avatar_url(_get(user, "picture", "")),
         bio=_get(user, "bio"),
         created_at=_get(user, "created_at"),
         google_id=_get(user, "google_id"),

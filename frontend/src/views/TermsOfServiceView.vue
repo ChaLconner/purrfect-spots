@@ -20,5 +20,4 @@ import GhibliBackground from '@/components/ui/GhibliBackground.vue';
 import { useLegalPageContent } from '@/composables/useLegalPageContent';
 
 const { contentRef } = useLegalPageContent('termsOfService.content');
-void contentRef;
 </script>

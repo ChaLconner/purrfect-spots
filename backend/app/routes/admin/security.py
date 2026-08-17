@@ -4,9 +4,12 @@ Security monitoring endpoint for admin panel
 Provides real-time security metrics, alert summaries, and system health checks.
 """
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.middleware.auth_middleware import require_permission
+from app.routes.admin.helpers import ADMIN_ERROR_RESPONSES
 from app.schemas.user import User
 from app.utils.security_alerts import get_alert_summary, reset_alerts
 from app.utils.session_concurrency import get_session_summary, reset_sessions
@@ -14,9 +17,9 @@ from app.utils.session_concurrency import get_session_summary, reset_sessions
 router = APIRouter()
 
 
-@router.get("/security/summary")
-async def get_security_summary(
-    current_admin: User = Depends(require_permission("system:stats")),
+@router.get("/security/summary", responses=ADMIN_ERROR_RESPONSES)
+def get_security_summary(
+    current_admin: Annotated[User, Depends(require_permission("system:stats"))],
 ) -> dict:
     """
     Get comprehensive security summary for admin dashboard.
@@ -51,9 +54,9 @@ async def get_security_summary(
         raise HTTPException(status_code=500, detail=f"Failed to fetch security summary: {e}")
 
 
-@router.post("/security/alerts/reset")
-async def reset_security_alerts(
-    current_admin: User = Depends(require_permission("system:settings")),
+@router.post("/security/alerts/reset", responses=ADMIN_ERROR_RESPONSES)
+def reset_security_alerts(
+    current_admin: Annotated[User, Depends(require_permission("system:settings"))],
 ) -> dict[str, str]:
     """
     Reset all security alert tracking.
@@ -66,9 +69,9 @@ async def reset_security_alerts(
         raise HTTPException(status_code=500, detail=f"Failed to reset alerts: {e}")
 
 
-@router.post("/security/sessions/reset")
-async def reset_all_sessions(
-    current_admin: User = Depends(require_permission("system:settings")),
+@router.post("/security/sessions/reset", responses=ADMIN_ERROR_RESPONSES)
+def reset_all_sessions(
+    current_admin: Annotated[User, Depends(require_permission("system:settings"))],
 ) -> dict[str, str]:
     """
     Reset all session tracking.

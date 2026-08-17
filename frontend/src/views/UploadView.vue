@@ -125,6 +125,7 @@
                   class="mt-8 flex justify-end"
                 >
                   <button
+type="button"
                     class="px-6 py-2 bg-terracotta text-white font-bold rounded-xl shadow-md hover:bg-terracotta-dark transition-all transform hover:-translate-y-0.5"
                     @click="currentStep = 2"
                   >
@@ -153,12 +154,14 @@
 
                 <div class="mt-8 flex justify-between">
                   <button
+type="button"
                     class="px-6 py-2 text-stone-500 hover:text-brown font-medium transition-colors"
                     @click="currentStep = 1"
                   >
                     {{ t('common.back') }}
                   </button>
                   <button
+type="button"
                     class="px-6 py-2 bg-terracotta text-white font-bold rounded-xl shadow-md hover:bg-terracotta-dark transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
                     :disabled="!isStep2Valid"
                     @click="currentStep = 3"
@@ -192,12 +195,14 @@
 
                 <div class="mt-8 flex justify-between">
                   <button
+type="button"
                     class="px-6 py-2 text-stone-500 hover:text-brown font-medium transition-colors"
                     @click="currentStep = 2"
                   >
                     {{ t('common.back') }}
                   </button>
                   <button
+type="button"
                     class="px-6 py-2 bg-terracotta text-white font-bold rounded-xl shadow-md hover:bg-terracotta-dark transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
                     :disabled="!isStep3Valid || isSubmitting"
                     @click="submitUpload"
@@ -214,10 +219,9 @@
                 </div>
 
                 <!-- Upload Progress Bar -->
-                <div
+                <output
                   v-if="isSubmitting && uploadProgress > 0"
                   class="mt-4"
-                  role="status"
                   aria-live="polite"
                 >
                   <div class="flex items-center justify-between text-sm text-brown-light mb-1">
@@ -233,16 +237,14 @@
                     </span>
                   </div>
                   <div class="h-2.5 bg-stone-100 rounded-full overflow-hidden">
-                    <div
+                    <progress
                       class="h-full bg-gradient-to-r from-sage to-terracotta rounded-full transition-all duration-300 ease-out w-[var(--upload-progress)]"
                       :style="{ '--upload-progress': `${uploadProgress}%` }"
-                      role="progressbar"
-                      :aria-valuenow="uploadProgress"
-                      aria-valuemin="0"
-                      aria-valuemax="100"
-                    ></div>
+                      :value="uploadProgress"
+                      max="100"
+                    ></progress>
                   </div>
-                </div>
+                </output>
               </div>
             </transition>
 
@@ -430,14 +432,29 @@ const cancelPendingDetection = (): void => {
   }
 };
 
-const handleClearFile = (): void => {
-  cancelPendingDetection();
-  if (uploadData.value.previewUrl) {
-    URL.revokeObjectURL(uploadData.value.previewUrl);
-  }
+const clearUploadSelection = (): void => {
+  if (uploadData.value.previewUrl) URL.revokeObjectURL(uploadData.value.previewUrl);
   uploadData.value.previewUrl = null;
   uploadData.value.file = null;
   uploadData.value.catDetectionResult = null;
+};
+
+const handleClearFile = (): void => {
+  cancelPendingDetection();
+  clearUploadSelection();
+};
+
+const handleDetectionResult = (result: CatDetectionResult, operationId: number): void => {
+  uploadData.value.catDetectionResult = result;
+  if (result.has_cats) {
+    stepAdvanceTimeout = setTimeout(() => {
+      if (operationId === detectionSequence) currentStep.value = 2;
+      stepAdvanceTimeout = null;
+    }, 1000);
+    return;
+  }
+  showError(t('upload.noCatsDetected'), 'Detection Failed');
+  clearUploadSelection();
 };
 
 const handleFileSelected = async ({ file, url }: { file: File; url: string }): Promise<void> => {
@@ -458,29 +475,13 @@ const handleFileSelected = async ({ file, url }: { file: File; url: string }): P
     // Simulate or call real service
     const result = await catDetectionService.detectCats(file, detectionController.signal);
     if (operationId !== detectionSequence) return;
-    uploadData.value.catDetectionResult = result;
-
-    if (result.has_cats) {
-      stepAdvanceTimeout = setTimeout(() => {
-        if (operationId === detectionSequence) currentStep.value = 2;
-        stepAdvanceTimeout = null;
-      }, 1000);
-    } else {
-      showError(t('upload.noCatsDetected'), 'Detection Failed');
-      if (uploadData.value.previewUrl) URL.revokeObjectURL(uploadData.value.previewUrl);
-      uploadData.value.previewUrl = null;
-      uploadData.value.file = null;
-      uploadData.value.catDetectionResult = null;
-    }
+    handleDetectionResult(result, operationId);
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') return;
     if (operationId !== detectionSequence) return;
     console.error(error);
     showError(t('upload.errorVerifyCat'), t('common.error'));
-    if (uploadData.value.previewUrl) URL.revokeObjectURL(uploadData.value.previewUrl);
-    uploadData.value.previewUrl = null;
-    uploadData.value.file = null;
-    uploadData.value.catDetectionResult = null;
+    clearUploadSelection();
   } finally {
     if (operationId === detectionSequence) {
       isDetectingCats.value = false;

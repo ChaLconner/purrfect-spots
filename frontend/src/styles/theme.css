@@ -520,6 +520,7 @@
   scrollbar-width: none;
 
   &::-webkit-scrollbar {
+    /* NOSONAR css:S8776 - Tailwind v4 @utility selector uses & as its scoping root. */
     display: none;
     width: 0;
     height: 0;
@@ -528,19 +529,23 @@
 
 @utility custom-scrollbar {
   &::-webkit-scrollbar {
+    /* NOSONAR css:S8776 - Tailwind v4 @utility selector uses & as its scoping root. */
     width: 6px;
   }
 
   &::-webkit-scrollbar-track {
+    /* NOSONAR css:S8776 - Tailwind v4 @utility selector uses & as its scoping root. */
     background: transparent;
   }
 
   &::-webkit-scrollbar-thumb {
+    /* NOSONAR css:S8776 - Tailwind v4 @utility selector uses & as its scoping root. */
     background: var(--color-sand-300);
     border-radius: 9999px;
   }
 
   &::-webkit-scrollbar-thumb:hover {
+    /* NOSONAR css:S8776 - Tailwind v4 @utility selector uses & as its scoping root. */
     background: var(--color-sand-400);
   }
 }
@@ -550,20 +555,24 @@
   scrollbar-color: var(--color-sand-300) transparent;
 
   &::-webkit-scrollbar {
+    /* NOSONAR css:S8776 - Tailwind v4 @utility selector uses & as its scoping root. */
     width: 6px;
     height: 6px;
   }
 
   &::-webkit-scrollbar-track {
+    /* NOSONAR css:S8776 - Tailwind v4 @utility selector uses & as its scoping root. */
     background: transparent;
   }
 
   &::-webkit-scrollbar-thumb {
+    /* NOSONAR css:S8776 - Tailwind v4 @utility selector uses & as its scoping root. */
     background: var(--color-sand-200);
     border-radius: 9999px;
   }
 
   &::-webkit-scrollbar-thumb:hover {
+    /* NOSONAR css:S8776 - Tailwind v4 @utility selector uses & as its scoping root. */
     background: var(--color-sand-300);
   }
 }
@@ -577,10 +586,12 @@
   line-height: 1.75;
 
   & p {
+    /* NOSONAR css:S8776 - Tailwind v4 @utility selector uses & as its scoping root. */
     margin-block: 1rem;
   }
 
   & h3 {
+    /* NOSONAR css:S8776 - Tailwind v4 @utility selector uses & as its scoping root. */
     margin-top: 2rem;
     margin-bottom: 0.75rem;
     color: var(--color-brown-900);
@@ -591,27 +602,32 @@
   }
 
   & ul {
+    /* NOSONAR css:S8776 - Tailwind v4 @utility selector uses & as its scoping root. */
     margin-block: 1rem;
     list-style-type: disc;
     padding-inline-start: 1.5rem;
   }
 
   & li {
+    /* NOSONAR css:S8776 - Tailwind v4 @utility selector uses & as its scoping root. */
     padding-inline-start: 0.25rem;
   }
 
   & strong {
+    /* NOSONAR css:S8776 - Tailwind v4 @utility selector uses & as its scoping root. */
     color: var(--color-brown-900);
     font-weight: var(--font-weight-bold);
   }
 
   & a {
+    /* NOSONAR css:S8776 - Tailwind v4 @utility selector uses & as its scoping root. */
     color: var(--color-terracotta-600);
     text-decoration-line: underline;
     text-underline-offset: 2px;
   }
 
   & a:hover {
+    /* NOSONAR css:S8776 - Tailwind v4 @utility selector uses & as its scoping root. */
     color: var(--color-terracotta-700);
   }
 }

@@ -232,7 +232,7 @@ jobs:
     timeout-minutes: 20
     services:
       redis:
-        image: redis:7-alpine
+        image: redis:7-alpine@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2 # redis 7-alpine
         ports: ["6379:6379"]
         options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
@@ -284,7 +284,7 @@ jobs:
         shell: bash
         run: |
           cd backend
-          python -m pip install --upgrade pip --prefer-binary
+          python -m pip install --upgrade pip==26.2.1 --prefer-binary
           python -m pip install -r requirements.txt --prefer-binary
       - name: Check Contract
         env:
@@ -486,13 +486,15 @@ jobs:
         run: |
           python -m venv .trivy-venv
           . .trivy-venv/bin/activate
-          python -m pip install --upgrade pip --prefer-binary
+          python -m pip install --upgrade pip==26.2.1 --prefer-binary
           python -m pip install -r backend/requirements.txt --prefer-binary
       - name: Pull Trivy image
         shell: bash
         run: |
+          # v0.68.1 pinned to an immutable manifest-list digest.
+          TRIVY_IMAGE="ghcr.io/aquasecurity/trivy@sha256:a93fd67162843c0f749002af9245fe9a2e5edc41445bd71d3949c803e95ef05b"
           for i in 1 2 3; do
-            if docker pull ghcr.io/aquasecurity/trivy:0.68.1; then
+            if docker pull "$TRIVY_IMAGE"; then
               exit 0
             fi
             if [ "$i" -lt 3 ]; then
@@ -500,16 +502,17 @@ jobs:
               sleep 10
             fi
           done
-          echo "::error::Unable to pull ghcr.io/aquasecurity/trivy:0.68.1 after 3 attempts."
+          echo "::error::Unable to pull the pinned Trivy image after 3 attempts."
           exit 1
       - name: Run Trivy vulnerability scanner
         shell: bash
         run: |
+          TRIVY_IMAGE="ghcr.io/aquasecurity/trivy@sha256:a93fd67162843c0f749002af9245fe9a2e5edc41445bd71d3949c803e95ef05b"
           docker run --rm \
             -v "$PWD:/workdir" \
             -w /workdir \
             -e VIRTUAL_ENV=/workdir/.trivy-venv \
-            ghcr.io/aquasecurity/trivy:0.68.1 \
+            "$TRIVY_IMAGE" \
             fs \
             --skip-version-check \
             --format sarif \
@@ -547,7 +550,7 @@ jobs:
     needs: changes
     timeout-minutes: 20
     container:
-      image: semgrep/semgrep:1.172.0
+      image: semgrep/semgrep:1.172.0@sha256:65dcd4408adda7c183a6b4550cb1e9b19f7f627a6fbb7e0559bd466bedc44d7b
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

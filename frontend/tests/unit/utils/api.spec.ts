@@ -14,20 +14,21 @@ import {
   buildPaginationQuery,
   apiInstance,
   apiV1,
-  getDefaultHeaders
+  getDefaultHeaders,
+  uploadFile,
 } from '@/utils/api';
 import { clearOfflineQueue, listOfflineMutations } from '@/utils/offlineQueue';
 import { getEnvVar } from '@/utils/env';
 
 vi.mock('axios', () => {
-  const mockInstance = {
+  const mockInstance = Object.assign(vi.fn(), {
     request: vi.fn(),
     interceptors: {
       request: { use: vi.fn(), eject: vi.fn() },
       response: { use: vi.fn(), eject: vi.fn() },
     },
     defaults: { headers: { common: {} } },
-  };
+  });
   return {
     default: {
       create: vi.fn(() => mockInstance),
@@ -44,6 +45,10 @@ vi.mock('@/utils/env', () => ({
 vi.mock('@/utils/security', () => ({
   getCsrfToken: vi.fn(() => null),
 }));
+
+const responseErrorHandler = vi.mocked(apiInstance.interceptors.response.use).mock.calls[0]?.[1] as (
+  error: unknown
+) => Promise<unknown>;
 
 describe('API Utils', () => {
   beforeEach(async () => {
@@ -70,23 +75,13 @@ describe('API Utils', () => {
       expect(getApiBaseUrl()).toBe('https://api.example.com');
     });
 
-    it('returns same-origin api path when env not set', () => {
-      vi.mocked(getEnvVar).mockReturnValue('');
-      expect(getApiBaseUrl()).toBe('');
-    });
-
-    it('normalizes same-origin versioned path to proxy base', () => {
-      vi.mocked(getEnvVar).mockReturnValue('/api/v1');
-      expect(getApiBaseUrl()).toBe('');
-    });
-
-    it('normalizes localhost backend URLs to the same-origin proxy during local development', () => {
-      vi.mocked(getEnvVar).mockReturnValue('http://localhost:8000/api/v1');
-      expect(getApiBaseUrl()).toBe('');
-    });
-
-    it('normalizes same-origin api proxy base to avoid duplicate /api prefixes', () => {
-      vi.mocked(getEnvVar).mockReturnValue('/api');
+    it.each([
+      ['same-origin api path when env is not set', ''],
+      ['same-origin versioned path', '/api/v1'],
+      ['localhost backend URL during local development', 'http://localhost:8000/api/v1'],
+      ['same-origin api proxy base', '/api'],
+    ])('normalizes %s to the proxy base', (_caseName, envValue) => {
+      vi.mocked(getEnvVar).mockReturnValue(envValue);
       expect(getApiBaseUrl()).toBe('');
     });
   });
@@ -249,6 +244,63 @@ describe('API Utils', () => {
             expect(refreshFn).toHaveBeenCalled();
         }
     });
+
+    it('logs out when refresh is unavailable and the request is not already retried', async () => {
+      const logout = vi.fn();
+      setAuthCallbacks(undefined as unknown as () => Promise<boolean>, logout);
+      const error = {
+        response: { status: 401, data: {} },
+        config: { url: '/api/v1/gallery', headers: {} },
+      } as any;
+
+      await expect(responseErrorHandler(error)).rejects.toMatchObject({ type: ApiErrorTypes.AUTHENTICATION_ERROR });
+      expect(logout).toHaveBeenCalledTimes(2);
+    });
+
+    it('handles rate-limit retry-after responses', async () => {
+      const error = {
+        response: { status: 429, data: {}, headers: { 'retry-after': '7' } },
+        config: { url: '/api/v1/gallery' },
+      } as any;
+
+      await expect(responseErrorHandler(error)).rejects.toMatchObject({
+        type: ApiErrorTypes.SERVER_ERROR,
+        message: 'Rate limit exceeded. Please wait 7 seconds before retrying.',
+      });
+    });
+
+    it('coalesces token refreshes and retries with the refreshed token', async () => {
+      const refreshFn = vi.fn().mockResolvedValue(true);
+      setAuthCallbacks(refreshFn, vi.fn());
+      setAccessToken('refreshed-token');
+
+      const request = apiInstance as unknown as {
+        mockResolvedValue: (value: unknown) => void;
+      };
+      request.mockResolvedValue({ data: 'retry-success' });
+
+      const error = {
+        response: { status: 401, data: {} },
+        config: { url: '/api/v1/gallery', headers: {} },
+      } as any;
+      const result = await responseErrorHandler(error);
+
+      expect(refreshFn).toHaveBeenCalledOnce();
+      expect(result).toMatchObject({ data: 'retry-success' });
+      expect(error.config.headers.Authorization).toBe('Bearer refreshed-token');
+    });
+
+    it('logs out and stops an already retried request', async () => {
+      const logout = vi.fn();
+      setAuthCallbacks(vi.fn(), logout);
+      const error = {
+        response: { status: 401, data: {} },
+        config: { url: '/api/v1/gallery', headers: {}, _retry: true },
+      } as any;
+
+      await expect(responseErrorHandler(error)).rejects.toBe(error);
+      expect(logout).toHaveBeenCalledOnce();
+    });
   });
 
   describe('api helper methods', () => {
@@ -272,6 +324,17 @@ describe('API Utils', () => {
       await apiV1.patch('/users/1', { name: 'test' });
       await apiV1.delete('/users/1');
       expect(apiInstance.request).toHaveBeenCalledTimes(2);
+    });
+
+    it('serializes structured upload fields and skips undefined values', async () => {
+      vi.mocked(apiInstance.request).mockResolvedValue({ data: { uploaded: true } });
+      const file = new File(['image'], 'cat.jpg', { type: 'image/jpeg' });
+
+      await uploadFile('/upload/cat', file, { metadata: { source: 'test' }, optional: undefined });
+
+      const requestConfig = vi.mocked(apiInstance.request).mock.calls[0]?.[0] as any;
+      expect(requestConfig.data.get('metadata')).toBe(JSON.stringify({ source: 'test' }));
+      expect(requestConfig.data.get('optional')).toBeNull();
     });
   });
 

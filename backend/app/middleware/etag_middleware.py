@@ -62,21 +62,29 @@ class ETagMiddleware(BaseHTTPMiddleware):
     MAX_ETAG_BODY_SIZE = 1_048_576  # 1MB
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
-        # Only process GET/HEAD requests
-        if request.method not in self.SAFE_METHODS:
-            return await call_next(request)
-
-        # Skip non-API paths
-        if not request.url.path.startswith("/api/"):
+        if not self._should_process_request(request):
             return await call_next(request)
 
         response = await call_next(request)
+        skip_response = self._prepare_response(request, response)
+        if skip_response is not None:
+            return skip_response
 
-        # Skip if response already has ETag or is an error
+        body, replay_response = await self._read_response_body(response)
+        if replay_response is not None:
+            return replay_response
+        if not body:
+            return response
+
+        return self._build_etag_response(request, response, body)
+
+    def _should_process_request(self, request: Request) -> bool:
+        return request.method in self.SAFE_METHODS and request.url.path.startswith("/api/")
+
+    def _prepare_response(self, request: Request, response: Response) -> Response | None:
         if response.status_code >= 400:
             return response
 
-        # Authenticated API reads must not be cached unless a route opts in explicitly.
         if _request_is_authenticated(request) and "Cache-Control" not in response.headers:
             response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
 
@@ -86,52 +94,46 @@ class ETagMiddleware(BaseHTTPMiddleware):
         if not _is_cacheable_response(response):
             return response
 
-        # Route handlers should set Content-Length. Skip hashing known-large
-        # payloads before consuming their body.
         content_length = response.headers.get("content-length")
         if content_length and int(content_length) > self.MAX_ETAG_BODY_SIZE:
             return response
+        return None
 
-        # Collect chunks once. Avoid repeated bytes concatenation (O(n²)).
+    async def _read_response_body(self, response: Response) -> tuple[bytes | None, Response | None]:
         chunks: list[bytes] = []
         body_size = 0
-        has_body = False
         async for chunk in response.body_iterator:  # type: ignore[attr-defined]
             chunk_bytes = chunk if isinstance(chunk, bytes) else chunk.encode()
             chunks.append(chunk_bytes)
             body_size += len(chunk_bytes)
-            has_body = True
             if body_size > self.MAX_ETAG_BODY_SIZE:
-
-                async def replay_body() -> AsyncIterator[bytes]:
-                    for replay_chunk in chunks:
-                        yield replay_chunk
-                    async for extra in response.body_iterator:  # type: ignore[attr-defined]
-                        yield extra if isinstance(extra, bytes) else extra.encode()
-
-                return StreamingResponse(
-                    replay_body(),
-                    status_code=response.status_code,
-                    headers=dict(response.headers),
-                    media_type=response.media_type,
-                    background=response.background,
-                )
+                return None, self._replay_large_response(response, chunks)
 
         response_body = b"".join(chunks)
-        if not has_body or not response_body:
-            return response
+        return (response_body or None), None
 
-        # Compute ETag
+    def _replay_large_response(self, response: Response, chunks: list[bytes]) -> StreamingResponse:
+        async def replay_body() -> AsyncIterator[bytes]:
+            for replay_chunk in chunks:
+                yield replay_chunk
+            async for extra in response.body_iterator:  # type: ignore[attr-defined]
+                yield extra if isinstance(extra, bytes) else extra.encode()
+
+        return StreamingResponse(
+            replay_body(),
+            status_code=response.status_code,
+            headers=dict(response.headers),
+            media_type=response.media_type,
+            background=response.background,
+        )
+
+    def _build_etag_response(self, request: Request, response: Response, response_body: bytes) -> Response:
         etag = _compute_etag(response_body)
 
-        # Check If-None-Match header
         if_none_match = request.headers.get("If-None-Match")
         if if_none_match:
-            # Support multiple ETags: "etag1", "etag2"
             client_etags = [t.strip() for t in if_none_match.split(",")]
             if etag in client_etags or "*" in client_etags:
-                from fastapi.responses import Response as StarletteResponse
-
                 headers = {
                     "ETag": etag,
                     "Cache-Control": response.headers.get("Cache-Control", ""),
@@ -140,18 +142,15 @@ class ETagMiddleware(BaseHTTPMiddleware):
                 if vary:
                     headers["Vary"] = vary
 
-                return StarletteResponse(
+                return Response(
                     status_code=304,
                     headers=headers,
                 )
 
-        # Rebuild response with ETag header
-        from fastapi.responses import Response as StarletteResponse
-
         headers = dict(response.headers)
         headers["ETag"] = etag
 
-        return StarletteResponse(
+        return Response(
             content=response_body,
             status_code=response.status_code,
             headers=headers,

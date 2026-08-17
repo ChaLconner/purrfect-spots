@@ -163,11 +163,13 @@ export function useGeolocation(): UseGeolocationReturn {
 
         permissionDenied.value = isDenied;
         error.value = message;
-        locationStatus.value = isDenied
-          ? 'denied'
-          : userLocation.value
-            ? 'stale'
-            : 'unavailable';
+        if (isDenied) {
+          locationStatus.value = 'denied';
+        } else if (userLocation.value) {
+          locationStatus.value = 'stale';
+        } else {
+          locationStatus.value = 'unavailable';
+        }
 
         if (allowIpFallback) {
           const fallbackCoords = await getIpLocation();
@@ -238,11 +240,13 @@ export function useGeolocation(): UseGeolocationReturn {
         const isDenied = positionError.code === 1 || positionError.message.toLowerCase().includes('denied');
         permissionDenied.value = isDenied;
         error.value = positionError.message;
-        locationStatus.value = isDenied
-          ? 'denied'
-          : userLocation.value
-            ? 'stale'
-            : 'unavailable';
+        if (isDenied) {
+          locationStatus.value = 'denied';
+        } else if (userLocation.value) {
+          locationStatus.value = 'stale';
+        } else {
+          locationStatus.value = 'unavailable';
+        }
         if (isDenied) {
           stopWatchingPosition();
         }

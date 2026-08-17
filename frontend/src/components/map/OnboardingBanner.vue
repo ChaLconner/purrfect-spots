@@ -17,6 +17,7 @@
             {{ $t('onboarding.title') }}
           </h3>
           <button
+type="button"
             class="text-stone-400 hover:text-stone-600 transition-colors p-1 cursor-pointer"
             :aria-label="$t('accessibility.closeModal')"
             @click="dismiss"
@@ -43,6 +44,7 @@
           </div>
         </div>
         <button
+type="button"
           class="mt-2 w-full py-2 bg-cream hover:bg-sage/20 text-brown font-semibold rounded-xl border border-sage/30 shadow-sm transition-colors text-sm font-heading tracking-wide cursor-pointer"
           @click="dismiss"
         >

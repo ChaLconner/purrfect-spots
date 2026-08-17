@@ -139,6 +139,7 @@
             {{ t('upload.photoSection.noCatMessage') }}
           </p>
           <button
+type="button"
             class="px-5 py-2.5 bg-red-500 text-white font-bold rounded-xl shadow-md shadow-red-200 hover:bg-red-600 transition-all transform active:scale-95 flex items-center gap-2"
             @click.stop="triggerFileInput"
           >

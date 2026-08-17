@@ -25,51 +25,64 @@ class BaseRepository:
         """Fetch a single record from specified table matching filters."""
         try:
             if self.db:
-                if allowed_columns and not set(filters.keys()).issubset(allowed_columns):
-                    return None
-
-                cols = list(allowed_columns) if allowed_columns else list(filters.keys())
-                tbl = table(table_name, *(column(c) for c in cols))
-
-                if fields == "*":
-                    select_cols = [getattr(tbl.c, c) for c in cols]
-                else:
-                    field_list = [f.strip() for f in fields.split(",") if f.strip() in cols]
-                    select_cols = [getattr(tbl.c, f) for f in field_list]
-
-                if not select_cols:
-                    return None
-
-                query = (
-                    select(*select_cols)
-                    .where(*(getattr(tbl.c, k) == bindparam(k) for k in filters if k in cols))
-                    .limit(1)
-                )
-                result = await self.db.execute(query, {k: filters[k] for k in filters if k in cols})
-                row = result.fetchone()
-                return dict(row._mapping) if row else None
-
-            supa_query = self.supabase.table(table_name).select(fields)
-            for k, v in filters.items():
-                supa_query = supa_query.eq(k, v)
-
-            res_or_coro = supa_query.limit(1).execute()
-            res = await res_or_coro if inspect.isawaitable(res_or_coro) else res_or_coro
-            data = getattr(res, "data", None) if res else None
-            if data is None or data == []:
-                return None
-            if isinstance(data, list) and len(data) > 0:
-                return cast(dict[str, Any], data[0])
-            if isinstance(data, dict):
-                return cast(dict[str, Any], data)
-            if "Mock" in type(data).__name__:
-                return {"id": filters.get("id") or filters.get("stripe_customer_id") or "mock_id"}
-            return None
+                return await self._fetch_one_from_db(table_name, filters, fields, allowed_columns)
+            return await self._fetch_one_from_supabase(table_name, filters, fields)
         except Exception as e:
             logger.error("Database fetch_one error on table %s: %s", table_name, e)
             if raise_on_error:
                 raise
             return None
+
+    async def _fetch_one_from_db(
+        self,
+        table_name: str,
+        filters: dict[str, Any],
+        fields: str,
+        allowed_columns: set[str] | None,
+    ) -> dict[str, Any] | None:
+        if allowed_columns and not set(filters).issubset(allowed_columns):
+            return None
+
+        cols = list(allowed_columns) if allowed_columns else list(filters)
+        tbl = table(table_name, *(column(c) for c in cols))
+        if fields == "*":
+            selected_columns = [getattr(tbl.c, c) for c in cols]
+        else:
+            field_list = [field.strip() for field in fields.split(",") if field.strip() in cols]
+            selected_columns = [getattr(tbl.c, field) for field in field_list]
+        if not selected_columns:
+            return None
+
+        query = (
+            select(*selected_columns)
+            .where(*(getattr(tbl.c, key) == bindparam(key) for key in filters if key in cols))
+            .limit(1)
+        )
+        if self.db is None:
+            return None
+        result = await self.db.execute(query, {key: filters[key] for key in filters if key in cols})
+        row = result.fetchone()
+        return dict(row._mapping) if row else None
+
+    async def _fetch_one_from_supabase(
+        self, table_name: str, filters: dict[str, Any], fields: str
+    ) -> dict[str, Any] | None:
+        supa_query = self.supabase.table(table_name).select(fields)
+        for key, value in filters.items():
+            supa_query = supa_query.eq(key, value)
+
+        result_or_coro = supa_query.limit(1).execute()
+        result = await result_or_coro if inspect.isawaitable(result_or_coro) else result_or_coro
+        data = getattr(result, "data", None) if result else None
+        if data is None or data == []:
+            return None
+        if isinstance(data, list) and data:
+            return cast(dict[str, Any], data[0])
+        if isinstance(data, dict):
+            return cast(dict[str, Any], data)
+        if "Mock" in type(data).__name__:
+            return {"id": filters.get("id") or filters.get("stripe_customer_id") or "mock_id"}
+        return None
 
     async def update_record(
         self,

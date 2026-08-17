@@ -274,7 +274,6 @@ jobs:
 
       - name: Create Sentry release (staging)
         if: success()
-        continue-on-error: true
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
@@ -288,7 +287,7 @@ jobs:
             exit 0
           fi
 
-          npm install -g @sentry/cli --silent
+          npm install -g @sentry/cli@3.6.2 --silent
           sentry-cli releases new "${VERSION}" --org="$SENTRY_ORG" --project="$SENTRY_PROJECT"
           sentry-cli releases set-commits "${VERSION}" --auto --org="$SENTRY_ORG" --project="$SENTRY_PROJECT"
           sentry-cli releases deploys "${VERSION}" new --env staging --org="$SENTRY_ORG" --project="$SENTRY_PROJECT"
@@ -769,7 +768,6 @@ jobs:
 
       - name: Create Sentry release (production)
         if: success()
-        continue-on-error: true
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
@@ -783,7 +781,7 @@ jobs:
             exit 0
           fi
 
-          npm install -g @sentry/cli --silent
+          npm install -g @sentry/cli@3.6.2 --silent
           sentry-cli releases new "${VERSION}" --org="$SENTRY_ORG" --project="$SENTRY_PROJECT"
           sentry-cli releases set-commits "${VERSION}" --auto --org="$SENTRY_ORG" --project="$SENTRY_PROJECT"
           sentry-cli releases deploys "${VERSION}" new --env production --org="$SENTRY_ORG" --project="$SENTRY_PROJECT"

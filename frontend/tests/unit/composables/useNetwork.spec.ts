@@ -83,7 +83,7 @@ describe('useNetwork', () => {
     await nextTick();
 
     expect(result.isOnline.value).toBe(true);
-    expect(result.offlineAt.value).toBe(null);
+    expect(result.offlineAt.value).toBeNull();
   });
 
   it('should remove event listeners on unmount', () => {

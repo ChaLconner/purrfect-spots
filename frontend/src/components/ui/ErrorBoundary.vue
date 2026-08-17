@@ -36,7 +36,7 @@ const errorStack = ref('');
 const isDev = import.meta.env.DEV;
 
 // Capture errors from child components
-onErrorCaptured((error: Error, instance, info) => {
+onErrorCaptured((error: Error, instance, info) => { // NOSONAR typescript:S3516 - Vue requires false to stop propagation; both paths intentionally prevent it.
   console.error('[ErrorBoundary] Caught error:', error);
   console.error('[ErrorBoundary] Component:', instance);
   console.error('[ErrorBoundary] Info:', info);
@@ -206,7 +206,8 @@ provide('errorBoundary', {
       <!-- Action Buttons -->
       <div class="flex flex-col sm:flex-row gap-3 justify-center">
         <button
-          v-if="showRetry"
+v-if="showRetry"
+          type="button"
           class="px-6 py-3 bg-terracotta text-white rounded-full font-medium hover:bg-terracotta-dark transition-colors focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2"
           @click="handleRetry"
         >
@@ -230,7 +231,8 @@ provide('errorBoundary', {
         </button>
 
         <button
-          v-if="showHome"
+v-if="showHome"
+          type="button"
           class="px-6 py-3 bg-white text-gray-700 rounded-full font-medium border border-gray-300 hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
           @click="handleGoHome"
         >
@@ -238,6 +240,7 @@ provide('errorBoundary', {
         </button>
 
         <button
+type="button"
           class="px-6 py-3 text-gray-500 hover:text-gray-700 transition-colors text-sm underline"
           @click="handleReload"
         >

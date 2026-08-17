@@ -12,19 +12,19 @@ from app.services.notification_service import NotificationService, _is_valid_uui
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
 
-@router.get("", response_model=list[NotificationResponse])
+@router.get("")
 async def get_notifications(
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     service: Annotated[NotificationService, Depends(get_notification_service)],
-    limit: int = Query(20, ge=1, le=50),
-    offset: int = Query(0, ge=0),
-    before: str | None = Query(None, max_length=64),
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    before: Annotated[str | None, Query(max_length=64)] = None,
 ) -> list[NotificationResponse]:
     """Get user notifications."""
     return cast(list[NotificationResponse], await service.get_notifications(current_user.id, limit, offset, before))
 
 
-@router.get("/unread-count", response_model=NotificationUnreadCountResponse)
+@router.get("/unread-count")
 async def get_unread_count(
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     service: Annotated[NotificationService, Depends(get_notification_service)],
@@ -34,7 +34,7 @@ async def get_unread_count(
     return NotificationUnreadCountResponse(unread_count=count)
 
 
-@router.put("/{id}/read", response_model=MessageResponse)
+@router.put("/{id}/read")
 async def mark_as_read(
     id: str,
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
@@ -47,7 +47,7 @@ async def mark_as_read(
     return MessageResponse(message="Notification marked as read")
 
 
-@router.put("/read-all", response_model=MessageResponse)
+@router.put("/read-all")
 async def mark_all_as_read(
     current_user: Annotated[User, Depends(get_current_user_from_credentials)],
     service: Annotated[NotificationService, Depends(get_notification_service)],

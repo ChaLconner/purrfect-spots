@@ -109,87 +109,89 @@ class NotificationService:
                 logger.error("Failed to create notification for user %s: %s", user_id, e)
             return {}
 
+    async def _get_notifications_db(
+        self, user_id: str, limit: int, offset: int, parsed_before: datetime | None, since: datetime
+    ) -> list[dict[str, Any]]:
+        if not self.db:
+            return []
+        query_sql = (
+            "SELECT n.*, u.name as actor_name, u.picture as actor_picture "
+            "FROM notifications n "
+            "LEFT JOIN users u ON n.actor_id = u.id "
+            "WHERE n.user_id = :u_id AND n.created_at >= :since "
+            "AND n.created_at < :before "
+            "ORDER BY n.created_at DESC, n.id DESC LIMIT :lim OFFSET :off"
+            if parsed_before
+            else "SELECT n.*, u.name as actor_name, u.picture as actor_picture "
+            "FROM notifications n "
+            "LEFT JOIN users u ON n.actor_id = u.id "
+            "WHERE n.user_id = :u_id AND n.created_at >= :since "
+            "ORDER BY n.created_at DESC, n.id DESC LIMIT :lim OFFSET :off"
+        )
+        query = text(query_sql)
+        params: dict[str, Any] = {
+            "u_id": user_id,
+            "since": since,
+            "lim": min(max(limit, 1), 50),
+            "off": 0 if parsed_before else max(offset, 0),
+        }
+        if parsed_before:
+            params["before"] = parsed_before
+        result = await self.db.execute(query, params)
+        notifications = []
+        for row in result.fetchall():
+            item = dict(row._mapping)
+            if "actor_picture" in item:
+                item["actor_picture"] = sanitize_avatar_url(item["actor_picture"])
+            notifications.append(item)
+        return notifications
+
+    async def _get_notifications_supabase(
+        self, user_id: str, limit: int, offset: int, parsed_before: datetime | None, since: datetime
+    ) -> list[dict[str, Any]]:
+        supabase_query = (
+            self.supabase.table("notifications")
+            .select("*, actor:users!actor_id(name, picture)")
+            .eq("user_id", user_id)
+            .gte("created_at", since.isoformat())
+            .order("created_at", desc=True)
+        )
+        page_size = min(max(limit, 1), 50)
+        if parsed_before:
+            supabase_query = supabase_query.lt("created_at", parsed_before.isoformat()).limit(page_size)
+        else:
+            supabase_query = supabase_query.limit(page_size).offset(max(offset, 0))
+        result = await supabase_query.execute()
+        notifications = []
+        for item_json in result.data:
+            item = cast(dict[str, Any], item_json)
+            actor = cast(dict[str, Any], item.get("actor", {}) or {})
+            item["actor_name"] = actor.get("name")
+            item["actor_picture"] = sanitize_avatar_url(actor.get("picture"))
+            item.pop("actor", None)
+            notifications.append(item)
+        return notifications
+
     async def get_notifications(
         self, user_id: str, limit: int = 20, offset: int = 0, before: str | None = None
     ) -> list[dict[str, Any]]:
-        """Get user notifications with actor details.
-
-        ``before`` enables keyset pagination for long notification histories;
-        offset remains supported for older clients.
-        """
-        thirty_days_ago = datetime.now(UTC) - timedelta(days=30)
+        """Get user notifications with actor details."""
+        since = datetime.now(UTC) - timedelta(days=30)
         parsed_before: datetime | None = None
         if before:
             try:
                 parsed_before = datetime.fromisoformat(before.replace("Z", "+00:00"))
             except ValueError:
                 parsed_before = None
-
         try:
-            notifications = []
             if self.db:
                 try:
-                    if parsed_before:
-                        query = text(
-                            "SELECT n.*, u.name as actor_name, u.picture as actor_picture "
-                            "FROM notifications n "
-                            "LEFT JOIN users u ON n.actor_id = u.id "
-                            "WHERE n.user_id = :u_id AND n.created_at >= :since "
-                            "AND n.created_at < :before "
-                            "ORDER BY n.created_at DESC, n.id DESC LIMIT :lim OFFSET :off"
-                        )
-                    else:
-                        query = text(
-                            "SELECT n.*, u.name as actor_name, u.picture as actor_picture "
-                            "FROM notifications n "
-                            "LEFT JOIN users u ON n.actor_id = u.id "
-                            "WHERE n.user_id = :u_id AND n.created_at >= :since "
-                            "ORDER BY n.created_at DESC, n.id DESC LIMIT :lim OFFSET :off"
-                        )
-                    params: dict[str, Any] = {
-                        "u_id": user_id,
-                        "since": thirty_days_ago,
-                        "lim": min(max(limit, 1), 50),
-                        "off": 0 if parsed_before else max(offset, 0),
-                    }
-                    if parsed_before:
-                        params["before"] = parsed_before
-                    db_res = await self.db.execute(query, params)
-                    for row in db_res.fetchall():
-                        item = dict(row._mapping)
-                        if "actor_picture" in item:
-                            item["actor_picture"] = sanitize_avatar_url(item["actor_picture"])
-                        notifications.append(item)
-                    return notifications
-                except Exception as e:
-                    logger.warning(f"SQL notification fetch failed, falling back to Supabase client: {e}")
-
-            supabase_query = (
-                self.supabase.table("notifications")
-                .select("*, actor:users!actor_id(name, picture)")
-                .eq("user_id", user_id)
-                .gte("created_at", thirty_days_ago.isoformat())
-                .order("created_at", desc=True)
-            )
-            if parsed_before:
-                supabase_query = supabase_query.lt("created_at", parsed_before.isoformat()).limit(
-                    min(max(limit, 1), 50)
-                )
-            else:
-                supabase_query = supabase_query.limit(min(max(limit, 1), 50)).offset(max(offset, 0))
-            supa_res = await supabase_query.execute()
-
-            for item_json in supa_res.data:
-                item = cast(dict[str, Any], item_json)
-                actor = cast(dict[str, Any], item.get("actor", {}) or {})
-                item["actor_name"] = actor.get("name")
-                item["actor_picture"] = sanitize_avatar_url(actor.get("picture"))
-                item.pop("actor", None)
-                notifications.append(item)
-
-            return notifications
-        except Exception as e:
-            logger.error(f"Failed to fetch notifications for user {user_id}: {e}")
+                    return await self._get_notifications_db(user_id, limit, offset, parsed_before, since)
+                except Exception as exc:
+                    logger.warning("SQL notification fetch failed, falling back to Supabase client: %s", exc)
+            return await self._get_notifications_supabase(user_id, limit, offset, parsed_before, since)
+        except Exception as exc:
+            logger.error("Failed to fetch notifications for user %s: %s", user_id, exc)
             return []
 
     async def get_unread_count(self, user_id: str) -> int:

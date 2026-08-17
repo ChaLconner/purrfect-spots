@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 import AdminReports from '@/views/admin/AdminReports.vue';
 import { apiV1 } from '@/utils/api';
 import { nextTick } from 'vue';
@@ -106,7 +106,26 @@ describe('AdminReports.vue', () => {
      await resolveBtn?.trigger('click');
   
      expect(wrapper.find('#resolution-reason').exists()).toBe(true);
-   });
+  });
+
+  it('exports report details through the CSV path', async (): Promise<void> => {
+    const reportWithQuotes = { ...mockReports[0], details: 'Quoted "report" details' };
+    (apiV1.get as ReturnType<typeof vi.fn>).mockResolvedValue({ data: [reportWithQuotes], total: 1 });
+    const wrapper = mount(AdminReports, {
+      global: { plugins: [pinia] },
+    });
+
+    await flushPromises();
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    await wrapper.findAll('button')[0].trigger('click');
+    await flushPromises();
+
+    expect(apiV1.get).toHaveBeenCalledWith(
+      expect.stringContaining('/admin/reports'),
+      expect.anything()
+    );
+    clickSpy.mockRestore();
+  });
 
   it('completes resolution flow', async (): Promise<void> => {
     (apiV1.get as ReturnType<typeof vi.fn>).mockResolvedValue({ data: mockReports, total: 1 });

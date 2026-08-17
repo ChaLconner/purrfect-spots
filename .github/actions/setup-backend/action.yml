@@ -53,7 +53,7 @@ runs:
         INSTALL_DEV_TOOLS: ${{ inputs.install-dev-tools }}
       run: |
         cd backend
-        pip install --upgrade pip --prefer-binary
+        python -m pip install --upgrade pip==26.2.1 --prefer-binary
         if [ "$INSTALL_DEV_TOOLS" = "true" ]; then
           pip install -r requirements-dev.txt --prefer-binary
         else

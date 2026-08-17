@@ -19,80 +19,61 @@ class SocialService:
         self.db = db
         self.notification_service = NotificationService(supabase_client)
 
+    async def _toggle_like_sql(self, user_id: str, photo_id: str) -> dict[str, Any]:
+        if not self.db:
+            raise ExternalServiceError("Database session unavailable", service="Postgres")
+        visibility_query = text(
+            "SELECT 1 FROM cat_photos WHERE id = :p_photo_id AND deleted_at IS NULL AND status = 'approved' LIMIT 1"
+        )
+        visibility_result = await self.db.execute(visibility_query, {"p_photo_id": photo_id})
+        if not visibility_result.fetchone():
+            raise NotFoundError(message=PHOTO_NOT_FOUND, resource_type="photo", resource_id=photo_id)
+        query = text(
+            "SELECT liked, likes_count FROM toggle_photo_like(CAST(:p_user_id AS UUID), CAST(:p_photo_id AS UUID))"
+        )
+        result = await self.db.execute(query, {"p_user_id": user_id, "p_photo_id": photo_id})
+        row = result.fetchone()
+        if not row:
+            raise ExternalServiceError("Toggle like returned no data", service="Postgres")
+        await self.db.commit()
+        return {"liked": row[0], "likes_count": row[1]}
+
+    async def _toggle_like_supabase(self, user_id: str, photo_id: str) -> dict[str, Any]:
+        from app.utils.cache import invalidate_user_cache
+        from app.utils.supabase_client import get_async_supabase_admin_client
+
+        admin_client = await get_async_supabase_admin_client()
+        photo_res = (
+            await admin_client.table("cat_photos")
+            .select("id")
+            .eq("id", photo_id)
+            .eq("status", "approved")
+            .is_("deleted_at", "null")
+            .limit(1)
+            .execute()
+        )
+        if not photo_res.data:
+            raise NotFoundError(message=PHOTO_NOT_FOUND, resource_type="photo", resource_id=photo_id)
+        result = await admin_client.rpc("toggle_photo_like", {"p_user_id": user_id, "p_photo_id": photo_id}).execute()
+        data_list = cast(list[dict[str, Any]], result.data)
+        if not data_list:
+            raise ExternalServiceError("Toggle like returned no data", service="Supabase")
+        await invalidate_user_cache(user_id)
+        return {"liked": data_list[0]["liked"], "likes_count": data_list[0]["likes_count"]}
+
     async def toggle_like(self, user_id: str, photo_id: str) -> dict[str, Any]:
-        """
-        Toggle like status for a photo using atomic database function.
-        """
+        """Toggle like status for a photo using atomic database function."""
         try:
-            liked = False
-            likes_count = 0
             if self.db:
                 try:
-                    visibility_query = text(
-                        "SELECT 1 FROM cat_photos "
-                        "WHERE id = :p_photo_id AND deleted_at IS NULL AND status = 'approved' LIMIT 1"
-                    )
-                    visibility_result = await self.db.execute(visibility_query, {"p_photo_id": photo_id})
-                    if not visibility_result.fetchone():
-                        raise NotFoundError(message=PHOTO_NOT_FOUND, resource_type="photo", resource_id=photo_id)
-
-                    # Use SQLAlchemy to call the RPC function
-                    query = text(
-                        "SELECT liked, likes_count FROM toggle_photo_like(CAST(:p_user_id AS UUID), CAST(:p_photo_id AS UUID))"
-                    )
-                    result = await self.db.execute(query, {"p_user_id": user_id, "p_photo_id": photo_id})
-                    row = result.fetchone()
-
-                    if not row:
-                        raise ExternalServiceError("Toggle like returned no data", service="Postgres")
-
-                    # Commit the transaction as RPC might have side effects (inserting/deleting likes)
-                    await self.db.commit()
-
-                    liked = row[0]
-                    likes_count = row[1]
-                    return {"liked": liked, "likes_count": likes_count}
+                    return await self._toggle_like_sql(user_id, photo_id)
                 except NotFoundError:
                     await self.db.rollback()
                     raise
-                except Exception as e:
+                except Exception as exc:
                     await self.db.rollback()
-                    logger.warning(f"SQL toggle_like failed, falling back to Supabase client: {e}")
-
-            from app.utils.supabase_client import get_async_supabase_admin_client
-
-            # Use admin client to bypass RLS/JWT issues with RPC
-            admin_client = await get_async_supabase_admin_client()
-
-            photo_res = (
-                await admin_client.table("cat_photos")
-                .select("id")
-                .eq("id", photo_id)
-                .eq("status", "approved")
-                .is_("deleted_at", "null")
-                .limit(1)
-                .execute()
-            )
-            if not photo_res.data:
-                raise NotFoundError(message=PHOTO_NOT_FOUND, resource_type="photo", resource_id=photo_id)
-
-            res = await admin_client.rpc("toggle_photo_like", {"p_user_id": user_id, "p_photo_id": photo_id}).execute()
-
-            data_list = cast(list[dict[str, Any]], res.data)
-            if not data_list or len(data_list) == 0:
-                raise ExternalServiceError("Toggle like returned no data", service="Supabase")
-
-            row_dict = data_list[0]
-            liked = row_dict["liked"]
-            likes_count = row_dict["likes_count"]
-
-            # Light invalidation (only for the user's view if needed)
-            from app.utils.cache import invalidate_user_cache
-
-            await invalidate_user_cache(user_id)
-
-            return {"liked": liked, "likes_count": likes_count}
-
+                    logger.warning("SQL toggle_like failed, falling back to Supabase client: %s", exc)
+            return await self._toggle_like_supabase(user_id, photo_id)
         except Exception as e:
             if isinstance(e, (NotFoundError, ExternalServiceError)):
                 raise

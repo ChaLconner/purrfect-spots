@@ -5,13 +5,13 @@ Authentication routes for both Manual (Email/Password) and Google OAuth
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from app.config import config
 from app.dependencies import get_auth_service, get_otp_service
-from app.limiter import auth_limiter, forgot_password_limiter
+from app.limiter import auth_limiter, forgot_password_limiter, refresh_token_limiter
 from app.logger import logger, sanitize_log_value
 from app.middleware.auth_middleware import get_current_user, get_current_user_from_header, invalidate_user_auth_cache
 from app.schemas.auth import (
@@ -36,10 +36,20 @@ from app.services.otp_service import OTPService
 from app.services.password_service import password_service
 from app.utils.auth_response_utils import create_login_response
 from app.utils.auth_utils import get_client_info, set_refresh_cookie
+from app.utils.avatar import sanitize_avatar_url
 from app.utils.exceptions import ConflictError
 from app.utils.security import log_security_event, sanitize_text
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+AUTH_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
+    400: {"description": "Invalid authentication request"},
+    401: {"description": "Authentication failed"},
+    403: {"description": "Account or permission denied"},
+    404: {"description": "Account not found"},
+    409: {"description": "Account already exists"},
+    429: {"description": "Rate limit exceeded"},
+    500: {"description": "Internal server error"},
+}
 
 
 # AuthService is now imported from dependencies
@@ -65,10 +75,7 @@ async def _invalidate_auth_cache_for_user(user: User | dict[str, Any] | Any) -> 
 # ==========================================
 
 
-from typing import Annotated
-
-
-@router.post("/register", response_model=LoginResponse)
+@router.post("/register", responses=AUTH_ERROR_RESPONSES)
 @auth_limiter.limit("5/minute")
 async def register(
     response: Response,  # noqa: ARG001
@@ -136,7 +143,7 @@ async def register(
         raise HTTPException(status_code=500, detail="Registration failed. Please try again") from e
 
 
-@router.post("/verify-otp")
+@router.post("/verify-otp", responses=AUTH_ERROR_RESPONSES)
 @auth_limiter.limit("10/minute")
 async def verify_otp(
     response: Response,
@@ -196,7 +203,7 @@ async def verify_otp(
         raise HTTPException(status_code=500, detail="Verification process failed. Please try again.") from e
 
 
-@router.post("/resend-otp", response_model=ResendOTPResponse)
+@router.post("/resend-otp", responses=AUTH_ERROR_RESPONSES)
 @auth_limiter.limit("3/minute")
 async def resend_otp(
     request: Request,  # noqa: ARG001
@@ -239,7 +246,7 @@ async def resend_otp(
         raise HTTPException(status_code=500, detail="Failed to send verification code. Please try again.")
 
 
-@router.post("/login", response_model=LoginResponse)
+@router.post("/login", responses=AUTH_ERROR_RESPONSES)
 @auth_limiter.limit("5/minute")
 async def login(
     response: Response,
@@ -273,7 +280,8 @@ async def login(
         raise HTTPException(status_code=500, detail="Login failed")
 
 
-@router.post("/refresh-token", response_model=LoginResponse)
+@router.post("/refresh-token", responses=AUTH_ERROR_RESPONSES)
+@refresh_token_limiter.limit(config.RATE_LIMIT_REFRESH_TOKEN)
 async def refresh_token(
     response: Response,
     request: Request,
@@ -331,7 +339,7 @@ async def refresh_token(
         return LoginResponse(access_token=None, token_type=None, message="Refresh failed")
 
 
-@router.post("/logout", response_model=LogoutResponse)
+@router.post("/logout", responses=AUTH_ERROR_RESPONSES)
 async def logout(
     response: Response,
     request: Request,
@@ -361,7 +369,7 @@ async def logout(
     return LogoutResponse(message="Logged out successfully")
 
 
-@router.post("/forgot-password", response_model=PasswordResetResponse)
+@router.post("/forgot-password", responses=AUTH_ERROR_RESPONSES)
 @forgot_password_limiter.limit(config.RATE_LIMIT_FORGOT_PASSWORD)
 async def forgot_password(
     request: Request,  # noqa: ARG001
@@ -386,7 +394,7 @@ async def forgot_password(
         )
 
 
-@router.post("/reset-password", response_model=PasswordResetResponse)
+@router.post("/reset-password", responses=AUTH_ERROR_RESPONSES)
 @forgot_password_limiter.limit(config.RATE_LIMIT_FORGOT_PASSWORD)
 async def reset_password(
     request: Request,  # noqa: ARG001
@@ -409,7 +417,7 @@ async def reset_password(
     return PasswordResetResponse(message="Password updated successfully")
 
 
-@router.post("/session-exchange", response_model=LoginResponse)
+@router.post("/session-exchange", responses=AUTH_ERROR_RESPONSES)
 @auth_limiter.limit("10/minute")
 async def exchange_session(
     response: Response,
@@ -465,8 +473,8 @@ async def exchange_session(
         raise HTTPException(status_code=401, detail="Session verification failed")
 
 
-@router.get("/me", response_model=UserResponse)
-async def get_current_user_info(current_user: Annotated[UserResponse, Depends(get_current_user)]) -> UserResponse:
+@router.get("/me", responses=AUTH_ERROR_RESPONSES)
+def get_current_user_info(current_user: Annotated[UserResponse, Depends(get_current_user)]) -> UserResponse:
     """
     Get current user information (unified from both manual and google auth).
 
@@ -477,7 +485,7 @@ async def get_current_user_info(current_user: Annotated[UserResponse, Depends(ge
         id=current_user.id,
         email=current_user.email,
         name=current_user.name,
-        picture=current_user.picture,
+        picture=sanitize_avatar_url(current_user.picture),
         bio=current_user.bio,
         created_at=current_user.created_at,
         google_id=current_user.google_id,
@@ -504,7 +512,7 @@ def _validate_google_redirect_uri(redirect_uri: str) -> bool:
     return False
 
 
-@router.post("/google/exchange", response_model=LoginResponse)
+@router.post("/google/exchange", responses=AUTH_ERROR_RESPONSES)
 async def google_exchange_code(
     response: Response,
     request: Request,
@@ -535,12 +543,13 @@ async def google_exchange_code(
                 detail="Invalid redirect URI",
             )
 
-        # Exchange code for tokens
-        # Pass IP and User-Agent for fingerprinting
+        # Exchange code for tokens. Keep the request fingerprint for the
+        # refresh-token cookie even though the OAuth code exchange does not
+        # consume it.
         ip, ua = get_client_info(request)
         try:
             login_response = await auth_service.exchange_google_code(
-                exchange_data.code, exchange_data.code_verifier, exchange_data.redirect_uri, ip, ua
+                exchange_data.code, exchange_data.code_verifier, exchange_data.redirect_uri
             )
         except PermissionError as e:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
@@ -578,7 +587,7 @@ async def google_exchange_code(
         )
 
 
-@router.post("/sync-user", response_model=SyncUserResponse)
+@router.post("/sync-user", responses=AUTH_ERROR_RESPONSES)
 async def sync_user_data(
     user_payload: Annotated[dict, Depends(get_current_user_from_header)],
 ) -> SyncUserResponse:

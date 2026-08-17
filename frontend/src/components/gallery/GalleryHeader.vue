@@ -42,7 +42,8 @@
             @input="handleSearchInput"
           />
           <button
-            v-if="localSearchQuery"
+v-if="localSearchQuery"
+            type="button"
             class="flex items-center justify-center p-1 rounded-full bg-secondary/20 text-text-secondary hover:bg-secondary/40 transition-colors"
             aria-label="Clear search"
             @click="clearSearch"

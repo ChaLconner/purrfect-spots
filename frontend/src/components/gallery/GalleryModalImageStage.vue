@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { computed, ref, onMounted, onUnmounted } from 'vue';
 import SkeletonLoader from '@/components/ui/SkeletonLoader.vue';
 import type { CatLocation } from '@/types/api';
+import { useI18n } from 'vue-i18n';
 
 const props = defineProps<{
   image: CatLocation | null;
@@ -11,6 +12,8 @@ const props = defineProps<{
   hasNext: boolean;
 }>();
 
+const { t } = useI18n();
+
 const emit = defineEmits<{
   close: [];
   navigate: [direction: 'prev' | 'next'];
@@ -19,6 +22,12 @@ const emit = defineEmits<{
 }>();
 
 const imageStageRef = ref<HTMLDivElement | null>(null);
+const altDescription = computed(() => {
+  const photo = props.image;
+  return photo?.location_name
+    ? t('galleryPage.modal.aCatAt', { location: photo.location_name })
+    : t('galleryPage.modal.aCat');
+});
 
 // Touch swipe state
 const touchStartX = ref(0);
@@ -103,7 +112,11 @@ onUnmounted(() => {
       v-if="hasError"
       class="flex flex-col items-center justify-center p-8 text-center text-white/60"
     >
-      <img class="w-48 h-auto opacity-40 mb-4 grayscale" />
+      <img
+        class="w-48 h-auto opacity-40 mb-4 grayscale"
+        alt=""
+        aria-hidden="true"
+      />
       <p class="font-heading text-xl">{{ $t('galleryPage.modal.imageNotFound') }}</p>
       <p class="text-sm mt-2 opacity-70">{{ $t('galleryPage.modal.imageHiding') }}</p>
     </div>
@@ -112,11 +125,7 @@ onUnmounted(() => {
     <img
       v-else-if="image"
       :src="image.image_url"
-      :alt="
-        image.location_name
-          ? $t('galleryPage.modal.aCatAt', { location: image.location_name })
-          : $t('galleryPage.modal.aCat')
-      "
+      :alt="altDescription"
       class="w-full h-full object-contain relative z-2 drop-shadow-[0_10px_20px_rgba(0,0,0,0.3)] transition-transform duration-300"
       @load="$emit('image-load')"
       @error="$emit('image-error', $event)"
@@ -129,6 +138,7 @@ onUnmounted(() => {
 
     <button
       v-if="hasPrevious"
+      type="button"
       class="absolute top-1/2 -translate-y-1/2 left-6 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-white flex items-center justify-center cursor-pointer transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] z-20 opacity-100 md:opacity-0 group-hover:opacity-100 hover:bg-white hover:text-[#1a1a1a] hover:scale-110 hover:shadow-[0_4px_12px_rgba(0,0,0,0.2)] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 active:scale-95"
       :aria-label="$t('galleryPage.modal.previous')"
       @click.stop="$emit('navigate', 'prev')"
@@ -147,6 +157,7 @@ onUnmounted(() => {
 
     <button
       v-if="hasNext"
+      type="button"
       class="absolute top-1/2 -translate-y-1/2 right-6 w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-white flex items-center justify-center cursor-pointer transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] z-20 opacity-100 md:opacity-0 group-hover:opacity-100 hover:bg-white hover:text-[#1a1a1a] hover:scale-110 hover:shadow-[0_4px_12px_rgba(0,0,0,0.2)] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 active:scale-95"
       :aria-label="$t('galleryPage.modal.next')"
       @click.stop="$emit('navigate', 'next')"

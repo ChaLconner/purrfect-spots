@@ -67,10 +67,8 @@ class AuthService(AuthTokenMixin, AuthOAuthMixin, AuthPasswordMixin):
     async def get_user_by_id(self, user_id: str) -> "User | None":
         return cast("User | None", await self.user_service.get_user_by_id(user_id))
 
-    async def update_user_profile(
-        self, user_id: str, update_data: dict[str, Any], jwt_token: str | None = None
-    ) -> dict[str, Any]:
-        return cast(dict[str, Any], await self.user_service.update_user_profile(user_id, update_data, jwt_token))
+    async def update_user_profile(self, user_id: str, update_data: dict[str, Any]) -> dict[str, Any]:
+        return cast(dict[str, Any], await self.user_service.update_user_profile(user_id, update_data))
 
     async def confirm_user_email(self, email: str) -> bool:
         """Confirm user email via Admin Client (Async)"""

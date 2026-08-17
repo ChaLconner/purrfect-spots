@@ -56,7 +56,7 @@ export const useAdminStore = defineStore('admin', {
   }),
   actions: {
     togglePerformanceStats(show?: boolean) {
-      this.showPerformanceStats = show !== undefined ? show : !this.showPerformanceStats;
+      this.showPerformanceStats = show ?? !this.showPerformanceStats;
       localStorage.setItem('admin_show_perf_stats', String(this.showPerformanceStats));
     },
 
@@ -118,9 +118,8 @@ export const useAdminStore = defineStore('admin', {
       this.isMonthlyLoading = true;
       this.error = null;
       try {
-        const response = await apiV1.get<{ data: MonthlyStat[]; year: number }>(
-          `/admin/monthly${year ? `?year=${year}` : ''}`
-        );
+        const monthlyEndpoint = year === undefined ? '/admin/monthly' : `/admin/monthly?year=${year}`;
+        const response = await apiV1.get<{ data: MonthlyStat[]; year: number }>(monthlyEndpoint);
         this.monthlyData = response.data;
         this.lastMonthlyFetched = now;
       } catch (error) {

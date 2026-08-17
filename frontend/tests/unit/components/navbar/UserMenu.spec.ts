@@ -7,7 +7,7 @@ const authStoreMock = vi.hoisted(() => ({
   user: {
     name: 'Professor Codex',
     email: 'professor@example.com',
-    picture: 'https://cdn.example.com/avatar.png',
+    picture: 'https://cdn.discordapp.com/avatar.png',
     is_pro: false,
   },
   canAccessAdmin: false,
@@ -30,6 +30,7 @@ vi.mock('@/stores/toast', () => ({
 
 vi.mock('@/utils/env', () => ({
   isDev: () => false,
+  getEnvVar: () => '',
 }));
 
 vi.mock('vue-router', () => ({
@@ -49,7 +50,7 @@ describe('UserMenu', () => {
     authStoreMock.user = {
       name: 'Professor Codex',
       email: 'professor@example.com',
-      picture: 'https://cdn.example.com/avatar.png',
+      picture: 'https://cdn.discordapp.com/avatar.png',
       is_pro: false,
     };
     authStoreMock.canAccessAdmin = false;

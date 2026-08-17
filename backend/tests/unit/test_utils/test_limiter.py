@@ -107,9 +107,8 @@ class TestRedisConfiguration:
     """Test Redis configuration functions"""
 
     def test_get_redis_url_not_configured(self) -> None:
-        """Test behavior when REDIS_URL is not set"""
-        # Ensure no REDIS_URL from real environment leaks in
-        with patch("app.config.config.REDIS_URL", None):
+        """Test behavior when the dedicated rate-limit Redis URL is not set"""
+        with patch("app.config.config.RATE_LIMIT_REDIS_URL", None):
             from app.limiter import get_redis_url
 
             result = get_redis_url()
@@ -117,7 +116,7 @@ class TestRedisConfiguration:
 
     def test_get_redis_url_valid_format(self) -> None:
         """Test with valid Redis URL format"""
-        with patch("app.config.config.REDIS_URL", "redis://localhost:6379/0"):
+        with patch("app.config.config.RATE_LIMIT_REDIS_URL", "redis://localhost:6379/0"):
             from app.limiter import get_redis_url
 
             result = get_redis_url()
@@ -126,7 +125,7 @@ class TestRedisConfiguration:
     def test_get_redis_url_invalid_format(self) -> None:
         """Test with invalid Redis URL format"""
         with patch(
-            "app.config.config.REDIS_URL", "http://localhost:6379"
+            "app.config.config.RATE_LIMIT_REDIS_URL", "http://localhost:6379"
         ):  # NOSONAR python:S5332 - tests rejection of non-redis URL format
             from app.limiter import get_redis_url
 
@@ -135,18 +134,24 @@ class TestRedisConfiguration:
 
     def test_get_redis_url_ssl_format(self) -> None:
         """Test with Redis SSL URL format"""
-        with patch("app.config.config.REDIS_URL", "rediss://user:pass@prod.redis.io:6380"):
+        with patch(
+            "app.config.config.RATE_LIMIT_REDIS_URL",
+            "rediss://user:pass@prod.redis.io:6380",  # pragma: allowlist secret
+        ):
             from app.limiter import get_redis_url
 
             result = get_redis_url()
-            assert result == "rediss://user:pass@prod.redis.io:6380"
+            assert result == "rediss://user:pass@prod.redis.io:6380"  # pragma: allowlist secret
 
     def test_get_storage_uri_requires_redis_in_production(self) -> None:
         """Production must not silently fall back to per-process rate limits."""
-        with patch("app.config.config.REDIS_URL", None), patch("app.config.config.is_production", return_value=True):
+        with (
+            patch("app.config.config.RATE_LIMIT_REDIS_URL", None),
+            patch("app.config.config.is_production", return_value=True),
+        ):
             from app.limiter import get_storage_uri
 
-            with pytest.raises(RuntimeError, match="REDIS_URL is required"):
+            with pytest.raises(RuntimeError, match="RATE_LIMIT_REDIS_URL is required"):
                 get_storage_uri()
 
     def test_test_redis_connection_success(self) -> None:

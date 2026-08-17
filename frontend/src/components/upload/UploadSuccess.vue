@@ -35,6 +35,7 @@
     <!-- Action Buttons -->
     <div class="flex flex-col-reverse sm:flex-row gap-4 justify-center w-full max-w-md">
       <button
+type="button"
         class="flex-1 px-8 py-4 bg-white border-2 border-brown/10 text-brown font-heading font-bold rounded-2xl hover:border-terracotta hover:text-terracotta transition-all duration-300 transform active:scale-95 flex items-center justify-center gap-2 group"
         @click="$emit('upload-another')"
       >
@@ -54,6 +55,7 @@
         {{ t('upload.success.uploadAnother') }}
       </button>
       <button
+type="button"
         class="flex-1 px-8 py-4 bg-terracotta text-white font-heading font-bold rounded-2xl shadow-lg shadow-terracotta/20 hover:shadow-xl hover:bg-terracotta-dark transition-all duration-300 transform hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2"
         @click="$emit('view-map')"
       >

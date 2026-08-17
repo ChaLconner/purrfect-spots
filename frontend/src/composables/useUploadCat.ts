@@ -6,6 +6,16 @@ import type { UploadQuotaStatus } from './useQuotaCache';
 
 type UploadPhase = 'idle' | 'uploading' | 'processing';
 
+function createFallbackIdempotencyKey(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return `upload-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')}`;
+  }
+
+  return `upload-${Date.now()}`;
+}
+
 export function useUploadCat(): {
   isUploading: Ref<boolean>;
   error: Ref<string | null>;
@@ -91,7 +101,7 @@ export function useUploadCat(): {
       const idempotencyKey =
         typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
           ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          : createFallbackIdempotencyKey();
       const result = await uploadFile<UploadResponse>(
         '/api/v1/upload/cat',
         file,

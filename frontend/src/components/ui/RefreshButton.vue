@@ -1,5 +1,6 @@
 <template>
   <button
+type="button"
     class="p-2 rounded-lg border border-sand-300 hover:bg-sand-50 text-brown-500 transition-colors"
     :title="title"
     @click="$emit('refresh')"

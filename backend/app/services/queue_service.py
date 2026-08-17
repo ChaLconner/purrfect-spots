@@ -10,7 +10,7 @@ from __future__ import annotations
 import base64
 import json
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import uuid4
 
@@ -308,6 +308,26 @@ class QueueService:
                 )
         return messages
 
+    async def read_dead_letters(self, source_stream: str, count: int = 100) -> list[QueueMessage]:
+        """Read bounded, metadata-only dead-letter entries for operator inspection."""
+        if source_stream not in {self.STRIPE_STREAM, self.VISION_STREAM}:
+            raise ValueError("Unsupported dead-letter source stream")
+        client = self._require_client()
+        bounded_count = max(1, min(int(count), 1000))
+        dead_letter_stream = f"{source_stream}{self.DEAD_LETTER_SUFFIX}"
+        try:
+            raw = await client.xrevrange(dead_letter_stream, max="+", min="-", count=bounded_count)
+        except Exception as exc:
+            raise QueueUnavailable("Unable to read queue dead-letter entries") from exc
+        return [
+            QueueMessage(
+                stream=dead_letter_stream,
+                message_id=str(message_id),
+                fields={str(k): str(v) for k, v in fields.items()},
+            )
+            for message_id, fields in raw or []
+        ]
+
     async def acknowledge(self, message: QueueMessage, group: str) -> None:
         client = self._require_client()
         try:
@@ -325,17 +345,42 @@ class QueueService:
     async def dead_letter(self, message: QueueMessage, group: str, reason: str) -> None:
         client = self._require_client()
         dead_letter_stream = f"{message.stream}{self.DEAD_LETTER_SUFFIX}"
+        if message.stream == self.STRIPE_STREAM:
+            retained_fields = {
+                key: message.fields[key] for key in ("event_id", "event_type") if message.fields.get(key)
+            }
+        elif message.stream == self.VISION_STREAM:
+            retained_fields = {
+                key: message.fields[key] for key in ("job_id", "operation", "user_id") if message.fields.get(key)
+            }
+        else:
+            retained_fields = {}
         payload = {
             "source_stream": message.stream,
             "source_message_id": message.message_id,
             "reason": reason[:500],
-            "fields": message.fields,
+            "fields": retained_fields,
+            "fields_redacted": True,
             "failed_at": datetime.now(UTC).isoformat(),
         }
         try:
-            await client.xadd(dead_letter_stream, {"message": self._serialize(payload)})
+            await client.xadd(
+                dead_letter_stream,
+                {"message": self._serialize(payload)},
+                maxlen=config.QUEUE_DEAD_LETTER_MAXLEN,
+                approximate=True,
+            )
+            cutoff_ms = int(
+                (datetime.now(UTC) - timedelta(seconds=config.QUEUE_DEAD_LETTER_TTL_SECONDS)).timestamp() * 1000
+            )
+            await client.xtrim(
+                dead_letter_stream,
+                minid=f"{cutoff_ms}-0",
+                approximate=True,
+            )
+            await client.expire(dead_letter_stream, config.QUEUE_DEAD_LETTER_TTL_SECONDS)
         except Exception as exc:
-            raise QueueUnavailable("Unable to write queue dead-letter entry") from exc
+            raise QueueUnavailable("Unable to persist bounded queue dead-letter entry") from exc
         await self.acknowledge(message, group)
 
     async def increment_attempt(self, message: QueueMessage) -> int:

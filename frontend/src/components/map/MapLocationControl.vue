@@ -50,7 +50,10 @@
           </span>
         </div>
 
-        <div class="mt-2 grid grid-cols-4 gap-1.5" role="group" :aria-label="$t('map.location.radiusLabel')">
+        <fieldset
+          class="mt-2 grid grid-cols-4 gap-1.5 border-0 p-0"
+          :aria-label="$t('map.location.radiusLabel')"
+        >
           <button
             type="button"
             class="rounded-lg border px-2 py-1.5 font-accent text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-btn-shade-a)] focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-45"
@@ -72,7 +75,7 @@
           >
             {{ option }} km
           </button>
-        </div>
+        </fieldset>
 
         <button
           v-if="canChooseManualLocation"

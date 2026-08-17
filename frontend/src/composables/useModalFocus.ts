@@ -69,12 +69,10 @@ export function useModalFocus(
         lastElement.focus();
         e.preventDefault();
       }
-    } else {
+    } else if (document.activeElement === lastElement) {
       // Tab
-      if (document.activeElement === lastElement) {
-        firstElement.focus();
-        e.preventDefault();
-      }
+      firstElement.focus();
+      e.preventDefault();
     }
   };
 

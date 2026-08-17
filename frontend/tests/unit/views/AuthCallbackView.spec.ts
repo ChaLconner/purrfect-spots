@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 import AuthCallback from '@/views/AuthCallbackView.vue';
+import { AuthService } from '@/services/authService';
+import { showError, showSuccess } from '@/stores/toast';
 
 const mockPush = vi.fn();
 const mockRoute = {
@@ -8,8 +10,8 @@ const mockRoute = {
 };
 const mockSetAuth = vi.fn().mockResolvedValue(undefined);
 const mockSessionExchange = vi.fn();
-const validAccessToken = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.signature';
-const validRefreshToken = 'eyJhbGciOiJIUzI1NiJ9.eyJ0eXBlIjoicmVmcmVzaCJ9.signature';
+const validAccessToken = 'test-access-token';
+const validRefreshToken = 'test-refresh-token';
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({
@@ -54,6 +56,7 @@ describe('AuthCallback.vue', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
+    mockSessionExchange.mockReset();
     mockRoute.query = {};
     sessionStorage.clear();
 
@@ -110,5 +113,88 @@ describe('AuthCallback.vue', () => {
     vi.runAllTimers();
 
     expect(mockPush).toHaveBeenCalledWith('/upload');
+  });
+
+  it('redirects recovery magic links to the password reset page', async () => {
+    globalThis.location.hash = `#access_token=${validAccessToken}&refresh_token=${validRefreshToken}&type=recovery`;
+    mockSessionExchange.mockResolvedValue({
+      access_token: 'session-token',
+      user: { id: '1', email: 'test@example.com', name: 'Test User' },
+    });
+
+    mount(AuthCallback);
+    await flushPromises();
+
+    expect(showSuccess).toHaveBeenCalledWith('auth.callback.passwordResetVerified');
+    expect(mockPush).toHaveBeenCalledWith('/reset-password');
+  });
+
+  it('exchanges Google callbacks and tolerates user-sync failures', async () => {
+    mockRoute.query = { code: 'google-code' };
+    sessionStorage.setItem('google_code_verifier', 'verifier');
+    vi.mocked(AuthService.googleCodeExchange).mockResolvedValue({
+      access_token: 'session-token',
+      user: { id: '1', email: 'test@example.com', name: 'Test User' },
+    });
+    vi.mocked(AuthService.syncUser).mockRejectedValue(new Error('sync unavailable'));
+
+    mount(AuthCallback);
+    await flushPromises();
+    vi.runAllTimers();
+
+    expect(AuthService.googleCodeExchange).toHaveBeenCalledWith('google-code', 'verifier');
+    expect(AuthService.syncUser).toHaveBeenCalledOnce();
+    expect(mockPush).toHaveBeenCalledWith('/upload');
+  });
+
+  it('reports missing Google callback credentials', async () => {
+    mockRoute.query = { code: 'google-code' };
+
+    mount(AuthCallback);
+    await flushPromises();
+
+    expect(showError).toHaveBeenCalledWith(
+      'auth.callback.authDataNotFound',
+      'auth.callback.loginFailedTitle'
+    );
+  });
+
+  it.each([
+    ['object errors', { message: 'invalid_grant' }, 'auth.callback.authExpired'],
+    ['string errors', 'Failed to fetch', 'auth.callback.connectionError'],
+  ])('normalizes %s from session exchange failures', async (_label, rejection, message) => {
+    globalThis.location.hash = `#access_token=${validAccessToken}&refresh_token=${validRefreshToken}&type=signup`;
+    mockSessionExchange.mockRejectedValue(rejection);
+
+    mount(AuthCallback);
+    await flushPromises();
+
+    expect(showError).toHaveBeenCalledWith(message, 'auth.callback.loginFailedTitle');
+  });
+
+  it('stops retrying browser-extension failures after the configured limit', async () => {
+    globalThis.location.hash = `#access_token=${validAccessToken}&refresh_token=${validRefreshToken}&type=signup`;
+    mockSessionExchange.mockRejectedValue(new Error('message channel closed'));
+
+    mount(AuthCallback);
+    await vi.runAllTimersAsync();
+
+    expect(mockSessionExchange).toHaveBeenCalledTimes(3);
+    expect(showError).toHaveBeenCalledWith(
+      'auth.callback.extensionError',
+      'auth.callback.loginErrorTitle'
+    );
+  });
+
+  it('decodes plus signs in OAuth error descriptions', async () => {
+    globalThis.location.hash = '#error_description=Denied%2Bby%2Bprovider';
+
+    mount(AuthCallback);
+    await flushPromises();
+
+    expect(showError).toHaveBeenCalledWith(
+      'Denied by provider',
+      'auth.callback.loginFailedTitle'
+    );
   });
 });

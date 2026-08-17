@@ -104,7 +104,8 @@ const styles = computed(() => {
       <div class="ml-4 flex items-center shrink-0 space-x-2 relative z-10">
         <!-- Action Button -->
         <button
-          v-if="toast.action"
+v-if="toast.action"
+          type="button"
           class="px-3 py-1 text-[10px] font-bold rounded-full transition-all duration-200 hover:brightness-95 active:scale-95 shadow-sm text-white"
           :class="[
             toast.type === 'success'
@@ -122,6 +123,7 @@ const styles = computed(() => {
 
         <!-- Close Button -->
         <button
+type="button"
           class="inline-flex rounded-full bg-transparent p-1 text-brown/50 hover:text-brown hover:bg-black/5 focus:outline-none focus:ring-2 focus:ring-sage transition-all"
           @click="close"
         >

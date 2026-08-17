@@ -78,82 +78,96 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         )
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
-        # Skip CSRF for safe methods (GET, HEAD, OPTIONS, TRACE)
         if request.method in self.SAFE_METHODS:
-            response = await call_next(request)
-            # Set CSRF token cookie on GET requests to ensure state-changing actions are protected
-            if request.method == "GET":
-                response = self._set_csrf_cookie(request, response)
-            return response
+            return await self._handle_safe_method(request, call_next)
 
-        # Skip exempt paths
-        if self._requires_same_origin_check(request):
-            origin = self._extract_request_origin(request)
-            if not origin or origin not in self.allowed_origins:
-                logger.warning(
-                    "Blocked cross-site cookie-auth request: path=%s origin=%s referer=%s",
-                    request.url.path,
-                    origin,
-                    request.headers.get("referer"),
-                )
-                return JSONResponse(
-                    status_code=403,
-                    content={
-                        "error": True,
-                        "error_code": "CSRF_ORIGIN_MISMATCH",
-                        "message": "Cross-site request blocked. Please retry from the Purrfect Spots app.",
-                    },
-                )
+        origin_error = self._validate_cookie_auth_origin(request)
+        if origin_error:
+            return origin_error
 
         if self._is_exempt_path(request.url.path):
             return await call_next(request)
 
-        # Skip CSRF for state-changing requests that use manual Authorization header
-        # SECURITY: Bearer tokens set manually by JS are not susceptible to CSRF
-        # since the browser never sends them automatically.
-        if request.headers.get("Authorization") or request.headers.get("authorization"):
+        if self._has_manual_authorization(request):
             return await call_next(request)
 
-        # In development, CSRF is optional (easier testing)
         if not self.is_production:
-            # Still validate if tokens are provided
-            cookie_token = request.cookies.get(self.CSRF_COOKIE_NAME)
-            header_token = request.headers.get(self.CSRF_HEADER_NAME)
-            if cookie_token and header_token and not secrets.compare_digest(cookie_token, header_token):
-                logger.warning(f"CSRF token mismatch in dev mode: path={request.url.path}")
-            return await call_next(request)
+            return await self._handle_development_request(request, call_next)
+        return await self._handle_production_request(request, call_next)
 
-        # Production: Full CSRF validation
+    async def _handle_safe_method(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        response = await call_next(request)
+        if request.method == "GET":
+            response = self._set_csrf_cookie(request, response)
+        return response
+
+    def _validate_cookie_auth_origin(self, request: Request) -> Response | None:
+        if not self._requires_same_origin_check(request):
+            return None
+
+        origin = self._extract_request_origin(request)
+        if origin and origin in self.allowed_origins:
+            return None
+
+        logger.warning(
+            "Blocked cross-site cookie-auth request: path=%s origin=%s referer=%s",
+            request.url.path,
+            origin,
+            request.headers.get("referer"),
+        )
+        return self._csrf_error_response(
+            "CSRF_ORIGIN_MISMATCH",
+            "Cross-site request blocked. Please retry from the Purrfect Spots app.",
+        )
+
+    @staticmethod
+    def _has_manual_authorization(request: Request) -> bool:
+        return bool(request.headers.get("Authorization") or request.headers.get("authorization"))
+
+    async def _handle_development_request(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        cookie_token = request.cookies.get(self.CSRF_COOKIE_NAME)
+        header_token = request.headers.get(self.CSRF_HEADER_NAME)
+        if cookie_token and header_token and not secrets.compare_digest(cookie_token, header_token):
+            logger.warning("CSRF token mismatch in dev mode: path=%s", request.url.path)
+        return await call_next(request)
+
+    async def _handle_production_request(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
         cookie_token = request.cookies.get(self.CSRF_COOKIE_NAME)
         header_token = request.headers.get(self.CSRF_HEADER_NAME)
 
         if not cookie_token or not header_token:
             logger.warning(
-                f"CSRF token missing: path={request.url.path}, "
-                f"cookie_present={bool(cookie_token)}, header_present={bool(header_token)}"
+                "CSRF token missing: path=%s cookie_present=%s header_present=%s",
+                request.url.path,
+                bool(cookie_token),
+                bool(header_token),
             )
-            return JSONResponse(
-                status_code=403,
-                content={
-                    "error": True,
-                    "error_code": "CSRF_TOKEN_MISSING",
-                    "message": "CSRF token missing. Please refresh and try again.",
-                },
+            return self._csrf_error_response(
+                "CSRF_TOKEN_MISSING",
+                "CSRF token missing. Please refresh and try again.",
             )
 
-        # Constant-time comparison to prevent timing attacks
         if not secrets.compare_digest(cookie_token, header_token):
-            logger.warning(f"CSRF token mismatch: path={request.url.path}")
-            return JSONResponse(
-                status_code=403,
-                content={
-                    "error": True,
-                    "error_code": "CSRF_TOKEN_MISMATCH",
-                    "message": "CSRF token validation failed. Please refresh and try again.",
-                },
+            logger.warning("CSRF token mismatch: path=%s", request.url.path)
+            return self._csrf_error_response(
+                "CSRF_TOKEN_MISMATCH",
+                "CSRF token validation failed. Please refresh and try again.",
             )
 
         return await call_next(request)
+
+    @staticmethod
+    def _csrf_error_response(error_code: str, message: str) -> JSONResponse:
+        return JSONResponse(
+            status_code=403,
+            content={"error": True, "error_code": error_code, "message": message},
+        )
 
     def _is_exempt_path(self, path: str) -> bool:
         """Check if path is exempt from CSRF validation"""

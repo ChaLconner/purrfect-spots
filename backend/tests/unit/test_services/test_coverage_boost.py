@@ -325,7 +325,8 @@ async def test_user_get_by_email_sql(mock_supabase, mock_db):
     mock_db.execute.return_value = res
 
     res_data = await service.get_user_by_email("test@test.com")
-    assert res_data and res_data["id"] == "u1"
+    assert res_data is not None
+    assert res_data["id"] == "u1"
 
 
 @pytest.mark.asyncio
@@ -393,6 +394,7 @@ async def test_user_auth_mixin_sql(mock_supabase, mock_db):
     service.get_user_by_id = AsyncMock(return_value=None)  # type: ignore[method-assign]
 
     user_data = await service.authenticate_user("test@test.com", "password")
-    assert user_data and user_data["id"] == "u1"
+    assert user_data is not None
+    assert user_data["id"] == "u1"
     assert user_data["access_token"] == "atk"
     # End of file

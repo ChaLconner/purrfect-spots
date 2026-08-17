@@ -74,8 +74,8 @@ def user_service(mock_supabase):
 
 
 @pytest.mark.asyncio
-async def test_get_user_role_id(user_service):
-    UserService._cached_user_role_id = None
+async def test_get_user_role_id(user_service, monkeypatch):
+    monkeypatch.setattr(UserService, "_cached_user_role_id", None)
     role_id = await user_service._get_user_role_id()
     assert role_id == "user-role-id"
     # test cached
@@ -163,9 +163,9 @@ async def test_create_unverified_user_allows_weak_password(user_service):
 
 
 @pytest.mark.asyncio
-async def test_create_or_get_user(user_service):
+async def test_create_or_get_user(user_service, monkeypatch):
     # Because get_user_by_id is called at the end and returns a mapped user
-    UserService._cached_user_role_id = "user-role-id"
+    monkeypatch.setattr(UserService, "_cached_user_role_id", "user-role-id")
     user = await user_service.create_or_get_user({"id": "1", "email": "a@a.com", "name": "A"})
     assert user is not None
 
