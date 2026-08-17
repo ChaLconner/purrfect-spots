@@ -183,6 +183,7 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          STAGING_FRONTEND_URL: ${{ vars.STAGING_FRONTEND_URL }}
           STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
@@ -192,6 +193,7 @@ jobs:
             VERCEL_TOKEN
             VERCEL_ORG_ID
             VERCEL_PROJECT_ID
+            STAGING_FRONTEND_URL
             STAGING_API_URL
             SUPABASE_URL
             SUPABASE_KEY
@@ -244,6 +246,7 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          STAGING_FRONTEND_URL: ${{ vars.STAGING_FRONTEND_URL }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
@@ -268,6 +271,13 @@ jobs:
             echo "::error::Unable to determine the staging frontend deployment URL."
             exit 1
           fi
+
+          # Manual CLI deployments do not automatically receive the stable
+          # staging alias used by backend CORS and the deployment environment.
+          # Bind the verified preview deployment to that alias before exposing
+          # it as the staging URL.
+          vercel alias set "$URL" "$STAGING_FRONTEND_URL" --token="$VERCEL_TOKEN"
+          URL="$STAGING_FRONTEND_URL"
 
           echo "deployment_url=${URL}" >> "$GITHUB_OUTPUT"
           echo "Staging frontend deployed to ${URL}"
