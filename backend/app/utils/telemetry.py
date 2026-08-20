@@ -79,14 +79,14 @@ def get_tracer(name: str) -> Any:  # noqa: ANN401
     except ImportError:
         # Return a dummy tracer if OTel not available
         class DummySpan:
-            def __enter__(self) -> "DummySpan":
+            def __enter__(self) -> DummySpan:
                 return self
 
             def __exit__(self, *args: Any) -> None:  # noqa: ANN401
                 pass  # No operation needed for dummy span exit
 
         class DummyTracer:
-            def start_as_current_span(self, _: str) -> "DummySpan":
+            def start_as_current_span(self, _: str) -> DummySpan:
                 return DummySpan()
 
         return DummyTracer()

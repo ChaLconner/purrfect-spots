@@ -103,12 +103,12 @@ async def stripe_webhook(
             await queue_service.enqueue_stripe_webhook(event)
         else:
             await subscription_service.handle_webhook(payload, stripe_signature)
-    except (ValueError, SignatureVerificationError):
+    except ValueError, SignatureVerificationError:
         raise HTTPException(status_code=400, detail="Invalid payload")
     except SubscriptionPersistenceError:
         # Non-2xx tells Stripe to retry after a transient database failure.
         raise HTTPException(status_code=503, detail="Webhook persistence temporarily unavailable")
-    except (QueueUnavailable, QueueBackpressure):
+    except QueueUnavailable, QueueBackpressure:
         # Never fall back to request-cycle processing when queue mode is on.
         # Stripe receives a non-2xx response and retries the event.
         raise HTTPException(status_code=503, detail="Webhook queue temporarily unavailable")

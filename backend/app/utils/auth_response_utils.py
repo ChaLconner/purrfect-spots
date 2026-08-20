@@ -23,7 +23,7 @@ def _get(obj: Any, key: str, default: Any = None) -> Any:
 
 
 def create_login_response(
-    auth_service: "AuthService",
+    auth_service: AuthService,
     user: dict[str, Any] | Any,
     request: Request,
     response: Response,

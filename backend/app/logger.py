@@ -236,7 +236,7 @@ def log_performance(operation_name: str | None = None) -> Callable[[Callable[P, 
 
 
 @contextmanager
-def log_timing(operation_name: str) -> Generator[None, None, None]:
+def log_timing(operation_name: str) -> Generator[None]:
     """
     Context manager for timing code blocks.
 

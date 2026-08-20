@@ -186,7 +186,7 @@ def check_google_vision() -> dict[str, Any]:
         if service_account_json:
             try:
                 service_account_info = json.loads(service_account_json)
-            except (json.JSONDecodeError, TypeError):
+            except json.JSONDecodeError, TypeError:
                 return {
                     "status": "unhealthy",
                     "error": "GOOGLE_VISION_SERVICE_ACCOUNT is not valid JSON",

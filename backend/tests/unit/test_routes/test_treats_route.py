@@ -11,7 +11,7 @@ from app.middleware.auth_middleware import get_current_user_from_credentials
 
 
 @pytest.fixture
-async def client() -> AsyncGenerator[AsyncClient, None]:
+async def client() -> AsyncGenerator[AsyncClient]:
     """Create test client using AsyncClient."""
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"

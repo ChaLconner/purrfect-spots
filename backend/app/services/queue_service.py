@@ -112,7 +112,7 @@ class QueueService:
             return None
         try:
             parsed = json.loads(value.decode() if isinstance(value, bytes) else str(value))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return None
         return parsed if isinstance(parsed, dict) else None
 

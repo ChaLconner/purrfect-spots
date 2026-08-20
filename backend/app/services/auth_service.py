@@ -52,7 +52,7 @@ class AuthService(AuthTokenMixin, AuthOAuthMixin, AuthPasswordMixin):
         return self._db
 
     # Delegation methods to UserService
-    async def create_or_get_user(self, user_data: dict[str, Any]) -> "User":
+    async def create_or_get_user(self, user_data: dict[str, Any]) -> User:
         return cast("User", await self.user_service.create_or_get_user(user_data))
 
     async def authenticate_user(self, email: str, password: str) -> dict[str, Any] | None:
@@ -64,7 +64,7 @@ class AuthService(AuthTokenMixin, AuthOAuthMixin, AuthPasswordMixin):
     async def get_user_by_email_unverified(self, email: str) -> dict[str, Any] | None:
         return cast(dict[str, Any] | None, await self.user_service.get_user_by_email(email))
 
-    async def get_user_by_id(self, user_id: str) -> "User | None":
+    async def get_user_by_id(self, user_id: str) -> User | None:
         return cast("User | None", await self.user_service.get_user_by_id(user_id))
 
     async def update_user_profile(self, user_id: str, update_data: dict[str, Any]) -> dict[str, Any]:

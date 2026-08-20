@@ -1,6 +1,6 @@
 import asyncio
 from collections.abc import Callable, Coroutine
-from typing import Any, TypeVar
+from typing import Any
 
 import httpx
 from sqlalchemy.exc import OperationalError
@@ -9,11 +9,8 @@ from app.compat import structlog
 
 logger = structlog.get_logger(__name__)
 
-T = TypeVar("T")
 
-
-# Python 3.11 compatibility requires TypeVar syntax.
-async def retry_on_network_error(  # NOSONAR
+async def retry_on_network_error[T](  # NOSONAR
     func: Callable[..., Coroutine[Any, Any, T]],
     *args: Any,
     max_retries: int = 3,

@@ -154,7 +154,7 @@ def validate_cat_detection_data(cat_data: dict) -> bool:
         return True
     except ValidationError:
         return False
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return False
 
 

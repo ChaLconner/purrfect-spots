@@ -36,7 +36,7 @@ class TokenService:
 
     def __init__(
         self,
-        redis_client: "aioredis.Redis | None" = None,
+        redis_client: aioredis.Redis | None = None,
         supabase_client: AClient | None = None,
         db: AsyncSession | None = None,
     ) -> None:

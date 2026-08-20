@@ -187,7 +187,7 @@ class SubscriptionService:
             amount = int(Decimal(str(raw_amount)))
             if Decimal(str(raw_amount)) != Decimal(str(raw_amount)).to_integral_value() or amount < 0:
                 raise InvalidOperation
-        except (InvalidOperation, ValueError, TypeError):
+        except InvalidOperation, ValueError, TypeError:
             raise HTTPException(status_code=503, detail="Stripe subscription price has no valid amount") from None
 
         recurring = cls._price_value(price, "recurring")
@@ -977,7 +977,7 @@ class SubscriptionService:
                     parsed_end = end_date if isinstance(end_date, datetime) else datetime.fromisoformat(str(end_date))
                     if parsed_end <= datetime.now(UTC):
                         data = {**data, "is_pro": False, "cancel_at_period_end": False}
-                except (TypeError, ValueError):
+                except TypeError, ValueError:
                     logger.warning("Invalid subscription_end_date for user %s", user_id)
                     data = {**data, "is_pro": False, "cancel_at_period_end": False}
             elif data.get("is_pro"):

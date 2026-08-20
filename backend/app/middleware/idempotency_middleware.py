@@ -194,7 +194,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
 
         try:
             body_json = json.loads(response_body.decode())
-        except (json.JSONDecodeError, UnicodeDecodeError):
+        except json.JSONDecodeError, UnicodeDecodeError:
             return None
 
         response_data = {
