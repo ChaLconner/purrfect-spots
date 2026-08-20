@@ -2,6 +2,7 @@ from typing import Any
 
 from pydantic import BaseModel, EmailStr, Field
 
+from app.constants.security import MIN_PASSWORD_LENGTH
 from app.schemas.user import UserResponse
 
 
@@ -9,8 +10,8 @@ class RegisterInput(BaseModel):
     email: EmailStr
     password: str = Field(
         ...,
-        min_length=1,
-        description="Password is required; strength is advisory",
+        min_length=MIN_PASSWORD_LENGTH,
+        description=f"Password must be at least {MIN_PASSWORD_LENGTH} characters",
     )
     name: str = Field(..., min_length=1, description="Please enter first and last name")
 
@@ -49,7 +50,11 @@ class ForgotPasswordRequest(BaseModel):
 
 class ResetPasswordRequest(BaseModel):
     token: str
-    new_password: str
+    new_password: str = Field(
+        ...,
+        min_length=MIN_PASSWORD_LENGTH,
+        description=f"Password must be at least {MIN_PASSWORD_LENGTH} characters",
+    )
 
 
 class SessionExchangeRequest(BaseModel):

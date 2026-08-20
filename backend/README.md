@@ -26,7 +26,7 @@ backend/
 ### 1. Install Dependencies
 ```bash
 cd backend
-pip install -r requirements.txt
+pip install -r requirements.txt -c requirements.lock
 ```
 
 ### 2. Set Environment Variables

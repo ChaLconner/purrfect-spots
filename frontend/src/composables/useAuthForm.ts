@@ -3,7 +3,11 @@ import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 import { showSuccess, showError } from '@/stores/toast';
 import { isDev, getEnvVar } from '@/utils/env';
-import { getSafeRedirect, redirectToTrustedExternalUrl } from '@/utils/security';
+import {
+  getSafeRedirect,
+  MIN_PASSWORD_LENGTH,
+  redirectToTrustedExternalUrl,
+} from '@/utils/security';
 
 export interface UseAuthFormReturn {
   isLogin: Ref<boolean>;
@@ -66,6 +70,9 @@ export function useAuthForm(initialMode: 'login' | 'register' = 'login'): UseAut
     const pwd = form.password;
     if (!pwd?.trim()) {
       formErrors.password = 'Password is required'; // NOSONAR typescript:S2068 - non-hardcoded user input
+      isValid = false;
+    } else if (!isLogin.value && pwd.length < MIN_PASSWORD_LENGTH) {
+      formErrors.password = `Password must be at least ${MIN_PASSWORD_LENGTH} characters`;
       isValid = false;
     }
 

@@ -279,13 +279,14 @@ jobs:
           cache: "pip"
           cache-dependency-path: |
             backend/requirements.txt
+            backend/requirements.lock
             backend/pyproject.toml
       - name: Install API contract dependencies
         shell: bash
         run: |
           cd backend
           python -m pip install --upgrade pip==26.2.1 --prefer-binary
-          python -m pip install -r requirements.txt --prefer-binary
+          python -m pip install -r requirements.txt --constraint requirements.lock --prefer-binary
       - name: Check Contract
         env:
           ENVIRONMENT: test
@@ -487,7 +488,7 @@ jobs:
           python -m venv .trivy-venv
           . .trivy-venv/bin/activate
           python -m pip install --upgrade pip==26.2.1 --prefer-binary
-          python -m pip install -r backend/requirements.txt --prefer-binary
+          python -m pip install -r backend/requirements.txt --constraint backend/requirements.lock --prefer-binary
       - name: Pull Trivy image
         shell: bash
         run: |

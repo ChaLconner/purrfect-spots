@@ -43,11 +43,10 @@ class TestPasswordService:
         assert result is False
 
     def test_validate_complexity(self) -> None:
-        """Test password complexity validation"""
+        """Validate the minimum length without imposing character classes."""
         assert password_service.validate_complexity("short") is False
-        assert password_service.validate_complexity("NoSpecialChar123") is False
-        assert password_service.validate_complexity("no_upper_123!") is False
-        assert password_service.validate_complexity("ValidPass123!") is True
+        assert password_service.validate_complexity("12345678") is True
+        assert password_service.validate_complexity("passphrase") is True
 
     @pytest.mark.asyncio
     async def test_is_password_pwned_leaked(self):
@@ -84,10 +83,19 @@ class TestPasswordService:
             assert result is False  # Should fail safe (not blocked)
 
     @pytest.mark.asyncio
-    async def test_validate_new_password_allows_weak_password(self):
-        """Password strength is advisory; weak non-empty passwords remain usable."""
+    async def test_validate_new_password_rejects_password_shorter_than_minimum(self):
+        """New passwords shorter than eight characters are rejected."""
         with patch.object(password_service, "is_password_pwned", return_value=False):
             is_valid, error = await password_service.validate_new_password("short")
+
+        assert is_valid is False
+        assert error == "Password must be at least 8 characters."
+
+    @pytest.mark.asyncio
+    async def test_validate_new_password_accepts_eight_character_passphrase(self):
+        """Exactly eight characters is the inclusive minimum."""
+        with patch.object(password_service, "is_password_pwned", return_value=False):
+            is_valid, error = await password_service.validate_new_password("12345678")
 
         assert is_valid is True
         assert error is None

@@ -2621,7 +2621,10 @@ export interface components {
         ChangePasswordRequest: {
             /** Current Password */
             current_password: string;
-            /** New Password */
+            /**
+             * New Password
+             * @description Password must be at least 8 characters
+             */
             new_password: string;
         };
         /** CheckoutSessionResponse */
@@ -3164,7 +3167,7 @@ export interface components {
             email: string;
             /**
              * Password
-             * @description Password is required; strength is advisory
+             * @description Password must be at least 8 characters
              */
             password: string;
             /**
@@ -3253,7 +3256,10 @@ export interface components {
         ResetPasswordRequest: {
             /** Token */
             token: string;
-            /** New Password */
+            /**
+             * New Password
+             * @description Password must be at least 8 characters
+             */
             new_password: string;
         };
         /** RolePermissionUpdate */

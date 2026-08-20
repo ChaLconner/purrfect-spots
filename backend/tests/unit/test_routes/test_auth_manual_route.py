@@ -89,6 +89,13 @@ def mock_limiter():
         yield mock1, mock2, mock3
 
 
+@pytest.fixture(autouse=True)
+def mock_password_breach_check():
+    """Keep route tests deterministic without calling the HIBP API."""
+    with patch("app.routes.auth.password_service.is_password_pwned", new=AsyncMock(return_value=False)):
+        yield
+
+
 class TestRegisterEndpoint:
     """Tests for POST /auth/register"""
 
@@ -111,15 +118,21 @@ class TestRegisterEndpoint:
         mock_auth_service.create_access_token.return_value = "test-access-token"
         mock_auth_service.create_refresh_token.return_value = "test-refresh-token"
 
-        # Make request
-        response = await client.post(
-            "/api/v1/auth/register",
-            json={
-                "email": self.TEST_EMAIL,
-                "password": self.TEST_PASSWORD,
-                "name": self.TEST_NAME,
-            },
-        )
+        # Make request without a second HIBP lookup; the user service owns that check.
+        with patch(
+            "app.routes.auth.password_service.validate_new_password",
+            new=AsyncMock(return_value=(True, None)),
+        ) as validate_password:
+            response = await client.post(
+                "/api/v1/auth/register",
+                json={
+                    "email": self.TEST_EMAIL,
+                    "password": self.TEST_PASSWORD,
+                    "name": self.TEST_NAME,
+                },
+            )
+
+        validate_password.assert_awaited_once_with(self.TEST_PASSWORD, check_breach=False)
 
         # Check status first, then details
         if response.status_code == 200:
@@ -129,8 +142,8 @@ class TestRegisterEndpoint:
             assert "verification code" in data["message"]
             assert data["email"] == "test@example.com"
 
-    async def test_register_allows_weak_password(self, client, mock_auth_service, mock_limiter):
-        """Registration does not reject a weak password before Supabase Auth."""
+    async def test_register_rejects_password_shorter_than_minimum(self, client, mock_auth_service, mock_limiter):
+        """Registration rejects passwords shorter than eight characters."""
         response = await client.post(
             "/api/v1/auth/register",
             json={
@@ -140,11 +153,11 @@ class TestRegisterEndpoint:
             },
         )
 
-        assert response.status_code == 200
-        mock_auth_service.create_user_with_password.assert_awaited_once_with("test@example.com", "short", "Test User")
+        assert response.status_code == 422
+        mock_auth_service.create_user_with_password.assert_not_awaited()
 
     async def test_register_allows_password_without_complexity(self, client, mock_auth_service, mock_limiter):
-        """Registration does not reject missing character classes."""
+        """Registration accepts passphrases without character-class requirements."""
         response = await client.post(
             "/api/v1/auth/register",
             json={

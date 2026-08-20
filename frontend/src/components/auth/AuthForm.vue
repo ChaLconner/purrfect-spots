@@ -74,6 +74,7 @@
               :label="$t('auth.password')"
               block
               :autocomplete="isLogin ? 'current-password' : 'new-password'"
+              :minlength="isLogin ? undefined : MIN_PASSWORD_LENGTH"
               :error="formErrors.password"
             />
 
@@ -187,7 +188,7 @@ const catIllustrationUrl = '/cat-illustration.webp';
 import { useAuthForm } from '@/composables/useAuthForm';
 import { useAuthStore } from '@/stores/authStore';
 import { useThrottleFn } from '@/composables/useThrottle';
-import { getSafeRedirect } from '@/utils/security';
+import { getSafeRedirect, MIN_PASSWORD_LENGTH } from '@/utils/security';
 import { BaseButton, BaseInput } from '@/components/ui';
 
 const GhibliBackground = defineAsyncComponent(() => import('@/components/ui/GhibliBackground.vue'));

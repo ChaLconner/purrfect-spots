@@ -2,7 +2,8 @@
 # Purrfect Spots - Backend Runtime Dependencies
 # =============================================================================
 # Generated from pyproject.toml [project.dependencies]
-# Use flexible version ranges so pip can resolve platform-compatible wheels.
+# Direct dependency ranges are kept for package metadata; production and CI
+# installs must apply requirements.lock to keep the resolved graph reproducible.
 # =============================================================================
 
 # --- Core Framework ---

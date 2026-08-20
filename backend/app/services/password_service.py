@@ -12,6 +12,7 @@ import hashlib
 
 import bcrypt
 
+from app.constants.security import MIN_PASSWORD_LENGTH as PASSWORD_MIN_LENGTH
 from app.logger import logger
 from app.utils.http_client import get_shared_httpx_client
 
@@ -19,7 +20,7 @@ from app.utils.http_client import get_shared_httpx_client
 class PasswordService:
     """Service for password-related operations"""
 
-    MIN_PASSWORD_LENGTH = 8
+    MIN_PASSWORD_LENGTH = PASSWORD_MIN_LENGTH
 
     def hash_password(self, password: str) -> str:
         """Hash password using bcrypt"""
@@ -35,22 +36,12 @@ class PasswordService:
 
     def validate_complexity(self, password: str) -> bool:
         """
-        Validate password complexity:
-        - At least 8 characters
-        - Includes uppercase, lowercase, numbers, and special characters
+        Validate the password length floor.
+
+        Composition rules are intentionally not enforced so users can choose
+        memorable passphrases.
         """
-        if len(password) < self.MIN_PASSWORD_LENGTH:
-            return False
-
-        import re
-
-        # Regex for uppercase, lowercase, digit, and special char
-        has_upper = re.search(r"[A-Z]", password)
-        has_lower = re.search(r"[a-z]", password)
-        has_digit = re.search(r"\d", password)
-        has_special = re.search(r"[!@#$%^&*(),.?\":{}|<>]", password)
-
-        return all([has_upper, has_lower, has_digit, has_special])
+        return len(password) >= self.MIN_PASSWORD_LENGTH
 
     async def is_password_pwned(self, password: str) -> bool:
         """
@@ -88,14 +79,17 @@ class PasswordService:
         """
         Validate a new password for required input and optional breach protection.
 
-        Password length and character classes are advisory UI signals. Supabase
-        Auth still applies its own platform minimum when the password is stored.
+        New passwords must contain at least ``MIN_PASSWORD_LENGTH`` characters.
+        Character classes are intentionally not required; passphrases are valid.
 
         Returns:
             Tuple of (is_valid, error_message)
         """
         if not password:
             return False, "Password is required."
+
+        if len(password) < self.MIN_PASSWORD_LENGTH:
+            return False, f"Password must be at least {self.MIN_PASSWORD_LENGTH} characters."
 
         # Check for data breaches
         if check_breach and await self.is_password_pwned(password):

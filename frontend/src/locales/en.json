@@ -260,7 +260,7 @@
     "updatePassword": "Update Password",
     "rememberPassword": "I remember my password",
     "passwordsDoNotMatch": "Passwords do not match",
-    "passwordMinLength": "Password strength is advisory",
+    "passwordMinLength": "Password must be at least 8 characters",
     "passwordUpdated": "Password updated successfully. Please login.",
     "invalidToken": "Invalid or expired reset link",
     "signInRequired": "Sign in required",

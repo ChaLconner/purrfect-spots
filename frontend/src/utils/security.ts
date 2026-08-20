@@ -147,6 +147,9 @@ export function openTrustedExternalUrl(url: string, allowedHosts?: Iterable<stri
 // Input Validation
 // ==============================================================================
 
+/** Minimum length accepted for new and changed passwords. */
+export const MIN_PASSWORD_LENGTH = 8;
+
 /**
  * Validate email format
  */
@@ -158,7 +161,7 @@ export function isValidEmail(email: string): boolean {
 }
 
 /**
- * Validate password input. Strength is displayed by PasswordStrengthMeter.
+ * Validate password input. Composition is intentionally not restricted.
  */
 export function validatePassword(password: string): {
   valid: boolean;
@@ -168,6 +171,8 @@ export function validatePassword(password: string): {
 
   if (!password) {
     errors.push('Password is required');
+  } else if (password.length < MIN_PASSWORD_LENGTH) {
+    errors.push(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
   }
 
   return {

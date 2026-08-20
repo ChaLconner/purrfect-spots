@@ -65,12 +65,14 @@ const routes = [
     name: 'Login',
     component: AuthView,
     props: { mode: 'login' },
+    meta: { requiresGuest: true },
   },
   {
     path: '/register',
     name: 'Register',
     component: AuthView,
     props: { mode: 'register' },
+    meta: { requiresGuest: true },
   },
   {
     path: '/forgot-password',
@@ -259,6 +261,13 @@ const guardAuthenticatedRoute = async (
   return true;
 };
 
+const guardGuestRoute = async (
+  authStore: ReturnType<typeof UseAuthStore>
+): Promise<RouteLocationRaw | true> => {
+  if (!authStore.isInitialized) await authStore.initializeAuth();
+  return authStore.isAuthenticated ? { name: 'Home' } : true;
+};
+
 // Initialize auth state before navigation
 // Initialize auth state is handled by Pinia store automatically on first use
 
@@ -271,11 +280,12 @@ router.beforeEach(async (to): Promise<RouteLocationRaw | boolean | void> => {
   }
 
   const needsAuthStore =
-    !!to.meta.requiresAuth || to.name === 'Auth';
+    !!to.meta.requiresAuth || !!to.meta.requiresGuest || to.name === 'Auth';
   const authStore = needsAuthStore ? await getAuthStore() : null;
 
   // 2. Auth protection and admin access guard.
   if (to.meta.requiresAuth && authStore) return guardAuthenticatedRoute(to, authStore);
+  if (to.meta.requiresGuest && authStore) return guardGuestRoute(authStore);
 
   return true;
 });

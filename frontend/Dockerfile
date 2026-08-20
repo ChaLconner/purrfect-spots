@@ -52,6 +52,7 @@ LABEL version="3.1.0"
 
 # Copy nginx configuration
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY frontend/security-headers.inc /etc/nginx/conf.d/security-headers.inc
 
 # Copy built assets from builder stage
 COPY --from=builder /build/frontend/dist /usr/share/nginx/html

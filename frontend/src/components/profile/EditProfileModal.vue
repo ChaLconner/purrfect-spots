@@ -12,6 +12,7 @@ import { showError, showSuccess } from '@/stores/toast';
 import { useFocusTrap, announce } from '@/composables/useAccessibility';
 import { useAuthStore } from '@/stores/authStore';
 import { getAvatarSrc, handleAvatarError } from '@/utils/avatar';
+import { MIN_PASSWORD_LENGTH } from '@/utils/security';
 import PasswordStrengthMeter from '@/components/ui/PasswordStrengthMeter.vue';
 import BaseInput from '@/components/ui/BaseInput.vue';
 import EyeIcon from '@/components/icons/EyeIcon.vue';
@@ -54,6 +55,10 @@ const passwordForm = reactive({
   new: '',
   confirm: '',
 });
+
+const passwordTooShort = computed(
+  () => passwordForm.new.length > 0 && passwordForm.new.length < MIN_PASSWORD_LENGTH
+);
 
 const deleteForm = reactive({
   confirmation: '',
@@ -145,6 +150,11 @@ const handleFileSelect = async (event: Event): Promise<void> => {
 };
 
 const updatePassword = async (): Promise<void> => {
+  if (passwordTooShort.value) {
+    showError(t('auth.passwordMinLength'));
+    return;
+  }
+
   if (passwordForm.new !== passwordForm.confirm) {
     showError(t('auth.passwordsDoNotMatch'));
     return;
@@ -491,6 +501,7 @@ const handleKeydown = (event: KeyboardEvent): void => {
                           :type="showPasswords ? 'text' : 'password'"
                           autocomplete="new-password"
                           required
+                          :minlength="MIN_PASSWORD_LENGTH"
                           class="w-full px-4 sm:px-5 py-2.5 sm:py-3 bg-white/60 border-2 border-stone-200 rounded-xl sm:rounded-2xl focus:border-terracotta focus:ring-4 focus:ring-terracotta/10 outline-none transition-all duration-300 text-sm sm:text-base text-brown pr-10"
                         />
                       </div>
@@ -522,6 +533,7 @@ const handleKeydown = (event: KeyboardEvent): void => {
                           isUpdatingPassword ||
                           !passwordForm.current ||
                           !passwordForm.new ||
+                          passwordTooShort ||
                           !passwordForm.confirm
                         "
                         class="px-5 py-2.5 bg-[#C07040] text-white rounded-lg sm:rounded-xl text-sm font-bold hover:bg-[#A05030] shadow-md transition-all disabled:opacity-50 disabled:shadow-none cursor-pointer disabled:cursor-not-allowed"

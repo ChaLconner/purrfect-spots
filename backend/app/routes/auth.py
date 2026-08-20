@@ -91,6 +91,8 @@ async def register(
         if not data.name.strip():
             raise HTTPException(status_code=400, detail="Please enter first and last name")
 
+        # Length is validated here; the user service performs the single breach check
+        # immediately before creating the account.
         is_valid, password_error = await password_service.validate_new_password(data.password, check_breach=False)
         if not is_valid:
             raise HTTPException(

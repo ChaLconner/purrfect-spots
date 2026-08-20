@@ -6484,7 +6484,9 @@
           },
           "new_password": {
             "type": "string",
-            "title": "New Password"
+            "minLength": 8,
+            "title": "New Password",
+            "description": "Password must be at least 8 characters"
           }
         },
         "type": "object",
@@ -8006,9 +8008,9 @@
           },
           "password": {
             "type": "string",
-            "minLength": 1,
+            "minLength": 8,
             "title": "Password",
-            "description": "Password is required; strength is advisory"
+            "description": "Password must be at least 8 characters"
           },
           "name": {
             "type": "string",
@@ -8239,7 +8241,9 @@
           },
           "new_password": {
             "type": "string",
-            "title": "New Password"
+            "minLength": 8,
+            "title": "New Password",
+            "description": "Password must be at least 8 characters"
           }
         },
         "type": "object",

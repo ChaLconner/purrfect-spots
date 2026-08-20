@@ -21,6 +21,7 @@
               block
               autocomplete="new-password"
               :disabled="isLoading"
+              :error="passwordTooShort ? t('auth.passwordMinLength') : ''"
             />
             <PasswordStrengthMeter :value="password" />
           </div>
@@ -46,7 +47,7 @@
             size="lg"
             class="mt-4"
             :loading="isLoading"
-            :disabled="passwordMismatch || !password || !confirmPassword"
+            :disabled="passwordMismatch || passwordTooShort || !password || !confirmPassword"
           >
             {{ $t('auth.updatePassword') }}
           </BaseButton>
@@ -74,6 +75,7 @@ import PasswordStrengthMeter from '@/components/ui/PasswordStrengthMeter.vue';
 import AuthLayout from '@/components/auth/AuthLayout.vue';
 import { BaseButton, BaseInput } from '@/components/ui';
 import { useSeo } from '@/composables/useSeo';
+import { MIN_PASSWORD_LENGTH } from '@/utils/security';
 
 const route = useRoute();
 const router = useRouter();
@@ -87,6 +89,9 @@ const token = ref('');
 const passwordMismatch = computed(() => {
   return confirmPassword.value && password.value !== confirmPassword.value;
 });
+const passwordTooShort = computed(
+  () => password.value.length > 0 && password.value.length < MIN_PASSWORD_LENGTH
+);
 
 // SEO Setup
 const { setMetaTags, resetMetaTags } = useSeo();
